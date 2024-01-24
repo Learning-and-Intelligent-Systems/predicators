@@ -13,9 +13,10 @@ from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
+from predicators.spot_utils.skills.spot_hand_move import close_gripper
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.utils import get_robot_state
-from predicators.spot_utils.skills.spot_hand_move import close_gripper
+
 
 def grasp_at_pixel(robot: Robot,
                    rgbd: RGBDImageWithContext,
@@ -133,6 +134,7 @@ def grasp_at_pixel(robot: Robot,
     # to ensure a pick has happened!
     close_gripper(robot)
     time.sleep(0.5)
+
 
 if __name__ == "__main__":
     # Run this file alone to test manually.

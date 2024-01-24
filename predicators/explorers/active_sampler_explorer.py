@@ -313,7 +313,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                             "framework; ensure you DO NOT see this message "
                             "if you're running experiments comparing"
                             "different active sampler learning approaches.")
-                        import ipdb; ipdb.set_trace()
+                        import ipdb
+                        ipdb.set_trace()
                         continue
                     self._log("[Explorer] Plan found.")
                     break
@@ -324,8 +325,11 @@ class ActiveSamplerExplorer(BaseExplorer):
                         not CFG.spot_run_dry:  # pragma: no cover
                         self._log("[Explorer] TERMINATING EARLY!!! "
                                   "No reachable goal found.")
-                        self._log(f"Initial State: {utils.abstract(state, self._predicates)}")
-                        import ipdb; ipdb.set_trace()
+                        self._log(
+                            f"Initial State: {utils.abstract(state, self._predicates)}"
+                        )
+                        import ipdb
+                        ipdb.set_trace()
                         raise utils.RequestActPolicyFailure(
                             "No reachable goal found.")
                     self._log("[Explorer] No reachable goal found. "

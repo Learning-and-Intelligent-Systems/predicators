@@ -712,7 +712,7 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
     name = "MoveToReadySweep"
 
     # Get angle between target and container, then rotate it.
-    _, container, target = objects
+    _, container, target, _ = objects
     target_xy = np.array([state.get(target, "x"), state.get(target, "y")])
     cont_xy = np.array([state.get(container, "x"), state.get(container, "y")])
     dx, dy = target_xy - cont_xy

@@ -313,7 +313,11 @@ class _Atom:
         if isinstance(self.entities, _TypedEntity):
             raise ValueError("Atoms expect a sequence of entities, not a "
                              "single entity.")
-        assert len(self.entities) == self.predicate.arity
+        try:
+            assert len(self.entities) == self.predicate.arity
+        except AssertionError:
+            print(self.predicate)
+            import ipdb; ipdb.set_trace()
         for ent, pred_type in zip(self.entities, self.predicate.types):
             assert ent.is_instance(pred_type)
 

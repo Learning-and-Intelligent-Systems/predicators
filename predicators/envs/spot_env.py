@@ -610,29 +610,30 @@ class SpotRearrangementEnv(BaseEnv):
             static_feats = load_spot_metadata()["static-object-features"]
             for swept_object in swept_objects:
                 if swept_object not in all_objects_in_view:
-                    assert container is not None
-                    assert container in all_objects_in_view
-                    while True:
-                        msg = (f"\nATTENTION! The {swept_object.name} was not "
-                               "seen after sweeping. Is it now in the "
-                               f"{container.name}? [y/n]\n")
-                        response = input(msg)
-                        if response == "y":
-                            # Update the pose to be inside the container.
-                            container_pose = all_objects_in_view[container]
-                            # Calculate the z pose of the swept object.
-                            height = static_feats[swept_object.name]["height"]
-                            swept_object_z = container_pose.z + height / 2
-                            swept_pose = math_helpers.SE3Pose(
-                                x=container_pose.x,
-                                y=container_pose.y,
-                                z=swept_object_z,
-                                rot=container_pose.rot)
-                            all_objects_in_view[swept_object] = swept_pose
-                            objects_in_any_view_except_back.add(swept_object)
-                            break
-                        if response == "n":
-                            break
+                    # assert container is not None
+                    # assert container in all_objects_in_view
+                    if container is not None and container in all_objects_in_view:
+                        while True:
+                            msg = (f"\nATTENTION! The {swept_object.name} was not "
+                                "seen after sweeping. Is it now in the "
+                                f"{container.name}? [y/n]\n")
+                            response = input(msg)
+                            if response == "y":
+                                # Update the pose to be inside the container.
+                                container_pose = all_objects_in_view[container]
+                                # Calculate the z pose of the swept object.
+                                height = static_feats[swept_object.name]["height"]
+                                swept_object_z = container_pose.z + height / 2
+                                swept_pose = math_helpers.SE3Pose(
+                                    x=container_pose.x,
+                                    y=container_pose.y,
+                                    z=swept_object_z,
+                                    rot=container_pose.rot)
+                                all_objects_in_view[swept_object] = swept_pose
+                                objects_in_any_view_except_back.add(swept_object)
+                                break
+                            if response == "n":
+                                break
 
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
@@ -1097,7 +1098,7 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
 
     if _on_classifier(state, [blocker_obj, blocked_obj]):
         return False
-    
+
     if _on_classifier(state, [blocked_obj, blocker_obj]):
         return False
 
@@ -1176,21 +1177,19 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
     dist = np.sqrt((expected_x - container_x)**2 +
                    (expected_y - container_y)**2)
 
-    if "bucket" in str(container) and "table" in str(surface) and dist > _CONTAINER_SWEEP_READY_BUFFER:
-        import ipdb; ipdb.set_trace()
-
     return dist <= _CONTAINER_SWEEP_READY_BUFFER
 
 
 def _container_ready_for_sweeping_classifier(
         state: State, objects: Sequence[Object]) -> bool:
-    container, target = objects
-
+    container, surface = objects
     # Compute the expected x, y position based on the parameters for placing
     # next to the object that the target is on.
-    surface = _get_highest_surface_object_is_on(target, state)
-    if surface is None:
-        return False
+    # surface = _get_highest_surface_object_is_on(target, state)
+    # if "bucket" in str(container) and "train_toy" in str(target):
+    #     import ipdb; ipdb.set_trace()
+    # if surface is None:
+    #     return False
     return _container_adjacent_to_surface_for_sweeping(container, surface,
                                                        state)
 
@@ -1238,6 +1237,11 @@ def _is_semantically_greater_than_classifier(
     # that of object 2.
     return obj1.name > obj2.name
 
+def _not_floor_classifier(state: State, objects: Sequence[Object]) -> bool:
+    del state
+    obj1, = objects
+    # Check that the name of the object is not "floor"
+    return obj1.name != "floor"
 
 def _get_sweeping_surface_for_container(container: Object,
                                         state: State) -> Optional[Object]:
@@ -1281,7 +1285,7 @@ _Blocking = Predicate("Blocking", [_base_object_type, _base_object_type],
 _NotBlocked = Predicate("NotBlocked", [_base_object_type],
                         _not_blocked_classifier)
 _ContainerReadyForSweeping = Predicate(
-    "ContainerReadyForSweeping", [_container_type, _movable_object_type],
+    "ContainerReadyForSweeping", [_container_type, _immovable_object_type],
     _container_ready_for_sweeping_classifier)
 _IsPlaceable = Predicate("IsPlaceable", [_movable_object_type],
                          _is_placeable_classifier)
@@ -1295,8 +1299,9 @@ _RobotReadyForSweeping = Predicate("RobotReadyForSweeping",
                                    [_robot_type, _movable_object_type],
                                    _robot_ready_for_sweeping_classifier)
 _IsSemanticallyGreaterThan = Predicate(
-    "_IsSemanticallyGreaterThan", [_base_object_type, _base_object_type],
+    "IsSemanticallyGreaterThan", [_base_object_type, _base_object_type],
     _is_semantically_greater_than_classifier)
+_NotFloor = Predicate("NotFloor", [_base_object_type], _not_floor_classifier)
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
     _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
@@ -1544,9 +1549,11 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     container = Variable("?container", _container_type)
     target = Variable("?target", _movable_object_type)
-    parameters = [robot, container, target]
+    surface = Variable("?surface", _immovable_object_type)
+    parameters = [robot, container, target, surface]
     preconds = {
-        LiftedAtom(_ContainerReadyForSweeping, [container, target]),
+        LiftedAtom(_On, [target, surface]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, surface]),
     }
     add_effs = {
         LiftedAtom(_RobotReadyForSweeping, [robot, target]),
@@ -1580,7 +1587,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         # to prevent the robot 'moving to get ready for sweeping' twice.
         LiftedAtom(_RobotReadyForSweeping, [robot, target1]),
         # Same idea.
-        LiftedAtom(_ContainerReadyForSweeping, [container, target1]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, surface]),
         LiftedAtom(_IsPlaceable, [target1]),
         LiftedAtom(_IsPlaceable, [target2]),
         LiftedAtom(_HasFlatTopSurface, [surface]),
@@ -1596,8 +1603,8 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     del_effs = {
         LiftedAtom(_On, [target1, surface]),
         LiftedAtom(_On, [target2, surface]),
-        LiftedAtom(_ContainerReadyForSweeping, [container, target1]),
-        LiftedAtom(_ContainerReadyForSweeping, [container, target2]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, surface]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, surface]),
         LiftedAtom(_RobotReadyForSweeping, [robot, target1]),
         LiftedAtom(_RobotReadyForSweeping, [robot, target2]),
         LiftedAtom(_Reachable, [robot, target1]),
@@ -1621,7 +1628,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Holding, [robot, sweeper]),
         LiftedAtom(_On, [target, surface]),
         LiftedAtom(_RobotReadyForSweeping, [robot, target]),
-        LiftedAtom(_ContainerReadyForSweeping, [container, target]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, surface]),
         LiftedAtom(_IsPlaceable, [target]),
         LiftedAtom(_HasFlatTopSurface, [surface]),
         LiftedAtom(_TopAbove, [surface, container]),
@@ -1633,7 +1640,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     }
     del_effs = {
         LiftedAtom(_On, [target, surface]),
-        LiftedAtom(_ContainerReadyForSweeping, [container, target]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, surface]),
         LiftedAtom(_RobotReadyForSweeping, [robot, target]),
         LiftedAtom(_Reachable, [robot, target]),
         LiftedAtom(_NotInsideAnyContainer, [target])
@@ -1655,7 +1662,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_NEq, [surface, container]),
     }
     add_effs = {
-        LiftedAtom(_ContainerReadyForSweeping, [container, target]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, surface]),
         LiftedAtom(_HandEmpty, [robot]),
         LiftedAtom(_NotHolding, [robot, container]),
     }

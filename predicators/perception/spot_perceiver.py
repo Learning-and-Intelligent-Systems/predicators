@@ -313,6 +313,11 @@ class SpotPerceiver(BasePerceiver):
             can = Object("soda_can", _movable_object_type)
             Holding = pred_name_to_pred["Holding"]
             return {GroundAtom(Holding, [robot, can])}
+        if goal_description == "pick up the bucket":
+            robot = Object("robot", _robot_type)
+            bucket = Object("bucket", _container_type)
+            Holding = pred_name_to_pred["Holding"]
+            return {GroundAtom(Holding, [robot, bucket])}
         if goal_description == "put the soda in the bucket and hold the brush":
             robot = Object("robot", _robot_type)
             can = Object("soda_can", _movable_object_type)
@@ -390,10 +395,11 @@ class SpotPerceiver(BasePerceiver):
             "swept into it":
             bucket = Object("bucket", _container_type)
             train_toy = Object("train_toy", _movable_object_type)
+            black_table = Object("black_table", _immovable_object_type)
             ContainerReadyForSweeping = pred_name_to_pred[
                 "ContainerReadyForSweeping"]
             return {
-                GroundAtom(ContainerReadyForSweeping, [bucket, train_toy]),
+                GroundAtom(ContainerReadyForSweeping, [bucket, black_table]),
             }
         if goal_description == "get the football into the bucket":
             football = Object("football", _movable_object_type)
@@ -450,6 +456,40 @@ class SpotPerceiver(BasePerceiver):
             Holding = pred_name_to_pred["Holding"]
             return {
                 GroundAtom(Holding, [robot, brush]),
+            }
+        if goal_description == "setup sweeping":
+            robot = Object("robot", _robot_type)
+            brush = Object("brush", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            black_table = Object("black_table", _immovable_object_type)
+            football = Object("football", _movable_object_type)
+            train_toy = Object("train_toy", _movable_object_type)
+            On = pred_name_to_pred["On"]
+            FitsInXY = pred_name_to_pred["FitsInXY"]
+            IsSemanticallyGreaterThan = pred_name_to_pred["IsSemanticallyGreaterThan"]
+            IsPlaceable = pred_name_to_pred["IsPlaceable"]
+            HasFlatTopSurface = pred_name_to_pred["HasFlatTopSurface"]
+            RobotReadyForSweeping = pred_name_to_pred["RobotReadyForSweeping"]
+            NotBlocked = pred_name_to_pred["NotBlocked"]
+            TopAbove = pred_name_to_pred["TopAbove"]
+            Holding = pred_name_to_pred["Holding"]
+            ContainerReadyForSweeping = pred_name_to_pred["ContainerReadyForSweeping"]
+            IsSweeper = pred_name_to_pred["IsSweeper"]
+            return {
+                GroundAtom(On, [football, black_table]),
+                GroundAtom(FitsInXY, [football, bucket]),
+                GroundAtom(FitsInXY, [train_toy, bucket]),
+                GroundAtom(IsSemanticallyGreaterThan, [train_toy, football]),
+                GroundAtom(IsPlaceable, [train_toy]),
+                GroundAtom(HasFlatTopSurface, [black_table]),
+                GroundAtom(RobotReadyForSweeping, [robot, train_toy]),
+                GroundAtom(NotBlocked, [train_toy]),
+                GroundAtom(On, [train_toy, black_table]),
+                GroundAtom(TopAbove, [black_table, bucket]),
+                GroundAtom(IsPlaceable, [football]),
+                GroundAtom(Holding, [robot, brush]),
+                GroundAtom(ContainerReadyForSweeping, [bucket, black_table]),
+                GroundAtom(IsSweeper, [brush])
             }
         raise NotImplementedError("Unrecognized goal description")
 
