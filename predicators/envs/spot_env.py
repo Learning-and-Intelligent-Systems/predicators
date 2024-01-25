@@ -1187,6 +1187,7 @@ def _container_ready_for_sweeping_classifier(
     return _container_adjacent_to_surface_for_sweeping(container, surface,
                                                        state)
 
+
 def _is_placeable_classifier(state: State, objects: Sequence[Object]) -> bool:
     obj, = objects
     return state.get(obj, "placeable") > 0.5
