@@ -1,5 +1,7 @@
 """Interface for spot sweeping skill."""
 
+import time
+
 import numpy as np
 from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
@@ -33,13 +35,22 @@ def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
     move_hand_to_relative_pose(robot, sweep_start_rotate_move)
     # Now move the remaining way to the start pose.
     move_hand_to_relative_pose(robot, sweep_start_pose)
+    time.sleep(0.1)
+    # Conservatively assuming the start pose is somewhere above the surface
+    # we're sweeping, move down by a bit to actually contact the surface.
+    sweep_start_conformant = math_helpers.SE3Pose(x=sweep_start_pose.x,
+                                                  y=sweep_start_pose.y,
+                                                  z=sweep_start_pose.z - 0.09,
+                                                  rot=sweep_start_pose.rot)
+    move_hand_to_relative_pose(robot, sweep_start_conformant)
+    time.sleep(0.1)
     # Calculate the end pose.
     relative_hand_move = math_helpers.SE3Pose(x=move_dx,
                                               y=move_dy,
                                               z=move_dz,
                                               rot=math_helpers.Quat())
-    sweep_end_pose = relative_hand_move * sweep_start_pose
-    move_hand_to_relative_pose_with_velocity(robot, sweep_start_pose,
+    sweep_end_pose = relative_hand_move * sweep_start_conformant
+    move_hand_to_relative_pose_with_velocity(robot, sweep_start_conformant,
                                              sweep_end_pose, duration)
     # Stow arm.
     stow_arm(robot)
@@ -106,7 +117,27 @@ if __name__ == "__main__":
         localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
         localizer.localize()
 
+        # IMPORTANT: Only true for the floor8-sweeping map
+        black_table_pose = math_helpers.SE3Pose(2.3, -2.0, -0.32,
+                                                math_helpers.Quat())
+        black_table_width = 0.37
+        black_table_height = 0.37
+        # Define the upper left pose we want to put the brush at, and the
+        # middle (horizontally) bottom pose. We will always move the hand to
+        # some pose between these.
+        upper_left_black_table_pose = math_helpers.SE3Pose(
+            x=black_table_pose.x + black_table_width / 2.0,
+            y=black_table_pose.y - black_table_height / 2.0 + 0.15,
+            z=0.25,
+            rot=black_table_pose.rot)
+        middle_bottom_black_table_pose = math_helpers.SE3Pose(
+            x=black_table_pose.x - 0.18,
+            y=black_table_pose.y + black_table_height / 2.0,
+            z=0.25,
+            rot=black_table_pose.rot)
+
         # Go home.
+        stow_arm(robot)
         go_home(robot, localizer)
         localizer.localize()
 
@@ -139,8 +170,7 @@ if __name__ == "__main__":
         # Move to in front of the train_toy.
         stow_arm(robot)
         pre_sweep_nav_distance = 0.7
-        home_pose = get_spot_home_pose()
-        pre_sweep_nav_angle = home_pose.angle - np.pi
+        pre_sweep_nav_angle = np.pi / 2
         localizer.localize()
         robot_pose = localizer.get_last_robot_pose()
         rel_pose = get_relative_se2_from_se3(robot_pose, train_toy_pose,
@@ -152,12 +182,22 @@ if __name__ == "__main__":
         # Calculate sweep parameters.
         robot_pose = localizer.get_last_robot_pose()
         train_toy_rel_pose = robot_pose.inverse() * train_toy_pose
-        start_dx = 0.0
+        upper_left_black_table_rel_pose = robot_pose.inverse(
+        ) * upper_left_black_table_pose
+        middle_bottom_black_table_rel_pose = robot_pose.inverse(
+        ) * middle_bottom_black_table_pose
+        start_dx = 0.175
         start_dy = 0.4
-        start_dz = 0.23
-        start_x = train_toy_rel_pose.x + start_dx
-        start_y = train_toy_rel_pose.y + start_dy
-        start_z = train_toy_rel_pose.z + start_dz
+        # clamp the x and y poses to the top left of the table worst case.
+        start_x = np.clip(middle_bottom_black_table_rel_pose.x,
+                          train_toy_rel_pose.x + start_dx,
+                          upper_left_black_table_rel_pose.x)
+        start_y = np.clip(middle_bottom_black_table_rel_pose.y,
+                          train_toy_rel_pose.y + start_dy,
+                          upper_left_black_table_rel_pose.y)
+        # use absolute value so that we don't get messed up by noise in the
+        # perception estimate
+        start_z = 0.19
         pitch = math_helpers.Quat.from_pitch(np.pi / 2)
         yaw = math_helpers.Quat.from_yaw(np.pi / 4)
         rot = pitch * yaw
@@ -166,10 +206,10 @@ if __name__ == "__main__":
                                                 z=start_z,
                                                 rot=rot)
         # Calculate the yaw and distance for the sweep.
-        sweep_move_dx = 0.45
+        sweep_move_dx = 0.0
         sweep_move_dy = -0.8
-        sweep_move_dz = -0.08
-        duration = 1.2
+        sweep_move_dz = 0.0
+        duration = 0.5
 
         # Execute the sweep.
         sweep(robot, sweep_start_pose, sweep_move_dx, sweep_move_dy,

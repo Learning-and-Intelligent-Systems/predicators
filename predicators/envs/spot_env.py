@@ -1169,7 +1169,7 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
     # it into an expected location for the container.
     param_dict = load_spot_metadata()["prepare_container_relative_xy"]
     dx, dy, angle = param_dict["dx"], param_dict["dy"], param_dict["angle"]
-    place_distance = 0.6
+    place_distance = 0.8
     expected_x = surface_x + dx + place_distance * np.cos(angle)
     expected_y = surface_y + dy + place_distance * np.sin(angle)
 
@@ -1178,6 +1178,10 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
 
     dist = np.sqrt((expected_x - container_x)**2 +
                    (expected_y - container_y)**2)
+
+    # if "bucket" in str(container) and "table" in str(surface):
+    #     print(dist)
+    # import ipdb; ipdb.set_trace()
 
     return dist <= _CONTAINER_SWEEP_READY_BUFFER
 

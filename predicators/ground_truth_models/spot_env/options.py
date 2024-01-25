@@ -301,7 +301,8 @@ def _grasp_policy(name: str,
 
 def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                          target_obj_idxs: Set[int],
-                                         state: State, memory: Dict,
+                                         surface_obj_idx: int, state: State,
+                                         memory: Dict,
                                          objects: Sequence[Object],
                                          params: Array) -> Action:
 
@@ -316,17 +317,44 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
     robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
 
     target_obj_rel_xyzs: List[Tuple[float, float, float]] = []
+    # First, compute the mean x and y positions of the object(s) to be swept
+    # from atop the surface.
     for target_obj_idx in target_obj_idxs:
         target_obj = objects[target_obj_idx]
         target_pose = utils.get_se3_pose_from_state(state, target_obj)
         target_rel_pose = robot_pose.inverse() * target_pose
         rel_xyz = (target_rel_pose.x, target_rel_pose.y, target_rel_pose.z)
         target_obj_rel_xyzs.append(rel_xyz)
-    mean_x, mean_y, mean_z = np.mean(target_obj_rel_xyzs, axis=0)
-
-    start_x = mean_x + 0.175
-    start_y = mean_y + 0.3
-    start_z = mean_z + 0.24
+    mean_x, mean_y, _ = np.mean(target_obj_rel_xyzs, axis=0)
+    # Next, compute the surface pose, and define hardcoded (magic number)
+    # poses given the particular brush we're using for sweeping.
+    surface_obj = objects[surface_obj_idx]
+    surface_center_pose = utils.get_se3_pose_from_state(state, surface_obj)
+    surface_height = state.get(surface_obj, "height")
+    surface_width = state.get(surface_obj, "width")
+    upper_left_surface_pose = math_helpers.SE3Pose(
+        x=surface_center_pose.x + surface_width / 2.0 + 0.12,
+        y=surface_center_pose.y - surface_height / 2.0 + 0.15,
+        z=0.25,
+        rot=surface_center_pose.rot)
+    middle_bottom_surface_pose = math_helpers.SE3Pose(
+        x=surface_center_pose.x + 0.12,
+        y=surface_center_pose.y + surface_height / 2.0 - 0.10,
+        z=0.25,
+        rot=surface_center_pose.rot)
+    upper_left_surface_rel_pose = robot_pose.inverse(
+    ) * upper_left_surface_pose
+    middle_bottom_surface_rel_pose = robot_pose.inverse(
+    ) * middle_bottom_surface_pose
+    # Now, compute the actual pose the hand should start sweeping from by
+    # clamping it between the surface poses.
+    start_x = np.clip(middle_bottom_surface_rel_pose.x, mean_x + 0.175,
+                      upper_left_surface_rel_pose.x)
+    start_y = np.clip(middle_bottom_surface_rel_pose.y, mean_y + 0.41,
+                      upper_left_surface_rel_pose.y)
+    # use absolute value so that we don't get messed up by noise in the
+    # perception height estimate.
+    start_z = 0.14
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     yaw = math_helpers.Quat.from_yaw(np.pi / 4)
     rot = pitch * yaw
@@ -336,7 +364,7 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                             rot=rot)
     sweep_move_dx = 0.0
     sweep_move_dy = -0.8
-    sweep_move_dz = -0.25
+    sweep_move_dz = 0.0
 
     # Execute the sweep.
     return utils.create_spot_env_action(
@@ -647,8 +675,10 @@ def _sweep_into_container_policy(state: State, memory: Dict,
     name = "SweepIntoContainer"
     robot_obj_idx = 0
     target_obj_idxs = {2}
+    surface_obj_idx = 3
     return _sweep_objects_into_container_policy(name, robot_obj_idx,
-                                                target_obj_idxs, state, memory,
+                                                target_obj_idxs,
+                                                surface_obj_idx, state, memory,
                                                 objects, params)
 
 
@@ -659,8 +689,10 @@ def _sweep_two_objects_into_container_policy(state: State, memory: Dict,
     name = "SweepTwoObjectsIntoContainer"
     robot_obj_idx = 0
     target_obj_idxs = {2, 3}
+    surface_obj_idx = 4
     return _sweep_objects_into_container_policy(name, robot_obj_idx,
-                                                target_obj_idxs, state, memory,
+                                                target_obj_idxs,
+                                                surface_obj_idx, state, memory,
                                                 objects, params)
 
 
