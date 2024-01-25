@@ -104,9 +104,9 @@ def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
     obj_to_nav_to = objs[1]
 
     min_angle, max_angle = _get_approach_angle_bounds(obj_to_nav_to, state)
-
-    return _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng, min_dist,
-                                max_dist, min_angle, max_angle)
+    ret_val = _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng,
+                                   min_dist, max_dist, min_angle, max_angle)
+    return ret_val
 
 
 def _get_approach_angle_bounds(obj: Object,
@@ -180,7 +180,10 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
             assert isinstance(surf_geom, utils.Circle)
             rand_x, rand_y = surf_geom.x, surf_geom.y
     else:
-        rand_x, rand_y = surf_geom.sample_random_point(rng, 0.13)
+        edge_tolerance = 0.13
+        if surf_to_place_on.name == "black_table":
+            edge_tolerance = 0.17
+        rand_x, rand_y = surf_geom.sample_random_point(rng, edge_tolerance)
     dy = rand_y - state.get(surf_to_place_on, "y")
     if surf_to_place_on.name == "drafting_table":
         # For placing on the table, bias towards the top.
@@ -206,8 +209,6 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
     # container.
     del state, goal
 
-    drop_height = 0.5
-
     if len(objs) == 4 and objs[2].name == "cup":
         drop_height = 0.05
 
@@ -217,6 +218,7 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
         drop_height = 0.1
     else:
         dx, dy = rng.uniform(-0.4, 0.4, size=2)
+        drop_height = rng.uniform(0.1, 0.6, size=1).item()
 
     return np.array([dx, dy, drop_height])
 
@@ -259,11 +261,12 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                 max_dist = max(max_dist, dist)
             velocity = max_dist  # directly proportional
             return np.array([velocity])
-        return np.array([1.0 / 1.2])
+        return np.array([1.0 / 1.4])
     if CFG.spot_run_dry:
         param = rng.uniform(0.1, 1.0)
     else:
-        param = 1.0 / rng.uniform(0.35, 1.0)
+        param = 1.0 / rng.uniform(0.35, 1.25)
+    print(f"Sweep Sample: {param}")
     return np.array([param])
 
 

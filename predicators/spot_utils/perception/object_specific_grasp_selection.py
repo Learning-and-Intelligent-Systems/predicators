@@ -25,15 +25,13 @@ brush_prompt = "/".join(
     ["scrubbing brush", "hammer", "mop", "giant white toothbrush"])
 brush_obj = LanguageObjectDetectionID(brush_prompt)
 bucket_prompt = "/".join([
-    "white plastic container",
-    "white plastic tray",
+    "white plastic container with black handles",
+    "white plastic tray with black handles",
     "white plastic bowl",
-    "white sink",
-    "white plastic tub",
-    "white crate",
+    "white storage bin with black handles",
 ])
 bucket_obj = LanguageObjectDetectionID(bucket_prompt)
-football_prompt = "/".join(["small toy basketball", "orange"])
+football_prompt = "/".join(["small orange basketball", "small orange"])
 football_obj = LanguageObjectDetectionID(football_prompt)
 train_toy_prompt = "/".join([
     "small white ambulance toy",
@@ -123,8 +121,18 @@ def _get_chair_grasp_pixel(
                                          lo,
                                          hi,
                                          min_component_size=10)
-    assert centroid is not None
-    pixel = (centroid[0], centroid[1])
+    if centroid is None:
+        # Pick the topmost middle pixel, which should correspond to the top
+        # of the chair.
+        mask_args = np.argwhere(mask)
+        mask_min_c = min(mask_args[:, 1])
+        mask_max_c = max(mask_args[:, 1])
+        c_len = mask_max_c - mask_min_c
+        middle_c = mask_min_c + c_len // 2
+        min_r = min(r for r, c in mask_args if c == middle_c)
+        pixel = (middle_c, min_r)
+    else:
+        pixel = (centroid[0], centroid[1])
 
     # Uncomment for debugging.
     # rgbd = rgbds[camera_name]
@@ -134,7 +142,10 @@ def _get_chair_grasp_pixel(
     # cv2.imshow("Selected grasp", bgr)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
-    return pixel, None
+
+    # Force a top-down grasp.
+    pitch = math_helpers.Quat.from_pitch(np.pi / 2)
+    return pixel, pitch
 
 
 def _get_cup_grasp_pixel(
@@ -385,7 +396,7 @@ def _get_bucket_grasp_pixel(
         selected_pixel = (middle_c, max_r)
     else:
         # NOTE! Testing
-        selected_pixel = (centroid[0] + 10, centroid[1])
+        selected_pixel = (centroid[0], centroid[1])
 
     # Uncomment for debugging.
     # bgr = cv2.cvtColor(rgbds[camera_name].rgb, cv2.COLOR_RGB2BGR)

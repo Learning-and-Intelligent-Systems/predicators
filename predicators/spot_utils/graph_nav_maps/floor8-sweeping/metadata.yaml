@@ -12,16 +12,16 @@ april-tag-offsets: []
 # points.
 allowed-regions:
   main-room:
-    - [0.25, -2.25]
-    - [0.25, 1.0]
-    - [4.0, 1.0]
+    - [0.15, -2.25]
+    - [0.15, 1.1]
+    - [4.0, 1.1]
     - [4.0, -2.25]
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
   floor:
     x: 1.5
     y: 0.5
-    z: -0.5
+    z: -0.6
   black_table:
     x: 2.3
     y: -2.0
@@ -81,7 +81,10 @@ static-object-features:
     width: 0.5
     placeable: 0  # false, can't be placed
     is_sweeper: 0
-    z: -0.1  # the chair can move in the x/y plane only
+    # the chair can move in the x/y plane only. We arbitrarily set its height
+    # to be pretty low so that it doesn't appear that anything is on top of it
+    # aside from it being atop the floor.
+    z: -0.6
   black_table:
     shape: 1
     height: 0.37
@@ -98,10 +101,13 @@ static-object-features:
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
   dx: -0.37
-  dy: 0.7
+  dy: 0.75
   angle: -1.5707  # - pi / 2
 # Helpful for static objects that are up against a wall, for example.
 approach_angle_bounds:
-  black_table: [1.570, 1.575]  # about pi / 2
+  black_table: [1.565, 1.572]  # about pi / 2
   # Only drag the chair from behind it, approximately.
   chair: [1.25, 1.75]  # about pi / 2
+  # Only approach the brush from perpendicular to it!
+  brush: [-1.75, -1.25]
+  floor: [-1.75, -1.25]

@@ -323,6 +323,9 @@ class ActiveSamplerExplorer(BaseExplorer):
                         not CFG.spot_run_dry:  # pragma: no cover
                         self._log("[Explorer] TERMINATING EARLY!!! "
                                   "No reachable goal found.")
+                        self._log("Initial State: " + \
+                                  f"{utils.abstract(state, self._predicates)}"
+                                  )
                         raise utils.RequestActPolicyFailure(
                             "No reachable goal found.")
                     self._log("[Explorer] No reachable goal found. "
@@ -461,6 +464,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_op_costs=ground_op_costs,
             default_cost=self._default_cost,
             max_horizon=np.inf)
+        # Uncomment for debugging
+        # for act in plan:
+        #     print((act.name, act.objects))
+        # import ipdb; ipdb.set_trace()
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
@@ -604,6 +611,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             except (PlanningFailure, PlanningTimeout):  # pragma: no cover
                 self._log("WARNING: task planning failed in the explorer.")
                 self._task_plan_cache[task_id] = None
+
+        # Uncomment for debugging.
+        # for act in plan:
+        #     print((act.name, act.objects))
 
         self._task_plan_calls_since_replan[task_id] += 1
         return self._task_plan_cache[task_id]

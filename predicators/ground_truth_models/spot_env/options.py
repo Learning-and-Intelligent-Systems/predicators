@@ -195,7 +195,7 @@ def _move_to_absolute_pose_and_place_push_stow(
     # Move the gripper slightly up and to the right to
     # avoid collisions with the container.
     dz = 0.6
-    slightly_back_and_up_pose = math_helpers.SE3Pose(x=push_rel_pose.x,
+    slightly_back_and_up_pose = math_helpers.SE3Pose(x=push_rel_pose.x - 0.2,
                                                      y=push_rel_pose.y - 0.3,
                                                      z=push_rel_pose.z + dz,
                                                      rot=push_rel_pose.rot)
@@ -325,8 +325,8 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
     mean_x, mean_y, mean_z = np.mean(target_obj_rel_xyzs, axis=0)
 
     start_x = mean_x + 0.175
-    start_y = mean_y + 0.4
-    start_z = mean_z + 0.225
+    start_y = mean_y + 0.3
+    start_z = mean_z + 0.24
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     yaw = math_helpers.Quat.from_yaw(np.pi / 4)
     rot = pitch * yaw
@@ -711,14 +711,8 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
                                 params: Array) -> Action:
     name = "MoveToReadySweep"
 
-    # Get angle between target and container, then rotate it.
-    _, container, target = objects
-    target_xy = np.array([state.get(target, "x"), state.get(target, "y")])
-    cont_xy = np.array([state.get(container, "x"), state.get(container, "y")])
-    dx, dy = target_xy - cont_xy
-    cont_target_yaw = np.arctan2(dy, dx)
-    yaw = cont_target_yaw + np.pi / 2
-
+    # Always approach from the same angle.
+    yaw = np.pi / 2.0
     # Make up new params.
     distance = 0.8
     params = np.array([distance, yaw])
