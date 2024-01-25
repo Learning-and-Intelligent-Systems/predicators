@@ -399,11 +399,11 @@ def _get_bucket_grasp_pixel(
         selected_pixel = (centroid[0], centroid[1])
 
     # Uncomment for debugging.
-    bgr = cv2.cvtColor(rgbds[camera_name].rgb, cv2.COLOR_RGB2BGR)
-    cv2.circle(bgr, selected_pixel, 5, (0, 255, 0), -1)
-    cv2.imshow("Selected grasp", bgr)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # bgr = cv2.cvtColor(rgbds[camera_name].rgb, cv2.COLOR_RGB2BGR)
+    # cv2.circle(bgr, selected_pixel, 5, (0, 255, 0), -1)
+    # cv2.imshow("Selected grasp", bgr)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
     # Specify a top-down grasp constraint.
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
