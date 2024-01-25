@@ -610,8 +610,6 @@ class SpotRearrangementEnv(BaseEnv):
             static_feats = load_spot_metadata()["static-object-features"]
             for swept_object in swept_objects:
                 if swept_object not in all_objects_in_view:
-                    # assert container is not None
-                    # assert container in all_objects_in_view
                     if container is not None and container in all_objects_in_view:
                         while True:
                             msg = (
@@ -1186,13 +1184,6 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
 def _container_ready_for_sweeping_classifier(
         state: State, objects: Sequence[Object]) -> bool:
     container, surface = objects
-    # Compute the expected x, y position based on the parameters for placing
-    # next to the object that the target is on.
-    # surface = _get_highest_surface_object_is_on(target, state)
-    # if "bucket" in str(container) and "train_toy" in str(target):
-    #     import ipdb; ipdb.set_trace()
-    # if surface is None:
-    #     return False
     return _container_adjacent_to_surface_for_sweeping(container, surface,
                                                        state)
 

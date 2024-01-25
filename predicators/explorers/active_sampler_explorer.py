@@ -313,8 +313,6 @@ class ActiveSamplerExplorer(BaseExplorer):
                             "framework; ensure you DO NOT see this message "
                             "if you're running experiments comparing"
                             "different active sampler learning approaches.")
-                        import ipdb
-                        ipdb.set_trace()
                         continue
                     self._log("[Explorer] Plan found.")
                     break
@@ -325,11 +323,9 @@ class ActiveSamplerExplorer(BaseExplorer):
                         not CFG.spot_run_dry:  # pragma: no cover
                         self._log("[Explorer] TERMINATING EARLY!!! "
                                   "No reachable goal found.")
-                        self._log(
-                            f"Initial State: {utils.abstract(state, self._predicates)}"
-                        )
-                        import ipdb
-                        ipdb.set_trace()
+                        self._log(f"Initial State: {utils.abstract(state, \
+                                                             self._predicates)}"
+                                  )
                         raise utils.RequestActPolicyFailure(
                             "No reachable goal found.")
                     self._log("[Explorer] No reachable goal found. "
@@ -468,12 +464,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_op_costs=ground_op_costs,
             default_cost=self._default_cost,
             max_horizon=np.inf)
-
         # Uncomment for debugging
         # for act in plan:
         #     print((act.name, act.objects))
         # import ipdb; ipdb.set_trace()
-
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 

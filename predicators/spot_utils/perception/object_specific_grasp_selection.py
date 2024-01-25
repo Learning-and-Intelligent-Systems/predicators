@@ -135,14 +135,17 @@ def _get_chair_grasp_pixel(
         pixel = (centroid[0], centroid[1])
 
     # Uncomment for debugging.
-    rgbd = rgbds[camera_name]
-    bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
-    cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
-    cv2.circle(bgr, pixel, 5, (255, 0, 0), -1)
-    cv2.imshow("Selected grasp", bgr)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    return pixel, None
+    # rgbd = rgbds[camera_name]
+    # bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
+    # cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
+    # cv2.circle(bgr, pixel, 5, (255, 0, 0), -1)
+    # cv2.imshow("Selected grasp", bgr)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
+    # Force a top-down grasp.
+    pitch = math_helpers.Quat.from_pitch(np.pi / 2)
+    return pixel, pitch
 
 
 def _get_cup_grasp_pixel(

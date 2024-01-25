@@ -22,7 +22,7 @@ ENVS:
   spot_main_sweep_env:
     NAME: "spot_main_sweep_env"
     FLAGS:
-      spot_robot_ip: 10.0.0.3 #10.17.30.21  # change to "10.0.0.3" for ethernet
+      spot_robot_ip: 10.17.30.21  # change to "10.0.0.3" for ethernet
       perceiver: "spot_perceiver"
       execution_monitor: "expected_atoms"
       spot_graph_nav_map: "floor8-sweeping"
