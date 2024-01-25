@@ -610,7 +610,8 @@ class SpotRearrangementEnv(BaseEnv):
             static_feats = load_spot_metadata()["static-object-features"]
             for swept_object in swept_objects:
                 if swept_object not in all_objects_in_view:
-                    if container is not None and container in all_objects_in_view:
+                    if container is not None and container in \
+                        all_objects_in_view:
                         while True:
                             msg = (
                                 f"\nATTENTION! The {swept_object.name} was not "
@@ -1290,7 +1291,6 @@ _RobotReadyForSweeping = Predicate("RobotReadyForSweeping",
 _IsSemanticallyGreaterThan = Predicate(
     "IsSemanticallyGreaterThan", [_base_object_type, _base_object_type],
     _is_semantically_greater_than_classifier)
-_NotFloor = Predicate("NotFloor", [_base_object_type], _not_floor_classifier)
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
     _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,

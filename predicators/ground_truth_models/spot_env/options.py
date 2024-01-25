@@ -711,16 +711,8 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
                                 params: Array) -> Action:
     name = "MoveToReadySweep"
 
-    # Get angle between target and container, then rotate it.
-    _, container, target, _ = objects
-    target_xy = np.array([state.get(target, "x"), state.get(target, "y")])
-    cont_xy = np.array([state.get(container, "x"), state.get(container, "y")])
-    dx, dy = target_xy - cont_xy
-    cont_target_yaw = np.arctan2(dy, dx)
-    # yaw = cont_target_yaw + np.pi / 2
     # Always approach from the same angle.
     yaw = np.pi / 2.0
-
     # Make up new params.
     distance = 0.8
     params = np.array([distance, yaw])
