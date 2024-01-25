@@ -1187,7 +1187,6 @@ def _container_ready_for_sweeping_classifier(
     return _container_adjacent_to_surface_for_sweeping(container, surface,
                                                        state)
 
-
 def _is_placeable_classifier(state: State, objects: Sequence[Object]) -> bool:
     obj, = objects
     return state.get(obj, "placeable") > 0.5
@@ -1230,13 +1229,6 @@ def _is_semantically_greater_than_classifier(
     # Check if the name of object 1 is greater (in a Pythonic sense) than
     # that of object 2.
     return obj1.name > obj2.name
-
-
-def _not_floor_classifier(state: State, objects: Sequence[Object]) -> bool:
-    del state
-    obj1, = objects
-    # Check that the name of the object is not "floor"
-    return obj1.name != "floor"
 
 
 def _get_sweeping_surface_for_container(container: Object,
