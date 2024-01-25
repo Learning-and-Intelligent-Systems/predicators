@@ -1179,10 +1179,6 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
     dist = np.sqrt((expected_x - container_x)**2 +
                    (expected_y - container_y)**2)
 
-    # if "bucket" in str(container) and "table" in str(surface):
-    #     print(dist)
-    # import ipdb; ipdb.set_trace()
-
     return dist <= _CONTAINER_SWEEP_READY_BUFFER
 
 
