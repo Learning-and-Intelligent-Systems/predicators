@@ -13,8 +13,8 @@ april-tag-offsets: []
 allowed-regions:
   main-room:
     - [0.15, -2.25]
-    - [0.15, 1.1]
-    - [4.0, 1.1]
+    - [0.15, 1.23]
+    - [4.0, 1.23]
     - [4.0, -2.25]
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
@@ -100,7 +100,7 @@ static-object-features:
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
-  dx: -0.37
+  dx: -0.25
   dy: 0.75
   angle: -1.5707  # - pi / 2
 # Helpful for static objects that are up against a wall, for example.
