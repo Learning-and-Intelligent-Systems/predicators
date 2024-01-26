@@ -310,7 +310,8 @@ class SpotRearrangementEnv(BaseEnv):
             _, container_obj, _, surface_obj = action_objs
             _, _, new_robot_se2_pose, _, _ = action_args
             return _dry_simulate_prepare_container_for_sweeping(
-                obs, container_obj, surface_obj, new_robot_se2_pose, nonpercept_atoms)
+                obs, container_obj, surface_obj, new_robot_se2_pose,
+                nonpercept_atoms)
 
         if action_name == "SweepIntoContainer":
             _, _, target, _, container = action_objs
@@ -2041,7 +2042,8 @@ def _dry_simulate_prepare_container_for_sweeping(
     expected_x = surface_x + dx + place_distance * np.cos(angle)
     expected_y = surface_y + dy + place_distance * np.sin(angle)
     z = floor_pose.z + container_height / 2
-    container_pose = math_helpers.SE3Pose(expected_x, expected_y, z, math_helpers.Quat())
+    container_pose = math_helpers.SE3Pose(expected_x, expected_y, z,
+                                          math_helpers.Quat())
     # We want to ensure the container doesn't get lost after placing!
     objects_in_view[container_obj] = container_pose
     objects_in_any_view_except_back.add(container_obj)
