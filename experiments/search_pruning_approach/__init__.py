@@ -2,22 +2,23 @@ from collections import defaultdict
 import dataclasses
 import pickle
 import time
-from typing import Callable, Dict, List, Sequence, Set, Tuple
-import typing
-from attr import dataclass
+from typing import List, Sequence, Set, Tuple
 from gym.spaces import Box
-from experiments.search_pruning_approach.learning import FeasibilityDatapoint, FeasibilityClassifier, NeuralFeasibilityClassifier
-from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_low_level_search, run_backtracking_with_previous_states
+from experiments.search_pruning_approach.learning import FeasibilityDatapoint, NeuralFeasibilityClassifier
+from experiments.search_pruning_approach.low_level_planning import run_low_level_search, run_backtracking_with_previous_states
 from experiments.shelves2d import Shelves2DEnv
 from predicators import utils
 from predicators.approaches.base_approach import ApproachFailure
-from predicators.approaches.bilevel_planning_approach import BilevelPlanningApproach
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
-from predicators.ml_models import DistributionRegressor
 from predicators.nsrt_learning.sampler_learning import _LearnedSampler
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, _GroundNSRT, _Option, Action, Dataset, Metrics, ParameterizedOption, Predicate, Segment, State, Task, Type, Variable
+from predicators.structs import NSRT, _GroundNSRT, _Option, Dataset, Metrics, ParameterizedOption, Predicate, Segment, State, Task, Type, Variable
+import numpy as np
+
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("tkagg")
 
 __all__ = ["SearchPruningApproach"]
 
@@ -56,7 +57,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         # Running data collection and training
         assert CFG.feasibility_learning_strategy in {"backtracking", "ground_truth_data", "ground_truth_classifier", "load_data"}
         if CFG.feasibility_learning_strategy == "load_data":
-            self._positive_feasibility_dataset, self._negative_feasibility_dataset = pickle.load(dataset_path)
+            self._positive_feasibility_dataset, self._negative_feasibility_dataset = pickle.load(open(dataset_path, 'rb'))
         elif CFG.feasibility_learning_strategy == "ground_truth_classifier":
             self._set_ground_truth_classifier()
         elif CFG.feasibility_learning_strategy == "ground_truth_data":
@@ -65,9 +66,9 @@ class SearchPruningApproach(NSRTLearningApproach):
             seed = self._seed + 696969
             self._collect_data_interleaved_backtracking(seed, {})
 
-        # Saving the generated dataset (if applicable)
-        if CFG.feasibility_learning_strategy not in {"load_data", "ground_truth_classifier"}:
-            pickle.dump((self._positive_feasibility_dataset, self._negative_feasibility_dataset), dataset_path)
+        # # Saving the generated dataset (if applicable)
+        # if CFG.feasibility_learning_strategy not in {"load_data", "ground_truth_classifier"}:
+        #     pickle.dump((self._positive_feasibility_dataset, self._negative_feasibility_dataset), open(dataset_path, "wb"))
 
     def _set_ground_truth_classifier(self) -> None:
         assert CFG.env == "shelves2d"
@@ -91,15 +92,13 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         def gen_positive_datapoints(segmented_traj: List[Segment]):
             skeleton = [self._seg_to_ground_nsrt[segment] for segment in segmented_traj]
-            init_states = [segment.states[0] for segment in segmented_traj]
+            states = [segment.states[0] for segment in segmented_traj] + [segmented_traj[-1].states[-1]]
             return [
                 FeasibilityDatapoint(
-                    previous_states = init_states[:-suffix_length],
-                    next_state = init_states[-suffix_length],
-                    encoder_nsrts = skeleton[:-suffix_length],
-                    decoder_nsrts = skeleton[-suffix_length:],
+                    states = states[:-suffix_length],
+                    skeleton = skeleton,
                 )
-                for suffix_length in range(1, len(segmented_traj))
+                for suffix_length in range(1, len(skeleton))
             ]
         self._positive_feasibility_dataset: List[FeasibilityDatapoint] = sum(
             (gen_positive_datapoints(segmented_traj) for segmented_traj in self._segmented_trajs),
@@ -107,8 +106,9 @@ class SearchPruningApproach(NSRTLearningApproach):
         )
 
         def gen_negative_datapoint(positive_datapoint: FeasibilityDatapoint):
-            current_nsrt = positive_datapoint.encoder_nsrts[-1]
-            next_state = positive_datapoint.next_state
+            assert len(positive_datapoint.states) >= 2
+            current_nsrt = positive_datapoint.skeleton[len(positive_datapoint.states) - 2]
+            next_state = positive_datapoint.states[-1]
             assert current_nsrt.name == "InsertBox"
 
             box, shelf, _, _ = current_nsrt.objects
@@ -116,15 +116,30 @@ class SearchPruningApproach(NSRTLearningApproach):
             _, shelf_y, _, shelf_h = Shelves2DEnv.get_shape_data(next_state, shelf)
 
             new_next_state = next_state.copy()
-            new_next_state.set(box, "pose_y", 2 * shelf_y - (shelf_h - box_h) - box_y)
+            new_next_state.set(box, "pose_y", 2 * shelf_y + shelf_h - box_h - box_y)
 
-            return dataclasses.replace(positive_datapoint, next_state=new_next_state)
+            return dataclasses.replace(positive_datapoint, states=positive_datapoint.states[:-1] + [new_next_state])
         self._negative_feasibility_dataset: List[FeasibilityDatapoint] = [
             gen_negative_datapoint(positive_datapoint)
-            for positive_datapoint in self._positive_feasibility_datasete
+            for positive_datapoint in self._positive_feasibility_dataset
         ]
 
-    def _collect_data_interleaved_backtracking(self, seed: int, metrics: Metrics) -> None:
+        self._learn_neural_feasibility_classifier(CFG.horizon)
+        print(len(self._positive_feasibility_dataset), len(self._negative_feasibility_dataset))
+        eval = [
+            self._feasibility_classifier(
+                datapoint.previous_states + [datapoint.next_state],
+                datapoint.encoder_nsrts + datapoint.decoder_nsrts,
+            ) for datapoint in self._positive_feasibility_dataset[:100]
+        ] + [
+            not self._feasibility_classifier(
+                datapoint.previous_states + [datapoint.next_state],
+                datapoint.encoder_nsrts + datapoint.decoder_nsrts,
+            ) for datapoint in self._negative_feasibility_dataset[:100]
+        ]
+        print(f"Feasibility Classifier Accuracy: {sum(eval) / len(eval)}")
+
+    def _collect_data_interleaved_backtracking(self, seed: int, metrics: Metrics) -> None: # TODO: reimplement datapoint generation
         # TODO: add metric collection (how many samples needed for backtracking)
         init_states_data: List[List[State]] = [[
             segment.states[0] for segment in segmented_traj
@@ -158,7 +173,7 @@ class SearchPruningApproach(NSRTLearningApproach):
                     goal = segmented_traj[-1].final_atoms,
                     option_model = self._option_model,
                     skeleton = skeleton,
-                    feasibility_classifier = self._feasibility_classifier,
+                    feasibility_classifier = self._feasibility_classifier, # TODO: try it without the feasibility classifier
                     min_classifier_depth = len(prev_states),
                     atoms_sequence = [segment.final_atoms for segment in segmented_traj],
                     seed = seed,
@@ -180,7 +195,7 @@ class SearchPruningApproach(NSRTLearningApproach):
                         decoder_nsrts
                     ) for next_state in next_states
                 )
-            self._learn_neural_feasibility_classifier(suffix_length)
+            self._learn_neural_feasibility_classifier(suffix_length) # TODO: change the suffix length for the next suffix length
 
     def _run_sesame_plan(
             self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
@@ -226,9 +241,9 @@ class SearchPruningApproach(NSRTLearningApproach):
                 return options, skeleton, metrics
         raise ApproachFailure("Failed to find a successful backtracking")
 
-    def _learn_neural_feasibility_classifier(self, max_suffix: int) -> None:
+    def _learn_neural_feasibility_classifier(self, max_inference_suffix: int) -> None:
         neural_feasibility_classifier = NeuralFeasibilityClassifier(
-            encoder_hidden_sizes = CFG.feasibility_stateenc_hid_sizes,
+            featurizer_hidden_sizes = CFG.feasibility_featurizer_hid_sizes,
             classifier_feature_size = CFG.feasibility_feature_size,
             positional_embedding_size = CFG.feasibility_embedding_size,
             positional_embedding_concat = CFG.feasibility_embedding_concat,
@@ -238,9 +253,8 @@ class SearchPruningApproach(NSRTLearningApproach):
             transformer_ffn_hidden_size = CFG.feasibility_ffn_hid_size,
             max_train_iters = CFG.feasibility_max_itr,
             lr = CFG.learning_rate,
-            max_suffix = max_suffix,
+            max_inference_suffix = max_inference_suffix,
         )
-        if len(self._positive_feasibility_dataset + self._negative_feasibility_dataset) > 0:
-            neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset)
+        neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset)
 
         self._feasibility_classifier = neural_feasibility_classifier.classify

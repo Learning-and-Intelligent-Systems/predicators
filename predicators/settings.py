@@ -493,17 +493,21 @@ class GlobalSettings:
     diffusion_regressor_hid_sizes = [256, 256]
     diffusion_regressor_max_itr = 50000
     diffusion_regressor_timesteps = 100
+
     feasibility_learning_strategy = "backtracking"
-    feasibility_stateenc_hid_sizes = [128, 128]
+    feasibility_featurizer_hid_sizes = [128, 128]
     feasibility_feature_size = 128
-    feasibility_embedding_size = 64
+    feasibility_embedding_size = 128
     feasibility_embedding_concat = False
     feasibility_num_heads = 8
-    feasibility_enc_num_layers = 1
-    feasibility_dec_num_layers = 1
-    feasibility_ffn_hid_size = 1024
-    feasibility_max_itr = 10000
-    spread_mapreduce_output_file = "spread.out"
+    feasibility_enc_num_layers = 4
+    feasibility_dec_num_layers = 4
+    feasibility_ffn_hid_size = feasibility_feature_size * 4
+    feasibility_max_itr = 1000
+    feasibility_general_lr = 0.001
+    feasibility_transformer_lr = 0.001
+    feasibility_loss_output_file = "feasibility_loss.out"
+
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000
     implicit_mlp_regressor_num_negative_data_per_input = 5
