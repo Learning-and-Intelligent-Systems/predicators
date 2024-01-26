@@ -91,7 +91,7 @@ if __name__ == "__main__":
     from predicators.spot_utils.skills.spot_navigation import go_home
     from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import get_graph_nav_dir, \
-        get_relative_se2_from_se3, get_spot_home_pose, verify_estop
+        get_relative_se2_from_se3, verify_estop
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
