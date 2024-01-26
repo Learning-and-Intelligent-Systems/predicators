@@ -307,10 +307,10 @@ class SpotRearrangementEnv(BaseEnv):
                                              drop_offset, nonpercept_atoms)
 
         if action_name == "PrepareContainerForSweeping":
-            _, container_obj, _, _ = action_objs
+            _, container_obj, _, surface_obj = action_objs
             _, _, new_robot_se2_pose, _, _ = action_args
             return _dry_simulate_prepare_container_for_sweeping(
-                obs, container_obj, new_robot_se2_pose, nonpercept_atoms)
+                obs, container_obj, surface_obj, new_robot_se2_pose, nonpercept_atoms)
 
         if action_name == "SweepIntoContainer":
             _, _, target, _, container = action_objs
@@ -2012,7 +2012,7 @@ def _dry_simulate_drag(last_obs: _SpotObservation, held_obj: Object,
 
 
 def _dry_simulate_prepare_container_for_sweeping(
-        last_obs: _SpotObservation, container_obj: Object,
+        last_obs: _SpotObservation, container_obj: Object, surface_obj: Object,
         new_robot_se2_pose: math_helpers.SE2Pose,
         nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
 
@@ -2026,18 +2026,22 @@ def _dry_simulate_prepare_container_for_sweeping(
     # Place the held container next to the target object, on the floor.
     # Also move the robot accordingly.
     static_object_feats = load_spot_metadata()["static-object-features"]
+    known_immovable_objects = load_spot_metadata()["known-immovable-objects"]
     container_height = static_object_feats[container_obj.name]["height"]
+    surface_x = known_immovable_objects[surface_obj.name]["x"]
+    surface_y = known_immovable_objects[surface_obj.name]["y"]
     floor_obj = next(o for o in objects_in_view if o.name == "floor")
     floor_pose = objects_in_view[floor_obj]
     # First update the robot.
     robot_pose = new_robot_se2_pose.get_closest_se3_transform()
     # Now update the container relative to the robot.
-    robot_length = 0.3
-    robot_yaw = new_robot_se2_pose.angle
-    x = robot_pose.x + robot_length * np.cos(robot_yaw)
-    y = robot_pose.y + robot_length * np.sin(robot_yaw)
+    param_dict = load_spot_metadata()["prepare_container_relative_xy"]
+    dx, dy, angle = param_dict["dx"], param_dict["dy"], param_dict["angle"]
+    place_distance = 0.8
+    expected_x = surface_x + dx + place_distance * np.cos(angle)
+    expected_y = surface_y + dy + place_distance * np.sin(angle)
     z = floor_pose.z + container_height / 2
-    container_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+    container_pose = math_helpers.SE3Pose(expected_x, expected_y, z, math_helpers.Quat())
     # We want to ensure the container doesn't get lost after placing!
     objects_in_view[container_obj] = container_pose
     objects_in_any_view_except_back.add(container_obj)
