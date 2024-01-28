@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 from torch import nn, Tensor, tensor
 import torch
 from predicators.settings import CFG
+import logging
 
 from predicators.structs import NSRT, _GroundNSRT, State, Variable
 
@@ -147,6 +148,7 @@ class NeuralFeasibilityClassifier(nn.Module):
         lr: float,
         max_inference_suffix: int,
         batch_size: int = 128,
+        validate_split: float = 0.2,
         dropout: int = 0,
         num_threads: int = 8,
         classification_threshold: float = 0.5,
@@ -159,6 +161,7 @@ class NeuralFeasibilityClassifier(nn.Module):
         self._thresh = classification_threshold
         self._num_iters = max_train_iters
         self._batch_size = batch_size
+        self._validate_split = validate_split
         self._lr = lr
 
         self._featurizer_output_size = PositionalEmbeddingLayer.calculate_input_size(
@@ -219,38 +222,64 @@ class NeuralFeasibilityClassifier(nn.Module):
         print(confidence)
         return confidence >= self._thresh
 
-    def fit(self, positive_examples: List[FeasibilityDatapoint], negative_examples: List[FeasibilityDatapoint]) -> None:
+    def fit(self, positive_examples: Sequence[FeasibilityDatapoint], negative_examples: Sequence[FeasibilityDatapoint]) -> None:
         self._create_optimizer()
         if not positive_examples and not negative_examples == 0:
             return
 
-        print("Training Feasibility Classifier...")
+        logging.info("Training Feasibility Classifier...")
+
+
+        # Creating datasets
+        logging(f"Creating datasets (validate split {int(self._validate_split*100)}%)")
+
+        positive_examples, negative_examples = positive_examples.copy(), negative_examples.copy()
+        np.random.shuffle(positive_examples)
+        np.random.shuffle(negative_examples)
+
+        positive_train_size = len(positive_examples) - int(len(positive_examples) * self._validate_split)
+        negative_train_size = len(negative_examples) - int(len(negative_examples) * self._validate_split)
+        train_dataset = FeasibilityDataset(positive_examples[:positive_train_size], negative_examples[:negative_train_size])
+        validate_dataset = FeasibilityDataset(positive_examples[positive_train_size:], negative_examples[negative_train_size:])
+
 
         # Initializing per-nsrt featurizers if not initialized already
-        dataset = FeasibilityDataset(positive_examples, negative_examples)
-        print("Initializing state featurizers")
-        self._init_featurizers_dataset(dataset)
+        logging("Initializing state featurizers")
+        self._init_featurizers_dataset(train_dataset)
+        self._init_featurizers_dataset(validate_dataset)
 
         # Setting up dataloaders
-        dataloader = torch.utils.data.DataLoader(
-            dataset,
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
             batch_size=self._batch_size,
             shuffle=True,
             collate_fn=self._collate_batch
         )
+        validate_dataloader = torch.utils.data.DataLoader(
+            validate_dataset,
+            batch_size=self._batch_size,
+            collate_fn=self._collate_batch
+        )
 
         # Training loop
-        print("Running training")
-        loss_fn = nn.BCELoss()
-        self.train()
+        logging("Running training")
+        train_loss_fn = nn.BCELoss()
+        validate_loss_fn = nn.BCELoss(reduction='none')
         with torch.autograd.detect_anomaly(False):
-            for itr, (x_batch, y_batch) in zip(range(self._num_iters), itertools.cycle(dataloader)):
+            for itr, (x_train_batch, y_train_batch) in zip(range(self._num_iters), itertools.cycle(train_dataloader)):
+                self.train()
                 self._optimizer.zero_grad()
-                loss = loss_fn(self(*x_batch), y_batch)
-                loss.backward()
+                train_loss = train_loss_fn(self(*x_train_batch), y_train_batch)
+                train_loss.backward()
                 self._optimizer.step()
-                if itr % 50 == 0:
-                    print(f"Loss: {loss}, Training Iteration {itr}/{self._num_iters}")
+                if itr % 100 == 0:
+                    self.eval()
+                    validate_loss = np.concatenate([
+                        validate_loss_fn(self(*x_validate_batch), y_validate_batch).detach().cpu().numpy()
+                        for x_validate_batch, y_validate_batch in validate_dataloader
+                    ]).mean()
+
+                    logging(f"Loss: {validate_loss}, Training Iteration {itr}/{self._num_iters}")
                     # print("-"*10)
                     # print(y_test_batch.min(), y_test_batch.max(), y_test_batch.mean(), y_test_batch.std(), y_test_batch.shape)
                     # print(y_test_batch)
@@ -267,7 +296,11 @@ class NeuralFeasibilityClassifier(nn.Module):
                     # print([(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in self._classifier_head.parameters() if param.numel()])
                     # print("-"*10)
                     # raise RuntimeError()
-        print(loss, file=open("w", CFG.feasibility_loss_output_file))
+        validate_loss = np.concatenate([
+            validate_loss_fn(self(*x_validate_batch), y_validate_batch).detach().numpy()
+            for x_validate_batch, y_validate_batch in validate_dataloader
+        ]).mean()
+        print(validate_loss, file=open("w", CFG.feasibility_loss_output_file))
         raise RuntimeError()
 
     def _collate_batch(

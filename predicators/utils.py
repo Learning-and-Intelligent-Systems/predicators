@@ -3226,11 +3226,11 @@ def string_to_python_object(value: str) -> Any:
     if value.startswith("["):
         assert value.endswith("]")
         inner_strs = value[1:-1].split(",")
-        return [string_to_python_object(s) for s in inner_strs]
+        return [string_to_python_object(s) for s in inner_strs if s]
     if value.startswith("("):
         assert value.endswith(")")
         inner_strs = value[1:-1].split(",")
-        return tuple(string_to_python_object(s) for s in inner_strs)
+        return tuple(string_to_python_object(s) for s in inner_strs if s)
     return value
 
 
