@@ -108,12 +108,12 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
 
             preconds, add_effects, del_effects, segments = v
+
             seg_0 = segments[0]
             opt_objs = tuple(seg_0.get_option().objects)
             relevant_add_effects = [a for a in seg_0.add_effects if a.predicate in add_effects]
             relevant_del_effects = [a for a in seg_0.delete_effects if a.predicate in del_effects]
             objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
-
             objects_list = sorted(objects)
 
             params = utils.create_new_variables([o.type for o in objects_list])
@@ -125,22 +125,22 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
             op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
 
-            if name == "Op2-Stack":
-                import pdb; pdb.set_trace()
-                block_to_not_del = [p for p in op_preconds if p.predicate.name=="NOT-((0:block).pose_z<=[idx 0]0.461)"][0].entities[0]
-                new_op_preconds = set()
-                for p in op_preconds:
-                    if p.predicate.name == "NOT-OnTable" and block_to_not_del not in p.entities:
-                        continue
-                    new_op_preconds.add(p)
-                op_preconds = new_op_preconds
-                # this is dealing with the fact that segment 0 happens to be stacking onto a block
-                # that's not on the table, but this isn't always true. you can be stacking onto a block that
-                # is on the table.
-                # need to fix this more generally without hardcoding it in.
-                # also, if the map isn't 1:1 obvious, it's not clear how exactly how to correspond
-                # obj_to_var in one segment versus another.
-                import pdb; pdb.set_trace()
+            # if name == "Op2-Stack":
+            #     import pdb; pdb.set_trace()
+            #     block_to_not_del = [p for p in op_preconds if p.predicate.name=="NOT-((0:block).pose_z<=[idx 0]0.461)"][0].entities[0]
+            #     new_op_preconds = set()
+            #     for p in op_preconds:
+            #         if p.predicate.name == "NOT-OnTable" and block_to_not_del not in p.entities:
+            #             continue
+            #         new_op_preconds.add(p)
+            #     op_preconds = new_op_preconds
+            #     # this is dealing with the fact that segment 0 happens to be stacking onto a block
+            #     # that's not on the table, but this isn't always true. you can be stacking onto a block that
+            #     # is on the table.
+            #     # need to fix this more generally without hardcoding it in.
+            #     # also, if the map isn't 1:1 obvious, it's not clear how exactly how to correspond
+            #     # obj_to_var in one segment versus another.
+            #     import pdb; pdb.set_trace()
 
             option_vars = [obj_to_var[o] for o in opt_objs]
             option_spec = [seg_0.get_option().parent, option_vars]
@@ -150,6 +150,152 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
             op_ignore_effects = set()
             op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+
+
+            from itertools import permutations, product
+            def get_mapping_between_params(params1):
+                unique_types = sorted(set(elem.type for elem in params1))
+                group_params_by_type = []
+                for elem_type in unique_types:
+                    elements_of_type = [elem for elem in params1 if elem.type == elem_type]
+                    group_params_by_type.append(elements_of_type)
+
+                all_mappings = list(product(*list(permutations(l) for l in group_params_by_type)))
+                squash = []
+                for m in all_mappings:
+                    a = []
+                    for i in m:
+                        a.extend(i)
+                    squash.append(a)
+
+                return squash
+
+            ops = []
+            for seg in segments:
+                opt_objs = tuple(seg.get_option().objects)
+                relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
+                relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
+                objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
+                objects_list = sorted(objects)
+                params = utils.create_new_variables([o.type for o in objects_list])
+                obj_to_var = dict(zip(objects_list, params))
+                var_to_obj = dict(zip(params, objects_list))
+                relevant_preconds = [a for a in seg.init_atoms if (a.predicate in preconds and set(a.objects).issubset(set(objects_list)))]
+
+                op_add_effects = {atom.lift(obj_to_var) for atom in relevant_add_effects}
+                op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
+                op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
+                # t = (params, var_to_obj, obj_to_var, op_preconds, op_add_effects, op_del_effects)
+                t = (params, objects_list, relevant_preconds, relevant_add_effects, relevant_del_effects)
+                ops.append(t)
+
+
+            # We would like to take the intersection of preconditions, add effects, and delete effects
+            # between operators in a particular cluster to weed out ones that do not generalize, e.g. that
+            # the block you are stacking on (in Op2-Stack), is also on another block (ratherr than on the table).
+            # But the object -> variable mapping is not consistent, so this takes some extra effort. For example,
+            # consider Op2-Stack, which operates on two blocks and one robot. Sometimes, blockn is put on blockn+1,
+            # but other times, blockn+1 is put on blockn. Because the object -> variable mapping is done with sorted
+            # objects (which sort by name and then by type), the stack operators created from some segments will have
+            # the first parameter be the top block, while others will have the first operator be the second block. So,
+            # if we just took an intersection of lifted atoms between the two operators, the predicates would would not
+            # correspond to each other properly.
+            if name == "Op2-Stack":
+                op1 = ops[0]
+                op1_params = op1[0]
+                op1_objs_list = op1[1]
+                op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
+                op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
+                op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
+                op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
+
+                op1_preconds_str = set(str(a) for a in op1_preconds)
+                op1_adds_str = set(str(a) for a in op1_add_effects)
+                op1_dels_str = set(str(a) for a in op1_del_effects)
+
+                # debug:
+                # maybe explicitly go find operators where n+1 is put on n, and then where n is put on n+1
+                # look at add effects and see the numbers
+                # demo 7 seems to have n on n+1 at some point in it
+                # demo 0 has n+1 on n
+                import re
+                def extract_numbers_from_string(input_string):
+                    # Use regular expression to find all numeric sequences in the 'blockX' format
+                    numbers = re.findall(r'\bblock(\d+)\b', input_string)
+                    # Convert the found strings to integers and return a set
+                    return set(map(int, numbers))
+                # for x, seg in enumerate(segments):
+                #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
+                #     # now see if n+1 on n or n on n+1
+                #     assert len(relevant) == 1
+                #     z = relevant[0]
+                #     nums = extract_numbers_from_string(z)
+                #     assert len(nums) == 2
+                #     nums_sorted = sorted(list(nums))
+                #     higher_on_top = z.index(str(nums_sorted[1])) < z.index(str(nums_sorted[0]))
+                    # if not higher_on_top:
+                    #     print("HIGHER NOT ON TOP")
+                    #     import pdb; pdb.set_trace()
+
+                for i in range(1, len(ops)):
+                    if i < 10:
+                        continue
+
+                    op2 = ops[i]
+                    op2_params = op2[0]
+                    op2_objs_list = op2[1]
+
+                    mappings = get_mapping_between_params(op2_params)
+                    mapping_scores = []
+                    for m in mappings:
+
+                        mapping = dict(zip(op2_params, m))
+
+                        overlap = 0
+
+                        # Get Operator 2's preconditions, add effects, and delete effects
+                        # in terms of a particular object -> variable mapping.
+                        new_op2_params = [mapping[p] for p in op2_params]
+                        new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
+                        op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                        op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
+                        op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
+
+                        # Take the intersection of lifted atoms across both operators, and
+                        # count the overlap.
+                        op2_preconds_str = set(str(a) for a in op2_preconds)
+                        op2_adds_str = set(str(a) for a in op2_add_effects)
+                        op2_dels_str = set(str(a) for a in op2_del_effects)
+
+                        score1 = len(op1_preconds_str.intersection(op2_preconds_str))
+                        score2 = len(op1_adds_str.intersection(op2_adds_str))
+                        score3 = len(op1_dels_str.intersection(op2_dels_str))
+                        score = score1 + score2 + score3
+
+                        new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
+                        new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
+                        new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
+
+                        mapping_scores.append((score, new_preconds, new_adds, new_dels))
+
+                    import pdb; pdb.set_trace()
+
+                    s, a, b, c = max(mapping_scores, key=lambda x: x[0])
+                    op1_preconds = a
+                    op1_add_effects = b
+                    op1_del_effects = c
+                    op1_preconds_str = set(str(a) for a in op1_preconds)
+                    op1_adds_str = set(str(a) for a in op1_add_effects)
+                    op1_dels_str = set(str(a) for a in op1_del_effects)
+
+                    import pdb; pdb.set_trace()
+
+
+
+                import pdb; pdb.set_trace()
+
+
+
             datastore = []
             counter = 0
             for seg in segments:

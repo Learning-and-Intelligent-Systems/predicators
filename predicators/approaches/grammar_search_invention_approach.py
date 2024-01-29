@@ -1461,7 +1461,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # print_demo2(segmented_trajs[8][0:3], "demo8_part1.txt")
             # print_demo2(segmented_trajs[8][3:], "demo8_part12.txt")
 
-            print_demo2(segmented_trajs[0], "demo0.txt")
+            print_demo2(segmented_trajs[7], "demo7.txt")
             import pdb; pdb.set_trace()
 
             ###################
@@ -1560,6 +1560,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     else:
                         process_adds(potential_ops, remaining_story, train_tasks[j].goal)
                         process_dels(potential_ops, remaining_story)
+
                 all_potential_ops.append(potential_ops)
 
             import pdb; pdb.set_trace()
@@ -1572,38 +1573,38 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 } for op_name in all_potential_ops[0].keys()
             }
 
-            for op_name in final_potential_ops.keys():
-                # get all preconditions that aren't empty
-
-                # if op_name == "Op0-Pick":
-                #     temp = []
-                #     for h, e in enumerate(all_potential_ops):
-                #         s = e[op_name]["pre"]
-                #         if len(s) > 0:
-                #             temp.append(s)
-                #         name_ps = [p.name for p in s]
-                #         if "OnTable" not in name_ps:
-                #             import pdb; pdb.set_trace()
-
-                # temp = [e[op_name]["pre"] for e in all_potential_ops if len(e[op_name]["pre"]) > 0]
-
-                final_potential_ops[op_name]["pre"] = set.intersection(*[e[op_name]["pre"] for e in all_potential_ops if len(e[op_name]["pre"]) > 0])
-                final_potential_ops[op_name]["add"] = set.intersection(*[e[op_name]["add"] for e in all_potential_ops if len(e[op_name]["add"]) > 0])
-                final_potential_ops[op_name]["del"] = set.intersection(*[e[op_name]["del"] for e in all_potential_ops if len(e[op_name]["del"]) > 0])
+            # for op_name in final_potential_ops.keys():
+            #     # get all preconditions that aren't empty
+            #
+            #     # if op_name == "Op0-Pick":
+            #     #     temp = []
+            #     #     for h, e in enumerate(all_potential_ops):
+            #     #         s = e[op_name]["pre"]
+            #     #         if len(s) > 0:
+            #     #             temp.append(s)
+            #     #         name_ps = [p.name for p in s]
+            #     #         if "OnTable" not in name_ps:
+            #     #             import pdb; pdb.set_trace()
+            #
+            #     # temp = [e[op_name]["pre"] for e in all_potential_ops if len(e[op_name]["pre"]) > 0]
+            #
+            #     final_potential_ops[op_name]["pre"] = set.intersection(*[e[op_name]["pre"] for e in all_potential_ops if len(e[op_name]["pre"]) > 0])
+            #     final_potential_ops[op_name]["add"] = set.intersection(*[e[op_name]["add"] for e in all_potential_ops if len(e[op_name]["add"]) > 0])
+            #     final_potential_ops[op_name]["del"] = set.intersection(*[e[op_name]["del"] for e in all_potential_ops if len(e[op_name]["del"]) > 0])
 
             import pdb; pdb.set_trace()
 
-            # for k, po in enumerate(all_potential_ops):
-            #     for op_name in po.keys():
-            #         # final_potential_ops[op_name]["pre"] = final_potential_ops[op_name]["pre"].union(po[op_name]["pre"])
-            #         # final_potential_ops[op_name]["add"] = final_potential_ops[op_name]["add"].union(po[op_name]["add"])
-            #         # final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].union(po[op_name]["del"])
-            #         if len(po[op_name]["pre"]) > 0:
-            #             final_potential_ops[op_name]["pre"] = final_potential_ops[op_name]["pre"].intersection(po[op_name]["pre"])
-            #         if len(po[op_name]["add"]) > 0:
-            #             final_potential_ops[op_name]["add"] = final_potential_ops[op_name]["add"].intersection(po[op_name]["add"])
-            #         if len(po[op_name]["del"]) > 0:
-            #             final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].intersection(po[op_name]["del"])
+            for k, po in enumerate(all_potential_ops):
+                for op_name in po.keys():
+                    final_potential_ops[op_name]["pre"] = final_potential_ops[op_name]["pre"].union(po[op_name]["pre"])
+                    final_potential_ops[op_name]["add"] = final_potential_ops[op_name]["add"].union(po[op_name]["add"])
+                    final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].union(po[op_name]["del"])
+                    # if len(po[op_name]["pre"]) > 0:
+                    #     final_potential_ops[op_name]["pre"] = final_potential_ops[op_name]["pre"].intersection(po[op_name]["pre"])
+                    # if len(po[op_name]["add"]) > 0:
+                    #     final_potential_ops[op_name]["add"] = final_potential_ops[op_name]["add"].intersection(po[op_name]["add"])
+                    # if len(po[op_name]["del"]) > 0:
+                    #     final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].intersection(po[op_name]["del"])
 
 
             # print the operators nicely to see what we missed
@@ -1651,10 +1652,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 fff[op].append(ddd[op][3])
 
-            # import pdb; pdb.set_trace()
-            # self._clusters = fff
-            # import pdb; pdb.set_trace()
-            # return predicates_to_keep
+            import pdb; pdb.set_trace()
+            self._clusters = fff
+            import pdb; pdb.set_trace()
+            return predicates_to_keep
 
             ###################
 
