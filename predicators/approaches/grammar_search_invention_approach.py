@@ -1633,10 +1633,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     set(p for p in ddd[op][0] if p in final_potential_ops[op]["pre"])
                 )
 
-                if op == "Op0-Pick":
-                    pred_to_manually_add = [p for p in ddd[op][0] if p.name == "OnTable"][0]
-                    print("MANUALLY ADDING: ", pred_to_manually_add)
-                    fff[op][-1].add(pred_to_manually_add)
+                # if op == "Op0-Pick":
+                #     pred_to_manually_add = [p for p in ddd[op][0] if p.name == "OnTable"][0]
+                #     print("MANUALLY ADDING: ", pred_to_manually_add)
+                #     fff[op][-1].add(pred_to_manually_add)
 
                 fff[op].append(
                     set(p for p in ddd[op][1] if p in final_potential_ops[op]["add"])
@@ -1645,10 +1645,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 fff[op].append(
                     set(p for p in ddd[op][2] if p in final_potential_ops[op]["del"])
                 )
-                if op == "Op2-Stack":
-                    pred_to_manually_add = [p for p in ddd[op][2] if p.name == "Forall[0:block].[NOT-On(0,1)]"][0]
-                    print("MANUALLY ADDING: ", pred_to_manually_add)
-                    fff[op][-1].add(pred_to_manually_add)
+                # if op == "Op2-Stack":
+                #     pred_to_manually_add = [p for p in ddd[op][2] if p.name == "Forall[0:block].[NOT-On(0,1)]"][0]
+                #     print("MANUALLY ADDING: ", pred_to_manually_add)
+                #     fff[op][-1].add(pred_to_manually_add)
 
                 fff[op].append(ddd[op][3])
 
@@ -1720,88 +1720,88 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 }
             # import pdb; pdb.set_trace()
 
-            mmm["Op0-Pick"]["pre"] = [
-                "((0:block).pose_z<=[idx 0]0.461)",
-                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "OnTable",
-                "Forall[0:block].[NOT-On(0,1)]"
-            ]
-            mmm["Op0-Pick"]["add"] = [
-                "((0:robot).fingers<=[idx 0]0.5)",
-                "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-OnTable"
-            ]
-            mmm["Op0-Pick"]["del"] = [
-                "((0:block).pose_z<=[idx 0]0.461)",
-                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "OnTable"
-            ]
-
-            mmm["Op1-PutOnTable"]["pre"] = [
-                "((0:robot).fingers<=[idx 0]0.5)",
-                "Forall[0:block].[NOT-On(0,1)]",
-                "Forall[1:block].[NOT-On(0,1)]",
-                "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
-            ]
-            mmm["Op1-PutOnTable"]["add"] = [
-                "((0:block).pose_z<=[idx 0]0.461)",
-                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "OnTable"
-            ]
-            mmm["Op1-PutOnTable"]["del"] = [
-                "((0:robot).fingers<=[idx 0]0.5)",
-                "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-OnTable"
-            ]
-
-            mmm["Op2-Stack"]["pre"] = [
-                "((0:robot).fingers<=[idx 0]0.5)",
-                "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-OnTable",
-                "Forall[0:block].[NOT-On(0,1)]"
-            ]
-            mmm["Op2-Stack"]["add"] = [
-                "((0:block).pose_z<=[idx 0]0.461)",
-                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "On"
-            ]
-            mmm["Op2-Stack"]["del"] = [
-                "((0:robot).fingers<=[idx 0]0.5)",
-                "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "Forall[0:block].[NOT-On(0,1)]"
-            ]
-
-            mmm["Op3-Pick"]["pre"] = [
-                "((0:block).pose_z<=[idx 0]0.461)",
-                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "OnTable",
-                "Forall[0:block].[NOT-On(0,1)]",
-                "On"
-            ]
-            mmm["Op3-Pick"]["add"] = [
-                "((0:robot).fingers<=[idx 0]0.5)",
-                "Forall[0:block].[NOT-On(0,1)]",
-                "Forall[1:block].[NOT-On(0,1)]",
-                "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                # NOT-On?
-            ]
-            mmm["Op3-Pick"]["del"] = [
-                "((0:block).pose_z<=[idx 0]0.461)",
-                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "On"
-            ]
+            # mmm["Op0-Pick"]["pre"] = [
+            #     "((0:block).pose_z<=[idx 0]0.461)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-((0:robot).fingers<=[idx 0]0.5)",
+            #     "OnTable",
+            #     "Forall[0:block].[NOT-On(0,1)]"
+            # ]
+            # mmm["Op0-Pick"]["add"] = [
+            #     "((0:robot).fingers<=[idx 0]0.5)",
+            #     "NOT-((0:block).pose_z<=[idx 0]0.461)",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-OnTable"
+            # ]
+            # mmm["Op0-Pick"]["del"] = [
+            #     "((0:block).pose_z<=[idx 0]0.461)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-((0:robot).fingers<=[idx 0]0.5)",
+            #     "OnTable"
+            # ]
+            #
+            # mmm["Op1-PutOnTable"]["pre"] = [
+            #     "((0:robot).fingers<=[idx 0]0.5)",
+            #     "Forall[0:block].[NOT-On(0,1)]",
+            #     "Forall[1:block].[NOT-On(0,1)]",
+            #     "NOT-((0:block).pose_z<=[idx 0]0.461)",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
+            # ]
+            # mmm["Op1-PutOnTable"]["add"] = [
+            #     "((0:block).pose_z<=[idx 0]0.461)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-((0:robot).fingers<=[idx 0]0.5)",
+            #     "OnTable"
+            # ]
+            # mmm["Op1-PutOnTable"]["del"] = [
+            #     "((0:robot).fingers<=[idx 0]0.5)",
+            #     "NOT-((0:block).pose_z<=[idx 0]0.461)",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-OnTable"
+            # ]
+            #
+            # mmm["Op2-Stack"]["pre"] = [
+            #     "((0:robot).fingers<=[idx 0]0.5)",
+            #     "NOT-((0:block).pose_z<=[idx 0]0.461)",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-OnTable",
+            #     "Forall[0:block].[NOT-On(0,1)]"
+            # ]
+            # mmm["Op2-Stack"]["add"] = [
+            #     "((0:block).pose_z<=[idx 0]0.461)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-((0:robot).fingers<=[idx 0]0.5)",
+            #     "On"
+            # ]
+            # mmm["Op2-Stack"]["del"] = [
+            #     "((0:robot).fingers<=[idx 0]0.5)",
+            #     "NOT-((0:block).pose_z<=[idx 0]0.461)",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "Forall[0:block].[NOT-On(0,1)]"
+            # ]
+            #
+            # mmm["Op3-Pick"]["pre"] = [
+            #     "((0:block).pose_z<=[idx 0]0.461)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-((0:robot).fingers<=[idx 0]0.5)",
+            #     "OnTable",
+            #     "Forall[0:block].[NOT-On(0,1)]",
+            #     "On"
+            # ]
+            # mmm["Op3-Pick"]["add"] = [
+            #     "((0:robot).fingers<=[idx 0]0.5)",
+            #     "Forall[0:block].[NOT-On(0,1)]",
+            #     "Forall[1:block].[NOT-On(0,1)]",
+            #     "NOT-((0:block).pose_z<=[idx 0]0.461)",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     # NOT-On?
+            # ]
+            # mmm["Op3-Pick"]["del"] = [
+            #     "((0:block).pose_z<=[idx 0]0.461)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-((0:robot).fingers<=[idx 0]0.5)",
+            #     "On"
+            # ]
 
             fff = {}
             for op in ddd.keys():

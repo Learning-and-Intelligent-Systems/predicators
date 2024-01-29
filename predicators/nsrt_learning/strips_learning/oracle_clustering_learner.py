@@ -200,7 +200,8 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             # the first parameter be the top block, while others will have the first operator be the second block. So,
             # if we just took an intersection of lifted atoms between the two operators, the predicates would would not
             # correspond to each other properly.
-            if name == "Op2-Stack":
+            # if name in  ["Op2-Stack"]:
+            if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
                 op1 = ops[0]
                 op1_params = op1[0]
                 op1_objs_list = op1[1]
@@ -224,6 +225,12 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                     numbers = re.findall(r'\bblock(\d+)\b', input_string)
                     # Convert the found strings to integers and return a set
                     return set(map(int, numbers))
+                def print_predicates(preds):
+                    l = sorted(list(preds))
+                    print("Printing set: ")
+                    for p in l:
+                        print(p)
+                    print()
                 # for x, seg in enumerate(segments):
                 #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
                 #     # now see if n+1 on n or n on n+1
@@ -238,9 +245,6 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                     #     import pdb; pdb.set_trace()
 
                 for i in range(1, len(ops)):
-                    if i < 10:
-                        continue
-
                     op2 = ops[i]
                     op2_params = op2[0]
                     op2_objs_list = op2[1]
@@ -278,8 +282,6 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
                         mapping_scores.append((score, new_preconds, new_adds, new_dels))
 
-                    import pdb; pdb.set_trace()
-
                     s, a, b, c = max(mapping_scores, key=lambda x: x[0])
                     op1_preconds = a
                     op1_add_effects = b
@@ -288,12 +290,17 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                     op1_adds_str = set(str(a) for a in op1_add_effects)
                     op1_dels_str = set(str(a) for a in op1_del_effects)
 
-                    import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
 
+                # import pdb; pdb.set_trace()
 
+                # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
+                # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
 
-                import pdb; pdb.set_trace()
+                # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+                op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
 
+                # import pdb; pdb.set_trace()
 
 
             datastore = []
