@@ -497,16 +497,18 @@ class GlobalSettings:
     feasibility_learning_strategy = "backtracking"
     feasibility_featurizer_hid_sizes = [128, 128]
     feasibility_feature_size = 128
-    feasibility_embedding_size = 128
+    feasibility_embedding_size = feasibility_feature_size // 2
     feasibility_embedding_concat = False
-    feasibility_num_heads = 8
-    feasibility_enc_num_layers = 4
-    feasibility_dec_num_layers = 4
+    feasibility_num_heads = 16
+    feasibility_enc_num_layers = 1
+    feasibility_dec_num_layers = 1
     feasibility_ffn_hid_size = feasibility_feature_size * 4
-    feasibility_max_itr = 1000
+    feasibility_max_itr = 2400
     feasibility_general_lr = 0.001
-    feasibility_transformer_lr = 0.001
-    feasibility_loss_output_file = "feasibility_loss.out"
+    feasibility_transformer_lr = 0.0001
+    feasibility_cls_style = 'mean'
+    feasibility_batch_size = 64
+    feasibility_loss_output_file = ""
 
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000

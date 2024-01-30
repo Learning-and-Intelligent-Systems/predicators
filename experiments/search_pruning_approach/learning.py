@@ -10,10 +10,11 @@ from predicators.settings import CFG
 import logging
 
 from predicators.structs import NSRT, _GroundNSRT, State, Variable
+import sys
 
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use("tkagg")
+# matplotlib.use("tkagg")
 
 @dataclass(frozen=True)
 class FeasibilityDatapoint:
@@ -73,7 +74,6 @@ class FeasibilityFeaturizer(nn.Module):
             for input_size, output_size in zip(sizes, sizes[1:])
         ])
 
-
     def update_range(self, state: npt.NDArray):
         state = tensor(state, device=self._device)
         if self._range is None:
@@ -95,22 +95,41 @@ class FeasibilityFeaturizer(nn.Module):
         return self._layers[-1](state)
 
 class PositionalEmbeddingLayer(nn.Module):
-    def __init__(self, feature_size: int, embedding_size: int, concat: bool, include_cls: bool, horizon: int, device: Optional[str] = None):
+    def __init__(self, feature_size: int, embedding_size: int, concat: bool, include_cls: Optional[str], horizon: int, device: Optional[str] = None):
         super().__init__()
+        assert include_cls in ['learned', 'marked', None]
         self._device = device
-        self._expected_input_size = self.calculate_input_size(feature_size, embedding_size, concat)
-        self._size = embedding_size if concat else feature_size
         self._concat = concat
         self._horizon = horizon
-        self._cls = nn.Parameter(torch.randn((1, feature_size), device=device)) if include_cls else None
+
+        if concat:
+            self._input_size = feature_size - embedding_size - (include_cls == 'marked')
+            self._embedding_size = embedding_size
+        else:
+            self._input_size = feature_size - (include_cls == 'marked')
+            self._embedding_size = self._input_size
+
+        if include_cls == 'learned':
+            self._cls = nn.Parameter(torch.randn((1, feature_size), device=device))
+            self._cls_marked = False
+        elif include_cls == 'marked':
+            self._cls = torch.concat([torch.zeros((1, feature_size - 1), device=device), torch.ones((1, 1), device=device)], dim=1)
+            self._cls_marked = True
+        else:
+            self._cls = None
+            self._cls_marked = False
+
+    @property
+    def input_size(self):
+        return self._input_size
 
     def forward(self, tokens: Tensor) -> Tensor: # Assuming tokens.shape is (batch, max_len, size)
         batch_size, max_len, input_feature_size = tokens.shape
-        assert input_feature_size == self._expected_input_size
+        assert input_feature_size == self._input_size
         positions = torch.arange(max_len, device=self._device).unsqueeze(-1)
-        indices = torch.arange(self._size, device=self._device).unsqueeze(0)
+        indices = torch.arange(self._embedding_size, device=self._device).unsqueeze(0)
 
-        freq = 1 / self._horizon ** ((indices - (indices % 2)) / self._size)
+        freq = 1 / self._horizon ** ((indices - (indices % 2)) / self._embedding_size)
         embeddings = torch.sin(positions.float() @ freq + torch.pi / 2 * (indices % 2))
 
         if self._concat:
@@ -120,12 +139,16 @@ class PositionalEmbeddingLayer(nn.Module):
 
         if self._cls is None:
             return embedded_tokens
-        return torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1,-1), embedded_tokens], dim=1)
+        elif self._cls_marked:
+            marked_tokens = torch.cat([embedded_tokens, torch.zeros((batch_size, max_len, 1))], dim=2)
+            return torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1, -1), marked_tokens], dim=1)
+        else:
+            return torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1, -1), embedded_tokens], dim=1)
 
     @classmethod
-    def calculate_input_size(cls, feature_size: int, embedding_size: int, concat: bool) -> int:
+    def calculate_input_size(cls, feature_size: int, embedding_size: int, concat: bool, include_cls: Optional[str]) -> int:
         assert not concat or feature_size > embedding_size
-        return feature_size - embedding_size if concat else feature_size
+        return (feature_size - embedding_size if concat else feature_size) - (include_cls == 'marked')
 
     def recalculate_mask(self, mask: Tensor) -> Tensor: # Assuming mask.shape is (batch, max_len)
         if self._cls is None:
@@ -145,40 +168,43 @@ class NeuralFeasibilityClassifier(nn.Module):
         transformer_decoder_num_layers: int,
         transformer_ffn_hidden_size: int,
         max_train_iters: int,
-        lr: float,
+        general_lr: float,
+        transformer_lr: float,
         max_inference_suffix: int,
-        batch_size: int = 128,
-        validate_split: float = 0.2,
-        dropout: int = 0,
+        cls_style: str,
+        embedding_horizon: int,
+        batch_size: int,
+        validate_split: float = 0.5,
+        dropout: int = 0.25,
         num_threads: int = 8,
         classification_threshold: float = 0.5,
-        device: Optional[str] = 'cuda'
+        device: Optional[str] = 'cpu'
     ):
         super().__init__()
         torch.set_num_threads(num_threads)
         self._device = device
 
+        assert cls_style in {'learned', 'marked', 'mean'}
+        self._cls_style = cls_style
+
         self._thresh = classification_threshold
         self._num_iters = max_train_iters
         self._batch_size = batch_size
         self._validate_split = validate_split
-        self._lr = lr
-
-        self._featurizer_output_size = PositionalEmbeddingLayer.calculate_input_size(
-            classifier_feature_size, positional_embedding_size, positional_embedding_concat
-        )
-        self._featurizer_hidden_sizes = featurizer_hidden_sizes
+        self._general_lr = general_lr
+        self._transformer_lr = transformer_lr
 
         self._encoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {} # Initialized with self._init_featurizer
         self._decoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {} # Initialized with self._init_featurizer
+        self._featurizer_hidden_sizes = featurizer_hidden_sizes
         self._featurizer_count: int = 0 # For naming the module when adding it in self._init_featurizer
 
         self._encoder_positional_encoding = PositionalEmbeddingLayer(
             feature_size = classifier_feature_size,
             embedding_size = positional_embedding_size,
             concat = positional_embedding_concat,
-            include_cls = False,
-            horizon = CFG.horizon,
+            include_cls = None,
+            horizon = embedding_horizon,
             device = device,
 
         )
@@ -186,8 +212,10 @@ class NeuralFeasibilityClassifier(nn.Module):
             feature_size = classifier_feature_size,
             embedding_size = positional_embedding_size,
             concat = positional_embedding_concat,
-            include_cls = True,
-            horizon = CFG.horizon,
+            include_cls = {
+                'mean': None, 'learned': 'learned', 'marked': 'marked'
+            }[cls_style],
+            horizon = embedding_horizon,
             device = device,
         )
         self._transformer = nn.Transformer(
@@ -202,7 +230,7 @@ class NeuralFeasibilityClassifier(nn.Module):
         )
         self._classifier_head = nn.Sequential(
             nn.Linear(classifier_feature_size, 1, device=device),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
         self._optimizer: Optional[torch.optim.Optimizer] = None
         self._max_inference_suffix = max_inference_suffix
@@ -219,7 +247,7 @@ class NeuralFeasibilityClassifier(nn.Module):
 
         self.eval()
         confidence = self([encoder_nsrts], [decoder_nsrts], [encoder_states], [decoder_states])
-        print(confidence)
+        print(confidence, file=sys.stderr)
         return confidence >= self._thresh
 
     def fit(self, positive_examples: Sequence[FeasibilityDatapoint], negative_examples: Sequence[FeasibilityDatapoint]) -> None:
@@ -231,7 +259,7 @@ class NeuralFeasibilityClassifier(nn.Module):
 
 
         # Creating datasets
-        logging(f"Creating datasets (validate split {int(self._validate_split*100)}%)")
+        logging.info(f"Creating datasets (validate split {int(self._validate_split*100)}%)")
 
         positive_examples, negative_examples = positive_examples.copy(), negative_examples.copy()
         np.random.shuffle(positive_examples)
@@ -244,7 +272,7 @@ class NeuralFeasibilityClassifier(nn.Module):
 
 
         # Initializing per-nsrt featurizers if not initialized already
-        logging("Initializing state featurizers")
+        logging.info("Initializing state featurizers")
         self._init_featurizers_dataset(train_dataset)
         self._init_featurizers_dataset(validate_dataset)
 
@@ -262,46 +290,47 @@ class NeuralFeasibilityClassifier(nn.Module):
         )
 
         # Training loop
-        logging("Running training")
+        logging.info("Running training")
         train_loss_fn = nn.BCELoss()
         validate_loss_fn = nn.BCELoss(reduction='none')
-        with torch.autograd.detect_anomaly(False):
-            for itr, (x_train_batch, y_train_batch) in zip(range(self._num_iters), itertools.cycle(train_dataloader)):
-                self.train()
-                self._optimizer.zero_grad()
-                train_loss = train_loss_fn(self(*x_train_batch), y_train_batch)
-                train_loss.backward()
-                self._optimizer.step()
-                if itr % 100 == 0:
-                    self.eval()
-                    validate_loss = np.concatenate([
-                        validate_loss_fn(self(*x_validate_batch), y_validate_batch).detach().cpu().numpy()
-                        for x_validate_batch, y_validate_batch in validate_dataloader
-                    ]).mean()
+        # with torch.autograd.detect_anomaly(False):
+        for itr, (x_train_batch, y_train_batch) in zip(range(self._num_iters), itertools.cycle(train_dataloader)):
+            self.train()
+            self._optimizer.zero_grad()
+            train_loss = train_loss_fn(self(*x_train_batch), y_train_batch)
+            train_loss.backward()
+            self._optimizer.step()
+            if itr % 100 == 0:
+                self.eval()
+                validate_loss = np.concatenate([
+                    validate_loss_fn(self(*x_validate_batch), y_validate_batch).detach().cpu().numpy()
+                    for x_validate_batch, y_validate_batch in validate_dataloader
+                ]).mean()
 
-                    logging(f"Loss: {validate_loss}, Training Iteration {itr}/{self._num_iters}")
-                    # print("-"*10)
-                    # print(y_test_batch.min(), y_test_batch.max(), y_test_batch.mean(), y_test_batch.std(), y_test_batch.shape)
-                    # print(y_test_batch)
-                    # print("-"*10)
-                    # print(y_test_pred)
-                    # print(y_test_pred.min(), y_test_pred.max(), y_test_pred.mean(), y_test_pred.std(), y_test_pred.shape)
-                    # print("-"*10)
-                    # print([[(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in featurizer.parameters() if param.numel()] for featurizer in list(self._encoder_featurizers.values()) + list(self._decoder_featurizers.values())])
-                    # print("-"*10)
-                    # print([(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in list(self._encoder_positional_encoding.parameters()) + list(self._decoder_positional_encoding.parameters()) if param.numel()])
-                    # print("-"*10)
-                    # print([(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in self._transformer.parameters() if param.numel()])
-                    # print("-"*10)
-                    # print([(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in self._classifier_head.parameters() if param.numel()])
-                    # print("-"*10)
-                    # raise RuntimeError()
-        validate_loss = np.concatenate([
-            validate_loss_fn(self(*x_validate_batch), y_validate_batch).detach().numpy()
-            for x_validate_batch, y_validate_batch in validate_dataloader
-        ]).mean()
-        print(validate_loss, file=open("w", CFG.feasibility_loss_output_file))
-        raise RuntimeError()
+                logging.info(f"Loss: {validate_loss}, Training Iteration {itr}/{self._num_iters}")
+                # print("-"*10)
+                # print(y_test_batch.min(), y_test_batch.max(), y_test_batch.mean(), y_test_batch.std(), y_test_batch.shape)
+                # print(y_test_batch)
+                # print("-"*10)
+                # print(y_test_pred)
+                # print(y_test_pred.min(), y_test_pred.max(), y_test_pred.mean(), y_test_pred.std(), y_test_pred.shape)
+                # print("-"*10)
+                # print([[(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in featurizer.parameters() if param.numel()] for featurizer in list(self._encoder_featurizers.values()) + list(self._decoder_featurizers.values())])
+                # print("-"*10)
+                # print([(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in list(self._encoder_positional_encoding.parameters()) + list(self._decoder_positional_encoding.parameters()) if param.numel()])
+                # print("-"*10)
+                # print([(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in self._transformer.parameters() if param.numel()])
+                # print("-"*10)
+                # print([(param.grad.min(), param.grad.max(), param.grad.mean(), param.grad.std()) if param.grad is not None else None for param in self._classifier_head.parameters() if param.numel()])
+                # print("-"*10)
+                # raise RuntimeError()
+        if CFG.feasibility_loss_output_file:
+            validate_loss = np.concatenate([
+                validate_loss_fn(self(*x_validate_batch), y_validate_batch).detach().numpy()
+                for x_validate_batch, y_validate_batch in validate_dataloader
+            ]).mean()
+            print(validate_loss, file=open(CFG.feasibility_loss_output_file, "w"))
+            raise RuntimeError()
 
     def _collate_batch(
         self, batch: Sequence[Tuple[Tuple[Sequence[NSRT], Sequence[NSRT], Sequence[npt.NDArray], Sequence[npt.NDArray]], int]]
@@ -315,14 +344,13 @@ class NeuralFeasibilityClassifier(nn.Module):
 
     def _create_optimizer(self):
         if self._optimizer is None:
-            assert list(self._encoder_positional_encoding.parameters()) + list(self._decoder_positional_encoding.parameters())
             self._optimizer = torch.optim.Adam([
                 {'params':
                     list(self._encoder_positional_encoding.parameters()) +
                     list(self._decoder_positional_encoding.parameters())
-                , 'lr': CFG.feasibility_general_lr},
-                {'params': self._classifier_head.parameters(), 'lr': CFG.feasibility_general_lr},
-                {'params': self._transformer.parameters(), 'lr': CFG.feasibility_transformer_lr},
+                , 'lr': self._general_lr},
+                {'params': self._classifier_head.parameters(), 'lr': self._general_lr},
+                {'params': self._transformer.parameters(), 'lr': self._transformer_lr},
             ])
 
     def forward(
@@ -350,10 +378,17 @@ class NeuralFeasibilityClassifier(nn.Module):
             src_key_padding_mask=encoder_mask,
             tgt_key_padding_mask=decoder_mask,
             memory_key_padding_mask=encoder_mask,
-            src_is_causal=False,
-            tgt_is_causal=False,
+            # src_is_causal=False,
+            # tgt_is_causal=False,
         )
-        return self._classifier_head(transformer_outputs[:, 0]).flatten()
+        if self._cls_style == 'mean':
+            classifier_tokens = torch.stack([
+                sequence[torch.logical_not(mask)].mean(dim=0)
+                for sequence, mask in zip(transformer_outputs, decoder_mask)
+            ])
+        else:
+            classifier_tokens = transformer_outputs[:, 0]
+        return self._classifier_head(classifier_tokens).flatten()
 
     def _run_featurizers(
         self,
@@ -394,11 +429,11 @@ class NeuralFeasibilityClassifier(nn.Module):
         decoder_states: Sequence[npt.NDArray]
     ):
         for nsrt, state in zip(encoder_nsrts, encoder_states):
-            self._init_featurizer(self._encoder_featurizers, state, nsrt)
+            self._init_featurizer(self._encoder_featurizers, self._encoder_positional_encoding.input_size, state, nsrt)
         for nsrt, state in zip(decoder_nsrts, decoder_states):
-            self._init_featurizer(self._decoder_featurizers, state, nsrt)
+            self._init_featurizer(self._decoder_featurizers, self._decoder_positional_encoding.input_size, state, nsrt)
 
-    def _init_featurizer(self, featurizers: Dict[NSRT, nn.Module], state: npt.NDArray, nsrt: NSRT) -> None:
+    def _init_featurizer(self, featurizers: Dict[NSRT, nn.Module], output_size: int, state: npt.NDArray, nsrt: NSRT) -> None:
         """ Initializes a featurizer for a single ground nsrt.
 
         NOTE: The assumption is that the concatentated features of all objects that
@@ -409,14 +444,14 @@ class NeuralFeasibilityClassifier(nn.Module):
             featurizer = FeasibilityFeaturizer(
                 state.size,
                 hidden_sizes = self._featurizer_hidden_sizes,
-                feature_size = self._featurizer_output_size,
+                feature_size = output_size,
                 device = self._device
             )
             self._featurizer_count += 1
 
             self.add_module(f"featurizer_{self._featurizer_count}", featurizer)
             self._optimizer.add_param_group(
-                {'params': featurizer.parameters(), 'lr': CFG.feasibility_general_lr}
+                {'params': featurizer.parameters(), 'lr': self._general_lr}
             )
 
             featurizers[nsrt] = featurizer

@@ -13,12 +13,14 @@ from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.nsrt_learning.sampler_learning import _LearnedSampler
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, _GroundNSRT, _Option, Dataset, Metrics, ParameterizedOption, Predicate, Segment, State, Task, Type, Variable
+from predicators.structs import NSRT, _GroundNSRT, _Option, Dataset, GroundAtom, Metrics, ParameterizedOption, Predicate, Segment, State, Task, Type, Variable
 import numpy as np
+from numpy import typing as npt
+import logging
 
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use("tkagg")
+# matplotlib.use("tkagg")
 
 __all__ = ["SearchPruningApproach"]
 
@@ -90,6 +92,8 @@ class SearchPruningApproach(NSRTLearningApproach):
     def _collect_data_ground_truth(self) -> None:
         assert CFG.env == "shelves2d"
 
+        logging.info("Generating ground truth data...")
+        logging.info("Generating positive data")
         def gen_positive_datapoints(segmented_traj: List[Segment]):
             skeleton = [self._seg_to_ground_nsrt[segment] for segment in segmented_traj]
             states = [segment.states[0] for segment in segmented_traj] + [segmented_traj[-1].states[-1]]
@@ -105,6 +109,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             []
         )
 
+        logging.info("Generating negative data")
         def gen_negative_datapoint(positive_datapoint: FeasibilityDatapoint):
             assert len(positive_datapoint.states) >= 2
             current_nsrt = positive_datapoint.skeleton[len(positive_datapoint.states) - 2]
@@ -125,77 +130,84 @@ class SearchPruningApproach(NSRTLearningApproach):
         ]
 
         self._learn_neural_feasibility_classifier(CFG.horizon)
-        print(len(self._positive_feasibility_dataset), len(self._negative_feasibility_dataset))
         eval = [
             self._feasibility_classifier(
                 datapoint.previous_states + [datapoint.next_state],
                 datapoint.encoder_nsrts + datapoint.decoder_nsrts,
-            ) for datapoint in self._positive_feasibility_dataset[:100]
+            ) for datapoint in self._positive_feasibility_dataset
         ] + [
             not self._feasibility_classifier(
                 datapoint.previous_states + [datapoint.next_state],
                 datapoint.encoder_nsrts + datapoint.decoder_nsrts,
-            ) for datapoint in self._negative_feasibility_dataset[:100]
+            ) for datapoint in self._negative_feasibility_dataset
         ]
-        print(f"Feasibility Classifier Accuracy: {sum(eval) / len(eval)}")
+        logging.info(f"Feasibility Classifier Accuracy: {sum(eval) / len(eval)}")
 
-    def _collect_data_interleaved_backtracking(self, seed: int, metrics: Metrics) -> None: # TODO: reimplement datapoint generation
+    def _collect_data_interleaved_backtracking(self, seed: int, metrics: Metrics) -> None:
         # TODO: add metric collection (how many samples needed for backtracking)
-        init_states_data: List[List[State]] = [[
+        states_data: List[List[State]] = [[
             segment.states[0] for segment in segmented_traj
-        ] for segmented_traj in self._segmented_trajs]
+        ] + [segmented_traj[-1].states[-1]] for segmented_traj in self._segmented_trajs]
         skeletons: List[List[_GroundNSRT]] = [[
             self._seg_to_ground_nsrt[segment] for segment in segmented_traj
         ] for segmented_traj in self._segmented_trajs]
-        for suffix_length in range(1, max(map(len, self._segmented_trajs))): # length of the suffix of states
-            for init_states, skeleton, segmented_traj in zip(init_states_data, skeletons, self._segmented_trajs):
-                if suffix_length >= len(segmented_traj):
+        atom_sequences: List[List[Set[GroundAtom]]] = [[
+            segment.init_atoms for segment in segmented_traj
+        ] + [segmented_traj[-1].final_atoms] for segmented_traj in self._segmented_trajs]
+        horizons: List[npt.NDArray[npt.int32]] = [
+            np.cumsum(len(segment.action) for segment in segmented_traj)
+            for segmented_traj in self._segmented_trajs
+        ]
+
+        for suffix_length in range(1, 2):#range(1, max(map(len, self._segmented_trajs))): # length of the suffix of states
+            for states, skeleton, atom_sequence, horizon, idx in zip(states_data, skeletons, atom_sequences, horizons, range(len(horizons))):
+                if suffix_length >= len(atom_sequences):
                     continue
 
                 # Including positive example
-                encoder_nsrts: List[_GroundNSRT] = skeleton[:-suffix_length]
-                decoder_nsrts: List[_GroundNSRT] = skeleton[-suffix_length:]
-                prev_states: List[State] = init_states[:-suffix_length]
-                next_good_state: State = segmented_traj[-suffix_length].states[0]
                 self._positive_feasibility_dataset.append(
                     FeasibilityDatapoint(
-                        prev_states,
-                        next_good_state,
-                        encoder_nsrts,
-                        decoder_nsrts
+                        states = states[:-suffix_length],
+                        skeleton = skeleton,
                     )
                 )
 
-                # Calculating negative examples
+                print(f"Backtracking nr {idx}; suffix_length {suffix_length}")
+
+                # Calculating negative examples if needed
+                if len(self._negative_feasibility_dataset) > 2*len(self._positive_feasibility_dataset):
+                    continue
                 seed += 1
-                backtracking, success = run_backtracking_with_previous_states(
-                    previous_states = prev_states,
-                    goal = segmented_traj[-1].final_atoms,
+                backtracking, _ = run_backtracking_with_previous_states(
+                    previous_states = states[:-suffix_length - 1],
+                    goal = atom_sequence[-1],
                     option_model = self._option_model,
                     skeleton = skeleton,
-                    feasibility_classifier = self._feasibility_classifier, # TODO: try it without the feasibility classifier
-                    min_classifier_depth = len(prev_states),
-                    atoms_sequence = [segment.final_atoms for segment in segmented_traj],
+                    feasibility = None,#self._feasibility_classifier,
+                    atoms_sequence = atom_sequence,
                     seed = seed,
                     timeout = float('inf'),
                     metrics = metrics,
-                    max_horizon = CFG.horizon - sum(len(segment.actions) for segment in segmented_traj[:-suffix_length - 1]),
+                    max_horizon = CFG.horizon - horizon[:-suffix_length - 1],
                 )
-                if not success:
-                    continue
                 next_states = [
                     mb_subtree.state
                     for _, mb_subtree in backtracking.failed_tries if mb_subtree is not None
                 ]
-                self._negative_feasibility_dataset.expand(
+                self._negative_feasibility_dataset.extend(
                     FeasibilityDatapoint(
-                        prev_states,
-                        next_state,
-                        encoder_nsrts,
-                        decoder_nsrts
+                        states = states[:-suffix_length - 1] + [next_state],
+                        skeleton = skeleton,
                     ) for next_state in next_states
                 )
-            self._learn_neural_feasibility_classifier(suffix_length) # TODO: change the suffix length for the next suffix length
+                print(f"Total number of negative examples: {len(self._negative_feasibility_dataset)}")
+            # self._learn_neural_feasibility_classifier(suffix_length)
+        for idx in np.random.default_rng().choice(len(self._negative_feasibility_dataset), 16, replace=False):
+            datapoint = self._negative_feasibility_dataset[idx]
+            next_state = datapoint.states[-1]
+            fig = Shelves2DEnv.render_state_plt(next_state, None)
+            fig.suptitle(datapoint.skeleton[-1].name)
+        plt.show()
 
     def _run_sesame_plan(
             self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
@@ -252,8 +264,12 @@ class SearchPruningApproach(NSRTLearningApproach):
             transformer_decoder_num_layers = CFG.feasibility_dec_num_layers,
             transformer_ffn_hidden_size = CFG.feasibility_ffn_hid_size,
             max_train_iters = CFG.feasibility_max_itr,
-            lr = CFG.learning_rate,
+            general_lr = CFG.feasibility_general_lr,
+            transformer_lr = CFG.feasibility_transformer_lr,
             max_inference_suffix = max_inference_suffix,
+            cls_style = CFG.feasibility_cls_style,
+            embedding_horizon = CFG.horizon,
+            batch_size = CFG.feasibility_batch_size,
         )
         neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset)
 
