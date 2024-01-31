@@ -132,13 +132,13 @@ class SearchPruningApproach(NSRTLearningApproach):
         self._learn_neural_feasibility_classifier(CFG.horizon)
         eval = [
             self._feasibility_classifier(
-                datapoint.previous_states + [datapoint.next_state],
-                datapoint.encoder_nsrts + datapoint.decoder_nsrts,
+                datapoint.states,
+                datapoint.skeleton
             ) for datapoint in self._positive_feasibility_dataset
         ] + [
             not self._feasibility_classifier(
-                datapoint.previous_states + [datapoint.next_state],
-                datapoint.encoder_nsrts + datapoint.decoder_nsrts,
+                datapoint.states,
+                datapoint.skeleton
             ) for datapoint in self._negative_feasibility_dataset
         ]
         logging.info(f"Feasibility Classifier Accuracy: {sum(eval) / len(eval)}")
