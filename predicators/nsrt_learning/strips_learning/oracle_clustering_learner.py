@@ -154,7 +154,20 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
             from itertools import permutations, product
             def get_mapping_between_params(params1):
-                unique_types = sorted(set(elem.type for elem in params1))
+                unique_types_old = sorted(set(elem.type for elem in params1))
+                # unique types with same order as params, don't want to sort it because of issue in painting with robby:robot and receptacle_shelf:shelf
+                unique_types = []
+                unique_types_set = set()
+                for param in params1:
+                    if param.type not in unique_types_set:
+                        unique_types.append(param.type)
+                        unique_types_set.add(param.type)
+
+                # if len(params) == 3:
+                #     import pdb; pdb.set_trace()
+
+                # import pdb; pdb.set_trace()
+
                 group_params_by_type = []
                 for elem_type in unique_types:
                     elements_of_type = [elem for elem in params1 if elem.type == elem_type]
@@ -177,6 +190,8 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                 relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
                 objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
                 objects_list = sorted(objects)
+                # objects_list = sorted(objects, key=lambda x: (x.type.name, x.name))
+                # have to do this otherwise robby:robot and receptacle_shelf:shelf get swapped later after they are lifted and sort by type and not name
                 params = utils.create_new_variables([o.type for o in objects_list])
                 obj_to_var = dict(zip(objects_list, params))
                 var_to_obj = dict(zip(params, objects_list))
@@ -201,7 +216,9 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             # if we just took an intersection of lifted atoms between the two operators, the predicates would would not
             # correspond to each other properly.
             # if name in  ["Op2-Stack"]:
-            if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
+            # if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
+            if True:
+                print(f"DOING THIS FOR {name}")
                 op1 = ops[0]
                 op1_params = op1[0]
                 op1_objs_list = op1[1]
@@ -261,6 +278,11 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                         # in terms of a particular object -> variable mapping.
                         new_op2_params = [mapping[p] for p in op2_params]
                         new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
+                        # import pdb; pdb.set_trace()
+                        try:
+                            op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                        except:
+                            import pdb; pdb.set_trace()
                         op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
                         op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
                         op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
@@ -314,7 +336,10 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                 relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
 
                 seg_objs = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(seg_opt_objs)
+
                 seg_objs_list = sorted(seg_objs)
+                # seg_objs_list = sorted(seg_objs, key=lambda x: (x.type.name, x.name))
+
                 remaining_objs = [o for o in seg_objs_list if o not in seg_opt_objs]
                 # if you do this, then there's an issue in sampler learning, because it uses
                 # pre.variables for pre in preconditions -- so it will look for ?x0 but not find it
