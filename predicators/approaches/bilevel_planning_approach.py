@@ -56,10 +56,131 @@ class BilevelPlanningApproach(BaseApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        if self._num_calls == 21:
-            import pdb; pdb.set_trace()
 
-            nsrt_list = list(nsrts)
+        # print("DEMO NUMBER: ", self._num_calls-1)
+        # import pdb; pdb.set_trace()
+        # def print_state(state):
+        # for k, v in task.init.data.items(): print(f"{k}: {v.tolist()}")
+
+        if self._num_calls in [2, 4, 6]:
+            import pdb; pdb.set_trace()
+        #
+        #     objects = sorted(task.init.data.keys())
+        #     robot = [o for o in objects if o.name == "robby"][0]
+        #     obj0 = [o for o in objects if o.name == "obj0"][0]
+        #     obj1 = [o for o in objects if o.name == "obj1"][0]
+        #     obj2 = [o for o in objects if o.name == "obj2"][0]
+        #     obj3 = [o for o in objects if o.name == "obj3"][0]
+        #     box_lid = [o for o in objects if o.name == "box_lid"][0]
+        #     box = [o for o in objects if o.name == "receptacle_box"][0]
+        #     shelf = [o for o in objects if o.name == "receptacle_shelf"][0]
+        #     nsrts_names = [n.name for n in sorted(nsrts)]
+        #     nsrts_list = [n for n in sorted(nsrts)]
+        #
+        #     # do obj3
+        #
+        #     first = nsrts_list[5].ground((obj3, robot)) # place on table
+        #     assert first.preconditions.issubset(utils.abstract(task.init, preds))
+        #     after_first = (utils.abstract(task.init, preds) | first.add_effects) - first.delete_effects
+        #
+        #     second = nsrts_list[10].ground((box_lid, robot)) # open lid
+        #     assert second.preconditions.issubset(after_first)
+        #     after_second = (after_first | second.add_effects) - second.delete_effects
+        #
+        #     third = nsrts_list[1].ground((obj3, robot)) # pick from top
+        #     assert third.preconditions.issubset(after_second)
+        #     after_third = (after_second | third.add_effects) - third.delete_effects
+        #
+        #     fourth = nsrts_list[7].ground((obj3, box, robot)) # paint to box
+        #     assert fourth.preconditions.issubset(after_third)
+        #     after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+        #
+        #     fifth = nsrts_list[8].ground((obj3, box, robot)) # place in box
+        #     assert fifth.preconditions.issubset(after_fourth)
+        #     after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
+        #
+        #     # do obj0
+        #
+        #     sixth = nsrts_list[3].ground((obj0, robot)) # pick from side
+        #     assert sixth.preconditions.issubset(after_fifth)
+        #     after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
+        #
+        #     seventh = nsrts_list[9].ground((obj0, robot)) # dry
+        #     assert seventh.preconditions.issubset(after_sixth)
+        #     after_seventh = (after_sixth | seventh.add_effects) - seventh.delete_effects
+        #
+        #     eighth = nsrts_list[2].ground((obj0, shelf, robot)) # paint to shelf
+        #     assert eighth.preconditions.issubset(after_seventh)
+        #     after_eighth = (after_seventh | eighth.add_effects) - eighth.delete_effects
+        #
+        #     ninth = nsrts_list[0].ground((obj0, shelf, robot)) # place in shelf
+        #     assert ninth.preconditions.issubset(after_eighth)
+        #     after_ninth = (after_eighth | ninth.add_effects) - ninth.delete_effects
+        #
+        #     # do obj1
+        #
+        #     tenth = nsrts_list[3].ground((obj1, robot)) # pick from side
+        #     assert tenth.preconditions.issubset(after_ninth)
+        #     after_tenth = (after_ninth | tenth.add_effects) - tenth.delete_effects
+        #
+        #     eleventh = nsrts_list[6].ground((obj1, robot)) # wash
+        #     assert eleventh.preconditions.issubset(after_tenth)
+        #     after_eleventh = (after_tenth | eleventh.add_effects) - eleventh.delete_effects
+        #
+        #     twelvth = nsrts_list[9].ground((obj1, robot)) # dry
+        #     assert twelvth.preconditions.issubset(after_eleventh)
+        #     after_twelvth = (after_eleventh | twelvth.add_effects) - twelvth.delete_effects
+        #
+        #     thirteenth = nsrts_list[2].ground((obj1, shelf, robot)) # paint to shelf
+        #     assert thirteenth.preconditions.issubset(after_twelvth)
+        #     after_thirteenth = (after_twelvth | thirteenth.add_effects) - thirteenth.delete_effects
+        #
+        #     fourteenth = nsrts_list[0].ground((obj1, shelf, robot)) # place in shelf
+        #     assert fourteenth.preconditions.issubset(after_thirteenth)
+        #     after_fourteenth = (after_thirteenth | fourteenth.add_effects) - fourteenth.delete_effects
+        #
+        #     # do obj2
+        #
+        #     fifteenth = nsrts_list[3].ground((obj2, robot)) # pick from side
+        #     assert fifteenth.preconditions.issubset(after_fourteenth)
+        #     after_fifteenth = (after_fourteenth | fifteenth.add_effects) - fifteenth.delete_effects
+        #
+        #     sixteenth = nsrts_list[6].ground((obj2, robot)) # wash
+        #     assert sixteenth.preconditions.issubset(after_fifteenth)
+        #     after_sixteenth = (after_fifteenth | sixteenth.add_effects) - sixteenth.delete_effects
+        #
+        #     seventeenth = nsrts_list[9].ground((obj2, robot)) # dry
+        #     assert seventeenth.preconditions.issubset(after_sixteenth)
+        #     after_seventeenth = (after_sixteenth | seventeenth.add_effects) - seventeenth.delete_effects
+        #
+        #     eighteenth = nsrts_list[2].ground((obj2, shelf, robot)) # paint to shelf
+        #     assert eighteenth.preconditions.issubset(after_seventeenth)
+        #     after_eighteenth = (after_seventeenth | eighteenth.add_effects) - eighteenth.delete_effects
+        #
+        #     nineteenth = nsrts_list[0].ground((obj2, shelf, robot)) # place in shelf
+        #     assert nineteenth.preconditions.issubset(after_eighteenth)
+        #     after_nineteenth = (after_eighteenth | nineteenth.add_effects) - nineteenth.delete_effects
+
+            # first = nsrts_list[10].ground((box_lid, robot))
+            #
+            #
+            #
+            #
+            # # first = nsrts_list[1].ground((obj0, robot)) # Op1-Pick
+            # first = nsrts_list[7].ground((obj0, box, robot))
+            # # satisfied = first.preconditions.intersection(utils.abstract(task.init, preds))
+            # assert first.preconditions.issubset(utils.abstract(task.init, preds))
+            # after_first = (utils.abstract(task.init, preds) | first.add_effects) - first.delete_effects
+            # second = nsrts_list[10].ground((box_lid, robot))
+            # assert second.preconditions.issubset(after_first)
+            #
+            #
+            # third = nsrts_list[8].ground((obj0, box, robot))
+            # assert third.preconditions.issubset(after_second)
+
+
+        #
+        #     nsrt_list = list(nsrts)
 
         # Run task planning only and then greedily sample and execute in the
         # policy.
@@ -131,6 +252,7 @@ class BilevelPlanningApproach(BaseApproach):
             start_time = time.perf_counter()
 
             if CFG.sesame_task_planner == "astar":
+                ground_nsrts, reachable_atoms = task_plan_grounding(init_atoms, objects, nsrts)
                 ground_nsrts, reachable_atoms = task_plan_grounding(
                     init_atoms, objects, nsrts)
                 heuristic = utils.create_task_planning_heuristic(

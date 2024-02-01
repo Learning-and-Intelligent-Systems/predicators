@@ -1141,6 +1141,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             all_gt_op_names = set(ground_nsrt.parent.name
                                   for anno_list in dataset.annotations
                                   for ground_nsrt in anno_list)
+            import pdb; pdb.set_trace()
             # Next, make a dictionary mapping operator name to segments
             # where that operator was used.
             gt_op_to_segments: Dict[str, List[Segment]] = {
@@ -1386,13 +1387,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Go through demos
             temp = []
             for a, segmented_traj in enumerate(segmented_trajs):
-                if a == 10:
-                    break
+                # if a == 10:
+                #     break
                 traj = []
                 for seg in segmented_traj:
                     traj.append(seg_to_op(seg, final_clusters))
                 temp.append(traj)
+
                 print(traj)
+                # if a == 1:
+                #     import pdb; pdb.set_trace()
             # import pdb; pdb.set_trace()
 
             ttt = list(predicates_to_keep)
@@ -1461,7 +1465,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # print_demo2(segmented_trajs[8][0:3], "demo8_part1.txt")
             # print_demo2(segmented_trajs[8][3:], "demo8_part12.txt")
 
-            print_demo2(segmented_trajs[7], "demo7.txt")
+            # for i, t in enumerate(temp):
+            #     for o in t:
+            #         if o in ["Op4-Place", "Op3-Place"]:
+            #             print(f"demo {i} has {o}")
+            #
+            # print_demo2(segmented_trajs[2], "demo2.txt")
             import pdb; pdb.set_trace()
 
             ###################
@@ -1565,9 +1574,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             import pdb; pdb.set_trace()
 
+            # final_potential_ops = {
+            #     op_name: {
+            #         "pre": set(),
+            #         "add": set(),
+            #         "del": set()
+            #     } for op_name in all_potential_ops[0].keys()
+            # }
             final_potential_ops = {
                 op_name: {
-                    "pre": set(),
+                    "pre": ddd[op_name][0], # take all the precondition predicates 
                     "add": set(),
                     "del": set()
                 } for op_name in all_potential_ops[0].keys()
