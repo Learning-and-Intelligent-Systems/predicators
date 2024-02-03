@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 
+plt.style.use('willshen')
+
+
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
@@ -216,7 +219,8 @@ def _make_plots(history: List[List[bool]], all_betas: List[Tuple[float,
                      marker="*",
                      label=label)
         # Finish figure.
-        plt.legend(loc="center right", framealpha=1.0)
+        # plt.legend(loc="center right", framealpha=1.0)
+        plt.tight_layout()
         img = utils.fig2data(fig, dpi=300)
         imgs.append(img)
     utils.save_video(outfile, imgs)
