@@ -1583,9 +1583,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # }
             final_potential_ops = {
                 op_name: {
-                    "pre": ddd[op_name][0], # take all the precondition predicates 
+                    "pre": ddd[op_name][0], # take all the precondition predicates
                     "add": set(),
-                    "del": set()
+                    "del": ddd[op_name][2]
                 } for op_name in all_potential_ops[0].keys()
             }
 

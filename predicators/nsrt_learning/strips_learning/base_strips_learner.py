@@ -179,6 +179,65 @@ class BaseSTRIPSLearner(abc.ABC):
         if ground_nsrt_plan is None:
             import pdb; pdb.set_trace()
 
+            Op9_OpenLid = [op for op in strips_ops if op.name=="Op9-OpenLid"][0]
+            Op1_Pick = [op for op in strips_ops if op.name=="Op1-Pick"][0]
+            Op8_Dry = [op for op in strips_ops if op.name=="Op8-Dry"][0]
+            Op6_Paint = [op for op in strips_ops if op.name=="Op6-Paint"][0]
+            Op7_Place = [op for op in strips_ops if op.name=="Op7-Place"][0]
+            Op2_Pick = [op for op in strips_ops if op.name=="Op2-Pick"][0]
+            Op5_Wash = [op for op in strips_ops if op.name=="Op5-Wash"][0]
+            Op10_Paint = [op for op in strips_ops if op.name=="Op10-Paint"][0]
+            Op0_Place = [op for op in strips_ops if op.name=="Op0-Place"][0]
+            Op3_Place = [op for op in strips_ops if op.name=="Op3-Place"][0]
+            Op4_Place = [op for op in strips_ops if op.name=="Op4-Place"][0]
+
+            objs = list(init_state.data.keys())
+            robot = [o for o in objs if o.name == "robby"][0]
+            box_lid = [o for o in objs if o.name == "box_lid"][0]
+            obj0 = [o for o in objs if o.name == "obj0"][0]
+            obj1 = [o for o in objs if o.name == "obj1"][0]
+            receptacle_box = [o for o in objs if o.name == "receptacle_box"][0]
+            receptacle_shelf = [o for o in objs if o.name == "receptacle_shelf"][0]
+
+            first = Op9_OpenLid.ground((box_lid, robot))
+            second = Op1_Pick.ground((obj1, robot))
+            third = Op8_Dry.ground((obj1, robot))
+            fourth = Op6_Paint.ground((obj1, receptacle_box, robot))
+            fifth = Op7_Place.ground((obj1, receptacle_box, robot))
+            sixth = Op2_Pick.ground((obj0, robot))
+            seventh = Op5_Wash.ground((obj0, robot))
+            eighth = Op8_Dry.ground((obj0, robot))
+            ninth = Op10_Paint.ground((obj0, receptacle_shelf, robot))
+            tenth = Op0_Place.ground((obj0, receptacle_shelf, robot))
+
+            import pdb; pdb.set_trace()
+
+            first.preconditions == first.preconditions.intersection(init_atoms)
+            after_first = (init_atoms | first.add_effects) - first.delete_effects
+            assert second.preconditions.issubset(after_first)
+            after_second = (after_first | second.add_effects) - second.delete_effects
+            assert third.preconditions.issubset(after_second)
+            after_third = (after_second | third.add_effects) - third.delete_effects
+            assert fourth.preconditions.issubset(after_third)
+            after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+            assert fifth.preconditions.issubset(after_fourth)
+            after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
+            assert sixth.preconditions.issubset(after_fifth)
+            after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
+            assert seventh.preconditions.issubset(after_sixth)
+            after_seventh = (after_sixth | seventh.add_effects) - seventh.delete_effects
+            assert eighth.preconditions.issubset(after_seventh)
+            after_eighth = (after_seventh | eighth.add_effects) - eighth.delete_effects
+            assert ninth.preconditions.issubset(after_eighth)
+            after_ninth = (after_eigth | ninth.add_effects) - ninth.delete_effects
+            assert tenth.preconditions.issubset(after_ninth)
+            after_tenth = (after_ninth | ninth.add_effects) - ninth.delete_effects
+            assert traj_goal.issubset(after_tenth)
+
+            import pdb; pdb.set_trace()
+
+
+            ##########################################
             Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
             Op1PutOnTable = [op for op in strips_ops if op.name=="Op1-PutOnTable"][0]
             Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
@@ -196,7 +255,7 @@ class BaseSTRIPSLearner(abc.ABC):
             first = Op3Pick.ground((block1, block2, robot))
             first.preconditions == first.preconditions.intersection(init_atoms)
             after_first = (init_atoms | first.add_effects) - first.delete_effects
-            
+
             second = Op1PutOnTable.ground((block2, robot))
             second.preconditions == second.preconditions.intersection(after_first)
             after_second = (after_first | second.add_effects) - second.delete_effects
