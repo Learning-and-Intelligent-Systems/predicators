@@ -1626,6 +1626,7 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
         return X[:, :self._y_dim]
 
     def fit(self, X_cond: Array, Y_out: Array, Y_aux: Optional[Array] = None) -> None:
+        self.train()
         num_data, _ = Y_out.shape
         if not self.is_trained:
             self.is_trained = True
@@ -1738,6 +1739,7 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
         return y_outs
 
     def predict_sample(self, x_cond: Array, rng: np.random.Generator) -> Array:
+        self.eval()
         if x_cond.round(decimals=4).data.tobytes() not in self._cache:
             x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
             x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self._device)

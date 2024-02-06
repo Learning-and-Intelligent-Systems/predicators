@@ -11,6 +11,7 @@ from predicators.planning import _DiscoveredFailure, _DiscoveredFailureException
 from predicators.settings import CFG
 from predicators.structs import _GroundNSRT, _Option, GroundAtom, Metrics, Object, State, Task
 from predicators.utils import EnvironmentFailure
+import logging
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -223,7 +224,7 @@ def _backtrack(
             next_state, num_actions = \
                 option_model.get_next_state_and_num_actions(current_state, option)
         except EnvironmentFailure as e:
-            # logging.info(f"Depth {current_depth} Environment failure")
+            logging.info(f"Depth {current_depth} Environment failure")
             tree.append_failed_search(option, None)
             if CFG.sesame_propagate_failures == "immediately":
                 return tree, False, (_DiscoveredFailure(e, nsrt), current_depth)
@@ -233,20 +234,24 @@ def _backtrack(
 
         if _check_static_object_changed(set(current_state) - set(nsrt.objects), current_state, next_state) or\
            num_actions > max_horizon or num_actions == 0:
-            # logging.info(f"Depth {current_depth} State not changed")
+            logging.info(f"Depth {current_depth} State not changed")
             tree.append_failed_search(option, None)
             continue
         if CFG.sesame_check_expected_atoms and not all(a.holds(next_state) for a in atoms_sequence[current_depth + 1]):
-            # logging.info(f"Depth {current_depth} Expected atoms do not hold")
+            logging.info(f"Depth {current_depth} Expected atoms do not hold")
             tree.append_failed_search(option, None) # REMOVED FAILURE MANAGEMENT FROM HERE
             continue
 
         next_states = states + [next_state]
         if feasibility is not None and len(next_states) < len(skeleton) + 1:
             if not feasibility(next_states, skeleton):
-                # logging.info(f"Depth {current_depth} Feasibility classifier does not hold")
+                logging.info(f"Depth {current_depth} Feasibility classifier does not hold")
                 tree.append_failed_search(option, None)
                 continue
+            else:
+                logging.info(f"Depth {current_depth} Feasibility classifier holds")
+                # Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
+                # plt.show()
 
 
         try_end_time = time.perf_counter()
@@ -268,7 +273,7 @@ def _backtrack(
         if success:
             tree.set_successful_try(option, next_tree, refinement_time)
             return tree, True, None
-        # logging.info(f"Depth {current_depth} Subtree Failed")
+        logging.info(f"Depth {current_depth} Subtree Failed")
         tree.append_failed_search(option, next_tree)
 
         if not mb_next_env_failure:

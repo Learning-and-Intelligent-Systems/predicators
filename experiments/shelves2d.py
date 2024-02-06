@@ -63,8 +63,8 @@ class Shelves2DEnv(BaseEnv):
     cover_max_distance: ClassVar[float] = 1#0.2
     cover_sideways_tolerance: ClassVar[float] = 1#0.2
 
-    range_world_x: ClassVar[Tuple[(float, float)]] = (-35, 35)
-    range_world_y: ClassVar[Tuple[(float, float)]] = (-35, 35)
+    range_world_x: ClassVar[Tuple[(float, float)]] = (-60, 60)
+    range_world_y: ClassVar[Tuple[(float, float)]] = (-60, 60)
 
     num_tries: ClassVar[int] = 100000
 
@@ -72,8 +72,8 @@ class Shelves2DEnv(BaseEnv):
     range_subtasks_train: ClassVar[Tuple[(int, int)]] = (1, 1)#(5, 6)
     range_subtasks_test: ClassVar[Tuple[(int, int)]] = (1, 1)#(10, 12)
 
-    range_shelves_train: ClassVar[Tuple[(int, int)]] = (3, 3)#(2, 3)
-    range_shelves_test: ClassVar[Tuple[(int, int)]] = (3, 3)#(12, 15)
+    range_shelves_train: ClassVar[Tuple[(int, int)]] = (2, 5)#(2, 3)
+    range_shelves_test: ClassVar[Tuple[(int, int)]] = (10, 10)#(12, 15)
 
     range_box_width: ClassVar[Tuple[(float, float)]] = (1, 5)
     range_box_height: ClassVar[Tuple[(float, float)]] = (7, 15)

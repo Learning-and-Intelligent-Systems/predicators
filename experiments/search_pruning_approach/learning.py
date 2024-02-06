@@ -156,6 +156,71 @@ class PositionalEmbeddingLayer(nn.Module):
 
 FeasibilityClassifier = Callable[[Sequence[State], Sequence[_GroundNSRT]], bool]
 
+# def get_soft_binning_ece_tensor(predictions, labels, soft_binning_bins,
+#                                 soft_binning_use_decay,
+#                                 soft_binning_decay_factor, soft_binning_temp):
+#     soft_binning_anchors = torch.tensor(
+#         np.arange(1.0 / (2.0 * soft_binning_bins), 1.0, 1.0 / soft_binning_bins),
+#         dtype=torch.float32)
+
+#     predictions_tile = predictions.unsqueeze(1).expand(-1, soft_binning_anchors.size(0))
+#     predictions_tile = predictions_tile.unsqueeze(2)
+#     bin_anchors_tile = soft_binning_anchors.unsqueeze(0).expand(predictions.size(0), -1)
+#     bin_anchors_tile = bin_anchors_tile.unsqueeze(2)
+
+#     if soft_binning_use_decay:
+#         soft_binning_temp = 1 / (
+#             math.log(soft_binning_decay_factor) * soft_binning_bins *
+#             soft_binning_bins)
+
+#     predictions_bin_anchors_product = torch.cat([predictions_tile, bin_anchors_tile], dim=2)
+
+#     predictions_bin_anchors_differences = torch.sum(
+#         torch.scan(
+#             lambda _, row: torch.scan(
+#                 lambda _, x: torch.tensor(
+#                     [-((x[0] - x[1])**2) / soft_binning_temp, 0.],
+#                     dtype=torch.float32),
+#                 elems=row,
+#                 initializer=torch.zeros(predictions_bin_anchors_product.size()[2])
+#             ),
+#             elems=predictions_bin_anchors_product,
+#             initializer=torch.zeros(predictions_bin_anchors_product.size()[1:])
+#         ),
+#         dim=2
+#     )
+
+#     predictions_soft_binning_coeffs = F.softmax(predictions_bin_anchors_differences, dim=1)
+
+#     sum_coeffs_for_bin = torch.sum(predictions_soft_binning_coeffs, dim=[0])
+
+#     intermediate_predictions_reshaped_tensor = predictions.repeat(soft_binning_anchors.size())
+#     intermediate_predictions_reshaped_tensor = intermediate_predictions_reshaped_tensor.view(
+#         predictions_soft_binning_coeffs.size())
+#     net_bin_confidence = torch.sum(
+#         intermediate_predictions_reshaped_tensor * predictions_soft_binning_coeffs,
+#         dim=[0]
+#     ) / torch.max(sum_coeffs_for_bin, EPS * torch.ones_like(sum_coeffs_for_bin))
+
+#     intermediate_labels_reshaped_tensor = labels.repeat(soft_binning_anchors.size())
+#     intermediate_labels_reshaped_tensor = intermediate_labels_reshaped_tensor.view(
+#         predictions_soft_binning_coeffs.size())
+#     net_bin_accuracy = torch.sum(
+#         intermediate_labels_reshaped_tensor * predictions_soft_binning_coeffs,
+#         dim=[0]
+#     ) / torch.max(sum_coeffs_for_bin, EPS * torch.ones_like(sum_coeffs_for_bin))
+
+#     bin_weights = sum_coeffs_for_bin / torch.norm(sum_coeffs_for_bin, p=1)
+#     soft_binning_ece = torch.sqrt(
+#         torch.tensordot(
+#             (net_bin_confidence - net_bin_accuracy).pow(2),
+#             bin_weights,
+#             dims=1,
+#         )
+#     )
+
+#     return soft_binning_ece
+
 class NeuralFeasibilityClassifier(nn.Module):
     def __init__(self,
         featurizer_hidden_sizes: List[int],
@@ -173,10 +238,11 @@ class NeuralFeasibilityClassifier(nn.Module):
         cls_style: str,
         embedding_horizon: int,
         batch_size: int,
-        validate_split: float = 0.5,
+        early_stopping_loss_thresh: float = 0.0001,
+        validate_split: float = 0.125,
         dropout: int = 0.25,
         num_threads: int = 8,
-        classification_threshold: float = 0.5,
+        classification_threshold: float = 0.8,
         device: Optional[str] = 'cuda'
     ):
         super().__init__()
@@ -186,7 +252,10 @@ class NeuralFeasibilityClassifier(nn.Module):
         assert cls_style in {'learned', 'marked', 'mean'}
         self._cls_style = cls_style
 
+        self._max_inference_suffix = max_inference_suffix
         self._thresh = classification_threshold
+
+        self._early_stopping_thresh = early_stopping_loss_thresh
         self._num_iters = max_train_iters
         self._batch_size = batch_size
         self._validate_split = validate_split
@@ -231,8 +300,8 @@ class NeuralFeasibilityClassifier(nn.Module):
             nn.Linear(classifier_feature_size, 1, device=device),
             nn.Sigmoid(),
         )
+
         self._optimizer: Optional[torch.optim.Optimizer] = None
-        self._max_inference_suffix = max_inference_suffix
 
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> bool:
         if len(states) == len(skeleton) + 1: # Make sure there is at least one decoder nsrt
@@ -245,13 +314,13 @@ class NeuralFeasibilityClassifier(nn.Module):
         self._init_featurizers_datapoint(encoder_nsrts, decoder_nsrts, encoder_states, decoder_states)
 
         self.eval()
-        confidence = self([encoder_nsrts], [decoder_nsrts], [encoder_states], [decoder_states])
-        print(confidence)
+        confidence = self([encoder_nsrts], [decoder_nsrts], [encoder_states], [decoder_states]).cpu()
+        print(f"Confidence {float(confidence)}")
         return confidence >= self._thresh
 
     def fit(self, positive_examples: Sequence[FeasibilityDatapoint], negative_examples: Sequence[FeasibilityDatapoint]) -> None:
         self._create_optimizer()
-        if not positive_examples and not negative_examples == 0:
+        if not positive_examples and not negative_examples:
             return
 
         logging.info("Training Feasibility Classifier...")
@@ -291,7 +360,7 @@ class NeuralFeasibilityClassifier(nn.Module):
         # Training loop
         logging.info("Running training")
         train_loss_fn = nn.BCELoss()
-        validate_loss_fn = nn.BCELoss(reduction='none')
+        validate_loss_fn = nn.BCELoss()
         # with torch.autograd.detect_anomaly(False):
         for itr, (x_train_batch, y_train_batch) in zip(range(self._num_iters), itertools.cycle(train_dataloader)):
             self.train()
@@ -301,12 +370,39 @@ class NeuralFeasibilityClassifier(nn.Module):
             self._optimizer.step()
             if itr % 100 == 0:
                 self.eval()
-                validate_loss = np.concatenate([
-                    validate_loss_fn(self(*x_validate_batch), y_validate_batch).detach().cpu().numpy()
+                y_pred_batches, y_true_batches = zip(*(
+                    (self(*x_validate_batch), y_validate_batch)
                     for x_validate_batch, y_validate_batch in validate_dataloader
-                ]).mean()
+                ))
+                y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
 
-                logging.info(f"Loss: {validate_loss}, Training Iteration {itr}/{self._num_iters}")
+                validate_loss = float(validate_loss_fn(y_pred, y_true).cpu().detach())
+                matches = torch.logical_or(
+                    torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred <= self._thresh),
+                    torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= self._thresh)
+                ).cpu().detach().numpy()
+
+                num_false_positives = torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh).cpu().detach().numpy().sum()
+
+                false_positive_max_confidence = float(torch.cat([y_pred[
+                    torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh)
+                ].flatten(), tensor([0], device=self._device)]).max().cpu().detach())
+
+                # false_positive_max_confidence_matches = torch.logical_or(
+                #     torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred <= false_positive_max_confidence),
+                #     torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= false_positive_max_confidence)
+                # ).cpu().detach().numpy()
+
+                acceptance_rate = (
+                    torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= false_positive_max_confidence).cpu().detach().numpy().sum() /
+                    (torch.abs(y_true - 1.0) < 0.0001).cpu().detach().numpy().sum()
+                )
+
+                logging.info(f"Loss: {validate_loss}, Acc: {matches.mean():.1%}"
+                             f"Worst False+: {false_positive_max_confidence:.4}, Acceptance rate: {acceptance_rate:.1%}, "
+                             f"Training Iter {itr}/{self._num_iters}")
+                if validate_loss <= self._early_stopping_thresh:
+                    break
 
         if CFG.feasibility_loss_output_file:
             validate_loss = np.concatenate([
@@ -315,6 +411,20 @@ class NeuralFeasibilityClassifier(nn.Module):
             ]).mean()
             print(validate_loss, file=open(CFG.feasibility_loss_output_file, "w"))
             raise RuntimeError()
+
+        # Threshold recalibration TODO: revisit this and add training-time calibration
+        y_pred_batches, y_true_batches = zip(*(
+            (self(*x_validate_batch), y_validate_batch)
+            for x_validate_batch, y_validate_batch in validate_dataloader
+        ))
+        y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
+
+        false_positive_max_confidence = float(torch.cat([y_pred[
+            torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh)
+        ].flatten(), tensor([0], device=self._device)]).max().cpu().detach())
+
+        self._thresh = false_positive_max_confidence
+
 
     def _collate_batch(
         self, batch: Sequence[Tuple[Tuple[Sequence[NSRT], Sequence[NSRT], Sequence[npt.NDArray], Sequence[npt.NDArray]], int]]
@@ -407,10 +517,14 @@ class NeuralFeasibilityClassifier(nn.Module):
                 mask[batch_idx, seq_idx] = False
 
         for nsrt, data in grouped_data.items():
+            if not data:
+                continue
             states, batch_indices, seq_indices = zip(*data)
             tokens[batch_indices, seq_indices, :] = featurizers[nsrt](np.stack(states))
 
-        return tokens, mask.to(self._device)
+        if mask.device != tokens.device:
+            mask = mask.to(self._device)
+        return tokens, mask
 
     def _init_featurizers_dataset(self, dataset: FeasibilityDataset) -> None:
         """ Initializes featurizers that should be learned from that datapoint
