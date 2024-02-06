@@ -179,38 +179,61 @@ class BaseSTRIPSLearner(abc.ABC):
         if ground_nsrt_plan is None:
             import pdb; pdb.set_trace()
 
-            Op9_OpenLid = [op for op in strips_ops if op.name=="Op9-OpenLid"][0]
-            Op1_Pick = [op for op in strips_ops if op.name=="Op1-Pick"][0]
-            Op8_Dry = [op for op in strips_ops if op.name=="Op8-Dry"][0]
-            Op6_Paint = [op for op in strips_ops if op.name=="Op6-Paint"][0]
+            from predicators.planning import task_plan_with_option_plan_constraint2
+            ground_nsrt_plan = task_plan_with_option_plan_constraint2(objects, self._predicates, strips_ops, option_specs, init_atoms, traj_goal, option_plan, atoms_seq)
+
+            for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
+
+            def check_plan(plan, init_atoms):
+                abstract_states = [init_atoms]
+                for p in plan:
+                    try:
+                        p.preconditions.issubset(abstract_states[-1])
+                    except:
+                        import pdb; pdb.set_trace()
+                    new_abstract_state = (abstract_states[-1] | p.add_effects) - p.delete_effects
+                    # new_abstract_state = utils.apply_operator(p, abstract_states[-1]) # this does not work properly!
+                    abstract_states.append(new_abstract_state)
+
+                return abstract_states
+
+            import pdb; pdb.set_trace()
+
+
+
+            Op0_FastenNailWithHammer = [op for op in strips_ops if op.name=="Op0-FastenNailWithHammer"][0]
+            Op1_PickWrench = [op for op in strips_ops if op.name=="Op1-PickWrench"][0]
+            Op2_PickScrew = [op for op in strips_ops if op.name=="Op2-PickScrew"][0]
+            Op3_FastenScrewByHand = [op for op in strips_ops if op.name=="Op3-FastenScrewByHand"][0]
+            Op4_PickBolt = [op for op in strips_ops if op.name=="Op4-PickBolt"][0]
+            Op5_PickScrewdriver = [op for op in strips_ops if op.name=="Op5-PickScrewdriver"][0]
+            Op6_Place = [op for op in strips_ops if op.name=="Op6-Place"][0]
             Op7_Place = [op for op in strips_ops if op.name=="Op7-Place"][0]
-            Op2_Pick = [op for op in strips_ops if op.name=="Op2-Pick"][0]
-            Op5_Wash = [op for op in strips_ops if op.name=="Op5-Wash"][0]
-            Op10_Paint = [op for op in strips_ops if op.name=="Op10-Paint"][0]
-            Op0_Place = [op for op in strips_ops if op.name=="Op0-Place"][0]
-            Op3_Place = [op for op in strips_ops if op.name=="Op3-Place"][0]
-            Op4_Place = [op for op in strips_ops if op.name=="Op4-Place"][0]
+            Op8_Place = [op for op in strips_ops if op.name=="Op8-Place"][0]
+            Op9_PickNail = [op for op in strips_ops if op.name=="Op9-PickNail"][0]
+            Op10_FastenBoltWithWrench = [op for op in strips_ops if op.name=="Op10-FastenBoltWithWrench"][0]
+            Op11_Place = [op for op in strips_ops if op.name=="Op11-Place"][0]
+            Op12_Place = [op for op in strips_ops if op.name=="Op12-Place"][0]
+            Op13_Place = [op for op in strips_ops if op.name=="Op13-Place"][0]
+            Op14_PickHammer = [op for op in strips_ops if op.name=="Op14-PickHammer"][0]
+            Op15_FastenScrewWithScrewdriver = [op for op in strips_ops if op.name=="Op15-FastenScrewWithScrewdriver"][0]
 
             objs = list(init_state.data.keys())
             robot = [o for o in objs if o.name == "robby"][0]
-            box_lid = [o for o in objs if o.name == "box_lid"][0]
-            obj0 = [o for o in objs if o.name == "obj0"][0]
-            obj1 = [o for o in objs if o.name == "obj1"][0]
-            receptacle_box = [o for o in objs if o.name == "receptacle_box"][0]
-            receptacle_shelf = [o for o in objs if o.name == "receptacle_shelf"][0]
+            screw0 = [o for o in objs if o.name == "screw0"][0]
+            bolt0 = [o for o in objs if o.name == "bolt0"][0]
+            contraption0 = [o for o in objs if o.name == "contraption0"][0]
+            contraption1 = [o for o in objs if o.name == "contraption1"][0]
+            hammer0 = [o for o in objs if o.name == "hammer0"][0]
+            hammer1 = [o for o in objs if o.name == "hammer1"][0]
+            screwdriver0 = [o for o in objs if o.name == "screwdriver0"][0]
+            screwdriver1 = [o for o in objs if o.name == "screwdriver1"][0]
+            screwdriver2 = [o for o in objs if o.name == "screwdriver2"][0]
+            wrench0 = [o for o in objs if o.name == "wrench0"][0]
 
-            first = Op9_OpenLid.ground((box_lid, robot))
-            second = Op1_Pick.ground((obj1, robot))
-            third = Op8_Dry.ground((obj1, robot))
-            fourth = Op6_Paint.ground((obj1, receptacle_box, robot))
-            fifth = Op7_Place.ground((obj1, receptacle_box, robot))
-            sixth = Op2_Pick.ground((obj0, robot))
-            seventh = Op5_Wash.ground((obj0, robot))
-            eighth = Op8_Dry.ground((obj0, robot))
-            ninth = Op10_Paint.ground((obj0, receptacle_shelf, robot))
-            tenth = Op0_Place.ground((obj0, receptacle_shelf, robot))
-
-            import pdb; pdb.set_trace()
+            first = Op2_PickScrew.ground((robot, screw0))
+            second = Op12_Place.ground((contraption0, robot, screw0))
+            third = Op3_FastenScrewByHand.ground((contraption0, robot, screw0))
 
             first.preconditions == first.preconditions.intersection(init_atoms)
             after_first = (init_atoms | first.add_effects) - first.delete_effects
@@ -218,50 +241,97 @@ class BaseSTRIPSLearner(abc.ABC):
             after_second = (after_first | second.add_effects) - second.delete_effects
             assert third.preconditions.issubset(after_second)
             after_third = (after_second | third.add_effects) - third.delete_effects
-            assert fourth.preconditions.issubset(after_third)
-            after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
-            assert fifth.preconditions.issubset(after_fourth)
-            after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
-            assert sixth.preconditions.issubset(after_fifth)
-            after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
-            assert seventh.preconditions.issubset(after_sixth)
-            after_seventh = (after_sixth | seventh.add_effects) - seventh.delete_effects
-            assert eighth.preconditions.issubset(after_seventh)
-            after_eighth = (after_seventh | eighth.add_effects) - eighth.delete_effects
-            assert ninth.preconditions.issubset(after_eighth)
-            after_ninth = (after_eigth | ninth.add_effects) - ninth.delete_effects
-            assert tenth.preconditions.issubset(after_ninth)
-            after_tenth = (after_ninth | ninth.add_effects) - ninth.delete_effects
-            assert traj_goal.issubset(after_tenth)
 
-            import pdb; pdb.set_trace()
+            (Pdb) third.preconditions - third.preconditions.intersection(after_second)
+            {Forall[0:screw].[ScrewPlaced(0,1)](contraption0:contraption), NOT-Forall[0:screw].[NOT-ScrewPlaced(0,1)](contraption0:contraption)}
+            # why are we learnring this predicate, if it comes out of the intersection?
+            # I should look into why discard isn't working as expected -- if so, there could be errosr in other places where that is used.
 
+            plan = [Op2_PickScrew.ground((robot, screw0)), Op12_Place.ground((contraption0, robot, screw0)), Op3_FastenScrewByHand.ground((contraption0, robot, screw0)), Op4_PickBolt.ground((bolt0, robot)), Op13_Place.ground((bolt0, contraption1, robot)), Op1_PickWrench.ground((robot, wrench0)), Op10_FastenBoltWithWrench.ground((bolt0, contraption1, robot, wrench0))]
 
-            ##########################################
-            Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
-            Op1PutOnTable = [op for op in strips_ops if op.name=="Op1-PutOnTable"][0]
-            Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
-            Op3Pick = [op for op in strips_ops if op.name=="Op3-Pick"][0]
-
-            objs = list(init_state.data.keys())
-            robot = [o for o in objs if o.name == "robby"][0]
-            block0 = [b for b in objs if b.name == "block0"][0]
-            block1 = [b for b in objs if b.name == "block1"][0]
-            block2 = [b for b in objs if b.name == "block2"][0]
-            # block3 = [b for b in objs if b.name == "block3"][0]
-            # block4 = [b for b in objs if b.name == "block4"][0]
-            # block5 = [b for b in objs if b.name == "block5"][0]
-
-            first = Op3Pick.ground((block1, block2, robot))
-            first.preconditions == first.preconditions.intersection(init_atoms)
-            after_first = (init_atoms | first.add_effects) - first.delete_effects
-
-            second = Op1PutOnTable.ground((block2, robot))
-            second.preconditions == second.preconditions.intersection(after_first)
-            after_second = (after_first | second.add_effects) - second.delete_effects
-
-            third = Op3Pick.ground((block0, block1, robot))
-            third.preconditions == third.preconditions.intersection(after_second)
+            # Op9_OpenLid = [op for op in strips_ops if op.name=="Op9-OpenLid"][0]
+            # Op1_Pick = [op for op in strips_ops if op.name=="Op1-Pick"][0]
+            # Op8_Dry = [op for op in strips_ops if op.name=="Op8-Dry"][0]
+            # Op6_Paint = [op for op in strips_ops if op.name=="Op6-Paint"][0]
+            # Op7_Place = [op for op in strips_ops if op.name=="Op7-Place"][0]
+            # Op2_Pick = [op for op in strips_ops if op.name=="Op2-Pick"][0]
+            # Op5_Wash = [op for op in strips_ops if op.name=="Op5-Wash"][0]
+            # Op10_Paint = [op for op in strips_ops if op.name=="Op10-Paint"][0]
+            # Op0_Place = [op for op in strips_ops if op.name=="Op0-Place"][0]
+            # Op3_Place = [op for op in strips_ops if op.name=="Op3-Place"][0]
+            # Op4_Place = [op for op in strips_ops if op.name=="Op4-Place"][0]
+            #
+            # objs = list(init_state.data.keys())
+            # robot = [o for o in objs if o.name == "robby"][0]
+            # box_lid = [o for o in objs if o.name == "box_lid"][0]
+            # obj0 = [o for o in objs if o.name == "obj0"][0]
+            # obj1 = [o for o in objs if o.name == "obj1"][0]
+            # receptacle_box = [o for o in objs if o.name == "receptacle_box"][0]
+            # receptacle_shelf = [o for o in objs if o.name == "receptacle_shelf"][0]
+            #
+            # first = Op9_OpenLid.ground((box_lid, robot))
+            # second = Op1_Pick.ground((obj1, robot))
+            # third = Op8_Dry.ground((obj1, robot))
+            # fourth = Op6_Paint.ground((obj1, receptacle_box, robot))
+            # fifth = Op7_Place.ground((obj1, receptacle_box, robot))
+            # sixth = Op2_Pick.ground((obj0, robot))
+            # seventh = Op5_Wash.ground((obj0, robot))
+            # eighth = Op8_Dry.ground((obj0, robot))
+            # ninth = Op10_Paint.ground((obj0, receptacle_shelf, robot))
+            # tenth = Op0_Place.ground((obj0, receptacle_shelf, robot))
+            #
+            # import pdb; pdb.set_trace()
+            #
+            # first.preconditions == first.preconditions.intersection(init_atoms)
+            # after_first = (init_atoms | first.add_effects) - first.delete_effects
+            # assert second.preconditions.issubset(after_first)
+            # after_second = (after_first | second.add_effects) - second.delete_effects
+            # assert third.preconditions.issubset(after_second)
+            # after_third = (after_second | third.add_effects) - third.delete_effects
+            # assert fourth.preconditions.issubset(after_third)
+            # after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+            # assert fifth.preconditions.issubset(after_fourth)
+            # after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
+            # assert sixth.preconditions.issubset(after_fifth)
+            # after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
+            # assert seventh.preconditions.issubset(after_sixth)
+            # after_seventh = (after_sixth | seventh.add_effects) - seventh.delete_effects
+            # assert eighth.preconditions.issubset(after_seventh)
+            # after_eighth = (after_seventh | eighth.add_effects) - eighth.delete_effects
+            # assert ninth.preconditions.issubset(after_eighth)
+            # after_ninth = (after_eigth | ninth.add_effects) - ninth.delete_effects
+            # assert tenth.preconditions.issubset(after_ninth)
+            # after_tenth = (after_ninth | ninth.add_effects) - ninth.delete_effects
+            # assert traj_goal.issubset(after_tenth)
+            #
+            # import pdb; pdb.set_trace()
+            #
+            #
+            # ##########################################
+            # Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
+            # Op1PutOnTable = [op for op in strips_ops if op.name=="Op1-PutOnTable"][0]
+            # Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
+            # Op3Pick = [op for op in strips_ops if op.name=="Op3-Pick"][0]
+            #
+            # objs = list(init_state.data.keys())
+            # robot = [o for o in objs if o.name == "robby"][0]
+            # block0 = [b for b in objs if b.name == "block0"][0]
+            # block1 = [b for b in objs if b.name == "block1"][0]
+            # block2 = [b for b in objs if b.name == "block2"][0]
+            # # block3 = [b for b in objs if b.name == "block3"][0]
+            # # block4 = [b for b in objs if b.name == "block4"][0]
+            # # block5 = [b for b in objs if b.name == "block5"][0]
+            #
+            # first = Op3Pick.ground((block1, block2, robot))
+            # first.preconditions == first.preconditions.intersection(init_atoms)
+            # after_first = (init_atoms | first.add_effects) - first.delete_effects
+            #
+            # second = Op1PutOnTable.ground((block2, robot))
+            # second.preconditions == second.preconditions.intersection(after_first)
+            # after_second = (after_first | second.add_effects) - second.delete_effects
+            #
+            # third = Op3Pick.ground((block0, block1, robot))
+            # third.preconditions == third.preconditions.intersection(after_second)
 
             # zero = utils.abstract(task.init, preds)
             # nsrt_one = nsrt_list[3].ground((block2, block3, robot))
@@ -303,23 +373,23 @@ class BaseSTRIPSLearner(abc.ABC):
             # fifth = Op0Pick.ground((block2, robot))
             # sixth = Op2Stack.ground((block1, block2, robot))
 
-            first = Op3Pick.ground((block2, block3, robot))
-            second = Op1PutOnTable.ground((block3, robot))
-            third = Op3Pick.ground((block1, block2, robot))
-            fourth = Op2Stack.ground((block3, block2, robot))
-
-            import pdb; pdb.set_trace()
-
-            after_first = (init_atoms | first.add_effects) - first.delete_effects
-            # assert second.preconditions == second.preconditions.intersection(after_first)
-            after_second = (after_first | second.add_effects) - second.delete_effects
-            # assert third.preconditions == third.preconditions.intersection(after_second)
-            after_third = (after_second | third.add_effects) - third.delete_effects
-            # assert fourth.preconditions == fourth.preconditions.intersection(after_third)
-            after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
-
-            after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
-            after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
+            # first = Op3Pick.ground((block2, block3, robot))
+            # second = Op1PutOnTable.ground((block3, robot))
+            # third = Op3Pick.ground((block1, block2, robot))
+            # fourth = Op2Stack.ground((block3, block2, robot))
+            #
+            # import pdb; pdb.set_trace()
+            #
+            # after_first = (init_atoms | first.add_effects) - first.delete_effects
+            # # assert second.preconditions == second.preconditions.intersection(after_first)
+            # after_second = (after_first | second.add_effects) - second.delete_effects
+            # # assert third.preconditions == third.preconditions.intersection(after_second)
+            # after_third = (after_second | third.add_effects) - third.delete_effects
+            # # assert fourth.preconditions == fourth.preconditions.intersection(after_third)
+            # after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+            #
+            # after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
+            # after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
 
 
 

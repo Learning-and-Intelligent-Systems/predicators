@@ -290,6 +290,36 @@ def task_plan_grounding(
     ]
     return reachable_nsrts, reachable_atoms
 
+def task_plan_grounding2(
+    init_atoms: Set[GroundAtom],
+    objects: Set[Object],
+    nsrts: Collection[NSRT],
+    allow_noops: bool = False,
+) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
+    """Ground all operators for task planning into dummy _GroundNSRTs,
+    filtering out ones that are unreachable or have empty effects.
+
+    Also return the set of reachable atoms, which is used by task
+    planning to quickly determine if a goal is unreachable.
+
+    See the task_plan docstring for usage instructions.
+    """
+    ground_nsrts = []
+    for nsrt in sorted(nsrts):
+        if nsrt.name == "Op3-FastenScrewByHand":
+            import pdb; pdb.set_trace()
+        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+            if allow_noops or (ground_nsrt.add_effects
+                               | ground_nsrt.delete_effects):
+                ground_nsrts.append(ground_nsrt)
+    import pdb; pdb.set_trace()
+    reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
+    reachable_nsrts = [
+        nsrt for nsrt in ground_nsrts
+        if nsrt.preconditions.issubset(reachable_atoms)
+    ]
+    return reachable_nsrts, reachable_atoms
+
 
 def task_plan(
     init_atoms: Set[GroundAtom],
@@ -929,6 +959,99 @@ def task_plan_with_option_plan_constraint(
         lambda searchnode_state: heuristic(searchnode_state[0]))
 
     if not _check_goal(state_seq[-1]):
+        return None
+
+    return action_seq
+
+def task_plan_with_option_plan_constraint2(
+    objects: Set[Object],
+    predicates: Set[Predicate],
+    strips_ops: List[STRIPSOperator],
+    option_specs: List[OptionSpec],
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    option_plan: List[Tuple[ParameterizedOption, Sequence[Object]]],
+    atoms_seq: Optional[List[Set[GroundAtom]]] = None,
+) -> Optional[List[_GroundNSRT]]:
+    """Turn an option plan into a plan of ground NSRTs that achieves the goal
+    from the initial atoms.
+
+    If atoms_seq is not None, the ground NSRT plan must also match up with
+    the given sequence of atoms. Otherwise, atoms are not checked.
+
+    If no goal-achieving sequence of ground NSRTs corresponds to
+    the option plan, return None.
+    """
+    import pdb; pdb.set_trace()
+    dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+
+    ground_nsrts, _ = task_plan_grounding2(init_atoms,
+                                          objects,
+                                          dummy_nsrts,
+                                          allow_noops=True)
+    heuristic = utils.create_task_planning_heuristic(
+        CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
+        predicates, objects)
+
+    def _check_goal(
+            searchnode_state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
+        return goal.issubset(searchnode_state[0])
+
+    def _get_successor_with_correct_option(
+        searchnode_state: Tuple[FrozenSet[GroundAtom], int]
+    ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int],
+                        float]]:
+        atoms = searchnode_state[0]
+        idx_into_traj = searchnode_state[1]
+
+        if idx_into_traj > len(option_plan) - 1:
+            return
+
+        gt_param_option = option_plan[idx_into_traj][0]
+        gt_objects = option_plan[idx_into_traj][1]
+        temp = list(utils.get_applicable_operators(ground_nsrts, atoms))
+        temp2 = [n.name for n in temp]
+        print("applicable operators: ", temp2)
+        import pdb; pdb.set_trace()
+        print("hi")
+        for applicable_nsrt in utils.get_applicable_operators(
+                ground_nsrts, atoms):
+            # NOTE: we check that the ParameterizedOptions are equal before
+            # attempting to ground because otherwise, we might
+            # get a parameter mismatch and trigger an AssertionError
+            # during grounding.
+            if applicable_nsrt.option != gt_param_option:
+                continue
+            if applicable_nsrt.option_objs != gt_objects:
+                continue
+            if atoms_seq is not None and not \
+                applicable_nsrt.preconditions.issubset(
+                    atoms_seq[idx_into_traj]):
+                continue
+            next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
+            # The returned cost is uniform because we don't
+            # actually care about finding the shortest path;
+            # just one that matches!
+            print("yielding nsrt: ", applicable_nsrt.name)
+            yield (applicable_nsrt, (frozenset(next_atoms), idx_into_traj + 1),
+                   1.0)
+
+    init_atoms_frozen = frozenset(init_atoms)
+    init_searchnode_state = (init_atoms_frozen, 0)
+    # NOTE: each state in the below GBFS is a tuple of
+    # (current_atoms, idx_into_traj). The idx_into_traj is necessary because
+    # we need to check whether the atoms that are true at this particular
+    # index into the trajectory is what we would expect given the demo
+    # trajectory.
+    import pdb; pdb.set_trace()
+    state_seq, action_seq = utils.run_gbfs(init_searchnode_state, _check_goal, _get_successor_with_correct_option, lambda searchnode_state: heuristic(searchnode_state[0]))
+    state_seq, action_seq = utils.run_gbfs(
+        init_searchnode_state, _check_goal, _get_successor_with_correct_option,
+        lambda searchnode_state: heuristic(searchnode_state[0]))
+
+    import pdb; pdb.set_trace()
+    if not _check_goal(state_seq[-1]):
+        import pdb; pdb.set_trace()
         return None
 
     return action_seq

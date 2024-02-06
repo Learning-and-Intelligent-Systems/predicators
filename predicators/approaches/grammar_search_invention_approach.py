@@ -1270,6 +1270,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for effs_cluster in add_effects_per_cluster:
                 new_add_effects_per_cluster.append(effs_cluster - inconsistent_preds)
             # Check all pairs of clusters, if they are the same, add their original cluster's predicates back.
+            print("got to hereee")
+            import pdb; pdb.set_trace()
             num_clusters = len(final_clusters)
             for i in range(num_clusters):
                 for j in range(num_clusters):
@@ -1350,7 +1352,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # remove predicates we aren't keeping
             for i, c in enumerate(final_clusters):
                 if len(c) < 10:
-                    ddd.pop("Op"+str(i))
+                    # ddd.pop("Op"+str(i))
+                    op_name = "Op"+str(i)+"-"+str(c[0].get_option().name)
             print()
             print()
             for op, stuff in ddd.items():
@@ -1464,6 +1467,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # print_demo2(segmented_trajs[8][0:3], "demo8_part1.txt")
             # print_demo2(segmented_trajs[8][3:], "demo8_part12.txt")
+            print_demo2(segmented_trajs[2], "demo2_tools.txt")
 
             # for i, t in enumerate(temp):
             #     for o in t:
