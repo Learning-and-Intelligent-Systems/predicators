@@ -1204,6 +1204,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 ddd[op_name][1] = add_effects
                 ddd[op_name][2] = del_effects
 
+                if op_name == "Op3-FastenScrewByHand":
+                    import pdb; pdb.set_trace()
+
+
                 print(f"Cluster {j} with option {c[0].get_option().name}, predicates:")
                 for a in add_effects:
                     print(a)
@@ -1414,6 +1418,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     preconds = []
                     for seg in segmented_traj:
                         op_name = seg_to_op(seg, final_clusters)
+
                         ps = sorted([p.name for p in ddd[op_name][0]])
                         init_atoms = set(p for p in seg.init_atoms if p.predicate.name in ps)
                         # we assume we only have to look at objects involved in the operator,
@@ -1427,6 +1432,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         to_print = [op_name, '----', 'preconditions', '===='] + relevant_init_atoms_str
                         preconds.append(to_print)
 
+                        # if op_name == "Op3-FastenScrewByHand":
+                        #     import pdb; pdb.set_trace()
+
                     # add effects
                     add_effs = []
                     for seg in segmented_traj:
@@ -1436,6 +1444,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             max_length = max(max_length, len(p))
                         adds = ['add effects', '===='] + adds
                         add_effs.append(adds)
+
+                        if op_name == "Op12-Place":
+                            import pdb; pdb.set_trace()
 
                     # delete effects
                     del_effs = []
@@ -1504,10 +1515,65 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     ]
                     story.append(entry)
                 return story
+            def get_story2(segmented_traj):
+                story = []
+                    # each entry is a list of lists
+                for k, seg in enumerate(segmented_traj):
+                    # if k == 2:
+                    #     import pdb; pdb.set_trace()
+                    entry = []
+                    op_name = seg_to_op(seg, final_clusters)
+
+                    # init_atoms = set(p for p in seg.init_atoms if p.predicate in ddd[op_name][0])
+                    # objects = (set(o for a in seg.add_effects for o in a.objects) | set(o for a in seg.delete_effects for o in a.objects))
+                    # preconditions = set(p for p in init_atoms if set(p.objects).issubset(objects))
+                    # add_effects = set(p for p in seg.add_effects if p.predicate in ddd[op_name][1])
+                    # delete_effects = set(p for p in seg.delete_effects if p.predicate in ddd[op_name][2])
+
+                    opt_objs = tuple(seg.get_option().objects)
+                    objects = (set(o for a in seg.add_effects for o in a.objects) | set(o for a in seg.delete_effects for o in a.objects) | set(opt_objs))
+                    preconditions_hypothesis = set(p for p in seg.init_atoms if p.predicate in ddd[op_name][0])
+                    add_effects_hypothesis = set(p for p in seg.add_effects if p.predicate in ddd[op_name][1])
+                    delete_effects_hypothesis = set(p for p in seg.delete_effects if p.predicate in ddd[op_name][2])
+                    preconditions = set(p for p in preconditions_hypothesis if set(p.objects).issubset(objects))
+                    add_effects = set(p for p in add_effects_hypothesis if set(p.objects).issubset(objects))
+                    delete_effects = set(p for p in delete_effects_hypothesis if set(p.objects).issubset(objects))
+
+                    relevant_objects = (set(o for a in add_effects for o in a.objects) | set(o for a in delete_effects for o in a.objects))
+
+                    entry = [
+                        op_name,
+                        preconditions,
+                        add_effects,
+                        delete_effects,
+                        relevant_objects
+                    ]
+                    story.append(entry)
+                return story
 
             import pdb; pdb.set_trace()
 
             def process_adds(potential_ops, remaining_story, goal):
+                curr_entry = remaining_story[0]
+                name = curr_entry[0]
+                to_add = []
+                for ground_atom in curr_entry[2]: # add effects
+                    # can we find this atom in the preconditions of any future segment
+                    for entry in remaining_story[1:]:
+                        if ground_atom in entry[1]: # preconditions
+                            # then we add it!
+                            to_add.append(ground_atom) # for debugging
+                            potential_ops[name]["add"].add(ground_atom.predicate)
+                            if "pre" not in potential_ops[entry[0]].keys():
+                                import pdb; pdb.set_trace()
+                            potential_ops[entry[0]]["pre"].add(ground_atom.predicate)
+                    if ground_atom in goal:
+                        # then we add it!
+                        to_add.append(ground_atom) # for debugging
+                        potential_ops[name]["add"].add(ground_atom.predicate)
+
+            def process_adds2(potential_ops, remaining_story, goal):
+                import pdb; pdb.set_trace()
                 curr_entry = remaining_story[0]
                 name = curr_entry[0]
                 to_add = []
@@ -1550,6 +1616,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #     }
 
             for j, traj in enumerate(segmented_trajs):
+                print(f"Segmented trajectory #{j}")
                 potential_ops = {}
                 for op_name in ddd.keys():
                     potential_ops[op_name] = {
@@ -1558,7 +1625,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         "del": set()
                     }
 
-                story = get_story(traj)
+                story = get_story2(traj)
+                # if j == 2:
+                #     story = get_story2(traj)
+                #     import pdb; pdb.set_trace()
                 reversed_story = list(reversed(story))
                 for i, entry in enumerate(reversed_story):
                     remaining_story = story[len(story)-i-1:]
@@ -1571,8 +1641,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             if p in train_tasks[j].goal:
                                 potential_ops[name]["add"].add(p.predicate)
                     else:
-                        process_adds(potential_ops, remaining_story, train_tasks[j].goal)
+                        if name == "Op12-Place" and j == 2:
+                            process_adds2(potential_ops, remaining_story, train_tasks[j].goal)
+                        else:
+                            process_adds(potential_ops, remaining_story, train_tasks[j].goal)
                         process_dels(potential_ops, remaining_story)
+                    if name == "Op12-Place" and j == 2:
+                        import pdb; pdb.set_trace()
 
                 all_potential_ops.append(potential_ops)
 
