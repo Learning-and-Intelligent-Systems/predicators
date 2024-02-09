@@ -111,7 +111,6 @@ def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
     }
     """
 
-    """
     predicate_input = {
         "ball": ["car"],
         "free": ["empty-ferry"],
@@ -152,6 +151,7 @@ def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
         ("board", "pick") : {"?car": "?obj", "?loc": "?room"},
         ("debark", "drop") : {"?car": "?obj", "?loc": "?room"},
     }
+    """
 
     base_env_pred_names_to_pred = {str(pred): pred for pred in base_env.predicates}
     target_env_pred_names_to_pred = {str(pred): pred for pred in target_env.predicates}
@@ -268,7 +268,6 @@ def _apply_special_analogies(chem_analogy, rule, new_rule_nsrt, correctness_traj
     superfluous_pos_state_preconditions, superfluous_neg_state_preconditions, superfluous_goal_preconditions = _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt)
     minimal_ground_rule = _get_minimal_ground_rule(new_rule_nsrt, superfluous_pos_state_preconditions, superfluous_neg_state_preconditions, superfluous_goal_preconditions, correctness_traj, correctness_actions, correctness_task, initial_predicates, chem_analogy)
     validated_minimal_ground_rule = _validate_ground_rule(minimal_ground_rule, new_rule_nsrt, initial_predicates)
-    print(validated_minimal_ground_rule)
     import ipdb; ipdb.set_trace();
 
 def _validate_ground_rule(ground_rule, new_rule_nsrt, initial_predicates):
@@ -496,6 +495,11 @@ def get_minimal_ground_rule(
                     break
             if not passes_disjoint_pairs:
                 continue
+            # This is a quick final check that every condition is in the state and goal
+            temp_ground_rule = rule.ground(choice)
+            if (not temp_ground_rule.pos_state_preconditions.issubset(init_atoms)) or (not temp_ground_rule.goal_preconditions.issubset(goal_atoms)):
+                continue
+            import ipdb; ipdb.set_trace();
             min_param = choice
             min_unique_count = unique_count
     ground_rule = rule.ground(min_param)
@@ -521,9 +525,9 @@ def _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt):
             target_template = {}
         else:
             target_template = set(target_template)
-        superfluous_pos_state_preconditions, variable_count = _apply_single_special_analogy(rule.pos_state_preconditions, base_template, target_template, variable_count)
-        superfluous_neg_state_preconditions, variable_count = _apply_single_special_analogy(rule.neg_state_preconditions, base_template, target_template, variable_count)
-        superfluous_goal_preconditions, variable_count = _apply_single_special_analogy(rule.goal_preconditions, base_template, target_template, variable_count)
+        superfluous_pos_state_preconditions, variable_count = _apply_single_special_analogy(rule.pos_state_preconditions, base_template, target_template, variable_count, True)
+        superfluous_neg_state_preconditions, variable_count = _apply_single_special_analogy(rule.neg_state_preconditions, base_template, target_template, variable_count, False)
+        superfluous_goal_preconditions, variable_count = _apply_single_special_analogy(rule.goal_preconditions, base_template, target_template, variable_count, False)
 
         all_superfluous_pos_state_preconditions.update(superfluous_pos_state_preconditions)
         all_superfluous_neg_state_preconditions.update(superfluous_neg_state_preconditions)
@@ -551,8 +555,7 @@ def _apply_base_analogies(chem_analogy: _ChemAnalogy, conditions: Set[LiftedAtom
 
     superfluous_conditions = set()
     variable_count = starting_variable_count
-
-    special_analogy_predicates = set([atom.predicate for template in chem_analogy.special_analogies.keys() for atom in template])
+    special_analogy_predicates = set([atom.predicate for template in chem_analogy.special_analogies.keys() if template is not None for atom in template])
 
     for base_predicate, target_predicates in chem_analogy.predicates.items():
         if (not base_predicate in condition_predicates_freq) or (base_predicate in special_analogy_predicates):
@@ -565,7 +568,7 @@ def _apply_base_analogies(chem_analogy: _ChemAnalogy, conditions: Set[LiftedAtom
                 superfluous_conditions.add(LiftedAtom(target_predicate, superfluous_variables))
     return superfluous_conditions, variable_count
  
-def _apply_single_special_analogy(conditions: Set[LiftedAtom], base_template: Set[LiftedAtom], target_template: Set[LiftedAtom], starting_variable_count: int) -> Tuple(Set[LiftedAtom], int):
+def _apply_single_special_analogy(conditions: Set[LiftedAtom], base_template: Set[LiftedAtom], target_template: Set[LiftedAtom], starting_variable_count: int, is_pos_conditions: bool = True) -> Tuple(Set[LiftedAtom], int):
     """Applies a special analogy (consisting of a base_template, target_template) pair to a set of conditions
     Returns set of superfluous conditions after applying special analogy and updated variable counter"""
 
@@ -581,6 +584,8 @@ def _apply_single_special_analogy(conditions: Set[LiftedAtom], base_template: Se
                 target_var_to_superfluous_var[target_atom_var] = target_atom_var.type(f"?var-{variable_count}")
                 variable_count += 1
             superfluous_atom = target_atom.substitute(target_var_to_superfluous_var)
+            if not is_pos_conditions and len(base_template) == 0:
+                continue
             superfluous_conditions.add(superfluous_atom)
 
     return superfluous_conditions, variable_count
