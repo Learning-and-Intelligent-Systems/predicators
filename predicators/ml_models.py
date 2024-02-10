@@ -1580,8 +1580,9 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
     def __init__(self, seed: int, hid_sizes: List[int],
                  max_train_iters: int, timesteps: int,
                  learning_rate: float) -> None:
+        torch.set_num_threads(8)
+        torch.manual_seed(seed)
         super().__init__()
-        torch.set_num_threads(8)    # reset here to get the cmd line arg
         self._linears = nn.ModuleList()
         self._hid_sizes = hid_sizes
         self._max_train_iters = max_train_iters

@@ -490,25 +490,29 @@ class GlobalSettings:
     cnn_regressor_gradient_clip_value = 5
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 1000
-    diffusion_regressor_hid_sizes = [256, 256]
-    diffusion_regressor_max_itr = 50000
-    diffusion_regressor_timesteps = 100
+    diffusion_regressor_hid_sizes = [512, 512]
+    diffusion_regressor_max_itr = 10000
+    diffusion_regressor_timesteps = 50
 
     feasibility_learning_strategy = "backtracking"
+    feasibility_num_data_collection_threads = 8
     feasibility_featurizer_hid_sizes = [128, 128]
     feasibility_feature_size = 128
     feasibility_embedding_size = feasibility_feature_size // 2
-    feasibility_embedding_concat = False
+    feasibility_embedding_concat = True
+    feasibility_embedding_max_idx = 20
     feasibility_num_heads = 8
     feasibility_enc_num_layers = 1
     feasibility_dec_num_layers = 1
     feasibility_ffn_hid_size = feasibility_feature_size * 4
-    feasibility_max_itr = 4000
+    feasibility_max_itr = 3000
     feasibility_general_lr = 0.001
     feasibility_transformer_lr = 1e-6
-    feasibility_cls_style = 'marked'
+    feasibility_cls_style = 'mean'
     feasibility_batch_size = 2048
     feasibility_loss_output_file = ""
+    feasibility_threshold_recalibration_percentile = 1.0
+    feasibility_num_negative_loaded_datapoints = 2500
 
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000

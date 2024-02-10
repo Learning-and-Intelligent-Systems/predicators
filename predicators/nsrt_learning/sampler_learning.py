@@ -6,6 +6,7 @@ from typing import Any, List, Sequence, Set, Tuple
 from experiments.shelves2d import Shelves2DEnv
 
 import numpy as np
+from torch import nn
 
 from predicators import utils
 from predicators.envs import get_or_create_env
@@ -214,7 +215,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             use_torch_gpu=CFG.use_torch_gpu,
             train_print_every=CFG.pytorch_train_print_every)
     elif CFG.sampler_learning_regressor_model == "diffusion":
-        regressor = DiffusionRegressor( # JORGE: this is where the diffusion regressor is instantiated
+        regressor = DiffusionRegressor(
             seed=CFG.seed,
             hid_sizes=CFG.diffusion_regressor_hid_sizes,
             max_train_iters=CFG.diffusion_regressor_max_itr,
@@ -332,6 +333,12 @@ class _LearnedSampler:
     _regressor: DistributionRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
+
+    def shared_memory(self):
+        if issubclass(isinstance(self._classifier, nn.Module)):
+            self._classifier.shared_memory()
+        if issubclass(isinstance(self._regressor, nn.Module)):
+            self._regressor.shared_memory()
 
     def __call__(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:
