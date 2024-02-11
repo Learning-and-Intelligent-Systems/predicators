@@ -6,7 +6,7 @@ APPROACHES:
     FLAGS:
       strips_learner: "backchaining"
       excluded_predicates: "all"
-      grammar_search_use_diff_features: True
+      grammar_search_grammar_use_diff_features: True
 ENVS:
   rnt_simple:
     NAME: "repeated_nextto_simple"
