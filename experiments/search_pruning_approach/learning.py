@@ -1,11 +1,12 @@
+from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from functools import cache
+from functools import cache, cached_property
 import time
 import numpy as np
 import numpy.typing as npt
 from dataclasses import dataclass
 import itertools
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from torch import nn, Tensor, tensor
 import torch
 from predicators.settings import CFG
@@ -16,6 +17,21 @@ from predicators.structs import NSRT, _GroundNSRT, State, Variable
 import matplotlib.pyplot as plt
 import matplotlib
 # matplotlib.use("tkagg")
+
+class DeviceTrackingModule(nn.Module):
+    def __init__(self, device: Optional[Union[int, str, torch.device]]):
+        super().__init__()
+        self._tracking_buffer = tensor(())
+        self.register_buffer('_DeviceTrackingModule_tracking_buffer', self._tracking_buffer)
+
+    def _apply(self, *args, **kwargs):
+        del self.device
+        super()._apply(*args, **kwargs)
+
+    @cached_property
+    def device(self) -> torch.device:
+        device, = list({param.device for param in self.parameters()} | {buffer.device for buffer in self.buffers()})
+        return device
 
 @dataclass(frozen=True)
 class FeasibilityDatapoint:
@@ -78,7 +94,7 @@ class FeasibilityDataset(torch.utils.data.Dataset):
                 for ground_nsrt in datapoint.skeleton[prefix_length:]
             ]
 
-class FeasibilityFeaturizer(nn.Module):
+class FeasibilityFeaturizer(DeviceTrackingModule):
     """Featurizer that turns a state vector into a uniformly sized feature vector.
     """
     def __init__(
@@ -97,8 +113,7 @@ class FeasibilityFeaturizer(nn.Module):
             device (optional) - what device to place the module and generated vectors on
                 (uses the globally default device if unspecified)
         """
-        super().__init__()
-        self._device = device
+        super().__init__(device)
         self._range = None
 
         sizes = [state_vector_size] + hidden_sizes + [feature_size]
@@ -108,7 +123,7 @@ class FeasibilityFeaturizer(nn.Module):
         ])
 
     def update_range(self, state: npt.NDArray) -> None:
-        state = tensor(state, device=self._device)
+        state = tensor(state, device=self.device)
         if self._range is None:
             self._range = (state, state)
         else:
@@ -121,7 +136,7 @@ class FeasibilityFeaturizer(nn.Module):
         Params:
             state - numpy array of shape (batch_size, state_vector_size) of batched state vectors
         """
-        state = tensor(state, device=self._device)
+        state = tensor(state, device=self.device)
 
         if self._range is not None:
             min_state, max_state = self._range
@@ -132,7 +147,7 @@ class FeasibilityFeaturizer(nn.Module):
             state = nn.functional.elu(layer(state))
         return self._layers[-1](state)
 
-class PositionalEmbeddingLayer(nn.Module):
+class PositionalEmbeddingLayer(DeviceTrackingModule):
     """Adds a positional embedding and optionally a cls token to the feature vectors"""
     def __init__(
         self,
@@ -156,9 +171,8 @@ class PositionalEmbeddingLayer(nn.Module):
                 and the cls token has a 1 in that space)
 
         """
-        super().__init__()
-        assert include_cls in ['learned', 'marked', None]
-        self._device = device
+        super().__init__(device)
+        assert include_cls in {'learned', 'marked', None}
         self._concat = concat
         self._horizon = horizon
 
@@ -196,8 +210,8 @@ class PositionalEmbeddingLayer(nn.Module):
         assert input_feature_size == self._input_size
 
         # Calculating per-token positions and in-token indices
-        indices = torch.arange(self._embedding_size, device=self._device).unsqueeze(0)
-        positions = torch.arange(max_len, device=self._device).unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, -1)
+        indices = torch.arange(self._embedding_size, device=self.device).unsqueeze(0)
+        positions = torch.arange(max_len, device=self.device).unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, -1)
         if pos_offset is not None:
             positions = positions + pos_offset.unsqueeze(-1).unsqueeze(-1)
 
@@ -215,7 +229,7 @@ class PositionalEmbeddingLayer(nn.Module):
         if self._cls is None:
             return embedded_tokens
         elif self._cls_marked:
-            marked_tokens = torch.cat([embedded_tokens, torch.zeros((batch_size, max_len, 1), device=self._device)], dim=2)
+            marked_tokens = torch.cat([embedded_tokens, torch.zeros((batch_size, max_len, 1), device=self.device)], dim=2)
             return torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1, -1), marked_tokens], dim=1)
         else:
             return torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1, -1), embedded_tokens], dim=1)
@@ -228,9 +242,7 @@ class PositionalEmbeddingLayer(nn.Module):
         """
         if self._cls is None:
             return mask
-        return torch.cat([torch.full((mask.shape[0], 1), False, device=self._device), mask], dim=1)
-
-FeasibilityClassifier = Callable[[Sequence[State], Sequence[_GroundNSRT]], Tuple[bool, float]]
+        return torch.cat([torch.full((mask.shape[0], 1), False, device=self.device), mask], dim=1)
 
 def sigmoid_focal_loss(
     inputs: Tensor,
@@ -260,9 +272,23 @@ def sigmoid_focal_loss(
         loss = loss.sum()
     return loss
 
-class NeuralFeasibilityClassifier(nn.Module):
+class FeasibilityClassifier(ABC):
+    """Abstract class to be able to share functionality between a constant and a learned feasibility classifier
+    """
+    @abstractmethod
+    def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
+        raise NotImplementedError()
+
+class StaticFeasibilityClassifier(FeasibilityClassifier):
+    def __init__(self, classify: Callable[[Sequence[State], Sequence[_GroundNSRT]], Tuple[bool, float]]):
+        self._classify = classify
+
+    def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
+        return self._classify(states, skeleton)
+
+class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     # +--------+     +--------+  +----------+     +--------+
-    # |   ENC  |     |   ENC  |  |   DEC    |     |   DEC  |
+    # |   ENC  |     |   ENC  |  |    DEC   |     |   DEC  |
     # \ FEAT 1 / ... \ FEAT N /  \ FEAT N+1 / ... \ FEAT M /
     #  \______/       \______/    \________/       \______/
     #     ||             ||           ||              ||
@@ -299,17 +325,17 @@ class NeuralFeasibilityClassifier(nn.Module):
         embedding_horizon: int,
         batch_size: int,
         threshold_recalibration_percentile: float,
+        optimizer_name: str = 'adam',
         test_split: float = 0.125,
         dropout: int = 0.25,
         num_threads: int = 8,
         classification_threshold: float = 0.5,
-        device: Optional[str] = 'cuda',
+        device: Optional[str] = 'cpu',
         check_nans: bool = False,
     ):
         torch.manual_seed(seed)
         torch.set_num_threads(num_threads)
-        super().__init__()
-        self._device = device
+        super(DeviceTrackingModule, self).__init__(device)
 
         assert cls_style in {'learned', 'marked', 'mean'}
         self._cls_style = cls_style
@@ -362,10 +388,25 @@ class NeuralFeasibilityClassifier(nn.Module):
             nn.Sigmoid(),
         )
 
-        self._optimizer: Optional[torch.optim.Optimizer] = None
+        self._optimizer = {
+            'sgd': torch.optim.SGD,
+            'adam': torch.optim.Adam,
+            'rmsprop': torch.optim.RMSprop
+        }[optimizer_name]([
+            {'params':
+                list(self._encoder_positional_encoding.parameters()) +
+                list(self._decoder_positional_encoding.parameters())
+            , 'lr': self._general_lr},
+            {'params': self._classifier_head.parameters(), 'lr': self._general_lr},
+            {'params': self._transformer.parameters(), 'lr': self._transformer_lr},
+        ])
+        self._frozen = False
         self._check_nans = check_nans
         self._threshold_recalibration_frac = threshold_recalibration_percentile
         self._unsure_confidence = 1.0
+
+    def move_to_device(self, device: str) -> 'NeuralFeasibilityClassifier':
+        return self.to(device).share_memory()
 
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
         """Classifies a single datapoint
@@ -381,15 +422,19 @@ class NeuralFeasibilityClassifier(nn.Module):
 
         self.eval()
         confidence = self([encoder_nsrts], [decoder_nsrts], [encoder_states], [decoder_states]).cpu()
-        print(f"Confidence {float(confidence)}")
+        logging.info(f"Confidence {float(confidence)}")
         return confidence >= self._thresh, confidence
+
+    def freeze(self):
+        """Makes sure we don't train the classifier again after we've started moving it between devices
+        """
+        self._frozen = True
 
     def fit(
         self,
         positive_examples: Sequence[FeasibilityDatapoint],
         negative_examples: Sequence[FeasibilityDatapoint]
     ) -> None:
-        self._create_optimizer()
         if not positive_examples and not negative_examples:
             return
 
@@ -400,8 +445,6 @@ class NeuralFeasibilityClassifier(nn.Module):
         logging.info(f"Creating train and test datasets (test split {int(self._test_split*100)}%)")
 
         positive_examples, negative_examples = positive_examples.copy(), negative_examples.copy()
-        np.random.shuffle(positive_examples)
-        np.random.shuffle(negative_examples)
 
         positive_train_size = len(positive_examples) - int(len(positive_examples) * self._test_split)
         negative_train_size = len(negative_examples) - int(len(negative_examples) * self._test_split)
@@ -462,7 +505,7 @@ class NeuralFeasibilityClassifier(nn.Module):
 
                     false_positive_confidence = float(torch.kthvalue(torch.cat([y_pred[
                         torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh)
-                    ].flatten(), tensor([0], device=self._device)]).cpu(), int(
+                    ].flatten(), tensor([0], device=self.device)]).cpu(), int(
                         num_false_positives * self._threshold_recalibration_frac
                     ) + 1).values)
 
@@ -471,7 +514,7 @@ class NeuralFeasibilityClassifier(nn.Module):
                         (torch.abs(y_true - 1.0) < 0.0001).cpu().detach().numpy().sum()
                     )
 
-                    logging.info(f"Loss: {test_loss}, Acc: {matches.mean():.1%}, "
+                    logging.info(f"Train Loss: {float(train_loss.cpu().detach())}, Test Loss: {test_loss}, Acc: {matches.mean():.1%}, "
                                 f"%False+: {num_false_positives/len(y_true):.1%}, %False-: {num_false_negatives/len(y_true):.1%}, "
                                 f"{self._threshold_recalibration_frac:.0%} False+ Thresh: {false_positive_confidence:.4}, Acceptance rate: {acceptance_rate:.1%}, "
                                 f"Training Iter {itr}/{self._num_iters}")
@@ -498,7 +541,7 @@ class NeuralFeasibilityClassifier(nn.Module):
 
         false_positive_confidence = float(torch.kthvalue(torch.cat([y_pred[
             torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh)
-        ].flatten(), tensor([0], device=self._device)]).cpu(), int(
+        ].flatten(), tensor([0], device=self.device)]).cpu(), int(
             num_false_positives * self._threshold_recalibration_frac
         ) + 1).values)
 
@@ -513,18 +556,7 @@ class NeuralFeasibilityClassifier(nn.Module):
         return (
             [dp[0][0] for dp in batch], [dp[0][1] for dp in batch],
             [dp[0][2] for dp in batch], [dp[0][3] for dp in batch]
-        ), tensor([dp[1] for dp in batch], device=self._device)
-
-    def _create_optimizer(self):
-        if self._optimizer is None:
-            self._optimizer = torch.optim.Adam([
-                {'params':
-                    list(self._encoder_positional_encoding.parameters()) +
-                    list(self._decoder_positional_encoding.parameters())
-                , 'lr': self._general_lr},
-                {'params': self._classifier_head.parameters(), 'lr': self._general_lr},
-                {'params': self._transformer.parameters(), 'lr': self._transformer_lr},
-            ])
+        ), tensor([dp[1] for dp in batch], device=self.device)
 
     def forward(
         self,
@@ -535,6 +567,8 @@ class NeuralFeasibilityClassifier(nn.Module):
     ) -> float:
         """Runs the core of the classifier with given encoder and decoder nsrts and state vectors.
         """
+        if self._frozen:
+            raise RuntimeError("The classifier has been frozen")
         assert len(encoder_nsrts_batch) == len(decoder_nsrts_batch) and\
             len(decoder_nsrts_batch) == len(encoder_states_batch) and\
             len(encoder_states_batch) == len(decoder_states_batch)
@@ -560,10 +594,10 @@ class NeuralFeasibilityClassifier(nn.Module):
 
         # Calculating offsets for encoding
         decoder_offsets = encoder_sequence_lengths
-        random_offsets = torch.zeros((decoder_offsets.shape[0],), device=self._device)
+        random_offsets = torch.zeros((decoder_offsets.shape[0],), device=self.device)
         if self.training:
             random_offsets = (
-                torch.rand((decoder_offsets.shape[0],), device=self._device) *
+                torch.rand((decoder_offsets.shape[0],), device=self.device) *
                 (self._decoder_positional_encoding._horizon - encoder_sequence_lengths - decoder_sequence_lenghts)
             ).long()
 
@@ -611,7 +645,7 @@ class NeuralFeasibilityClassifier(nn.Module):
         max_len = max(len(states) for states in states_batch)
 
         # Preparing to batch the execution of featurizers
-        tokens = torch.zeros((batch_size, max_len, output_size), device=self._device)
+        tokens = torch.zeros((batch_size, max_len, output_size), device=self.device)
         mask = torch.full((batch_size, max_len), True, device='cpu') # Not on device for fast assignment
 
         # Grouping data for batched execution of featurizers
@@ -630,7 +664,7 @@ class NeuralFeasibilityClassifier(nn.Module):
 
         # Moving the mask to the device
         if mask.device != tokens.device:
-            mask = mask.to(self._device)
+            mask = mask.to(self.device)
         return tokens, mask
 
     def _init_featurizers_dataset(self, dataset: FeasibilityDataset) -> None:
@@ -672,7 +706,7 @@ class NeuralFeasibilityClassifier(nn.Module):
                 state.size,
                 hidden_sizes = self._featurizer_hidden_sizes,
                 feature_size = output_size,
-                device = self._device
+                device = self.device
             )
             self._featurizer_count += 1
 

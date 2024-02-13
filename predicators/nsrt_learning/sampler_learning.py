@@ -2,11 +2,12 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Sequence, Set, Tuple
+from typing import Any, List, Sequence, Set, Tuple, Union
+
 from experiments.shelves2d import Shelves2DEnv
 
 import numpy as np
-from torch import nn
+import torch
 
 from predicators import utils
 from predicators.envs import get_or_create_env
@@ -334,11 +335,17 @@ class _LearnedSampler:
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
-    def shared_memory(self):
-        if issubclass(isinstance(self._classifier, nn.Module)):
+    def shared_memory(self) -> None:
+        if isinstance(self._classifier, torch.nn.Module):
             self._classifier.shared_memory()
-        if issubclass(isinstance(self._regressor, nn.Module)):
+        if isinstance(self._regressor, torch.nn.Module):
             self._regressor.shared_memory()
+
+    def to(self, *args, **kwargs) -> None:
+        if isinstance(self._classifier, torch.nn.Module):
+            self._classifier.to(*args, **kwargs)
+        if isinstance(self._regressor, torch.nn.Module):
+            self._regressor.to(*args, **kwargs)
 
     def __call__(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:

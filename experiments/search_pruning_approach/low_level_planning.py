@@ -258,7 +258,7 @@ def _backtrack( # TODO: add comments and docstring
         next_states = states + [next_state]
         confidence = 1.0
         if feasibility_classifier is not None and len(next_states) < len(skeleton) + 1:
-            feasible, confidence = feasibility_classifier(next_states, skeleton)
+            feasible, confidence = feasibility_classifier.classify(next_states, skeleton)
             if not feasible:
                 logging.info(f"Depth {current_depth} Feasibility classifier does not hold")
                 # if iter >= max_tries[current_depth] // 2:
