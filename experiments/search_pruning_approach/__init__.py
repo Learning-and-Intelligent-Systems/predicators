@@ -2,7 +2,7 @@ import cProfile
 from copy import deepcopy
 import dataclasses
 from dataclasses import dataclass
-from itertools import cycle
+from itertools import cycle, repeat
 from gym.spaces import Box
 import logging
 import numpy as np
@@ -11,14 +11,15 @@ import pickle
 import time
 import torch
 from tqdm import tqdm
-from typing import Callable, Dict, Iterable, List, Sequence, Set, Tuple, cast
+from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple, cast
+
 
 import matplotlib
 import matplotlib.pyplot as plt
 # matplotlib.use("tkagg")
 
-from experiments.search_pruning_approach.learning import FeasibilityClassifier, FeasibilityDatapoint, NeuralFeasibilityClassifier, StaticFeasibilityClassifier
-from experiments.search_pruning_approach.low_level_planning import run_low_level_search, run_backtracking_with_previous_states
+from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, FeasibilityDatapoint, NeuralFeasibilityClassifier, StaticFeasibilityClassifier
+from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_backtracking_for_data_generation, run_low_level_search
 from experiments.shelves2d import Shelves2DEnv
 
 from predicators import utils
@@ -71,13 +72,18 @@ class InterleavedBacktrackingDatapoint():
     skeleton: List[_GroundNSRT]
 
     def __post_init__(self):
-        assert len(self.states) + 1 == len(self.skeleton) == len(self.atoms_sequence) == len(self.horizons)
+        assert len(self.states) == len(self.atoms_sequence)
+        assert len(self.states) == len(self.skeleton) + 1
+        assert len(self.skeleton) == len(self.horizons)
 
     def substitute_nsrts(self, nsrts_dict: Dict[str, NSRT]) -> 'InterleavedBacktrackingDatapoint':
         return dataclasses.replace(self, skeleton=[
             nsrts_dict[str(ground_nsrt.parent)].ground(ground_nsrt.objects)
             for ground_nsrt in self.skeleton
         ])
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter((self.states, self.atoms_sequence, self.horizons, self.skeleton))
 
 class SearchPruningApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
@@ -86,7 +92,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         super().__init__(initial_predicates, initial_options, types, action_space, train_tasks)
         self._positive_feasibility_dataset: List[FeasibilityDatapoint] = []
         self._negative_feasibility_dataset: List[FeasibilityDatapoint] = []
-        self._feasibility_classifier = StaticFeasibilityClassifier(lambda states, skeleton: True, 1.0)
+        self._feasibility_classifier = ConstFeasibilityClassifier()
 
     @classmethod
     def get_name(cls) -> str:
@@ -118,7 +124,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         }
 
         if CFG.feasibility_learning_strategy == "load_data":
-            self._positive_feasibility_dataset, self._negative_feasibility_dataset = self._load_data(dataset_path, self._nsrts)
+            self._positive_feasibility_dataset, self._negative_feasibility_dataset = SearchPruningApproach._load_data(dataset_path, self._nsrts)
         elif CFG.feasibility_learning_strategy == "ground_truth_classifier":
             self._set_ground_truth_classifier()
         elif CFG.feasibility_learning_strategy == "ground_truth_data":
@@ -130,14 +136,14 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         # Saving the generated dataset (if applicable)
         if CFG.feasibility_learning_strategy not in {"load_data", "ground_truth_classifier"}:
-            self._save_data(dataset_path, self._positive_feasibility_dataset, self._negative_feasibility_dataset)
+            SearchPruningApproach._save_data(dataset_path, self._positive_feasibility_dataset, self._negative_feasibility_dataset)
 
         if CFG.feasibility_learning_strategy not in {"ground_truth_classifier"}:
             self._learn_neural_feasibility_classifier(CFG.horizon)
 
-    @classmethod
+    @staticmethod
     def _load_data(
-        cls, path: str, nsrts: Iterable[NSRT]
+        path: str, nsrts: Iterable[NSRT]
     ) -> Tuple[List[FeasibilityDatapoint], List[FeasibilityDatapoint]]:
         """Loads the feasibility datasets saved under a path.
         """
@@ -154,9 +160,8 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info(f"loaded feasibility dataset of {len(positive_dataset)} positive and {len(negative_dataset)} negative datapoints")
         return positive_dataset, negative_dataset
 
-    @classmethod
+    @staticmethod
     def _save_data(
-        cls,
         path: str,
         positive_dataset: List[FeasibilityDatapoint],
         negative_dataset: List[FeasibilityDatapoint]
@@ -169,6 +174,24 @@ class SearchPruningApproach(NSRTLearningApproach):
         ), open(path, "wb"))
         logging.info(f"saved generated feasibility datasets to {path}")
 
+    @staticmethod
+    def _ground_truth_classifier(states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
+        current_nsrt = skeleton[len(states) - 2]
+        final_nsrt = skeleton[-1]
+
+        assert final_nsrt.name in {"MoveCoverToBottom", "MoveCoverToTop"}
+        if current_nsrt.name != "InsertBox":
+            return True, 1.0
+
+        box, shelf, _, _ = current_nsrt.objects
+        _, box_y, _, box_h = Shelves2DEnv.get_shape_data(states[-1], box)
+        shelf_x, shelf_y, shelf_w, shelf_h = Shelves2DEnv.get_shape_data(states[-1], shelf)
+
+        if final_nsrt.name == "MoveCoverToTop":
+            return box_y + box_h <= shelf_y + shelf_h, 1.0
+        else:
+            return box_y >= shelf_y, 1.0
+
     def _set_ground_truth_classifier(self) -> None:
         """Sets a ground truth feasibility classifier.
         Used for debugging and testing purposes only.
@@ -176,23 +199,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         NOTE: works only for the Shelves2D environment
         """
         assert CFG.env == "shelves2d"
-        def classifier(states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
-            current_nsrt = skeleton[len(states) - 2]
-            final_nsrt = skeleton[-1]
-
-            assert final_nsrt.name in {"MoveCoverToBottom", "MoveCoverToTop"}
-            if current_nsrt.name != "InsertBox":
-                return True, 1.0
-
-            box, shelf, _, _ = current_nsrt.objects
-            _, box_y, _, box_h = Shelves2DEnv.get_shape_data(states[-1], box)
-            shelf_x, shelf_y, shelf_w, shelf_h = Shelves2DEnv.get_shape_data(states[-1], shelf)
-
-            if final_nsrt.name == "MoveCoverToTop":
-                return box_y + box_h <= shelf_y + shelf_h, 1.0
-            else:
-                return box_y >= shelf_y, 1.0
-        self._feasibility_classifier = StaticFeasibilityClassifier(classifier)
+        self._feasibility_classifier = StaticFeasibilityClassifier(SearchPruningApproach._ground_truth_classifier)
 
     def _collect_data_ground_truth(self) -> None:
         """Collects ground truth data for training the neural feasibility classifier.
@@ -342,14 +349,14 @@ class SearchPruningApproach(NSRTLearningApproach):
         assert CFG.feasibility_device in {'cpu', 'cuda'}
 
         # To make sure we are able to use the Pool without having to copy the entire model we reset the classifier
-        self._feasibility_classifier = StaticFeasibilityClassifier(lambda states, skeleton: True, 1.0)
+        self._feasibility_classifier = ConstFeasibilityClassifier()
 
         # Precomputing the datapoints for interleaved backtracking
         search_datapoints: List[InterleavedBacktrackingDatapoint] = [
             InterleavedBacktrackingDatapoint(
                 states = [segment.states[0] for segment in segmented_traj] + [segmented_traj[-1].states[-1]],
                 atoms_sequence = [segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
-                horizons = np.cumsum(len(segment.action) for segment in segmented_traj),
+                horizons = np.cumsum([len(segment.actions) for segment in segmented_traj]),
                 skeleton = [self._seg_to_ground_nsrt[segment] for segment in segmented_traj]
             ) for segmented_traj in self._segmented_trajs
         ]
@@ -371,6 +378,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info("Generating data with interleaved learning...")
 
         max_skeleton_length = max(map(len, self._segmented_trajs))
+        torch.multiprocessing.set_start_method('forkserver')
         for suffix_length in range(1, max_skeleton_length):
             logging.info(f"Collecting data for suffix length {suffix_length}...")
 
@@ -403,18 +411,17 @@ class SearchPruningApproach(NSRTLearningApproach):
             )
 
             # Collecting negative examples
-            with torch.multiprocessing.pool.Pool(CFG.feasibility_num_data_collection_threads) as pool:
+            with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
                 self._negative_feasibility_dataset.extend(
                     datapoint
-                    for datapoints in pool.imap(
-                        lambda inputs: self._negative_data_collection_datapoint(
-                            suffix_length,
-                            self._option_model,
-                            *inputs,
-                        ), tqdm(zip(
+                    for datapoints in pool.imap_unordered(
+                        SearchPruningApproach._negative_data_collection_datapoint
+                        , tqdm(zip(
+                            repeat(suffix_length),
+                            repeat(self._option_model),
                             cycle(feasibility_classifiers),
                             range(seed, seed + len(chosen_search_datapoints)),
-                            chosen_search_datapoints
+                            chosen_search_datapoints,
                         ), "Collecting negative examples")
                     )
                     for datapoint in datapoints
@@ -427,28 +434,33 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info("Generated interleaving-based feasibility dataset of "
                      f"{len(self._positive_feasibility_dataset)} positive and {len(self._negative_feasibility_dataset)} negative datapoints")
 
-    @classmethod
+    @staticmethod
     def _negative_data_collection_datapoint(
-        cls,
-        idx,
-        suffix_length: int,
-        option_model: _OptionModelBase,
-        feasibility_classifier: FeasibilityClassifier,
-        seed: int,
-        search_datapoint: InterleavedBacktrackingDatapoint,
+        args: Tuple[int, _OptionModelBase, FeasibilityClassifier, int, InterleavedBacktrackingDatapoint]
     ) -> List[FeasibilityDatapoint]:
         """ Running data collection for a single suffix length and task
         """
-        states, atoms_sequence, horizons, skeleton = dataclasses.astuple(search_datapoint)
+        # Extracting args
+        suffix_length, option_model, feasibility_classifier, seed, (states, atoms_sequence, horizons, skeleton) = args
+
+        # Checking for suffix length
         if len(skeleton) <= suffix_length:
             return []
-        backtracking, _ = run_backtracking_with_previous_states(
+
+        # Running backtracking
+        def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
+            if current_depth <= len(skeleton) - suffix_length and sum(1 for _ in filter(lambda e:e[1] is not None, tree.failed_tries)):
+                return True
+            return tree.num_tries >= CFG.sesame_max_samples_per_step
+
+        backtracking, _ = run_backtracking_for_data_generation(
             previous_states = states[:-suffix_length - 1],
             goal = atoms_sequence[-1],
             option_model = option_model,
             skeleton = skeleton,
             feasibility_classifier = feasibility_classifier,
             atoms_sequence = atoms_sequence,
+            search_stop_condition = search_stop_condition,
             seed = seed,
             timeout = float('inf'),
             metrics = {},
@@ -561,7 +573,8 @@ class SearchPruningApproach(NSRTLearningApproach):
             embedding_horizon = CFG.feasibility_embedding_max_idx,
             batch_size = CFG.feasibility_batch_size,
             threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
-            device = CFG.feasibility_device
+            device = CFG.feasibility_device,
+            optimizer_name = CFG.feasibility_optim,
         )
         neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset)
         neural_feasibility_classifier.freeze()

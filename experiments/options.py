@@ -68,31 +68,32 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
         ))
 
         # MoveBox option
-        def MoveBox_policy(state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
-            box, shelf = objects
-            offset_x, offset_y = arr
-
-            shelf_x, shelf_y, shelf_w, shelf_h = Shelves2DEnv.get_shape_data(state, shelf)
-            box_x, box_y, box_w, box_h = Shelves2DEnv.get_shape_data(state, box)
-
-            action = [
-                box_x + box_w/2, box_y + box_h/2,
-                shelf_x + offset_x - box_x, shelf_y + offset_y - box_y
-            ]
-
-            bounds = Shelves2DEnv.action_space_bounds()
-            return Action(np.clip(action, bounds.low, bounds.high, dtype=np.float32))
-
         options.add(ParameterizedOption(
             "MoveBox",
             [box_type, shelf_type],
             offset_space,
-            MoveBox_policy,
+            Shelves2DGroundTruthOptionFactory.MoveBox_policy,
             cls.initiable,
             cls.terminal
         ))
 
         return options
+
+    @staticmethod
+    def MoveBox_policy(state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
+        box, shelf = objects
+        offset_x, offset_y = arr
+
+        shelf_x, shelf_y, shelf_w, shelf_h = Shelves2DEnv.get_shape_data(state, shelf)
+        box_x, box_y, box_w, box_h = Shelves2DEnv.get_shape_data(state, box)
+
+        action = [
+            box_x + box_w/2, box_y + box_h/2,
+            shelf_x + offset_x - box_x, shelf_y + offset_y - box_y
+        ]
+
+        bounds = Shelves2DEnv.action_space_bounds()
+        return Action(np.clip(action, bounds.low, bounds.high, dtype=np.float32))
 
     @classmethod
     def initiable(cls, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> bool:

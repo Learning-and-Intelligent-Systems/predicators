@@ -501,7 +501,7 @@ class GlobalSettings:
     feasibility_feature_size = 128
     feasibility_embedding_size = feasibility_feature_size // 2
     feasibility_embedding_concat = True
-    feasibility_embedding_max_idx = 20
+    feasibility_embedding_max_idx = 40
     feasibility_num_heads = 8
     feasibility_enc_num_layers = 1
     feasibility_dec_num_layers = 1
@@ -515,6 +515,7 @@ class GlobalSettings:
     feasibility_threshold_recalibration_percentile = 1.0
     feasibility_num_negative_loaded_datapoints = 2500
     feasibility_num_datapoints_per_iter = 300
+    feasibility_optim = 'adam'
 
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000
