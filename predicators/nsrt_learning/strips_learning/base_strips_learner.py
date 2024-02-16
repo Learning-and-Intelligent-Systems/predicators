@@ -23,6 +23,7 @@ class BaseSTRIPSLearner(abc.ABC):
                  verify_harmlessness: bool,
                  annotations: Optional[List[Any]],
                  clusters: Optional[Dict[str, List[Any]]],
+                 stuff_needed: Any,
                  verbose: bool = True) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -33,6 +34,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._num_segments = sum(len(t) for t in segmented_trajs)
         self._annotations = annotations
         self._clusters = clusters
+        self._stuff_needed = stuff_needed
         assert len(self._trajectories) == len(self._segmented_trajs)
 
     def learn(self) -> List[PNAD]:
@@ -115,6 +117,33 @@ class BaseSTRIPSLearner(abc.ABC):
         (i.e., the predicates and operators don't render any
         demonstrated trajectory impossible).
         """
+        ####
+        # testing score of operators with predicate score function
+
+        from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
+        from predicators.nsrt_learning.segmentation import segment_trajectory
+        z = self._stuff_needed
+        # score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, train_tasks, metric_name)
+        score_function = _ExpectedNodesScoreFunction(z[0], z[1], z[2], z[3], z[4])
+
+        # pruned_atom_data = utils.prune_ground_atom_dataset(
+        #     self._atom_dataset,
+        #     candidate_predicates | self._initial_predicates)
+        pruned_atom_data = utils.prune_ground_atom_dataset(z[1], z[5] | z[0])
+        segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
+        low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        strips_ops = [pnad.op for pnad in pnads]
+        option_specs = [pnad.option_spec for pnad in pnads]
+        op_score = score_function.evaluate_with_operators(
+            z[5],
+            low_level_trajs,
+            segmented_trajs,
+            strips_ops,
+            option_specs
+        )
+        import pdb; pdb.set_trace()
+        ####
+
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         counter = 0
@@ -239,11 +268,12 @@ class BaseSTRIPSLearner(abc.ABC):
             after_first = (init_atoms | first.add_effects) - first.delete_effects
             assert second.preconditions.issubset(after_first)
             after_second = (after_first | second.add_effects) - second.delete_effects
+
             assert third.preconditions.issubset(after_second)
             after_third = (after_second | third.add_effects) - third.delete_effects
 
-            (Pdb) third.preconditions - third.preconditions.intersection(after_second)
-            {Forall[0:screw].[ScrewPlaced(0,1)](contraption0:contraption), NOT-Forall[0:screw].[NOT-ScrewPlaced(0,1)](contraption0:contraption)}
+            # (Pdb) third.preconditions - third.preconditions.intersection(after_second)
+            # {Forall[0:screw].[ScrewPlaced(0,1)](contraption0:contraption), NOT-Forall[0:screw].[NOT-ScrewPlaced(0,1)](contraption0:contraption)}
             # why are we learnring this predicate, if it comes out of the intersection?
             # I should look into why discard isn't working as expected -- if so, there could be errosr in other places where that is used.
 

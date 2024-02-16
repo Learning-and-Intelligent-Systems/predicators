@@ -246,9 +246,12 @@ def _create_sampler_data(
             goal = segment.get_goal()
         else:
             goal = None
-        assert all(
-            pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
-            for pre in preconditions)
+        try:
+            assert all(
+                pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
+                for pre in preconditions)
+        except:
+            import pdb; pdb.set_trace()
         positive_data.append((state, var_to_obj, option, goal))
 
     # Populate all negative data.

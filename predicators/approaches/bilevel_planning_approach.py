@@ -62,8 +62,89 @@ class BilevelPlanningApproach(BaseApproach):
         # def print_state(state):
         # for k, v in task.init.data.items(): print(f"{k}: {v.tolist()}")
 
-        if self._num_calls in [2, 4, 6]:
+        if self._num_calls in [14]:
             import pdb; pdb.set_trace()
+
+            # objs = list(task.init.data.keys())
+            # bolt0 = [o for o in objs if o.name == "bolt0"][0]
+            # contraption0 = [o for o in objs if o.name == "contraption0"][0]
+            # contraption1 = [o for o in objs if o.name == "contraption1"][0]
+            # contraption2 = [o for o in objs if o.name == "contraption2"][0]
+            # nail0 = [o for o in objs if o.name == "nail0"][0]
+            # hammer0 = [o for o in objs if o.name == "hammer0"][0]
+            # hammer1 = [o for o in objs if o.name == "hammer1"][0]
+            # robot = [o for o in objs if o.name == "robby"][0]
+            # screw0 = [o for o in objs if o.name == "screw0"][0]
+            # screwdriver0 = [o for o in objs if o.name == "screwdriver0"][0]
+            # screwdriver1 = [o for o in objs if o.name == "screwdriver1"][0]
+            # screwdriver2 = [o for o in objs if o.name == "screwdriver2"][0]
+            # wrench0 = [o for o in objs if o.name == "wrench0"][0]
+            #
+            # Op0_FastenNailWithHammer = [op for op in nsrts if op.name=="Op0-FastenNailWithHammer"][0]
+            # Op1_PickWrench = [op for op in nsrts if op.name=="Op1-PickWrench"][0]
+            # Op2_PickScrew = [op for op in nsrts if op.name=="Op2-PickScrew"][0]
+            # Op3_FastenScrewByHand = [op for op in nsrts if op.name=="Op3-FastenScrewByHand"][0]
+            # Op4_PickBolt = [op for op in nsrts if op.name=="Op4-PickBolt"][0]
+            # Op5_PickScrewdriver = [op for op in nsrts if op.name=="Op5-PickScrewdriver"][0]
+            # Op6_Place = [op for op in nsrts if op.name=="Op6-Place"][0]
+            # Op7_Place = [op for op in nsrts if op.name=="Op7-Place"][0]
+            # Op8_Place = [op for op in nsrts if op.name=="Op8-Place"][0]
+            # Op9_PickNail = [op for op in nsrts if op.name=="Op9-PickNail"][0]
+            # Op10_FastenBoltWithWrench = [op for op in nsrts if op.name=="Op10-FastenBoltWithWrench"][0]
+            # Op11_Place = [op for op in nsrts if op.name=="Op11-Place"][0]
+            # Op12_Place = [op for op in nsrts if op.name=="Op12-Place"][0]
+            # Op13_Place = [op for op in nsrts if op.name=="Op13-Place"][0]
+            # Op14_PickHammer = [op for op in nsrts if op.name=="Op14-PickHammer"][0]
+            # Op15_FastenScrewWithScrewdriver = [op for op in nsrts if op.name=="Op15-FastenScrewWithScrewdriver"][0]
+            #
+            # init_atoms = utils.abstract(task.init, preds)
+            #
+            # plan = [
+            #     Op2_PickScrew.ground((robot, screw0)),
+            #     Op12_Place.ground((contraption0, robot, screw0)),
+            #     Op4_PickBolt.ground((bolt0, robot)),
+            #     Op13_Place.ground((bolt0, contraption2, robot)),
+            #     Op1_PickWrench.ground((robot, wrench0)),
+            #     Op10_FastenBoltWithWrench.ground((bolt0, contraption2, robot, wrench0)),
+            #     Op11_Place.ground((robot, wrench0)),
+            #     Op3_FastenScrewByHand.ground((contraption0, robot, screw0)),
+            #     Op9_PickNail.ground((nail0, robot)),
+            #     Op8_Place.ground((contraption2, nail0, robot)),
+            #     Op14_PickHammer.ground((hammer0, robot)),
+            #     Op0_FastenNailWithHammer.ground((contraption2, hammer0, nail0, robot))
+            # ]
+            #
+            # plan = [Op2_PickScrew.ground((robot, screw0)), Op12_Place.ground((contraption0, robot, screw0)), Op4_PickBolt.ground((bolt0, robot)), Op13_Place.ground((bolt0, contraption2, robot)), Op1_PickWrench.ground((robot, wrench0)), Op10_FastenBoltWithWrench.ground((bolt0, contraption2, robot, wrench0)), Op11_Place.ground((robot, wrench0)), Op3_FastenScrewByHand.ground((contraption0, robot, screw0)), Op9_PickNail.ground((nail0, robot)), Op8_Place.ground((contraption2, nail0, robot)), Op14_PickHammer.ground((hammer0, robot)), Op0_FastenNailWithHammer.ground((contraption2, hammer0, nail0, robot))]
+            #
+            # def check_plan(plan, init_atoms):
+            #     abstract_states = [init_atoms]
+            #     for x, p in enumerate(plan):
+            #         try:
+            #             p.preconditions.issubset(abstract_states[-1])
+            #         except:
+            #             import pdb; pdb.set_trace()
+            #         new_abstract_state = (abstract_states[-1] | p.add_effects) - p.delete_effects
+            #         # new_abstract_state = utils.apply_operator(p, abstract_states[-1]) # this does not work properly!
+            #         abstract_states.append(new_abstract_state)
+            #
+            #     return abstract_states
+            #
+            # import pdb; pdb.set_trace()
+            #
+            # check_plan(plan, init_atoms)
+            ###########################################################
+
+            # first = Op2_PickScrew.ground((robot, screw0))
+            # second = Op12_Place.ground((contraption0, robot, screw0))
+            # third = Op4_PickBolt.ground((bolt0, robot))
+            #
+            # assert first.preconditions.issubset(init_atoms)
+            # after_first = after_first = (init_atoms | first.add_effects) - first.delete_effects
+            # assert second.preconditions.issubset(after_first)
+            # after_second = (after_first | second.add_effects) - second.delete_effects
+            # assert third.preconditions.issubset(after_second)
+
+
         #
         #     objects = sorted(task.init.data.keys())
         #     robot = [o for o in objects if o.name == "robby"][0]
@@ -185,16 +266,21 @@ class BilevelPlanningApproach(BaseApproach):
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
-            nsrt_plan, _, metrics = self._run_task_plan(
-                task, nsrts, preds, timeout, seed)
+            nsrt_plan, _, metrics = self._run_task_plan(task, nsrts, preds, timeout, seed)
+            # nsrt_plan, _, metrics = self._run_task_plan(
+            #     task, nsrts, preds, timeout, seed)
             self._last_nsrt_plan = nsrt_plan
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
                                                       self._rng)
 
         # Run full bilevel planning.
         else:
-            option_plan, nsrt_plan, metrics = self._run_sesame_plan(
-                task, nsrts, preds, timeout, seed)
+            option_plan, nsrt_plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout, seed)
+            # for n in nsrt_plan:
+            #     if "Back" in n.name:
+            #         print("Plan with placeback: ", [no.name for no in nsrt_plan])
+            # option_plan, nsrt_plan, metrics = self._run_sesame_plan(
+            #     task, nsrts, preds, timeout, seed)
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
             policy = utils.option_plan_to_policy(option_plan)

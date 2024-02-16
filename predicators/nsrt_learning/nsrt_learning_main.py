@@ -19,6 +19,7 @@ from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
 
 def learn_nsrts_from_data2(
     clusters:  Dict[str, List[Any]],
+    stuff_needed: Any,
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
     action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
@@ -85,6 +86,7 @@ def learn_nsrts_from_data2(
             verify_harmlessness=True,
             annotations=annotations,
             clusters=clusters,
+            stuff_needed=stuff_needed,
             verbose=(CFG.option_learner != "no_learning"))
 
         # Save least complex learned PNAD set across data orderings.
@@ -287,6 +289,8 @@ def _learn_pnad_options(pnads: List[PNAD],
         example_segment, _ = pnad.datastore[0]
         example_action = example_segment.actions[0]
         pnad_options_known = example_action.has_option()
+        print("pnad name: ", pnad.op.name)
+        print("has known options: ", pnad_options_known)
         # Sanity check the assumption described above.
         if pnad_options_known:
             assert example_action.get_option().parent in known_options
@@ -306,6 +310,7 @@ def _learn_pnad_options(pnads: List[PNAD],
     known_option_learner = KnownOptionsOptionLearner()
     unknown_option_learner = create_option_learner(action_space)
     # "Learn" the known options.
+    import pdb; pdb.set_trace()
     _learn_pnad_options_with_learner(known_option_pnads, known_option_learner)
     logging.info("\nOperators with known options:")
     for pnad in known_option_pnads:

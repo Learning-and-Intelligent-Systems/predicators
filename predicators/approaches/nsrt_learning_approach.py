@@ -99,7 +99,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 pkl.dump(ground_atom_dataset_to_pkl, f)
 
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
-            learn_nsrts_from_data2(self._clusters, trajectories,
+            learn_nsrts_from_data2(self._clusters, self._stuff_needed, trajectories,
                                   self._train_tasks,
                                   self._get_current_predicates(),
                                   self._initial_options,

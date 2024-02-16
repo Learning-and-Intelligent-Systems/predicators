@@ -112,13 +112,19 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
                 else:
                     assert param_option == option.parent
                     option_args = [var_to_obj[v] for v in option_vars]
-                    assert option_args == option.objects
+                    try:
+                        assert option_args == option.objects
+                    except:
+                        import pdb; pdb.set_trace()
                 # Make sure the option is consistent within a trajectory.
                 for a in segment.actions:
                     option_a = a.get_option()
                     assert param_option == option_a.parent
                     option_args = [var_to_obj[v] for v in option_vars]
-                    assert option_args == option_a.objects
+                    try:
+                        assert option_args == option_a.objects
+                    except:
+                        import pdb; pdb.set_trace()
             assert param_option is not None and option_vars is not None, \
                 "No data in this datastore?"
             option_specs.append((param_option, option_vars))

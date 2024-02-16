@@ -1568,6 +1568,8 @@ def _finish_plan(
     rev_state_sequence: List[_S] = []
     rev_action_sequence: List[_A] = []
 
+    # import pdb; pdb.set_trace()
+
     while node.parent is not None:
         action = cast(_A, node.action)
         rev_action_sequence.append(action)

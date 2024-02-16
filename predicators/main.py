@@ -71,6 +71,7 @@ def main() -> None:
     args = utils.parse_args()
     utils.update_config(args)
     str_args = " ".join(sys.argv)
+
     # Log to stderr.
     handlers: List[logging.Handler] = [logging.StreamHandler()]
     if CFG.log_file:
@@ -134,7 +135,7 @@ def main() -> None:
             if "PickFromTable" in names:
                 for n in demo:
                     print(f"nsrt {n.name}, params {n.objects}, option params: {n.option_objs}")
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
     else:
         offline_dataset = None
     # Create the cognitive manager.

@@ -103,11 +103,19 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
         #
         #
         #     pass
-
+        ops_to_print = []
         for name, v in self._clusters.items():
 
 
             preconds, add_effects, del_effects, segments = v
+
+            # if name == "Op3-FastenScrewByHand":
+            #     import pdb; pdb.set_trace()
+            if name == "Op12-Place":
+                import pdb; pdb.set_trace()
+
+            if name == "Op3-FastenScrewByHand":
+                import pdb; pdb.set_trace()
 
             seg_0 = segments[0]
             opt_objs = tuple(seg_0.get_option().objects)
@@ -321,7 +329,7 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
                 # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
                 op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
-
+                ops_to_print.append(op)
                 # import pdb; pdb.set_trace()
 
 
@@ -412,6 +420,25 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             # pick up some extraneous predicates in some of them, so you would
             # have to be careful and do some inference when trying them out on
             # the demos.
+
+        def print_ops(op):
+            print("====")
+            print(op.name)
+            print(op.parameters)
+            print("preconditions:")
+            for p in sorted(op.preconditions):
+                print(p)
+            print("add effects:")
+            for p in sorted(op.add_effects):
+                print(p)
+            print("delete effects:")
+            for p in sorted(op.delete_effects):
+                print(p)
+            print("====")
+
+
+        for operator in ops_to_print:
+            print_ops(operator)
 
         import pdb; pdb.set_trace()
         return pnads

@@ -1025,8 +1025,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     if types in clusters:
                         clusters[types].append(seg)
                     else:
+
                         clusters[types] = [seg]
-                        print("New unique type: ", types)
+                        # print("New unique type: ", types) # to detect the issue in cover where it infers an incorrect cluster with just type (block, )
+                        # if len(types) == 1:
+                            # import pdb; pdb.set_trace()
                 logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for for {j+1}th cluster from STEP 1 involving option {option}.")
                 for _, c in clusters.items():
                     all_clusters.append(c)
@@ -1054,9 +1057,26 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Step 4:
             final_clusters = []
             for j, cluster in enumerate(all_clusters):
+
                 example_segment = cluster[0]
                 option_name = example_segment.get_option().name
                 # if len(example_segment.get_option().params) == 0 or option_name in ["Paint", "Place", "Pick"]:
+
+                #
+                if option_name != "Pick":
+                    final_clusters.append(cluster)
+                    continue
+                #
+
+                # #
+                # if option_name == "Paint":
+                #     example_predicates = [p.predicate.name for p in example_segment.add_effects]
+                #     if "IsBoxColor" in example_predicates:
+                #         final_clusters.append(cluster)
+                #         continue
+                # #
+
+
                 if len(example_segment.get_option().params) == 0:
                     final_clusters.append(cluster)
                     logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
@@ -1069,7 +1089,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     data = np.array([seg.get_option().params for seg in cluster])
                     # If parameter is uniformly distributed, don't cluster
                     # further. Should do a multi-dimensional test but won't do
-                    # that for now. TODO: do that later.
+                    # that for now.
+                    # Should we be looking at the conditional distribution?
+                    # But with the placeback sampler in tools -- it just returns the pose of the tool, and the tools may not be arranged uniformly...
                     all_uniform = True
                     # TODO: explain that this is doing it per dimension, but we should be looking at the joint distribution.
                     for i in range(data.shape[1]):
@@ -1096,7 +1118,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # plt.hist(arr)
                         # plt.savefig("temp.png")
                         # plt.clf()
-                    if all_uniform or option_name == "PutOnTable":
+                    # if all_uniform or option_name == "PutOnTable":
+                    if all_uniform:
                         final_clusters.append(cluster)
                         logging.info(f"STEP 4: generated no further sample-based clusters (uniformly distributed parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                     else:
@@ -1121,39 +1144,62 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         logging.info(f"STEP 4: generated {len(sub_clusters.values())} sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                         for c in sub_clusters.values():
                             final_clusters.append(c)
+                            if option_name == "Paint":
+                                print(f"Index of this cluster involving option Paint in final_clusters: {len(final_clusters) - 1}")
 
             logging.info(f"Total {len(final_clusters)} final clusters.")
+            import copy
 
+            ####
+            final_clusters2 = copy.deepcopy(final_clusters)
+            ####
             ####
 
             ###
             # Stuff from oracle learning to test if the stuff is working.
             ###
-            assert CFG.offline_data_method == "demo+gt_operators"
-            assert dataset.annotations is not None and len(
-                dataset.annotations) == len(dataset.trajectories)
-            assert CFG.segmenter == "option_changes"
-            segmented_trajs = [
-                segment_trajectory(traj) for traj in atom_dataset
-            ]
-            assert len(segmented_trajs) == len(dataset.annotations)
-            # First, get the set of all ground truth operator names.
-            all_gt_op_names = set(ground_nsrt.parent.name
-                                  for anno_list in dataset.annotations
-                                  for ground_nsrt in anno_list)
-            import pdb; pdb.set_trace()
-            # Next, make a dictionary mapping operator name to segments
-            # where that operator was used.
-            gt_op_to_segments: Dict[str, List[Segment]] = {
-                op_name: []
-                for op_name in all_gt_op_names
-            }
-            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-                assert len(seg_list) == len(op_list)
-                for ground_nsrt, segment in zip(op_list, seg_list):
-                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            final_clusters = list(gt_op_to_segments.values())
+            # assert CFG.offline_data_method == "demo+gt_operators"
+            # assert dataset.annotations is not None and len(
+            #     dataset.annotations) == len(dataset.trajectories)
+            # assert CFG.segmenter == "option_changes"
+            # segmented_trajs = [
+            #     segment_trajectory(traj) for traj in atom_dataset
+            # ]
+            # assert len(segmented_trajs) == len(dataset.annotations)
+            # # First, get the set of all ground truth operator names.
+            # all_gt_op_names = set(ground_nsrt.parent.name
+            #                       for anno_list in dataset.annotations
+            #                       for ground_nsrt in anno_list)
+            # import pdb; pdb.set_trace()
+            # # Next, make a dictionary mapping operator name to segments
+            # # where that operator was used.
+            # gt_op_to_segments: Dict[str, List[Segment]] = {
+            #     op_name: []
+            #     for op_name in all_gt_op_names
+            # }
+            # for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+            #     assert len(seg_list) == len(op_list)
+            #     for ground_nsrt, segment in zip(op_list, seg_list):
+            #         gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+            # final_clusters = list(gt_op_to_segments.values())
             ###
+
+
+            ####
+            # take the clusters involving option paint from our computed ones,
+            # but the rest from oracle
+            import pdb; pdb.set_trace()
+            # new_final_clusters = []
+            # for c in final_clusters:
+            #     if c[0].get_option().name != "Paint":
+            #         new_final_clusters.append(c)
+            #     elif c[0].get_option().name
+            # for c in final_clusters2:
+            #     if c[0].get_option().name == "Paint":
+            #         new_final_clusters.append(c)
+            # import pdb; pdb.set_trace()
+            ####
+
 
             # operator to preconditions, and add effects
             # filter out an operator that barely ever appears
@@ -1213,7 +1259,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     print(a)
                 print()
                 all_add_effects |= add_effects
-                # import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
                 #
                 # ex = c[0]
@@ -1381,6 +1427,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     print(p)
                 print()
 
+            import pdb; pdb.set_trace()
             logging.info("Performing backchaining to decide operator definitions.")
 
             #####################
@@ -1749,6 +1796,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             import pdb; pdb.set_trace()
             self._clusters = fff
+            self._stuff_needed = (initial_predicates, atom_dataset, candidates, train_tasks, "num_nodes_expanded", predicates_to_keep)
             import pdb; pdb.set_trace()
             return predicates_to_keep
 
