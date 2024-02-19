@@ -221,7 +221,8 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             hid_sizes=CFG.diffusion_regressor_hid_sizes,
             max_train_iters=CFG.diffusion_regressor_max_itr,
             timesteps=CFG.diffusion_regressor_timesteps,
-            learning_rate=CFG.learning_rate
+            learning_rate=CFG.learning_rate,
+            use_torch_gpu=CFG.use_torch_gpu,
         )
     else:
         assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
@@ -326,7 +327,7 @@ def _create_sampler_data(
     return positive_data, negative_data
 
 
-@dataclass(frozen=True, eq=False, repr=False)
+@dataclass(frozen=False, eq=False, repr=False)
 class _LearnedSampler:
     """A convenience class for holding the models underlying a learned
     sampler."""
@@ -335,17 +336,19 @@ class _LearnedSampler:
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
-    def shared_memory(self) -> None:
+    def share_memory(self) -> '_LearnedSampler':
         if isinstance(self._classifier, torch.nn.Module):
-            self._classifier.shared_memory()
+            self._classifier.share_memory()
         if isinstance(self._regressor, torch.nn.Module):
-            self._regressor.shared_memory()
+            self._regressor.share_memory()
+        return self
 
-    def to(self, *args, **kwargs) -> None:
+    def to(self, *args, **kwargs) -> '_LearnedSampler':
         if isinstance(self._classifier, torch.nn.Module):
             self._classifier.to(*args, **kwargs)
         if isinstance(self._regressor, torch.nn.Module):
             self._regressor.to(*args, **kwargs)
+        return self
 
     def __call__(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:

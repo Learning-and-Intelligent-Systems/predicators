@@ -495,8 +495,8 @@ class GlobalSettings:
     diffusion_regressor_timesteps = 50
 
     feasibility_learning_strategy = "backtracking"
-    feasibility_device = 'cpu'
-    feasibility_num_data_collection_threads = 8
+    feasibility_search_device = 'cpu'
+    feasibility_num_data_collection_threads = 12
     feasibility_featurizer_hid_sizes = [128, 128]
     feasibility_feature_size = 128
     feasibility_embedding_size = feasibility_feature_size // 2

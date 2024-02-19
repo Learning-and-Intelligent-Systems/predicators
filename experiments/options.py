@@ -72,15 +72,15 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
             "MoveBox",
             [box_type, shelf_type],
             offset_space,
-            Shelves2DGroundTruthOptionFactory.MoveBox_policy,
+            cls.MoveBox_policy,
             cls.initiable,
             cls.terminal
         ))
 
         return options
 
-    @staticmethod
-    def MoveBox_policy(state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
+    @classmethod
+    def MoveBox_policy(cls, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
         box, shelf = objects
         offset_x, offset_y = arr
 
@@ -109,8 +109,11 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
     def move(cls, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
         return Action(arr)
 
-def _MoveCoverTo_policy_helper(move_to_top: bool):
-    def MoveCoverTo_policy(state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
+class _MoveCoverTo_policy_helper():
+    def __init__(self, move_to_top: bool):
+        self._move_to_top = move_to_top
+
+    def __call__(self, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
         cover, bundle = objects
         offset_x, offset_y = arr
 
@@ -119,9 +122,8 @@ def _MoveCoverTo_policy_helper(move_to_top: bool):
 
         action = [
             cover_x + cover_w/2, cover_y + cover_h/2,
-            bundle_x + offset_x - cover_x, bundle_y + offset_y - cover_y + (bundle_h if move_to_top else -cover_h)
+            bundle_x + offset_x - cover_x, bundle_y + offset_y - cover_y + (bundle_h if self._move_to_top else -cover_h)
         ]
 
         bounds = Shelves2DEnv.action_space_bounds()
         return Action(np.clip(action, bounds.low, bounds.high, dtype=np.float32))
-    return MoveCoverTo_policy

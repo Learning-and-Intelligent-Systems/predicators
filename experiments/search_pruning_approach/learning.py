@@ -7,6 +7,7 @@ import numpy.typing as npt
 from dataclasses import dataclass
 import itertools
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from predicators.ml_models import DeviceTrackingModule, _get_torch_device
 from torch import nn, Tensor, tensor
 import torch
 from predicators.settings import CFG
@@ -14,24 +15,9 @@ import logging
 
 from predicators.structs import NSRT, _GroundNSRT, State, Variable
 
-import matplotlib.pyplot as plt
-import matplotlib
+# import matplotlib.pyplot as plt
+# import matplotlib
 # matplotlib.use("tkagg")
-
-class DeviceTrackingModule(nn.Module):
-    def __init__(self, device: Optional[Union[int, str, torch.device]]):
-        super().__init__()
-        self._tracking_buffer = tensor(())
-        self.register_buffer('_DeviceTrackingModule_tracking_buffer', self._tracking_buffer)
-
-    def _apply(self, *args, **kwargs):
-        del self.device
-        super()._apply(*args, **kwargs)
-
-    @cached_property
-    def device(self) -> torch.device:
-        device, = list({param.device for param in self.parameters()} | {buffer.device for buffer in self.buffers()})
-        return device
 
 @dataclass(frozen=True)
 class FeasibilityDatapoint:
@@ -114,7 +100,8 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
                 (uses the globally default device if unspecified)
         """
         super().__init__(device)
-        self._range = None
+        self.register_buffer("_min_state", torch.zeros((state_vector_size,), device=device))
+        self.register_buffer("_max_state", torch.ones((state_vector_size,), device=device))
 
         sizes = [state_vector_size] + hidden_sizes + [feature_size]
         self._layers = nn.ModuleList([
@@ -124,11 +111,8 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
 
     def update_range(self, state: npt.NDArray) -> None:
         state = tensor(state, device=self.device)
-        if self._range is None:
-            self._range = (state, state)
-        else:
-            min_state, max_state = self._range
-            self._range = (torch.minimum(min_state, state), torch.maximum(max_state, state))
+        self._min_state = torch.minimum(self._min_state, state)
+        self._max_state = torch.maximum(self._max_state, state)
 
     def forward(self, state: npt.NDArray) -> Tensor:
         """Runs the featurizer
@@ -138,10 +122,8 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
         """
         state = tensor(state, device=self.device)
 
-        if self._range is not None:
-            min_state, max_state = self._range
-            state -= min_state
-            state /= torch.clamp(max_state - min_state, min=0.1)
+        state -= self._min_state
+        state /= torch.clamp(self._max_state - self._min_state, min=0.1)
 
         for layer in self._layers[:-1]:
             state = nn.functional.elu(layer(state))
@@ -187,7 +169,9 @@ class PositionalEmbeddingLayer(DeviceTrackingModule):
             self._cls = nn.Parameter(torch.randn((1, feature_size), device=device))
             self._cls_marked = False
         elif include_cls == 'marked':
-            self._cls = torch.concat([torch.zeros((1, feature_size - 1), device=device), torch.ones((1, 1), device=device)], dim=1)
+            self._registe_buffer(
+                "_cls", torch.concat([torch.zeros((1, feature_size - 1), device=device), torch.ones((1, 1), device=device)], dim=1)
+            )
             self._cls_marked = True
         else:
             self._cls = None
@@ -279,6 +263,10 @@ class FeasibilityClassifier(ABC):
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
         raise NotImplementedError()
 
+class ConstFeasibilityClassifier(FeasibilityClassifier):
+    def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
+        return 1.0, True
+
 class StaticFeasibilityClassifier(FeasibilityClassifier):
     def __init__(self, classify: Callable[[Sequence[State], Sequence[_GroundNSRT]], Tuple[bool, float]]):
         self._classify = classify
@@ -326,16 +314,16 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         batch_size: int,
         threshold_recalibration_percentile: float,
         optimizer_name: str = 'adam',
-        test_split: float = 0.125,
+        test_split: float = 0.10,
         dropout: int = 0.25,
         num_threads: int = 8,
         classification_threshold: float = 0.5,
-        device: Optional[str] = 'cpu',
+        use_torch_gpu: bool = False,
         check_nans: bool = False,
     ):
         torch.manual_seed(seed)
         torch.set_num_threads(num_threads)
-        super(DeviceTrackingModule, self).__init__(device)
+        DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
 
         assert cls_style in {'learned', 'marked', 'mean'}
         self._cls_style = cls_style
@@ -360,7 +348,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             concat = positional_embedding_concat,
             include_cls = None,
             horizon = embedding_horizon,
-            device = device,
+            device = self.device,
 
         )
         self._decoder_positional_encoding = PositionalEmbeddingLayer(
@@ -371,7 +359,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                 'mean': None, 'learned': 'learned', 'marked': 'marked'
             }[cls_style],
             horizon = embedding_horizon,
-            device = device,
+            device = self.device,
         )
         self._transformer = nn.Transformer(
             d_model = classifier_feature_size,
@@ -381,10 +369,10 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             dim_feedforward = transformer_ffn_hidden_size,
             dropout = dropout,
             batch_first = True,
-            device = device,
+            device = self.device,
         )
         self._classifier_head = nn.Sequential(
-            nn.Linear(classifier_feature_size, 1, device=device),
+            nn.Linear(classifier_feature_size, 1, device=self.device),
             nn.Sigmoid(),
         )
 
@@ -400,7 +388,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             {'params': self._classifier_head.parameters(), 'lr': self._general_lr},
             {'params': self._transformer.parameters(), 'lr': self._transformer_lr},
         ])
-        self._frozen = False
         self._check_nans = check_nans
         self._threshold_recalibration_frac = threshold_recalibration_percentile
         self._unsure_confidence = 1.0
@@ -426,15 +413,18 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         return confidence >= self._thresh, confidence
 
     def freeze(self):
-        """Makes sure we don't train the classifier again after we've started moving it between devices
+        """Makes sure we don't train the classifier again and that it's ready to be multiprocessed
         """
-        self._frozen = True
+        self._optimizer = None
 
     def fit(
         self,
         positive_examples: Sequence[FeasibilityDatapoint],
         negative_examples: Sequence[FeasibilityDatapoint]
     ) -> None:
+        if self._optimizer is None:
+            raise RuntimeError("The classifier has been frozen")
+
         if not positive_examples and not negative_examples:
             return
 
@@ -445,6 +435,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         logging.info(f"Creating train and test datasets (test split {int(self._test_split*100)}%)")
 
         positive_examples, negative_examples = positive_examples.copy(), negative_examples.copy()
+        np.random.shuffle(positive_examples)
+        np.random.shuffle(negative_examples)
 
         positive_train_size = len(positive_examples) - int(len(positive_examples) * self._test_split)
         negative_train_size = len(negative_examples) - int(len(negative_examples) * self._test_split)
@@ -546,7 +538,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         ) + 1).values)
 
         self._unsure_confidence = max(self._thresh, false_positive_confidence)
-        logging.info(f"Updated the threshold of the classifer to {self._thresh}")
 
     def _collate_batch(
         self, batch: Sequence[Tuple[Tuple[Sequence[NSRT], Sequence[NSRT], Sequence[npt.NDArray], Sequence[npt.NDArray]], int]]
@@ -567,8 +558,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     ) -> float:
         """Runs the core of the classifier with given encoder and decoder nsrts and state vectors.
         """
-        if self._frozen:
-            raise RuntimeError("The classifier has been frozen")
         assert len(encoder_nsrts_batch) == len(decoder_nsrts_batch) and\
             len(decoder_nsrts_batch) == len(encoder_states_batch) and\
             len(encoder_states_batch) == len(decoder_states_batch)
@@ -614,8 +603,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             tgt=decoder_positional_tokens,
             src_key_padding_mask=encoder_positional_mask,
             tgt_key_padding_mask=decoder_positional_mask,
-            src_is_causal=False,
-            tgt_is_causal=False,
+            # src_is_causal=False,
+            # tgt_is_causal=False,
         )
 
         # Preparing for the classifier head
@@ -700,7 +689,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         NOTE: The assumption is that the concatentated features of all objects that
         are passed to a given NSRT always have the same data layout and total length.
         """
-        assert len(state.shape) == 1 and self._optimizer
+        assert len(state.shape) == 1
         if nsrt not in featurizers:
             featurizer = FeasibilityFeaturizer(
                 state.size,
@@ -711,9 +700,10 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             self._featurizer_count += 1
 
             self.add_module(f"featurizer_{self._featurizer_count}", featurizer)
-            self._optimizer.add_param_group(
-                {'params': featurizer.parameters(), 'lr': self._general_lr}
-            )
+            if self._optimizer is not None:
+                self._optimizer.add_param_group(
+                    {'params': featurizer.parameters(), 'lr': self._general_lr}
+                )
 
             featurizers[nsrt] = featurizer
         else:

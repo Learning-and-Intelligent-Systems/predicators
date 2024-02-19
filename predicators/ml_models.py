@@ -4,13 +4,14 @@ Note: to promote modularity, this file should NOT import CFG.
 """
 
 import abc
+from functools import cached_property
 import logging
 import os
 import tempfile
 from collections import deque
 from dataclasses import dataclass
 from typing import Any, Callable, Collection, Deque, Dict, FrozenSet, \
-    Iterator, List, Optional, Sequence, Set, Tuple
+    Iterator, List, Optional, Sequence, Set, Tuple, Union
 from typing import Type as TypingType
 
 import numpy as np
@@ -133,8 +134,25 @@ class _NormalizingRegressor(Regressor):
         """Return a normalized prediction for the normalized input."""
         raise NotImplementedError("Override me!")
 
+class DeviceTrackingModule(nn.Module):
+    def __init__(self, device: Optional[Union[int, str, torch.device]]):
+        super().__init__()
+        self.register_buffer('_DeviceTrackingModule_tracking_buffer', torch.tensor(([]), device=device))
 
-class PyTorchRegressor(_NormalizingRegressor, nn.Module):
+    def _apply(self, *args, **kwargs):
+        if "device" in self.__dict__:
+            del self.device
+        return super()._apply(*args, **kwargs)
+
+    @cached_property
+    def device(self) -> torch.device:
+        device, = list({param.device for param in self.parameters()} | {buffer.device for buffer in self.buffers()})
+        return device
+
+    def to_common_device(self):
+        self.to(self._DeviceTrackingModule_tracking_buffer.device)
+
+class PyTorchRegressor(_NormalizingRegressor, DeviceTrackingModule):
     """ABC for PyTorch regression models."""
 
     def __init__(self,
@@ -151,14 +169,13 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         torch.manual_seed(seed)
         _NormalizingRegressor.__init__(
             self, seed, disable_normalization=disable_normalization)
-        nn.Module.__init__(self)  # type: ignore
+        DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
         self._max_train_iters = max_train_iters
         self._clip_gradients = clip_gradients
         self._clip_value = clip_value
         self._learning_rate = learning_rate
         self._weight_decay = weight_decay
         self._n_iter_no_change = n_iter_no_change
-        self._device = _get_torch_device(use_torch_gpu)
         self._train_print_every = train_print_every
 
     @abc.abstractmethod
@@ -185,23 +202,23 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
-        self.to(self._device)
+        self.to_common_device()
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
         optimizer = self._create_optimizer()
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
-            self._device)
+            self.device)
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
-            self._device)
+            self.device)
         batch_generator = _single_batch_generator(tensor_X, tensor_Y)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             device=self._device,
+                             device=self.device,
                              print_every=self._train_print_every,
                              max_train_iters=self._max_train_iters,
                              dataset_size=X.shape[0],
@@ -211,7 +228,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
 
     def _predict(self, x: Array) -> Array:
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(
-            self._device)
+            self.device)
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
@@ -371,7 +388,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         raise NotImplementedError("Override me!")
 
 
-class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
+class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, DeviceTrackingModule):
     """ABC for PyTorch binary classification models."""
 
     def __init__(self,
@@ -387,14 +404,13 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                  train_print_every: int = 1000) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
-        nn.Module.__init__(self)  # type: ignore
+        DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
         self._max_train_iters = max_train_iters
         self._learning_rate = learning_rate
         self._weight_decay = weight_decay
         self._n_iter_no_change = n_iter_no_change
         self._n_reinitialize_tries = n_reinitialize_tries
         self._weight_init = weight_init
-        self._device = _get_torch_device(use_torch_gpu)
         self._train_print_every = train_print_every
 
     @abc.abstractmethod
@@ -448,14 +464,14 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
-        self.to(self._device)
+        self.to_common_device()
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
-            self._device)
+            self.device)
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(
-            self._device)
+            self.device)
         batch_generator = _single_batch_generator(tensor_X, tensor_y)
         # Run training.
         for _ in range(self._n_reinitialize_tries):
@@ -469,7 +485,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                 loss_fn,
                 optimizer,
                 batch_generator,
-                device=self._device,
+                device=self.device,
                 print_every=self._train_print_every,
                 max_train_iters=self._max_train_iters,
                 dataset_size=X.shape[0],
@@ -485,7 +501,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         """Helper for _classify() and predict_proba()."""
         assert x.shape == self._x_dims
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(
-            self._device)
+            self.device)
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
@@ -671,9 +687,9 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         num_negatives = self._num_negatives_per_input
         # Cast to torch first.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
-            self._device)
+            self.device)
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
-            self._device)
+            self.device)
         assert tensor_X.shape == (num_samples, *self._x_dims)
         assert tensor_Y.shape == (num_samples, self._y_dim)
         # Expand tensor_Y in preparation for concat in the loop below.
@@ -716,7 +732,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # maps concatenated X and Y vectors to floats (energies).
         # Initialize the network.
         self._initialize_net()
-        self.to(self._device)
+        self.to_common_device()
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
@@ -728,7 +744,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             device=self._device,
+                             device=self.device,
                              max_train_iters=self._max_train_iters,
                              dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
@@ -755,7 +771,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              dtype=np.float32)
         assert concat_xy.shape == (num_samples, self._x_dims[0] + self._y_dim)
         # Pass through network.
-        scores = self(torch.from_numpy(concat_xy).to(self._device))
+        scores = self(torch.from_numpy(concat_xy).to(self.device))
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return sample_ys[sample_idx]
@@ -781,7 +797,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         assert sigma is not None and sigma > 0
         assert K is not None and 0 < K < 1
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(
-            self._device)
+            self.device)
         repeated_x = tensor_x.repeat(num_samples, 1)
         # Initialize candidate outputs.
         Y = torch.rand(size=(num_samples, self._y_dim), dtype=tensor_x.dtype)
@@ -818,7 +834,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              dtype=np.float32)
         assert concat_xy.shape == (num_samples, self._x_dims[0] + self._y_dim)
         # Pass through network.
-        scores = self(torch.from_numpy(concat_xy).to(self._device))
+        scores = self(torch.from_numpy(concat_xy).to(self.device))
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return candidate_ys[sample_idx]
@@ -1471,16 +1487,16 @@ class MapleQFunction(MLPRegressor):
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
-        self.to(self._device)
+        self.to_common_device()
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
         optimizer = self._create_optimizer()
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
-            self._device)
+            self.device)
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
-            self._device)
+            self.device)
         batch_generator = self.minibatch_generator(
             tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
         # Run training.
@@ -1488,7 +1504,7 @@ class MapleQFunction(MLPRegressor):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             device=self._device,
+                             device=self.device,
                              print_every=self._train_print_every,
                              max_train_iters=self._max_train_iters,
                              dataset_size=X.shape[0],
@@ -1576,19 +1592,18 @@ class MapleQFunction(MLPRegressor):
                 sampled_options.append(option)
         return sampled_options
 
-class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is your diffusion code
+class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: this is your diffusion code
     def __init__(self, seed: int, hid_sizes: List[int],
                  max_train_iters: int, timesteps: int,
-                 learning_rate: float) -> None:
+                 learning_rate: float, use_torch_gpu: bool = False) -> None:
         torch.set_num_threads(8)
         torch.manual_seed(seed)
-        super().__init__()
+        DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
         self._linears = nn.ModuleList()
         self._hid_sizes = hid_sizes
         self._max_train_iters = max_train_iters
         self._timesteps = timesteps
-        self._device = 'cuda'
-        self._optimizer = None
+        # self._optimizer = None
         self._learning_rate = learning_rate
         self.is_trained = False
 
@@ -1615,7 +1630,7 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
     def forward(self, X_cond, Y_out, t, return_aux=False):
         half_t_dim = self._t_dim // 2
         t_embeddings = np.log(10000) / (half_t_dim - 1)
-        t_embeddings = torch.exp(torch.arange(half_t_dim, device=self._device) * -t_embeddings)
+        t_embeddings = torch.exp(torch.arange(half_t_dim, device=self.device) * -t_embeddings)
         t_embeddings = t[:, None] * t_embeddings[None, :]
         t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
         X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
@@ -1659,15 +1674,15 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
                      "datapoints")
 
         self._initialize_net()
-        self.to(self._device)
+        self.to_common_device()
         optimizer = self._create_optimizer()
 
-        tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self._device)
-        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
-        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
+        tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self.device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
 
         if Y_aux is not None:
-            tensor_Y_aux = torch.from_numpy(np.array(Y_aux, dtype=np.float32)).to(self._device)
+            tensor_Y_aux = torch.from_numpy(np.array(Y_aux, dtype=np.float32)).to(self.device)
             data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out, tensor_Y_aux)
         else:
             data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
@@ -1682,7 +1697,7 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
             else:
                 tensor_X, tensor_Y = tensors
                 tensor_Y_aux = None
-            t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self._device)
+            t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)
             loss = self._p_losses(tensor_X, tensor_Y, t, tensor_Y_aux)
             if torch.isnan(loss):
                 logging.info('Got NaNs while trianing model...')
@@ -1699,7 +1714,6 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
             if itr % 1000 == 0:
                 logging.info(f"Loss: {loss.item():.5f}, iter: {itr}/{self._max_train_iters}")
 
-        self.eval()
         # logging.info(f"Trained model with loss: {cum_loss:.5f}")
         # return cum_loss
 
@@ -1731,19 +1745,20 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
     @torch.no_grad()
     def _p_sample_loop(self, x_cond):
         # start from pure noise (for each example in the batch)
-        y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self._device, requires_grad=True)
+        y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self.device, requires_grad=True)
         y_outs = []
 
         for i in reversed(range(0, self._timesteps)):
-            y_out = self._p_sample(x_cond, y_out, torch.full((self._cache_num_samples,), i, device=self._device, dtype=torch.long), i)
+            y_out = self._p_sample(x_cond, y_out, torch.full((self._cache_num_samples,), i, device=self.device, dtype=torch.long), i)
             y_outs.append(y_out.detach().cpu().numpy())
         return y_outs
 
     def predict_sample(self, x_cond: Array, rng: np.random.Generator) -> Array:
+        logging.info("Called predict_sample")
         self.eval()
         if x_cond.round(decimals=4).data.tobytes() not in self._cache:
             x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
-            x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self._device)
+            x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self.device)
             x_cond_tensor = x_cond_tensor.view(1, -1).expand(self._cache_num_samples, -1)
             samples = self._p_sample_loop(x_cond_tensor)[-1]
             self._cache[x_cond.round(decimals=4).data.tobytes()] = (samples, 0)   # cache, idx
@@ -1768,10 +1783,10 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
-        if self._optimizer is None:
-            print('Creating optimizer afresh')
-            self._optimizer = optim.RMSprop(self.parameters(), lr=self._learning_rate)
-        return self._optimizer
+        # if self._optimizer is None:
+        #     logging.info('Creating optimizer afresh')
+        #     self._optimizer = optim.RMSprop(self.parameters(), lr=self._learning_rate)
+        return optim.RMSprop(self.parameters(), lr=self._learning_rate)
 
     @classmethod
     def _cosine_beta_schedule(cls, timesteps, s=0.008):

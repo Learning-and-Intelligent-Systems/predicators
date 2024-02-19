@@ -3,6 +3,7 @@ from copy import deepcopy
 import dataclasses
 from dataclasses import dataclass
 from itertools import cycle, repeat
+from types import SimpleNamespace
 from gym.spaces import Box
 import logging
 import numpy as np
@@ -13,9 +14,8 @@ import torch
 from tqdm import tqdm
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple, cast
 
-
-import matplotlib
-import matplotlib.pyplot as plt
+# import matplotlib
+# import matplotlib.pyplot as plt
 # matplotlib.use("tkagg")
 
 from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, FeasibilityDatapoint, NeuralFeasibilityClassifier, StaticFeasibilityClassifier
@@ -175,7 +175,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info(f"saved generated feasibility datasets to {path}")
 
     @staticmethod
-    def _ground_truth_classifier(states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
+    def _shelves2d_ground_truth_classifier(states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
         current_nsrt = skeleton[len(states) - 2]
         final_nsrt = skeleton[-1]
 
@@ -199,7 +199,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         NOTE: works only for the Shelves2D environment
         """
         assert CFG.env == "shelves2d"
-        self._feasibility_classifier = StaticFeasibilityClassifier(SearchPruningApproach._ground_truth_classifier)
+        self._feasibility_classifier = StaticFeasibilityClassifier(SearchPruningApproach._shelves2d_ground_truth_classifier)
 
     def _collect_data_ground_truth(self) -> None:
         """Collects ground truth data for training the neural feasibility classifier.
@@ -346,7 +346,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         """Collects data by interleaving data collection for a certain suffix length and learning on that data
         """
         # TODO: add an option to limit the number of tasks explored and handling around that
-        assert CFG.feasibility_device in {'cpu', 'cuda'}
+        assert CFG.feasibility_search_device in {'cpu', 'cuda'}
 
         # To make sure we are able to use the Pool without having to copy the entire model we reset the classifier
         self._feasibility_classifier = ConstFeasibilityClassifier()
@@ -356,42 +356,54 @@ class SearchPruningApproach(NSRTLearningApproach):
             InterleavedBacktrackingDatapoint(
                 states = [segment.states[0] for segment in segmented_traj] + [segmented_traj[-1].states[-1]],
                 atoms_sequence = [segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
-                horizons = np.cumsum([len(segment.actions) for segment in segmented_traj]),
+                horizons = CFG.horizon - np.cumsum([len(segment.actions) for segment in segmented_traj]),
                 skeleton = [self._seg_to_ground_nsrt[segment] for segment in segmented_traj]
             ) for segmented_traj in self._segmented_trajs
         ]
 
         # Precomputing the nsrts on different devices
-        if CFG.feasibility_device == 'cpu':
+        if CFG.feasibility_search_device == 'cpu':
             nsrts_dicts: List[Dict[str, NSRT]] = [{str(nsrt): nsrt for nsrt in self._nsrts}]
             for nsrt in self._nsrts:
-                nsrt.sampler.to('cpu')
+                nsrt.sampler.to('cpu').share_memory()
         else:
             nsrts_dicts: List[Dict[str, NSRT]] = [{str(nsrt): nsrt for nsrt in self._nsrts}] + \
                 [{str(nsrt): deepcopy(nsrt) for nsrt in self._nsrts} for _ in range(1, torch.cuda.device_count())]
             for id, nsrts_dict in enumerate(nsrts_dicts):
-                device_name = f'cuda{id}'
+                device_name = f'cuda:{id}'
                 for nsrt in nsrts_dict.values():
-                    nsrt.to(device_name)
+                    nsrt.sampler.to(device_name)
 
         # Main data generation loop
         logging.info("Generating data with interleaved learning...")
 
+        # torch.multiprocessing.set_start_method('forkserver')
+        cfg = SimpleNamespace(
+            sesame_max_samples_per_step = CFG.sesame_max_samples_per_step,
+            sesame_propagate_failures = CFG.sesame_propagate_failures,
+            sesame_check_expected_atoms = CFG.sesame_check_expected_atoms,
+            sesame_check_static_object_changes = CFG.sesame_check_static_object_changes,
+            sesame_static_object_change_tol = CFG.sesame_static_object_change_tol,
+            sampler_disable_classifier = CFG.sampler_disable_classifier,
+            max_num_steps_option_rollout = CFG.max_num_steps_option_rollout,
+            option_model_terminate_on_repeat = CFG.option_model_terminate_on_repeat,
+            feasibility_num_data_collection_threads = CFG.feasibility_num_data_collection_threads,
+        )
+
         max_skeleton_length = max(map(len, self._segmented_trajs))
-        torch.multiprocessing.set_start_method('forkserver')
         for suffix_length in range(1, max_skeleton_length):
-            logging.info(f"Collecting data for suffix length {suffix_length}...")
+            logging.info(f"Collecting data for suffix length {suffix_length} ...")
 
             # Moving the feasibility classifier to devices
-            if isinstance(self._feasibility_classifier, NeuralFeasibilityClassifier) and CFG.feasibility_device == 'cuda':
+            if isinstance(self._feasibility_classifier, torch.nn.Module) and CFG.feasibility_search_device == 'cuda':
                 feasibility_classifiers = [self._feasibility_classifier] + \
                     [deepcopy(self._feasibility_classifier) for _ in range(1, torch.cuda.device_count())]
                 for id, feasibility_classifier in enumerate(feasibility_classifiers):
-                    feasibility_classifier.to(f'cuda{id}')
+                    feasibility_classifier.to(f'cuda:{id}')
             else:
                 feasibility_classifiers = [self._feasibility_classifier]
-                if isinstance(self._feasibility_classifier, NeuralFeasibilityClassifier):
-                    self._feasibility_classifier.to('cpu')
+                if isinstance(self._feasibility_classifier, torch.nn.Module):
+                    self._feasibility_classifier.to('cpu').share_memory()
 
             # Creating the datapoints to search over and moving them to different devices
             indices = self._rng.choice(len(search_datapoints), CFG.feasibility_num_datapoints_per_iter)
@@ -412,21 +424,29 @@ class SearchPruningApproach(NSRTLearningApproach):
 
             # Collecting negative examples
             with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
+                logging.info("Collecting negative examples...")
+                start = time.perf_counter()
                 self._negative_feasibility_dataset.extend(
-                    datapoint
-                    for datapoints in pool.imap_unordered(
+                    picklable_datapoint.to_feasibility_datapoint(self._nsrts)
+                    for datapoints in pool.map(
                         SearchPruningApproach._negative_data_collection_datapoint
-                        , tqdm(zip(
+                        , zip(
                             repeat(suffix_length),
                             repeat(self._option_model),
                             cycle(feasibility_classifiers),
                             range(seed, seed + len(chosen_search_datapoints)),
                             chosen_search_datapoints,
-                        ), "Collecting negative examples")
+                            repeat(cfg),
+                        )
                     )
-                    for datapoint in datapoints
+                    for picklable_datapoint in datapoints
                 )
-                seed += len(chosen_search_datapoints)
+                logging.info(f"Took {time.perf_counter() - start} seconds")
+            num_correct_negatives = sum([
+                1 for datapoint in self._negative_feasibility_dataset if not SearchPruningApproach._shelves2d_ground_truth_classifier(datapoint.states, datapoint.skeleton)[0]
+            ])
+            logging.info(f"Negative data purity: {num_correct_negatives / len(self._negative_feasibility_dataset):.1%}")
+            seed += len(chosen_search_datapoints)
 
             if suffix_length < max_skeleton_length - 1:
                 self._learn_neural_feasibility_classifier(suffix_length)
@@ -436,12 +456,18 @@ class SearchPruningApproach(NSRTLearningApproach):
 
     @staticmethod
     def _negative_data_collection_datapoint(
-        args: Tuple[int, _OptionModelBase, FeasibilityClassifier, int, InterleavedBacktrackingDatapoint]
-    ) -> List[FeasibilityDatapoint]:
+        args: Tuple[int, _OptionModelBase, FeasibilityClassifier, int, InterleavedBacktrackingDatapoint, SimpleNamespace]
+    ) -> List[PicklableFeasibilityDatapoint]:
         """ Running data collection for a single suffix length and task
         """
+        global CFG
         # Extracting args
-        suffix_length, option_model, feasibility_classifier, seed, (states, atoms_sequence, horizons, skeleton) = args
+        suffix_length, option_model, feasibility_classifier, seed, (states, atoms_sequence, horizons, skeleton), cfg = args
+        CFG.__dict__.update(cfg.__dict__)
+        torch.set_num_threads(1) # Bug in pytorch with shared_memory being slow to use with more than one thread
+
+        logging.basicConfig(filename=f"interleaved_search/{seed}.log", force=True, level=logging.DEBUG)
+        logging.info("Started negative data collection")
 
         # Checking for suffix length
         if len(skeleton) <= suffix_length:
@@ -449,9 +475,13 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         # Running backtracking
         def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
-            if current_depth <= len(skeleton) - suffix_length and sum(1 for _ in filter(lambda e:e[1] is not None, tree.failed_tries)):
-                return True
-            return tree.num_tries >= CFG.sesame_max_samples_per_step
+            if current_depth <= len(skeleton) - suffix_length:
+                logging.info("Search called on the highest depth")
+                return tree.num_tries >= CFG.sesame_max_samples_per_step or \
+                    sum(1 for _ in filter(lambda e:e[1] is not None, tree.failed_tries)) and tree.is_successful
+            if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful:
+                logging.info(f"Finishing search on depth {current_depth}, {tree.num_tries} ties, {CFG.sesame_max_samples_per_step} max samples")
+            return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful
 
         backtracking, _ = run_backtracking_for_data_generation(
             previous_states = states[:-suffix_length - 1],
@@ -464,17 +494,22 @@ class SearchPruningApproach(NSRTLearningApproach):
             seed = seed,
             timeout = float('inf'),
             metrics = {},
-            max_horizon = CFG.horizon - horizons[-suffix_length - 1],
+            max_horizon = horizons[-suffix_length - 1],
         )
         next_states = [
             mb_subtree.state
             for _, mb_subtree in backtracking.failed_tries if mb_subtree is not None
         ]
+        # if next_states:
+        #     fig = Shelves2DEnv.render_state_plt(next_states[0], None)
+        #     fig.savefig(f"interleaved_search/{seed}.pdf")
+        #     plt.close(fig)
+        logging.info(f"Finished negative data collection - {next_states} samples found")
         return [
-            FeasibilityDatapoint(
+            PicklableFeasibilityDatapoint(FeasibilityDatapoint(
                 states = states[:-suffix_length - 1] + [next_state],
                 skeleton = skeleton,
-            ) for next_state in next_states
+            )) for next_state in next_states
         ]
 
     def _run_sesame_plan(
@@ -573,7 +608,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             embedding_horizon = CFG.feasibility_embedding_max_idx,
             batch_size = CFG.feasibility_batch_size,
             threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
-            device = CFG.feasibility_device,
+            use_torch_gpu = CFG.use_torch_gpu,
             optimizer_name = CFG.feasibility_optim,
         )
         neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset)
