@@ -258,7 +258,7 @@ class RepeatedNextToSimple(RepeatedNextToEnv):
 
     def _get_tasks_simple(self, num: int, rng: np.random.Generator,
                           are_train_tasks: bool) -> List[EnvironmentTask]:
-        del rng, are_train_tasks # unused.
+        del rng, are_train_tasks  # unused.
         assert self.env_ub - self.env_lb > self._nextto_thresh
         tasks = []
         dots = []
