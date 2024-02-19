@@ -7,7 +7,7 @@ setup(
     packages=find_packages(include=["predicators", "predicators.*"]),
     install_requires=[
         "numpy==1.23.5",
-        "pytest",
+        "pytest==7.1.3",
         "mypy",
         "gym==0.26.2",
         "matplotlib",
