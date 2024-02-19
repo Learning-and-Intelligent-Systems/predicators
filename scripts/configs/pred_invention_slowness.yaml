@@ -4,7 +4,7 @@ APPROACHES:
   invent_allexclude_backchaining:
     NAME: "grammar_search_invention"
     FLAGS:
-      strips_learner: "backchaining"
+      strips_learner: "pnad_search"
       excluded_predicates: "all"
       grammar_search_grammar_use_diff_features: True
       grammar_search_max_predicates: 250
