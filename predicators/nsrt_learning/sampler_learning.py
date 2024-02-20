@@ -4,8 +4,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, List, Sequence, Set, Tuple, Union
 
-from experiments.shelves2d import Shelves2DEnv
-
 import numpy as np
 import torch
 

@@ -4,7 +4,7 @@ import gym
 from typing import Dict, Sequence, Set, Type, cast
 
 import numpy as np
-from experiments.shelves2d import Shelves2DEnv
+from experiments.envs.shelves2d.env import Shelves2DEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, Predicate, State
 from predicators.utils import SingletonParameterizedOption

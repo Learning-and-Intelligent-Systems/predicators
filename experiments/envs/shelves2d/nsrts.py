@@ -2,7 +2,7 @@
 from typing import ClassVar, Dict, Sequence, Set, Type
 
 import numpy as np
-from experiments.shelves2d import Shelves2DEnv
+from experiments.envs.shelves2d.env import Shelves2DEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Action, Array, GroundAtom, NSRTSampler, Object, ParameterizedOption, Predicate, State, Variable
 

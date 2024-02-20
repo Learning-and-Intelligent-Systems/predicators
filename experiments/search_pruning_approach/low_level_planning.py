@@ -6,7 +6,6 @@ from typing import Callable, Iterator, List, Optional, Set, Tuple
 import numpy as np
 import numpy.typing as npt
 from experiments.search_pruning_approach.learning import FeasibilityClassifier
-from experiments.shelves2d import Shelves2DEnv
 from predicators.option_model import _OptionModelBase
 from predicators.planning import _DiscoveredFailure, _DiscoveredFailureException, PlanningTimeout
 from predicators.settings import CFG

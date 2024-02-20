@@ -20,7 +20,6 @@ from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
     Optional, Sequence, Set, Tuple
 
 import numpy as np
-from experiments.shelves2d import Shelves2DEnv
 
 from predicators import utils
 from predicators.option_model import _OptionModelBase

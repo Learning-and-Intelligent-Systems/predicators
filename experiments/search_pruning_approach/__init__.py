@@ -20,7 +20,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple, ca
 
 from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, FeasibilityDatapoint, NeuralFeasibilityClassifier, StaticFeasibilityClassifier
 from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_backtracking_for_data_generation, run_low_level_search
-from experiments.shelves2d import Shelves2DEnv
+from experiments.envs.shelves2d import Shelves2DEnv
 
 from predicators import utils
 from predicators.approaches.base_approach import ApproachFailure, ApproachTimeout
