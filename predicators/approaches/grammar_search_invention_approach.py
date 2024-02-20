@@ -11,6 +11,7 @@ from functools import cached_property
 from operator import le
 from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Sequence, \
     Set, Tuple
+from collections import namedtuple
 
 import numpy as np
 from gym.spaces import Box
@@ -934,18 +935,33 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 consistent.add(pred)
         return consistent, inconsistent
 
+    # TODO: rename and refactor, this should be the thing that learns both predicates and operators from clustering + backchaining
+    # we should be able to swap out the specific clustering algorithm used
     def _select_predicates_by_clustering(
             self, candidates: Dict[Predicate, float],
             initial_predicates: Set[Predicate], dataset: Dataset,
             atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
-        """Cluster segments from the atom_dataset into clusters corresponding
-        to operators and use this to select predicates."""
+        """Assume that the demonstrator used a TAMP theory to generate the
+        demonstration data and try to recover that theory with the following
+        strategy:
+            (1) Cluster the segments in the atom_dataset -- an operator exists
+            for each cluster that "describes" that cluster, that we don't know
+            the definition of yet. That is, the operator's preconditions
+            and effects are consistent (for some grounding) with the initial
+            atoms and effects of each segment in the cluster.
+            (2) 
+
+
+
+        Cluster segments from the atom_dataset into clusters corresponding
+        to operators and use this to select predicates to include in operator
+        definitions and ."""
 
         if CFG.grammar_search_pred_clusterer == "option-type-number-sample":
             # This procedure tries to reverse engineer the clusters of segments
-            # that correspond to the oracle operators and selects predicates
-            # that are add effects in those clusters, letting pnad_search
-            # downstream handle chainability.
+            # that correspond to the oracle operators, and from those clusters,
+            # learns operator definitions that achieve harmlessness on the
+            # demonstrations.
 
             assert CFG.segmenter == "option_changes"
             segments = [
@@ -1160,6 +1176,144 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             shared_add_effects_per_cluster[i]
                         predicates_to_keep |= \
                             shared_add_effects_per_cluster[j]
+
+            # Now that we have a hypothesis for the operators (clusters) that
+            # the demonstrator had in their mind, and have narrowed down , we can come up with operator
+            # definitions via backchaining from the goal.
+
+
+
+            # Furthermore, because step 4 of
+            # clustering on the sample is prone to error (not discovering the
+            # oracle's clustering), we can compare several possible clusterings
+            # via the score they get when passing the operators learned from
+            # that clustering into _ExpectedNodesScoreFunction.evaluate_with_operators(),
+            # one of the possible score functions in the hill climbing predicate
+            # invention strategy.
+
+            # As a starting point, we can make a draft operator definition
+            # for each cluster from the predicates that appear in the intersection
+            # of the preconditions, the intersection of the add effects, and the
+            # intersection of the delete effects of the segments in that cluster.
+            # In this step, we won't be defining lifted atoms -- only predicates.
+            # TODO: fix the name here
+            op_pred_def_superset = {} # operator predicate definition superset
+            for i, c in enumerate(final_clusters):
+                op_name = f"Op{i}-{c[0].get_option().name}"
+
+                # preconditions
+                init_atoms_per_segment = [s.init_atoms for s in c]
+                ungrounded_init_atoms_per_segment = []
+                for init_atoms in init_atoms_per_segment:
+                    ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms if a.predicate in predicates_to_keep))
+                init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
+
+                # add effects
+                add_effects_per_segment = [s.add_effects for s in c]
+                ungrounded_add_effects_per_segment = []
+                for add_effects in add_effects_per_segment:
+                    ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects if a.predicate in predicates_to_keep))
+                add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+
+                # delete effects
+                delete_effects_per_segment = [s.delete_effects for s in c]
+                ungrounded_delete_effects_per_segment = []
+                for del_effects in del_effects_per_segment:
+                    ungrounded_delete_effects_per_segment.append(set(a.predicate for a in delete_effects if a.predicate in predicates_to_keep))
+                delete_effects = set.intersection(*ungrounded_delete_effects_per_segment)
+
+                op_pred_def_superset[op_name] = [
+                    init_atoms,
+                    add_effects
+                    delete_effects,
+                    c
+                ]
+
+            # Now we can perform backchaining to narrow down the the predicates
+            # a bit more.
+            # TODO: explain the backchaining algorithm and strategy
+
+            # Later, we'll iterate through a segmented trajectory and will need to know which
+            # cluster we had placed a particular segment in.
+            def seg_to_op_name(segment, clusters):
+                for i, c in enumerate(clusters):
+                    if segment in c:
+                        return f"Op{i}-{c[0].get_option().name}"
+
+            Entry = namedtuple('Entry', ['op_name', 'preconditions', 'add_effects', 'delete_effects'])
+            # TODO: description of function
+            def get_ground_pred_annotated_traj(segmented_traj):
+                annotated_traj = []
+                for i, seg in enumerate(segmented_traj):
+                    option_objects = tuple(seg.get_option().objects)
+                    objects = (set(o for a in seg.add_effects for o in a.objects) | set(o for a in seg.delete_effects for o in a.objects) | set(opt_objs))
+                    preconditions = set(p for p in seg.init_atoms if p.predicate in op_pred_def_superset[op_name][0] and if set(p.objects).issubset(objects))
+                    add_effects = set(p for p in seg.add_effects if p.predicate in op_pred_def_superset[op_name][1] and if set(p.objects).issubset(objects))
+                    delete_effects = set(p for p in seg.delete_effects if p.predicate in op_pred_def_superset[op_name][2] and if set(p.objects).issubset(objects))
+                    # Note that this may include some ground atoms that we DO NOT want to include in the definition of the operator!
+                    # For example, the cluster for option Unstack in blocks env has some predicate, A. We want to include
+                    # it when it's applied to the top block (the one getting unstacked), but not when it's applied to the bottom block
+                    # (the block that the unstacked block is on). NOT-Forall[1:block].[NOT-On(0,1)](block1:block), from demo 8 in blocks.
+                    # so it's not enough to filter for these objeects -- we'll have to filter out some more ground atoms later!
+                    # these are a superset of the ground atoms.
+
+                    e = Entry(op_name, preconditions, add_effects, delete_effects)
+
+                annotated_traj.append(e)
+                return annotated_traj
+
+            def process_add_effects(potential_ops, remaining_traj, goal):
+                curr_entry = remaining_traj[0]
+                # If we can find this ground atom in the preconditions of any future segment
+                # or in the goal, then we'll include it in this operator's add effects.
+                for ground_atom in curr_entry.add_effects:
+                    for entry in remaining_traj[1:]:
+                        if ground_atom in entry.preconditions:
+                            potential_ops[curr_entry.op_name]["add"].add(ground_atom.predicate)
+                            potential_ops[entry.op_name]["pre"].add(ground_atom.predicate)
+                    if ground_atom in goal:
+                        potential_ops[curr_entry.op_name]["add"].add(ground_atom.predicate)
+
+            def process_delete_effects(potential_ops, remaining_traj):
+                curr_entry = remaining_traj[0]
+                # If this ground atom is added in any future segment, then
+                # we'll include it in this operator's delete effects.
+                for ground_atom in curr_entry.delete_effects:
+                    for entry in remaining_traj[1:]:
+                        # Alternatively, we could run process_add_effects()
+                        # on all the trajectories before this function, and
+                        # then check if the ground atom is in the add effects
+                        # of the potential operator. Haven't explored this idea.
+                        if ground_atom in entry.add_effects:
+                            potential_ops[curr_entry.op_name]["del"].add(ground_atom.predicate)
+                            potential_ops[entry.op_name]["add"].add(ground_atom.predicate)
+
+            # As we iterate through each demo trajectory, we will generate an operator definition hypothesis
+            # for each segment in that demo trajectory, and append it to this list to further process later.
+            all_potential_ops = []
+
+            for i, traj in enumerate(segmented_traj):
+                possible_operator_definitions = {}
+                for op_name in op_pred_def_superset.keys():
+                    possible_operator_definitions[op_name] = {
+                        "pre": set(),
+                        "add": set(),
+                        "del": set()
+                    }
+
+                annotated_traj = get_ground_pred_annotated_traj(traj)
+                reversed_annotated_traj = list(reversed(annotated_traj))
+                for j, entry in enumerate(reversed_annotated_traj):
+
+
+
+
+
+
+
+
+
+
 
             # Remove the initial predicates.
             predicates_to_keep -= initial_predicates
