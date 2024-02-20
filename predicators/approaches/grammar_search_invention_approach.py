@@ -942,20 +942,37 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             initial_predicates: Set[Predicate], dataset: Dataset,
             atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
         """Assume that the demonstrator used a TAMP theory to generate the
-        demonstration data and try to recover that theory with the following
+        demonstration data and try to reverse-engineer that theory with the following
         strategy:
-            (1) Cluster the segments in the atom_dataset -- an operator exists
-            for each cluster that "describes" that cluster, that we don't know
-            the definition of yet. That is, the operator's preconditions
-            and effects are consistent (for some grounding) with the initial
-            atoms and effects of each segment in the cluster.
-            (2) 
 
+            (1) Cluster the segments in the atom_dataset -- an operator (that
+            we don't know the definition of yet) exists for each cluster and
+            "describes" that cluster. That is, the operator's preconditions and
+            effects are consistent (for some grounding) with the initial atoms
+            and effects of each segment in the cluster.
 
+            (2) Note the predicates that occur in the initial atoms and
+            effects of all the segments in a cluster, for each cluster. This
+            set of predicates will be much smaller than what we initially
+            enumerate from the entire grammar, while also likely being a
+            superset of the smallest set of predicates you could use and still
+            do well on the test tasks with.
 
-        Cluster segments from the atom_dataset into clusters corresponding
-        to operators and use this to select predicates to include in operator
-        definitions and ."""
+            (3) Choose the definitions (preconditions and effects -- step 1 & 2
+            pin down the parameters) of the operators by reasoning backwards
+            from the goal in each demonstration.
+
+            (4) Do steps 1-3 above for various clusterings, and pick the theory
+            (operators) that achieves the best score, for some
+            scoring function.
+
+        In other words, this procedure chooses
+
+        With this procedure, we learn predicates and operators somewhat "in the
+        same step", rather than one after another, in two separate stages of a
+        pipeline. Afterwards, we only have to learn samplers, since we assume
+        the options are given.
+        """
 
         if CFG.grammar_search_pred_clusterer == "option-type-number-sample":
             # This procedure tries to reverse engineer the clusters of segments
@@ -1304,7 +1321,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 annotated_traj = get_ground_pred_annotated_traj(traj)
                 reversed_annotated_traj = list(reversed(annotated_traj))
                 for j, entry in enumerate(reversed_annotated_traj):
-
+                    remaining_annotated_traj = annotated_traj[len(annotated_traj)-i-1:]
+                    
 
 
 
