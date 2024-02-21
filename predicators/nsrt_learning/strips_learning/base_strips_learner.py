@@ -22,6 +22,7 @@ class BaseSTRIPSLearner(abc.ABC):
                  segmented_trajs: List[List[Segment]],
                  verify_harmlessness: bool,
                  annotations: Optional[List[Any]],
+                 known_pnads: Optional[Set[PNAD]],
                  verbose: bool = True) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -31,6 +32,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._verbose = verbose
         self._num_segments = sum(len(t) for t in segmented_trajs)
         self._annotations = annotations
+        self._known_pnads = known_pnads
         assert len(self._trajectories) == len(self._segmented_trajs)
 
     def learn(self) -> List[PNAD]:

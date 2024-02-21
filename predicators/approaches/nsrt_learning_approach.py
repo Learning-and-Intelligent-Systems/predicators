@@ -112,7 +112,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   self._action_space,
                                   ground_atom_dataset,
                                   sampler_learner=CFG.sampler_learner,
-                                  annotations=annotations)
+                                  annotations=annotations,
+                                  known_pnads=self._pnads)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)

@@ -21,6 +21,7 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
                            segmented_trajs: List[List[Segment]],
                            verify_harmlessness: bool,
                            annotations: Optional[List[Any]],
+                           known_pnads: Optional[Set[PNAD]],
                            verbose: bool = True) -> List[PNAD]:
     """Learn strips operators on the given data segments.
 
@@ -32,7 +33,7 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
            cls.get_name() == CFG.strips_learner:
             learner = cls(trajectories, train_tasks, predicates,
                           segmented_trajs, verify_harmlessness, annotations,
-                          verbose)
+                          known_pnads, verbose)
             break
     else:
         raise ValueError(f"Unrecognized STRIPS learner: {CFG.strips_learner}")
