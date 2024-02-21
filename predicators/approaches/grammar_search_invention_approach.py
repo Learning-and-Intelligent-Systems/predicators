@@ -935,26 +935,26 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 consistent.add(pred)
         return consistent, inconsistent
 
-    # TODO: rename and refactor, this should be the thing that learns both predicates and operators from clustering + backchaining
-    # we should be able to swap out the specific clustering algorithm used
-    def _select_predicates_by_clustering(
+
+    def _select_predicates_and_learn_operators_by_clustering(
             self, candidates: Dict[Predicate, float],
             initial_predicates: Set[Predicate], dataset: Dataset,
             atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
         """Assume that the demonstrator used a TAMP theory to generate the
-        demonstration data and try to reverse-engineer that theory with the following
-        strategy:
+        demonstration data and try to reverse-engineer that theory (operators,
+        and in turn, the predicates used in the operator definitions) with the
+        following strategy:
 
             (1) Cluster the segments in the atom_dataset -- an operator (that
             we don't know the definition of yet) exists for each cluster and
             "describes" that cluster. That is, the operator's preconditions and
-            effects are consistent (for some grounding) with the initial atoms
+            effects are consistent, for some grounding, with the initial atoms
             and effects of each segment in the cluster.
 
             (2) Note the predicates that occur in the initial atoms and
             effects of all the segments in a cluster, for each cluster. This
             set of predicates will be much smaller than what we initially
-            enumerate from the entire grammar, while also likely being a
+            enumerate from the entire grammar while also likely being a
             superset of the smallest set of predicates you could use and still
             do well on the test tasks with.
 
@@ -966,433 +966,471 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             (operators) that achieves the best score, for some
             scoring function.
 
-        In other words, this procedure chooses
-
-        With this procedure, we learn predicates and operators somewhat "in the
-        same step", rather than one after another, in two separate stages of a
-        pipeline. Afterwards, we only have to learn samplers, since we assume
-        the options are given.
+        # In other words, this procedure chooses
+        # With this procedure, we learn predicates and operators somewhat "in the
+        # same step", rather than one after another, in two separate stages of a
+        # pipeline. Afterwards, we only have to learn samplers, since we assume
+        # the options are given.
+        # This procedure tries to reverse engineer the clusters of segments
+        # that correspond to the oracle operators, and from those clusters,
+        # learns operator definitions that achieve harmlessness on the
+        # demonstrations.
         """
+        ############
+        # Clustering
+        ############
+        assert CFG.segmenter == "option_changes"
+        segments = [
+            seg for ll_traj, atom_seq in atom_dataset for seg in
+            segment_trajectory(ll_traj, initial_predicates, atom_seq)
+        ]
 
-        if CFG.grammar_search_pred_clusterer == "option-type-number-sample":
-            # This procedure tries to reverse engineer the clusters of segments
-            # that correspond to the oracle operators, and from those clusters,
-            # learns operator definitions that achieve harmlessness on the
-            # demonstrations.
+        # Step 1:
+        # Cluster segments by the option that generated them. We know that
+        # at the very least, operators are 1 to 1 with options.
+        option_to_segments: Dict[Any, Any] = {}  # Dict[str, List[Segment]]
+        for seg in segments:
+            name = seg.get_option().name
+            option_to_segments.setdefault(name, []).append(seg)
+        logging.info(f"STEP 1: generated {len(option_to_segments.keys())} "
+                     f"option-based clusters.")
+        clusters = option_to_segments.copy()  # Tree-like structure.
 
-            assert CFG.segmenter == "option_changes"
-            segments = [
-                seg for ll_traj, atom_seq in atom_dataset for seg in
-                segment_trajectory(ll_traj, initial_predicates, atom_seq)
-            ]
-
-            # Step 1:
-            # Cluster segments by the option that generated them. We know that
-            # at the very least, operators are 1 to 1 with options.
-            option_to_segments: Dict[Any, Any] = {}  # Dict[str, List[Segment]]
+        # Step 2:
+        # Further cluster by the types that appear in a segment's add
+        # effects. Operators have a fixed number of typed arguments.
+        for i, pair in enumerate(option_to_segments.items()):
+            option, segments = pair
+            types_to_segments: Dict[Tuple[Type, ...], List[Segment]] = {}
             for seg in segments:
-                name = seg.get_option().name
-                option_to_segments.setdefault(name, []).append(seg)
-            logging.info(f"STEP 1: generated {len(option_to_segments.keys())} "
-                         f"option-based clusters.")
-            clusters = option_to_segments.copy()  # Tree-like structure.
+                types_in_effects = [
+                    set(a.predicate.types) for a in seg.add_effects
+                ]
+                # To cluster on type, there must be types. That is, there
+                # must be add effects in the segment and the object
+                # arguments for at least one add effect must be nonempty.
+                assert len(types_in_effects) > 0 and len(
+                    set.union(*types_in_effects)) > 0
+                types = tuple(sorted(list(set.union(*types_in_effects))))
+                types_to_segments.setdefault(types, []).append(seg)
+            logging.info(
+                f"STEP 2: generated {len(types_to_segments.keys())} "
+                f"type-based clusters for cluster {i+1} from STEP 1 "
+                f"involving option {option}.")
+            clusters[option] = types_to_segments
 
-            # Step 2:
-            # Further cluster by the types that appear in a segment's add
-            # effects. Operators have a fixed number of typed arguments.
-            for i, pair in enumerate(option_to_segments.items()):
-                option, segments = pair
-                types_to_segments: Dict[Tuple[Type, ...], List[Segment]] = {}
+        # Step 3:
+        # Further cluster by the maximum number of objects that appear in a
+        # segment's add effects. Note that the use of maximum here is
+        # somewhat arbitrary. Alternatively, you could cluster for every
+        # possible number of objects and not the max among what you see in
+        # the add effects of a particular segment.
+        for i, (option, types_to_segments) in enumerate(clusters.items()):
+            for j, (types,
+                    segments) in enumerate(types_to_segments.items()):
+                num_to_segments: Dict[int, List[Segment]] = {}
                 for seg in segments:
-                    types_in_effects = [
-                        set(a.predicate.types) for a in seg.add_effects
-                    ]
-                    # To cluster on type, there must be types. That is, there
-                    # must be add effects in the segment and the object
-                    # arguments for at least one add effect must be nonempty.
-                    assert len(types_in_effects) > 0 and len(
-                        set.union(*types_in_effects)) > 0
-                    types = tuple(sorted(list(set.union(*types_in_effects))))
-                    types_to_segments.setdefault(types, []).append(seg)
+                    max_num_objs = max(
+                        len(a.objects) for a in seg.add_effects)
+                    num_to_segments.setdefault(max_num_objs,
+                                               []).append(seg)
                 logging.info(
-                    f"STEP 2: generated {len(types_to_segments.keys())} "
-                    f"type-based clusters for cluster {i+1} from STEP 1 "
-                    f"involving option {option}.")
-                clusters[option] = types_to_segments
+                    f"STEP 3: generated {len(num_to_segments.keys())} "
+                    f"num-object-based clusters for cluster {i+j+1} from "
+                    f"STEP 2 involving option {option} and type {types}.")
+                clusters[option][types] = num_to_segments
 
-            # Step 3:
-            # Further cluster by the maximum number of objects that appear in a
-            # segment's add effects. Note that the use of maximum here is
-            # somewhat arbitrary. Alternatively, you could cluster for every
-            # possible number of objects and not the max among what you see in
-            # the add effects of a particular segment.
-            for i, (option, types_to_segments) in enumerate(clusters.items()):
-                for j, (types,
-                        segments) in enumerate(types_to_segments.items()):
-                    num_to_segments: Dict[int, List[Segment]] = {}
-                    for seg in segments:
-                        max_num_objs = max(
-                            len(a.objects) for a in seg.add_effects)
-                        num_to_segments.setdefault(max_num_objs,
-                                                   []).append(seg)
-                    logging.info(
-                        f"STEP 3: generated {len(num_to_segments.keys())} "
-                        f"num-object-based clusters for cluster {i+j+1} from "
-                        f"STEP 2 involving option {option} and type {types}.")
-                    clusters[option][types] = num_to_segments
-
-            # Step 4:
-            # Further cluster by sample, if a sample is present. The idea here
-            # is to separate things like PickFromTop and PickFromSide.
-            for i, (option, types_to_num) in enumerate(clusters.items()):
-                for j, (types,
-                        num_to_segments) in enumerate(types_to_num.items()):
-                    for k, (max_num_objs,
-                            segments) in enumerate(num_to_segments.items()):
-                        # If the segments in this cluster have no sample, then
-                        # don't cluster further.
-                        if len(segments[0].get_option().params) == 0:
-                            clusters[option][types][max_num_objs] = [segments]
-                            logging.info(
-                                f"STEP 4: generated no further sample-based "
-                                f"clusters (no parameter) for cluster {i+j+k+1}"
-                                f" from STEP 3 involving option {option}, type "
-                                f"{types}, and max num objects {max_num_objs}."
-                            )
-                            continue
-                        # pylint: disable=line-too-long
-                        # If the parameters are described by a uniform
-                        # distribution, then don't cluster further. This
-                        # helps prevent overfitting. A proper implementation
-                        # would do a multi-dimensional test
-                        # (https://ieeexplore.ieee.org/document/4767477,
-                        # https://ui.adsabs.harvard.edu/abs/1987MNRAS.225..155F/abstract,
-                        # https://stats.stackexchange.com/questions/30982/how-to-test-uniformity-in-several-dimensions)
-                        # but for now we will only check each dimension
-                        # individually to keep the implementation simple.
-                        # pylint: enable=line-too-long
-                        samples = np.array(
-                            [seg.get_option().params for seg in segments])
-                        each_dim_uniform = True
-                        for d in range(samples.shape[1]):
-                            col = samples[:, d]
-                            minimum = col.min()
-                            maximum = col.max()
-                            null_hypothesis = np.random.uniform(
-                                minimum, maximum, len(col))
-                            p_value = kstest(col, null_hypothesis).pvalue
-
-                            # We use a significance value of 0.05.
-                            if p_value < 0.05:
-                                each_dim_uniform = False
-                                break
-                        if each_dim_uniform:
-                            clusters[option][types][max_num_objs] = [segments]
-                            logging.info(
-                                f"STEP 4: generated no further sample-based"
-                                f" clusters (uniformly distributed "
-                                f"parameter) for cluster {i+j+k+1} "
-                                f"from STEP 3 involving option {option}, "
-                                f" type {types}, and max num objects "
-                                f"{max_num_objs}.")
-                            continue
-                        # Determine clusters by assignment from a
-                        # Gaussian Mixture Model. The number of
-                        # components and the negative weighting on the
-                        # complexity of the model (chosen by BIC here)
-                        # are hyperparameters.
-                        max_components = min(
-                            len(samples), len(np.unique(samples)),
-                            CFG.grammar_search_clustering_gmm_num_components)
-                        n_components = np.arange(1, max_components + 1)
-                        models = [
-                            GMM(n, covariance_type="full",
-                                random_state=0).fit(samples)
-                            for n in n_components
-                        ]
-                        bic = [m.bic(samples) for m in models]
-                        best = models[np.argmin(bic)]
-                        assignments = best.predict(samples)
-                        label_to_segments: Dict[int, List[Segment]] = {}
-                        for l, assignment in enumerate(assignments):
-                            label_to_segments.setdefault(
-                                assignment, []).append(segments[l])
-                        clusters[option][types][max_num_objs] = list(
-                            label_to_segments.values())
-                        logging.info(f"STEP 4: generated "
-                                     f"{len(label_to_segments.keys())}"
-                                     f"sample-based clusters for cluster "
-                                     f"{i+j+k+1} from STEP 3 involving option "
-                                     f"{option}, type {types}, and max num "
-                                     f"objects {max_num_objs}.")
-
-            # We could avoid these loops by creating the final set of clusters
-            # as part of STEP 4, but this is not prohibitively slow and serves
-            # to clarify the nested dictionary structure, which we may make use
-            # of in follow-up work that modifies the clusters more.
-            final_clusters = []
-            for option in clusters.keys():
-                for types in clusters[option].keys():
-                    for max_num_objs in clusters[option][types].keys():
-                        for cluster in clusters[option][types][max_num_objs]:
-                            final_clusters.append(cluster)
-            logging.info(f"Total {len(final_clusters)} final clusters.")
-
-            # Step 5:
-            # Extract predicates from the pure intersection of the add effects
-            # in each cluster.
-            extracted_preds = set()
-            shared_add_effects_per_cluster = []
-            for c in final_clusters:
-                grounded_add_effects_per_segment = [
-                    seg.add_effects for seg in c
-                ]
-                ungrounded_add_effects_per_segment = []
-                for effs in grounded_add_effects_per_segment:
-                    ungrounded_add_effects_per_segment.append(
-                        set(a.predicate for a in effs))
-                shared_add_effects_in_cluster = set.intersection(
-                    *ungrounded_add_effects_per_segment)
-                shared_add_effects_per_cluster.append(
-                    shared_add_effects_in_cluster)
-                extracted_preds |= shared_add_effects_in_cluster
-
-            # Step 6:
-            # Remove inconsistent predicates except if removing them prevents us
-            # from disambiguating two or more clusters (i.e. their add effect
-            # sets are the same after removing the inconsistent predicates). The
-            # idea here is that HoldingTop and HoldingSide are inconsistent
-            # within the PlaceOnTable cluster in painting, but we don't want to
-            # remove them, since we had generated them specifically to
-            # disambiguate segments in the cluster with the Pick option.
-            # A consistent predicate is either an add effect, a delete
-            # effect, or doesn't change, within each cluster, for all clusters.
-            # Note that it is possible that when 2 inconsistent predicates are
-            # removed, then two clusters cannot be disambiguated, but if you
-            # keep either of the two, then you can disambiguate the clusters.
-            # For now, we just add both back, which is not ideal.
-            consistent, inconsistent = self._get_consistent_predicates(
-                extracted_preds, list(final_clusters))
-            predicates_to_keep: Set[Predicate] = consistent
-            consistent_shared_add_effects_per_cluster = [
-                add_effs - inconsistent
-                for add_effs in shared_add_effects_per_cluster
-            ]
-            num_clusters = len(final_clusters)
-            for i in range(num_clusters):
-                for j in range(num_clusters):
-                    if i == j:
-                        continue
-                    if consistent_shared_add_effects_per_cluster[
-                            i] == consistent_shared_add_effects_per_cluster[j]:
+        # Step 4:
+        # Further cluster by sample, if a sample is present. The idea here
+        # is to separate things like PickFromTop and PickFromSide.
+        for i, (option, types_to_num) in enumerate(clusters.items()):
+            for j, (types,
+                    num_to_segments) in enumerate(types_to_num.items()):
+                for k, (max_num_objs,
+                        segments) in enumerate(num_to_segments.items()):
+                    # If the segments in this cluster have no sample, then
+                    # don't cluster further.
+                    if len(segments[0].get_option().params) == 0:
+                        clusters[option][types][max_num_objs] = [segments]
                         logging.info(
-                            f"Final clusters {i} and {j} cannot be "
-                            f"disambiguated after removing the inconsistent"
-                            f" predicates.")
-                        predicates_to_keep |= \
-                            shared_add_effects_per_cluster[i]
-                        predicates_to_keep |= \
-                            shared_add_effects_per_cluster[j]
+                            f"STEP 4: generated no further sample-based "
+                            f"clusters (no parameter) for cluster {i+j+k+1}"
+                            f" from STEP 3 involving option {option}, type "
+                            f"{types}, and max num objects {max_num_objs}."
+                        )
+                        continue
+                    # pylint: disable=line-too-long
+                    # If the parameters are described by a uniform
+                    # distribution, then don't cluster further. This
+                    # helps prevent overfitting. A proper implementation
+                    # would do a multi-dimensional test
+                    # (https://ieeexplore.ieee.org/document/4767477,
+                    # https://ui.adsabs.harvard.edu/abs/1987MNRAS.225..155F/abstract,
+                    # https://stats.stackexchange.com/questions/30982/how-to-test-uniformity-in-several-dimensions)
+                    # but for now we will only check each dimension
+                    # individually to keep the implementation simple.
+                    # pylint: enable=line-too-long
+                    samples = np.array(
+                        [seg.get_option().params for seg in segments])
+                    each_dim_uniform = True
+                    for d in range(samples.shape[1]):
+                        col = samples[:, d]
+                        minimum = col.min()
+                        maximum = col.max()
+                        null_hypothesis = np.random.uniform(
+                            minimum, maximum, len(col))
+                        p_value = kstest(col, null_hypothesis).pvalue
 
-            # Now that we have a hypothesis for the operators (clusters) that
-            # the demonstrator had in their mind, and have narrowed down , we can come up with operator
-            # definitions via backchaining from the goal.
+                        # We use a significance value of 0.05.
+                        if p_value < 0.05:
+                            each_dim_uniform = False
+                            break
+                    if each_dim_uniform:
+                        clusters[option][types][max_num_objs] = [segments]
+                        logging.info(
+                            f"STEP 4: generated no further sample-based"
+                            f" clusters (uniformly distributed "
+                            f"parameter) for cluster {i+j+k+1} "
+                            f"from STEP 3 involving option {option}, "
+                            f" type {types}, and max num objects "
+                            f"{max_num_objs}.")
+                        continue
+                    # Determine clusters by assignment from a
+                    # Gaussian Mixture Model. The number of
+                    # components and the negative weighting on the
+                    # complexity of the model (chosen by BIC here)
+                    # are hyperparameters.
+                    max_components = min(
+                        len(samples), len(np.unique(samples)),
+                        CFG.grammar_search_clustering_gmm_num_components)
+                    n_components = np.arange(1, max_components + 1)
+                    models = [
+                        GMM(n, covariance_type="full",
+                            random_state=0).fit(samples)
+                        for n in n_components
+                    ]
+                    bic = [m.bic(samples) for m in models]
+                    best = models[np.argmin(bic)]
+                    assignments = best.predict(samples)
+                    label_to_segments: Dict[int, List[Segment]] = {}
+                    for l, assignment in enumerate(assignments):
+                        label_to_segments.setdefault(
+                            assignment, []).append(segments[l])
+                    clusters[option][types][max_num_objs] = list(
+                        label_to_segments.values())
+                    logging.info(f"STEP 4: generated "
+                                 f"{len(label_to_segments.keys())}"
+                                 f"sample-based clusters for cluster "
+                                 f"{i+j+k+1} from STEP 3 involving option "
+                                 f"{option}, type {types}, and max num "
+                                 f"objects {max_num_objs}.")
 
+        # We could avoid these loops by creating the final set of clusters
+        # as part of STEP 4, but this is not prohibitively slow and serves
+        # to clarify the nested dictionary structure, which we may make use
+        # of in follow-up work that modifies the clusters more.
+        final_clusters = []
+        for option in clusters.keys():
+            for types in clusters[option].keys():
+                for max_num_objs in clusters[option][types].keys():
+                    for cluster in clusters[option][types][max_num_objs]:
+                        final_clusters.append(cluster)
+        logging.info(f"Total {len(final_clusters)} final clusters.")
 
+        # Step 4.5:
+        # For debugging purposes, here is code to use the oracle clusters.
+        # assert CFG.offline_data_method == "demo+gt_operators"
+        # assert dataset.annotations is not None and len(
+        #     dataset.annotations) == len(dataset.trajectories)
+        # assert CFG.segmenter == "option_changes"
+        # segmented_trajs = [
+        #     segment_trajectory(traj) for traj in atom_dataset
+        # ]
+        # assert len(segmented_trajs) == len(dataset.annotations)
+        # # First, get the set of all ground truth operator names.
+        # all_gt_op_names = set(ground_nsrt.parent.name
+        #                       for anno_list in dataset.annotations
+        #                       for ground_nsrt in anno_list)
+        # import pdb; pdb.set_trace()
+        # # Next, make a dictionary mapping operator name to segments
+        # # where that operator was used.
+        # gt_op_to_segments: Dict[str, List[Segment]] = {
+        #     op_name: []
+        #     for op_name in all_gt_op_names
+        # }
+        # for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+        #     assert len(seg_list) == len(op_list)
+        #     for ground_nsrt, segment in zip(op_list, seg_list):
+        #         gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+        # final_clusters = list(gt_op_to_segments.values())
 
-            # Furthermore, because step 4 of
-            # clustering on the sample is prone to error (not discovering the
-            # oracle's clustering), we can compare several possible clusterings
-            # via the score they get when passing the operators learned from
-            # that clustering into _ExpectedNodesScoreFunction.evaluate_with_operators(),
-            # one of the possible score functions in the hill climbing predicate
-            # invention strategy.
-
-            # As a starting point, we can make a draft operator definition
-            # for each cluster from the predicates that appear in the intersection
-            # of the preconditions, the intersection of the add effects, and the
-            # intersection of the delete effects of the segments in that cluster.
-            # In this step, we won't be defining lifted atoms -- only predicates.
-            # TODO: fix the name here
-            op_pred_def_superset = {} # operator predicate definition superset
-            for i, c in enumerate(final_clusters):
-                op_name = f"Op{i}-{c[0].get_option().name}"
-
-                # preconditions
-                init_atoms_per_segment = [s.init_atoms for s in c]
-                ungrounded_init_atoms_per_segment = []
-                for init_atoms in init_atoms_per_segment:
-                    ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms if a.predicate in predicates_to_keep))
-                init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
-
-                # add effects
-                add_effects_per_segment = [s.add_effects for s in c]
-                ungrounded_add_effects_per_segment = []
-                for add_effects in add_effects_per_segment:
-                    ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects if a.predicate in predicates_to_keep))
-                add_effects = set.intersection(*ungrounded_add_effects_per_segment)
-
-                # delete effects
-                delete_effects_per_segment = [s.delete_effects for s in c]
-                ungrounded_delete_effects_per_segment = []
-                for del_effects in del_effects_per_segment:
-                    ungrounded_delete_effects_per_segment.append(set(a.predicate for a in delete_effects if a.predicate in predicates_to_keep))
-                delete_effects = set.intersection(*ungrounded_delete_effects_per_segment)
-
-                op_pred_def_superset[op_name] = [
-                    init_atoms,
-                    add_effects
-                    delete_effects,
-                    c
-                ]
-
-            # Now we can perform backchaining to narrow down the the predicates
-            # a bit more.
-            # TODO: explain the backchaining algorithm and strategy
-
-            # Later, we'll iterate through a segmented trajectory and will need to know which
-            # cluster we had placed a particular segment in.
-            def seg_to_op_name(segment, clusters):
-                for i, c in enumerate(clusters):
-                    if segment in c:
-                        return f"Op{i}-{c[0].get_option().name}"
-
-            Entry = namedtuple('Entry', ['op_name', 'preconditions', 'add_effects', 'delete_effects'])
-            # TODO: description of function
-            def get_ground_pred_annotated_traj(segmented_traj):
-                annotated_traj = []
-                for i, seg in enumerate(segmented_traj):
-                    option_objects = tuple(seg.get_option().objects)
-                    objects = (set(o for a in seg.add_effects for o in a.objects) | set(o for a in seg.delete_effects for o in a.objects) | set(opt_objs))
-                    preconditions = set(p for p in seg.init_atoms if p.predicate in op_pred_def_superset[op_name][0] and if set(p.objects).issubset(objects))
-                    add_effects = set(p for p in seg.add_effects if p.predicate in op_pred_def_superset[op_name][1] and if set(p.objects).issubset(objects))
-                    delete_effects = set(p for p in seg.delete_effects if p.predicate in op_pred_def_superset[op_name][2] and if set(p.objects).issubset(objects))
-                    # Note that this may include some ground atoms that we DO NOT want to include in the definition of the operator!
-                    # For example, the cluster for option Unstack in blocks env has some predicate, A. We want to include
-                    # it when it's applied to the top block (the one getting unstacked), but not when it's applied to the bottom block
-                    # (the block that the unstacked block is on). NOT-Forall[1:block].[NOT-On(0,1)](block1:block), from demo 8 in blocks.
-                    # so it's not enough to filter for these objeects -- we'll have to filter out some more ground atoms later!
-                    # these are a superset of the ground atoms.
-
-                    e = Entry(op_name, preconditions, add_effects, delete_effects)
-
-                annotated_traj.append(e)
-                return annotated_traj
-
-            def process_add_effects(potential_ops, remaining_traj, goal):
-                curr_entry = remaining_traj[0]
-                # If we can find this ground atom in the preconditions of any future segment
-                # or in the goal, then we'll include it in this operator's add effects.
-                for ground_atom in curr_entry.add_effects:
-                    for entry in remaining_traj[1:]:
-                        if ground_atom in entry.preconditions:
-                            potential_ops[curr_entry.op_name]["add"].add(ground_atom.predicate)
-                            potential_ops[entry.op_name]["pre"].add(ground_atom.predicate)
-                    if ground_atom in goal:
-                        potential_ops[curr_entry.op_name]["add"].add(ground_atom.predicate)
-
-            def process_delete_effects(potential_ops, remaining_traj):
-                curr_entry = remaining_traj[0]
-                # If this ground atom is added in any future segment, then
-                # we'll include it in this operator's delete effects.
-                for ground_atom in curr_entry.delete_effects:
-                    for entry in remaining_traj[1:]:
-                        # Alternatively, we could run process_add_effects()
-                        # on all the trajectories before this function, and
-                        # then check if the ground atom is in the add effects
-                        # of the potential operator. Haven't explored this idea.
-                        if ground_atom in entry.add_effects:
-                            potential_ops[curr_entry.op_name]["del"].add(ground_atom.predicate)
-                            potential_ops[entry.op_name]["add"].add(ground_atom.predicate)
-
-            # As we iterate through each demo trajectory, we will generate an operator definition hypothesis
-            # for each segment in that demo trajectory, and append it to this list to further process later.
-            all_potential_ops = []
-
-            for i, traj in enumerate(segmented_traj):
-                possible_operator_definitions = {}
-                for op_name in op_pred_def_superset.keys():
-                    possible_operator_definitions[op_name] = {
-                        "pre": set(),
-                        "add": set(),
-                        "del": set()
-                    }
-
-                annotated_traj = get_ground_pred_annotated_traj(traj)
-                reversed_annotated_traj = list(reversed(annotated_traj))
-                for j, entry in enumerate(reversed_annotated_traj):
-                    remaining_annotated_traj = annotated_traj[len(annotated_traj)-i-1:]
-                    
-
-
-
-
-
-
-
-
-
-
-            # Remove the initial predicates.
-            predicates_to_keep -= initial_predicates
-
-            logging.info(
-                f"\nSelected {len(predicates_to_keep)} predicates out of "
-                f"{len(candidates)} candidates:")
-            for pred in sorted(predicates_to_keep):
-                logging.info(f"{pred}")
-            return predicates_to_keep
-
-        if CFG.grammar_search_pred_clusterer == "oracle":
-            assert CFG.offline_data_method == "demo+gt_operators"
-            assert dataset.annotations is not None and len(
-                dataset.annotations) == len(dataset.trajectories)
-            assert CFG.segmenter == "option_changes"
-            preds = set(initial_predicates) | initial_predicates
-            segmented_trajs = [
-                segment_trajectory(ll_traj, preds, atom_seq)
-                for ll_traj, atom_seq in atom_dataset
+        # Step 5:
+        # Extract predicates from the pure intersection of the add effects
+        # in each cluster.
+        extracted_preds = set()
+        shared_add_effects_per_cluster = []
+        for c in final_clusters:
+            grounded_add_effects_per_segment = [
+                seg.add_effects for seg in c
             ]
-            assert len(segmented_trajs) == len(dataset.annotations)
-            # First, get the set of all ground truth operator names.
-            all_gt_ops = set(ground_nsrt.parent
-                             for anno_list in dataset.annotations
-                             for ground_nsrt in anno_list)
-            # Next, make a dictionary mapping operator name to segments
-            # where that operator was used.
-            gt_op_to_segments: Dict[str, List[Segment]] = {
-                op_name: []
-                for op_name in all_gt_ops
+            ungrounded_add_effects_per_segment = []
+            for effs in grounded_add_effects_per_segment:
+                ungrounded_add_effects_per_segment.append(
+                    set(a.predicate for a in effs))
+            shared_add_effects_in_cluster = set.intersection(
+                *ungrounded_add_effects_per_segment)
+            shared_add_effects_per_cluster.append(
+                shared_add_effects_in_cluster)
+            extracted_preds |= shared_add_effects_in_cluster
+
+        # Step 6:
+        # Remove inconsistent predicates except if removing them prevents us
+        # from disambiguating two or more clusters (i.e. their add effect
+        # sets are the same after removing the inconsistent predicates). The
+        # idea here is that HoldingTop and HoldingSide are inconsistent
+        # within the PlaceOnTable cluster in painting, but we don't want to
+        # remove them, since we had generated them specifically to
+        # disambiguate segments in the cluster with the Pick option.
+        # A consistent predicate is either an add effect, a delete
+        # effect, or doesn't change, within each cluster, for all clusters.
+        # Note that it is possible that when 2 inconsistent predicates are
+        # removed, then two clusters cannot be disambiguated, but if you
+        # keep either of the two, then you can disambiguate the clusters.
+        # For now, we just add both back, which is not ideal.
+        consistent, inconsistent = self._get_consistent_predicates(
+            extracted_preds, list(final_clusters))
+        predicates_to_keep: Set[Predicate] = consistent
+        consistent_shared_add_effects_per_cluster = [
+            add_effs - inconsistent
+            for add_effs in shared_add_effects_per_cluster
+        ]
+        num_clusters = len(final_clusters)
+        for i in range(num_clusters):
+            for j in range(num_clusters):
+                if i == j:
+                    continue
+                if consistent_shared_add_effects_per_cluster[
+                        i] == consistent_shared_add_effects_per_cluster[j]:
+                    logging.info(
+                        f"Final clusters {i} and {j} cannot be "
+                        f"disambiguated after removing the inconsistent"
+                        f" predicates.")
+                    predicates_to_keep |= \
+                        shared_add_effects_per_cluster[i]
+                    predicates_to_keep |= \
+                        shared_add_effects_per_cluster[j]
+
+        logging.info(
+            f"\nSelected {len(predicates_to_keep)} predicates out of "
+            f"{len(candidates)} candidates:")
+        for pred in sorted(predicates_to_keep):
+            logging.info(f"{pred}")
+
+        ###################################
+        # Operator (and predicate) learning
+        ###################################
+        # Now we can learn operators (and predicates) given clusters. First, we
+        # will decide what predicates to include in the preconditions, add
+        # effects, and delete effects or each operator. Second, we will
+        # finalize the exact lifted atoms in the operators' definitions.
+
+        # Note that step 4 of clustering (clustering on the sampled parameter)
+        # is prone to error (in terms of recovering the clustering that
+        # the demonstrator had). For this reason, we an operator/predicate
+        # learning procedure on each of many candidate clusterings, score each,
+        # and take the one with the best score. One way we can score them is
+        # by passing the operators into _ExpectedNodesScoreFunction.evaluate_with_operators(),
+        # which is one of the possible score functions used in the hill climbing
+        # predicate invention algorithm.
+
+        # TODO: loop over clusterings
+
+        # Step 1: decide what predicates to include in the operator's definition
+        # As a starting point, we can make a draft operator definition for each
+        # cluster from the predicates that appear in the intersection of the
+        # preconditions, the intersection of the add effects, and the
+        # intersection of the delete effects of the segments in that cluster.
+        # The definition of an operator involves lifted atoms, but in this first
+        # step we will only identify predicates.
+        op_pred_def_superset = {} # operator predicate definition superset
+        for i, c in enumerate(final_clusters):
+            op_name = f"Op{i}-{c[0].get_option().name}"
+
+            # preconditions
+            init_atoms_per_segment = [s.init_atoms for s in c]
+            ungrounded_init_atoms_per_segment = []
+            for init_atoms in init_atoms_per_segment:
+                ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms if a.predicate in predicates_to_keep))
+            init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
+
+            # add effects
+            add_effects_per_segment = [s.add_effects for s in c]
+            ungrounded_add_effects_per_segment = []
+            for add_effects in add_effects_per_segment:
+                ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects if a.predicate in predicates_to_keep))
+            add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+
+            # delete effects
+            delete_effects_per_segment = [s.delete_effects for s in c]
+            ungrounded_delete_effects_per_segment = []
+            for del_effects in del_effects_per_segment:
+                ungrounded_delete_effects_per_segment.append(set(a.predicate for a in delete_effects if a.predicate in predicates_to_keep))
+            delete_effects = set.intersection(*ungrounded_delete_effects_per_segment)
+
+            op_pred_def_superset[op_name] = [
+                init_atoms,
+                add_effects
+                delete_effects,
+                c
+            ]
+
+        # Now we can reason backwards from the goal to further narrow down the
+        # preconditions and effects in each operator and also ensure that the
+        # operators can chain together properly. The idea is that, for each
+        # operator in a trajectory, working backwards from the last operator,
+        # - if an add effect of the operator is a goal atom or a precondition
+        # of a future operator, include the predicate in the operator's
+        # add effects, and include the predicate in the future operator's
+        # preconditions.
+        #  - if a delete effect of the operator is added in a future operator,
+        # include the predicate in the operator's delete effect, and include
+        # the predicate in the future operator's add effects.
+
+        # Later, we'll iterate through a segmented trajectory and will need to
+        # know which cluster we had placed a particular segment in. Clusters
+        # are identified by the name of the operator we assign to them.
+        def seg_to_op_name(segment, clusters):
+            for i, c in enumerate(clusters):
+                if segment in c:
+                    return f"Op{i}-{c[0].get_option().name}"
+
+        Entry = namedtuple('Entry', ['op_name', 'preconditions', 'add_effects', 'delete_effects'])
+
+        # To perform the backchaining described above, we need an annotated
+        # trajectory for each demonstration, where each each operator is
+        # annotated with its potential preconditions and effects.
+        def get_ground_pred_annotated_traj(segmented_traj):
+            annotated_traj = []
+            for i, seg in enumerate(segmented_traj):
+                option_objects = tuple(seg.get_option().objects)
+                objects = (set(o for a in seg.add_effects for o in a.objects) | set(o for a in seg.delete_effects for o in a.objects) | set(opt_objs))
+                preconditions = set(p for p in seg.init_atoms if p.predicate in op_pred_def_superset[op_name][0] and if set(p.objects).issubset(objects))
+                add_effects = set(p for p in seg.add_effects if p.predicate in op_pred_def_superset[op_name][1] and if set(p.objects).issubset(objects))
+                delete_effects = set(p for p in seg.delete_effects if p.predicate in op_pred_def_superset[op_name][2] and if set(p.objects).issubset(objects))
+                # Note that these may include some ground atoms that we DO NOT
+                # want to include in the definition of the operator. For
+                # example, the cluster for option Unstack in blocks env has some
+                # precondition, NOT-Forall[1:block].[NOT-On(0,1)](block1:block)
+                # (you see this in demonstration #8). We want to include it when
+                # it's applied to the top block (the one getting unstacked), but
+                # not when it's applied to the bottom block (the block below the
+                # block getting unstacked). (This predicate means "there exists
+                # some block that the block in question is on top of" -- which
+                # always is true for the unstacked block, but not always true
+                # for the block below it.) But, both the unstacked block and
+                # the block below it are parameters for this operator, so
+                # not including ground atoms that involve objects that aren't
+                # in the operator's parameters will not help deal with this.
+                # We'll deal with this problem -- what exact lifted atoms to
+                # include in our operator definition -- later. In the step where
+                # this function gets used, we only care about what predicates
+                # we'll use in the operator's definition.
+
+                e = Entry(op_name, preconditions, add_effects, delete_effects)
+
+            annotated_traj.append(e)
+            return annotated_traj
+
+        def process_add_effects(potential_ops, remaining_traj, goal):
+            curr_entry = remaining_traj[0]
+            # If we can find this ground atom in the preconditions of any future segment
+            # or in the goal, then we'll include it in this operator's add effects.
+            for ground_atom in curr_entry.add_effects:
+                for entry in remaining_traj[1:]:
+                    if ground_atom in entry.preconditions:
+                        potential_ops[curr_entry.op_name]["add"].add(ground_atom.predicate)
+                        potential_ops[entry.op_name]["pre"].add(ground_atom.predicate)
+                if ground_atom in goal:
+                    potential_ops[curr_entry.op_name]["add"].add(ground_atom.predicate)
+
+        def process_delete_effects(potential_ops, remaining_traj):
+            curr_entry = remaining_traj[0]
+            # If this ground atom is added in any future segment, then
+            # we'll include it in this operator's delete effects.
+            for ground_atom in curr_entry.delete_effects:
+                for entry in remaining_traj[1:]:
+                    # Alternatively, we could run process_add_effects()
+                    # on all the trajectories before this function, and
+                    # then check if the ground atom is in the add effects
+                    # of the potential operator. Haven't explored this idea.
+                    if ground_atom in entry.add_effects:
+                        potential_ops[curr_entry.op_name]["del"].add(ground_atom.predicate)
+                        potential_ops[entry.op_name]["add"].add(ground_atom.predicate)
+
+        # As we iterate through each demo trajectory, we will generate an operator definition hypothesis
+        # for each segment in that demo trajectory, and append it to this list to further process later.
+        possible_operator_definitions_per_demo = []
+
+        for i, traj in enumerate(segmented_traj):
+            possible_operator_definitions = {}
+            for op_name in op_pred_def_superset.keys():
+                possible_operator_definitions[op_name] = {
+                    "pre": set(),
+                    "add": set(),
+                    "del": set()
+                }
+
+            annotated_traj = get_ground_pred_annotated_traj(traj)
+            reversed_annotated_traj = list(reversed(annotated_traj))
+            for j, entry in enumerate(reversed_annotated_traj):
+                remaining_annotated_traj = annotated_traj[len(annotated_traj)-i-1:]
+                name, preconds, add_effs, del_effs = entry
+                if j == 0:
+                    for p in add_effs:
+                        if p in train_tasks[i].goal:
+                            possible_operator_definitions[name]["add"].add(p.predicate)
+                else:
+                    process_add_effects(possible_operator_definitions, remaining_annotated_traj, train_tasks[j].goal)
+                    process_delete_effects(possible_operator_definitions, remaining_annotated_traj)
+
+            possible_operator_definitions_per_demo.append(possible_operator_definitions)
+
+        # We'll take all the precondition predicates and delete effects in the
+        # intersection of the segments in the operator's clusteer because
+        # backchaining doesn't identify all of them. For example, for certain
+        # operators involving the Place option in painting env, no other
+        # operator adds their preconditions (their preconditions are True at the
+        # beginning of the task). As another example, for the operators
+        # involving the Pick option in blocks env, that have "OnTable" as a
+        # possible delete effect, we don't include it in backchaining because
+        # "OnTable" is never added again after the object is picked up (it's
+        # never picked up from the table and put back on the table).
+        final_predicate_operator_definitions = {
+            op_name: {
+                "pre": op_pred_def_superset[op_name][0],
+                "add": set(),
+                "del": op_pred_def_superset[op_name][2]
             }
-            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-                assert len(seg_list) == len(op_list)
-                for ground_nsrt, segment in zip(op_list, seg_list):
-                    gt_op_to_segments[ground_nsrt.parent].append(segment)
+        }
+        for i, ops in possible_operator_definitions_per_demo:
+            for op_name in ops.keys():
+                # We take the union because, different demos have different
+                # goals, and, for example, certain add effects won't appear
+                # relevant only by looking at certain demos. Taking the union is
+                # akin to including the add effects that we identified as
+                # important across all the demos.
+                final_predicate_operator_definitions[op_name]["pre"] = final_predicate_operator_definitions[op_name]["pre"].union(ops[op_name]["pre"])
+                final_predicate_operator_definitions[op_name]["add"] = final_predicate_operator_definitions[op_name]["add"].union(ops[op_name]["add"])
+                final_predicate_operator_definitions[op_name]["del"] = final_predicate_operator_definitions[op_name]["del"].union(ops[op_name]["del"])
 
-            # Before selecting some subset of predicates to keep, we first
-            # get the set of all predicates that ever change.
-            non_static_predicates: Set[Predicate] = set()
-            for segment in {x for v in gt_op_to_segments.values() for x in v}:
-                for add_eff in segment.add_effects:
-                    non_static_predicates.add(add_eff.predicate)
-                for del_eff in segment.delete_effects:
-                    non_static_predicates.add(del_eff.predicate)
+        # Step 2: decide what exact lifted atoms to include in the operator's
+        # definition.
+        
 
-            # Finally, select predicates that are consistent (either, it is
-            # an add effect, or a delete effect, or doesn't change)
-            # within all demos.
-            predicates_to_keep, _ = self._get_consistent_predicates(
-                non_static_predicates, list(gt_op_to_segments.values()))
 
-            # Before returning, remove all the initial predicates.
-            predicates_to_keep -= initial_predicates
-            logging.info(
-                f"\nSelected {len(predicates_to_keep)} predicates out of "
-                f"{len(candidates)} candidates:")
-            for pred in predicates_to_keep:
-                logging.info(f"\t{pred}")
-            return predicates_to_keep
 
-        raise NotImplementedError(
-            "Unrecognized clusterer for predicate " +
-            f"invention {CFG.grammar_search_pred_clusterer}.")
+
+
+
+
+
