@@ -58,11 +58,16 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._base_env = create_new_env(CFG.pg3_init_base_env)
         self._base_task = [t.task for t in self._base_env.get_train_tasks()]
 
-        self._target_task = self._train_tasks[0]
-        self._target_states = dataset.trajectories[0]._states
-        ordered_objs = list(self._target_states[0])
+        for i in range(len(self._train_tasks)):
+            if len(dataset.trajectories[i]._states) == 5:
+                final_i = i
+                break
+
+        self._target_task = self._train_tasks[final_i]
+        self._target_states = dataset.trajectories[final_i]._states
+        ordered_objs = list(self._target_states[final_i])
         self._target_env = create_new_env(CFG.env)
-        self._target_actions = [_action_to_ground_strips_op(a, ordered_objs, sorted(self._target_env._strips_operators)) for a in dataset.trajectories[0]._actions]
+        self._target_actions = [_action_to_ground_strips_op(a, ordered_objs, sorted(self._target_env._strips_operators)) for a in dataset.trajectories[final_i]._actions]
         super().learn_from_offline_dataset(dataset)
 
     def _induce_policies_by_analogy(
@@ -87,20 +92,18 @@ class GPTObjectApproach(PG3AnalogyApproach):
         target_nsrts = self._get_analagous_nsrts(rule) 
         for target_nsrt in target_nsrts:
             new_rule = self._generate_best_rule(rule, target_nsrt)
-            print("nsrt\n", target_nsrt)
-            print("new_rule\n", new_rule)
             import ipdb; ipdb.set_trace();
     
     def _generate_best_rule(self, rule: LDLRule, target_nsrt: NSRT) -> LDLRule:
         # Generates best rule in target environment given rule in base environment and a target nsrt
-        #TODO: IMPLEMENT ME!
         mapping = {} # Mapping from target param to rule variable
         all_rule_variables = set([var for var in rule.parameters])
         used_rule_variables = set()
         for target_nsrt_param in target_nsrt.parameters:
             # Ask GPT what is the best variable in rule for target_nsrt_param
             best_rule_variable = self._get_analagous_variable(target_nsrt_param, rule, target_nsrt)
-            mapping[target_nsrt_param] = best_rule_variable
+            if best_rule_variable != None:
+                mapping[target_nsrt_param] = best_rule_variable
         
         # Search for a state that we can ground on the target environment
         best_score = -1.0
@@ -109,6 +112,10 @@ class GPTObjectApproach(PG3AnalogyApproach):
             target_action = self._target_actions[i]
             if target_action.name != target_nsrt.name:
                 continue
+
+            self._experiment(rule, target_nsrt, mapping, i)
+            import ipdb; ipdb.set_trace();
+        """
             ground_objects, preconditions, goalconditions = self._find_objects_and_conditions(rule, target_nsrt, mapping, i)
             candidate_rule, score = self._design_lifted_rule_from_conditions(ground_objects, target_nsrt, preconditions, goalconditions)
             if score > best_score:
@@ -116,13 +123,143 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 best_score = score
         
         return candidate_rule
+        """
+
+    def _experiment(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
+        all_rule_variables = set([var for var in rule.parameters])
+        used_rule_variables = set(existing_mapping.values())
+
+        ground_target_nsrt = self._target_actions[state_index]
+        mapping_to_objects = {}
+        for target_var, base_var in existing_mapping.items():
+            index_of_object = target_nsrt.parameters.index(target_var)
+            target_object = ground_target_nsrt.objects[index_of_object]
+            mapping_to_objects[base_var] = target_object
+
+        ground_state = self._target_states[state_index]
+        available_objects = sorted(set(ground_state.data.keys()) - set(mapping_to_objects.values()))
+
+        final_ground_objects = set(mapping_to_objects.values())
+
+        print("=================================")
+        print(f"Rule:\n{rule}")
+        print(f"Target NSRT:\n{target_nsrt}")
+        print(f"Target Ground NSRT:\n{ground_target_nsrt}")
+        print(f"Ground state:\n{sorted(ground_state.simulator_state)}")
+        print(f"Goal state:\n{self._target_task.goal}")
+        for unused_rule_var in sorted(all_rule_variables - used_rule_variables):
+            print('-----------------')
+            print(f"Unused Rule Var {unused_rule_var}")
+
+            pos_conditions = set()
+            for condition in rule.pos_state_preconditions:
+                if unused_rule_var in condition.variables:
+                    pos_conditions.add(condition)
+            
+            goal_conditions = set()
+            for condition in rule.goal_preconditions:
+                if unused_rule_var in condition.variables:
+                    goal_conditions.add(condition)
+            
+            print(f"Pos Conditions {pos_conditions}")
+            print(f"Goal Conditions {goal_conditions}")
+
+
+            candidates = {}
+            for pos_cond in pos_conditions:
+                analagous_preds = self._get_analogy_pred_name(pos_cond.predicate)
+                if analagous_preds == None:
+                    continue
+
+                needed_objects = set()
+                for var in pos_cond.variables:
+                    if var in mapping_to_objects:
+                        needed_objects.add(mapping_to_objects[var])
+
+                for pos_atom in ground_state.simulator_state:
+                    # if analagous predicate
+                    if pos_atom.predicate.name in analagous_preds and needed_objects.issubset(set(pos_atom.objects)):
+                        for obj in pos_atom.objects:
+                            
+                            if obj in needed_objects:
+                                continue
+
+                            if obj not in candidates:
+                                #print(f"OBJ {obj} HIT! with {pos_atom}")
+                                candidates[obj] = 1
+                            else:
+                                #print(f"OBJ {obj} HIT! with {pos_atom}")
+                                candidates[obj] += 1
+            for goal_cond in goal_conditions:
+                analagous_preds = self._get_analogy_pred_name(goal_cond.predicate)
+                if analagous_preds == None:
+                    continue
+
+                needed_objects = set()
+                for var in pos_cond.variables:
+                    if var in mapping_to_objects:
+                        needed_objects.add(mapping_to_objects[var])
+
+                for goal_atom in self._target_task.goal:
+                    if goal_atom.predicate.name in analagous_preds and needed_objects.issubset(set(goal_atom.objects)):
+                        for obj in goal_atom.objects:
+
+                            if obj in needed_objects:
+                                continue
+
+                            if obj not in candidates:
+                                #print(f"OBJ {obj} HIT! with {goal_atom}")
+                                candidates[obj] = 1
+                            else:
+                                #print(f"OBJ {obj} HIT! with {goal_atom}")
+                                candidates[obj] += 1
+
+            """
+            for already_used_obj in ground_target_nsrt.objects:
+                if already_used_obj in candidates:
+                    del candidates[already_used_obj]
+            """
+            print(f"Candidates: {candidates}")
+            
+    def _get_analogy_pred_name(self, pred):
+        # Gripper -> Ferry
+
+        if 'gripper' in self._base_env.get_name() and 'ferry' in self._target_env.get_name():
+            predicate_input = {
+                "ball": ["car"],
+                "free": ["empty-ferry"],
+                "room": ["location"],
+                "at-robby": ["at-ferry"],
+                "at": ["at"],
+                "carry": ["on"],
+            }
+
+        # Ferry -> Gripper
+        if 'ferry' in self._base_env.get_name() and 'gripper' in self._target_env.get_name():
+            predicate_input = {
+                "car": ["ball"],
+                "empty-ferry": ["free"],
+                "location": ["room"],
+                "at-ferry": ["at-robby"],
+                "at": ["at"],
+                "on": ["carry"],
+            }
+
+        target_env_pred_names_to_pred = {str(pred): pred for pred in self._target_env.predicates}
+        ans = []
+        if pred.name in predicate_input:
+            for name in predicate_input[pred.name]:
+                ans.append(target_env_pred_names_to_pred[name].name)
+            return ans
+        else:
+            return None
     
     def _find_objects_and_conditions(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
         # Note: state_index is the index of self._target_states that we try grounding on
         all_rule_variables = set([var for var in rule.parameters])
         used_rule_variables = set(existing_mapping.values())
         
-        # Getting mapping from base variable to object
+        # Getting mapping from base variable to object using the plan's ground action
         ground_target_nsrt = self._target_actions[state_index]
         mapping_to_objects = {}
         for target_var, base_var in existing_mapping.items():
@@ -254,13 +391,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
     
     def _get_analagous_nsrts(self, rule: LDLRule) -> List[NSRT]:
         # Returns NSRT(s) in target environment that is analagous to the NSRT in rule
-
+        nsrt_input = None
         # Gripper -> Ferry
-        nsrt_input = {
-            "move": ["sail"],
-            "pick": ["board"],
-            "drop": ["debark"],
-        }
+        if 'gripper' in self._base_env.get_name() and 'ferry' in self._target_env.get_name():
+            nsrt_input = { "move": ["sail"], "pick": ["board"], "drop": ["debark"], }
+
+        # Ferry -> Gripper
+        if 'ferry' in self._base_env.get_name() and 'gripper' in self._target_env.get_name():
+            nsrt_input = { "sail": ["move"], "board": ["pick"], "debark": ["drop"], }
 
         target_env_nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in self._target_nsrts}
         analagous_target_nsrts = [target_env_nsrt_name_to_nsrt[nsrt_name] for nsrt_name in nsrt_input[rule.nsrt.name]]
@@ -269,15 +407,27 @@ class GPTObjectApproach(PG3AnalogyApproach):
     def _get_analagous_variable(self, nsrt_param: Variable, rule: LDLRule, target_nsrt: NSRT) -> LDLRule:
         # Ask GPT what the best variable in rule for nsrt_param
 
+        variable_input = None
         # Gripper -> Ferry
-        variable_input = {
-            ("sail", "move") : {"?from": "?from", "?to": "?to"},
-            ("board", "pick") : {"?car": "?obj", "?loc": "?room",},
-            ("debark", "drop") : {"?car": "?obj", "?loc": "?room",},
-        }
-        var_name = variable_input[(target_nsrt.name, rule.nsrt.name)][nsrt_param.name]
-        base_var_names_to_var = {var.name: var for var in rule.parameters}
-        return base_var_names_to_var[var_name]
+        if 'gripper' in self._base_env.get_name() and 'ferry' in self._target_env.get_name():
+            variable_input = {
+                ("sail", "move") : {"?from": "?from", "?to": "?to"},
+                ("board", "pick") : {"?car": "?obj", "?loc": "?room"},
+                ("debark", "drop") : {"?car": "?obj", "?loc": "?room"},
+            }
+        # Ferry -> Gripper
+        if 'ferry' in self._base_env.get_name() and 'gripper' in self._target_env.get_name():
+            variable_input = {
+                ("move", "sail") : {"?from": "?from", "?to": "?to"},
+                ("pick", "board") : {"?obj": "?car", "?room": "?loc"},
+                ("drop", "debark") : {"?obj": "?car", "?room": "?loc"},
+            }
+        if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
+            var_name = variable_input[(target_nsrt.name, rule.nsrt.name)][nsrt_param.name]
+            base_var_names_to_var = {var.name: var for var in rule.parameters}
+            return base_var_names_to_var[var_name]
+        else:
+            return None
 
 
 def _convert_object_to_variable(obj: Object) -> Variable:
