@@ -161,6 +161,24 @@ class BaseSTRIPSLearner(abc.ABC):
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, self._predicates, strips_ops, option_specs, init_atoms,
             traj_goal, option_plan, atoms_seq)
+
+        if ground_nsrt_plan is None:
+            import pdb; pdb.set_trace()
+
+            Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
+            Op1PutOnTable = [op for op in strips_ops if op.name=="Op1-PutOnTable"][0]
+            Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
+            Op3Pick = [op for op in strips_ops if op.name=="Op3-Pick"][0]
+
+            objs = list(init_state.data.keys())
+            robot = [o for o in objs if o.name == "robby"][0]
+            block0 = [b for b in objs if b.name == "block0"][0]
+            block1 = [b for b in objs if b.name == "block1"][0]
+            block2 = [b for b in objs if b.name == "block2"][0]
+            # block3 = [b for b in objs if b.name == "block3"][0]
+            # block4 = [b for b in objs if b.name == "block4"][0]
+            # block5 = [b for b in objs if b.name == "block5"][0]
+
         return ground_nsrt_plan is not None
 
     def _recompute_datastores_from_segments(self, pnads: List[PNAD]) -> None:
