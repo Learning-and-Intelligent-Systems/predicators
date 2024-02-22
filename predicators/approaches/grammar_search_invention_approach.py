@@ -1540,9 +1540,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # if len(example_segment.get_option().params) == 0 or option_name in ["Paint", "Place", "Pick"]:
 
                 #
-                if option_name != "Pick":
-                    final_clusters.append(cluster)
-                    continue
+                # if option_name != "Pick":
+                #     final_clusters.append(cluster)
+                #     continue
                 #
 
                 # #

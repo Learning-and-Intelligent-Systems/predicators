@@ -165,6 +165,8 @@ class BaseSTRIPSLearner(abc.ABC):
         if ground_nsrt_plan is None:
             import pdb; pdb.set_trace()
 
+            for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
+
             Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
             Op1PutOnTable = [op for op in strips_ops if op.name=="Op1-PutOnTable"][0]
             Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
@@ -175,7 +177,7 @@ class BaseSTRIPSLearner(abc.ABC):
             block0 = [b for b in objs if b.name == "block0"][0]
             block1 = [b for b in objs if b.name == "block1"][0]
             block2 = [b for b in objs if b.name == "block2"][0]
-            # block3 = [b for b in objs if b.name == "block3"][0]
+            block3 = [b for b in objs if b.name == "block3"][0]
             # block4 = [b for b in objs if b.name == "block4"][0]
             # block5 = [b for b in objs if b.name == "block5"][0]
 
