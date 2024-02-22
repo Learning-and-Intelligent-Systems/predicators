@@ -168,9 +168,9 @@ class BaseSTRIPSLearner(abc.ABC):
             for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
 
             Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
-            Op1PutOnTable = [op for op in strips_ops if op.name=="Op1-PutOnTable"][0]
+            Op1Pick = [op for op in strips_ops if op.name=="Op1-Pick"][0]
+            Op3PutOnTable = [op for op in strips_ops if op.name=="Op3-PutOnTable"][0]
             Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
-            Op3Pick = [op for op in strips_ops if op.name=="Op3-Pick"][0]
 
             objs = list(init_state.data.keys())
             robot = [o for o in objs if o.name == "robby"][0]

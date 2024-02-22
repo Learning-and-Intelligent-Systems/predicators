@@ -783,7 +783,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             # self._learned_predicates = self._select_predicates_by_clustering(
             #     candidates, self._initial_predicates, dataset, atom_dataset)
-            self._select_predicates_and_learn_operators_by_clustering(
+            self._learned_predicates = self._select_predicates_and_learn_operators_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset
             )
         logging.info("Done.")
@@ -1461,6 +1461,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             segmented_trajs = [
                 segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in atom_dataset
             ]
+            import pdb; pdb.set_trace()
 
             # for seg_traj in segmented_trajs:
             #     l = [seg.get_option().name for seg in seg_traj]
@@ -1635,30 +1636,30 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ###
             # Stuff from oracle learning to test if the stuff is working.
             ###
-            # assert CFG.offline_data_method == "demo+gt_operators"
-            # assert dataset.annotations is not None and len(
-            #     dataset.annotations) == len(dataset.trajectories)
-            # assert CFG.segmenter == "option_changes"
-            # segmented_trajs = [
-            #     segment_trajectory(traj) for traj in atom_dataset
-            # ]
-            # assert len(segmented_trajs) == len(dataset.annotations)
-            # # First, get the set of all ground truth operator names.
-            # all_gt_op_names = set(ground_nsrt.parent.name
-            #                       for anno_list in dataset.annotations
-            #                       for ground_nsrt in anno_list)
-            # import pdb; pdb.set_trace()
-            # # Next, make a dictionary mapping operator name to segments
-            # # where that operator was used.
-            # gt_op_to_segments: Dict[str, List[Segment]] = {
-            #     op_name: []
-            #     for op_name in all_gt_op_names
-            # }
-            # for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-            #     assert len(seg_list) == len(op_list)
-            #     for ground_nsrt, segment in zip(op_list, seg_list):
-            #         gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            # final_clusters = list(gt_op_to_segments.values())
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in atom_dataset
+            ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_op_names = set(ground_nsrt.parent.name
+                                  for anno_list in dataset.annotations
+                                  for ground_nsrt in anno_list)
+            import pdb; pdb.set_trace()
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_op_names
+            }
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+            final_clusters = list(gt_op_to_segments.values())
             ###
 
 
@@ -2831,3 +2832,4 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         import pdb; pdb.set_trace()
         self._pnads = pnads
+        return predicates_to_keep
