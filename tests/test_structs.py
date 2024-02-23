@@ -489,7 +489,7 @@ def test_operators_and_nsrts(state):
                                                lambda s, m, o, p: True,
                                                lambda s, m, o, p: True)
 
-    def sampler(s, g, rng, objs):
+    def sampler(s, g, rng, objs, sk=[]):
         del s, g, rng, objs  # unused
         return params_space.sample()
 

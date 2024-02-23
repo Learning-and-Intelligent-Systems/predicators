@@ -579,9 +579,9 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
     candidates from a base sampler."""
 
     def _sample(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
-                objects: Sequence[Object]) -> Array:
+                objects: Sequence[Object], skeleton: Sequence[NSRT] = []) -> Array:
         samples = [
-            base_sampler(state, goal, rng, objects)
+            base_sampler(state, goal, rng, objects, skeleton)
             for _ in range(CFG.active_sampler_learning_num_samples)
         ]
         scores = score_fn(state, objects, samples)

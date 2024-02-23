@@ -60,7 +60,8 @@ class ClutteredTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def grasp_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
-                          objs: Sequence[Object]) -> Array:
+                          objs: Sequence[Object],
+                          skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             assert len(objs) == 1
             can = objs[0]
@@ -115,7 +116,8 @@ class ClutteredTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def place_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
+                              objs: Sequence[Object],
+                              skeleton: Sequence[NSRT] = []) -> Array:
                 start_x, start_y = 0.2, 0.1
                 # Goal-conditioned sampling
                 if CFG.cluttered_table_place_goal_conditioned_sampling:

@@ -85,7 +85,8 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pick_obj_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
-                             objs: Sequence[Object]) -> Array:
+                             objs: Sequence[Object],
+                             skeleton: Sequence[NSRT] = []) -> Array:
             # Sample within ball around center of the object.
             del goal  # unused
             obj = objs[1]
@@ -249,7 +250,8 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def place_on_table_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
+                                   objs: Sequence[Object],
+                                   skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             table = objs[-1]
             obj = objs[-2]
@@ -286,7 +288,8 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def place_on_floor_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
+                                   objs: Sequence[Object],
+                                   skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # not used
             obj_to_place = objs[-1]
             size = state.get(obj_to_place, "radius") * 2
@@ -339,7 +342,8 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def place_ball_in_cup_sampler(state: State, goal: Set[GroundAtom],
                                       rng: np.random.Generator,
-                                      objs: Sequence[Object]) -> Array:
+                                      objs: Sequence[Object],
+                                      skeleton: Sequence[NSRT] = []) -> Array:
             del rng, goal  # unused
             cup = objs[2]
             # Just place the ball in the middle of the cup. Set
@@ -458,7 +462,8 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def navigate_to_obj_sampler(state: State, goal: Set[GroundAtom],
                                     rng: np.random.Generator,
-                                    objs: Sequence[Object]) -> Array:
+                                    objs: Sequence[Object],
+                                    skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # not used
             robot, obj = objs
             assert obj.type.name in ["table", "cup", "ball"]

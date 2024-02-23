@@ -87,7 +87,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pickfromtop_sampler(state: State, goal: Set[GroundAtom],
                                 rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                objs: Sequence[Object],
+                                skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, rng, objs  # unused
             return np.array([1.0], dtype=np.float32)
 
@@ -117,7 +118,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pickfromside_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
+                                 objs: Sequence[Object],
+                                 skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, rng, objs  # unused
             return np.array([0.0], dtype=np.float32)
 
@@ -187,7 +189,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def painttobox_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
-                               objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object],
+                               skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng  # unused
             box_color = state.get(objs[1], "color")
             return np.array([box_color], dtype=np.float32)
@@ -216,7 +219,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def painttoshelf_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
+                                 objs: Sequence[Object],
+                                 skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng  # unused
             shelf_color = state.get(objs[1], "color")
             return np.array([shelf_color], dtype=np.float32)
@@ -259,7 +263,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def placeinbox_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
-                               objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object],
+                               skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             x = state.get(objs[0], "pose_x")
             if env_name == "painting":
@@ -308,7 +313,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def placeinshelf_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
+                                 objs: Sequence[Object],
+                                 skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             x = state.get(objs[0], "pose_x")
             if env_name == "painting":
@@ -383,7 +389,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def placeontable_sampler(state: State, goal: Set[GroundAtom],
                                      rng: np.random.Generator,
-                                     objs: Sequence[Object]) -> Array:
+                                     objs: Sequence[Object],
+                                     skeleton: Sequence[NSRT] = []) -> Array:
                 del goal  # unused
                 x = state.get(objs[0], "pose_x")
                 if env_name == "painting":
@@ -417,7 +424,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def moveto_sampler(state: State, goal: Set[GroundAtom],
                                _rng: np.random.Generator,
-                               objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object],
+                               skeleton: Sequence[NSRT] = []) -> Array:
                 del goal  # unused
                 y = state.get(objs[1], "pose_y")
                 return np.array([y], dtype=np.float32)

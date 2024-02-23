@@ -3280,9 +3280,9 @@ def parse_config_excluded_predicates(
 
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
-                 objs: Sequence[Object]) -> Array:
+                 objs: Sequence[Object], skeleton: Sequence[NSRT] = []) -> Array:
     """A sampler for an NSRT with no continuous parameters."""
-    del state, goal, rng, objs  # unused
+    del state, goal, rng, objs, skeleton  # unused
     return np.array([], dtype=np.float32)  # no continuous parameters
 
 

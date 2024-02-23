@@ -82,7 +82,13 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         bundle = Variable("?bundle", bundle_type)
         cover = Variable("?cover", cover_type)
 
-        def InsertBox_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+        def InsertBox_sampler(
+            state: State,
+            goal: Set[GroundAtom],
+            rng: np.random.Generator,
+            objects: Sequence[Object],
+            skeleton: Sequence[NSRT] = [],
+        ) -> Array:
             global cover_top_ranges, cover_bottom_ranges
             box, shelf, bundle, cover = objects
 
@@ -117,7 +123,13 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return nsrts
 
 def _MoveCover_sampler_helper(move_to_top: bool, margin = 0.0001) -> NSRTSampler:
-    def _MoveCover_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Action:
+    def _MoveCover_sampler(
+        state: State,
+        goal: Set[GroundAtom],
+        rng: np.random.Generator,
+        objects: Sequence[Object],
+        skeleton: Sequence[NSRT] = [],
+    ) -> Action:
         cover, bundle = objects
 
         cover_x, cover_y, cover_w, cover_h = Shelves2DEnv.get_shape_data(state, cover)

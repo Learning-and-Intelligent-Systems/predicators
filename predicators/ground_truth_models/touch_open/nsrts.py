@@ -50,7 +50,8 @@ class TouchOpenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def move_to_door_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
+                                 objs: Sequence[Object],
+                                 skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng  # unused
             robot, door = objs
             assert robot.is_instance(robot_type)
@@ -84,7 +85,8 @@ class TouchOpenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def open_door_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
+                              objs: Sequence[Object],
+                              skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng
             door, _ = objs
             assert door.is_instance(door_type)

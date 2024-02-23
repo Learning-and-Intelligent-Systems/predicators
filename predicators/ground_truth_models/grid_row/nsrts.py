@@ -43,7 +43,8 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def light_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
-                          objs: Sequence[Object]) -> Array:
+                          objs: Sequence[Object],
+                          skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Note: just return a random value from -1 to 1
             return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)

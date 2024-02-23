@@ -58,7 +58,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
+                         objs: Sequence[Object],
+                         skeleton: Sequence[NSRT] = []) -> Array:
             # Sample within ball around center of the object.
             del goal  # unused
             cube = objs[0]
@@ -108,7 +109,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def place_on_table_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
+                                   objs: Sequence[Object],
+                                   skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             cube, table = objs
             table_x = state.get(table, "x")
@@ -141,7 +143,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def place_on_floor_nsrt(state: State, goal: Set[GroundAtom],
                                 rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                objs: Sequence[Object],
+                                skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, rng, objs  # not used
             # Just place in the center of the room.
             x = (StickyTableEnv.x_lb + StickyTableEnv.x_ub) / 2

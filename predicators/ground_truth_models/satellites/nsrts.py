@@ -65,7 +65,8 @@ class SatellitesGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def moveto_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
+                           objs: Sequence[Object],
+                           skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             _, obj = objs
             obj_x = state.get(obj, "x")

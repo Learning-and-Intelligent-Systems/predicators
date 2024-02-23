@@ -130,7 +130,8 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def putontable_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
-                               objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object],
+                               skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Note: normalized coordinates w.r.t. workspace.
             x = rng.uniform()

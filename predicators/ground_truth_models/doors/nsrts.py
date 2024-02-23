@@ -119,7 +119,8 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # want to use sampler_learner = "oracle" too.
         def open_door_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
+                              objs: Sequence[Object],
+                              skeleton: Sequence[NSRT] = []) -> Array:
             del rng, goal  # unused
             door, _ = objs
             assert door.is_instance(door_type)

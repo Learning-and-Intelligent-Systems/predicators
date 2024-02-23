@@ -139,7 +139,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def pick_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
-                             objs: Sequence[Object]) -> Array:
+                             objs: Sequence[Object],
+                             skeleton: Sequence[NSRT] = []) -> Array:
                 del goal  # unused
                 if env_name == "cover_handempty":
                     assert len(objs) == 2
@@ -262,7 +263,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def place_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
+                              objs: Sequence[Object],
+                              skeleton: Sequence[NSRT] = []) -> Array:
                 del goal  # unused
                 if env_name == "cover_handempty":
                     assert len(objs) == 3
@@ -311,7 +313,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def place_on_table_sampler(state: State, goal: Set[GroundAtom],
                                        rng: np.random.Generator,
-                                       objs: Sequence[Object]) -> Array:
+                                       objs: Sequence[Object],
+                                       skeleton: Sequence[NSRT] = []) -> Array:
                 # Always at the current location.
                 del goal, rng  # this sampler is deterministic
                 assert len(objs) == 1
@@ -382,7 +385,8 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
+                         objs: Sequence[Object],
+                         skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             b = objs[0]
             assert b.is_instance(block_type)
@@ -464,7 +468,8 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def place_on_target_sampler(state: State, goal: Set[GroundAtom],
                                     rng: np.random.Generator,
-                                    objs: Sequence[Object]) -> Array:
+                                    objs: Sequence[Object],
+                                    skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng  # unused
             # Degenerate oracle placing.
             block, target = objs
@@ -492,7 +497,8 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def place_on_bumpy_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
+                                   objs: Sequence[Object],
+                                   skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             max_sampling_attempts = 10000
             b, = objs

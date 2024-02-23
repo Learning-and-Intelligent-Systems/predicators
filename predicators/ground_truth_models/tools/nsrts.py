@@ -64,7 +64,8 @@ class ToolsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def placeback_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
+                              objs: Sequence[Object],
+                              skeleton: Sequence[NSRT] = []) -> Array:
             # Sampler for placing an item back in its initial spot.
             del goal, rng  # unused
             _, item = objs
@@ -74,7 +75,8 @@ class ToolsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def placeoncontraption_sampler(state: State, goal: Set[GroundAtom],
                                        rng: np.random.Generator,
-                                       objs: Sequence[Object]) -> Array:
+                                       objs: Sequence[Object],
+                                       skeleton: Sequence[NSRT] = []) -> Array:
             # Sampler for placing an item on a contraption.
             del goal  # unused
             _, _, contraption = objs

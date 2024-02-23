@@ -143,7 +143,7 @@ def test_gnn_refinement_estimator_arities():
     _policy = lambda _1, _2, _3, _4: Action(
         np.array([0, 0, 0], dtype=np.float32))
     _initiable = lambda _1, _2, _3, _4: True
-    _sampler = lambda _1, _2, rng, _4: np.array([rng.uniform()],
+    _sampler = lambda _1, _2, rng, _4, sk=[]: np.array([rng.uniform()],
                                                 dtype=np.float32)
 
     ZeroArityOption = ParameterizedOption("ZeroArityOption", [],

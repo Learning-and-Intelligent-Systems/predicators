@@ -105,7 +105,8 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pick_stick_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
-                               objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object],
+                               skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Normalized x position along the long dimension of the stick, in
             # the center of the short dimension.

@@ -50,7 +50,7 @@ class RepeatedNextToGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         ignore_effects = {NextTo, NextToNothing}
         move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
                          delete_effects, ignore_effects, option, option_vars,
-                         lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
+                         lambda s, g, rng, o, sk=[]: np.zeros(1, dtype=np.float32))
         nsrts.add(move_nsrt)
 
         # Grasp
@@ -108,7 +108,7 @@ class RNTSingleOptGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             rn_move_nsrt.preconditions, rn_move_nsrt.add_effects,
             rn_move_nsrt.delete_effects, rn_move_nsrt.ignore_effects,
             MoveGrasp, rn_move_nsrt.option_vars,
-            lambda s, g, rng, o: np.array([-1.0, 0.0], dtype=np.float32))
+            lambda s, g, rng, o, sk=[]: np.array([-1.0, 0.0], dtype=np.float32))
         nsrts.add(move_nsrt)
 
         # Grasp
@@ -117,7 +117,7 @@ class RNTSingleOptGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             rn_grasp_nsrt.preconditions, rn_grasp_nsrt.add_effects,
             rn_grasp_nsrt.delete_effects, rn_grasp_nsrt.ignore_effects,
             MoveGrasp, rn_grasp_nsrt.option_vars,
-            lambda s, g, rng, o: np.array([1.0, 0.0], dtype=np.float32))
+            lambda s, g, rng, o, sk=[]: np.array([1.0, 0.0], dtype=np.float32))
         nsrts.add(grasp_nsrt)
 
         return nsrts

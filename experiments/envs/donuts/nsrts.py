@@ -51,7 +51,13 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts = set()
 
         # Move
-        def Move_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+        def Move_sampler(
+            state: State,
+            goal: Set[GroundAtom],
+            rng: np.random.Generator,
+            objects: Sequence[Object],
+            skeleton: Sequence[NSRT] = []
+        ) -> Array:
             robot, to_obj = objects
 
             shapes = Donuts._get_shapes(state)
@@ -92,7 +98,12 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         ))
 
         # Grab
-        def Grab_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+        def Grab_sampler(
+            state: State,
+            goal: Set[GroundAtom],
+            rng: np.random.Generator,
+            objects: Sequence[Object]
+        ) -> Array:
             robot, donut = objects
             to_box = next((
                 atom for atom in goal
@@ -119,7 +130,13 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         ))
 
         # Place
-        def Place_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+        def Place_sampler(
+            state: State,
+            goal: Set[GroundAtom],
+            rng: np.random.Generator,
+            objects: Sequence[Object],
+            skeleton: Sequence[NSRT] = [],
+        ) -> Array:
             robot, donut, container = objects
 
             shapes = Donuts._get_shapes(state)
@@ -158,7 +175,13 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # AddTopping
         def AddTopping_sampler_helper(idx: int):
-            def AddTopping_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+            def AddTopping_sampler(
+                state: State,
+                goal: Set[GroundAtom],
+                rng: np.random.Generator,
+                objects: Sequence[Object],
+                skeleton: Sequence[NSRT] = [],
+            ) -> Array:
                 robot, donut, topper = objects
                 arr = np.ones(Act.params_space.shape[0])
                 arr[4] = 0.0

@@ -96,7 +96,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pickfromtable_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
-                                  objs: Sequence[Object]) -> Array:
+                                  objs: Sequence[Object],
+                                  skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng  # unused
             assert len(objs) == 2
             _, block = objs
@@ -140,7 +141,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def unstack_sampler(state: State, goal: Set[GroundAtom],
                             rng: np.random.Generator,
-                            objs: Sequence[Object]) -> Array:
+                            objs: Sequence[Object],
+                            skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng  # unused
             assert len(objs) == 3
             block, _, _ = objs
@@ -182,7 +184,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def stack_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
-                          objs: Sequence[Object]) -> Array:
+                          objs: Sequence[Object],
+                          skeleton: Sequence[NSRT] = []) -> Array:
             del goal, rng  # unused
             assert len(objs) == 3
             _, otherblock, _ = objs
@@ -220,7 +223,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def putontable_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
-                               objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object],
+                               skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             x = rng.uniform()
             y = rng.uniform()
@@ -252,7 +256,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def toggledial_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
-                               objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object],
+                               skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, rng, objs  # unused
             return np.array([-0.2, 0, 0, 0.0], dtype=np.float32)
 
@@ -292,7 +297,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def movetabletodial_sampler(state: State, goal: Set[GroundAtom],
                                         rng: np.random.Generator,
-                                        objs: Sequence[Object]) -> Array:
+                                        objs: Sequence[Object],
+                                        skeleton: Sequence[NSRT] = []) -> Array:
                 del state, goal, rng, objs  # unused
                 return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
@@ -321,7 +327,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def advancethroughdoor_sampler(state: State, goal: Set[GroundAtom],
                                            rng: np.random.Generator,
-                                           objs: Sequence[Object]) -> Array:
+                                           objs: Sequence[Object],
+                                           skeleton: Sequence[NSRT] = []) -> Array:
                 del goal, rng  # unused
                 assert len(objs) == 4
                 robot, door, _, _ = objs
@@ -356,7 +363,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def movetabletodoor_sampler(state: State, goal: Set[GroundAtom],
                                         rng: np.random.Generator,
-                                        objs: Sequence[Object]) -> Array:
+                                        objs: Sequence[Object],
+                                        skeleton: Sequence[NSRT] = []) -> Array:
                 del state, goal, rng, objs  # unused
                 return np.array([-0.2, 0.0, 0.0], dtype=np.float32)
 
@@ -384,7 +392,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def movedoortotable_sampler(state: State, goal: Set[GroundAtom],
                                         rng: np.random.Generator,
-                                        objs: Sequence[Object]) -> Array:
+                                        objs: Sequence[Object],
+                                        skeleton: Sequence[NSRT] = []) -> Array:
                 del state, goal, rng, objs  # unused
                 return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
@@ -412,7 +421,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def movedoortodoor_sampler(state: State, goal: Set[GroundAtom],
                                        rng: np.random.Generator,
-                                       objs: Sequence[Object]) -> Array:
+                                       objs: Sequence[Object],
+                                       skeleton: Sequence[NSRT] = []) -> Array:
                 del goal, rng  # unused
                 assert len(objs) == 4
                 _, fromdoor, todoor, _ = objs
@@ -447,7 +457,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def movedoortodial_sampler(state: State, goal: Set[GroundAtom],
                                        rng: np.random.Generator,
-                                       objs: Sequence[Object]) -> Array:
+                                       objs: Sequence[Object],
+                                       skeleton: Sequence[NSRT] = []) -> Array:
                 del state, goal, rng, objs  # unused
                 return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
@@ -476,7 +487,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def movedialtodoor_sampler(state: State, goal: Set[GroundAtom],
                                        rng: np.random.Generator,
-                                       objs: Sequence[Object]) -> Array:
+                                       objs: Sequence[Object],
+                                       skeleton: Sequence[NSRT] = []) -> Array:
                 del state, goal, rng, objs  # unused
                 return np.array([0.1, 0.0, -1.0], dtype=np.float32)
 
@@ -502,7 +514,8 @@ class PlayroomGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             def toggledoor_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
+                                   objs: Sequence[Object],
+                                   skeleton: Sequence[NSRT] = []) -> Array:
                 del goal, rng  # unused
                 assert len(objs) == 2
                 robot, door = objs

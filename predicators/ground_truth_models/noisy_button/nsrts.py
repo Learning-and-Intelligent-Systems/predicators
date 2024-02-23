@@ -43,7 +43,8 @@ class NoisyButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def moveto_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
+                           objs: Sequence[Object],
+                           skeleton: Sequence[NSRT] = []) -> Array:
             del goal  # unused
             # If the position is unknown, move randomly.
             button = objs[0]

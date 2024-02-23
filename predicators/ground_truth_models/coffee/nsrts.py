@@ -95,7 +95,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def twist_jug_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
+                              objs: Sequence[Object],
+                              skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             return np.array(rng.uniform(-1, 1, size=(1, )), dtype=np.float32)
 

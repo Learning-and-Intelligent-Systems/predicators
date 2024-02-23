@@ -82,7 +82,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def moveto_preturnoff_sampler(state: State, goal: Set[GroundAtom],
                                       rng: np.random.Generator,
-                                      objs: Sequence[Object]) -> Array:
+                                      objs: Sequence[Object],
+                                      skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, rng  # unused
             _, obj = objs
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "off"),
@@ -109,7 +110,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def moveto_preturnon_sampler(state: State, goal: Set[GroundAtom],
                                      rng: np.random.Generator,
-                                     objs: Sequence[Object]) -> Array:
+                                     objs: Sequence[Object],
+                                     skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, rng  # unused
             _, obj = objs
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "on"),
@@ -135,7 +137,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def moveto_prepushontop_sampler(state: State, goal: Set[GroundAtom],
                                         rng: np.random.Generator,
-                                        objs: Sequence[Object]) -> Array:
+                                        objs: Sequence[Object],
+                                        skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal  # unused
             _, obj = objs
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "on"),
@@ -165,7 +168,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def moveto_prepullkettle_sampler(state: State, goal: Set[GroundAtom],
                                          rng: np.random.Generator,
-                                         objs: Sequence[Object]) -> Array:
+                                         objs: Sequence[Object],
+                                         skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal  # unused
             _, obj = objs
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "off"),
@@ -198,7 +202,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def push_obj_on_obj_forward_sampler(state: State,
                                             goal: Set[GroundAtom],
                                             rng: np.random.Generator,
-                                            objs: Sequence[Object]) -> Array:
+                                            objs: Sequence[Object],
+                                            skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the y axis.
             if CFG.kitchen_use_perfect_samplers:
@@ -230,7 +235,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def pull_kettle_sampler(state: State, goal: Set[GroundAtom],
                                 rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                objs: Sequence[Object],
+                                skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Sample a direction to pull w.r.t. the negative y axis.
             if CFG.kitchen_use_perfect_samplers:
@@ -262,7 +268,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # internally takes care of the direction change.
         def switch_turn_sampler(state: State, goal: Set[GroundAtom],
                                 rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                objs: Sequence[Object],
+                                skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
@@ -313,7 +320,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def knob_turn_on_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
+                                 objs: Sequence[Object],
+                                 skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
@@ -344,7 +352,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def knob_turn_off_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
-                                  objs: Sequence[Object]) -> Array:
+                                  objs: Sequence[Object],
+                                  skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the y-z plane.
             if CFG.kitchen_use_perfect_samplers:
@@ -374,7 +383,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def push_open_hinge_door_sampler(state: State, goal: Set[GroundAtom],
                                          rng: np.random.Generator,
-                                         objs: Sequence[Object]) -> Array:
+                                         objs: Sequence[Object],
+                                         skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
@@ -416,7 +426,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         def push_close_hinge_door_sampler(state: State, goal: Set[GroundAtom],
                                           rng: np.random.Generator,
-                                          objs: Sequence[Object]) -> Array:
+                                          objs: Sequence[Object],
+                                          skeleton: Sequence[NSRT] = []) -> Array:
             del state, goal  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
