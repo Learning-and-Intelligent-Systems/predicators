@@ -505,9 +505,6 @@ def run_low_level_search(
     max_horizon: int,
     refinement_time: Optional[List[float]] = None
 ) -> Tuple[List[_Option], bool]:
-    # global calls_to_this_function
-    # calls_to_this_function += 1
-    # cover_to_top = any(map(lambda atom: atom.predicate.name == 'CoversTop', task.goal))
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -517,8 +514,6 @@ def run_low_level_search(
     but all previous steps did. Note that there are multiple low-level
     plans in general; we return the first one found (arbitrarily).
     """
-    # cover_samples = []
-    # fig_idx = 0
     start_time = time.perf_counter()
     rng_sampler = np.random.default_rng(seed)
     assert CFG.sesame_propagate_failures in \
@@ -557,7 +552,6 @@ def run_low_level_search(
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
-        # print(num_tries)
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
@@ -637,19 +631,10 @@ def run_low_level_search(
             try_end_time = time.perf_counter()
             refinement_time[cur_idx - 1] += try_end_time - try_start_time
 
-        # if calls_to_this_function <= CFG.num_train_tasks:
-        #     if plan_found:
-        #         return plan, True  # success!
-        # else:
-        #     can_continue_on = False #cur_idx < len(num_tries)
         if plan_found:
             return plan, True  # success!
 
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
-            # if cur_idx == 1:#len(num_tries):
-            #     box, _ = option.objects
-            #     box_x, box_y, _, _ = Shelves2DEnv.get_shape_data(state, box)
-            #     cover_samples.append(option.policy(state).arr[2:4] + np.array([box_x, box_y]))
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):
                 longest_failed_refinement = list(plan[:cur_idx])
@@ -668,33 +653,6 @@ def run_low_level_search(
             cur_idx -= 1
             assert cur_idx >= 0
             while num_tries[cur_idx] == max_tries[cur_idx]:
-                print(num_tries)
-                # if cur_idx == len(num_tries) - 1:
-                    # fig = Shelves2DEnv.render_state_plt(state, None)
-                    # ax, = fig.axes
-                    # fig.set_size_inches(32, 18)
-                    # ax.scatter([option.policy(state).arr[0]], [option.policy(state).arr[1]], c='black')
-                    # ax.scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange', alpha=0.1, s=10)
-                    # fig.suptitle(f"Cover to top: {cover_to_top}")
-                    # ax.grid(True)
-                    # ax.set_xticks(np.arange(np.min(ax.get_xticks()), np.max(ax.get_xticks())+1.0, 1.0))
-                    # ax.set_yticks(np.arange(np.min(ax.get_yticks()), np.max(ax.get_yticks())+1.0, 1.0))
-                    # plt.show()
-                    # plt.savefig(f"tmp/fig{str(num_tries).replace(' ', '')}.pdf")
-                    # fig.savefig(CFG.spread_mapreduce_output_file, dpi=300)
-
-                    # base_mean = np.mean(previous_samples, axis=0)
-                    # base_std_x = np.array(previous_samples)[:, 0].std()
-                    # base_std_y = np.array(previous_samples)[:, 1].std()
-
-                    # learned_mean = np.mean(cover_samples, axis=0)
-                    # learned_std_x = np.array(cover_samples)[:, 0].std()
-                    # learned_std_y = np.array(cover_samples)[:, 1].std()
-
-                    # print(f"{learned_mean - base_mean}, {learned_std_x / base_std_x}, {learned_std_y / base_std_y}", file=open(CFG.spread_mapreduce_output_file, "w"))
-                    # exit(0)
-                    # cover_samples = []
-
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
                 num_actions_per_option[cur_idx] = 0

@@ -7,6 +7,8 @@ from predicators.envs.base_env import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, Predicate, State, Type
 
+from experiments.envs.utils import BoxWH
+
 import numpy as np
 import numpy.typing as npt
 
@@ -20,10 +22,6 @@ from matplotlib.path import Path
 import matplotlib
 
 __all__ = ['Shelves2DEnv']
-
-def BoxWH(x, y, w, h = ('x', float, 'y', float, 'w', float, 'h', float, 'return', Polygon)):
-    return Box(x, y, x + w, y + h)
-
 
 class Shelves2DEnv(BaseEnv):
     '''This environment consists of several subtasks. Each subtask consists of boxes, shelves to put those boxes in,
@@ -250,7 +248,7 @@ class Shelves2DEnv(BaseEnv):
         return next_state
 
     @classmethod
-    def render_state_plt( # JORGE: use this function to render the state; you don't need to give it the task
+    def render_state_plt(
             cls,
             state: State,
             task: EnvironmentTask,

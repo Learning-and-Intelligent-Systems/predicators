@@ -14,6 +14,25 @@ __all__ = ["Shelves2DGroundTruthOptionFactory"]
 class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground truth options for the shelves2d environment"""
 
+    class _MoveCoverTo_policy_helper():
+        def __init__(self, move_to_top: bool):
+            self._move_to_top = move_to_top
+
+        def __call__(self, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
+            cover, bundle = objects
+            offset_x, offset_y = arr
+
+            bundle_x, bundle_y, _, bundle_h = Shelves2DEnv.get_shape_data(state, bundle)
+            cover_x, cover_y, cover_w, cover_h = Shelves2DEnv.get_shape_data(state, cover)
+
+            action = [
+                cover_x + cover_w/2, cover_y + cover_h/2,
+                bundle_x + offset_x - cover_x, bundle_y + offset_y - cover_y + (bundle_h if self._move_to_top else -cover_h)
+            ]
+
+            bounds = Shelves2DEnv.action_space_bounds()
+            return Action(np.clip(action, bounds.low, bounds.high, dtype=np.float32))
+
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return set(["shelves2d"])
@@ -52,7 +71,7 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
             "MoveCoverToTop",
             [cover_type, bundle_type],
             offset_space,
-            _MoveCoverTo_policy_helper(True),
+            cls._MoveCoverTo_policy_helper(True),
             cls.initiable,
             cls.terminal
         ))
@@ -62,7 +81,7 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
             "MoveCoverToBottom",
             [cover_type, bundle_type],
             offset_space,
-            _MoveCoverTo_policy_helper(False),
+            cls._MoveCoverTo_policy_helper(False),
             cls.initiable,
             cls.terminal
         ))
@@ -108,22 +127,3 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def move(cls, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
         return Action(arr)
-
-class _MoveCoverTo_policy_helper():
-    def __init__(self, move_to_top: bool):
-        self._move_to_top = move_to_top
-
-    def __call__(self, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:
-        cover, bundle = objects
-        offset_x, offset_y = arr
-
-        bundle_x, bundle_y, _, bundle_h = Shelves2DEnv.get_shape_data(state, bundle)
-        cover_x, cover_y, cover_w, cover_h = Shelves2DEnv.get_shape_data(state, cover)
-
-        action = [
-            cover_x + cover_w/2, cover_y + cover_h/2,
-            bundle_x + offset_x - cover_x, bundle_y + offset_y - cover_y + (bundle_h if self._move_to_top else -cover_h)
-        ]
-
-        bounds = Shelves2DEnv.action_space_bounds()
-        return Action(np.clip(action, bounds.low, bounds.high, dtype=np.float32))

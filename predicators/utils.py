@@ -1218,7 +1218,7 @@ def option_policy_to_policy(
                 info={"last_failed_option": last_option})
         last_state = state
 
-        if cur_option is DummyOption or cur_option.terminal(state):
+        while cur_option is DummyOption or cur_option.terminal(state):
             try:
                 cur_option = option_policy(state)
             except OptionExecutionFailure as e:
