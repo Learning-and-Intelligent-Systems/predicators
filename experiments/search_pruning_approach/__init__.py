@@ -300,7 +300,8 @@ class SearchPruningApproach(NSRTLearningApproach):
             assert len(positive_datapoint.states) >= 2
 
             last_nsrt = positive_datapoint.skeleton[-1]
-            current_nsrt = positive_datapoint.skeleton[len(positive_datapoint.states) - 2]
+            suffix_skeleton = positive_datapoint.skeleton[len(positive_datapoint.states) - 2:]
+            current_nsrt = suffix_skeleton[0]
             assert current_nsrt.name == "InsertBox"
 
             current_state, next_state = positive_datapoint.states[-2:]
@@ -309,7 +310,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             datapoints = []
             for _ in range(3):
                 # Running the sampler and the option
-                option = current_nsrt.sample_option(current_state, goal, self._rng)
+                option = current_nsrt.sample_option(current_state, goal, self._rng, suffix_skeleton)
                 new_next_state, _ = self._option_model.get_next_state_and_num_actions(current_state, option)
 
                 # Checking if the sampling was successful

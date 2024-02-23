@@ -249,7 +249,7 @@ def _backtrack( # TODO: add comments and docstring
         try_start_time = time.perf_counter()
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
-        option = nsrt.sample_option(current_state, goal, rng_sampler)
+        option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[current_depth:])
         metrics["num_samples"] += 1
         try:
             next_state, num_actions = \

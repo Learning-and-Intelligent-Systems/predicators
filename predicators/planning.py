@@ -557,7 +557,7 @@ def run_low_level_search(
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
-        option = nsrt.sample_option(state, task.goal, rng_sampler)
+        option = nsrt.sample_option(state, task.goal, rng_sampler, skeleton[cur_idx:])
         plan[cur_idx] = option
         # Increment num_samples metric by 1
         metrics["num_samples"] += 1
