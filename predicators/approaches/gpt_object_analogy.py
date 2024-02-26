@@ -61,6 +61,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._base_env = create_new_env(CFG.pg3_init_base_env)
         self._base_task = [t.task for t in self._base_env.get_train_tasks()]
 
+        final_i = 0
         for i in range(len(self._train_tasks)):
             if len(dataset.trajectories[i]._states) == 5:
                 final_i = i
@@ -98,9 +99,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
     
     def _generate_best_rule(self, rule: LDLRule, target_nsrt: NSRT) -> LDLRule:
         # Generates best rule in target environment given rule in base environment and a target nsrt
+
         mapping = {} # Mapping from target param to rule variable
-        all_rule_variables = set([var for var in rule.parameters])
-        used_rule_variables = set()
         for target_nsrt_param in target_nsrt.parameters:
             # Ask GPT what is the best variable in rule for target_nsrt_param
             best_rule_variable = self._get_analagous_variable(target_nsrt_param, rule, target_nsrt)
@@ -109,7 +109,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
         
         # Search for a state that we can ground on the target environment
         best_score = -1.0
-        best_rule = None
         best_object_mapping = None
         best_index = None
         for i in range(len(self._target_states)-1):
@@ -117,49 +116,61 @@ class GPTObjectApproach(PG3AnalogyApproach):
             if target_action.name != target_nsrt.name:
                 continue
 
-            object_mapping, gini_index = self._experiment(rule, target_nsrt, mapping, i)
+            object_mapping, gini_index = self._get_object_distribution_and_score(rule, target_nsrt, mapping, i)
             if gini_index > best_score:
                 best_object_mapping = object_mapping
                 best_score = gini_index
                 best_index = i
         
-        # one_to_one_object_mapping = self._finalize_objects(best_object_mapping)
-        # new_rule = self._try_create_rule(rule, target_nsrt, one_to_one_object_mapping, best_index)
-        """
-            ground_objects, preconditions, goalconditions = self._find_objects_and_conditions(rule, target_nsrt, mapping, i)
-            candidate_rule, score = self._design_lifted_rule_from_conditions(ground_objects, target_nsrt, preconditions, goalconditions)
-            if score > best_score:
-                best_rule = candidate_rule
-                best_score = score
-        
-        return candidate_rule
-        """
+        # Get useful objects
+        one_to_one_object_mapping = self._filter_object_mapping(best_object_mapping)
+        useful_objects = set(one_to_one_object_mapping.values())
+        useful_objects.update(self._target_actions[best_index].objects)
 
-    def _try_create_rule(self, rule, target_nsrt, unused_mapping, index):
-        ground_state = self._target_states[index] 
-        ground_action = self._target_actions[index]
-        
-        all_mapping = unused_mapping # Var to Obj
-        for i in range(len(target_nsrt.parameters)): # Adding matches from ground action
-            all_mapping[target_nsrt.parameters[i]] = ground_action.objects[i]
-        
-        # Getting all atoms in state and goal whose objects are all in all_mapping
-        pos_conditions = set()
-        goal_conditions = set()
-        for atom in ground_state.simulator_state:
-            if set(atom.objects).issubset(all_mapping.values()):
-                pos_conditions.add(atom)
-        for atom in self._target_task.goal:
-            if set(atom.objects).issubset(all_mapping.values()):
-                goal_conditions.add(atom)
-        
-        print(ground_action)
-        print(pos_conditions)
-        print(goal_conditions)
-        print('-------------')
-        import ipdb; ipdb.set_trace();
+        # Getting useful analagous predicates
+        useful_pos_predicates = set()
+        useful_goal_predicates = set()
+        for pos_condition in rule.pos_state_preconditions:
+            pos_predicate = pos_condition.predicate
+            possible_pred_names = self._get_analagous_predicate_names(pos_predicate)
+            if possible_pred_names is not None:
+                pos_analagous_predicate_names = set(possible_pred_names)
+                useful_pos_predicates.update(pos_analagous_predicate_names)
+        for goal_condition in rule.goal_preconditions:
+            goal_predicate = goal_condition.predicate
+            goal_analagous_predicate_names = set(self._get_analagous_predicate_names(goal_predicate))
+            useful_goal_predicates.update(goal_analagous_predicate_names)
+
+        # Getting final ranking of atoms in ground state
+        ranked_atoms = self._score_conds(useful_objects, useful_pos_predicates, useful_goal_predicates, best_index)
+        print("RULE\n", rule)
+        print("GROUND ACTION\n", self._target_actions[best_index])
+        print("GOAL\n", self._target_task.goal)
+        print("USEFUL OBJECTS", useful_objects)
+        print("USEFUL POS PREDICATES", useful_pos_predicates)
+        print("USEFUL GOAL PREDICATES", useful_goal_predicates)
+        print("PRECONDS", ranked_atoms)
+        print("-------------------------")
     
-    def _finalize_objects(self, object_mapping):
+    def _score_conds(self, useful_objects, useful_pos_preds, useful_goal_preds, index):
+        ground_state = self._target_states[index] 
+        useful_pos_atoms = {}
+        final_atoms = set()
+        for atom in ground_state.simulator_state:
+            score = 0.0
+            pred = atom.predicate
+            if pred.name in useful_pos_preds:
+                score += 0.5 
+            for obj in atom.objects:
+                if obj in useful_objects:
+                    score += 1.0
+            if score > 0.0:
+                useful_pos_atoms[atom] = score
+                final_atoms.add(atom)
+        sorted_atoms = sort_atoms_by_score(useful_pos_atoms)
+        return sorted_atoms
+
+    def _filter_object_mapping(self, object_mapping):
         final_mapping = {}
         rankings = []
         for var in object_mapping:
@@ -173,7 +184,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 final_mapping[var] = obj
         return final_mapping
 
-    def _experiment(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
+    def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
         all_rule_variables = set([var for var in rule.parameters])
         used_rule_variables = set(existing_mapping.values())
 
@@ -194,7 +205,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
             print(f"Goal state:\n{self._target_task.goal}")
         state_entropy = 0.0
 
-        final_candidates = {}
+        var_to_obj_distributions = {}
         for unused_rule_var in sorted(all_rule_variables - used_rule_variables):
 
             pos_conditions = set()
@@ -207,9 +218,9 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if unused_rule_var in condition.variables:
                     goal_conditions.add(condition)
             
-            candidates = {}
+            object_distribution = {}
             for pos_cond in pos_conditions:
-                analagous_preds = self._get_analogy_pred_name(pos_cond.predicate)
+                analagous_preds = self._get_analagous_predicate_names(pos_cond.predicate)
                 if analagous_preds == None:
                     continue
 
@@ -226,14 +237,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
                             if obj in needed_objects:
                                 continue
 
-                            if obj not in candidates:
+                            if obj not in object_distribution:
                                 #print(f"OBJ {obj} HIT! with {pos_atom}")
-                                candidates[obj] = 1
+                                object_distribution[obj] = 1
                             else:
                                 #print(f"OBJ {obj} HIT! with {pos_atom}")
-                                candidates[obj] += 1
+                                object_distribution[obj] += 1
             for goal_cond in goal_conditions:
-                analagous_preds = self._get_analogy_pred_name(goal_cond.predicate)
+                analagous_preds = self._get_analagous_predicate_names(goal_cond.predicate)
                 if analagous_preds == None:
                     continue
 
@@ -249,29 +260,25 @@ class GPTObjectApproach(PG3AnalogyApproach):
                             if obj in needed_objects:
                                 continue
 
-                            if obj not in candidates:
-                                #print(f"OBJ {obj} HIT! with {goal_atom}")
-                                candidates[obj] = 1
+                            if obj not in object_distribution:
+                                object_distribution[obj] = 1
                             else:
-                                #print(f"OBJ {obj} HIT! with {goal_atom}")
-                                candidates[obj] += 1
+                                object_distribution[obj] += 1
 
-            object_entropy = gini_index_from_dict(candidates)
+            object_entropy = gini_index_from_dict(object_distribution)
             state_entropy += object_entropy
-            final_candidates[unused_rule_var] = candidates
+            var_to_obj_distributions[unused_rule_var] = object_distribution
             if DEBUG:
                 print('-----------------')
                 print(f"Unused Rule Var {unused_rule_var}")
                 print(f"Pos Conditions {pos_conditions}")
                 print(f"Goal Conditions {goal_conditions}")
-                print(f"Candidates: {candidates}")
+                print(f"Candidates: {object_distribution}")
                 print(f"Object Gini: {object_entropy}")
                 print(f"State Gini: {state_entropy}")
-        return final_candidates, state_entropy
+        return var_to_obj_distributions, state_entropy
 
-            
-
-    def _get_analogy_pred_name(self, pred):
+    def _get_analagous_predicate_names(self, pred):
         # Gripper -> Ferry
 
         if 'gripper' in self._base_env.get_name() and 'ferry' in self._target_env.get_name():
@@ -286,6 +293,27 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
         # Ferry -> Gripper
         if 'ferry' in self._base_env.get_name() and 'gripper' in self._target_env.get_name():
+            predicate_input = {
+                "car": ["ball"],
+                "empty-ferry": ["free"],
+                "location": ["room"],
+                "at-ferry": ["at-robby"],
+                "at": ["at"],
+                "on": ["carry"],
+            }
+
+        # Gripper -> Detyped Miconic
+        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            predicate_input = {
+                "ball": ["passenger"],
+                "room": ["floor"],
+                "at-robby": ["lift-at"],
+                "at": ["origin", "destin"],
+                "carry": ["boarded"],
+            }
+
+        # Ferry -> Detyped Miconic
+        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             predicate_input = {
                 "car": ["ball"],
                 "empty-ferry": ["free"],
@@ -450,6 +478,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'ferry' in self._base_env.get_name() and 'gripper' in self._target_env.get_name():
             nsrt_input = { "sail": ["move"], "board": ["pick"], "debark": ["drop"], }
 
+        # Gripper -> Detyped Miconic
+        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            nsrt_input = { "move": ["up"], "pick": ["board"], "drop": ["depart"], }
+
+        # Ferry -> Detyped Miconic
+        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            nsrt_input = { "sail": ["up"], "board": ["board"], "debark": ["depart"], }
+
         target_env_nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in self._target_nsrts}
         analagous_target_nsrts = [target_env_nsrt_name_to_nsrt[nsrt_name] for nsrt_name in nsrt_input[rule.nsrt.name]]
         return analagous_target_nsrts
@@ -472,6 +508,21 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 ("pick", "board") : {"?obj": "?car", "?room": "?loc"},
                 ("drop", "debark") : {"?obj": "?car", "?room": "?loc"},
             }
+        # Gripper -> Detyped Miconic
+        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            variable_input = {
+                ("up", "move") : {"?f1": "?from", "?f2": "?to"},
+                ("board", "pick") : {"?p": "?obj", "?f": "?room"},
+                ("depart", "drop") : {"?p": "?obj", "?f": "?room"},
+            }
+        # Ferry -> Detyped Miconic
+        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            variable_input = {
+                ("up", "sail") : {"?f1": "?from", "?f2": "?to"},
+                ("board", "board") : {"?p": "?car", "?f": "?loc"},
+                ("depart", "debark") : {"?p": "?car", "?f": "?loc"},
+            }
+
         if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
             var_name = variable_input[(target_nsrt.name, rule.nsrt.name)][nsrt_param.name]
             base_var_names_to_var = {var.name: var for var in rule.parameters}
@@ -511,3 +562,17 @@ def gini_index_from_dict(distribution_dict):
     # Gini index calculation
     gini = (2 * cumulative_sum) / (n * sum_of_values) - (n + 1) / n
     return gini
+
+def sort_atoms_by_score(atoms_dict):
+    # First, we group atoms by their scores
+    grouped_atoms = {}
+    for atom, score in atoms_dict.items():
+        if score in grouped_atoms:
+            grouped_atoms[score].append(atom)
+        else:
+            grouped_atoms[score] = [atom]
+
+    # Then, we sort the scores in descending order and arrange the atoms accordingly
+    sorted_atoms = [grouped_atoms[score] for score in sorted(grouped_atoms, reverse=True)]
+    
+    return sorted_atoms
