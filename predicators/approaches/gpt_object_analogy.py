@@ -29,6 +29,8 @@ from typing import Any, Dict, Iterator, List, Set, Tuple
 import smepy
 import numpy as np
 import itertools
+import math
+from collections import Counter
 
 from predicators.approaches.pg3_analogy_approach import PG3AnalogyApproach
 from predicators.envs.base_env import BaseEnv
@@ -45,6 +47,7 @@ from predicators.ground_truth_models import get_gt_options
 
 from predicators import utils
 
+DEBUG = True
 
 class GPTObjectApproach(PG3AnalogyApproach):
     """Use GPT for cross-domain policy learning in PG3."""
@@ -92,7 +95,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
         target_nsrts = self._get_analagous_nsrts(rule) 
         for target_nsrt in target_nsrts:
             new_rule = self._generate_best_rule(rule, target_nsrt)
-            import ipdb; ipdb.set_trace();
     
     def _generate_best_rule(self, rule: LDLRule, target_nsrt: NSRT) -> LDLRule:
         # Generates best rule in target environment given rule in base environment and a target nsrt
@@ -108,13 +110,21 @@ class GPTObjectApproach(PG3AnalogyApproach):
         # Search for a state that we can ground on the target environment
         best_score = -1.0
         best_rule = None
+        best_object_mapping = None
+        best_index = None
         for i in range(len(self._target_states)-1):
             target_action = self._target_actions[i]
             if target_action.name != target_nsrt.name:
                 continue
 
-            self._experiment(rule, target_nsrt, mapping, i)
-            import ipdb; ipdb.set_trace();
+            object_mapping, gini_index = self._experiment(rule, target_nsrt, mapping, i)
+            if gini_index > best_score:
+                best_object_mapping = object_mapping
+                best_score = gini_index
+                best_index = i
+        
+        # one_to_one_object_mapping = self._finalize_objects(best_object_mapping)
+        # new_rule = self._try_create_rule(rule, target_nsrt, one_to_one_object_mapping, best_index)
         """
             ground_objects, preconditions, goalconditions = self._find_objects_and_conditions(rule, target_nsrt, mapping, i)
             candidate_rule, score = self._design_lifted_rule_from_conditions(ground_objects, target_nsrt, preconditions, goalconditions)
@@ -124,6 +134,44 @@ class GPTObjectApproach(PG3AnalogyApproach):
         
         return candidate_rule
         """
+
+    def _try_create_rule(self, rule, target_nsrt, unused_mapping, index):
+        ground_state = self._target_states[index] 
+        ground_action = self._target_actions[index]
+        
+        all_mapping = unused_mapping # Var to Obj
+        for i in range(len(target_nsrt.parameters)): # Adding matches from ground action
+            all_mapping[target_nsrt.parameters[i]] = ground_action.objects[i]
+        
+        # Getting all atoms in state and goal whose objects are all in all_mapping
+        pos_conditions = set()
+        goal_conditions = set()
+        for atom in ground_state.simulator_state:
+            if set(atom.objects).issubset(all_mapping.values()):
+                pos_conditions.add(atom)
+        for atom in self._target_task.goal:
+            if set(atom.objects).issubset(all_mapping.values()):
+                goal_conditions.add(atom)
+        
+        print(ground_action)
+        print(pos_conditions)
+        print(goal_conditions)
+        print('-------------')
+        import ipdb; ipdb.set_trace();
+    
+    def _finalize_objects(self, object_mapping):
+        final_mapping = {}
+        rankings = []
+        for var in object_mapping:
+            for obj, obj_score in object_mapping[var].items():
+                rankings.append((obj_score, obj, var))
+        rankings.sort(reverse = True)
+        for ranking in rankings:
+            obj = ranking[1]
+            var = ranking[2]
+            if var not in final_mapping.keys() and obj not in final_mapping.values():
+                final_mapping[var] = obj
+        return final_mapping
 
     def _experiment(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
         all_rule_variables = set([var for var in rule.parameters])
@@ -137,19 +185,17 @@ class GPTObjectApproach(PG3AnalogyApproach):
             mapping_to_objects[base_var] = target_object
 
         ground_state = self._target_states[state_index]
-        available_objects = sorted(set(ground_state.data.keys()) - set(mapping_to_objects.values()))
+        if DEBUG:
+            print("=================================")
+            print(f"Rule:\n{rule}")
+            print(f"Target NSRT:\n{target_nsrt}")
+            print(f"Target Ground NSRT:\n{ground_target_nsrt}")
+            print(f"Ground state:\n{sorted(ground_state.simulator_state)}")
+            print(f"Goal state:\n{self._target_task.goal}")
+        state_entropy = 0.0
 
-        final_ground_objects = set(mapping_to_objects.values())
-
-        print("=================================")
-        print(f"Rule:\n{rule}")
-        print(f"Target NSRT:\n{target_nsrt}")
-        print(f"Target Ground NSRT:\n{ground_target_nsrt}")
-        print(f"Ground state:\n{sorted(ground_state.simulator_state)}")
-        print(f"Goal state:\n{self._target_task.goal}")
+        final_candidates = {}
         for unused_rule_var in sorted(all_rule_variables - used_rule_variables):
-            print('-----------------')
-            print(f"Unused Rule Var {unused_rule_var}")
 
             pos_conditions = set()
             for condition in rule.pos_state_preconditions:
@@ -161,10 +207,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if unused_rule_var in condition.variables:
                     goal_conditions.add(condition)
             
-            print(f"Pos Conditions {pos_conditions}")
-            print(f"Goal Conditions {goal_conditions}")
-
-
             candidates = {}
             for pos_cond in pos_conditions:
                 analagous_preds = self._get_analogy_pred_name(pos_cond.predicate)
@@ -214,13 +256,21 @@ class GPTObjectApproach(PG3AnalogyApproach):
                                 #print(f"OBJ {obj} HIT! with {goal_atom}")
                                 candidates[obj] += 1
 
-            """
-            for already_used_obj in ground_target_nsrt.objects:
-                if already_used_obj in candidates:
-                    del candidates[already_used_obj]
-            """
-            print(f"Candidates: {candidates}")
+            object_entropy = gini_index_from_dict(candidates)
+            state_entropy += object_entropy
+            final_candidates[unused_rule_var] = candidates
+            if DEBUG:
+                print('-----------------')
+                print(f"Unused Rule Var {unused_rule_var}")
+                print(f"Pos Conditions {pos_conditions}")
+                print(f"Goal Conditions {goal_conditions}")
+                print(f"Candidates: {candidates}")
+                print(f"Object Gini: {object_entropy}")
+                print(f"State Gini: {state_entropy}")
+        return final_candidates, state_entropy
+
             
+
     def _get_analogy_pred_name(self, pred):
         # Gripper -> Ferry
 
@@ -432,3 +482,32 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
 def _convert_object_to_variable(obj: Object) -> Variable:
     return obj.type("?" + obj.name)
+
+def gini_index_from_dict(distribution_dict):
+    """
+    Calculate the Gini index for a given discrete distribution represented as a dictionary.
+
+    :param distribution_dict: A dictionary where keys are elements and values are their frequencies
+    :return: The Gini index as a float
+    """
+    values = list(distribution_dict.values())
+    n = len(values)
+
+    # If there are no elements in the distribution, return 0
+    if n == 0:
+        return 0
+
+    sum_of_values = sum(values)
+    sorted_values = sorted(values)
+
+    # If the sum of values is 0 (all values are 0), return 0 to avoid division by zero
+    if sum_of_values == 0:
+        return 0
+
+    cumulative_sum = 0
+    for i, value in enumerate(sorted_values, 1):
+        cumulative_sum += value * i
+
+    # Gini index calculation
+    gini = (2 * cumulative_sum) / (n * sum_of_values) - (n + 1) / n
+    return gini
