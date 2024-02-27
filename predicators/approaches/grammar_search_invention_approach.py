@@ -1235,6 +1235,69 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         for pred in sorted(predicates_to_keep):
             logging.info(f"{pred}")
 
+
+
+        ###########
+        predicates_over_time = frozenset()
+        for i, c in enumerate(final_clusters):
+            op_name = f"Op{i}-{c[0].get_option().name}"
+            all_add_effects = set(p.predicate for a in [s.add_effects for s in c] for p in a)
+            print(f"Size of all_add_effects for op {op_name}: {len(all_add_effects)}")
+
+            # There are no goal states for this search; run until exhausted.
+            def _check_goal(s: FrozenSet[Predicate]) -> bool:
+                del s  # unused
+                return False
+
+            candidates = all_add_effects
+
+            # Successively consider larger predicate sets.
+            def _get_successors(
+                s: FrozenSet[Predicate]
+            ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+                for predicate in sorted(set(candidates) - s):  # determinism
+                    # Actions not needed. Frozensets for hashing. The cost of
+                    # 1.0 is irrelevant because we're doing GBFS / hill
+                    # climbing and not A* (because we don't care about the
+                    # path).
+                    yield (None, frozenset(s | {predicate}), 1.0)
+
+            score_function = create_score_function(
+                CFG.grammar_search_score_function, self._initial_predicates,
+                atom_dataset, candidates, self._train_tasks)
+
+            # Greedy local hill climbing search.
+            path, _, heuristics = utils.run_hill_climbing(
+                predicates_over_time,
+                _check_goal,
+                _get_successors,
+                score_function.evaluate,
+                enforced_depth=CFG.grammar_search_hill_climbing_depth,
+                parallelize=CFG.grammar_search_parallelize_hill_climbing)
+
+            predicates_over_time = path[-1]
+
+            print(f"Size of predicates_over_time for iteration {i}, op {op_name}: {len(predicates_over_time)}")
+
+        print("done")
+        import pdb; pdb.set_trace()
+        self._pnads = set()
+        return predicates_over_time
+
+
+            # logging.info("\nHill climbing summary:")
+            # for i in range(1, len(path)):
+            #     new_additions = path[i] - path[i - 1]
+            #     assert len(new_additions) == 1
+            #     new_addition = next(iter(new_additions))
+            #     h = heuristics[i]
+            #     prev_h = heuristics[i - 1]
+            #     logging.info(f"\tOn step {i}, added {new_addition}, with "
+            #                  f"heuristic {h:.3f} (an improvement of "
+            #                  f"{prev_h - h:.3f} over the previous step)")
+
+        ###########
+
         ###################################
         # Operator (and predicate) learning
         ###################################
@@ -1261,68 +1324,108 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # intersection of the delete effects of the segments in that cluster.
         # The definition of an operator involves lifted atoms, but in this first
         # step we will only identify predicates.
-        op_pred_def_superset = {} # operator predicate definition superset
-        debug = set()
-        for i, c in enumerate(final_clusters):
-            op_name = f"Op{i}-{c[0].get_option().name}"
-
-            # preconditions
-            init_atoms_per_segment = [s.init_atoms for s in c]
-            ungrounded_init_atoms_per_segment = []
-            for init_atoms in init_atoms_per_segment:
-                ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms if a.predicate in predicates_to_keep))
-            init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
-
-            # add effects
-            add_effects_per_segment = [s.add_effects for s in c]
-            ungrounded_add_effects_per_segment = []
-            for add_effects in add_effects_per_segment:
-                ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects if a.predicate in predicates_to_keep))
-            add_effects = set.intersection(*ungrounded_add_effects_per_segment)
-
-            # delete effects
-            delete_effects_per_segment = [s.delete_effects for s in c]
-            ungrounded_delete_effects_per_segment = []
-            for delete_effects in delete_effects_per_segment:
-                ungrounded_delete_effects_per_segment.append(set(a.predicate for a in delete_effects if a.predicate in predicates_to_keep))
-            delete_effects = set.intersection(*ungrounded_delete_effects_per_segment)
-
-            # do we filter the first set in the statements below to predicates in predicates_to_keep?
-            # if so, add_effects_complement and delete_effects_complement ends up having nothing
-            # differentiate predicates that are or aren't in predicates to keep in the "complement" set we are thinking of
-            init_atoms_complement = set(p.predicate for a in init_atoms_per_segment for p in a) - init_atoms
-            add_effects_complement = set(p.predicate for a in add_effects_per_segment for p in a) - add_effects
-            delete_effects_complement = set(p.predicate for a in delete_effects_per_segment for p in a) - delete_effects
-
-            debug |= init_atoms_complement
-            debug |= add_effects_complement
-            debug |= delete_effects_complement
-
-            print(f"len init_atoms_complement for op {op_name}: {len(init_atoms_complement)}")
-            print(f"len add_effects_complement for op {op_name}: {len(add_effects_complement)}")
-            print(f"len delete_effects_complement for op {op_name}: {len(delete_effects_complement)}")
-
-            # if op_name == "Op4-Paint":
-            #     import pdb; pdb.set_trace()
-
-            op_pred_def_superset[op_name] = [
-                init_atoms,
-                add_effects,
-                delete_effects,
-                c
-            ]
-
-        import pdb; pdb.set_trace()
-
-
-
-
-
-
-
-
-
-
-
-        ########################################################################
-        return predicates_to_keep
+        # op_pred_def_superset = {} # operator predicate definition superset
+        # debug = set()
+        # for i, c in enumerate(final_clusters):
+        #     op_name = f"Op{i}-{c[0].get_option().name}"
+        #
+        #     # preconditions
+        #     init_atoms_per_segment = [s.init_atoms for s in c]
+        #     ungrounded_init_atoms_per_segment = []
+        #     for init_atoms in init_atoms_per_segment:
+        #         ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms if a.predicate in predicates_to_keep))
+        #     init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
+        #
+        #     # add effects
+        #     add_effects_per_segment = [s.add_effects for s in c]
+        #     ungrounded_add_effects_per_segment = []
+        #     for add_effects in add_effects_per_segment:
+        #         ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects if a.predicate in predicates_to_keep))
+        #     add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+        #
+        #     # delete effects
+        #     delete_effects_per_segment = [s.delete_effects for s in c]
+        #     ungrounded_delete_effects_per_segment = []
+        #     for delete_effects in delete_effects_per_segment:
+        #         ungrounded_delete_effects_per_segment.append(set(a.predicate for a in delete_effects if a.predicate in predicates_to_keep))
+        #     delete_effects = set.intersection(*ungrounded_delete_effects_per_segment)
+        #
+        #     # do we filter the first set in the statements below to predicates in predicates_to_keep?
+        #     # if so, add_effects_complement and delete_effects_complement ends up having nothing
+        #     # differentiate predicates that are or aren't in predicates to keep in the "complement" set we are thinking of
+        #     add_effects_complement = set(p.predicate for a in add_effects_per_segment for p in a) - add_effects
+        #     delete_effects_complement = set(p.predicate for a in delete_effects_per_segment for p in a) - delete_effects
+        #     init_atoms_complement = set(p.predicate for a in init_atoms_per_segment for p in a) - init_atoms
+        #
+        #
+        #     debug |= init_atoms_complement
+        #     debug |= add_effects_complement
+        #     debug |= delete_effects_complement
+        #
+        #     print(f"len init_atoms_complement for op {op_name}: {len(init_atoms_complement)}")
+        #     print(f"len add_effects_complement for op {op_name}: {len(add_effects_complement)}")
+        #     print(f"len delete_effects_complement for op {op_name}: {len(delete_effects_complement)}")
+        #
+        #     # if op_name == "Op4-Paint":
+        #     #     import pdb; pdb.set_trace()
+        #
+        #     op_pred_def_superset[op_name] = [
+        #         init_atoms,
+        #         add_effects,
+        #         delete_effects,
+        #         c
+        #     ]
+        #
+        #     # preconditions we need to figurre rthings out is the ones that are always true (never added) (e.g. ontable for PickFromTable)
+        #     # add effects are the ones that sometimes are added (holding top, holding side)
+        #
+        #
+        #     # we care about two types of predicates: it was added at some point, or it was constant throughout the trajectory
+        #     #
+        #
+        # # segments = [
+        # #     seg for ll_traj, atom_seq in atom_dataset for seg in
+        # #     segment_trajectory(ll_traj, initial_predicates, atom_seq)
+        # # ]
+        # print("checking")
+        # demos = [
+        #     segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in atom_dataset
+        # ]
+        # for i, c in enumerate(final_clusters):
+        #     all_init_predicates = set(p.predicate for a in [s.init_atoms for s in c] for p in a)
+        #     import pdb; pdb.set_trace()
+        #     for seg in c:
+        #         # find the demo it's in
+        #         relevant_demo = None
+        #         for demo in demos:
+        #             for j, seg_2 in enumerate(demo):
+        #                 is_relevant = True
+        #                 try:
+        #                     for k in range(len(seg.states)):
+        #                         if seg.states[k].allclose(seg_2.states[k]):
+        #                             is_relevant = False
+        #                     if is_relevant:
+        #                         relevant_demo = demo
+        #                 except:
+        #                     print("issue")
+        #                     import pdb; pdb.set_trace()
+        #             # if seg in demo:
+        #             #     relevant_demo = demo
+        #         to_consider = []
+        #         for s in relevant_demo:
+        #             if s != seg:
+        #                 to_consider.append(s)
+        #             else:
+        #                 break
+        #         for s in to_consider:
+        #             to_remove = set()
+        #             for p in all_init_predicates:
+        #                 predicates_added = set(a.predicate for a in s.add_effects)
+        #                 if p in predicates_added:
+        #                     to_remove.add(p)
+        #             all_init_predicates -= to_remove
+        #
+        #     import pdb; pdb.set_trace()
+        #
+        # print("hi")
+        # import pdb; pdb.set_trace()
