@@ -1249,13 +1249,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 del s  # unused
                 return False
 
-            candidates = all_add_effects
+            new_candidates = {
+                k: v for k, v in candidates.items() if k in all_add_effects | predicates_over_time
+            }
+
 
             # Successively consider larger predicate sets.
             def _get_successors(
                 s: FrozenSet[Predicate]
             ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-                for predicate in sorted(set(candidates) - s):  # determinism
+                for predicate in sorted(set(new_candidates) - s):  # determinism
                     # Actions not needed. Frozensets for hashing. The cost of
                     # 1.0 is irrelevant because we're doing GBFS / hill
                     # climbing and not A* (because we don't care about the
@@ -1264,7 +1267,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             score_function = create_score_function(
                 CFG.grammar_search_score_function, self._initial_predicates,
-                atom_dataset, candidates, self._train_tasks)
+                atom_dataset, new_candidates, self._train_tasks)
 
             # Greedy local hill climbing search.
             path, _, heuristics = utils.run_hill_climbing(
