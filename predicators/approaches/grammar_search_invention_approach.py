@@ -1285,7 +1285,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         print("done")
         import pdb; pdb.set_trace()
         self._pnads = set()
-        return predicates_over_time
+        return predicates_over_time | self._initial_predicates
 
 
             # logging.info("\nHill climbing summary:")
