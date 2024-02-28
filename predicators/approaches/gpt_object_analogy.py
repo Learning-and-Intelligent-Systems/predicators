@@ -61,17 +61,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._base_env = create_new_env(CFG.pg3_init_base_env)
         self._base_task = [t.task for t in self._base_env.get_train_tasks()]
 
-        final_i = 0
-        for i in range(len(self._train_tasks)):
-            if len(dataset.trajectories[i]._states) == 5:
-                final_i = i
-                break
-
-        self._target_task = self._train_tasks[final_i]
-        self._target_states = dataset.trajectories[final_i]._states
-        ordered_objs = list(self._target_states[final_i])
+        self._target_tasks = self._train_tasks
+        self._target_states = [dataset.trajectories[i]._states for i in range(len(dataset.trajectories))]
+        ordered_objs = [list(dataset.trajectories[i]._states[0]) for i in range(len(dataset.trajectories))]
         self._target_env = create_new_env(CFG.env)
-        self._target_actions = [_action_to_ground_strips_op(a, ordered_objs, sorted(self._target_env._strips_operators)) for a in dataset.trajectories[final_i]._actions]
+
+        self._target_actions = []
+        for i in range(len(dataset.trajectories)):
+            self._target_actions.append([_action_to_ground_strips_op(a, ordered_objs[i], sorted(self._target_env._strips_operators)) for a in dataset.trajectories[i]._actions])
         super().learn_from_offline_dataset(dataset)
 
     def _induce_policies_by_analogy(
@@ -111,21 +108,24 @@ class GPTObjectApproach(PG3AnalogyApproach):
         best_score = -1.0
         best_object_mapping = None
         best_index = None
-        for i in range(len(self._target_states)-1):
-            target_action = self._target_actions[i]
-            if target_action.name != target_nsrt.name:
-                continue
+        best_task_index = None
+        for task_index in range(len(self._target_tasks)):
+            for i in range(len(self._target_states[task_index])-1):
+                target_action = self._target_actions[task_index][i]
+                if target_action.name != target_nsrt.name:
+                    continue
 
-            object_mapping, gini_index = self._get_object_distribution_and_score(rule, target_nsrt, mapping, i)
-            if gini_index > best_score:
-                best_object_mapping = object_mapping
-                best_score = gini_index
-                best_index = i
-        
+                object_mapping, gini_index = self._get_object_distribution_and_score(rule, target_nsrt, mapping, task_index, i)
+                if gini_index > best_score:
+                    best_task_index = task_index
+                    best_object_mapping = object_mapping
+                    best_score = gini_index
+                    best_index = i
+            
         # Get useful objects
         one_to_one_object_mapping = self._filter_object_mapping(best_object_mapping)
         useful_objects = set(one_to_one_object_mapping.values())
-        useful_objects.update(self._target_actions[best_index].objects)
+        useful_objects.update(self._target_actions[best_task_index][best_index].objects)
 
         # Getting useful analagous predicates
         useful_pos_predicates = set()
@@ -142,18 +142,23 @@ class GPTObjectApproach(PG3AnalogyApproach):
             useful_goal_predicates.update(goal_analagous_predicate_names)
 
         # Getting final ranking of atoms in ground state
-        ranked_atoms = self._score_conds(useful_objects, useful_pos_predicates, useful_goal_predicates, best_index)
-        print("RULE\n", rule)
-        print("GROUND ACTION\n", self._target_actions[best_index])
-        print("GOAL\n", self._target_task.goal)
-        print("USEFUL OBJECTS", useful_objects)
-        print("USEFUL POS PREDICATES", useful_pos_predicates)
-        print("USEFUL GOAL PREDICATES", useful_goal_predicates)
-        print("PRECONDS", ranked_atoms)
-        print("-------------------------")
-    
-    def _score_conds(self, useful_objects, useful_pos_preds, useful_goal_preds, index):
-        ground_state = self._target_states[index] 
+        ranked_atoms = self._score_conds(useful_objects, useful_pos_predicates, useful_goal_predicates, best_task_index, best_index)
+        if DEBUG:
+            print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
+            print("RULE\n", rule)
+            print("GROUND ACTION\n", self._target_actions[best_task_index][best_index])
+            print("GROUND ACTIONS\n", [self._target_actions[best_task_index][i].name for i in range(len(self._target_actions[best_task_index]))])
+            print("BEST TASK INDEX", best_task_index)
+            print("BEST INDEX: ", best_index)
+            print("GROUND STATE\n", sorted(self._target_states[best_task_index][best_index].simulator_state))
+            print("GOAL\n", self._target_tasks[best_task_index].goal)
+            print("USEFUL OBJECTS", useful_objects)
+            print("USEFUL POS PREDICATES", useful_pos_predicates)
+            print("USEFUL GOAL PREDICATES", useful_goal_predicates)
+            print("PRECONDS", ranked_atoms)
+        
+    def _score_conds(self, useful_objects, useful_pos_preds, useful_goal_preds, task_index, index):
+        ground_state = self._target_states[task_index][index] 
         useful_pos_atoms = {}
         final_atoms = set()
         for atom in ground_state.simulator_state:
@@ -163,11 +168,11 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 score += 0.5 
             for obj in atom.objects:
                 if obj in useful_objects:
-                    score += 1.0
+                    score += 1.5
             if score > 0.0:
                 useful_pos_atoms[atom] = score
                 final_atoms.add(atom)
-        sorted_atoms = sort_atoms_by_score(useful_pos_atoms)
+        sorted_atoms, sorted_scores = sort_atoms_by_score(useful_pos_atoms)
         return sorted_atoms
 
     def _filter_object_mapping(self, object_mapping):
@@ -184,25 +189,27 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 final_mapping[var] = obj
         return final_mapping
 
-    def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
+    def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], task_index: int, state_index: int):
         all_rule_variables = set([var for var in rule.parameters])
         used_rule_variables = set(existing_mapping.values())
 
-        ground_target_nsrt = self._target_actions[state_index]
+        ground_target_nsrt = self._target_actions[task_index][state_index]
         mapping_to_objects = {}
         for target_var, base_var in existing_mapping.items():
             index_of_object = target_nsrt.parameters.index(target_var)
             target_object = ground_target_nsrt.objects[index_of_object]
             mapping_to_objects[base_var] = target_object
 
-        ground_state = self._target_states[state_index]
+        ground_state = self._target_states[task_index][state_index]
+        goal_state = self._target_tasks[task_index].goal
         if DEBUG:
             print("=================================")
             print(f"Rule:\n{rule}")
             print(f"Target NSRT:\n{target_nsrt}")
             print(f"Target Ground NSRT:\n{ground_target_nsrt}")
+            print(f"Index: ", state_index)
             print(f"Ground state:\n{sorted(ground_state.simulator_state)}")
-            print(f"Goal state:\n{self._target_task.goal}")
+            print(f"Goal state:\n{goal_state}")
         state_entropy = 0.0
 
         var_to_obj_distributions = {}
@@ -253,7 +260,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                     if var in mapping_to_objects:
                         needed_objects.add(mapping_to_objects[var])
 
-                for goal_atom in self._target_task.goal:
+                for goal_atom in goal_state:
                     if goal_atom.predicate.name in analagous_preds and needed_objects.issubset(set(goal_atom.objects)):
                         for obj in goal_atom.objects:
 
@@ -267,7 +274,10 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
             object_entropy = gini_index_from_dict(object_distribution)
             state_entropy += object_entropy
-            var_to_obj_distributions[unused_rule_var] = object_distribution
+            if object_entropy > 0.0: # If some useful information, add the distribution
+                var_to_obj_distributions[unused_rule_var] = object_distribution
+            else:
+                var_to_obj_distributions[unused_rule_var] = {}
             if DEBUG:
                 print('-----------------')
                 print(f"Unused Rule Var {unused_rule_var}")
@@ -564,7 +574,7 @@ def gini_index_from_dict(distribution_dict):
     return gini
 
 def sort_atoms_by_score(atoms_dict):
-    # First, we group atoms by their scores
+    # Group atoms by their scores
     grouped_atoms = {}
     for atom, score in atoms_dict.items():
         if score in grouped_atoms:
@@ -572,7 +582,10 @@ def sort_atoms_by_score(atoms_dict):
         else:
             grouped_atoms[score] = [atom]
 
-    # Then, we sort the scores in descending order and arrange the atoms accordingly
-    sorted_atoms = [grouped_atoms[score] for score in sorted(grouped_atoms, reverse=True)]
+    # Sort the scores in descending order
+    sorted_scores = sorted(grouped_atoms, reverse=True)
+
+    # Arrange the atoms according to the sorted scores
+    sorted_atoms = [grouped_atoms[score] for score in sorted_scores]
     
-    return sorted_atoms
+    return sorted_atoms, sorted_scores
