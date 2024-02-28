@@ -1238,7 +1238,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
 
         ###########
-        predicates_over_time = frozenset(predicates_to_keep)
+        predicates_over_time = frozenset(predicates_to_keep) - initial_predicates
         for i, c in enumerate(final_clusters):
             op_name = f"Op{i}-{c[0].get_option().name}"
             all_add_effects = set(p.predicate for a in [s.add_effects for s in c] for p in a)
@@ -1249,8 +1249,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 del s  # unused
                 return False
 
+            import pdb; pdb.set_trace()
             new_candidates = {
-                k: v for k, v in candidates.items() if k in all_add_effects | predicates_over_time
+                k: v for k, v in candidates.items() if k in (all_add_effects | predicates_over_time) - initial_predicates - predicates_to_keep
             }
 
 
@@ -1284,7 +1285,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         print("done")
         self._pnads = set()
-        return predicates_over_time | self._initial_predicates
+        return predicates_over_time | initial_predicates
 
 
             # logging.info("\nHill climbing summary:")
