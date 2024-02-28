@@ -9,25 +9,28 @@ APPROACHES:
       strips_learner: pnad_search
       pnad_search_timeout: 600
       offline_data_method: "demo+gt_operators"
-      sesame_max_skeletons_optimized: 16
       timeout: 40
 ENVS:
   cover:
     NAME: "cover"
     FLAGS:
       num_train_tasks: 200
+      sesame_max_skeletons_optimized: 16
   blocks:
     NAME: "blocks"
     FLAGS:
       num_train_tasks: 200
+      sesame_max_skeletons_optimized: 16
   painting:
     NAME: "painting"
     FLAGS:
       num_train_tasks: 200
+      sesame_max_skeletons_optimized: 16
   tools:
     NAME: "tools"
     FLAGS:
       num_train_tasks: 1000
+      sesame_max_skeletons_optimized: 1000
 ARGS: []
 FLAGS: {}
 START_SEED: 456
