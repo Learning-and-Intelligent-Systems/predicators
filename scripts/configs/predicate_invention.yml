@@ -1,0 +1,34 @@
+APPROACHES:
+  invent_allexclude:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      excluded_predicates: "all"
+      grammar_search_max_predicates: 200
+      grammar_search_pred_clusterer: "option-type-number-sample"
+      grammar_search_pred_selection_approach: clustering
+      strips_learner: pnad_search
+      pnad_search_timeout: 600
+      offline_data_method: "demo+gt_operators"
+      sesame_max_skeletons_optimized: 16
+      timeout: 40
+ENVS:
+  cover:
+    NAME: "cover"
+    FLAGS:
+      num_train_tasks: 200
+  blocks:
+    NAME: "blocks"
+    FLAGS:
+      num_train_tasks: 200
+  painting:
+    NAME: "painting"
+    FLAGS:
+      num_train_tasks: 200
+  tools:
+    NAME: "tools"
+    FLAGS:
+      num_train_tasks: 1000
+ARGS: []
+FLAGS: {}
+START_SEED: 456
+NUM_SEEDS: 10
