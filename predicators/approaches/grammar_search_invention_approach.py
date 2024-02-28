@@ -1238,7 +1238,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
 
         ###########
-        predicates_over_time = frozenset()
+        predicates_over_time = frozenset(predicates_to_keep)
         for i, c in enumerate(final_clusters):
             op_name = f"Op{i}-{c[0].get_option().name}"
             all_add_effects = set(p.predicate for a in [s.add_effects for s in c] for p in a)

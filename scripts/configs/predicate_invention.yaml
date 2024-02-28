@@ -1,5 +1,5 @@
 APPROACHES:
-  invent_allexclude:
+  invent_allexclude_with_init:
     NAME: "grammar_search_invention"
     FLAGS:
       excluded_predicates: "all"
