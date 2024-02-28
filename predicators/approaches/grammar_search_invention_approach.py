@@ -1283,7 +1283,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             print(f"Size of predicates_over_time for iteration {i}, op {op_name}: {len(predicates_over_time)}")
 
         print("done")
-        import pdb; pdb.set_trace()
         self._pnads = set()
         return predicates_over_time | self._initial_predicates
 
