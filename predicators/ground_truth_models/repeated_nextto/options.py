@@ -17,7 +17,10 @@ class RepeatedNextToGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"repeated_nextto", "repeated_nextto_ambiguous"}
+        return {
+            "repeated_nextto", "repeated_nextto_ambiguous",
+            "repeated_nextto_simple"
+        }
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
