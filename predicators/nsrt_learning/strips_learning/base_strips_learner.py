@@ -117,10 +117,13 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
+        counter = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
                 continue
+            print(f"Checking harmlessness on demo {counter}")
+            counter += 1
             atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
             task = self._train_tasks[ll_traj.train_task_idx]
             traj_goal = task.goal
@@ -158,9 +161,7 @@ class BaseSTRIPSLearner(abc.ABC):
             else:
                 option = DummyOption
             option_plan.append((option.parent, option.objects))
-        ground_nsrt_plan = task_plan_with_option_plan_constraint(
-            objects, self._predicates, strips_ops, option_specs, init_atoms,
-            traj_goal, option_plan, atoms_seq)
+        ground_nsrt_plan = task_plan_with_option_plan_constraint(objects, self._predicates, strips_ops, option_specs, init_atoms, traj_goal, option_plan, atoms_seq)
 
         if ground_nsrt_plan is None:
             import pdb; pdb.set_trace()
@@ -180,6 +181,15 @@ class BaseSTRIPSLearner(abc.ABC):
             block3 = [b for b in objs if b.name == "block3"][0]
             # block4 = [b for b in objs if b.name == "block4"][0]
             # block5 = [b for b in objs if b.name == "block5"][0]
+
+            first = Op0Pick.ground((block2, robot))
+            first.preconditions.issubset(init_atoms)
+            after_first = (init_atoms | first.add_effects) - first.delete_effects
+            second = Op2Stack.ground((block1, block2, robot))
+            second.preconditions.issubset(after_first)
+            after_second = (after_first | second.add_effects) - second.delete_effects
+            third = Op0Pick.ground((block3, robot))
+            third.preconditions.issubset(after_second)
 
         return ground_nsrt_plan is not None
 
