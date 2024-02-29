@@ -258,24 +258,22 @@ class RepeatedNextToSimple(RepeatedNextToEnv):
 
     def _get_tasks_simple(self, num: int, rng: np.random.Generator,
                           are_train_tasks: bool) -> List[EnvironmentTask]:
-        del rng, are_train_tasks  # unused.
+        del are_train_tasks  # unused.
         assert self.env_ub - self.env_lb > self._nextto_thresh
         tasks = []
         dots = []
-        assert CFG.repeated_nextto_num_dots >= 3
+        assert CFG.repeated_nextto_num_dots >= 2
         for i in range(CFG.repeated_nextto_num_dots):
             dots.append(Object(f"dot{i}", self._dot_type))
-        goal1 = {GroundAtom(self._Grasped, [self._robot, dots[0]])}
+        random_dots_idx = rng.choice(CFG.repeated_nextto_num_dots, 2)
+        goal1 = {
+            GroundAtom(self._Grasped, [self._robot, dots[random_dots_idx[0]]])
+        }
         goal2 = {
-            GroundAtom(self._Grasped, [self._robot, dots[0]]),
-            GroundAtom(self._Grasped, [self._robot, dots[1]]),
+            GroundAtom(self._Grasped, [self._robot, dots[random_dots_idx[0]]]),
+            GroundAtom(self._Grasped, [self._robot, dots[random_dots_idx[1]]]),
         }
-        goal3 = {
-            GroundAtom(self._Grasped, [self._robot, dots[0]]),
-            GroundAtom(self._Grasped, [self._robot, dots[1]]),
-            GroundAtom(self._Grasped, [self._robot, dots[2]]),
-        }
-        goals = [goal3, goal2, goal1]
+        goals = [goal1, goal2]
         # NOTE: 2.0 would be the exactly correct multiplier. 2.1 is just to
         # give some extra spacing.
         assert (self.env_ub - self.env_lb) > (
