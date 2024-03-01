@@ -11,11 +11,23 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "task_repeat"
-  success_rate_explore:
+  success_rate_explore_ucb:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "success_rate"
+      active_sampler_explore_use_ucb_bonus: True
+  competence_gradient_explore_ucb:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "competence_gradient"
+      active_sampler_explore_use_ucb_bonus: True
+  skill_diversity_explore_ucb:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "skill_diversity"
   random_score_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -32,32 +44,31 @@ APPROACHES:
       mlp_regressor_max_itr: 100000
       active_sampler_learning_batch_size: 1024
 ENVS:
-  tiny_grid_row:
-    NAME: "grid_row"
-    FLAGS:
-      grid_row_num_cells: 3
   grid_row:
     NAME: "grid_row"
-  sticky_table:
-    NAME: "sticky_table"
-  sticky_table_tricky_floor:
-    NAME: "sticky_table_tricky_floor"
-  regional_bumpy_cover:
-    NAME: "regional_bumpy_cover"
     FLAGS:
-      regional_bumpy_cover_include_impossible_nsrt: "True"
-      bumpy_cover_num_bumps: 3
-      bumpy_cover_spaces_per_bump: 5
-      bumpy_cover_init_bumpy_prob: 0.25
-      cover_num_blocks: 10
-      cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
-      cover_num_targets: 10
-      cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
-  kitchen:
-    NAME: "kitchen"
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: all
+      active_sampler_learning_explore_pursue_goal_interval: 1
+      max_num_steps_interaction_request: 150
+  ball_and_cup_sticky_table:
+    NAME: "ball_and_cup_sticky_table"
     FLAGS:
-      num_train_tasks: 100
-      max_num_steps_option_rollout: 250
+      sticky_table_place_smooth_fall_prob: 1.00
+      sticky_table_place_sticky_fall_prob: 0.00
+      sticky_table_pick_success_prob: 1.0
+      sticky_table_num_sticky_tables: 1
+      sticky_table_num_tables: 5
+      sticky_table_place_ball_fall_prob: 1.00
+      active_sampler_learning_explore_length_base: 25
+      active_sampler_learning_exploration_epsilon: 0.5
+      skill_competence_model_optimistic_recency_size: 2
+      skill_competence_model_optimistic_window_size: 2
+      horizon: 8
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: oracle
+      active_sampler_learning_explore_pursue_goal_interval: 1
+      max_num_steps_interaction_request: 250
 ARGS:
   - "debug"
 FLAGS:
@@ -73,10 +84,9 @@ FLAGS:
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 500
   num_online_learning_cycles: 10
-  active_sampler_learning_explore_length_base: 100000  # effectively disable
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
+  active_sampler_learning_n_iter_no_change: 5000
 START_SEED: 456
 NUM_SEEDS: 10

@@ -34,6 +34,7 @@ import numpy as np
 import pathos.multiprocessing as mp
 from gym.spaces import Box
 from matplotlib import patches
+from numpy.typing import NDArray
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
@@ -278,27 +279,54 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
 
     else:
         assert CFG.active_sampler_learning_feature_selection == "oracle"
-        assert CFG.env == "bumpy_cover"
-        if param_option.name == "Pick":
-            # In this case, the x-data should be
-            # [block_bumpy, relative_pick_loc]
-            assert len(objects) == 1
-            block = objects[0]
-            block_pos = state[block][3]
-            block_bumpy = state[block][5]
-            sampler_input_lst.append(block_bumpy)
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - block_pos)
+        if CFG.env == "bumpy_cover":
+            if param_option.name == "Pick":
+                # In this case, the x-data should be
+                # [block_bumpy, relative_pick_loc]
+                assert len(objects) == 1
+                block = objects[0]
+                block_pos = state[block][3]
+                block_bumpy = state[block][5]
+                sampler_input_lst.append(block_bumpy)
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - block_pos)
+            else:
+                assert param_option.name == "Place"
+                assert len(objects) == 2
+                block, target = objects
+                target_pos = state[target][3]
+                grasp = state[block][4]
+                target_width = state[target][2]
+                sampler_input_lst.extend([grasp, target_width])
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - target_pos)
+        elif CFG.env == "ball_and_cup_sticky_table":
+            if "PlaceCup" in param_option.name and "Table" in param_option.name:
+                _, _, _, table = objects
+                table_y = state.get(table, "y")
+                table_x = state.get(table, "x")
+                sticky = state.get(table, "sticky")
+                sticky_region_x = state.get(table, "sticky_region_x_offset")
+                sticky_region_y = state.get(table, "sticky_region_y_offset")
+                sticky_region_radius = state.get(table, "sticky_region_radius")
+                table_radius = state.get(table, "radius")
+                _, _, _, param_x, param_y = params
+                sampler_input_lst.append(table_radius)
+                sampler_input_lst.append(sticky)
+                sampler_input_lst.append(sticky_region_x)
+                sampler_input_lst.append(sticky_region_y)
+                sampler_input_lst.append(sticky_region_radius)
+                sampler_input_lst.append(table_x)
+                sampler_input_lst.append(table_y)
+                sampler_input_lst.append(param_x)
+                sampler_input_lst.append(param_y)
+            else:  # Use all features.
+                for obj in objects:
+                    sampler_input_lst.extend(state[obj])
+                sampler_input_lst.extend(params)
         else:
-            assert param_option.name == "Place"
-            assert len(objects) == 2
-            block, target = objects
-            target_pos = state[target][3]
-            grasp = state[block][4]
-            target_width = state[target][2]
-            sampler_input_lst.extend([grasp, target_width])
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - target_pos)
+            raise NotImplementedError("Oracle feature selection not "
+                                      f"implemented for {CFG.env}")
 
     return np.array(sampler_input_lst)
 
@@ -314,6 +342,12 @@ class _Geom2D(abc.ABC):
     @abc.abstractmethod
     def contains_point(self, x: float, y: float) -> bool:
         """Checks if a point is contained in the shape."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        """Samples a random point inside the 2D shape."""
         raise NotImplementedError("Override me!")
 
     def intersects(self, other: _Geom2D) -> bool:
@@ -347,6 +381,15 @@ class LineSegment(_Geom2D):
 
         return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
 
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        line_slope = (self.y2 - self.y1) / (self.x2 - self.x1)
+        y_intercept = self.y2 - (line_slope * self.x2)
+        random_x_point = rng.uniform(self.x1, self.x2)
+        random_y_point_on_line = line_slope * random_x_point + y_intercept
+        assert self.contains_point(random_x_point, random_y_point_on_line)
+        return (random_x_point, random_y_point_on_line)
+
 
 @dataclass(frozen=True)
 class Circle(_Geom2D):
@@ -361,6 +404,21 @@ class Circle(_Geom2D):
 
     def contains_point(self, x: float, y: float) -> bool:
         return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
+
+    def contains_circle(self, other_circle: Circle) -> bool:
+        """Check whether this circle wholly contains another one."""
+        dist_between_centers = np.sqrt((other_circle.x - self.x)**2 +
+                                       (other_circle.y - self.y)**2)
+        return (dist_between_centers + other_circle.radius) <= self.radius
+
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        rand_mag = rng.uniform(0, self.radius)
+        rand_theta = rng.uniform(0, 2 * np.pi)
+        x_point = self.x + rand_mag * np.cos(rand_theta)
+        y_point = self.y + rand_mag * np.sin(rand_theta)
+        assert self.contains_point(x_point, y_point)
+        return (x_point, y_point)
 
 
 @dataclass(frozen=True)
@@ -400,6 +458,19 @@ class Triangle(_Geom2D):
         has_pos = sign1 or sign2 or sign3
         return not has_neg or not has_pos
 
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        a = np.array([self.x2 - self.x1, self.y2 - self.y1])
+        b = np.array([self.x3 - self.x1, self.y3 - self.y1])
+        u1 = rng.uniform(0, 1)
+        u2 = rng.uniform(0, 1)
+        if u1 + u2 > 1.0:
+            u1 = 1 - u1
+            u2 = 1 - u2
+        point_in_triangle = (u1 * a + u2 * b) + np.array([self.x1, self.y1])
+        assert self.contains_point(point_in_triangle[0], point_in_triangle[1])
+        return (point_in_triangle[0], point_in_triangle[1])
+
 
 @dataclass(frozen=True)
 class Rectangle(_Geom2D):
@@ -419,6 +490,34 @@ class Rectangle(_Geom2D):
     def __post_init__(self) -> None:
         assert -np.pi <= self.theta <= np.pi, "Expecting angle in [-pi, pi]."
 
+    @staticmethod
+    def from_center(center_x: float, center_y: float, width: float,
+                    height: float, rotation_about_center: float) -> Rectangle:
+        """Create a rectangle given an (x, y) for the center, with theta
+        rotating about that center point."""
+        x = center_x - width / 2
+        y = center_y - height / 2
+        norm_rect = Rectangle(x, y, width, height, 0.0)
+        assert np.isclose(norm_rect.center[0], center_x)
+        assert np.isclose(norm_rect.center[1], center_y)
+        return norm_rect.rotate_about_point(center_x, center_y,
+                                            rotation_about_center)
+
+    @functools.cached_property
+    def rotation_matrix(self) -> NDArray[np.float64]:
+        """Get the rotation matrix."""
+        return np.array([[np.cos(self.theta), -np.sin(self.theta)],
+                         [np.sin(self.theta),
+                          np.cos(self.theta)]])
+
+    @functools.cached_property
+    def inverse_rotation_matrix(self) -> NDArray[np.float64]:
+        """Get the inverse rotation matrix."""
+        return np.array([[np.cos(self.theta),
+                          np.sin(self.theta)],
+                         [-np.sin(self.theta),
+                          np.cos(self.theta)]])
+
     @functools.cached_property
     def vertices(self) -> List[Tuple[float, float]]:
         """Get the four vertices for the rectangle."""
@@ -426,9 +525,6 @@ class Rectangle(_Geom2D):
             [self.width, 0],
             [0, self.height],
         ])
-        rotate_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)],
-                                  [np.sin(self.theta),
-                                   np.cos(self.theta)]])
         translate_vector = np.array([self.x, self.y])
         vertices = np.array([
             (0, 0),
@@ -437,7 +533,7 @@ class Rectangle(_Geom2D):
             (1, 0),
         ])
         vertices = vertices @ scale_matrix.T
-        vertices = vertices @ rotate_matrix.T
+        vertices = vertices @ self.rotation_matrix.T
         vertices = translate_vector + vertices
         # Convert to a list of tuples. Slightly complicated to appease both
         # type checking and linting.
@@ -466,13 +562,22 @@ class Rectangle(_Geom2D):
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        rotate_matrix = np.array([[np.cos(self.theta),
-                                   np.sin(self.theta)],
-                                  [-np.sin(self.theta),
-                                   np.cos(self.theta)]])
-        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        # First invert translation, then invert rotation.
+        rx, ry = np.array([x - self.x, y - self.y
+                           ]) @ self.inverse_rotation_matrix.T
         return 0 <= rx <= self.width and \
                0 <= ry <= self.height
+
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        rand_width = rng.uniform(0, self.width)
+        rand_height = rng.uniform(0, self.height)
+        # First rotate, then translate.
+        rx, ry = np.array([rand_width, rand_height]) @ self.rotation_matrix.T
+        x = rx + self.x
+        y = ry + self.y
+        assert self.contains_point(x, y)
+        return (x, y)
 
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
@@ -2169,7 +2274,7 @@ def all_ground_nsrts_fd_translator(
     prob_str = create_pddl_problem(objects, init_atoms, goal, "mydomain",
                                    "myproblem")
     with nostdout():
-        sas_task = downward_translate(dom_str, prob_str)
+        sas_task = downward_translate(dom_str, prob_str)  # type: ignore
     for operator in sas_task.operators:
         split_name = operator.name[1:-1].split()  # strip out ( and )
         nsrt = nsrt_name_to_nsrt[split_name[0]]
@@ -2806,9 +2911,17 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
         for parent_type in sorted(parent_to_children_types):
             child_types = parent_to_children_types[parent_type]
             if not child_types:
-                continue
-            child_type_str = " ".join(t.name for t in child_types)
-            types_str += f"\n    {child_type_str} - {parent_type.name}"
+                # Special case: type has no children and also does not appear
+                # as a child of another type.
+                is_child_type = any(
+                    parent_type in children
+                    for children in parent_to_children_types.values())
+                if not is_child_type:
+                    types_str += f"\n    {parent_type.name}"
+                # Otherwise, the type will appear as a child elsewhere.
+            else:
+                child_type_str = " ".join(t.name for t in child_types)
+                types_str += f"\n    {child_type_str} - {parent_type.name}"
     ops_lst = sorted(operators)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
@@ -3444,3 +3557,48 @@ def beta_from_mean_and_variance(mean: float,
     rv = BetaRV(alpha, beta)
     assert abs(rv.mean() - mean) < 1e-6
     return rv
+
+
+def _obs_to_state_pass_through(obs: Observation) -> State:
+    """Helper for run_ground_nsrt_with_assertions."""
+    assert isinstance(obs, State)
+    return obs
+
+
+def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
+                                    state: State,
+                                    env: BaseEnv,
+                                    rng: np.random.Generator,
+                                    override_params: Optional[Array] = None,
+                                    obs_to_state: Callable[
+                                        [Observation],
+                                        State] = _obs_to_state_pass_through,
+                                    assert_effects: bool = True,
+                                    max_steps: int = 400) -> State:
+    """Utility for tests.
+
+    NOTE: assumes that the internal state of env corresponds to state.
+    """
+    ground_nsrt_str = f"{ground_nsrt.name}{ground_nsrt.objects}"
+    for atom in ground_nsrt.preconditions:
+        assert atom.holds(state), \
+            f"Precondition for {ground_nsrt_str} failed: {atom}"
+    option = ground_nsrt.sample_option(state, set(), rng)
+    if override_params is not None:
+        option = option.parent.ground(option.objects,
+                                      override_params)  # pragma: no cover
+    assert option.initiable(state)
+    for _ in range(max_steps):
+        act = option.policy(state)
+        obs = env.step(act)
+        state = obs_to_state(obs)
+        if option.terminal(state):
+            break
+    if assert_effects:
+        for atom in ground_nsrt.add_effects:
+            assert atom.holds(state), \
+                f"Add effect for {ground_nsrt_str} failed: {atom}"
+        for atom in ground_nsrt.delete_effects:
+            assert not atom.holds(state), \
+                f"Delete effect for {ground_nsrt_str} failed: {atom}"
+    return state

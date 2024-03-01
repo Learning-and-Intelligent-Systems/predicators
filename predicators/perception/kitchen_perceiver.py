@@ -3,7 +3,7 @@
 from predicators.envs.kitchen import KitchenEnv
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.structs import EnvironmentTask, GroundAtom, Observation, \
-    State, Task
+    State, Task, Video
 
 
 class KitchenPerceiver(BasePerceiver):
@@ -49,3 +49,7 @@ class KitchenPerceiver(BasePerceiver):
 
     def _observation_to_state(self, obs: Observation) -> State:
         return KitchenEnv.state_info_to_state(obs["state_info"])
+
+    def render_mental_images(self, observation: Observation,
+                             env_task: EnvironmentTask) -> Video:
+        raise NotImplementedError("Mental images not implemented for kitchen")

@@ -52,6 +52,14 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         # is randomly selected.
         explorer = self._create_explorer()
 
+        # NOTE: this is definitely awkward, but we have to reset this
+        # info so that if we ever use the execution monitor while doing
+        # exploration and collecting more data, it doesn't mistakenly
+        # try to monitor stuff using a previously-saved plan.
+        self._last_nsrt_plan = []
+        self._last_atoms_seq = []
+        self._last_plan = []
+
         # Create the interaction requests.
         requests = []
         for _ in range(CFG.online_nsrt_learning_requests_per_cycle):

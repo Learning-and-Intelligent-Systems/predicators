@@ -1,7 +1,7 @@
 """Test cases for utils."""
 import os
 import time
-from typing import Iterator, Tuple
+from typing import Iterator, Optional, Tuple
 from typing import Type as TypingType
 
 import matplotlib.pyplot as plt
@@ -10,6 +10,7 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.envs.ball_and_cup_sticky_table import BallAndCupStickyTableEnv
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
     ProceduralTasksSpannerPDDLEnv
@@ -223,6 +224,12 @@ def test_line_segment():
     assert not utils.geom2ds_intersect(seg1, seg3)
     assert not utils.geom2ds_intersect(seg2, seg3)
 
+    rng = np.random.default_rng(0)
+    for _ in range(10):
+        p1 = seg1.sample_random_point(rng)
+        assert seg1.contains_point(p1[0], p1[1])
+        plt.plot(p1[0], p1[1], 'bo')
+
     # Uncomment for debugging.
     # plt.savefig("/tmp/line_segment_unit_test.png")
 
@@ -279,6 +286,12 @@ def test_circle():
     assert not utils.geom2ds_intersect(circ1, circ3)
     assert utils.geom2ds_intersect(circ2, circ3)
 
+    rng = np.random.default_rng(0)
+    for _ in range(10):
+        p3 = circ3.sample_random_point(rng)
+        assert circ3.contains_point(p3[0], p3[1])
+        plt.plot(p3[0], p3[1], 'bo')
+
     # Uncomment for debugging.
     # plt.savefig("/tmp/circle_unit_test.png")
 
@@ -315,6 +328,12 @@ def test_triangle():
     with pytest.raises(ValueError) as e:
         utils.Triangle(0.0, 0.0, 1.0, 1.0, -1.0, -1.0)
     assert "Degenerate triangle" in str(e)
+
+    rng = np.random.default_rng(0)
+    for _ in range(10):
+        p1 = tri1.sample_random_point(rng)
+        assert tri1.contains_point(p1[0], p1[1])
+        plt.plot(p1[0], p1[1], 'bo')
 
     # Uncomment for debugging.
     # plt.savefig("/tmp/triangle_unit_test.png")
@@ -389,6 +408,20 @@ def test_rectangle():
     origin.plot(ax, color="black")
     rect6 = rect5.rotate_about_point(origin.x, origin.y, rot=np.pi / 4)
     rect6.plot(ax, facecolor="none", edgecolor="black", linestyle="dashed")
+
+    rect7 = utils.Rectangle.from_center(center_x=1,
+                                        center_y=2,
+                                        width=2,
+                                        height=4,
+                                        rotation_about_center=0)
+    rect7.plot(ax, facecolor="grey")
+    assert rect7.center == (1, 2)
+
+    rng = np.random.default_rng(0)
+    for _ in range(100):
+        p5 = rect5.sample_random_point(rng)
+        assert rect5.contains_point(p5[0], p5[1])
+        plt.plot(p5[0], p5[1], 'bo')
 
     # Uncomment for debugging.
     # plt.savefig("/tmp/rectangle_unit_test.png")
@@ -2318,12 +2351,16 @@ def test_create_pddl():
     env = ProceduralTasksSpannerPDDLEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+    # Test case where there is a special type with no parents or children.
+    monkey_type = Type("monkey", [])
+    types = env.types | {monkey_type}
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, types,
                                           "spanner")
     assert domain_str == """(define (domain spanner)
   (:requirements :typing)
   (:types 
     man nut spanner - locatable
+    monkey
     locatable location - object)
 
   (:predicates
@@ -3254,3 +3291,49 @@ def test_motion_planning():
     # Test that query_to_goal_fn for BiRRT raises a NotImplementedError
     with pytest.raises(NotImplementedError):
         birrt.query_to_goal_fn(0, lambda: 1, lambda x: False)
+
+
+def test_oracle_feature_selection():
+    """Test the oracle feature selection code."""
+    utils.reset_config({
+        "env": "ball_and_cup_sticky_table",
+        "active_sampler_learning_feature_selection": "oracle"
+    })
+    env = BallAndCupStickyTableEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    state = train_tasks[0].init
+    options = get_gt_options(env.get_name())
+    PlaceCupWithoutBallOnTable: Optional[ParameterizedOption] = None
+    NavigateToCup: Optional[ParameterizedOption] = None
+    for opt in options:
+        if "PlaceCupWithoutBallOnTable" in opt.name:
+            PlaceCupWithoutBallOnTable = opt
+        elif "NavigateToCup" in opt.name:
+            NavigateToCup = opt
+    assert PlaceCupWithoutBallOnTable is not None
+    params = [0.0, 0.0, 0.0, 0.0, 0.0]
+    # pylint:disable=protected-access
+    cup = state.get_objects(env._cup_type)[0]
+    robot = state.get_objects(env._robot_type)[0]
+    ball = state.get_objects(env._ball_type)[0]
+    table = state.get_objects(env._table_type)[0]
+    # Construct input for special place skill and test that it has only
+    # 10 features.
+    sampler_input = utils.construct_active_sampler_input(
+        state, [cup, robot, ball, table], params, PlaceCupWithoutBallOnTable)
+    assert len(sampler_input) == 10
+    # Construct input for navigation skill and test that it has 12
+    # features.
+    sampler_input = utils.construct_active_sampler_input(
+        state, [robot, cup], params, NavigateToCup)
+    assert len(sampler_input) == 12
+    # Try a non-existent feature selection method and test that an
+    # error is raised.
+    utils.reset_config({
+        "env": "not-a-real-env",
+        "active_sampler_learning_feature_selection": "oracle"
+    })
+    with pytest.raises(NotImplementedError) as e:
+        utils.construct_active_sampler_input(state, [robot, cup], params,
+                                             NavigateToCup)
+    assert "Oracle feature selection" in str(e)

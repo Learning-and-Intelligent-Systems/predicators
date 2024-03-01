@@ -12,9 +12,9 @@ def test_create_explorer():
     """Tests for create_explorer."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
-                         get_gt_options(env.get_name()))
-    option_model = _OracleOptionModel(env)
+    options = get_gt_options(env.get_name())
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    option_model = _OracleOptionModel(options, env.simulate)
     train_tasks = [t.task for t in env.get_train_tasks()]
     # Greedy lookahead explorer.
     state_score_fn = lambda _1, _2: 0.0

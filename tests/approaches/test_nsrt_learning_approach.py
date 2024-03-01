@@ -433,3 +433,33 @@ def test_predicate_invention_with_oracle_clustering():
                    offline_data_method="demo+gt_operators",
                    solve_exceptions=ApproachFailure,
                    additional_settings=additional_settings)
+
+
+def test_predicate_invention_with_custom_clustering():
+    """Test for predicate invention with a custom clustering algorithm."""
+    additional_settings = {
+        "grammar_search_pred_selection_approach": "clustering",
+        "grammar_search_pred_clusterer": "option-type-number-sample",
+        "segmenter": "option_changes",
+    }
+    _test_approach(env_name="blocks",
+                   num_train_tasks=10,
+                   approach_name="grammar_search_invention",
+                   strips_learner="cluster_and_intersect",
+                   offline_data_method="demo",
+                   solve_exceptions=ApproachFailure,
+                   additional_settings=additional_settings)
+    _test_approach(env_name="painting",
+                   num_train_tasks=10,
+                   approach_name="grammar_search_invention",
+                   strips_learner="cluster_and_intersect",
+                   offline_data_method="demo",
+                   solve_exceptions=ApproachFailure,
+                   additional_settings=additional_settings)
+    _test_approach(env_name="repeated_nextto",
+                   num_train_tasks=10,
+                   approach_name="grammar_search_invention",
+                   strips_learner="pnad_search",
+                   offline_data_method="demo",
+                   solve_exceptions=ApproachFailure,
+                   additional_settings=additional_settings)

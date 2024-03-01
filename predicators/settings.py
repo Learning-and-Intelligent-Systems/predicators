@@ -45,6 +45,7 @@ class GlobalSettings:
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
     render_state_dpi = 150
+    approach_wrapper = None
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
@@ -328,6 +329,12 @@ class GlobalSettings:
     sticky_table_place_sticky_fall_prob = 0.05
     sticky_table_pick_success_prob = 0.9
     sticky_table_tricky_floor_place_sticky_fall_prob = 0.5
+    sticky_table_num_tables = 5  # cannot be less than 3
+    sticky_table_place_smooth_fall_prob = 0.6
+    sticky_table_place_sticky_fall_prob = 0.00
+    sticky_table_place_ball_fall_prob = 1.00
+    sticky_table_pick_success_prob = 1.00
+    sticky_table_num_sticky_tables = 1  # must be less than the num_tables
 
     # grid row env parameters
     grid_row_num_cells = 100
@@ -536,6 +543,8 @@ class GlobalSettings:
     active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5
     active_sampler_learning_fitted_q_iters = 5
+    active_sampler_learning_explore_pursue_goal_interval = 5
+    active_sampler_learning_object_specific_samplers = False
     # shared with maple q function learning
     active_sampler_learning_n_iter_no_change = 5000
     active_sampler_learning_num_lookahead_samples = 5
@@ -555,6 +564,7 @@ class GlobalSettings:
     skill_competence_model_optimistic_window_size = 5
     skill_competence_model_optimistic_recency_size = 5
     skill_competence_default_alpha_beta = (10.0, 1.0)
+    skill_competence_initial_prediction_bonus = 0.5
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -587,11 +597,14 @@ class GlobalSettings:
     greedy_lookahead_max_num_resamples = 10
 
     # active sampler explorer parameters
+    active_sampler_explore_use_ucb_bonus = True
     active_sampler_explore_bonus = 1e-1
     active_sampler_explore_task_strategy = "planning_progress"
     active_sampler_explorer_replan_frequency = 100
     active_sampler_explorer_planning_progress_max_tasks = 10
     active_sampler_explorer_planning_progress_max_replan_tasks = 5
+    active_sampler_explorer_skip_perfect = True
+    active_sampler_learning_init_cycles_to_pursue_goal = 1
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -626,6 +639,9 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
+    # grammar search clustering algorithm parameters
+    grammar_search_clustering_gmm_num_components = 10
+
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
@@ -653,7 +669,7 @@ class GlobalSettings:
                     # the horizon to be shorter.
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
-                    "grid_row": cls.grid_row_num_cells + 5,
+                    "grid_row": cls.grid_row_num_cells + 2,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.

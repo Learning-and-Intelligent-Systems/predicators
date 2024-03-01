@@ -78,6 +78,8 @@ def test_sokoban():
     imgs = env.render()
     assert len(imgs) == 1
     task = perceiver.reset(env_task)
+    with pytest.raises(NotImplementedError):
+        perceiver.render_mental_images(env_task.init_obs, env_task)
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     num_boxes = len({a for a in atoms if a.predicate == IsBox})

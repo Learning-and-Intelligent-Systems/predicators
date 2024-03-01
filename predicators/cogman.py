@@ -11,13 +11,14 @@ The name "CogMan" is due to Leslie Kaelbling.
 import logging
 from typing import Callable, List, Optional, Sequence, Set
 
+from predicators import utils
 from predicators.approaches import BaseApproach
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, EnvironmentTask, GroundAtom, \
     InteractionRequest, InteractionResult, LowLevelTrajectory, Metrics, \
-    Observation, State, Task
+    Observation, State, Task, Video
 
 
 class CogMan:
@@ -32,13 +33,18 @@ class CogMan:
         self._current_goal: Optional[Set[GroundAtom]] = None
         self._override_policy: Optional[Callable[[State], Action]] = None
         self._termination_fn: Optional[Callable[[State], bool]] = None
+        self._current_env_task: Optional[EnvironmentTask] = None
         self._episode_state_history: List[State] = []
         self._episode_action_history: List[Action] = []
+        self._episode_images: Video = []
+        self._episode_num = -1
 
     def reset(self, env_task: EnvironmentTask) -> None:
         """Start a new episode of environment interaction."""
         logging.info("[CogMan] Reset called.")
+        self._episode_num += 1
         task = self._perceiver.reset(env_task)
+        self._current_env_task = env_task
         self._current_goal = task.goal
         self._reset_policy(task)
         self._exec_monitor.reset(task)
@@ -46,10 +52,19 @@ class CogMan:
             self._approach.get_execution_monitoring_info())
         self._episode_state_history = [task.init]
         self._episode_action_history = []
+        self._episode_images = []
+        if CFG.make_cogman_videos:
+            imgs = self._perceiver.render_mental_images(task.init, env_task)
+            self._episode_images.extend(imgs)
 
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
         state = self._perceiver.step(observation)
+        if CFG.make_cogman_videos:
+            assert self._current_env_task is not None
+            imgs = self._perceiver.render_mental_images(
+                state, self._current_env_task)
+            self._episode_images.extend(imgs)
         # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
             self._episode_state_history[0] = state
@@ -67,7 +82,11 @@ class CogMan:
             self._exec_monitor.reset(task)
             self._exec_monitor.update_approach_info(
                 self._approach.get_execution_monitoring_info())
-            assert not self._exec_monitor.step(state)
+            # We only reset the approach if the override policy is
+            # None, so this below assertion only works in this
+            # case.
+            if self._override_policy is None:
+                assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
         act = self._current_policy(state)
         self._exec_monitor.update_approach_info(
@@ -82,6 +101,10 @@ class CogMan:
                 self._episode_action_history):
             state = self._perceiver.step(observation)
             self._episode_state_history.append(state)
+        if CFG.make_cogman_videos:
+            save_prefix = utils.get_config_path_str()
+            outfile = f"{save_prefix}__cogman__episode{self._episode_num}.mp4"
+            utils.save_video(outfile, self._episode_images)
 
     # The methods below provide an interface to the approach. In the future,
     # we may want to move some of these methods into cogman properly, e.g.,

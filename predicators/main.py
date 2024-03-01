@@ -121,7 +121,10 @@ def main() -> None:
         # Determine from the config which oracle options to include, if any.
         options = parse_config_included_options(env)
     # Create the agent (approach).
-    approach = create_approach(CFG.approach, preds, options, env.types,
+    approach_name = CFG.approach
+    if CFG.approach_wrapper:
+        approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
+    approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
     if approach.is_learning_based:
         # Create the offline dataset. Note that this needs to be done using
@@ -177,11 +180,26 @@ def _run_pipeline(env: BaseEnv,
             teacher = Teacher(train_tasks)
         else:
             teacher = None
-        already_loaded_approach = False
+        load_approach = CFG.load_approach
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
+
             if i < CFG.skip_until_cycle:
                 continue
+
+            # Start by loading the approach from the previous cycle, if we are
+            # loading approaches, and if we haven't already restarted learning.
+            if load_approach:
+                # If the cycle is 0, then we already loaded the approach before
+                # offline learning, so we don't need to do anything here.
+                if i > 0:  # pragma: no cover
+                    last_cycle = i - 1
+                    cogman.load(online_learning_cycle=last_cycle)
+                # If we're restarting learning, no need to load from now on.
+                if CFG.restart_learning:  # pragma: no cover
+                    load_approach = False
+
+            # Run online interaction.
             logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
             logging.info("Getting interaction requests...")
             if num_online_transitions >= CFG.online_learning_max_transitions:
@@ -199,20 +217,15 @@ def _run_pipeline(env: BaseEnv,
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
             logging.info(f"Query cost incurred this cycle: {query_cost}")
-            # We want to load iff:
-            # - CFG.restart_learning is False
-            # - CFG.restart_learning is True, but we haven't yet loaded the
-            #   approach
-            if CFG.load_approach and not (CFG.restart_learning
-                                          and already_loaded_approach):
-                cogman.load(online_learning_cycle=i)
-                learning_time += 0.0  # ignore loading time
-                already_loaded_approach = True
-            else:
+
+            # Learn from online interaction results, unless we are loading
+            # and not restarting learning.
+            if not CFG.load_approach or CFG.restart_learning:
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
                 cogman.learn_from_interaction_results(interaction_results)
                 learning_time += time.perf_counter() - learning_start
+
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
@@ -264,7 +277,7 @@ def _generate_interaction_results(
             env,
             "train",
             request.train_task_idx,
-            max_num_steps=CFG.max_num_steps_interaction_request,
+            max_num_steps=(CFG.max_num_steps_interaction_request + 1),
             terminate_on_goal_reached=False,
             exceptions_to_break_on={
                 utils.EnvironmentFailure,

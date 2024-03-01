@@ -81,66 +81,41 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Kitchen (All Goals)": [
-        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-planning_progress_explore" in v)),
-        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-task_repeat_explore" in v)),
-        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-success_rate_explore" in v)),
-        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-random_score_explore" in v)),
-        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-random_nsrts_explore" in v)),
-    ],
-    "Regional Bumpy Cover": [
-        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
-        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
-        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-success_rate_explore" in v)),
-        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-random_score_explore" in v)),
-        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
-    ],
     "Grid 1D Environment": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-task_repeat_explore" in v)),
+        ("Competence Gradient", "yellow", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-competence_gradient" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "grid_row-success_rate_explore" in v)),
+            lambda v: "grid_row-success_rate_explore_ucb" in v)),
         ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-random_nsrts_explore" in v)),
+        ("Skill Diversity", "pink", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-skill_diversity" in v)),
+        ("MAPLE-Q", "silver", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-maple_q" in v)),
     ],
-    "Sticky Table": [
+    "Ball and Cup Sticky Table": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-task_repeat_explore" in v)),
+        ("Competence Gradient", "yellow", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-competence_gradient" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table-success_rate_explore" in v)),
+            lambda v: "sticky_table-success_rate_explore_ucb" in v)),
         ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-random_nsrts_explore" in v)),
-    ],
-    "Sticky Table Tricky Floor": [
-        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "sticky_table_tricky_floor-planning_progress_explore"
-               in v)),
-        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-task_repeat_explore" in v)),
-        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-success_rate_explore" in v)),
-        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-random_score_explore" in v)),
-        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-random_nsrts_explore" in v)),
+        ("Skill Diversity", "pink", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-skill_diversity" in v)),
+        ("MAPLE-Q", "silver", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-maple_q" in v)),
     ],
 }
 

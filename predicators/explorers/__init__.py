@@ -12,8 +12,9 @@ from predicators.explorers.bilevel_planning_explorer import \
 from predicators.ml_models import MapleQFunction
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
-from predicators.structs import NSRT, GroundAtom, NSRTSampler, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundSTRIPSOperator
+from predicators.structs import NSRT, GroundAtom, \
+    NSRTSamplerWithEpsilonIndicator, ParameterizedOption, Predicate, State, \
+    Task, Type, _GroundSTRIPSOperator
 
 __all__ = ["BaseExplorer"]
 
@@ -37,8 +38,10 @@ def create_explorer(
     ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
     competence_models: Optional[Dict[_GroundSTRIPSOperator,
                                      SkillCompetenceModel]] = None,
-    nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
+    nsrt_to_explorer_sampler: Optional[Dict[
+        NSRT, NSRTSamplerWithEpsilonIndicator]] = None,
     seen_train_task_idxs: Optional[Set[int]] = None,
+    pursue_task_goal_first: Optional[bool] = None,
     maple_q_function: Optional[MapleQFunction] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
@@ -87,11 +90,13 @@ def create_explorer(
                 assert competence_models is not None
                 assert nsrt_to_explorer_sampler is not None
                 assert seen_train_task_idxs is not None
+                assert pursue_task_goal_first is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
                                max_steps_before_termination, nsrts,
                                ground_op_hist, competence_models,
-                               nsrt_to_explorer_sampler, seen_train_task_idxs)
+                               nsrt_to_explorer_sampler, seen_train_task_idxs,
+                               pursue_task_goal_first)
             elif name == "maple_q":
                 assert maple_q_function is not None
                 explorer = cls(initial_predicates, initial_options, types,

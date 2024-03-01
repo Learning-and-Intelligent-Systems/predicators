@@ -134,7 +134,7 @@ class State:
 
     def get_objects(self, object_type: Type) -> List[Object]:
         """Return objects of the given type in the order of __iter__()."""
-        return [o for o in self if o.type == object_type]
+        return [o for o in self if o.is_instance(object_type)]
 
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the given
@@ -753,6 +753,12 @@ class _GroundSTRIPSOperator:
         return self.parent.name
 
     @property
+    def short_str(self) -> str:
+        """Abbreviated name, not necessarily unique."""
+        obj_str = ", ".join([o.name for o in self.objects])
+        return f"{self.name}({obj_str})"
+
+    @property
     def ignore_effects(self) -> Set[Predicate]:
         """Ignore effects from the parent."""
         return self.parent.ignore_effects
@@ -939,6 +945,12 @@ class _GroundNSRT:
     def name(self) -> str:
         """Name of this ground NSRT."""
         return self.parent.name
+
+    @property
+    def short_str(self) -> str:
+        """Abbreviated name, not necessarily unique."""
+        obj_str = ", ".join([o.name for o in self.objects])
+        return f"{self.name}({obj_str})"
 
     @property
     def ignore_effects(self) -> Set[Predicate]:
@@ -1798,6 +1810,12 @@ EntToEntSub = Dict[_TypedEntity, _TypedEntity]
 Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
     [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
+# NSRT Sampler that also returns a boolean indicating whether the sample was
+# generated randomly (for exploration) or from the current learned
+# distribution.
+NSRTSamplerWithEpsilonIndicator = Callable[
+    [State, Set[GroundAtom], np.random.Generator, Sequence[Object]],
+    Tuple[Array, bool]]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
                              _Atom)

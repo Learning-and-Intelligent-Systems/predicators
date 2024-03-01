@@ -53,9 +53,9 @@ def test_default_option_model():
 
     class _MockOracleOptionModel(_OracleOptionModel):
 
-        def __init__(self, env) -> None:  # pylint: disable=super-init-not-called
+        def __init__(self, simulator) -> None:  # pylint: disable=super-init-not-called
             self._name_to_parameterized_option = {"Pick": parameterized_option}
-            self._simulator = env.simulate
+            self._simulator = simulator
 
     # Mock option.
     parameterized_option = ParameterizedOption("Pick", [], params_space,
@@ -76,7 +76,7 @@ def test_default_option_model():
         obj4: [8, 9, 10],
         obj9: [11, 12, 13]
     })
-    model = _MockOracleOptionModel(env)
+    model = _MockOracleOptionModel(env.simulate)
     next_state, num_act = model.get_next_state_and_num_actions(state, option1)
     assert num_act == 5
     # Test that the option's memory has not been updated.
@@ -143,15 +143,15 @@ def test_default_option_model():
 
     class _MockOracleOptionModel(_OracleOptionModel):
 
-        def __init__(self, env) -> None:  # pylint: disable=super-init-not-called
+        def __init__(self, simulator) -> None:  # pylint: disable=super-init-not-called
             self._name_to_parameterized_option = {
                 "InfiniteLearnedOption": infinite_param_opt
             }
-            self._simulator = env.simulate
+            self._simulator = simulator
 
     infinite_option = infinite_param_opt.ground([], params1)
     env = _NoopMockEnv()
-    model = _MockOracleOptionModel(env)
+    model = _MockOracleOptionModel(env.simulate)
     next_state, num_act = model.get_next_state_and_num_actions(
         state, infinite_option)
     assert next_state.allclose(state)
@@ -163,7 +163,7 @@ def test_default_option_model():
         "max_num_steps_option_rollout": 5,
     })
 
-    model = _MockOracleOptionModel(env)
+    model = _MockOracleOptionModel(env.simulate)
     _, num_act = model.get_next_state_and_num_actions(state, infinite_option)
     assert num_act == 5
 

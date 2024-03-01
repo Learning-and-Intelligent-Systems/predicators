@@ -8,7 +8,7 @@ from predicators import utils
 from predicators.envs.sokoban import SokobanEnv
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.structs import EnvironmentTask, GroundAtom, Object, \
-    Observation, State, Task
+    Observation, State, Task, Video
 
 # Each observation is a tuple of four 2D boolean masks (numpy arrays).
 # The order is: free, goals, boxes, player.
@@ -95,3 +95,7 @@ class SokobanPerceiver(BasePerceiver):
 
         state = utils.create_state_from_dict(state_dict)
         return state
+
+    def render_mental_images(self, observation: Observation,
+                             env_task: EnvironmentTask) -> Video:
+        raise NotImplementedError("Mental images not implemented for sokoban")

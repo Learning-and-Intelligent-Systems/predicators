@@ -31,7 +31,8 @@ class BilevelPlanningApproach(BaseApproach):
                  train_tasks: List[Task],
                  task_planning_heuristic: str = "default",
                  max_skeletons_optimized: int = -1,
-                 bilevel_plan_without_sim: Optional[bool] = None) -> None:
+                 bilevel_plan_without_sim: Optional[bool] = None,
+                 option_model: Optional[_OptionModelBase] = None) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         if task_planning_heuristic == "default":
@@ -43,7 +44,9 @@ class BilevelPlanningApproach(BaseApproach):
         self._task_planning_heuristic = task_planning_heuristic
         self._max_skeletons_optimized = max_skeletons_optimized
         self._plan_without_sim = bilevel_plan_without_sim
-        self._option_model = create_option_model(CFG.option_model_name)
+        if option_model is None:
+            option_model = create_option_model(CFG.option_model_name)
+        self._option_model = option_model
         self._num_calls = 0
         self._last_plan: List[_Option] = []  # used if plan WITH sim
         self._last_nsrt_plan: List[_GroundNSRT] = []  # plan WITHOUT sim
@@ -131,6 +134,7 @@ class BilevelPlanningApproach(BaseApproach):
                 timeout,
                 seed,
                 task_planning_heuristic=self._task_planning_heuristic,
+                max_horizon=float(CFG.horizon),
                 **kwargs)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)

@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from gym.spaces import Box
 
 import predicators.envs.pddl_env
 from predicators import utils
@@ -27,7 +28,7 @@ from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
 from predicators.envs.playroom import PlayroomEnv, PlayroomSimpleEnv
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
-    RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
+    RepeatedNextToEnv, RepeatedNextToSimple, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.sandwich import SandwichEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
@@ -58,6 +59,7 @@ ENV_NAME_AND_CLS = [
     ("playroom", PlayroomEnv), ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
+    ("repeated_nextto_simple", RepeatedNextToSimple),
     ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
     ("screws", ScrewsEnv),
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
@@ -718,3 +720,92 @@ def test_playroom_get_gt_nsrts():
         state, train_task.goal, rng)
     movedoortodoor_action = movedoortodoor_option.policy(state)
     assert env.action_space.contains(movedoortodoor_action.arr)
+
+
+def test_external_oracle_approach():
+    """Test that it's possible for an external user of predicators to define
+    their own environment and NSRTs and use the oracle approach."""
+
+    utils.reset_config({"num_train_tasks": 2, "num_test_tasks": 2})
+
+    class _ExternalBlocksEnv(BlocksEnv):
+        """To make sure that the test doesn't pass without using the new NSRTs,
+        reverse the action space."""
+
+        @classmethod
+        def get_name(cls) -> str:
+            return "external_blocks"
+
+        @property
+        def action_space(self) -> Box:
+            original_space = super().action_space
+            return Box(original_space.low[::-1],
+                       original_space.high[::-1],
+                       dtype=np.float32)
+
+        def simulate(self, state, action):
+            # Need to rewrite these lines here to avoid assertion in simulate
+            # that uses action_space.
+            x, y, z, fingers = action.arr[::-1]
+            # Infer which transition function to follow
+            if fingers < 0.5:
+                return self._transition_pick(state, x, y, z)
+            if z < self.table_height + self._block_size:
+                return self._transition_putontable(state, x, y, z)
+            return self._transition_stack(state, x, y, z)
+
+    env = _ExternalBlocksEnv()
+    assert env.get_name() == "external_blocks"
+
+    # Create external options by modifying blocks options.
+    options = set()
+    old_option_to_new_option = {}
+
+    def _reverse_policy(original_policy):
+
+        def new_policy(state, memory, objects, params):
+            action = original_policy(state, memory, objects, params)
+            return Action(action.arr[::-1])
+
+        return new_policy
+
+    original_options = get_gt_options("blocks")
+    for option in original_options:
+        new_policy = _reverse_policy(option.policy)
+        new_option = ParameterizedOption(f"external_{option.name}",
+                                         option.types, option.params_space,
+                                         new_policy, option.initiable,
+                                         option.terminal)
+        options.add(new_option)
+        old_option_to_new_option[option] = new_option
+
+    # Create the option model.
+    option_model = _OracleOptionModel(options, env.simulate)
+
+    # Create external NSRTs by just modifying blocks NSRTs.
+    nsrts = set()
+    for nsrt in get_gt_nsrts("blocks", env.predicates, original_options):
+        nsrt_option = old_option_to_new_option[nsrt.option]
+        sampler = nsrt._sampler  # pylint: disable=protected-access
+        new_nsrt = NSRT(f"external_{nsrt.name}", nsrt.parameters,
+                        nsrt.preconditions, nsrt.add_effects,
+                        nsrt.delete_effects, nsrt.ignore_effects, nsrt_option,
+                        nsrt.option_vars, sampler)
+        nsrts.add(new_nsrt)
+
+    # Create oracle approach.
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = OracleApproach(env.predicates,
+                              options,
+                              env.types,
+                              env.action_space,
+                              train_tasks,
+                              nsrts=nsrts,
+                              option_model=option_model)
+
+    # Get a policy for the first task.
+    task = train_tasks[0]
+    policy = approach.solve(task, timeout=500)
+
+    # Verify the policy.
+    assert _policy_solves_task(policy, task, env.simulate)

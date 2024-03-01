@@ -58,13 +58,13 @@ class BaseExplorer(abc.ABC):
             if termination_fn(state):
                 logging.info("[Base Explorer] terminating due to term fn")
                 return True
-            if remaining_steps <= 0:
-                logging.info("[Base Explorer] terminating due to max steps")
-                return True
             steps_taken = self._max_steps_before_termination - remaining_steps
             actual_remaining_steps = min(
                 remaining_steps,
                 CFG.max_num_steps_interaction_request - steps_taken)
+            if actual_remaining_steps <= 0:
+                logging.info("[Base Explorer] terminating due to max steps")
+                return True
             logging.info(
                 "[Base Explorer] not yet terminating (remaining steps: "
                 f"{actual_remaining_steps})")

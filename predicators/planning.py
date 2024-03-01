@@ -1046,7 +1046,7 @@ def _update_sas_file_with_costs(
 def fd_plan_from_sas_file(
     sas_file: str, timeout_cmd: str, timeout: float, exec_str: str,
     alias_flag: str, start_time: float, objects: List[Object],
-    init_atoms: Set[GroundAtom], nsrts: Set[NSRT], max_horizon: int
+    init_atoms: Set[GroundAtom], nsrts: Set[NSRT], max_horizon: float
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]],
            Metrics]:  # pragma: no cover
     """Given a SAS file, runs search on it to generate a plan."""
@@ -1060,7 +1060,8 @@ def fd_plan_from_sas_file(
     metrics: Metrics = defaultdict(float)
     num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
     num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-    assert len(num_nodes_expanded) == 1
+    if len(num_nodes_expanded) != 1:
+        raise PlanningFailure(f"Plan not found with FD! Error: {output}")
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
     metrics["num_nodes_created"] = float(num_nodes_created[0])
@@ -1137,7 +1138,7 @@ def _sesame_plan_with_fast_downward(
     while True:
         skeleton, atoms_sequence, metrics = fd_plan_from_sas_file(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
-            objects, init_atoms, nsrts, max_horizon)
+            objects, init_atoms, nsrts, float(max_horizon))
         # Run low-level search on this skeleton.
         low_level_timeout = timeout - (time.perf_counter() - start_time)
         try:
@@ -1174,9 +1175,13 @@ def run_task_plan_once(
         ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
         default_cost: float = 1.0,
         cost_precision: int = 3,
+        max_horizon: float = np.inf,
         **kwargs: Any
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
-    """Get a single abstract plan for a task."""
+    """Get a single abstract plan for a task.
+
+    The sequence of ground atom sets returned represent NECESSARY atoms.
+    """
 
     init_atoms = utils.abstract(task.init, preds)
     goal = task.goal
@@ -1204,6 +1209,9 @@ def run_task_plan_once(
                       max_skeletons_optimized=1,
                       use_visited_state_set=True,
                       **kwargs))
+        if len(plan) > max_horizon:
+            raise PlanningFailure(
+                "Skeleton produced by A-star exceeds horizon!")
     elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
         fd_exec_path = os.environ["FD_EXEC_PATH"]
         exec_str = os.path.join(fd_exec_path, "fast-downward.py")
@@ -1243,12 +1251,15 @@ def run_task_plan_once(
 
         plan, atoms_seq, metrics = fd_plan_from_sas_file(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
-            list(objects), init_atoms, nsrts, CFG.horizon)
+            list(objects), init_atoms, nsrts, float(max_horizon))
     else:
         raise ValueError("Unrecognized sesame_task_planner: "
                          f"{CFG.sesame_task_planner}")
 
-    return plan, atoms_seq, metrics
+    necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+        plan, atoms_seq, goal)
+
+    return plan, necessary_atoms_seq, metrics
 
 
 class PlanningFailure(utils.ExceptionWithInfo):

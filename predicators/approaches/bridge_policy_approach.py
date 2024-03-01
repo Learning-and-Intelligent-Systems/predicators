@@ -51,8 +51,9 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
-from predicators.structs import Action, BridgeDataset, DefaultState, \
+from predicators.structs import NSRT, Action, BridgeDataset, DefaultState, \
     DemonstrationQuery, DemonstrationResponse, InteractionRequest, \
     InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
     Type, _Option
@@ -69,10 +70,18 @@ class BridgePolicyApproach(OracleApproach):
                  action_space: Box,
                  train_tasks: List[Task],
                  task_planning_heuristic: str = "default",
-                 max_skeletons_optimized: int = -1) -> None:
-        super().__init__(initial_predicates, initial_options, types,
-                         action_space, train_tasks, task_planning_heuristic,
-                         max_skeletons_optimized)
+                 max_skeletons_optimized: int = -1,
+                 nsrts: Optional[Set[NSRT]] = None,
+                 option_model: Optional[_OptionModelBase] = None) -> None:
+        super().__init__(initial_predicates,
+                         initial_options,
+                         types,
+                         action_space,
+                         train_tasks,
+                         task_planning_heuristic,
+                         max_skeletons_optimized,
+                         nsrts=nsrts,
+                         option_model=option_model)
         predicates = self._get_current_predicates()
         options = initial_options
         nsrts = self._get_current_nsrts()

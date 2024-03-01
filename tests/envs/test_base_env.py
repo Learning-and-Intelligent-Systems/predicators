@@ -5,11 +5,11 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
-from test_oracle_approach import ENV_NAME_AND_CLS
 
 import predicators.envs
 from predicators import utils
 from predicators.envs import BaseEnv, create_new_env, get_or_create_env
+from tests.approaches.test_oracle_approach import ENV_NAME_AND_CLS
 
 _MODULE_PATH = predicators.envs.__name__
 

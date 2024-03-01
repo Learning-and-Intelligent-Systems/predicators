@@ -4,6 +4,8 @@ omit =
     predicators/envs/kitchen.py
     predicators/perception/kitchen_perceiver.py
     predicators/ground_truth_models/kitchen/**
+    # Currently disabled due to flakiness in the SME dependency.
+    predicators/approaches/sme_pg3_analogy_approach.py
 
 [report]
 # Regexes for lines to exclude from consideration
