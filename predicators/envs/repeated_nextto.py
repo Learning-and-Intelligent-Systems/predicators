@@ -236,3 +236,54 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
             data[self._robot] = np.array([robot_x])
             tasks.append(EnvironmentTask(State(data), goals[i % len(goals)]))
         return tasks
+
+
+class RepeatedNextToSimple(RepeatedNextToEnv):
+    """A variation on RepeatedNextToEnv such that ignore effects are not really
+    needed (since more than one `NextTo` will not change value at a time)."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto_simple"
+
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
+        return self._get_tasks_simple(num=CFG.num_train_tasks,
+                                      rng=self._train_rng,
+                                      are_train_tasks=True)
+
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        return self._get_tasks_simple(num=CFG.num_train_tasks,
+                                      rng=self._train_rng,
+                                      are_train_tasks=False)
+
+    def _get_tasks_simple(self, num: int, rng: np.random.Generator,
+                          are_train_tasks: bool) -> List[EnvironmentTask]:
+        del are_train_tasks  # unused.
+        assert self.env_ub - self.env_lb > self._nextto_thresh
+        tasks = []
+        dots = []
+        assert CFG.repeated_nextto_num_dots >= 2
+        for i in range(CFG.repeated_nextto_num_dots):
+            dots.append(Object(f"dot{i}", self._dot_type))
+        random_dots_idx = rng.choice(CFG.repeated_nextto_num_dots, 2)
+        goal1 = {
+            GroundAtom(self._Grasped, [self._robot, dots[random_dots_idx[0]]])
+        }
+        goal2 = {
+            GroundAtom(self._Grasped, [self._robot, dots[random_dots_idx[0]]]),
+            GroundAtom(self._Grasped, [self._robot, dots[random_dots_idx[1]]]),
+        }
+        goals = [goal1, goal2]
+        # NOTE: 2.0 would be the exactly correct multiplier. 2.1 is just to
+        # give some extra spacing.
+        assert (self.env_ub - self.env_lb) > (
+            self._nextto_thresh * CFG.repeated_nextto_num_dots * 2.1)
+        for i in range(num):
+            data: Dict[Object, Array] = {}
+            for d_num, dot in enumerate(dots):
+                dot_x = d_num * self._nextto_thresh * 2.1
+                data[dot] = np.array([dot_x, 0.0])
+            robot_x = self.env_lb
+            data[self._robot] = np.array([robot_x])
+            tasks.append(EnvironmentTask(State(data), goals[i % len(goals)]))
+        return tasks
