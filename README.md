@@ -10,6 +10,7 @@ This codebase implements a framework for *bilevel planning with learned neuro-sy
 4. [Predicate Invention for Bilevel Planning](https://arxiv.org/abs/2203.09634). Silver*, Chitnis*, Kumar, McClinton, Lozano-Perez, Kaelbling, Tenenbaum. AAAI 2023.
 5. [Embodied Active Learning of Relational State Abstractions for Bilevel Planning](https://arxiv.org/abs/2303.04912). Li, Silver. CoLLAs 2023.
 6. [Learning Efficient Abstract Planning Models that Choose What to Predict](https://arxiv.org/abs/2208.07737). Kumar*, McClinton*, Chitnis, Silver, Lozano-Perez, Kaelbling. CoRL 2023.
+7. [Practice Makes Perfect: Planning to Learn Skill Parameter Policies](https://arxiv.org/abs/2402.15025). Kumar*, Silver*, McClinton, Zhao, Proulx, Lozano-Perez, Kaelbling, Barry. Under Review 2024.
 
 The codebase is still under active development. **Please contact <tslvr@mit.edu> or <njk@mit.edu> before attempting to use it for your own research.**
 
