@@ -28,7 +28,7 @@ from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
 from predicators.envs.playroom import PlayroomEnv, PlayroomSimpleEnv
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
-    RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
+    RepeatedNextToEnv, RepeatedNextToSimple, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.sandwich import SandwichEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
@@ -66,6 +66,7 @@ ENV_NAME_AND_CLS = [
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
+    ("repeated_nextto_simple", RepeatedNextToSimple),
     ("satellites", SatellitesEnv),
     ("satellites_simple", SatellitesSimpleEnv),
     ("screws", ScrewsEnv),

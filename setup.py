@@ -9,8 +9,8 @@ setup(
     packages=find_packages(include=["predicators", "predicators.*"]),
     install_requires=[
         "numpy==1.23.5",
-        "pytest==7.2.1",
-        "mypy",
+        "pytest==7.1.3",
+        "mypy==1.8.0",
         "gym==0.26.2",
         "matplotlib==3.6.2",
         "imageio==2.22.2",
