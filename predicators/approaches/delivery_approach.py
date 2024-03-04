@@ -31,16 +31,19 @@ class DeliverySpecificApproach(BaseApproach):
             # Extract the predicators and options from the state.
             options = {o.name: o for o in self._initial_options}
             predicates = {p.name: p for p in self._initial_predicates}
+
             types = {t.name: t for t in self._types}
             state = cast(_PDDLEnvState, state)
             ground_atoms = state.get_ground_atoms()
             locations = state.get_objects(types["loc"])
             papers = state.get_objects(types["paper"])
+    
             at = predicates["at"]
             wants_paper = predicates["wantspaper"]
             is_home_base = predicates["ishomebase"]
             unpacked = predicates["unpacked"]
             carrying = predicates["carrying"]
+
             for loc in locations:
                 if GroundAtom(at, [loc]) in ground_atoms:
                     if GroundAtom(is_home_base, [loc]) in ground_atoms:
@@ -54,6 +57,6 @@ class DeliverySpecificApproach(BaseApproach):
                                     object_args, params)
                                 assert ground_option.initiable(state)
                                 return ground_option.policy(state)
-            raise NotImplementedError("Finish me!")
+            # raise NotImplementedError("Finish me!")
 
         return _policy

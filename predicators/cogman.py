@@ -11,7 +11,9 @@ The name "CogMan" is due to Leslie Kaelbling.
 import logging
 from typing import Callable, List, Optional, Sequence, Set
 
+
 from predicators.approaches import BaseApproach
+from predicators.approaches import delivery_approach
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
 from predicators.settings import CFG
@@ -23,7 +25,7 @@ from predicators.structs import Action, Dataset, EnvironmentTask, GroundAtom, \
 class CogMan:
     """Cognitive manager."""
 
-    def __init__(self, approach: BaseApproach, perceiver: BasePerceiver,
+    def __init__(self, approach: delivery_approach, perceiver: BasePerceiver,
                  execution_monitor: BaseExecutionMonitor) -> None:
         self._approach = approach
         self._perceiver = perceiver
@@ -49,6 +51,7 @@ class CogMan:
 
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
+        # print("observation", observation)
         state = self._perceiver.step(observation)
         # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
@@ -69,6 +72,7 @@ class CogMan:
                 self._approach.get_execution_monitoring_info())
             assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
+        # print (self._current_policy)
         act = self._current_policy(state)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())

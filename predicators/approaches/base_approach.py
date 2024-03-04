@@ -41,7 +41,9 @@ class BaseApproach(abc.ABC):
     @abc.abstractmethod
     def is_learning_based(self) -> bool:
         """Does the approach learn from the training tasks?"""
-        raise NotImplementedError("Override me!")
+        #i think should return false for now bc not using learning
+        return False
+        # raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
@@ -50,6 +52,8 @@ class BaseApproach(abc.ABC):
 
         A policy maps states to low-level actions.
         """
+        #IMPLEMENT THIS SOMEHOW
+
         raise NotImplementedError("Override me!")
 
     def get_execution_monitoring_info(self) -> List[Any]:
