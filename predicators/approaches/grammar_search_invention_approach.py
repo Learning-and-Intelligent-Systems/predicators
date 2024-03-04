@@ -9,8 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
-from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Sequence, \
-    Set, Tuple
+from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -764,10 +764,34 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             logging.info(f"{predicate} {cost}")
         # Apply the candidate predicates to the data.
         logging.info("Applying predicates to data...")
-        atom_dataset = utils.create_ground_atom_dataset(
-            dataset.trajectories,
-            set(candidates) | self._initial_predicates)
+
+        # Get the template str for the dataset filename for saving
+        # a ground atom dataset.
+        dataset_fname, _ = utils.create_dataset_filename_str(True)
+        # Add a bunch of things relevant to grammar search to the
+        # dataset filename string.
+        dataset_fname = dataset_fname[:-5] + \
+            f"_{CFG.grammar_search_max_predicates}" + \
+            f"_{CFG.grammar_search_grammar_includes_givens}" + \
+            f"_{CFG.grammar_search_grammar_includes_foralls}" + \
+            f"_{CFG.grammar_search_grammar_use_diff_features}" + \
+            f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
+            dataset_fname[-5:]
+
+        # Load pre-saved data if the CFG.load_atoms flag is set.
+        atom_dataset: Optional[List[GroundAtomTrajectory]] = None
+        if CFG.load_atoms:
+            atom_dataset = utils.load_ground_atom_dataset(
+                dataset_fname, dataset.trajectories)
+        else:
+            atom_dataset = utils.create_ground_atom_dataset(
+                dataset.trajectories,
+                set(candidates) | self._initial_predicates)
+            # Save this atoms dataset if the save_atoms flag is set.
+            if CFG.save_atoms:
+                utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
         logging.info("Done.")
+
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
