@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
+import dill as pkl
 import imageio
 import matplotlib
 import matplotlib.pyplot as plt
@@ -2569,6 +2570,59 @@ def prune_ground_atom_dataset(
                       for sa in atoms]
         new_ground_atom_dataset.append((traj, kept_atoms))
     return new_ground_atom_dataset
+
+
+def load_ground_atom_dataset(
+        dataset_fname: str,
+        trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
+    """Load a previously-saved ground atom dataset.
+
+    Note importantly that we only save atoms themselves, we don't save
+    the low-level trajectory information that's necessary to make
+    GroundAtomTrajectories given series of ground atoms (that info can
+    be saved separately, in case one wants to just load trajectories and
+    not also load ground atoms). Thus, this function needs to take these
+    trajectories as input.
+    """
+    os.makedirs(CFG.data_dir, exist_ok=True)
+    # Check that the dataset file was previously saved.
+    ground_atom_dataset_atoms: Optional[List[List[Set[GroundAtom]]]] = []
+    if os.path.exists(dataset_fname):
+        # Load the ground atoms dataset.
+        with open(dataset_fname, "rb") as f:
+            ground_atom_dataset_atoms = pkl.load(f)
+        assert ground_atom_dataset_atoms is not None
+        assert len(trajectories) == len(ground_atom_dataset_atoms)
+        logging.info("\n\nLOADED GROUND ATOM DATASET")
+
+        # The saved ground atom dataset consists only of sequences
+        # of sets of GroundAtoms, we need to recombine this with
+        # the LowLevelTrajectories to create a GroundAtomTrajectory.
+        ground_atom_dataset = []
+        for i, traj in enumerate(trajectories):
+            ground_atom_seq = ground_atom_dataset_atoms[i]
+            ground_atom_dataset.append(
+                (traj, [set(atoms) for atoms in ground_atom_seq]))
+    else:
+        raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
+    return ground_atom_dataset
+
+
+def save_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
+                             dataset_fname: str) -> None:
+    """Saves a given ground atom dataset so it can be loaded in the future."""
+    # Save ground atoms dataset to file. Note that a
+    # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
+    # list of sets of GroundAtoms, so we only save the list of
+    # GroundAtoms (the LowLevelTrajectories are saved separately).
+    ground_atom_dataset_to_pkl = []
+    for gt_traj in ground_atom_dataset:
+        trajectory = []
+        for ground_atom_set in gt_traj[1]:
+            trajectory.append(ground_atom_set)
+        ground_atom_dataset_to_pkl.append(trajectory)
+    with open(dataset_fname, "wb") as f:
+        pkl.dump(ground_atom_dataset_to_pkl, f)
 
 
 def extract_preds_and_types(

@@ -80,7 +80,7 @@ def test_predicate_grammar(segmenter):
     utils.reset_config({
         "grammar_search_grammar_use_diff_features": True,
         "segmenter": segmenter,
-        "env": "cover"
+        "env": "cover",
     })
     forall_grammar = _create_grammar(dataset, env.predicates)
     assert len(forall_grammar.generate(max_num=100)) == 55
