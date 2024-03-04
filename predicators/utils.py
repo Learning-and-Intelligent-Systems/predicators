@@ -2575,7 +2575,15 @@ def prune_ground_atom_dataset(
 def load_ground_atom_dataset(
         dataset_fname: str,
         trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
-    """Load a previously-saved ground atom dataset."""
+    """Load a previously-saved ground atom dataset.
+
+    Note importantly that we only save atoms themselves, we don't save
+    the low-level trajectory information that's necessary to make
+    GroundAtomTrajectories given series of ground atoms (that info can
+    be saved separately, in case one wants to just load trajectories and
+    not also load ground atoms). Thus, this function needs to take these
+    trajectories as input.
+    """
     os.makedirs(CFG.data_dir, exist_ok=True)
     # Check that the dataset file was previously saved.
     ground_atom_dataset_atoms: Optional[List[List[Set[GroundAtom]]]] = []
