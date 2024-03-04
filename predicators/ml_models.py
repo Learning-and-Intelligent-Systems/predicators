@@ -1754,7 +1754,6 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
         return y_outs
 
     def predict_sample(self, x_cond: Array, rng: np.random.Generator) -> Array:
-        logging.info("Called predict_sample")
         self.eval()
         if x_cond.round(decimals=4).data.tobytes() not in self._cache:
             x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1

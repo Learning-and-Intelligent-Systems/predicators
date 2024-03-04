@@ -21,6 +21,8 @@ __all__ = ['Statue']
 
 @dataclass
 class SimulatorState:
+    world_width: int
+    world_height: int
     vertical_doors: List[List[Object]]
     horizontal_doors: List[List[Object]]
     door_height_class: Dict[Object, bool] # True if Large (used for drawing)
@@ -131,7 +133,7 @@ class Statue(BaseEnv):
         simulator_state = cls._get_simulator_state(state)
         mb_statue = cls._get_held_statue(state)
 
-        # Check if the robot is moving by one space only, the door and the direction
+        # Check if the robot is not moving out of bounds
         robot_x, robot_y = state.get(cls._robot, "x"), state.get(cls._robot, "y")
 
         room_x = int(robot_x / cls.room_size)
@@ -139,21 +141,25 @@ class Statue(BaseEnv):
         new_room_x = int(new_x / cls.room_size)
         new_room_y = int(new_y / cls.room_size)
 
+        if new_room_x < 0 or new_room_y < 0 or new_room_x >= simulator_state.world_width or \
+                new_room_y >= simulator_state.world_height:
+            return next_state
+
+        # Check if the robot is moving by one space only, the door and the direction
         door = None
         if np.allclose(room_x, new_room_x, atol=cls.equality_margin) and \
             np.allclose(room_y, new_room_y, atol=cls.equality_margin):
             horizontal = np.abs(room_x - new_room_x) >= np.abs(room_y -new_room_y)
-            pass
         elif np.allclose(room_y, new_room_y, atol=cls.equality_margin) and \
-            0 <= np.abs(room_x - new_room_x) <= cls.room_size + cls.equality_margin:
+            0 <= np.abs(room_x - new_room_x) <= 1 + cls.equality_margin:
             if mb_statue is not None:
-                door = simulator_state.horizontal_doors[room_y][min(room_x, new_room_x)]
-            horizontal = True
+                door = simulator_state.vertical_doors[room_y][min(room_x, new_room_x)]
+            horizontal = False # Whether the statue is horizontal after the move
         elif np.allclose(room_x, new_room_x, atol=cls.equality_margin) and \
-            0 <= np.abs(room_y - new_room_y) <= cls.room_size + cls.equality_margin:
+            0 <= np.abs(room_y - new_room_y) <= 1 + cls.equality_margin:
             if mb_statue is not None:
-                door = simulator_state.vertical_doors[min(room_y, new_room_y)][room_x]
-            horizontal = False
+                door = simulator_state.horizontal_doors[min(room_y, new_room_y)][room_x]
+            horizontal = True # Whether the statue is horizontal after the move
         else:
             return next_state
 
@@ -163,6 +169,9 @@ class Statue(BaseEnv):
             door_height = state.get(door, "height")
             statue_width = state.get(mb_statue, "width")
             statue_height = state.get(mb_statue, "height")
+            statue_grasp = state.get(mb_statue, "grasp")
+            if statue_grasp < cls.statue_vertical_thresh:
+                statue_width, statue_height = statue_height, statue_width
             if door_width < statue_width or door_height < statue_height:
                 return next_state
 
@@ -173,7 +182,7 @@ class Statue(BaseEnv):
             if not horizontal:
                 statue_width, statue_depth = statue_depth, statue_width
             room_box = BoxWH(new_room_x * cls.room_size, new_room_y * cls.room_size, cls.room_size, cls.room_size)
-            statue_box = BoxWH(new_x - statue_width/2, new_y - statue_depth/2, statue_width, statue_depth)
+            statue_box = BoxWH(new_x - statue_width / 2, new_y - statue_depth / 2, statue_width, statue_depth)
             if not room_box.contains(statue_box):
                 return next_state
 
@@ -239,7 +248,7 @@ class Statue(BaseEnv):
 
     @classmethod
     def _get_held_statue(cls, state: State) -> Optional[Object]:
-        if state.get(cls._robot, "fingers") < cls.fingers_open_thresh:
+        if state.get(cls._robot, "fingers") >= cls.fingers_open_thresh:
             return None
 
         statue, = [
@@ -256,9 +265,6 @@ class Statue(BaseEnv):
                 range_world_width = self.range_train_world_width,
                 range_world_height = self.range_train_world_height,
             )
-        for task in self._train_tasks:
-            self.render_state_plt(task.init, None)
-        plt.show()
         return self._train_tasks
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
@@ -308,7 +314,7 @@ class Statue(BaseEnv):
         state: State = State({
             obj: np.zeros((obj.type.dim,))
             for obj in sum(rooms, []) + sum(vertical_doors, []) + sum(horizontal_doors, []) + [self._robot, self._statue]
-        }, SimulatorState(vertical_doors, horizontal_doors, door_height_class))
+        }, SimulatorState(world_width, world_height, vertical_doors, horizontal_doors, door_height_class))
 
         # Setting robot position
         state.set(self._robot, "x", rng.uniform(0, world_width))
@@ -393,8 +399,8 @@ class Statue(BaseEnv):
         """(x, y, grasp, move, grab_place)"""
         lower_bound = np.array([0.0, 0.0, 0.0, 0.0, -1.0])
         upper_bound = np.array([
-            max(self.range_train_world_width[1], self.range_test_world_width[1]) - 1,
-            max(self.range_train_world_height[1], self.range_test_world_height[1]) - 1,
+            max(self.range_train_world_width[1], self.range_test_world_width[1]) * self.room_size - self.equality_margin,
+            max(self.range_train_world_height[1], self.range_test_world_height[1]) * self.room_size - self.equality_margin,
             1.0, 1.0, 1.0
         ])
         return gym.spaces.Box(lower_bound, upper_bound)

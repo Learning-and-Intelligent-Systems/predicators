@@ -14,7 +14,7 @@ from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DiffusionRegressor, DistributionRegressor, \
     MLPBinaryClassifier, NeuralGaussianRegressor
 from predicators.settings import CFG
-from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
+from predicators.structs import NSRT, _GroundNSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
 
@@ -349,7 +349,8 @@ class _LearnedSampler:
         return self
 
     def __call__(self, state: State, goal: Set[GroundAtom],
-                rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+                rng: np.random.Generator, objects: Sequence[Object],
+                skeleton: Sequence[_GroundNSRT] = []) -> Array:
         """The sampler corresponding to the given models.
 
         May be used as the _sampler field in an NSRT.

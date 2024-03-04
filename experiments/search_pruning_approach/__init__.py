@@ -14,9 +14,9 @@ import torch
 from tqdm import tqdm
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple, cast
 
-# import matplotlib
-# import matplotlib.pyplot as plt
-# matplotlib.use("tkagg")
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use("tkagg")
 
 from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, FeasibilityDatapoint, NeuralFeasibilityClassifier, StaticFeasibilityClassifier
 from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_backtracking_for_data_generation, run_low_level_search
@@ -285,6 +285,8 @@ class SearchPruningApproach(NSRTLearningApproach):
         ]
 
         # Collecting negative data using learned samplers and by augmenting the positive data
+        for nsrt in self._nsrts:
+            nsrt.sampler.to(CFG.feasibility_search_device)
         preds = self._initial_predicates | {
             lifted_atom.predicate
             for nsrt in self._nsrts
@@ -378,7 +380,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         # Main data generation loop
         logging.info("Generating data with interleaved learning...")
 
-        # torch.multiprocessing.set_start_method('forkserver')
+        torch.multiprocessing.set_start_method('forkserver')
         cfg = SimpleNamespace(
             sesame_max_samples_per_step = CFG.sesame_max_samples_per_step,
             sesame_propagate_failures = CFG.sesame_propagate_failures,
@@ -399,8 +401,12 @@ class SearchPruningApproach(NSRTLearningApproach):
             if isinstance(self._feasibility_classifier, torch.nn.Module) and CFG.feasibility_search_device == 'cuda':
                 feasibility_classifiers = [self._feasibility_classifier] + \
                     [deepcopy(self._feasibility_classifier) for _ in range(1, torch.cuda.device_count())]
-                for id, feasibility_classifier in enumerate(feasibility_classifiers):
-                    feasibility_classifier.to(f'cuda:{id}')
+                print("torch cuda device count", torch.cuda.device_count())
+                if len(feasibility_classifiers) == 1:
+                    feasibility_classifier.to('cuda')
+                else:
+                    for id, feasibility_classifier in enumerate(feasibility_classifiers):
+                        feasibility_classifier.to(f'cuda:{id}')
             else:
                 feasibility_classifiers = [self._feasibility_classifier]
                 if isinstance(self._feasibility_classifier, torch.nn.Module):
@@ -476,14 +482,13 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         # Running backtracking
         def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
-            if current_depth <= len(skeleton) - suffix_length:
-                logging.info("Search called on the highest depth")
+            if current_depth < len(skeleton) - suffix_length:
+                logging.info(f"Search called on the highest depth {current_depth}")
                 return tree.num_tries >= CFG.sesame_max_samples_per_step or \
                     sum(1 for _ in filter(lambda e:e[1] is not None, tree.failed_tries)) and tree.is_successful
             if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful:
                 logging.info(f"Finishing search on depth {current_depth}, {tree.num_tries} ties, {CFG.sesame_max_samples_per_step} max samples")
             return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful
-
         backtracking, _ = run_backtracking_for_data_generation(
             previous_states = states[:-suffix_length - 1],
             goal = atoms_sequence[-1],
