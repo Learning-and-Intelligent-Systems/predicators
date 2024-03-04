@@ -1650,34 +1650,34 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ####
             ####
 
-            # ###
-            # # Stuff from oracle learning to test if the stuff is working.
-            # ###
-            # assert CFG.offline_data_method == "demo+gt_operators"
-            # assert dataset.annotations is not None and len(
-            #     dataset.annotations) == len(dataset.trajectories)
-            # assert CFG.segmenter == "option_changes"
-            # segmented_trajs = [
-            #     segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in atom_dataset
-            # ]
-            # assert len(segmented_trajs) == len(dataset.annotations)
-            # # First, get the set of all ground truth operator names.
-            # all_gt_op_names = set(ground_nsrt.parent.name
-            #                       for anno_list in dataset.annotations
-            #                       for ground_nsrt in anno_list)
-            # # import pdb; pdb.set_trace()
-            # # Next, make a dictionary mapping operator name to segments
-            # # where that operator was used.
-            # gt_op_to_segments: Dict[str, List[Segment]] = {
-            #     op_name: []
-            #     for op_name in all_gt_op_names
-            # }
-            # for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-            #     assert len(seg_list) == len(op_list)
-            #     for ground_nsrt, segment in zip(op_list, seg_list):
-            #         gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            # final_clusters = list(gt_op_to_segments.values())
-            # ###
+            ###
+            # Stuff from oracle learning to test if the stuff is working.
+            ###
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in atom_dataset
+            ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_op_names = set(ground_nsrt.parent.name
+                                  for anno_list in dataset.annotations
+                                  for ground_nsrt in anno_list)
+            # import pdb; pdb.set_trace()
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_op_names
+            }
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+            final_clusters = list(gt_op_to_segments.values())
+            ###
 
 
             ####
@@ -1751,6 +1751,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     print(a)
                 print()
                 all_add_effects |= add_effects
+
+                # if "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]" in [str(p) for p in add_effects]:
+                #     import pdb; pdb.set_trace()
             # import pdb; pdb.set_trace()
 
                 #
@@ -1759,6 +1762,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # for a in add_effects:
                 #     print(a)
                 #
+
+            # import pdb; pdb.set_trace()
 
             predicates_to_keep = all_add_effects
 
@@ -1792,6 +1797,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         #         and
                         #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
                             keep_pred = False
+                            # if str(pred) == "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]":
+                            #     import pdb; pdb.set_trace()
                             print("INCONSISTENT: ", pred.name)
 
                             inconsistent_preds.add(pred)
@@ -1919,7 +1926,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     print(p)
                 print()
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             # import pdb; pdb.set_trace()
             logging.info("Performing backchaining to decide operator definitions.")
@@ -2027,7 +2034,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # print_demo2(segmented_trajs[8][0:3], "demo8_part1.txt")
             # print_demo2(segmented_trajs[8][3:], "demo8_part12.txt")
-            # print_demo2(segmented_trajs[2], "demo2_tools.txt")
+            # print_demo2(segmented_trajs[0], "demo0_blocks.txt")
+            # import pdb; pdb.set_trace()
 
             # for i, t in enumerate(temp):
             #     for o in t:
@@ -2141,7 +2149,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         to_add.append(ground_atom) # for debugging
                         potential_ops[name]["add"].add(ground_atom.predicate)
 
-            def process_dels(potential_ops, remaining_story):
+            def process_dels(potential_ops, potential_ops2, remaining_story):
                 curr_entry = remaining_story[0]
                 name = curr_entry[0]
                 to_del = []
@@ -2153,6 +2161,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             to_del.append(str(ground_atom.predicate)) # for debugging
                             potential_ops[name]["del"].add(ground_atom.predicate)
                             potential_ops[entry[0]]["add"].add(ground_atom.predicate)
+                            potential_ops2[entry[0]]["add"].add(ground_atom.predicate)
 
                             # if name == "Op0-Pick" and "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]" in to_del:
                             #     print(f"to_del: {to_del}")
@@ -2169,11 +2178,19 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #         "del": set()
             #     }
 
+            all_potential_ops2 = []
             for j, traj in enumerate(segmented_trajs):
                 print(f"Segmented trajectory #{j}")
                 potential_ops = {}
                 for op_name in ddd.keys():
                     potential_ops[op_name] = {
+                        "pre": set(),
+                        "add": set(),
+                        "del": set()
+                    }
+                potential_ops2 = {}
+                for op_name in ddd.keys():
+                    potential_ops2[op_name] = {
                         "pre": set(),
                         "add": set(),
                         "del": set()
@@ -2199,10 +2216,23 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             process_adds2(potential_ops, remaining_story, self._train_tasks[j].goal)
                         else:
                             process_adds(potential_ops, remaining_story, self._train_tasks[j].goal)
-                        process_dels(potential_ops, remaining_story)
+                        process_dels(potential_ops, potential_ops2, remaining_story)
 
 
                 all_potential_ops.append(potential_ops)
+                all_potential_ops2.append(potential_ops2)
+
+            ########
+            # DEBUG
+            final_potential_ops2 = {
+                op_name: {
+                    "add": set(),
+                } for op_name in all_potential_ops2[0].keys()
+            }
+            for k, po in enumerate(all_potential_ops2):
+                for op_name in po.keys():
+                    final_potential_ops2[op_name]["add"] = final_potential_ops2[op_name]["add"].union(po[op_name]["add"])
+            ########
 
             # import pdb; pdb.set_trace()
 
@@ -2217,10 +2247,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_name: {
                     "pre": ddd[op_name][0], # take all the precondition predicates
                     "add": set(),
-                    "del": ddd[op_name][2]
+                    # "del": ddd[op_name][2]
+                    "del": set()
                 } for op_name in all_potential_ops[0].keys()
             }
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             # for op_name in final_potential_ops.keys():
             #     # get all preconditions that aren't empty
@@ -2247,7 +2278,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for op_name in po.keys():
                     final_potential_ops[op_name]["pre"] = final_potential_ops[op_name]["pre"].union(po[op_name]["pre"])
                     final_potential_ops[op_name]["add"] = final_potential_ops[op_name]["add"].union(po[op_name]["add"])
-                    final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].union(po[op_name]["del"])
+                    # final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].union(po[op_name]["del"])
                     # if len(po[op_name]["pre"]) > 0:
                     #     final_potential_ops[op_name]["pre"] = final_potential_ops[op_name]["pre"].intersection(po[op_name]["pre"])
                     # if len(po[op_name]["add"]) > 0:
@@ -2255,6 +2286,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     # if len(po[op_name]["del"]) > 0:
                     #     final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].intersection(po[op_name]["del"])
 
+            for op in final_potential_ops2.keys():
+                wtf = final_potential_ops2[op]["add"].issubset(final_potential_ops[op]["add"])
+                print(f"final_potential_ops2[{op}]['add'].issubset(final_potential_ops[{op}]['add']): {wtf}")
+                # assert final_potential_ops2[op]["add"].issubset(final_potential_ops[op]["add"])
+                # final_potential_ops2["Op0-Pick"]["add"].issubset(final_potential_ops["Op0-Pick"]["add"])
+                # final_potential_ops2["Op1-PutOnTable"]["add"].issubset(final_potential_ops["Op1-PutOnTable"]["add"])
+                # final_potential_ops2["Op2-Stack"]["add"].issubset(final_potential_ops["Op2-Stack"]["add"])
+                # final_potential_ops2["Op3-Pick"]["add"].issubset(final_potential_ops["Op3-Pick"]["add"])
+            # import pdb; pdb.set_trace()
 
             # print the operators nicely to see what we missed
             for k, v in final_potential_ops.items():
@@ -2555,28 +2595,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
             op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
 
-            # if name == "Op2-Stack":
-            #     import pdb; pdb.set_trace()
-            #     block_to_not_del = [p for p in op_preconds if p.predicate.name=="NOT-((0:block).pose_z<=[idx 0]0.461)"][0].entities[0]
-            #     new_op_preconds = set()
-            #     for p in op_preconds:
-            #         if p.predicate.name == "NOT-OnTable" and block_to_not_del not in p.entities:
-            #             continue
-            #         new_op_preconds.add(p)
-            #     op_preconds = new_op_preconds
-            #     # this is dealing with the fact that segment 0 happens to be stacking onto a block
-            #     # that's not on the table, but this isn't always true. you can be stacking onto a block that
-            #     # is on the table.
-            #     # need to fix this more generally without hardcoding it in.
-            #     # also, if the map isn't 1:1 obvious, it's not clear how exactly how to correspond
-            #     # obj_to_var in one segment versus another.
-            #     import pdb; pdb.set_trace()
-
             option_vars = [obj_to_var[o] for o in opt_objs]
             option_spec = [seg_0.get_option().parent, option_vars]
-
-            # if name == "Op2-Stack":
-            #     import pdb; pdb.set_trace()
 
             op_ignore_effects = set()
             op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
@@ -2592,11 +2612,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     if param.type not in unique_types_set:
                         unique_types.append(param.type)
                         unique_types_set.add(param.type)
-
-                # if len(params) == 3:
-                #     import pdb; pdb.set_trace()
-
-                # import pdb; pdb.set_trace()
 
                 group_params_by_type = []
                 for elem_type in unique_types:
@@ -2649,8 +2664,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
             if True:
                 print(f"DOING THIS FOR {name}")
-                if name == "Op0-Pick":
-                    import pdb; pdb.set_trace()
+                # if name == "Op0-Pick":
+                #     import pdb; pdb.set_trace()
                 op1 = ops[0]
                 op1_params = op1[0]
                 op1_objs_list = op1[1]
@@ -2860,6 +2875,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         for operator in ops_to_print:
             print_ops(operator)
+
+        
 
         from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
         score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
