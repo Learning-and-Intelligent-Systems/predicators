@@ -25,7 +25,7 @@ from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
     create_ferry_pddl_generator, create_forest_pddl_generator, \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
-    create_spanner_pddl_generator
+    create_spanner_pddl_generator, create_detypedmiconic_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, PDDLProblemGenerator, Predicate, State, \
@@ -617,6 +617,52 @@ class ProceduralTasksMiconicPDDLEnv(_MiconicPDDLEnv):
         min_num_passengers = CFG.pddl_miconic_procedural_test_min_passengers
         max_num_passengers = CFG.pddl_miconic_procedural_test_max_passengers
         return create_miconic_pddl_generator(min_num_buildings,
+                                             max_num_buildings, min_num_floors,
+                                             max_num_floors,
+                                             min_num_passengers,
+                                             max_num_passengers)
+
+class _DetypedMiconicPDDLEnv(_PDDLEnv):
+    """The detyped miconic domain."""
+
+    @classmethod
+    def get_domain_str(cls) -> str:
+        path = utils.get_env_asset_path("pddl/detypedmiconic/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksDetypedMiconicPDDLEnv(_DetypedMiconicPDDLEnv):
+    """The detyped miconic domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_detypedmiconic_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_buildings = CFG.pddl_miconic_procedural_train_min_buildings
+        max_num_buildings = CFG.pddl_miconic_procedural_train_max_buildings
+        min_num_floors = CFG.pddl_miconic_procedural_train_min_floors
+        max_num_floors = CFG.pddl_miconic_procedural_train_max_floors
+        min_num_passengers = CFG.pddl_miconic_procedural_train_min_passengers
+        max_num_passengers = CFG.pddl_miconic_procedural_train_max_passengers
+        return create_detypedmiconic_pddl_generator(min_num_buildings,
+                                             max_num_buildings, min_num_floors,
+                                             max_num_floors,
+                                             min_num_passengers,
+                                             max_num_passengers)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_buildings = CFG.pddl_miconic_procedural_test_min_buildings
+        max_num_buildings = CFG.pddl_miconic_procedural_test_max_buildings
+        min_num_floors = CFG.pddl_miconic_procedural_test_min_floors
+        max_num_floors = CFG.pddl_miconic_procedural_test_max_floors
+        min_num_passengers = CFG.pddl_miconic_procedural_test_min_passengers
+        max_num_passengers = CFG.pddl_miconic_procedural_test_max_passengers
+        return create_detypedmiconic_pddl_generator(min_num_buildings,
                                              max_num_buildings, min_num_floors,
                                              max_num_floors,
                                              min_num_passengers,
