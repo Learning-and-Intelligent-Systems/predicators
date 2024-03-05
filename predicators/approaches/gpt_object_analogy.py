@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Dict, Iterator, List, Set, Tuple
+from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 
 import smepy
 import numpy as np
@@ -71,6 +71,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
         ordered_objs = [list(dataset.trajectories[i]._states[0]) for i in range(len(dataset.trajectories))]
         self._target_env = create_new_env(CFG.env)
 
+        self._predicate_analogies = {} # Base Predicate Name -> Target Predicate
+        self.setup_basic_predicate_analogies()
         self._target_actions = []
         for i in range(len(dataset.trajectories)):
             self._target_actions.append([_action_to_ground_strips_op(a, ordered_objs[i], sorted(self._target_env._strips_operators)) for a in dataset.trajectories[i]._actions])
@@ -85,6 +87,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._base_nsrts = base_nsrts
         self._target_nsrts = target_nsrts
 
+        # self._generate_goal_predicates(base_policy)
         final_rules = []
         for rule in base_policy.rules:
             target_rule = self._generate_rules(rule)
@@ -138,13 +141,13 @@ class GPTObjectApproach(PG3AnalogyApproach):
         useful_goal_predicates = set()
         for pos_condition in rule.pos_state_preconditions:
             pos_predicate = pos_condition.predicate
-            possible_pred_names = self._get_analagous_predicate_names(pos_predicate)
+            possible_pred_names = self.get_analagous_predicates(pos_predicate, True)
             if possible_pred_names is not None:
                 pos_analagous_predicate_names = set(possible_pred_names)
                 useful_pos_predicates.update(pos_analagous_predicate_names)
         for goal_condition in rule.goal_preconditions:
             goal_predicate = goal_condition.predicate
-            goal_analagous_predicate_names = set(self._get_analagous_predicate_names(goal_predicate))
+            goal_analagous_predicate_names = set(self.get_analagous_predicates(goal_predicate, True))
             useful_goal_predicates.update(goal_analagous_predicate_names)
 
         # Getting final ranking of atoms in ground state
@@ -163,7 +166,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
             print("USEFUL POS PREDICATES", useful_pos_predicates)
             print("USEFUL GOAL PREDICATES", useful_goal_predicates)
             print("PRECONDS", ranked_atoms)
-
+        
+        """
         pos_classifications = {}
         neg_classifications = {}
         for sample_atom in sorted(self._target_states[best_task_index][best_index].simulator_state):
@@ -195,6 +199,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
             saycan_scores.append((np.exp(v) * scored_atoms[a], a))
         print("SAYCAN SCORES")
         print(sorted(saycan_scores))
+        """
         import ipdb; ipdb.set_trace();
     
     
@@ -282,7 +287,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
             
             object_distribution = {obj: 0 for obj in ground_state.data}
             for pos_cond in pos_conditions:
-                analagous_preds = self._get_analagous_predicate_names(pos_cond.predicate)
+                analagous_preds = self.get_analagous_predicates(pos_cond.predicate, True)
                 if analagous_preds == None:
                     continue
 
@@ -300,7 +305,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                             object_distribution[obj] += 1
 
             for goal_cond in goal_conditions:
-                    analagous_preds = self._get_analagous_predicate_names(goal_cond.predicate)
+                    analagous_preds = self.get_analagous_predicates(goal_cond.predicate, True)
                     if analagous_preds == None:
                         continue
 
@@ -335,9 +340,26 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 print(f"State Gini: {state_entropy}")
         return var_to_obj_distributions, state_entropy
 
-    def _get_analagous_predicate_names(self, pred):
-        # Gripper -> Ferry
 
+    def get_analagous_predicates(self, pred: Union[Predicate, str], want_name: bool = False):
+        predicate_name = None
+        if isinstance(pred, Predicate):
+            predicate_name = pred.name
+        else:
+            predicate_name =  pred
+        
+        if predicate_name not in self._predicate_analogies:
+            return None
+
+        analagous_predicates = self._predicate_analogies[predicate_name]
+        if want_name:
+            return [analagous_predicate.name for analagous_predicate in analagous_predicates]
+        else:
+            return analagous_predicates.copy()
+
+    def setup_basic_predicate_analogies(self):
+        predicate_input = {}
+        # Gripper -> Ferry
         if 'gripper' in self._base_env.get_name() and 'ferry' in self._target_env.get_name():
             predicate_input = {
                 "ball": ["car"],
@@ -372,22 +394,21 @@ class GPTObjectApproach(PG3AnalogyApproach):
         # Ferry -> Detyped Miconic
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             predicate_input = {
-                "car": ["ball"],
-                "empty-ferry": ["free"],
-                "location": ["room"],
-                "at-ferry": ["at-robby"],
-                "at": ["at"],
-                "on": ["carry"],
+                "car": ["passenger"],
+                "location": ["floor"],
+                "at-ferry": ["lift-at"],
+                "at": ["origin", "destin"],
+                "on": ["boarded"],
             }
 
-        target_env_pred_names_to_pred = {str(pred): pred for pred in self._target_env.predicates}
-        ans = []
-        if pred.name in predicate_input:
-            for name in predicate_input[pred.name]:
-                ans.append(target_env_pred_names_to_pred[name].name)
-            return ans
-        else:
-            return None
+        target_env_name_to_predicate = {}
+        for predicate in self._target_env.predicates:
+            target_env_name_to_predicate[predicate.name] = predicate
+        
+        import ipdb; ipdb.set_trace();
+        for base_name, target_names in predicate_input.items():
+            target_predicates = [target_env_name_to_predicate[target_name] for target_name in target_names]
+            self._predicate_analogies[base_name] = target_predicates
     
     def _find_objects_and_conditions(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
         # Note: state_index is the index of self._target_states that we try grounding on
