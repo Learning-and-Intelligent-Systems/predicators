@@ -87,7 +87,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._base_nsrts = base_nsrts
         self._target_nsrts = target_nsrts
 
-        # self._generate_goal_predicates(base_policy)
+        self._generate_goal_predicates(base_policy)
+        import ipdb; ipdb.set_trace();
         final_rules = []
         for rule in base_policy.rules:
             target_rule = self._generate_rules(rule)
@@ -357,6 +358,51 @@ class GPTObjectApproach(PG3AnalogyApproach):
         else:
             return analagous_predicates.copy()
 
+    def _generate_goal_predicates(self, base_policy: LiftedDecisionList):
+        base_goal_predicates = set()
+        for rule in base_policy.rules:
+            for goal_condition in rule.goal_preconditions:
+                base_goal_predicates.add(goal_condition.predicate)
+
+        target_goal_predicates = set()
+        for task in self._target_tasks:
+            for goal_condition in task.goal:
+                target_goal_predicates.add(goal_condition.predicate)
+
+        temp_classifier = lambda s, o: False
+        new_base_goal_predicates = {}
+        for base_goal_predicate in sorted(base_goal_predicates):
+            new_base_goal_predicate_name = f"WANT-{base_goal_predicate.name}"
+            new_base_goal_predicate = Predicate(new_base_goal_predicate_name, base_goal_predicate.types.copy(), temp_classifier)
+            new_base_goal_predicates[base_goal_predicate] = new_base_goal_predicate
+        
+        new_target_goal_predicates = {}
+        target_env_name_to_predicate = {}
+        for target_goal_predicate in sorted(target_goal_predicates):
+            new_target_goal_predicate_name = f"WANT-{target_goal_predicate.name}"
+            new_target_goal_predicate = Predicate(new_target_goal_predicate_name, target_goal_predicate.types.copy(), temp_classifier)
+            new_target_goal_predicates[target_goal_predicate] = new_target_goal_predicate
+            target_env_name_to_predicate[new_target_goal_predicate_name] = new_target_goal_predicate
+        
+        for predicate in self._target_env.predicates:
+            target_env_name_to_predicate[predicate.name] = predicate
+        
+        # Gripper -> Ferry
+        if 'gripper' in self._base_env.get_name() and 'ferry' in self._target_env.get_name():
+            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['WANT-at']]
+
+        # Ferry -> Gripper
+        if 'ferry' in self._base_env.get_name() and 'gripper' in self._target_env.get_name():
+            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['WANT-at']]
+
+        # Gripper -> Detyped Miconic
+        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin']]
+
+        # Ferry -> Detyped Miconic
+        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin']]
+
     def setup_basic_predicate_analogies(self):
         predicate_input = {}
         # Gripper -> Ferry
@@ -405,7 +451,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
         for predicate in self._target_env.predicates:
             target_env_name_to_predicate[predicate.name] = predicate
         
-        import ipdb; ipdb.set_trace();
         for base_name, target_names in predicate_input.items():
             target_predicates = [target_env_name_to_predicate[target_name] for target_name in target_names]
             self._predicate_analogies[base_name] = target_predicates
