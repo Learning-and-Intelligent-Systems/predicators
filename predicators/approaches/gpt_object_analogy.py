@@ -46,8 +46,13 @@ from predicators.datasets import create_dataset
 from predicators.ground_truth_models import get_gt_options
 
 from predicators import utils
+from predicators.llm_interface import OpenAILLM
+from openai import OpenAI
+from predicators.approaches.prompt_gen import get_prompt
+import os
 
 DEBUG = True
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class GPTObjectApproach(PG3AnalogyApproach):
     """Use GPT for cross-domain policy learning in PG3."""
@@ -87,7 +92,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
         return [LiftedDecisionList(final_rules)]
 
-
     def _generate_rules(self, rule: LDLRule) -> List[LDLRule]:
         # Generates "best" rules in target environment given rule in base environment
         target_nsrts = self._get_analagous_nsrts(rule) 
@@ -105,6 +109,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 mapping[target_nsrt_param] = best_rule_variable
         
         # Search for a state that we can ground on the target environment
+        # best_task_index, best_state_index = self._find_best_ground_state(rule, target_nsrt)
+        # import ipdb; ipdb.set_trace();
         best_score = -1.0
         best_object_mapping = None
         best_index = None
@@ -121,7 +127,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                     best_object_mapping = object_mapping
                     best_score = gini_index
                     best_index = i
-            
+        
         # Get useful objects
         one_to_one_object_mapping = self._filter_object_mapping(best_object_mapping)
         useful_objects = set(one_to_one_object_mapping.values())
@@ -143,6 +149,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
         # Getting final ranking of atoms in ground state
         ranked_atoms = self._score_conds(useful_objects, useful_pos_predicates, useful_goal_predicates, best_task_index, best_index)
+        scored_atoms = self._score_all(useful_objects, useful_pos_predicates, useful_goal_predicates, best_task_index, best_index)
         if DEBUG:
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
             print("RULE\n", rule)
@@ -156,7 +163,55 @@ class GPTObjectApproach(PG3AnalogyApproach):
             print("USEFUL POS PREDICATES", useful_pos_predicates)
             print("USEFUL GOAL PREDICATES", useful_goal_predicates)
             print("PRECONDS", ranked_atoms)
-        
+
+        pos_classifications = {}
+        neg_classifications = {}
+        for sample_atom in sorted(self._target_states[best_task_index][best_index].simulator_state):
+            prompt = get_prompt(self._base_env.get_name(), self._target_env.get_name(), rule, self._target_actions[best_task_index][best_index], sorted(self._target_states[best_task_index][best_index].simulator_state), self._target_tasks[best_task_index].goal, useful_pos_predicates, useful_objects, sample_atom)
+            completion = get_completion(
+                [{"role": "user", "content": prompt}],
+                model="gpt-4",
+                logprobs=True,
+                top_logprobs=5,
+            )
+
+            # Calculating Yes or No
+            log_probs = completion.choices[0].logprobs.content[0].top_logprobs #JSON Object
+            best_yes_logprob = -float('inf')
+            best_no_logprob = -float('inf')
+
+            for elem in log_probs:
+                lower_token = elem.token.lower()
+                elem_logprob = elem.logprob
+                if "yes" in lower_token and elem_logprob > best_yes_logprob:
+                    best_yes_logprob = elem_logprob
+                if "no" in lower_token and elem_logprob > best_no_logprob:
+                    best_no_logprob = elem_logprob
+
+            pos_classifications[sample_atom] = best_yes_logprob
+            neg_classifications[sample_atom] = best_no_logprob
+        saycan_scores = []
+        for a, v in pos_classifications.items():
+            saycan_scores.append((np.exp(v) * scored_atoms[a], a))
+        print("SAYCAN SCORES")
+        print(sorted(saycan_scores))
+        import ipdb; ipdb.set_trace();
+    
+    
+    def _score_all(self, useful_objects, useful_pos_preds, useful_goal_preds, task_index, index):
+        ground_state = self._target_states[task_index][index] 
+        final_scores = {}
+        for atom in ground_state.simulator_state:
+            score = 0.0
+            pred = atom.predicate
+            if pred.name in useful_pos_preds:
+                score += 0.5 
+            for obj in atom.objects:
+                if obj in useful_objects:
+                    score += 1.5
+            final_scores[atom] = score
+        return final_scores
+       
     def _score_conds(self, useful_objects, useful_pos_preds, useful_goal_preds, task_index, index):
         ground_state = self._target_states[task_index][index] 
         useful_pos_atoms = {}
@@ -225,7 +280,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if unused_rule_var in condition.variables:
                     goal_conditions.add(condition)
             
-            object_distribution = {}
+            object_distribution = {obj: 0 for obj in ground_state.data}
             for pos_cond in pos_conditions:
                 analagous_preds = self._get_analagous_predicate_names(pos_cond.predicate)
                 if analagous_preds == None:
@@ -240,38 +295,30 @@ class GPTObjectApproach(PG3AnalogyApproach):
                     # if analagous predicate
                     if pos_atom.predicate.name in analagous_preds and needed_objects.issubset(set(pos_atom.objects)):
                         for obj in pos_atom.objects:
-                            
                             if obj in needed_objects:
                                 continue
+                            object_distribution[obj] += 1
 
-                            if obj not in object_distribution:
-                                #print(f"OBJ {obj} HIT! with {pos_atom}")
-                                object_distribution[obj] = 1
-                            else:
-                                #print(f"OBJ {obj} HIT! with {pos_atom}")
-                                object_distribution[obj] += 1
             for goal_cond in goal_conditions:
-                analagous_preds = self._get_analagous_predicate_names(goal_cond.predicate)
-                if analagous_preds == None:
-                    continue
+                    analagous_preds = self._get_analagous_predicate_names(goal_cond.predicate)
+                    if analagous_preds == None:
+                        continue
 
-                needed_objects = set()
-                for var in pos_cond.variables:
-                    if var in mapping_to_objects:
-                        needed_objects.add(mapping_to_objects[var])
+                    needed_objects = set()
+                    for var in pos_cond.variables:
+                        if var in mapping_to_objects:
+                            needed_objects.add(mapping_to_objects[var])
 
-                for goal_atom in goal_state:
-                    if goal_atom.predicate.name in analagous_preds and needed_objects.issubset(set(goal_atom.objects)):
-                        for obj in goal_atom.objects:
-
-                            if obj in needed_objects:
-                                continue
-
-                            if obj not in object_distribution:
-                                object_distribution[obj] = 1
-                            else:
+                    for goal_atom in goal_state:
+                        if goal_atom.predicate.name in analagous_preds and needed_objects.issubset(set(goal_atom.objects)):
+                            for obj in goal_atom.objects:
+                                if obj in needed_objects:
+                                    continue
                                 object_distribution[obj] += 1
 
+            # Squaring values to bias towards single value confidence
+            for k, v  in object_distribution.items():
+                object_distribution[k] = v * v
             object_entropy = gini_index_from_dict(object_distribution)
             state_entropy += object_entropy
             if object_entropy > 0.0: # If some useful information, add the distribution
@@ -540,7 +587,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
         else:
             return None
 
-
 def _convert_object_to_variable(obj: Object) -> Variable:
     return obj.type("?" + obj.name)
 
@@ -589,3 +635,30 @@ def sort_atoms_by_score(atoms_dict):
     sorted_atoms = [grouped_atoms[score] for score in sorted_scores]
     
     return sorted_atoms, sorted_scores
+
+def get_completion(
+    messages: list[dict[str, str]],
+    model: str = "gpt-4",
+    max_tokens=1,
+    temperature=0,
+    stop=None,
+    seed=123,
+    tools=None,
+    logprobs=None,  # whether to return log probabilities of the output tokens or not. If true, returns the log probabilities of each output token returned in the content of message..
+    top_logprobs=None,
+) -> str:
+    params = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "stop": stop,
+        "seed": seed,
+        "logprobs": logprobs,
+        "top_logprobs": top_logprobs,
+    }
+    if tools:
+        params["tools"] = tools
+
+    completion = client.chat.completions.create(**params)
+    return completion
