@@ -1785,11 +1785,33 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         #####################
                         # backchaining
                         #####################
+                        # def seg_to_op(segment, clusters):
+                        #     for i, c in enumerate(clusters):
+                        #         if segment in c:
+                        #             # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
+                        #             return f"Op{i}-{c[0].get_option().name}"
+                        def seg_in_cluster(seg, cluster):
+                            for seg_2 in cluster:
+                                if len(seg.states) != len(seg_2.states):
+                                    continue
+
+                                all_match = True
+                                for i in range(len(seg.states)):
+                                    if not seg.states[i].allclose(seg_2.states[i]):
+                                        all_match = False
+                                        break
+                                if all_match:
+                                    return True
+                            return False
+
                         def seg_to_op(segment, clusters):
                             for i, c in enumerate(clusters):
-                                if segment in c:
+                                # if segment in c:
+                                if seg_in_cluster(seg, c):
                                     # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
                                     return f"Op{i}-{c[0].get_option().name}"
+                            print("couldn't find segment...")
+
                         # Go through demos
                         temp = []
                         for a, segmented_traj in enumerate(segmented_trajs):
@@ -3027,11 +3049,32 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #####################
             # backchaining
             #####################
+            # def seg_to_op(segment, clusters):
+            #     for i, c in enumerate(clusters):
+            #         if segment in c:
+            #             # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
+            #             return f"Op{i}-{c[0].get_option().name}"
+            def seg_in_cluster(seg, cluster):
+                for seg_2 in cluster:
+                    if len(seg.states) != len(seg_2.states):
+                        continue
+
+                    all_match = True
+                    for i in range(len(seg.states)):
+                        if not seg.states[i].allclose(seg_2.states[i]):
+                            all_match = False
+                            break
+                    if all_match:
+                        return True
+                return False
+
             def seg_to_op(segment, clusters):
                 for i, c in enumerate(clusters):
-                    if segment in c:
+                    # if segment in c:
+                    if seg_in_cluster(seg, c):
                         # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
                         return f"Op{i}-{c[0].get_option().name}"
+                print("couldn't find segment...")
             # Go through demos
             temp = []
             for a, segmented_traj in enumerate(segmented_trajs):
