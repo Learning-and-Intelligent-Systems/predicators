@@ -2790,7 +2790,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 clustering_scores[op_name] = [] # will hold scores for 1, 2, etc. clusterings
 
             for jjj, cluster in enumerate(all_clusters):
-                op_name = f"Op{z}-{cluster[0].get_option().name}"
+                op_name = f"Op{jjj}-{cluster[0].get_option().name}"
                 # final_clusters2 = []
                 # for x, c in enumerate(all_clusters):
                 #     if x != j:
@@ -4014,7 +4014,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for operator in ops_to_print:
                 print_ops(operator)
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             self._pnads = pnads
             return predicates_we_kept
             # return predicates_to_keep
