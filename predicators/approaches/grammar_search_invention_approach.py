@@ -1564,36 +1564,47 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_name = f"Op{z}-{cluster[0].get_option().name}"
                 clustering_scores[op_name] = [] # will hold scores for 1, 2, etc. clusterings
 
-            for j, cluster in enumerate(all_clusters):
-                final_clusters2 = []
-                for x, c in enumerate(all_clusters):
-                    if x != j:
-                        final_clusters2.append(c)
+            for jjj, cluster in enumerate(all_clusters):
+                # final_clusters2 = []
+                # for x, c in enumerate(all_clusters):
+                #     if x != j:
+                #         final_clusters2.append(c)
 
                 example_segment = cluster[0]
                 option_name = example_segment.get_option().name
-                if len(example_segment.get_option().params) == 0:
-                    final_clusters2.append(cluster)
-                    logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
+                if False:
+                    pass
                 else:
                     for kkk in range(1, 4):
-                        import copy
-                        final_clusters = copy.deepcopy(final_clusters2)
-                        import numpy as np
-                        from sklearn.mixture import GaussianMixture as GMM
-                        from scipy.stats import kstest
-                        data = np.array([seg.get_option().params for seg in cluster])
+                        final_clusters2 = []
+                        for x, c in enumerate(all_clusters):
+                            if x != jjj:
+                                final_clusters2.append(c)
+                        final_clusters = final_clusters2
+                        import pdb; pdb.set_trace()
 
-                        model = GMM(kkk, covariance_type="full", random_state=0).fit(data)
-                        assignments = model.predict(data)
-                        sub_clusters = {}
-                        for i, assignment in enumerate(assignments):
-                            if assignment in sub_clusters:
-                                sub_clusters[assignment].append(cluster[i])
-                            else:
-                                sub_clusters[assignment] = [cluster[i]]
-                        for c in sub_clusters.values():
-                            final_clusters.append(c)
+                        if len(example_segment.get_option().params) == 0:
+                            final_clusters.append(cluster)
+                            logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
+                            break
+                        else:
+                            import numpy as np
+                            from sklearn.mixture import GaussianMixture as GMM
+                            from scipy.stats import kstest
+                            data = np.array([seg.get_option().params for seg in cluster])
+
+                            model = GMM(kkk, covariance_type="full", random_state=0).fit(data)
+                            assignments = model.predict(data)
+                            sub_clusters = {}
+                            for i, assignment in enumerate(assignments):
+                                if assignment in sub_clusters:
+                                    sub_clusters[assignment].append(cluster[i])
+                                else:
+                                    sub_clusters[assignment] = [cluster[i]]
+                            for c in sub_clusters.values():
+                                final_clusters.append(c)
+
+                        import pdb; pdb.set_trace()
 
                         logging.info(f"Total {len(final_clusters)} final clusters, evaluating k={kkk} for {option_name}.")
                         ########################################################
@@ -1785,33 +1796,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         #####################
                         # backchaining
                         #####################
-                        # def seg_to_op(segment, clusters):
-                        #     for i, c in enumerate(clusters):
-                        #         if segment in c:
-                        #             # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
-                        #             return f"Op{i}-{c[0].get_option().name}"
-                        def seg_in_cluster(seg, cluster):
-                            for seg_2 in cluster:
-                                if len(seg.states) != len(seg_2.states):
-                                    continue
-
-                                all_match = True
-                                for i in range(len(seg.states)):
-                                    if not seg.states[i].allclose(seg_2.states[i]):
-                                        all_match = False
-                                        break
-                                if all_match:
-                                    return True
-                            return False
-
                         def seg_to_op(segment, clusters):
                             for i, c in enumerate(clusters):
-                                # if segment in c:
-                                if seg_in_cluster(seg, c):
+                                if segment in c:
                                     # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
                                     return f"Op{i}-{c[0].get_option().name}"
-                            print("couldn't find segment...")
-
                         # Go through demos
                         temp = []
                         for a, segmented_traj in enumerate(segmented_trajs):
@@ -1819,6 +1808,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             #     break
                             traj = []
                             for seg in segmented_traj:
+                                # if seg_to_op(seg, final_clusters) is None:
+                                #     import pdb; pdb.set_trace()
                                 traj.append(seg_to_op(seg, final_clusters))
                             temp.append(traj)
 
@@ -2780,6 +2771,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         op_name = f"Op{z}-{example_segment.get_option().name}"
                         clustering_scores[op_name].append((kkk, op_score))
                         print("clustering scores: ", clustering_scores)
+                        # final_clusters = final_clusters[:-2]
 
                         ########################################################
                         ########################################################
@@ -3049,32 +3041,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #####################
             # backchaining
             #####################
-            # def seg_to_op(segment, clusters):
-            #     for i, c in enumerate(clusters):
-            #         if segment in c:
-            #             # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
-            #             return f"Op{i}-{c[0].get_option().name}"
-            def seg_in_cluster(seg, cluster):
-                for seg_2 in cluster:
-                    if len(seg.states) != len(seg_2.states):
-                        continue
-
-                    all_match = True
-                    for i in range(len(seg.states)):
-                        if not seg.states[i].allclose(seg_2.states[i]):
-                            all_match = False
-                            break
-                    if all_match:
-                        return True
-                return False
-
             def seg_to_op(segment, clusters):
                 for i, c in enumerate(clusters):
-                    # if segment in c:
-                    if seg_in_cluster(seg, c):
+                    if segment in c:
                         # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
                         return f"Op{i}-{c[0].get_option().name}"
-                print("couldn't find segment...")
             # Go through demos
             temp = []
             for a, segmented_traj in enumerate(segmented_trajs):
@@ -3082,6 +3053,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 #     break
                 traj = []
                 for seg in segmented_traj:
+                    if seg_to_op(seg, final_clusters) is None:
+                        import pdb; pdb.set_trace()
                     traj.append(seg_to_op(seg, final_clusters))
                 temp.append(traj)
 
