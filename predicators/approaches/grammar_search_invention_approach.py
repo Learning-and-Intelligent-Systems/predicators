@@ -963,6 +963,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return ground_nsrt_plan is not None
 
     def get_score(self, all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset):
+        ####
+        # for cluster in all_clusters:
+        #     for segment in cluster:
+        #         # make sure you can find this in some trajectory
+        #         assert any(segment in seg for seg in segmented_trajs)
+        # import pdb; pdb.set_trace()
+        ####
+
+
         option_name = example_segment.get_option().name
         final_clusters2 = []
         for x, c in enumerate(all_clusters):
@@ -998,6 +1007,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # import pdb; pdb.set_trace()
 
         logging.info(f"Total {len(final_clusters)} final clusters, evaluating k={kkk} for {option_name}.")
+
+        ####
+        # this fails, as expected
+        # for traj in segmented_trajs:
+        #     for seg in traj:
+        #         assert any(seg in c for c in final_clusters)
+        # import pdb; pdb.set_trace()
+        ####
+
         ########################################################
         ########################################################
         # Everything put here to get the best k
@@ -1192,26 +1210,30 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 if segment in c:
                     # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
                     return f"Op{i}-{c[0].get_option().name}"
-        # def seg_in_cluster(seg, cluster):
-        #     for seg_2 in cluster:
-        #         if len(seg.states) != len(seg_2.states):
-        #             continue
-        #
-        #         all_match = True
-        #         for i in range(len(seg.states)):
-        #             if not seg.states[i].allclose(seg_2.states[i]):
-        #                 all_match = False
-        #                 break
-        #         if all_match:
-        #             return True
-        #     return False
-        # def seg_to_op(segment, clusters):
-        #     for i, c in enumerate(clusters):
-        #         # if segment in c:
-        #         if seg_in_cluster(segment, c):
-        #             # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
-        #             return f"Op{i}-{c[0].get_option().name}"
-        #     print("couldn't find segment...")
+            return None
+
+        def seg_in_cluster(seg, cluster):
+            for seg_2 in cluster:
+                if len(seg.states) != len(seg_2.states):
+                    continue
+
+                all_match = True
+                for i in range(len(seg.states)):
+                    if not seg.states[i].allclose(seg_2.states[i]):
+                        all_match = False
+                        break
+                if all_match:
+                    return True
+            return False
+
+        def seg_to_op2(segment, clusters):
+            for i, c in enumerate(clusters):
+                # if segment in c:
+                if seg_in_cluster(segment, c):
+                    # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
+                    return f"Op{i}-{c[0].get_option().name}"
+            print("couldn't find segment...")
+
         # Go through demos
         temp = []
         for a, segmented_traj in enumerate(segmented_trajs):
@@ -1356,7 +1378,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 opt_objs = tuple(seg.get_option().objects)
                 objects = (set(o for a in seg.add_effects for o in a.objects) | set(o for a in seg.delete_effects for o in a.objects) | set(opt_objs))
-                preconditions_hypothesis = set(p for p in seg.init_atoms if p.predicate in ddd[op_name][0])
+                try:
+                    preconditions_hypothesis = set(p for p in seg.init_atoms if p.predicate in ddd[op_name][0])
+                except:
+                    import pdb; pdb.set_trace()
                 add_effects_hypothesis = set(p for p in seg.add_effects if p.predicate in ddd[op_name][1])
                 delete_effects_hypothesis = set(p for p in seg.delete_effects if p.predicate in ddd[op_name][2])
                 preconditions = set(p for p in preconditions_hypothesis if set(p.objects).issubset(objects))
@@ -1463,6 +1488,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     "del": set()
                 }
 
+            skip = False
+            for seg in traj:
+                if seg_to_op(seg, final_clusters) is None:
+                    skip = True
+                    break
+            if skip:
+                logging.info(f"Skipping this trajectory because it has a segment that isn't in any cluster.")
+                continue
             story = get_story2(traj)
             # if j == 2:
             #     story = get_story2(traj)
@@ -2780,8 +2813,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # final_clusters = next_clusters
             all_clusters = next_clusters
 
-            # Step 4:
+            # Only keep sufficiently sized clusters.
+            # TODO: add logging info, and maybe make this step optional via a flag.
+            all_clusters = [c for c in all_clusters if len(c) > 20]
+            import pdb; pdb.set_trace()
 
+            # Step 4:
             final_clusters = []
 
             clustering_scores = {}
@@ -3070,8 +3107,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 #     break
                 traj = []
                 for seg in segmented_traj:
-                    if seg_to_op(seg, final_clusters) is None:
-                        import pdb; pdb.set_trace()
+                    # if seg_to_op(seg, final_clusters) is None:
+                    #     import pdb; pdb.set_trace()
                     traj.append(seg_to_op(seg, final_clusters))
                 temp.append(traj)
 
@@ -3311,6 +3348,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         "del": set()
                     }
 
+                skip = False
+                for seg in traj:
+                    if seg_to_op(seg, final_clusters) is None:
+                        skip = True
+                        break
+                if skip:
+                    logging.info(f"Skipping this trajectory because it has a segment that isn't in any cluster.")
+                    continue
                 story = get_story2(traj)
                 # if j == 2:
                 #     story = get_story2(traj)
