@@ -151,7 +151,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
         # Getting final ranking of atoms in ground state
         ranked_atoms = self._score_conds(useful_objects, useful_predicates, best_task_index, best_index)
-        # scored_atoms = self._score_all(useful_objects, useful_predicates, best_task_index, best_index)
+        scored_atoms = self._score_all(useful_objects, useful_predicates, best_task_index, best_index)
         if DEBUG:
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
             print("RULE\n", rule)
@@ -165,11 +165,10 @@ class GPTObjectApproach(PG3AnalogyApproach):
             print("USEFUL POS PREDICATES", useful_predicates)
             print("PRECONDS", ranked_atoms)
         
-        """
         pos_classifications = {}
         neg_classifications = {}
         for sample_atom in sorted(self._target_states[best_task_index][best_index].simulator_state):
-            prompt = get_prompt(self._base_env.get_name(), self._target_env.get_name(), rule, self._target_actions[best_task_index][best_index], sorted(self._target_states[best_task_index][best_index].simulator_state), self._target_tasks[best_task_index].goal, useful_pos_predicates, useful_objects, sample_atom)
+            prompt = get_prompt(self._base_env.get_name(), self._target_env.get_name(), rule, self._target_actions[best_task_index][best_index], sorted(self._target_states[best_task_index][best_index].simulator_state), self._target_tasks[best_task_index].goal, useful_predicates, useful_objects, sample_atom)
             completion = get_completion(
                 [{"role": "user", "content": prompt}],
                 model="gpt-4",
@@ -197,15 +196,17 @@ class GPTObjectApproach(PG3AnalogyApproach):
             saycan_scores.append((np.exp(v) * scored_atoms[a], a))
         print("SAYCAN SCORES")
         print(sorted(saycan_scores))
-        """
         import ipdb; ipdb.set_trace();
     
     
     def _score_all(self, useful_objects, useful_predicates, task_index, index):
         ground_state = self._target_states[task_index][index].simulator_state.copy()
+        for atom in self._target_tasks[task_index].goal:
+            wanted_atom = _add_wanted_prefix(atom)
+            ground_state.add(wanted_atom)
 
         final_scores = {}
-        for atom in ground_state.simulator_state:
+        for atom in ground_state:
             score = 0.0
             pred = atom.predicate
             if pred.name in useful_predicates:
@@ -247,9 +248,10 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 rankings.append((obj_score, obj, var))
         rankings.sort(reverse = True)
         for ranking in rankings:
+            score = ranking[0]
             obj = ranking[1]
             var = ranking[2]
-            if var not in final_mapping.keys() and obj not in final_mapping.values():
+            if var not in final_mapping.keys() and obj not in final_mapping.values() and score > 0:
                 final_mapping[var] = obj
         return final_mapping
 
@@ -335,7 +337,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
             # Squaring values to bias towards single value confidence
             for k, v  in object_distribution.items():
-                object_distribution[k] = v * v
+                object_distribution[k] = v * v * v
             object_entropy = gini_index_from_dict(object_distribution)
             state_entropy += object_entropy
             if object_entropy > 0.0: # If some useful information, add the distribution
