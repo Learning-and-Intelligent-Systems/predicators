@@ -971,29 +971,33 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         final_clusters = final_clusters2
         # import pdb; pdb.set_trace()
 
-        if len(example_segment.get_option().params) == 0:
-            final_clusters.append(all_clusters[jjj])
-            # final_clusters.append(cluster)
-            logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
-            return None
-        else:
-            import numpy as np
-            from sklearn.mixture import GaussianMixture as GMM
-            from scipy.stats import kstest
-            # data = np.array([seg.get_option().params for seg in cluster])
-            data = np.array([seg.get_option().params for seg in all_clusters[jjj]])
+        # ##############################################
+        # types_seen = set()
+        # for seg in all_clusters[jjj]:
+        #     all_types = [set(a.predicate.types) for a in seg.add_effects]
+        #     types = tuple(sorted(list(set.union(*all_types))))
+        #     types_seen.add(types)
+        # if not ('box' in [t.name for t in list(types_seen)[0]] or 'shelf' in [t.name for t in list(types_seen)[0]]):
+        #     return -1
+        # ##############################################
+        return -1
+        import numpy as np
+        from sklearn.mixture import GaussianMixture as GMM
+        from scipy.stats import kstest
+        # data = np.array([seg.get_option().params for seg in cluster])
+        data = np.array([seg.get_option().params for seg in all_clusters[jjj]])
 
-            model = GMM(kkk, covariance_type="full", random_state=0).fit(data)
-            assignments = model.predict(data)
-            sub_clusters = {}
-            for i, assignment in enumerate(assignments):
-                if assignment in sub_clusters:
-                    # sub_clusters[assignment].append(cluster[i])
-                    sub_clusters[assignment].append(all_clusters[jjj][i])
-                else:
-                    sub_clusters[assignment] = [all_clusters[jjj][i]]
-            for c in sub_clusters.values():
-                final_clusters.append(c)
+        model = GMM(kkk, covariance_type="full", random_state=0).fit(data)
+        assignments = model.predict(data)
+        sub_clusters = {}
+        for i, assignment in enumerate(assignments):
+            if assignment in sub_clusters:
+                # sub_clusters[assignment].append(cluster[i])
+                sub_clusters[assignment].append(all_clusters[jjj][i])
+            else:
+                sub_clusters[assignment] = [all_clusters[jjj][i]]
+        for c in sub_clusters.values():
+            final_clusters.append(c)
 
         # import pdb; pdb.set_trace()
 
@@ -1536,7 +1540,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         count = 1
         for op_name2 in final_potential_ops.keys():
             for delete_effect in ddd[op_name2][2]:
-                print(f"Evaluating delete effect #{count} of {total_count} from {op_name2}.")
+                print(f"Evaluating delete effect {str(delete_effect)} from {op_name2}, #{count} of {total_count}.")
                 # Try including it and see what happens.
                 final_potential_ops[op_name2]["del"].add(delete_effect)
                 fff[op_name2][2].add(delete_effect)
@@ -2757,7 +2761,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # if len(types) == 1:
                             # import pdb; pdb.set_trace()
                 logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for for {j+1}th cluster from STEP 1 involving option {option}.")
-                for _, c in clusters.items():
+                for types, c in clusters.items():
+                    logging.info(f"STEP 2: types {types} for option {option}.")
                     all_clusters.append(c)
 
             # Step 3:
@@ -2791,38 +2796,49 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             for jjj, cluster in enumerate(all_clusters):
                 op_name = f"Op{jjj}-{cluster[0].get_option().name}"
-                # final_clusters2 = []
-                # for x, c in enumerate(all_clusters):
-                #     if x != j:
-                #         final_clusters2.append(c)
-                for kkk in range(1, 4):
-                    example_segment = cluster[0]
-                    option_name = example_segment.get_option().name
-                    score = self.get_score(all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset)
-                    if score is None:
-                        break
-                    clustering_scores[op_name].append((kkk, score))
+                logging.info(f"Evaluating subclustering for operator {op_name}.")
 
-                if score is None:
-                    final_clusters.append(cluster)
+                # if "Place" not in op_name:
+                #     continue
+
+                example_segment = cluster[0]
+                option_name = example_segment.get_option().name
+                if len(example_segment.get_option().params) == 0:
+                    final_clusters.append(all_clusters[jjj])
+                    # final_clusters.append(cluster)
                     logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
-                else:
-                    best_k = min(clustering_scores[op_name], key=lambda x: x[0])[0]
-                    import numpy as np
-                    from sklearn.mixture import GaussianMixture as GMM
-                    from scipy.stats import kstest
-                    data = np.array([seg.get_option().params for seg in cluster])
+                    continue
 
+                else:
+                    for kkk in range(1, 4):
+                    # for kkk in range(2, 4):
+                        logging.info(f"Evaluating score for subclustering k={kkk} for operator {op_name}.")
+                        example_segment = cluster[0]
+                        option_name = example_segment.get_option().name
+
+                        score = self.get_score(all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset)
+                        clustering_scores[op_name].append((kkk, score))
+
+                best_k = 2 if "Pick" in op_name else 1
+                # best_k = min(clustering_scores[op_name], key=lambda x: x[0])[0]
+                import numpy as np
+                from sklearn.mixture import GaussianMixture as GMM
+                from scipy.stats import kstest
+                data = np.array([seg.get_option().params for seg in cluster])
+
+                try:
                     model = GMM(best_k, covariance_type="full", random_state=0).fit(data)
-                    assignments = model.predict(data)
-                    sub_clusters = {}
-                    for i, assignment in enumerate(assignments):
-                        if assignment in sub_clusters:
-                            sub_clusters[assignment].append(cluster[i])
-                        else:
-                            sub_clusters[assignment] = [cluster[i]]
-                    for c in sub_clusters.values():
-                        final_clusters.append(c)
+                except:
+                    import pdb; pdb.set_trace()
+                assignments = model.predict(data)
+                sub_clusters = {}
+                for i, assignment in enumerate(assignments):
+                    if assignment in sub_clusters:
+                        sub_clusters[assignment].append(cluster[i])
+                    else:
+                        sub_clusters[assignment] = [cluster[i]]
+                for c in sub_clusters.values():
+                    final_clusters.append(c)
 
             logging.info(f"Clustering best k scores: {clustering_scores}")
 
