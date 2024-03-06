@@ -88,7 +88,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._target_nsrts = target_nsrts
 
         self._generate_goal_predicates(base_policy)
-        import ipdb; ipdb.set_trace();
         final_rules = []
         for rule in base_policy.rules:
             target_rule = self._generate_rules(rule)
@@ -138,22 +137,21 @@ class GPTObjectApproach(PG3AnalogyApproach):
         useful_objects.update(self._target_actions[best_task_index][best_index].objects)
 
         # Getting useful analagous predicates
-        useful_pos_predicates = set()
-        useful_goal_predicates = set()
+        useful_predicates = set()
         for pos_condition in rule.pos_state_preconditions:
             pos_predicate = pos_condition.predicate
             possible_pred_names = self.get_analagous_predicates(pos_predicate, True)
             if possible_pred_names is not None:
                 pos_analagous_predicate_names = set(possible_pred_names)
-                useful_pos_predicates.update(pos_analagous_predicate_names)
+                useful_predicates.update(pos_analagous_predicate_names)
         for goal_condition in rule.goal_preconditions:
-            goal_predicate = goal_condition.predicate
+            goal_predicate = _add_wanted_prefix(goal_condition.predicate)
             goal_analagous_predicate_names = set(self.get_analagous_predicates(goal_predicate, True))
-            useful_goal_predicates.update(goal_analagous_predicate_names)
+            useful_predicates.update(goal_analagous_predicate_names)
 
         # Getting final ranking of atoms in ground state
-        ranked_atoms = self._score_conds(useful_objects, useful_pos_predicates, useful_goal_predicates, best_task_index, best_index)
-        scored_atoms = self._score_all(useful_objects, useful_pos_predicates, useful_goal_predicates, best_task_index, best_index)
+        ranked_atoms = self._score_conds(useful_objects, useful_predicates, best_task_index, best_index)
+        # scored_atoms = self._score_all(useful_objects, useful_predicates, best_task_index, best_index)
         if DEBUG:
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
             print("RULE\n", rule)
@@ -164,8 +162,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
             print("GROUND STATE\n", sorted(self._target_states[best_task_index][best_index].simulator_state))
             print("GOAL\n", self._target_tasks[best_task_index].goal)
             print("USEFUL OBJECTS", useful_objects)
-            print("USEFUL POS PREDICATES", useful_pos_predicates)
-            print("USEFUL GOAL PREDICATES", useful_goal_predicates)
+            print("USEFUL POS PREDICATES", useful_predicates)
             print("PRECONDS", ranked_atoms)
         
         """
@@ -204,13 +201,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
         import ipdb; ipdb.set_trace();
     
     
-    def _score_all(self, useful_objects, useful_pos_preds, useful_goal_preds, task_index, index):
-        ground_state = self._target_states[task_index][index] 
+    def _score_all(self, useful_objects, useful_predicates, task_index, index):
+        ground_state = self._target_states[task_index][index].simulator_state.copy()
+
         final_scores = {}
         for atom in ground_state.simulator_state:
             score = 0.0
             pred = atom.predicate
-            if pred.name in useful_pos_preds:
+            if pred.name in useful_predicates:
                 score += 0.5 
             for obj in atom.objects:
                 if obj in useful_objects:
@@ -218,14 +216,18 @@ class GPTObjectApproach(PG3AnalogyApproach):
             final_scores[atom] = score
         return final_scores
        
-    def _score_conds(self, useful_objects, useful_pos_preds, useful_goal_preds, task_index, index):
-        ground_state = self._target_states[task_index][index] 
+    def _score_conds(self, useful_objects, useful_predicates, task_index, index):
+        ground_state = self._target_states[task_index][index].simulator_state.copy()
+        for atom in self._target_tasks[task_index].goal:
+            wanted_atom = _add_wanted_prefix(atom)
+            ground_state.add(wanted_atom)
+
         useful_pos_atoms = {}
         final_atoms = set()
-        for atom in ground_state.simulator_state:
+        for atom in ground_state:
             score = 0.0
             pred = atom.predicate
-            if pred.name in useful_pos_preds:
+            if pred.name in useful_predicates:
                 score += 0.5 
             for obj in atom.objects:
                 if obj in useful_objects:
@@ -237,6 +239,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         return sorted_atoms
 
     def _filter_object_mapping(self, object_mapping):
+        # Picks the best mapping for each variable
         final_mapping = {}
         rankings = []
         for var in object_mapping:
@@ -261,15 +264,21 @@ class GPTObjectApproach(PG3AnalogyApproach):
             target_object = ground_target_nsrt.objects[index_of_object]
             mapping_to_objects[base_var] = target_object
 
-        ground_state = self._target_states[task_index][state_index]
+        ground_state = self._target_states[task_index][state_index].simulator_state.copy()
         goal_state = self._target_tasks[task_index].goal
+
+        # Adding WANT-pred from goal_state to ground_state, so ground_state has all info
+        for atom in goal_state:
+            wanted_atom = _add_wanted_prefix(atom)
+            ground_state.add(wanted_atom)
+
         if DEBUG:
             print("=================================")
             print(f"Rule:\n{rule}")
             print(f"Target NSRT:\n{target_nsrt}")
             print(f"Target Ground NSRT:\n{ground_target_nsrt}")
             print(f"Index: ", state_index)
-            print(f"Ground state:\n{sorted(ground_state.simulator_state)}")
+            print(f"Ground state:\n{sorted(ground_state)}")
             print(f"Goal state:\n{goal_state}")
         state_entropy = 0.0
 
@@ -286,7 +295,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if unused_rule_var in condition.variables:
                     goal_conditions.add(condition)
             
-            object_distribution = {obj: 0 for obj in ground_state.data}
+            # NEXT TODO: FIGURE OUT HOW TO COUNT ACROSS GOAL ANALOGIES
+            object_distribution = {obj: 0 for obj in self._target_states[task_index][state_index].data}
             for pos_cond in pos_conditions:
                 analagous_preds = self.get_analagous_predicates(pos_cond.predicate, True)
                 if analagous_preds == None:
@@ -297,7 +307,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                     if var in mapping_to_objects:
                         needed_objects.add(mapping_to_objects[var])
 
-                for pos_atom in ground_state.simulator_state:
+                for pos_atom in ground_state:
                     # if analagous predicate
                     if pos_atom.predicate.name in analagous_preds and needed_objects.issubset(set(pos_atom.objects)):
                         for obj in pos_atom.objects:
@@ -306,21 +316,22 @@ class GPTObjectApproach(PG3AnalogyApproach):
                             object_distribution[obj] += 1
 
             for goal_cond in goal_conditions:
-                    analagous_preds = self.get_analagous_predicates(goal_cond.predicate, True)
-                    if analagous_preds == None:
-                        continue
+                wanted_predicate = _add_wanted_prefix(goal_cond.predicate)
+                analagous_preds = self.get_analagous_predicates(wanted_predicate, True)
+                if analagous_preds == None:
+                    continue
 
-                    needed_objects = set()
-                    for var in pos_cond.variables:
-                        if var in mapping_to_objects:
-                            needed_objects.add(mapping_to_objects[var])
+                needed_objects = set()
+                for var in pos_cond.variables:
+                    if var in mapping_to_objects:
+                        needed_objects.add(mapping_to_objects[var])
 
-                    for goal_atom in goal_state:
-                        if goal_atom.predicate.name in analagous_preds and needed_objects.issubset(set(goal_atom.objects)):
-                            for obj in goal_atom.objects:
-                                if obj in needed_objects:
-                                    continue
-                                object_distribution[obj] += 1
+                for goal_atom in ground_state:
+                    if goal_atom.predicate.name in analagous_preds and needed_objects.issubset(set(goal_atom.objects)):
+                        for obj in goal_atom.objects:
+                            if obj in needed_objects:
+                                continue
+                            object_distribution[obj] += 1
 
             # Squaring values to bias towards single value confidence
             for k, v  in object_distribution.items():
@@ -359,15 +370,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
             return analagous_predicates.copy()
 
     def _generate_goal_predicates(self, base_policy: LiftedDecisionList):
-        base_goal_predicates = set()
-        for rule in base_policy.rules:
-            for goal_condition in rule.goal_preconditions:
-                base_goal_predicates.add(goal_condition.predicate)
-
-        target_goal_predicates = set()
-        for task in self._target_tasks:
-            for goal_condition in task.goal:
-                target_goal_predicates.add(goal_condition.predicate)
+        base_goal_predicates = set([goal_condition.predicate for rule in base_policy.rules for goal_condition in rule.goal_preconditions])
+        target_goal_predicates = set([goal_condition.predicate for task in self._target_tasks for goal_condition in task.goal])
 
         temp_classifier = lambda s, o: False
         new_base_goal_predicates = {}
@@ -652,6 +656,26 @@ class GPTObjectApproach(PG3AnalogyApproach):
             return base_var_names_to_var[var_name]
         else:
             return None
+
+def _add_wanted_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
+    """Returns same type but with the Predicate becoming WANT-Predicate"""
+    temp_classifier = lambda s, o: False
+    if isinstance(element, Predicate):
+        new_predicate_name = f"WANT-{element.name}"
+        new_predicate = Predicate(new_predicate_name, element.types.copy(), temp_classifier)
+        return new_predicate
+    elif isinstance(element, LiftedAtom):
+        new_predicate_name = f"WANT-{element.predicate.name}"
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = new_predicate(element.variables)
+        return new_atom
+    elif isinstance(element, GroundAtom):
+        new_predicate_name = f"WANT-{element.predicate.name}"
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = new_predicate(element.objects)
+        return new_atom
+    else:
+        return None
 
 def _convert_object_to_variable(obj: Object) -> Variable:
     return obj.type("?" + obj.name)
