@@ -2807,7 +2807,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     final_clusters.append(cluster)
                     logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
                 else:
-                    best_k = min(clustering_scores[op_name], key=lambda x: x[0])[0]
+                    best_k = min(clustering_scores[op_name], key=lambda x: x[1])[0]
                     import numpy as np
                     from sklearn.mixture import GaussianMixture as GMM
                     from scipy.stats import kstest
