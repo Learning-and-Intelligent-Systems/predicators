@@ -21,7 +21,7 @@ from predicators.approaches.pg3_analogy_approach import PG3AnalogyApproach
 from predicators.envs.base_env import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import NSRT, LDLRule, LiftedAtom, \
-    LiftedDecisionList, Predicate, Type, Variable
+    LiftedDecisionList, Predicate, Type, Variable, _GroundNSRT
 from predicators import utils
 
 
@@ -89,6 +89,7 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
     }
     """
 
+    """
     predicate_input = {
         "ball": ["car"],
         "free": ["empty-ferry"],
@@ -108,8 +109,8 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
         ("pick", "board") : {"?obj": "?car", "?room": "?loc", "?gripper": None},
         ("drop", "debark") : {"?obj": "?car", "?room": "?loc", "?gripper": None},
     }
-
     """
+
     predicate_input = {
         "car": ["ball"],
         "empty-ferry": ["free"],
@@ -129,7 +130,6 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
         ("board", "pick") : {"?car": "?obj", "?loc": "?room"},
         ("debark", "drop") : {"?car": "?obj", "?loc": "?room"},
     }
-    """
 
     base_env_pred_names_to_pred = {str(pred): pred for pred in base_env.predicates}
     target_env_pred_names_to_pred = {str(pred): pred for pred in target_env.predicates}
@@ -176,6 +176,7 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
             new_rule_pos_preconditions.update(new_rule_nsrt.preconditions)
             new_rule_neg_preconditions = _apply_analogy_to_atoms(analogy, nsrt_name_pair, rule.neg_state_preconditions, new_rule_nsrt, "neg_state_preconditions", correctness_traj, correctness_task, initial_predicates)
             new_rule_goal_preconditions = _apply_analogy_to_atoms(analogy, nsrt_name_pair, rule.goal_preconditions, new_rule_nsrt, "goal_preconditions", correctness_traj, correctness_task, initial_predicates)
+            print(rule.goal_preconditions)
             all_atoms = new_rule_pos_preconditions | new_rule_neg_preconditions | \
                         new_rule_goal_preconditions
             new_rule_params_set = {v for a in all_atoms for v in a.variables}
@@ -218,50 +219,68 @@ def _generate_variables(predicate, atom: LiftedAtom, analogy: _Analogy, nsrt_pai
     
     # Only use given variables
     if len(must_use_variables) >= predicate.arity:
-        all_possible_params = list(itertools.permutations(must_use_variables, predicate.arity))
-        for candidate_param in all_possible_params:
-            temporary_condition = predicate(candidate_param)
-            temporary_ldl_rules = []
-            # TODO: ONE HACK IS WE ONLY USE ONE TRAJECTORY (SO IF IT DOESN"T USE EVERY NSRT, THAT"S A PROBLEM) - USE ALL PROBLEMS?
-            temporary_params = sorted(set(candidate_param) | set(new_rule_nsrt.parameters))
-            temporary_preconditions = new_rule_nsrt.preconditions
-            temporary_negative_preconditions = set()
-            temporary_goalconditions = set()
-            
-            if atom_location == "pos_state_preconditions":
-                temporary_preconditions.add(temporary_condition)
-            elif atom_location == "neg_state_preconditions":
-                temporary_negative_preconditions.add(temporary_condition)
-            elif atom_location == "goal_preconditions":
-                temporary_goalconditions.add(temporary_condition)
-            else:
-                raise Exception("No valid atom location!")
-
-            new_rule = LDLRule("temporary-rule", temporary_params, temporary_preconditions, temporary_negative_preconditions, temporary_goalconditions, new_rule_nsrt)
-            temporary_ldl_rules.append(new_rule)
-            temporary_ldl = LiftedDecisionList(temporary_ldl_rules)
-            temp_init_atoms = utils.abstract(correctness_task.init, initial_predicates)
-            found_valid_action = False
-            for i in range(len(correctness_traj)-1):
-                ans = utils.query_ldl(temporary_ldl, correctness_traj[i].simulator_state, correctness_traj[0].data, correctness_task.goal, static_predicates=initial_predicates, init_atoms= correctness_traj[i].simulator_state) #TODO: CHECK INIT ATOMS (DOESN'T WORK OTHERWISE?)
-                if ans != None:
-                    found_valid_action = True
-                    break
-            
-            if found_valid_action:
-                return candidate_param
-            else:
-                raise AssertionError("WE NEED VALID PARAMS SOMEWHERE!")
-
+        candidate_param = {} # find_correct_params(predicate, must_use_variables, new_rule_nsrt, atom_location, correctness_traj, correctness_task, initial_predicates)
+        if candidate_param != None:
+            return candidate_param
+        else:
+            raise Exception("SHOULD HAVE FOUND PARAMETERS WITHOUT FILLER")
     # Need to generate new variables
     else:
+        #TODO: IMPLEMENT THIS FOLLOWING ALGORITHM WRITTEN IN PSEUDOCODE
+        """
+        1. Base - Base Variables
+            a. Loop through each base variable found in atom, find it's projection from analogy. Add each to the set of new variables
+        2. Create temporary "filler" variables
+        3. Try different combinations of the base variable - ensuring correctness with the example, until a configuration is found
+        4. The other ones are actually just new variables
+        TODO: WHEN SHOULD WE TRY TO MATCH IT TO AN EXISTING VARIABLE?
+        TODO: HOW TO DEAL WITH DUPLICATE VARIABLES CREATED SO FAR - FIX THIS
+        
+        """
+        num_filler_variables_needed = predicate.arity - len(must_use_variables)
+        temporary_variables = must_use_variables.copy()
+        object_type = new_rule_nsrt.parameters[0].type
+        for i in range(num_filler_variables_needed):
+            temporary_variables.append(object_type(f"?tv{i}"))
+        candidate_param = find_correct_params(predicate, temporary_variables, new_rule_nsrt, atom_location, correctness_traj, correctness_task, initial_predicates)
+        if candidate_param != None:
+            return candidate_param
+        else:
+            raise Exception("SHOULD HAVE FOUND PARAMETERS WITH FILLER")
 
-    # print("WANT:", predicate, predicate.arity)
-    # print("POTENTIALS:", must_use_variables)
-    # print(atom.predicate, atom.predicate.arity)
-    print()
+def find_correct_params(predicate, all_variables, nsrt, atom_location, correctness_traj, correctness_task, initial_predicates):
+    # Note: the number of all_variables can be more than predicate arity
+    all_possible_params = list(itertools.permutations(all_variables, predicate.arity))
+    for candidate_param in all_possible_params:
+        temporary_condition = LiftedAtom(predicate, candidate_param)
+        temporary_ldl_rules = []
+        # TODO: ONE HACK IS WE ONLY USE ONE TRAJECTORY (SO IF IT DOESN"T USE EVERY NSRT, THAT"S A PROBLEM) - USE ALL PROBLEMS?
+        temporary_params = sorted(set(candidate_param) | set(nsrt.parameters))
+        temporary_preconditions = nsrt.preconditions.copy()
+        temporary_negative_preconditions = set()
+        temporary_goalconditions = set()
+        
+        if atom_location == "pos_state_preconditions":
+            temporary_preconditions.add(temporary_condition)
+        elif atom_location == "neg_state_preconditions":
+            temporary_negative_preconditions.add(temporary_condition)
+        elif atom_location == "goal_preconditions":
+            temporary_goalconditions.add(temporary_condition)
+        else:
+            raise Exception("No valid atom location!")
 
+        new_rule = LDLRule("temporary-rule", temporary_params, temporary_preconditions, temporary_negative_preconditions, temporary_goalconditions, nsrt)
+        temporary_ldl_rules.append(new_rule)
+        temporary_ldl = LiftedDecisionList(temporary_ldl_rules)
+        temp_init_atoms = utils.abstract(correctness_task.init, initial_predicates)
+        found_valid_action = False
+        for i in range(len(correctness_traj)-1):
+            ans = utils.query_ldl(temporary_ldl, correctness_traj[i].simulator_state, correctness_traj[i].data, correctness_task.goal, static_predicates=initial_predicates, init_atoms= correctness_traj[i].simulator_state) #TODO: CHECK INIT ATOMS (DOESN'T WORK OTHERWISE?)
+            if isinstance(ans, _GroundNSRT):
+                found_valid_action = True
+                break
+        if found_valid_action:
+            return candidate_param
+    return None
 
-    if atom.predicate.arity != predicate.arity:
-        import ipdb; ipdb.set_trace();
 
