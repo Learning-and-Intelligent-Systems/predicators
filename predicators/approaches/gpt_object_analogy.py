@@ -132,7 +132,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                     best_index = i
         
         # Get useful objects
-        one_to_one_object_mapping = self._filter_object_mapping(best_object_mapping)
+        one_to_one_object_mapping = best_object_mapping # self._filter_object_mapping(best_object_mapping)
         useful_objects = set(one_to_one_object_mapping.values())
         useful_objects.update(self._target_actions[best_task_index][best_index].objects)
 
@@ -255,105 +255,89 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 final_mapping[var] = obj
         return final_mapping
 
-    def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], task_index: int, state_index: int):
-        all_rule_variables = set([var for var in rule.parameters])
-        used_rule_variables = set(existing_mapping.values())
-
-        ground_target_nsrt = self._target_actions[task_index][state_index]
-        mapping_to_objects = {}
-        for target_var, base_var in existing_mapping.items():
-            index_of_object = target_nsrt.parameters.index(target_var)
-            target_object = ground_target_nsrt.objects[index_of_object]
-            mapping_to_objects[base_var] = target_object
-
+    def find_distribution(self, rule: LDLRule, available_variables: List[Variable], constraints: Dict[Variable, Object], task_index: int, state_index: int):
+        # Gets the distribution of variables to objects in a current state under constraints
         ground_state = self._target_states[task_index][state_index].simulator_state.copy()
         goal_state = self._target_tasks[task_index].goal
-
-        # Adding WANT-pred from goal_state to ground_state, so ground_state has all info
         for atom in goal_state:
             wanted_atom = _add_wanted_prefix(atom)
             ground_state.add(wanted_atom)
-
-        if DEBUG:
-            print("=================================")
-            print(f"Rule:\n{rule}")
-            print(f"Target NSRT:\n{target_nsrt}")
-            print(f"Target Ground NSRT:\n{ground_target_nsrt}")
-            print(f"Index: ", state_index)
-            print(f"Ground state:\n{sorted(ground_state)}")
-            print(f"Goal state:\n{goal_state}")
-        state_entropy = 0.0
-
-        var_to_obj_distributions = {}
-        for unused_rule_var in sorted(all_rule_variables - used_rule_variables):
-
+        
+        all_distributions = {}
+        
+        for available_variable in available_variables:
             pos_conditions = set()
             for condition in rule.pos_state_preconditions:
-                if unused_rule_var in condition.variables:
+                if available_variable in condition.variables:
                     pos_conditions.add(condition)
             
             goal_conditions = set()
             for condition in rule.goal_preconditions:
-                if unused_rule_var in condition.variables:
+                if available_variable in condition.variables:
                     goal_conditions.add(condition)
-            
-            # NEXT TODO: FIGURE OUT HOW TO COUNT ACROSS GOAL ANALOGIES
+
             object_distribution = {obj: 0 for obj in self._target_states[task_index][state_index].data}
-            for pos_cond in pos_conditions:
-                analagous_preds = self.get_analagous_predicates(pos_cond.predicate, True)
-                if analagous_preds == None:
-                    continue
+            for list_index, conditions in enumerate([pos_conditions, goal_conditions]):
+                for cond in conditions:
+                    if list_index == 0: # If pos conditions, don't add WANT
+                        analagous_preds = self.get_analagous_predicates(cond.predicate, True)
+                    else: # If goal condition, add WANT
+                        analagous_preds = self.get_analagous_predicates(_add_wanted_prefix(cond.predicate), True)
 
-                needed_objects = set()
-                for var in pos_cond.variables:
-                    if var in mapping_to_objects:
-                        needed_objects.add(mapping_to_objects[var])
+                    if analagous_preds == None:
+                        continue
+                    needed_objects = set()
+                    for var in cond.variables:
+                        if var in constraints:
+                            needed_objects.add(constraints[var])
+                    for pos_atom in ground_state:
+                        # if analagous predicate
+                        if pos_atom.predicate.name in analagous_preds and needed_objects.issubset(set(pos_atom.objects)):
+                            for obj in pos_atom.objects:
+                                if obj in needed_objects or obj in constraints.values():
+                                    continue
+                                object_distribution[obj] += 1
 
-                for pos_atom in ground_state:
-                    # if analagous predicate
-                    if pos_atom.predicate.name in analagous_preds and needed_objects.issubset(set(pos_atom.objects)):
-                        for obj in pos_atom.objects:
-                            if obj in needed_objects:
-                                continue
-                            object_distribution[obj] += 1
+            for tobj, object_score in object_distribution.items():
+                object_distribution[tobj] = object_score * object_score * object_score
 
-            for goal_cond in goal_conditions:
-                wanted_predicate = _add_wanted_prefix(goal_cond.predicate)
-                analagous_preds = self.get_analagous_predicates(wanted_predicate, True)
-                if analagous_preds == None:
-                    continue
+            all_distributions[available_variable] = object_distribution
+        return all_distributions
 
-                needed_objects = set()
-                for var in pos_cond.variables:
-                    if var in mapping_to_objects:
-                        needed_objects.add(mapping_to_objects[var])
+    def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], task_index: int, state_index: int):
+        # Performs best-first search filling variables with objects, if possible
+        initial_variables = set([var for var in rule.parameters]) - set(existing_mapping.values())
 
-                for goal_atom in ground_state:
-                    if goal_atom.predicate.name in analagous_preds and needed_objects.issubset(set(goal_atom.objects)):
-                        for obj in goal_atom.objects:
-                            if obj in needed_objects:
-                                continue
-                            object_distribution[obj] += 1
+        ground_target_nsrt = self._target_actions[task_index][state_index]
+        constraints = {} # Base domain var to object
+        for target_var, base_var in existing_mapping.items():
+            index_of_object = target_nsrt.parameters.index(target_var)
+            target_object = ground_target_nsrt.objects[index_of_object]
+            constraints[base_var] = target_object
+        
+        distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
 
-            # Squaring values to bias towards single value confidence
-            for k, v  in object_distribution.items():
-                object_distribution[k] = v * v * v
-            object_entropy = gini_index_from_dict(object_distribution)
-            state_entropy += object_entropy
-            if object_entropy > 0.0: # If some useful information, add the distribution
-                var_to_obj_distributions[unused_rule_var] = object_distribution
-            else:
-                var_to_obj_distributions[unused_rule_var] = {}
-            if DEBUG:
-                print('-----------------')
-                print(f"Unused Rule Var {unused_rule_var}")
-                print(f"Pos Conditions {pos_conditions}")
-                print(f"Goal Conditions {goal_conditions}")
-                print(f"Candidates: {object_distribution}")
-                print(f"Object Gini: {object_entropy}")
-                print(f"State Gini: {state_entropy}")
-        return var_to_obj_distributions, state_entropy
+        gini_state_score = 0.0
 
+        while True:
+            best_var = None
+            best_gini_score = 0.0
+            for var, var_distribution in distributions.items():
+                gini_score = gini_index_from_dict(var_distribution)
+                if gini_score > best_gini_score:
+                    best_var = var
+                    best_gini_score = gini_score
+            
+            if best_var is None:
+                break
+
+            best_object = max(distributions[best_var], key=distributions[best_var].get)
+            constraints[best_var] = best_object
+            initial_variables.remove(best_var)
+            gini_state_score += best_gini_score
+            distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
+        
+        return constraints, gini_state_score
 
     def get_analagous_predicates(self, pred: Union[Predicate, str], want_name: bool = False):
         predicate_name = None
