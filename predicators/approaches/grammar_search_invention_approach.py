@@ -971,6 +971,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # import pdb; pdb.set_trace()
         ####
 
+        indices_of_sub_clusters = set()
 
         option_name = example_segment.get_option().name
         final_clusters2 = []
@@ -1003,6 +1004,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     sub_clusters[assignment] = [all_clusters[jjj][i]]
             for c in sub_clusters.values():
                 final_clusters.append(c)
+                indices_of_sub_clusters.add(len(final_clusters) - 1)
 
         # import pdb; pdb.set_trace()
 
@@ -2202,6 +2204,40 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         # import pdb; pdb.set_trace()
 
+        # prune duplicate pnads (happens in cover with k=2)
+        # probably want to check this for the mapping with the highest overlap?
+        # since the variables may match? or will they match in the cases where it ends up
+        # being the equivalent operator?
+        pruned_pnads = []
+        sub_cluster_pnads_set = set()
+        # the only duplicates we can have are among the ones that we sub-clustered
+        # out of the pnads we created from the subcluster, only keep the unique ones
+        for i, pnad in enumerate(pnads):
+            if i in indices_of_sub_clusters:
+                temp = pnad.op.copy_with(name="null")
+                if temp in sub_cluster_pnads_set:
+                    continue
+                else:
+                    sub_cluster_pnads_set.add(temp)
+                    pruned_pnads.append(pnad)
+            else:
+                pruned_pnads.append(pnad)
+
+        # indices_considered = set()
+        # for i, pnad in enumerate(sub_cluster_pnads):
+        #     if i in indices_considered:
+        #         continue
+        #     # identify all indicies of pnads that are equivalent to this one
+        #     for j, pnad_2 in enumerate(sub_cluster_pnads):
+        #         if j in indices_considered:
+        #             continue
+        #         if ops_are_equivalent(pnad.op, pnad_2.op):
+        #             indices_considered.add(j)
+        #     indices_considered.add(i)
+        #     pruned_pnads.append(pnad)
+
+        pnads = pruned_pnads
+
         from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
         score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
         pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
@@ -2816,7 +2852,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Only keep sufficiently sized clusters.
             # TODO: add logging info, and maybe make this step optional via a flag.
             all_clusters = [c for c in all_clusters if len(c) > 20]
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             # Step 4:
             final_clusters = []
@@ -2843,8 +2879,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 if score is None:
                     final_clusters.append(cluster)
                     logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
+                # if False:
+                #     pass
                 else:
-                    best_k = min(clustering_scores[op_name], key=lambda x: x[1])[0]
+                    best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))[0]
+                    # best_k = 2
                     import numpy as np
                     from sklearn.mixture import GaussianMixture as GMM
                     from scipy.stats import kstest
@@ -4040,6 +4079,31 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # have to be careful and do some inference when trying them out on
                 # the demos.
 
+            # # prune duplicate pnads (happens in cover with k=2)
+            # # probably want to check this for the mapping with the highest overlap?
+            # # since the variables may match? or will they match in the cases where it ends up
+            # # being the equivalent operator?
+            # def ops_are_equivalent(op1, op2):
+            #     return op1.preconditions==op2.preconditions and op1.add_effects==op2.add_effects and op1.delete_effects==op2.delete_effects
+            #
+            # pruned_pnads = []
+            # indices_considered = set()
+            # for i, pnad in enumerate(pnads):
+            #     if i in indices_considered:
+            #         continue
+            #     # identify all indicies of pnads that are equivalent to this one
+            #     for j, pnad_2 in enumerate(pnads):
+            #         if j in indices_considered:
+            #             continue
+            #         if ops_are_equivalent(pnad.op, pnad_2.op):
+            #             indices_considered.add(j)
+            #     indices_considered.add(i)
+            #     pruned_pnads.append(pnad)
+            #
+            # pnads = pruned_pnads
+
+            # import pdb; pdb.set_trace()
+
             def print_ops(op):
                 print("====")
                 print(op.name)
@@ -4054,7 +4118,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for p in sorted(op.delete_effects):
                     print(p)
                 print("====")
-
 
             for operator in ops_to_print:
                 print_ops(operator)
