@@ -2285,6 +2285,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             else:
                 pruned_pnads.append(pnad)
 
+        # import pdb; pdb.set_trace()
+
         # indices_considered = set()
         # for i, pnad in enumerate(sub_cluster_pnads):
         #     if i in indices_considered:
@@ -2300,6 +2302,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         pnads = pruned_pnads
 
+        # how many effective clusters do we have for the thing we are exploring sub-clustering for?
+        effective_clusters = 0
+        for p in pnads:
+            if p.option_spec[0].name == example_segment.get_option().name:
+                effective_clusters += 1
+
         from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
         score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
         pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
@@ -2314,7 +2322,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             strips_ops,
             option_specs
         )
-        return op_score
+        return op_score, effective_clusters
 
     def _select_predicates_and_learn_operators_by_clustering(
             self, candidates: Dict[Predicate, float],
@@ -2926,32 +2934,39 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             for jjj, cluster in enumerate(all_clusters):
                 op_name = f"Op{jjj}-{cluster[0].get_option().name}"
+                # if "PutOnTable" not in op_name:
+                #     continue
                 # final_clusters2 = []
                 # for x, c in enumerate(all_clusters):
                 #     if x != j:
                 #         final_clusters2.append(c)
-                for kkk in range(1, 4):
-                    example_segment = cluster[0]
-                    option_name = example_segment.get_option().name
-                    score = self.get_score(all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset)
-                    if score is None:
-                        break
-                    clustering_scores[op_name].append((kkk, score))
-
-                if score is None:
+                example_segment = cluster[0]
+                option_name = example_segment.get_option().name
+                if len(example_segment.get_option().params) == 0:
                     final_clusters.append(cluster)
                     logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
-                # if False:
-                #     pass
+
                 else:
-                    best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))[0]
-                    # best_k = 2
+                    for kkk in range(1, 4):
+                        example_segment = cluster[0]
+                        option_name = example_segment.get_option().name
+                        score, eff_kkk = self.get_score(all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset)
+                        if score is None:
+                            break
+                        clustering_scores[op_name].append((kkk, score, eff_kkk))
+
+
+                    # best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))[0]
+                    # best_k = 1
+                    best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))
+                    logging.info(f"BEST K: {best_k[0]}, BEST EFFECIVE K: {best_k[-1]}")
+
                     import numpy as np
                     from sklearn.mixture import GaussianMixture as GMM
                     from scipy.stats import kstest
                     data = np.array([seg.get_option().params for seg in cluster])
 
-                    model = GMM(best_k, covariance_type="full", random_state=0).fit(data)
+                    model = GMM(best_k[-1], covariance_type="full", random_state=0).fit(data)
                     assignments = model.predict(data)
                     sub_clusters = {}
                     for i, assignment in enumerate(assignments):
@@ -2963,6 +2978,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         final_clusters.append(c)
 
             logging.info(f"Clustering best k scores: {clustering_scores}")
+            # import pdb; pdb.set_trace()
 
             # ###
             # # Stuff from oracle learning to test if the stuff is working.
