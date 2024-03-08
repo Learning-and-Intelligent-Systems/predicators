@@ -947,7 +947,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             predicates_we_kept: Set[Predicate]) -> bool:
         """Function to check whether a given set of operators preserves a
         single training trajectory."""
-        from predicators.planning import task_plan_with_option_plan_constraint, task_plan_with_option_plan_constraint2
+        from predicators.planning import task_plan_with_option_plan_constraint
         # init_atoms = utils.abstract(init_state, self._predicates)
         init_atoms = utils.abstract(init_state, predicates_we_kept)
         objects = set(init_state)
@@ -2149,15 +2149,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 # import pdb; pdb.set_trace()
 
-                # import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
-                # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
-                # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
+            # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
+            # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
 
-                # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
-                op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
-                ops_to_print.append(op)
-                # import pdb; pdb.set_trace()
+            # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+            op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
+            ops_to_print.append(op)
+            # import pdb; pdb.set_trace()
 
 
             datastore = []
@@ -3610,7 +3610,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
                             op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
                             # t = (params, var_to_obj, obj_to_var, op_preconds, op_add_effects, op_del_effects)
-                            t = (params, objects_list, relevant_preconds, relevant_add_effects, relevant_del_effects, seg)
+                            t = (params, objects_list, relevant_preconds, relevant_add_effects, relevant_del_effects, seg, opt_objs)
                             ops.append(t)
 
 
@@ -3626,114 +3626,115 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # correspond to each other properly.
                         # if name in  ["Op2-Stack"]:
                         # if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
-                        if True:
-                            # print(f"DOING THIS FOR {name}")
-                            # if name == "Op0-Pick":
-                            #     import pdb; pdb.set_trace()
-                            op1 = ops[0]
-                            op1_params = op1[0]
-                            op1_objs_list = op1[1]
-                            op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
-                            op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
-                            op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
-                            op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
 
+                        # print(f"DOING THIS FOR {name}")
+                        # if name == "Op0-Pick":
+                        #     import pdb; pdb.set_trace()
+                        op1 = ops[0]
+                        op1_opt_objs = op1[-1]
+                        op1_params = op1[0]
+                        op1_objs_list = op1[1]
+                        op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
+                        op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
+                        op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
+                        op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
+
+                        op1_preconds_str = set(str(a) for a in op1_preconds)
+                        op1_adds_str = set(str(a) for a in op1_add_effects)
+                        op1_dels_str = set(str(a) for a in op1_del_effects)
+
+                        # debug:
+                        # maybe explicitly go find operators where n+1 is put on n, and then where n is put on n+1
+                        # look at add effects and see the numbers
+                        # demo 7 seems to have n on n+1 at some point in it
+                        # demo 0 has n+1 on n
+                        import re
+                        def extract_numbers_from_string(input_string):
+                            # Use regular expression to find all numeric sequences in the 'blockX' format
+                            numbers = re.findall(r'\bblock(\d+)\b', input_string)
+                            # Convert the found strings to integers and return a set
+                            return set(map(int, numbers))
+                        def print_predicates(preds):
+                            l = sorted(list(preds))
+                            print("Printing set: ")
+                            for p in l:
+                                print(p)
+                            print()
+                        # for x, seg in enumerate(segments):
+                        #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
+                        #     # now see if n+1 on n or n on n+1
+                        #     assert len(relevant) == 1
+                        #     z = relevant[0]
+                        #     nums = extract_numbers_from_string(z)
+                        #     assert len(nums) == 2
+                        #     nums_sorted = sorted(list(nums))
+                        #     higher_on_top = z.index(str(nums_sorted[1])) < z.index(str(nums_sorted[0]))
+                            # if not higher_on_top:
+                            #     print("HIGHER NOT ON TOP")
+                            #     import pdb; pdb.set_trace()
+
+                        for i in range(1, len(ops)):
+                            op2 = ops[i]
+                            op2_params = op2[0]
+                            op2_objs_list = op2[1]
+
+                            mappings = get_mapping_between_params(op2_params)
+                            mapping_scores = []
+                            for m in mappings:
+
+                                mapping = dict(zip(op2_params, m))
+
+                                overlap = 0
+
+                                # Get Operator 2's preconditions, add effects, and delete effects
+                                # in terms of a particular object -> variable mapping.
+                                new_op2_params = [mapping[p] for p in op2_params]
+                                new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
+                                # import pdb; pdb.set_trace()
+                                try:
+                                    op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                                except:
+                                    import pdb; pdb.set_trace()
+                                op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                                op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
+                                op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
+
+                                # Take the intersection of lifted atoms across both operators, and
+                                # count the overlap.
+                                op2_preconds_str = set(str(a) for a in op2_preconds)
+                                op2_adds_str = set(str(a) for a in op2_add_effects)
+                                op2_dels_str = set(str(a) for a in op2_del_effects)
+
+                                score1 = len(op1_preconds_str.intersection(op2_preconds_str))
+                                score2 = len(op1_adds_str.intersection(op2_adds_str))
+                                score3 = len(op1_dels_str.intersection(op2_dels_str))
+                                score = score1 + score2 + score3
+
+                                new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
+                                new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
+                                new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
+
+                                mapping_scores.append((score, new_preconds, new_adds, new_dels))
+
+                            s, a, b, c = max(mapping_scores, key=lambda x: x[0])
+                            op1_preconds = a
+                            op1_add_effects = b
+                            op1_del_effects = c
                             op1_preconds_str = set(str(a) for a in op1_preconds)
                             op1_adds_str = set(str(a) for a in op1_add_effects)
                             op1_dels_str = set(str(a) for a in op1_del_effects)
 
-                            # debug:
-                            # maybe explicitly go find operators where n+1 is put on n, and then where n is put on n+1
-                            # look at add effects and see the numbers
-                            # demo 7 seems to have n on n+1 at some point in it
-                            # demo 0 has n+1 on n
-                            import re
-                            def extract_numbers_from_string(input_string):
-                                # Use regular expression to find all numeric sequences in the 'blockX' format
-                                numbers = re.findall(r'\bblock(\d+)\b', input_string)
-                                # Convert the found strings to integers and return a set
-                                return set(map(int, numbers))
-                            def print_predicates(preds):
-                                l = sorted(list(preds))
-                                print("Printing set: ")
-                                for p in l:
-                                    print(p)
-                                print()
-                            # for x, seg in enumerate(segments):
-                            #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
-                            #     # now see if n+1 on n or n on n+1
-                            #     assert len(relevant) == 1
-                            #     z = relevant[0]
-                            #     nums = extract_numbers_from_string(z)
-                            #     assert len(nums) == 2
-                            #     nums_sorted = sorted(list(nums))
-                            #     higher_on_top = z.index(str(nums_sorted[1])) < z.index(str(nums_sorted[0]))
-                                # if not higher_on_top:
-                                #     print("HIGHER NOT ON TOP")
-                                #     import pdb; pdb.set_trace()
-
-                            for i in range(1, len(ops)):
-                                op2 = ops[i]
-                                op2_params = op2[0]
-                                op2_objs_list = op2[1]
-
-                                mappings = get_mapping_between_params(op2_params)
-                                mapping_scores = []
-                                for m in mappings:
-
-                                    mapping = dict(zip(op2_params, m))
-
-                                    overlap = 0
-
-                                    # Get Operator 2's preconditions, add effects, and delete effects
-                                    # in terms of a particular object -> variable mapping.
-                                    new_op2_params = [mapping[p] for p in op2_params]
-                                    new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
-                                    # import pdb; pdb.set_trace()
-                                    try:
-                                        op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                                    except:
-                                        import pdb; pdb.set_trace()
-                                    op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                                    op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
-                                    op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
-
-                                    # Take the intersection of lifted atoms across both operators, and
-                                    # count the overlap.
-                                    op2_preconds_str = set(str(a) for a in op2_preconds)
-                                    op2_adds_str = set(str(a) for a in op2_add_effects)
-                                    op2_dels_str = set(str(a) for a in op2_del_effects)
-
-                                    score1 = len(op1_preconds_str.intersection(op2_preconds_str))
-                                    score2 = len(op1_adds_str.intersection(op2_adds_str))
-                                    score3 = len(op1_dels_str.intersection(op2_dels_str))
-                                    score = score1 + score2 + score3
-
-                                    new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
-                                    new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
-                                    new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
-
-                                    mapping_scores.append((score, new_preconds, new_adds, new_dels))
-
-                                s, a, b, c = max(mapping_scores, key=lambda x: x[0])
-                                op1_preconds = a
-                                op1_add_effects = b
-                                op1_del_effects = c
-                                op1_preconds_str = set(str(a) for a in op1_preconds)
-                                op1_adds_str = set(str(a) for a in op1_add_effects)
-                                op1_dels_str = set(str(a) for a in op1_del_effects)
-
-                                # import pdb; pdb.set_trace()
-
                             # import pdb; pdb.set_trace()
 
-                            # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
-                            # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
+                        # import pdb; pdb.set_trace()
 
-                            # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
-                            op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
-                            ops_to_print.append(op)
-                            # import pdb; pdb.set_trace()
+                        # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
+                        # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
+
+                        # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+                        op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
+                        ops_to_print.append(op)
+                        # import pdb; pdb.set_trace()
 
 
                         datastore = []
@@ -3809,7 +3810,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                             counter += 1
 
-                        option_vars = [obj_to_var[o] for o in opt_objs]
+                        option_vars = [op1_obj_to_var[o] for o in op1_opt_objs]
                         option_spec = [seg_0.get_option().parent, option_vars]
                         pnads.append(PNAD(op, datastore, option_spec))
 
@@ -3930,7 +3931,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
                     op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
                     # t = (params, var_to_obj, obj_to_var, op_preconds, op_add_effects, op_del_effects)
-                    t = (params, objects_list, relevant_preconds, relevant_add_effects, relevant_del_effects, seg)
+                    t = (params, objects_list, relevant_preconds, relevant_add_effects, relevant_del_effects, seg, opt_objs)
                     ops.append(t)
 
 
@@ -3946,114 +3947,115 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # correspond to each other properly.
                 # if name in  ["Op2-Stack"]:
                 # if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
-                if True:
-                    # print(f"DOING THIS FOR {name}")
-                    # if name == "Op0-Pick":
-                    #     import pdb; pdb.set_trace()
-                    op1 = ops[0]
-                    op1_params = op1[0]
-                    op1_objs_list = op1[1]
-                    op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
-                    op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
-                    op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
-                    op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
 
+                # print(f"DOING THIS FOR {name}")
+                # if name == "Op0-Pick":
+                #     import pdb; pdb.set_trace()
+                op1 = ops[0]
+                op1_opt_objs = op1[-1]
+                op1_params = op1[0]
+                op1_objs_list = op1[1]
+                op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
+                op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
+                op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
+                op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
+
+                op1_preconds_str = set(str(a) for a in op1_preconds)
+                op1_adds_str = set(str(a) for a in op1_add_effects)
+                op1_dels_str = set(str(a) for a in op1_del_effects)
+
+                # debug:
+                # maybe explicitly go find operators where n+1 is put on n, and then where n is put on n+1
+                # look at add effects and see the numbers
+                # demo 7 seems to have n on n+1 at some point in it
+                # demo 0 has n+1 on n
+                import re
+                def extract_numbers_from_string(input_string):
+                    # Use regular expression to find all numeric sequences in the 'blockX' format
+                    numbers = re.findall(r'\bblock(\d+)\b', input_string)
+                    # Convert the found strings to integers and return a set
+                    return set(map(int, numbers))
+                def print_predicates(preds):
+                    l = sorted(list(preds))
+                    print("Printing set: ")
+                    for p in l:
+                        print(p)
+                    print()
+                # for x, seg in enumerate(segments):
+                #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
+                #     # now see if n+1 on n or n on n+1
+                #     assert len(relevant) == 1
+                #     z = relevant[0]
+                #     nums = extract_numbers_from_string(z)
+                #     assert len(nums) == 2
+                #     nums_sorted = sorted(list(nums))
+                #     higher_on_top = z.index(str(nums_sorted[1])) < z.index(str(nums_sorted[0]))
+                    # if not higher_on_top:
+                    #     print("HIGHER NOT ON TOP")
+                    #     import pdb; pdb.set_trace()
+
+                for i in range(1, len(ops)):
+                    op2 = ops[i]
+                    op2_params = op2[0]
+                    op2_objs_list = op2[1]
+
+                    mappings = get_mapping_between_params(op2_params)
+                    mapping_scores = []
+                    for m in mappings:
+
+                        mapping = dict(zip(op2_params, m))
+
+                        overlap = 0
+
+                        # Get Operator 2's preconditions, add effects, and delete effects
+                        # in terms of a particular object -> variable mapping.
+                        new_op2_params = [mapping[p] for p in op2_params]
+                        new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
+                        # import pdb; pdb.set_trace()
+                        try:
+                            op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                        except:
+                            import pdb; pdb.set_trace()
+                        op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                        op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
+                        op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
+
+                        # Take the intersection of lifted atoms across both operators, and
+                        # count the overlap.
+                        op2_preconds_str = set(str(a) for a in op2_preconds)
+                        op2_adds_str = set(str(a) for a in op2_add_effects)
+                        op2_dels_str = set(str(a) for a in op2_del_effects)
+
+                        score1 = len(op1_preconds_str.intersection(op2_preconds_str))
+                        score2 = len(op1_adds_str.intersection(op2_adds_str))
+                        score3 = len(op1_dels_str.intersection(op2_dels_str))
+                        score = score1 + score2 + score3
+
+                        new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
+                        new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
+                        new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
+
+                        mapping_scores.append((score, new_preconds, new_adds, new_dels))
+
+                    s, a, b, c = max(mapping_scores, key=lambda x: x[0])
+                    op1_preconds = a
+                    op1_add_effects = b
+                    op1_del_effects = c
                     op1_preconds_str = set(str(a) for a in op1_preconds)
                     op1_adds_str = set(str(a) for a in op1_add_effects)
                     op1_dels_str = set(str(a) for a in op1_del_effects)
 
-                    # debug:
-                    # maybe explicitly go find operators where n+1 is put on n, and then where n is put on n+1
-                    # look at add effects and see the numbers
-                    # demo 7 seems to have n on n+1 at some point in it
-                    # demo 0 has n+1 on n
-                    import re
-                    def extract_numbers_from_string(input_string):
-                        # Use regular expression to find all numeric sequences in the 'blockX' format
-                        numbers = re.findall(r'\bblock(\d+)\b', input_string)
-                        # Convert the found strings to integers and return a set
-                        return set(map(int, numbers))
-                    def print_predicates(preds):
-                        l = sorted(list(preds))
-                        print("Printing set: ")
-                        for p in l:
-                            print(p)
-                        print()
-                    # for x, seg in enumerate(segments):
-                    #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
-                    #     # now see if n+1 on n or n on n+1
-                    #     assert len(relevant) == 1
-                    #     z = relevant[0]
-                    #     nums = extract_numbers_from_string(z)
-                    #     assert len(nums) == 2
-                    #     nums_sorted = sorted(list(nums))
-                    #     higher_on_top = z.index(str(nums_sorted[1])) < z.index(str(nums_sorted[0]))
-                        # if not higher_on_top:
-                        #     print("HIGHER NOT ON TOP")
-                        #     import pdb; pdb.set_trace()
-
-                    for i in range(1, len(ops)):
-                        op2 = ops[i]
-                        op2_params = op2[0]
-                        op2_objs_list = op2[1]
-
-                        mappings = get_mapping_between_params(op2_params)
-                        mapping_scores = []
-                        for m in mappings:
-
-                            mapping = dict(zip(op2_params, m))
-
-                            overlap = 0
-
-                            # Get Operator 2's preconditions, add effects, and delete effects
-                            # in terms of a particular object -> variable mapping.
-                            new_op2_params = [mapping[p] for p in op2_params]
-                            new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
-                            # import pdb; pdb.set_trace()
-                            try:
-                                op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                            except:
-                                import pdb; pdb.set_trace()
-                            op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                            op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
-                            op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
-
-                            # Take the intersection of lifted atoms across both operators, and
-                            # count the overlap.
-                            op2_preconds_str = set(str(a) for a in op2_preconds)
-                            op2_adds_str = set(str(a) for a in op2_add_effects)
-                            op2_dels_str = set(str(a) for a in op2_del_effects)
-
-                            score1 = len(op1_preconds_str.intersection(op2_preconds_str))
-                            score2 = len(op1_adds_str.intersection(op2_adds_str))
-                            score3 = len(op1_dels_str.intersection(op2_dels_str))
-                            score = score1 + score2 + score3
-
-                            new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
-                            new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
-                            new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
-
-                            mapping_scores.append((score, new_preconds, new_adds, new_dels))
-
-                        s, a, b, c = max(mapping_scores, key=lambda x: x[0])
-                        op1_preconds = a
-                        op1_add_effects = b
-                        op1_del_effects = c
-                        op1_preconds_str = set(str(a) for a in op1_preconds)
-                        op1_adds_str = set(str(a) for a in op1_add_effects)
-                        op1_dels_str = set(str(a) for a in op1_del_effects)
-
-                        # import pdb; pdb.set_trace()
-
                     # import pdb; pdb.set_trace()
 
-                    # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
-                    # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
+                # import pdb; pdb.set_trace()
 
-                    # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
-                    op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
-                    ops_to_print.append(op)
-                    # import pdb; pdb.set_trace()
+                # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
+                # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
+
+                # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+                op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
+                ops_to_print.append(op)
+                # import pdb; pdb.set_trace()
 
 
                 datastore = []
@@ -4129,7 +4131,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                     counter += 1
 
-                option_vars = [obj_to_var[o] for o in opt_objs]
+                option_vars = [op1_obj_to_var[o] for o in op1_opt_objs]
                 option_spec = [seg_0.get_option().parent, option_vars]
                 pnads.append(PNAD(op, datastore, option_spec))
 
