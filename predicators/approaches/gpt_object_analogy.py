@@ -51,7 +51,7 @@ from openai import OpenAI
 from predicators.approaches.prompt_gen import get_prompt
 import os
 
-DEBUG = True
+DEBUG = False
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class GPTObjectApproach(PG3AnalogyApproach):
@@ -90,16 +90,20 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._generate_goal_predicates(base_policy)
         final_rules = []
         for rule in base_policy.rules:
-            target_rule = self._generate_rules(rule)
-            final_rules.append(target_rule)
+            target_rules = self._generate_rules(rule)
+            for target_rule in target_rules:
+                final_rules.append(target_rule)
 
         return [LiftedDecisionList(final_rules)]
 
     def _generate_rules(self, rule: LDLRule) -> List[LDLRule]:
         # Generates "best" rules in target environment given rule in base environment
         target_nsrts = self._get_analagous_nsrts(rule) 
+        final_rules = []
         for target_nsrt in target_nsrts:
             new_rule = self._generate_best_rule(rule, target_nsrt)
+            final_rules.append(new_rule)
+        return final_rules
     
     def _generate_best_rule(self, rule: LDLRule, target_nsrt: NSRT) -> LDLRule:
         # Generates best rule in target environment given rule in base environment and a target nsrt
@@ -145,7 +149,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 pos_analagous_predicate_names = set(possible_pred_names)
                 useful_predicates.update(pos_analagous_predicate_names)
         for goal_condition in rule.goal_preconditions:
-            goal_predicate = _add_wanted_prefix(goal_condition.predicate)
+            goal_predicate = add_wanted_prefix(goal_condition.predicate)
             goal_analagous_predicate_names = set(self.get_analagous_predicates(goal_predicate, True))
             useful_predicates.update(goal_analagous_predicate_names)
 
@@ -165,13 +169,15 @@ class GPTObjectApproach(PG3AnalogyApproach):
             print("USEFUL POS PREDICATES", useful_predicates)
             print("PRECONDS", ranked_atoms)
         
+        saycan_scores = [atom for sublist in ranked_atoms[0:3] for atom in sublist]
+        """
         pos_classifications = {}
         neg_classifications = {}
         for sample_atom in sorted(self._target_states[best_task_index][best_index].simulator_state):
             prompt = get_prompt(self._base_env.get_name(), self._target_env.get_name(), rule, self._target_actions[best_task_index][best_index], sorted(self._target_states[best_task_index][best_index].simulator_state), self._target_tasks[best_task_index].goal, useful_predicates, useful_objects, sample_atom)
             completion = get_completion(
                 [{"role": "user", "content": prompt}],
-                model="gpt-4",
+                model="gpt-4-0125-preview",
                 logprobs=True,
                 top_logprobs=5,
             )
@@ -192,17 +198,45 @@ class GPTObjectApproach(PG3AnalogyApproach):
             pos_classifications[sample_atom] = best_yes_logprob
             neg_classifications[sample_atom] = best_no_logprob
         saycan_scores = []
+
+        to_be_lifted_conditions = []
         for a, v in pos_classifications.items():
-            saycan_scores.append((np.exp(v) * scored_atoms[a], a))
-        print("SAYCAN SCORES")
-        print(sorted(saycan_scores))
-        import ipdb; ipdb.set_trace();
-    
+            saycan_scores.append((np.exp(v) + scored_atoms[a], a))
+        
+        """
+        # Lifting the rule
+        ground_action = self._target_actions[best_task_index][best_index]
+        lifted_action = ground_action.parent
+        obj_to_var_mapping = {}
+        all_final_objects = set()
+        for saycan_atom in saycan_scores:
+            for saycan_atom_object in saycan_atom.objects:
+                all_final_objects.add(saycan_atom_object)
+        for i in range(len(ground_action.objects)):
+            obj_to_var_mapping[ground_action.objects[i]] = lifted_action.parameters[i]
+        for leftover_object in sorted(all_final_objects - set(obj_to_var_mapping.keys())):
+            new_var = leftover_object.type("?" + leftover_object.name)
+            obj_to_var_mapping[leftover_object] = new_var
+
+        #TODO: MAY NEED TO ADD NSRT PRECONDITIONS TO SATISFY REQUIREMENTS
+        rule_pos_state_preconditions = set()
+        rule_goal_preconditions = set()
+        for saycan_atom in saycan_scores:
+            if "WANT" in saycan_atom.predicate.name:
+                new_predicate = remove_wanted_prefix(saycan_atom.predicate)
+                new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
+                rule_goal_preconditions.add(new_predicate(new_variables))
+            else:
+                new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
+                rule_pos_state_preconditions.add(saycan_atom.predicate(new_variables))
+        
+        final_rule = LDLRule("generated-rule", sorted(obj_to_var_mapping.values()), rule_pos_state_preconditions, set(), rule_goal_preconditions, lifted_action)
+        return final_rule
     
     def _score_all(self, useful_objects, useful_predicates, task_index, index):
         ground_state = self._target_states[task_index][index].simulator_state.copy()
         for atom in self._target_tasks[task_index].goal:
-            wanted_atom = _add_wanted_prefix(atom)
+            wanted_atom = add_wanted_prefix(atom)
             ground_state.add(wanted_atom)
 
         final_scores = {}
@@ -220,7 +254,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
     def _score_conds(self, useful_objects, useful_predicates, task_index, index):
         ground_state = self._target_states[task_index][index].simulator_state.copy()
         for atom in self._target_tasks[task_index].goal:
-            wanted_atom = _add_wanted_prefix(atom)
+            wanted_atom = add_wanted_prefix(atom)
             ground_state.add(wanted_atom)
 
         useful_pos_atoms = {}
@@ -260,7 +294,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         ground_state = self._target_states[task_index][state_index].simulator_state.copy()
         goal_state = self._target_tasks[task_index].goal
         for atom in goal_state:
-            wanted_atom = _add_wanted_prefix(atom)
+            wanted_atom = add_wanted_prefix(atom)
             ground_state.add(wanted_atom)
         
         all_distributions = {}
@@ -282,7 +316,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                     if list_index == 0: # If pos conditions, don't add WANT
                         analagous_preds = self.get_analagous_predicates(cond.predicate, True)
                     else: # If goal condition, add WANT
-                        analagous_preds = self.get_analagous_predicates(_add_wanted_prefix(cond.predicate), True)
+                        analagous_preds = self.get_analagous_predicates(add_wanted_prefix(cond.predicate), True)
 
                     if analagous_preds == None:
                         continue
@@ -643,7 +677,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         else:
             return None
 
-def _add_wanted_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
+def add_wanted_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
     """Returns same type but with the Predicate becoming WANT-Predicate"""
     temp_classifier = lambda s, o: False
     if isinstance(element, Predicate):
@@ -662,6 +696,27 @@ def _add_wanted_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
         return new_atom
     else:
         return None
+
+def remove_wanted_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
+    """Returns same type but with the Predicate not having WANT"""
+    temp_classifier = lambda s, o: False
+    if isinstance(element, Predicate):
+        new_predicate_name = element.name[5:]
+        new_predicate = Predicate(new_predicate_name, element.types.copy(), temp_classifier)
+        return new_predicate
+    elif isinstance(element, LiftedAtom):
+        new_predicate_name = element.predicate.name[5:]
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = new_predicate(element.variables)
+        return new_atom
+    elif isinstance(element, GroundAtom):
+        new_predicate_name = element.predicate.name[5:]
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = new_predicate(element.objects)
+        return new_atom
+    else:
+        return None
+
 
 def _convert_object_to_variable(obj: Object) -> Variable:
     return obj.type("?" + obj.name)
@@ -714,7 +769,7 @@ def sort_atoms_by_score(atoms_dict):
 
 def get_completion(
     messages: list[dict[str, str]],
-    model: str = "gpt-4",
+    model: str = "gpt-4-0125-preview",
     max_tokens=1,
     temperature=0,
     stop=None,
