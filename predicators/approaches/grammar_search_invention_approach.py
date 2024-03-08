@@ -2272,6 +2272,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # being the equivalent operator?
         pruned_pnads = []
         sub_cluster_pnads_set = set()
+        # how many effective clusters do we have for the thing we are exploring sub-clustering for?
+        effective_clusters = 0
         # the only duplicates we can have are among the ones that we sub-clustered
         # out of the pnads we created from the subcluster, only keep the unique ones
         for i, pnad in enumerate(pnads):
@@ -2282,6 +2284,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 else:
                     sub_cluster_pnads_set.add(temp)
                     pruned_pnads.append(pnad)
+                if pnad.option_spec[0].name == example_segment.get_option().name:
+                    effective_clusters += 1
             else:
                 pruned_pnads.append(pnad)
 
@@ -2302,11 +2306,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         pnads = pruned_pnads
 
-        # how many effective clusters do we have for the thing we are exploring sub-clustering for?
-        effective_clusters = 0
-        for p in pnads:
-            if p.option_spec[0].name == example_segment.get_option().name:
-                effective_clusters += 1
+        # # how many effective clusters do we have for the thing we are exploring sub-clustering for?
+        # effective_clusters = 0
+        # for p in pnads:
+        #     if p.option_spec[0].name == example_segment.get_option().name:
+        #         effective_clusters += 1
 
         from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
         score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
