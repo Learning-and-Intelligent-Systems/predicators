@@ -3008,7 +3008,7 @@ def create_video_from_partial_refinements(
     # that would create one video per skeleton.
     if CFG.failure_video_mode == "longest_only":
         # Visualize only the overall longest failed plan.
-        _, plan = max(partial_refinements, key=lambda x: len(x[1]))
+        skeleton, plan = max(partial_refinements, key=lambda x: len(x[1]))
         policy = option_plan_to_policy(plan)
         video: Video = []
         state = env.reset(train_or_test, task_idx)
@@ -3016,9 +3016,9 @@ def create_video_from_partial_refinements(
             try:
                 act = policy(state)
             except OptionExecutionFailure:
-                video.extend(env.render())
+                video.extend(env.render(caption=str([nsrt.name for nsrt in skeleton])))
                 break
-            video.extend(env.render(act))
+            video.extend(env.render(act, caption=str([nsrt.name for nsrt in skeleton])))
             try:
                 state = env.step(act)
             except EnvironmentFailure:

@@ -6,10 +6,6 @@ from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Array, GroundAtom, Object, ParameterizedOption, Predicate, State, Type, Variable
 from shapely.affinity import translate
 
-import matplotlib
-import matplotlib.pyplot as plt
-matplotlib.use("tkagg")
-
 __all__ = ['StatueGroundTruthNSRTFactory']
 
 class StatueGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -183,4 +179,3 @@ class StatueGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         ))
 
         return nsrts
-

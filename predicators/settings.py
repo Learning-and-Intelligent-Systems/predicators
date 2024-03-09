@@ -514,7 +514,7 @@ class GlobalSettings:
     feasibility_loss_output_file = ""
     feasibility_threshold_recalibration_percentile = 1.0
     feasibility_num_negative_loaded_datapoints = 2500
-    feasibility_num_datapoints_per_iter = 300
+    feasibility_num_datapoints_per_iter = 1200
     feasibility_optim = 'adam'
 
     mlp_classifier_n_iter_no_change = 5000

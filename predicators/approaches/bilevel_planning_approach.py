@@ -114,6 +114,8 @@ class BilevelPlanningApproach(BaseApproach):
                 use_visited_state_set=CFG.sesame_use_visited_state_set,
                 **kwargs)
         except PlanningFailure as e:
+            if 'metrics' in e.info:
+                self._save_metrics(e.info['metrics'], nsrts, preds)
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)

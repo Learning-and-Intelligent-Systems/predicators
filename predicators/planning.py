@@ -199,7 +199,7 @@ def _sesame_plan_with_astar(
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout(
                         "Planning timed out in refinement!",
-                        info={"partial_refinements": partial_refinements})
+                        info={"partial_refinements": partial_refinements, 'metrics': metrics})
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
             new_predicates, ground_nsrts = _update_nsrts_with_failure(

@@ -147,7 +147,7 @@ def run_low_level_search(
         max_horizon,
         skeleton,
         feasibility_classifier,
-        [1.0],
+        2.0,
         atoms_sequence,
         search_stop_condition,
         task.goal,
@@ -192,7 +192,7 @@ def run_backtracking_for_data_generation(
         max_horizon,
         skeleton,
         feasibility_classifier,
-        [1.0 for _ in range(len(previous_states))],
+        2.0,
         atoms_sequence,
         search_stop_condition,
         goal,
@@ -216,7 +216,7 @@ def _backtrack( # TODO: add comments and docstring
     max_horizon: int,
     skeleton: List[_GroundNSRT],
     feasibility_classifier: Optional[FeasibilityClassifier],
-    feasibility_confidences: List[float],
+    min_confidence: float,
     atoms_sequence: List[Set[GroundAtom]],
     search_stop_condition: Callable[[int, BacktrackingTree], bool],
     goal: Set[GroundAtom],
@@ -277,7 +277,7 @@ def _backtrack( # TODO: add comments and docstring
             continue
 
         next_states = states + [next_state]
-        confidence = 1.0
+        confidence = 2.0
         if feasibility_classifier is not None and len(next_states) < len(skeleton) + 1:
             feasible, confidence = feasibility_classifier.classify(next_states, skeleton)
             if not feasible:
@@ -300,7 +300,7 @@ def _backtrack( # TODO: add comments and docstring
             max_horizon - num_actions,
             skeleton,
             feasibility_classifier,
-            feasibility_confidences + [confidence],
+            min(min_confidence, confidence),
             atoms_sequence,
             search_stop_condition,
             goal,
@@ -321,7 +321,7 @@ def _backtrack( # TODO: add comments and docstring
 
         tree.append_failed_try(option, next_tree)
 
-        if feasibility_classifier is not None and confidence > feasibility_confidences[-1]: # Backjumping handling
+        if feasibility_classifier is not None and confidence > min_confidence: # Backjumping handling
             logging.info(f"Depth {current_depth} Backjumping")
             return tree, None
 

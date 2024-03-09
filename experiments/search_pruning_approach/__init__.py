@@ -4,6 +4,7 @@ import dataclasses
 from dataclasses import dataclass
 from itertools import cycle, repeat
 from types import SimpleNamespace
+from experiments.envs.donuts.env import Donuts
 from gym.spaces import Box
 import logging
 import numpy as np
@@ -118,7 +119,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         dataset_path: str = utils.create_dataset_filename_str(["feasibility_dataset"])[0]
 
         # Running data collection and training
-        seed = self._seed + 696969
+        seed = self._seed + 100000
         assert CFG.feasibility_learning_strategy in {
             "backtracking", "generated_data", "ground_truth_data", "ground_truth_classifier", "load_data"
         }
@@ -449,13 +450,15 @@ class SearchPruningApproach(NSRTLearningApproach):
                     for picklable_datapoint in datapoints
                 )
                 logging.info(f"Took {time.perf_counter() - start} seconds")
-            num_correct_negatives = sum([
-                1 for datapoint in self._negative_feasibility_dataset if not SearchPruningApproach._shelves2d_ground_truth_classifier(datapoint.states, datapoint.skeleton)[0]
-            ])
-            logging.info(f"Negative data purity: {num_correct_negatives / len(self._negative_feasibility_dataset):.1%}")
-            seed += len(chosen_search_datapoints)
+            # num_correct_negatives = sum([
+            #     1 for datapoint in self._negative_feasibility_dataset if not SearchPruningApproach._shelves2d_ground_truth_classifier(datapoint.states, datapoint.skeleton)[0]
+            # ])
+            # logging.info(f"Negative data purity: {num_correct_negatives / len(self._negative_feasibility_dataset):.1%}")
+            seed += len(chosen_search_datapoints) + 100000
 
             if suffix_length < max_skeleton_length - 1:
+                logging.info(f"Number of gathered datapoints: {len(self._positive_feasibility_dataset)} "
+                             f"positive and {len(self._negative_feasibility_dataset)} negative")
                 self._learn_neural_feasibility_classifier(suffix_length)
 
         logging.info("Generated interleaving-based feasibility dataset of "
@@ -475,6 +478,8 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         logging.basicConfig(filename=f"interleaved_search/{seed}.log", force=True, level=logging.DEBUG)
         logging.info("Started negative data collection")
+        logging.info(f"Skeleton: {[nsrt.name for nsrt in skeleton]}")
+        logging.info(f"Starting Depth {len(states) - suffix_length - 2}")
 
         # Checking for suffix length
         if len(skeleton) <= suffix_length:
@@ -505,12 +510,17 @@ class SearchPruningApproach(NSRTLearningApproach):
         next_states = [
             mb_subtree.state
             for _, mb_subtree in backtracking.failed_tries if mb_subtree is not None
-        ]
+        ]#[:1]
+        option_params = [
+            option.params
+            for option, mb_subtree in backtracking.failed_tries if mb_subtree is not None
+        ]#[:1]
         # if next_states:
-        #     fig = Shelves2DEnv.render_state_plt(next_states[0], None)
+        #     fig = Donuts.render_state_plt(next_states[0], None)
         #     fig.savefig(f"interleaved_search/{seed}.pdf")
         #     plt.close(fig)
         logging.info(f"Finished negative data collection - {next_states} samples found")
+        logging.info(f"Option params: {option_params}")
         return [
             PicklableFeasibilityDatapoint(FeasibilityDatapoint(
                 states = states[:-suffix_length - 1] + [next_state],
@@ -618,5 +628,4 @@ class SearchPruningApproach(NSRTLearningApproach):
             optimizer_name = CFG.feasibility_optim,
         )
         neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset)
-        neural_feasibility_classifier.freeze()
         self._feasibility_classifier = neural_feasibility_classifier

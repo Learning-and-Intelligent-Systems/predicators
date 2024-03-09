@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import math
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple, cast
-from matplotlib.lines import Line2D
 import numpy as np
 from predicators.envs.base_env import BaseEnv
 from predicators.settings import CFG
@@ -9,8 +8,8 @@ from predicators.structs import Action, EnvironmentTask, Object, Predicate, Stat
 from experiments.envs.utils import BoxWH
 import gym
 
+from matplotlib.lines import Line2D
 import matplotlib.patches as patches
-from matplotlib.path import Path
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("tkagg")
@@ -312,7 +311,7 @@ class Statue(BaseEnv):
         # Constructing placeholder state
         door_height_class = {}
         state: State = State({
-            obj: np.zeros((obj.type.dim,))
+            obj: np.zeros((obj.type.dim,), dtype=np.float32)
             for obj in sum(rooms, []) + sum(vertical_doors, []) + sum(horizontal_doors, []) + [self._robot, self._statue]
         }, SimulatorState(world_width, world_height, vertical_doors, horizontal_doors, door_height_class))
 
@@ -397,12 +396,12 @@ class Statue(BaseEnv):
     @property
     def action_space(self) -> gym.spaces.Box:
         """(x, y, grasp, move, grab_place)"""
-        lower_bound = np.array([0.0, 0.0, 0.0, 0.0, -1.0])
+        lower_bound = np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
         upper_bound = np.array([
             max(self.range_train_world_width[1], self.range_test_world_width[1]) * self.room_size - self.equality_margin,
             max(self.range_train_world_height[1], self.range_test_world_height[1]) * self.room_size - self.equality_margin,
             1.0, 1.0, 1.0
-        ])
+        ], dtype=np.float32)
         return gym.spaces.Box(lower_bound, upper_bound)
 
     @classmethod

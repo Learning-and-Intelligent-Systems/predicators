@@ -5,15 +5,11 @@ from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Array, GroundAtom, Object, ParameterizedOption, Predicate, State, Type, Variable
 from shapely.affinity import translate
 
-import matplotlib
-import matplotlib.pyplot as plt
-matplotlib.use("tkagg")
-
 __all__ = ['DonutsGroundTruthNSRTFactory']
 
 class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     # Settings
-    move_search_dist: ClassVar[float] = 4.0
+    move_search_dist: ClassVar[float] = 2.0
     place_search_dist: ClassVar[float] = 1.0
     margin: ClassVar[float] = 1
 
@@ -32,6 +28,7 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         object_type = types["object"]
         robot_type = types["robot"]
         donut_type = types["donut"]
+        position_type = types["position"]
         container_type = types["container"]
         box_type = types["box"]
         shelf_type = types["shelf"]
@@ -83,13 +80,29 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             arr[4] = 0.0
             return arr
 
+        # MoveToDonut
         robot = Variable("?robot", robot_type)
-        to_obj = Variable("?to", object_type)
+        to_donut = Variable("?to", donut_type)
         nsrts.add(NSRT(
-            "Move",
-            [robot, to_obj],
+            "MoveToDonut",
+            [robot, to_donut],
             {},
-            {NextTo([robot, to_obj])},
+            {NextTo([robot, to_donut])},
+            {},
+            {NextTo},
+            Act,
+            [],
+            Move_sampler,
+        ))
+
+        # MoveToPosition
+        robot = Variable("?robot", robot_type)
+        to_position = Variable("?to", position_type)
+        nsrts.add(NSRT(
+            "MoveToPosition",
+            [robot, to_position],
+            {},
+            {NextTo([robot, to_position])},
             {},
             {NextTo},
             Act,
@@ -102,7 +115,8 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             state: State,
             goal: Set[GroundAtom],
             rng: np.random.Generator,
-            objects: Sequence[Object]
+            objects: Sequence[Object],
+            skeleton: Sequence[NSRT] = [],
         ) -> Array:
             robot, donut = objects
             to_box = next((
@@ -166,7 +180,7 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             [robot, donut, container],
             {NextTo([robot, container]), Held([robot, donut])},
             {NotHeld([robot]), In([donut, container])},
-            {Held([robot, donut]), Fresh([donut])},
+            {Held([robot, donut]), Fresh([donut]), NextTo([robot, donut])},
             {},
             Act,
             [],
@@ -205,4 +219,3 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             ))
 
         return nsrts
-

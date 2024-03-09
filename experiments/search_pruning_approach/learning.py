@@ -15,9 +15,9 @@ import logging
 
 from predicators.structs import NSRT, _GroundNSRT, State, Variable
 
-# import matplotlib.pyplot as plt
-# import matplotlib
-# matplotlib.use("tkagg")
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("tkagg")
 
 @dataclass(frozen=True)
 class FeasibilityDatapoint:
@@ -37,17 +37,17 @@ class FeasibilityDataset(torch.utils.data.Dataset):
     """
     def __init__(
         self,
-        positive_examples: Sequence[FeasibilityDatapoint],
-        negative_examples: Sequence[FeasibilityDatapoint]
+        positive_datapoints: Sequence[FeasibilityDatapoint],
+        negative_datapoints: Sequence[FeasibilityDatapoint]
     ):
         super().__init__()
         assert all(
             2 <= len(datapoint.states) <= len(datapoint.skeleton) # should be at least one encoder and decoder nsrt
-            for datapoint in positive_examples + negative_examples
+            for datapoint in positive_datapoints + negative_datapoints
         )
-        self._positive_examples = positive_examples
-        self._negative_examples = negative_examples
-        self._total_label_examples = max(len(positive_examples), len(negative_examples))
+        self._positive_datapoints = positive_datapoints
+        self._negative_datapoints = negative_datapoints
+        self._total_label_examples = max(len(positive_datapoints), len(negative_datapoints))
 
     def __len__(self) -> int:
         return self._total_label_examples * 2
@@ -55,10 +55,10 @@ class FeasibilityDataset(torch.utils.data.Dataset):
     @cache
     def __getitem__(self, idx: int) -> Tuple[Tuple[List[NSRT], List[NSRT], List[npt.NDArray], List[npt.NDArray]], int]:
         if idx < self._total_label_examples:
-            return self.transform_datapoint(self._positive_examples[idx % len(self._positive_examples)]), 1.0
+            return self.transform_datapoint(self._positive_datapoints[idx % len(self._positive_datapoints)]), 1.0
         elif idx < self._total_label_examples * 2:
             return self.transform_datapoint(
-                self._negative_examples[(idx - self._total_label_examples) % len(self._negative_examples)]
+                self._negative_datapoints[(idx - self._total_label_examples) % len(self._negative_datapoints)]
             ), 0.0
         else:
             raise IndexError()
@@ -390,7 +390,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         ])
         self._check_nans = check_nans
         self._threshold_recalibration_frac = threshold_recalibration_percentile
-        self._unsure_confidence = 1.0
+        self._unsure_confidence = classification_threshold
 
     def move_to_device(self, device: str) -> 'NeuralFeasibilityClassifier':
         return self.to(device).share_memory()
@@ -402,6 +402,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             return True, 1.0
         if len(skeleton) - self._max_inference_suffix >= len(states): # Make sure we don't have too big of a horizon to predict
             return True, self._unsure_confidence
+        if self._optimizer is not None: # Making sure the classifier is not used if not trained
+            return True, 1.0
 
         encoder_nsrts, decoder_nsrts, encoder_states, decoder_states = \
             FeasibilityDataset.transform_datapoint(FeasibilityDatapoint(states, skeleton))
@@ -412,37 +414,41 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         logging.info(f"Confidence {float(confidence)}")
         return confidence >= self._thresh, confidence
 
-    def freeze(self):
-        """Makes sure we don't train the classifier again and that it's ready to be multiprocessed
-        """
-        self._optimizer = None
-
     def fit(
         self,
-        positive_examples: Sequence[FeasibilityDatapoint],
-        negative_examples: Sequence[FeasibilityDatapoint]
+        positive_datapoints: Sequence[FeasibilityDatapoint],
+        negative_datapoints: Sequence[FeasibilityDatapoint]
     ) -> None:
         if self._optimizer is None:
-            raise RuntimeError("The classifier has been frozen")
+            raise RuntimeError("The classifier has been fitted")
 
-        if not positive_examples and not negative_examples:
+        if not positive_datapoints or not negative_datapoints:
             return
 
-        logging.info(f"Training Feasibility Classifier from {len(positive_examples)} "
-                     f"positive and {len(negative_examples)} negative datapoints...")
+        logging.info("Amount of negative data per failing nsrt")
+        data = {}
+        for datapoint in negative_datapoints:
+            nsrt = datapoint.skeleton[len(datapoint.states) - 2].name
+            if nsrt not in data:
+                data[nsrt] = 0
+            data[nsrt] += 1
+        logging.info(data)
+
+
+        logging.info(f"Training Feasibility Classifier from {len(positive_datapoints)} "
+                     f"positive and {len(negative_datapoints)} negative datapoints...")
 
         # Creating datasets
         logging.info(f"Creating train and test datasets (test split {int(self._test_split*100)}%)")
 
-        positive_examples, negative_examples = positive_examples.copy(), negative_examples.copy()
-        np.random.shuffle(positive_examples)
-        np.random.shuffle(negative_examples)
+        positive_datapoints, negative_datapoints = positive_datapoints.copy(), negative_datapoints.copy()
+        np.random.shuffle(positive_datapoints)
+        np.random.shuffle(negative_datapoints)
 
-        positive_train_size = len(positive_examples) - int(len(positive_examples) * self._test_split)
-        negative_train_size = len(negative_examples) - int(len(negative_examples) * self._test_split)
-        train_dataset = FeasibilityDataset(positive_examples[:positive_train_size], negative_examples[:negative_train_size])
-        test_dataset = FeasibilityDataset(positive_examples[positive_train_size:], negative_examples[negative_train_size:])
-
+        positive_train_size = len(positive_datapoints) - int(len(positive_datapoints) * self._test_split)
+        negative_train_size = len(negative_datapoints) - int(len(negative_datapoints) * self._test_split)
+        train_dataset = FeasibilityDataset(positive_datapoints[:positive_train_size], negative_datapoints[:negative_train_size])
+        test_dataset = FeasibilityDataset(positive_datapoints[positive_train_size:], negative_datapoints[negative_train_size:])
 
         # Initializing per-nsrt featurizers if not initialized already
         logging.info("Initializing state featurizers")
@@ -464,7 +470,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
 
         # Creating loss functions
         train_loss_fn = lambda inputs, targets: sigmoid_focal_loss(inputs, targets, reduction="mean")
-        test_loss_fn = nn.BCELoss()
+        test_loss_fn = lambda inputs, targets: sigmoid_focal_loss(inputs, targets, reduction="mean")#nn.BCELoss()
 
         # Training loop
         logging.info("Running training")
@@ -529,15 +535,18 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         ))
         y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
 
-        num_false_positives = torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh).cpu().detach().numpy().sum()
+        num_false_positives = (torch.abs(y_true - 0.0) < 0.0001).cpu().detach().numpy().sum()
 
-        false_positive_confidence = float(torch.kthvalue(torch.cat([y_pred[
-            torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh)
-        ].flatten(), tensor([0], device=self.device)]).cpu(), int(
-            num_false_positives * self._threshold_recalibration_frac
-        ) + 1).values)
+        false_positive_confidence = float(torch.kthvalue(torch.cat(
+            [y_pred[torch.abs(y_true - 0.0) < 0.0001].flatten(), tensor([0], device=self.device)]
+        ).cpu(), int(num_false_positives * self._threshold_recalibration_frac) + 1).values)
 
         self._unsure_confidence = max(self._thresh, false_positive_confidence)
+
+        logging.info(f"Unsure confidence set to {self._unsure_confidence}")
+
+        # Making sure we don't fit twice and turn on classification
+        self._optimizer = None
 
     def _collate_batch(
         self, batch: Sequence[Tuple[Tuple[Sequence[NSRT], Sequence[NSRT], Sequence[npt.NDArray], Sequence[npt.NDArray]], int]]

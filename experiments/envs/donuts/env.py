@@ -24,8 +24,8 @@ class Donuts(BaseEnv):
 
     # Settings
     ## Task generation settings
-    range_train_toppings: ClassVar[Tuple[int, int]] = (2, 5)
-    range_test_toppings: ClassVar[Tuple[int, int]] = (10, 10)
+    range_train_toppings: ClassVar[Tuple[int, int]] = (1, 1)#(2, 5)
+    range_test_toppings: ClassVar[Tuple[int, int]] = (1, 1)#(10, 10)
     range_train_donuts: ClassVar[Tuple[int, int]] = (1, 1)
     range_test_donuts: ClassVar[Tuple[int, int]] = (1, 1)
 
@@ -45,7 +45,7 @@ class Donuts(BaseEnv):
     ## Predicate thresholds
     coveredin_thresh: ClassVar[float] = 0.5
     held_thresh: ClassVar[float] = 0.5
-    nextto_dist_thresh: ClassVar[float] = 2
+    nextto_dist_thresh: ClassVar[float] = 2.0
     fingers_closed_thresh: ClassVar[float] = 0.5
     side_grasp_thresh: ClassVar[float] = 0.1
     top_grasp_thresh: ClassVar[float] = 0.9
@@ -54,8 +54,8 @@ class Donuts(BaseEnv):
 
     # Variables for parametric types and predicates
     toppings: ClassVar[List[str]] = [
-        "Sprinkles", "Frosting", "Sugar", "ChocolateChips", "Strawberries",
-        "Blueberries", "Nuts", "Honey", "Cinnamon", "Coconut",
+        "Sprinkles", "Frosting"#, "Sugar", "ChocolateChips", "Strawberries",
+        #"Blueberries", "Nuts", "Honey", "Cinnamon", "Coconut",
     ]
     amount_format: ClassVar[str] = "amount{}"
     topper_format: ClassVar[str] = "topperFor{}"
@@ -65,10 +65,11 @@ class Donuts(BaseEnv):
     _object_type: ClassVar[Type] = Type("object", ["x", "y"])
     _robot_type: ClassVar[Type] = Type("robot", ["x", "y", "fingers"], _object_type)
     _donut_type: ClassVar[Type] = Type("donut", ["x", "y", "grasp", "held", "fresh"] + list(map(amount_format.format, toppings)), _object_type)
-    _container_type: ClassVar[Type] = Type("container", ["x", "y"], _object_type)
+    _position_type: ClassVar[Type] = Type("position", ["x", "y"], _object_type)
+    _container_type: ClassVar[Type] = Type("container", ["x", "y"], _position_type)
     _shelf_type: ClassVar[Type] = Type("shelf", ["x", "y"], _container_type)
     _box_type: ClassVar[Type] = Type("box", ["x", "y"], _container_type)
-    _topper_type: ClassVar[Type] = Type("topper", ["x", "y"], _object_type)
+    _topper_type: ClassVar[Type] = Type("topper", ["x", "y"], _position_type)
     _topper_types: ClassVar[Dict[str, Type]] = {}
     for topping in toppings:
         _topper_types[topping] = Type(topper_format.format(topping), ["x", "y"], _topper_type)
@@ -90,7 +91,6 @@ class Donuts(BaseEnv):
         )
 
     ## Fresh Predicate
-    @staticmethod
     def _Fresh_holds(state: State, objects: Sequence[Object]) -> bool:
         donut, = objects
         return state.get(donut, "fresh") >= Donuts.fresh_thresh
@@ -98,12 +98,10 @@ class Donuts(BaseEnv):
     _Fresh: ClassVar[Predicate] = Predicate("Fresh", [_donut_type], _Fresh_holds)
 
     ## NextTo Predicate
-    @staticmethod
     def _objects_distance(state: State, obj1: Object, obj2: Object) -> float:
         shapes = Donuts._get_shapes(state)
         return shapes[obj1].distance(shapes[obj2])
 
-    @staticmethod
     def _NextTo_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects
         return robot != obj and Donuts._objects_distance(state, robot, obj) <= Donuts.nextto_dist_thresh
@@ -111,7 +109,6 @@ class Donuts(BaseEnv):
     _NextTo: ClassVar[Predicate] = Predicate("NextTo", [_robot_type, _object_type], _NextTo_holds)
 
     ## NotHeld Predicate
-    @staticmethod
     def _NotHeld_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         fingers = state.get(robot, "fingers") <= Donuts.fingers_closed_thresh
@@ -120,7 +117,6 @@ class Donuts(BaseEnv):
     _NotHeld: ClassVar[Predicate] = Predicate("NotHeld", [_robot_type], _NotHeld_holds)
 
     ## Held Predicate
-    @staticmethod
     def _Held_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, donut = objects
         fingers = state.get(robot, "fingers") <= Donuts.fingers_closed_thresh
@@ -131,7 +127,6 @@ class Donuts(BaseEnv):
     _Held: ClassVar[Predicate] = Predicate("Held", [_robot_type, _donut_type], _Held_holds)
 
     ## In Predicate
-    @staticmethod
     def _In_holds(state: State, objects: Sequence[Object]) -> bool:
         donut, container = objects
         shapes = Donuts._get_shapes(state)
@@ -141,7 +136,6 @@ class Donuts(BaseEnv):
 
     # Common objects
     _robot: ClassVar[Object] = Object("robot", _robot_type)
-    _starting_point: ClassVar[Object] = Object("starting_point", _object_type) # Dummy object to be next to something initially
     _toppers: ClassVar[Dict[str, Object]] = {}
     for topping in toppings:
         _toppers[topping] = Object(topper_format.format(topping), _topper_types[topping])
@@ -176,7 +170,7 @@ class Donuts(BaseEnv):
         mb_donut = cls._get_held_donut(state)
         non_active_objects = [
             obj for obj in state.get_objects(cls._object_type)
-            if obj not in [cls._robot, cls._starting_point, mb_donut]
+            if obj not in [cls._robot, mb_donut]
         ]
         if cls._collides(state, non_active_objects, new_robot_polygon):
             return next_state
@@ -401,10 +395,10 @@ class Donuts(BaseEnv):
 
         # Generating Goal
         goal = {
-            self._In([donut, container])
+            Donuts._In([donut, container])
             for donut, container in zip(donuts, containers)
         } | {
-            self._CoveredInPreds[topping]([donut])
+            Donuts._CoveredInPreds[topping]([donut])
             for donut in donuts
             for topping in rng.choice(
                 self.toppings, rng.integers(*range_toppings, endpoint=True), replace=False
@@ -414,8 +408,8 @@ class Donuts(BaseEnv):
         # Constructing placeholder state and total geometry (to check for collision)
         shapes: Dict[Object, Polygon] = {}
         state: State = State({
-            obj: np.zeros((obj.type.dim,))
-            for obj in donuts + containers + [self._robot, self._starting_point] + list(self._toppers.values())
+            obj: np.zeros((obj.type.dim,), dtype=np.float32)
+            for obj in donuts + containers + [self._robot] + list(self._toppers.values())
         }, shapes)
         world = Box(
             self.range_world_x[0] - self.world_intersection_margin,
@@ -444,12 +438,6 @@ class Donuts(BaseEnv):
             raise ValueError("Could not generate a task with the given settings")
         shapes[self._robot] = robot_polygon
         world = world.union(robot_polygon)
-
-        # Adding starting point
-        state.set(self._starting_point, "x", self.robot_pos[0])
-        state.set(self._starting_point, "y", self.robot_pos[1])
-        shapes[self._starting_point] = Point(*self.robot_pos)
-        assert self._NextTo_holds(state, [self._robot, self._starting_point])
 
         # Adding toppers
         for topping in self.toppings:
@@ -523,17 +511,17 @@ class Donuts(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._In, self._Held, self._NotHeld, self._NextTo, self._Fresh} | set(self._CoveredInPreds.values())
+        return {Donuts._In, Donuts._Held, Donuts._NotHeld, Donuts._NextTo, Donuts._Fresh} | set(Donuts._CoveredInPreds.values())
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._In} | set(self._CoveredInPreds.values())
+        return {Donuts._In} | set(Donuts._CoveredInPreds.values())
 
     @property
     def types(self) -> Set[Type]:
         return {
-            self._object_type, self._robot_type, self._donut_type,
-            self._topper_type, self._container_type, self._box_type, self._shelf_type
+            self._object_type, self._robot_type, self._donut_type, self._topper_type,
+            self._position_type, self._container_type, self._box_type, self._shelf_type
         } | set(self._topper_types.values())
 
     @property
@@ -541,11 +529,13 @@ class Donuts(BaseEnv):
         "(x, y, grasp, move_robot, grab/place donut, add toppings...)"
         lower_bound = np.array(
             [self.range_world_x[0] - self.range_world_x[1], self.range_world_x[0] - self.range_world_x[1], 0, 0, -1] +
-            [0 for _ in self.toppings]
+            [0 for _ in self.toppings],
+            dtype=np.float32
         )
         upper_bound = np.array(
             [self.range_world_x[1] - self.range_world_x[0], self.range_world_x[1] - self.range_world_x[0], 1, 1, 1] +
-            [1 for _ in self.toppings]
+            [1 for _ in self.toppings],
+            dtype=np.float32
         )
         return gym.spaces.Box(lower_bound, upper_bound)
 
@@ -558,6 +548,7 @@ class Donuts(BaseEnv):
         caption: Optional[str] = None
     ) -> matplotlib.figure.Figure:
         fig = plt.figure()
+        fig.suptitle(caption)
         ax = fig.add_subplot()
 
         # Drawing the robot
