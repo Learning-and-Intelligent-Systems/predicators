@@ -85,9 +85,7 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
     """
     def __init__(
         self,
-        state_vector_size: int,
-        hidden_sizes: List[int],
-        feature_size: int,
+        sizes: int,
         device: Optional[str] = None
     ):
         """Creates a new featurizer
@@ -100,10 +98,10 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
                 (uses the globally default device if unspecified)
         """
         super().__init__(device)
-        self.register_buffer("_min_state", torch.zeros((state_vector_size,), device=device))
-        self.register_buffer("_max_state", torch.ones((state_vector_size,), device=device))
+        assert sizes
+        self.register_buffer("_min_state", torch.zeros((sizes[0],), device=device))
+        self.register_buffer("_max_state", torch.ones((sizes[0],), device=device))
 
-        sizes = [state_vector_size] + hidden_sizes + [feature_size]
         self._layers = nn.ModuleList([
             nn.Linear(input_size, output_size, device=device)
             for input_size, output_size in zip(sizes, sizes[1:])
@@ -129,13 +127,15 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
             state = nn.functional.elu(layer(state))
         return self._layers[-1](state)
 
-class PositionalEmbeddingLayer(DeviceTrackingModule):
+class Tokenizer(DeviceTrackingModule):
     """Adds a positional embedding and optionally a cls token to the feature vectors"""
     def __init__(
         self,
         feature_size: int,
         embedding_size: int,
+        token_size: int,
         concat: bool,
+        mark_last_token: bool,
         include_cls: Optional[str],
         horizon: int,
         device: Optional[str] = None
@@ -158,40 +158,49 @@ class PositionalEmbeddingLayer(DeviceTrackingModule):
         self._concat = concat
         self._horizon = horizon
 
+        feature_vector_size = feature_size
+
         if concat:
-            self._input_size = feature_size - embedding_size - (include_cls == 'marked')
             self._embedding_size = embedding_size
+            feature_vector_size += embedding_size
         else:
-            self._input_size = feature_size - (include_cls == 'marked')
-            self._embedding_size = self._input_size
+            self._embedding_size = feature_size
+
+        self._mark_last_token = mark_last_token
+        feature_vector_size += mark_last_token
 
         if include_cls == 'learned':
-            self._cls = nn.Parameter(torch.randn((1, feature_size), device=device))
+            self._cls = nn.Parameter(torch.randn((1, feature_vector_size), device=device))
             self._cls_marked = False
         elif include_cls == 'marked':
+            feature_vector_size += 1
             self._registe_buffer(
-                "_cls", torch.concat([torch.zeros((1, feature_size - 1), device=device), torch.ones((1, 1), device=device)], dim=1)
+                "_cls", torch.concat([torch.zeros((1, feature_vector_size - 1), device=device), torch.ones((1, 1), device=device)], dim=1)
             )
             self._cls_marked = True
         else:
             self._cls = None
             self._cls_marked = False
 
-    @property
-    def input_size(self) -> int:
-        return self._input_size
+        self._linear = nn.Linear(feature_vector_size, token_size, device=device)
 
-    def forward(self, tokens: Tensor, pos_offset: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self,
+        tokens: Tensor,
+        invalid_mask: Tensor,
+        last_token_mask: Tensor,
+        pos_offset: Optional[Tensor] = None
+    ) -> Tensor: # TODO: reimplement
         """Runs the positional embeddings.
 
         Params:
-            tokens - tensor of shape (batch_size, max_sequence_length, vector_input_size) of outputs from featurizers
+            tokens - tensor of shape (batch_size, max_sequence_length, feature_size) of outputs from featurizers
+            invalid_mask - tensor of shape (batch_size, max_sequence_length) of which tokens are invalid
+            last_token_mask - tensor of shape (batch_size, max_sequence_length) of whether to mark the token if last_token_mark is True
             pos_offset - tensor of shape (batch_size,) of positions offsets per batch
-        where `vector_input_size` = `feature_size` [- `embedding_size` if `concat`] [- 1 if `include_cls` is `marked`]
         """
 
         batch_size, max_len, input_feature_size = tokens.shape
-        assert input_feature_size == self._input_size
 
         # Calculating per-token positions and in-token indices
         indices = torch.arange(self._embedding_size, device=self.device).unsqueeze(0)
@@ -205,28 +214,25 @@ class PositionalEmbeddingLayer(DeviceTrackingModule):
 
         # Concateanting/adding embeddings
         if self._concat:
-            embedded_tokens = torch.cat([tokens, embeddings], dim=-1)
+            tokens = torch.cat([tokens, embeddings], dim=-1)
         else:
-            embedded_tokens = tokens + embeddings
+            tokens += embeddings
+
+        # Marking the last token
+        if self._mark_last_token:
+            last_token_marks = torch.zeros((batch_size, max_len), device=self.device)
+            last_token_marks[last_token_mask] = 1.0
+            tokens = torch.cat([tokens, last_token_marks.unsqueeze(2)], dim=2)
 
         # Adding the cls token
-        if self._cls is None:
-            return embedded_tokens
-        elif self._cls_marked:
-            marked_tokens = torch.cat([embedded_tokens, torch.zeros((batch_size, max_len, 1), device=self.device)], dim=2)
-            return torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1, -1), marked_tokens], dim=1)
-        else:
-            return torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1, -1), embedded_tokens], dim=1)
+        if self._cls is not None:
+            if self._cls_marked:
+                tokens = torch.cat([tokens, torch.zeros((batch_size, max_len, 1), device=self.device)], dim=2)
+            tokens = torch.cat([self._cls.unsqueeze(0).expand(batch_size, -1, -1), tokens], dim=1)
+            invalid_mask = torch.cat([torch.full((batch_size, 1), False, device=self.device), invalid_mask], dim=1)
 
-    def recalculate_mask(self, mask: Tensor) -> Tensor:
-        """Recalculates the mask to include the cls token
-
-        Params:
-            mask - boolean tensor of shape (batch_size, max_sequence_length)
-        """
-        if self._cls is None:
-            return mask
-        return torch.cat([torch.full((mask.shape[0], 1), False, device=self.device), mask], dim=1)
+        # Mapping to the token size
+        return self._linear(tokens), invalid_mask
 
 def sigmoid_focal_loss(
     inputs: Tensor,
@@ -297,20 +303,21 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     def __init__(
         self, # TODO: make sure we use a deterministic seed
         seed: int,
-        featurizer_hidden_sizes: List[int],
-        classifier_feature_size: int,
+        featurizer_sizes: List[int],
         positional_embedding_size: int,
         positional_embedding_concat: bool,
+        mark_failing_nsrt: bool,
+        token_size: int,
         transformer_num_heads: int,
         transformer_encoder_num_layers: int,
         transformer_decoder_num_layers: int,
         transformer_ffn_hidden_size: int,
+        cls_style: str,
+        embedding_horizon: int,
         max_train_iters: int,
         general_lr: float,
         transformer_lr: float,
         max_inference_suffix: int,
-        cls_style: str,
-        embedding_horizon: int,
         batch_size: int,
         threshold_recalibration_percentile: float,
         optimizer_name: str = 'adam',
@@ -337,24 +344,30 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self._general_lr = general_lr
         self._transformer_lr = transformer_lr
 
+        assert featurizer_sizes
+        self._featurizer_hid_sizes = featurizer_sizes[:-1]
+        self._featurizer_output_size = featurizer_sizes[-1]
+        self._featurizer_count: int = 0 # For naming the module when adding it in self._init_featurizer
         self._encoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {} # Initialized with self._init_featurizer
         self._decoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {} # Initialized with self._init_featurizer
-        self._featurizer_hidden_sizes = featurizer_hidden_sizes
-        self._featurizer_count: int = 0 # For naming the module when adding it in self._init_featurizer
 
-        self._encoder_positional_encoding = PositionalEmbeddingLayer(
-            feature_size = classifier_feature_size,
+        self._encoder_positional_encoding = Tokenizer(
+            feature_size = featurizer_sizes[-1],
             embedding_size = positional_embedding_size,
+            token_size = token_size,
             concat = positional_embedding_concat,
+            mark_last_token = mark_failing_nsrt,
             include_cls = None,
             horizon = embedding_horizon,
             device = self.device,
 
         )
-        self._decoder_positional_encoding = PositionalEmbeddingLayer(
-            feature_size = classifier_feature_size,
+        self._decoder_positional_encoding = Tokenizer(
+            feature_size = featurizer_sizes[-1],
             embedding_size = positional_embedding_size,
+            token_size = token_size,
             concat = positional_embedding_concat,
+            mark_last_token = False,
             include_cls = {
                 'mean': None, 'learned': 'learned', 'marked': 'marked'
             }[cls_style],
@@ -362,7 +375,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             device = self.device,
         )
         self._transformer = nn.Transformer(
-            d_model = classifier_feature_size,
+            d_model = token_size,
             nhead = transformer_num_heads,
             num_encoder_layers = transformer_encoder_num_layers,
             num_decoder_layers = transformer_decoder_num_layers,
@@ -372,7 +385,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             device = self.device,
         )
         self._classifier_head = nn.Sequential(
-            nn.Linear(classifier_feature_size, 1, device=self.device),
+            nn.Linear(token_size, 1, device=self.device),
             nn.Sigmoid(),
         )
 
@@ -425,6 +438,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         if not positive_datapoints or not negative_datapoints:
             return
 
+        # Diagnostics
         logging.info("Amount of negative data per failing nsrt")
         data = {}
         for datapoint in negative_datapoints:
@@ -433,7 +447,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                 data[nsrt] = 0
             data[nsrt] += 1
         logging.info(data)
-
 
         logging.info(f"Training Feasibility Classifier from {len(positive_datapoints)} "
                      f"positive and {len(negative_datapoints)} negative datapoints...")
@@ -517,7 +530,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                                 f"{self._threshold_recalibration_frac:.0%} False+ Thresh: {false_positive_confidence:.4}, Acceptance rate: {acceptance_rate:.1%}, "
                                 f"Training Iter {itr}/{self._num_iters}")
 
-                    if matches.mean() >= 0.99:
+                    if matches.mean() >= 0.98:
                         break
 
         if CFG.feasibility_loss_output_file:
@@ -525,7 +538,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                 test_loss_fn(self(*x_test_batch), y_test_batch).detach().numpy()
                 for x_test_batch, y_test_batch in test_dataloader
             ]).mean()
-            print(test_loss, file=open(CFG.feasibility_loss_output_file, "w"))
+            logging.info(test_loss, file=open(CFG.feasibility_loss_output_file, "w"))
             raise RuntimeError()
 
         # Threshold recalibration
@@ -581,44 +594,58 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         )
 
         # Calculating feature vectors
-        encoder_tokens, encoder_mask = self._run_featurizers(
-            self._encoder_featurizers, self._encoder_positional_encoding.input_size, encoder_states_batch, encoder_nsrts_batch
+        encoder_tokens, encoder_invalid_mask = self._run_featurizers(
+            self._encoder_featurizers, encoder_states_batch, encoder_nsrts_batch
         )
-        decoder_tokens, decoder_mask = self._run_featurizers(
-            self._decoder_featurizers, self._decoder_positional_encoding.input_size, decoder_states_batch, decoder_nsrts_batch
+        decoder_tokens, decoder_invalid_mask = self._run_featurizers(
+            self._decoder_featurizers, decoder_states_batch, decoder_nsrts_batch
         )
-        encoder_sequence_lengths = torch.logical_not(encoder_mask).sum(dim=1)
-        decoder_sequence_lenghts = torch.logical_not(decoder_mask).sum(dim=1)
+        encoder_sequence_lengths = torch.logical_not(encoder_invalid_mask).sum(dim=1)
+        decoder_sequence_lenghts = torch.logical_not(decoder_invalid_mask).sum(dim=1)
+
+        # Calculating the last token masks
+        encoder_last_token_mask = torch.full_like(encoder_invalid_mask, False)
+        decoder_last_token_mask = torch.full_like(decoder_invalid_mask, False)
+        encoder_last_token_mask[torch.arange(encoder_sequence_lengths.shape[0]), encoder_sequence_lengths - 1] = True
 
         # Calculating offsets for encoding
+        encoder_offsets = torch.zeros((encoder_sequence_lengths.shape[0],), device=self.device)
         decoder_offsets = encoder_sequence_lengths
-        random_offsets = torch.zeros((decoder_offsets.shape[0],), device=self.device)
         if self.training:
             random_offsets = (
                 torch.rand((decoder_offsets.shape[0],), device=self.device) *
                 (self._decoder_positional_encoding._horizon - encoder_sequence_lengths - decoder_sequence_lenghts)
             ).long()
+            encoder_offsets += random_offsets
+            decoder_offsets += random_offsets
 
         # Adding positional encoding and cls token
-        encoder_positional_tokens = self._encoder_positional_encoding(encoder_tokens, random_offsets)
-        decoder_positional_tokens = self._decoder_positional_encoding(decoder_tokens, decoder_offsets + random_offsets)
-
-        encoder_positional_mask = self._encoder_positional_encoding.recalculate_mask(encoder_mask)
-        decoder_positional_mask = self._decoder_positional_encoding.recalculate_mask(decoder_mask)
+        encoder_tokens, encoder_invalid_mask = self._encoder_positional_encoding(
+            tokens = encoder_tokens,
+            invalid_mask = encoder_invalid_mask,
+            last_token_mask = encoder_last_token_mask,
+            pos_offset = encoder_offsets,
+        )
+        decoder_tokens, decoder_invalid_mask = self._decoder_positional_encoding(
+            tokens = decoder_tokens,
+            invalid_mask = decoder_invalid_mask,
+            last_token_mask = decoder_last_token_mask,
+            pos_offset = decoder_offsets,
+        )
 
         # Running the core transformer
         transformer_outputs = self._transformer(
-            src=encoder_positional_tokens,
-            tgt=decoder_positional_tokens,
-            src_key_padding_mask=encoder_positional_mask,
-            tgt_key_padding_mask=decoder_positional_mask,
+            src=encoder_tokens,
+            tgt=decoder_tokens,
+            src_key_padding_mask=encoder_invalid_mask,
+            tgt_key_padding_mask=decoder_invalid_mask,
             # src_is_causal=False,
             # tgt_is_causal=False,
         )
 
         # Preparing for the classifier head
         if self._cls_style == 'mean':
-            transformer_outputs[decoder_mask.unsqueeze(-1).expand(-1, -1, transformer_outputs.shape[2])] = 0
+            transformer_outputs[decoder_invalid_mask.unsqueeze(-1).expand(-1, -1, transformer_outputs.shape[2])] = 0
             classifier_tokens = transformer_outputs.sum(dim=1) / decoder_sequence_lenghts.unsqueeze(-1)
         else:
             classifier_tokens = transformer_outputs[:, 0]
@@ -631,7 +658,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     def _run_featurizers(
         self,
         featurizers: Dict[NSRT, nn.Module],
-        output_size: int,
         states_batch: Iterable[Sequence[npt.NDArray]],
         nsrts_batch: Iterable[Iterable[NSRT]],
     ) -> Tuple[Tensor, Tensor]:
@@ -643,7 +669,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         max_len = max(len(states) for states in states_batch)
 
         # Preparing to batch the execution of featurizers
-        tokens = torch.zeros((batch_size, max_len, output_size), device=self.device)
+        tokens = torch.zeros((batch_size, max_len, self._featurizer_output_size), device=self.device)
         mask = torch.full((batch_size, max_len), True, device='cpu') # Not on device for fast assignment
 
         # Grouping data for batched execution of featurizers
@@ -682,14 +708,13 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         """Initializes featurizers that shoud be learned from that datapoint
         """
         for nsrt, state in zip(encoder_nsrts, encoder_states):
-            self._init_featurizer(self._encoder_featurizers, self._encoder_positional_encoding.input_size, state, nsrt)
+            self._init_featurizer(self._encoder_featurizers, state, nsrt)
         for nsrt, state in zip(decoder_nsrts, decoder_states):
-            self._init_featurizer(self._decoder_featurizers, self._decoder_positional_encoding.input_size, state, nsrt)
+            self._init_featurizer(self._decoder_featurizers, state, nsrt)
 
     def _init_featurizer(
         self,
         featurizers: Dict[NSRT, nn.Module],
-        output_size: int,
         state: npt.NDArray,
         nsrt: NSRT
     ) -> None:
@@ -701,10 +726,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         assert len(state.shape) == 1
         if nsrt not in featurizers:
             featurizer = FeasibilityFeaturizer(
-                state.size,
-                hidden_sizes = self._featurizer_hidden_sizes,
-                feature_size = output_size,
-                device = self.device
+                sizes = [state.size] + self._featurizer_hid_sizes + [self._featurizer_output_size],
+                device = self.device,
             )
             self._featurizer_count += 1
 

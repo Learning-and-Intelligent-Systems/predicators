@@ -402,7 +402,6 @@ class SearchPruningApproach(NSRTLearningApproach):
             if isinstance(self._feasibility_classifier, torch.nn.Module) and CFG.feasibility_search_device == 'cuda':
                 feasibility_classifiers = [self._feasibility_classifier] + \
                     [deepcopy(self._feasibility_classifier) for _ in range(1, torch.cuda.device_count())]
-                print("torch cuda device count", torch.cuda.device_count())
                 if len(feasibility_classifiers) == 1:
                     feasibility_classifier.to('cuda')
                 else:
@@ -561,9 +560,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             max_skeletons_optimized = CFG.horizon,
         )
         partial_refinements = []
-        print("Starting sesame loop")
         for _ in range(CFG.sesame_max_skeletons_optimized):
-            print("Still in the loop")
             skeleton, backtracking, timed_out = None, None, False
             try:
                 skeleton, atoms_seq, metrics = next(generator)
@@ -608,20 +605,21 @@ class SearchPruningApproach(NSRTLearningApproach):
         """
         neural_feasibility_classifier = NeuralFeasibilityClassifier(
             seed = CFG.seed,
-            featurizer_hidden_sizes = CFG.feasibility_featurizer_hid_sizes,
-            classifier_feature_size = CFG.feasibility_feature_size,
+            featurizer_sizes = CFG.feasibility_featurizer_sizes,
             positional_embedding_size = CFG.feasibility_embedding_size,
             positional_embedding_concat = CFG.feasibility_embedding_concat,
+            mark_failing_nsrt = CFG.feasibility_mark_failing_nsrt,
+            token_size = CFG.feasibility_token_size,
             transformer_num_heads = CFG.feasibility_num_heads,
             transformer_encoder_num_layers = CFG.feasibility_enc_num_layers,
             transformer_decoder_num_layers = CFG.feasibility_dec_num_layers,
             transformer_ffn_hidden_size = CFG.feasibility_ffn_hid_size,
+            cls_style = CFG.feasibility_cls_style,
+            embedding_horizon = CFG.feasibility_embedding_max_idx,
             max_train_iters = CFG.feasibility_max_itr,
             general_lr = CFG.feasibility_general_lr,
             transformer_lr = CFG.feasibility_transformer_lr,
             max_inference_suffix = max_inference_suffix,
-            cls_style = CFG.feasibility_cls_style,
-            embedding_horizon = CFG.feasibility_embedding_max_idx,
             batch_size = CFG.feasibility_batch_size,
             threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
             use_torch_gpu = CFG.use_torch_gpu,
