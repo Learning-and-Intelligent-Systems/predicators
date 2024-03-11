@@ -87,7 +87,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._base_nsrts = base_nsrts
         self._target_nsrts = target_nsrts
 
-        self._generate_goal_predicates(base_policy)
+        self._generate_expanded_predicates(base_policy)
         final_rules = []
         for rule in base_policy.rules:
             target_rules = self._generate_rules(rule)
@@ -148,10 +148,18 @@ class GPTObjectApproach(PG3AnalogyApproach):
             if possible_pred_names is not None:
                 pos_analagous_predicate_names = set(possible_pred_names)
                 useful_predicates.update(pos_analagous_predicate_names)
+        for neg_condition in rule.neg_state_preconditions:
+            neg_predicate = add_not_prefix(neg_condition.predicate)
+            neg_analagous_predicate_names = self.get_analagous_predicates(neg_predicate, True) 
+            if neg_analagous_predicate_names is not None:
+                set_neg_analagous_predicate_names = set(self.get_analagous_predicates(neg_predicate, True))
+                useful_predicates.update(set_neg_analagous_predicate_names)
         for goal_condition in rule.goal_preconditions:
             goal_predicate = add_wanted_prefix(goal_condition.predicate)
-            goal_analagous_predicate_names = set(self.get_analagous_predicates(goal_predicate, True))
-            useful_predicates.update(goal_analagous_predicate_names)
+            goal_analagous_predicate_names = self.get_analagous_predicates(goal_predicate, True)
+            if goal_analagous_predicate_names is not None:
+                set_goal_analagous_predicate_names = set(self.get_analagous_predicates(goal_predicate, True))
+                useful_predicates.update(set_goal_analagous_predicate_names)
 
         # Getting final ranking of atoms in ground state
         ranked_atoms = self._score_conds(useful_objects, useful_predicates, best_task_index, best_index)
@@ -227,6 +235,10 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
                 rule_goal_preconditions.add(new_predicate(new_variables))
                 rule_neg_state_preconditions.add(new_predicate(new_variables))
+            elif "NOT" in saycan_atom.predicate.name:
+                new_predicate = remove_not_prefix(saycan_atom.predicate)
+                new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
+                rule_neg_state_preconditions.add(new_predicate(new_variables))
             else:
                 new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
                 rule_pos_state_preconditions.add(saycan_atom.predicate(new_variables))
@@ -255,11 +267,18 @@ class GPTObjectApproach(PG3AnalogyApproach):
         return final_scores
        
     def _score_conds(self, useful_objects, useful_predicates, task_index, index):
+        # Returns a list of atoms sorted by score
+
+        # Creates the ground state consisting of positive atoms, goal atoms, and negated atoms over the plan
         ground_state = self._target_states[task_index][index].simulator_state.copy()
         for atom in self._target_tasks[task_index].goal:
             wanted_atom = add_wanted_prefix(atom)
             ground_state.add(wanted_atom)
-
+        for action in self._target_actions[task_index]: 
+            deleted_atoms = action.delete_effects.copy() 
+            for deleted_atom in deleted_atoms:
+                if deleted_atom not in ground_state:
+                    ground_state.add(add_not_prefix(deleted_atom))
         useful_pos_atoms = {}
         final_atoms = set()
         for atom in ground_state:
@@ -392,43 +411,59 @@ class GPTObjectApproach(PG3AnalogyApproach):
         else:
             return analagous_predicates.copy()
 
-    def _generate_goal_predicates(self, base_policy: LiftedDecisionList):
-        base_goal_predicates = set([goal_condition.predicate for rule in base_policy.rules for goal_condition in rule.goal_preconditions])
-        target_goal_predicates = set([goal_condition.predicate for task in self._target_tasks for goal_condition in task.goal])
-
+    def _generate_expanded_predicates(self, base_policy: LiftedDecisionList):
         temp_classifier = lambda s, o: False
-        new_base_goal_predicates = {}
+
+        # Collecting all base environment predicates
+        base_goal_predicates = set([goal_condition.predicate for rule in base_policy.rules for goal_condition in rule.goal_preconditions])
+        base_neg_predicates = set([neg_condition.predicate for rule in base_policy.rules for neg_condition in rule.neg_state_preconditions])
+        base_env_name_to_predicate = {}
         for base_goal_predicate in sorted(base_goal_predicates):
             new_base_goal_predicate_name = f"WANT-{base_goal_predicate.name}"
             new_base_goal_predicate = Predicate(new_base_goal_predicate_name, base_goal_predicate.types.copy(), temp_classifier)
-            new_base_goal_predicates[base_goal_predicate] = new_base_goal_predicate
-        
-        new_target_goal_predicates = {}
+            base_env_name_to_predicate[new_base_goal_predicate_name] = new_base_goal_predicate
+        for base_neg_predicate in sorted(base_neg_predicates):
+            new_base_neg_predicate_name = f"NOT-{base_neg_predicate.name}"
+            new_base_neg_predicate = Predicate(new_base_neg_predicate_name, base_neg_predicate.types.copy(), temp_classifier)
+            base_env_name_to_predicate[new_base_neg_predicate_name] = new_base_neg_predicate
+        for base_pos_predicate in self._base_env.predicates:
+            base_env_name_to_predicate[base_pos_predicate.name] = base_pos_predicate
+
+        # Collecting all target environment predicates
         target_env_name_to_predicate = {}
-        for target_goal_predicate in sorted(target_goal_predicates):
+        target_goal_predicates = set([goal_condition.predicate for task in self._target_tasks for goal_condition in task.goal])
+        for target_goal_predicate in target_goal_predicates:
             new_target_goal_predicate_name = f"WANT-{target_goal_predicate.name}"
             new_target_goal_predicate = Predicate(new_target_goal_predicate_name, target_goal_predicate.types.copy(), temp_classifier)
-            new_target_goal_predicates[target_goal_predicate] = new_target_goal_predicate
             target_env_name_to_predicate[new_target_goal_predicate_name] = new_target_goal_predicate
+        for target_predicate in self._target_env.predicates:
+            target_env_name_to_predicate[target_predicate.name] = target_predicate
+            # Adding all negative predicates
+            new_target_neg_predicate_name = f"NOT-{target_predicate.name}"
+            new_target_neg_predicate = Predicate(new_target_neg_predicate_name, target_predicate.types.copy(), temp_classifier)
+            target_env_name_to_predicate[new_target_neg_predicate_name] = new_target_neg_predicate
         
-        for predicate in self._target_env.predicates:
-            target_env_name_to_predicate[predicate.name] = predicate
-        
+        name_analogies = {}
         # Gripper -> Ferry
         if 'gripper' in self._base_env.get_name() and 'ferry' in self._target_env.get_name():
+            name_analogies = {'WANT-at': ['WANT-at']}
             self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['WANT-at']]
 
         # Ferry -> Gripper
         if 'ferry' in self._base_env.get_name() and 'gripper' in self._target_env.get_name():
+            name_analogies = {'WANT-at': ['WANT-at']}
             self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['WANT-at']]
 
         # Gripper -> Detyped Miconic
         if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
-            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin'], target_env_name_to_predicate['WANT-served']]
+            name_analogies = {'WANT-at': ['destin', 'WANT-served'], 'free': ['NOT-boarded']}
 
         # Ferry -> Detyped Miconic
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
-            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin'], target_env_name_to_predicate['WANT-served']]
+            name_analogies = {'WANT-at': ['destin', 'WANT-served'], 'empty-ferry': ['NOT-boarded']}
+        
+        for base_name, target_names in name_analogies.items():
+            self._predicate_analogies[base_name] = [target_env_name_to_predicate[target_name] for target_name in target_names]
 
     def setup_basic_predicate_analogies(self):
         predicate_input = {}
@@ -681,6 +716,46 @@ class GPTObjectApproach(PG3AnalogyApproach):
             return base_var_names_to_var[var_name]
         else:
             return None
+
+def add_not_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
+    """Returns same type but with the Predicate becoming NOT-Predicate"""
+    temp_classifier = lambda s, o: False
+    if isinstance(element, Predicate):
+        new_predicate_name = f"NOT-{element.name}"
+        new_predicate = Predicate(new_predicate_name, element.types.copy(), temp_classifier)
+        return new_predicate
+    elif isinstance(element, LiftedAtom):
+        new_predicate_name = f"NOT-{element.predicate.name}"
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = LiftedAtom(new_predicate, element.variables)
+        return new_atom
+    elif isinstance(element, GroundAtom):
+        new_predicate_name = f"NOT-{element.predicate.name}"
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = GroundAtom(new_predicate, element.objects)
+        return new_atom
+    else:
+        return None
+
+def remove_not_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
+    """Returns same type but with the Predicate not having WANT"""
+    temp_classifier = lambda s, o: False
+    if isinstance(element, Predicate):
+        new_predicate_name = element.name[4:]
+        new_predicate = Predicate(new_predicate_name, element.types.copy(), temp_classifier)
+        return new_predicate
+    elif isinstance(element, LiftedAtom):
+        new_predicate_name = element.predicate.name[4:]
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = LiftedAtom(new_predicate, element.variables)
+        return new_atom
+    elif isinstance(element, GroundAtom):
+        new_predicate_name = element.predicate.name[4:]
+        new_predicate = Predicate(new_predicate_name, element.predicate.types.copy(), temp_classifier)
+        new_atom = GroundAtom(new_predicate, element.objects)
+        return new_atom
+    else:
+        return None
 
 def add_wanted_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
     """Returns same type but with the Predicate becoming WANT-Predicate"""
