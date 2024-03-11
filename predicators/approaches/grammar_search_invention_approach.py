@@ -64,7 +64,10 @@ def _create_grammar(dataset: Dataset,
     # because if any predicates are equivalent to the given predicates,
     # we would not want to generate them. Don't do this if we're using
     # DebugGrammar, because we don't want to prune things that are in there.
-    if not CFG.grammar_search_use_handcoded_debug_grammar:
+    # Also don't do this if we explicitly don't want to prune such
+    # predicates.
+    if not CFG.grammar_search_use_handcoded_debug_grammar and \
+        not CFG.grammar_search_prune_redundant_preds:
         grammar = _PrunedGrammar(dataset, grammar)
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
@@ -760,6 +763,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
         logging.info(f"Done: created {len(candidates)} candidates:")
+        self._metrics["grammar_size"] = len(candidates)
         for predicate, cost in candidates.items():
             logging.info(f"{predicate} {cost}")
         # Apply the candidate predicates to the data.

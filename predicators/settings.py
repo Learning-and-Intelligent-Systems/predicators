@@ -620,6 +620,7 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1e-4
     grammar_search_max_predicates = 200
     grammar_search_predicate_cost_upper_bound = 6
+    grammar_search_prune_redundant_preds = True
     grammar_search_score_function = "expected_nodes_created"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_max_demos = float("inf")
