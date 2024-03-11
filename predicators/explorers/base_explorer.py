@@ -14,7 +14,7 @@ from predicators.settings import CFG
 from predicators.spot_utils.skills.spot_find_objects import find_objects
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, ExplorationStrategy, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+    ParameterizedOption, Predicate, SpotActionExtraInfo, State, Task, Type
 
 _RNG_COUNT = itertools.count()  # make sure RNG changes per instantiation
 
@@ -83,18 +83,20 @@ class BaseExplorer(abc.ABC):
                     get_detection_id_for_object(o)
                     for o in lost_objects
                 }
-                return utils.create_spot_env_action(
+                extra_info = SpotActionExtraInfo(
                     "find-objects", [], find_objects,
                     (state, self._rng, robot, localizer, lease_client,
-                     lost_object_ids))
+                     lost_object_ids), None, tuple())
+                return utils.create_spot_env_action(extra_info)
             # Found the objects. Stow the arm before replanning.
             if need_stow:  # pragma: no cover
                 logging.info(
                     "[Explorer Spot Wrapper] Lost objects found, stowing.")
                 need_stow = False
                 robot, _, _ = get_robot()
-                return utils.create_spot_env_action("stow-arm", [], stow_arm,
-                                                    (robot, ))
+                extra_info = SpotActionExtraInfo("stow-arm", [], stow_arm,
+                                                 (robot, ), None, tuple())
+                return utils.create_spot_env_action(extra_info)
             # Give control back to base policy.
             logging.info(
                 "[Explorer Spot Wrapper] Giving control to base policy."

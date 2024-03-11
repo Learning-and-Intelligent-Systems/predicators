@@ -43,7 +43,7 @@ boundary points into the yaml. Note that you can do SHIFT + right click to unsel
 
 We are currently using Detic + Segmentation Anything to provide text-conditioned bounding box + detection-conditioned segmentation mask.
 
-We currently use REST interface from the `add-scores-to-output` branch of the [DETIC SAM BDAI repo](https://github.com/bdaiinstitute/detic-sam/tree/add-scores-to-output).
+We currently use REST interface from the [DETIC SAM BDAI repo](https://github.com/bdaiinstitute/detic-sam/).
 
 Note that BDAI is currently transitioning to using `torchserve`, so we likely need to update the client code a bit. 
 
@@ -58,3 +58,13 @@ The pipeline is as follows:
   - `ssh -L 5550:localhost:5550 10.17.1.102`
 - Request from your local computer
   - You can see perception_utils.py, or the `client.py` function in the BDAI repo.
+
+## Simulation
+
+> Last updated: 03/07/2024
+
+Setting the `--bilevel_plan_without_sim` flag to `False` (which is the default value) will attempt to do full planning in Pybullet and then execution in the real world.
+Importantly, this relies on having object models (urdfs, meshes, etc.) corresponding to each object that Spot needs to be aware of/manipulate in the world.
+To add a new object model, add a new urdf and any relevant files to `envs/assets/urdf/`. Ensure that the urdf is named `<obj_name>.urdf` where `<obj_name>` is the name of the predicators `Object` that you want to instantiate corresponding to this urdf. 
+
+The design pattern for interfacing with the simulator is that options have both a "real world" function implementing the relevant action on a Spot robot, and a "simulated" function that intends to mimic the real world behavior in the simulator. See the `_move_to_target_policy` function in `options.py` for the spot env for an example. Importantly, the simulated function should directly modify the simulation from within it, just like how the real world functions directly modify the real world by commanding the robot when invoked. 

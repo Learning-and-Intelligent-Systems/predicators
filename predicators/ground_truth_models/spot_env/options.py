@@ -4,6 +4,7 @@ import time
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
+import pbrspot
 from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
 from gym.spaces import Box
@@ -11,19 +12,25 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotRearrangementEnv, _get_sweeping_surface_for_container, get_robot, \
-    get_robot_gripper_open_percentage
+    SpotRearrangementEnv, _get_sweeping_surface_for_container, \
+    get_detection_id_for_object, get_robot, \
+    get_robot_gripper_open_percentage, get_simulated_object, \
+    get_simulated_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
+from predicators.spot_utils.perception.object_detection import \
+    get_grasp_pixel, get_last_detected_objects
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import \
     get_last_captured_images
-from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
+from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel, \
+    simulated_grasp_at_pixel
 from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
     gaze_at_relative_pose, move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
-    navigate_to_absolute_pose, navigate_to_relative_pose
+    navigate_to_absolute_pose, navigate_to_relative_pose, \
+    simulated_navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.skills.spot_sweep import sweep
@@ -33,11 +40,16 @@ from predicators.spot_utils.utils import DEFAULT_HAND_DROP_OBJECT_POSE, \
     DEFAULT_HAND_PRE_DUMP_LIFT_POSE, DEFAULT_HAND_PRE_DUMP_POSE, \
     get_relative_se2_from_se3, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    Predicate, State, Type
+    Predicate, SpotActionExtraInfo, State, Type
 
 ###############################################################################
 #            Helper functions for chaining multiple spot skills               #
 ###############################################################################
+
+# Hack: options don't generally get passed rng's, but we need them primarily
+# for options that do some kind of implicit sampling (e.g. sim-safe grasping).
+# In the future, we probably want to pass these thru nicely.
+_options_rng = np.random.default_rng(0)
 
 
 def navigate_to_relative_pose_and_gaze(robot: Robot,
@@ -56,6 +68,17 @@ def navigate_to_relative_pose_and_gaze(robot: Robot,
     rel_gaze_target_body = robot_pose.inverse().transform_vec3(gaze_target)
     # Then gaze.
     gaze_at_relative_pose(robot, rel_gaze_target_body)
+
+
+def simulated_navigate_to_relative_pose_and_gaze(
+        sim_robot: pbrspot.spot.Spot, rel_pose: math_helpers.SE2Pose,
+        gaze_target: math_helpers.Vec3) -> None:
+    """Teleports the pybullet spot robot to rel_pose and then gazes at
+    gaze_target via the hand."""
+    del gaze_target
+    simulated_navigate_to_relative_pose(sim_robot, rel_pose)
+    # Somehow get the arm to gaze at the target correctly? Maybe for now we
+    # can just mock this and teleport...
 
 
 def _grasp_at_pixel_and_maybe_stow_or_dump(
@@ -88,6 +111,40 @@ def _grasp_at_pixel_and_maybe_stow_or_dump(
     # Stow.
     if do_stow:
         stow_arm(robot)
+
+
+def _sim_safe_grasp_at_pixel_and_maybe_stow_or_dump(
+        robot: Robot, target_obj: Object, rng: np.random.Generator,
+        timeout: float, retry_grasp_after_fail: bool, do_stow: bool,
+        do_dump: bool) -> None:
+    """Implicitly gets the current image from the hand camera and selects a
+    pixel + rotation threshold.
+
+    This is necessary because we can't select pixels from inside
+    simulation, but we want to do this in a just-in-time fashion when
+    we're actually executing the skill on the robot. Basically, this
+    moves all the logic from the pixel grasp sampler and the skill
+    inside here.
+    """
+    # Select the coordinates of a pixel within the image so that
+    # we grasp at that pixel!
+    target_detection_id = get_detection_id_for_object(target_obj)
+    rgbds = get_last_captured_images()
+    _, artifacts = get_last_detected_objects()
+    hand_camera = "hand_color_image"
+    pixel, rot_quat = get_grasp_pixel(rgbds, artifacts, target_detection_id,
+                                      hand_camera, rng)
+    img = rgbds[hand_camera]
+    # Use a relatively forgiving threshold for grasp constraints in general,
+    # but for the ball, use a strict constraint.
+    if target_obj.name == "ball":
+        thresh = 0.17
+    else:
+        thresh = np.pi / 4
+
+    _grasp_at_pixel_and_maybe_stow_or_dump(robot, img, pixel, rot_quat, thresh,
+                                           timeout, retry_grasp_after_fail,
+                                           do_stow, do_dump)
 
 
 def _place_at_relative_position_and_stow(
@@ -223,6 +280,7 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
     del memory  # not used
 
     robot, localizer, _ = get_robot()
+    sim_robot = get_simulated_robot()
 
     distance = params[distance_param_idx]
     yaw = params[yaw_param_idx]
@@ -238,15 +296,21 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
     target_height = state.get(target_obj, "height")
     gaze_target = math_helpers.Vec3(target_pose.x, target_pose.y,
                                     target_pose.z + target_height / 2)
-
+    fn = navigate_to_relative_pose_and_gaze
+    fn_args = (robot, rel_pose, localizer, gaze_target)
+    sim_fn: Callable = simulated_navigate_to_relative_pose_and_gaze
+    sim_fn_args: Tuple = (sim_robot,
+                          robot_pose.get_closest_se2_transform() * rel_pose,
+                          gaze_target)
     if not do_gaze:
-        fn: Callable = navigate_to_relative_pose
-        fn_args: Tuple = (robot, rel_pose)
-    else:
-        fn = navigate_to_relative_pose_and_gaze
-        fn_args = (robot, rel_pose, localizer, gaze_target)
-
-    return utils.create_spot_env_action(name, objects, fn, fn_args)
+        fn = navigate_to_relative_pose  # type: ignore
+        fn_args = (robot, rel_pose)  # type: ignore
+        sim_fn = simulated_navigate_to_relative_pose
+        sim_fn_args = (sim_robot,
+                       robot_pose.get_closest_se2_transform() * rel_pose)
+    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
+                                            sim_fn_args)
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _grasp_policy(name: str,
@@ -259,9 +323,11 @@ def _grasp_policy(name: str,
     del memory  # not used
 
     robot, _, _ = get_robot()
+    sim_robot = get_simulated_robot()
     assert len(params) == 6
     pixel = (int(params[0]), int(params[1]))
     target_obj = objects[target_obj_idx]
+    sim_target_obj = get_simulated_object(target_obj)
 
     # Special case: if we're running dry, the image won't be used.
     if CFG.spot_run_dry:
@@ -283,6 +349,8 @@ def _grasp_policy(name: str,
     do_stow = not do_dump and \
         target_obj_volume < CFG.spot_grasp_stow_volume_threshold
     fn = _grasp_at_pixel_and_maybe_stow_or_dump
+    sim_fn = None  # NOTE: cannot simulate using this option, so this
+    # shouldn't be called anyways...
 
     # Use a relatively forgiving threshold for grasp constraints in general,
     # but for the ball, use a strict constraint.
@@ -293,10 +361,11 @@ def _grasp_policy(name: str,
 
     # Retry a grasp if a failure occurs!
     retry_with_no_constraints = target_obj.name != "brush"
-
-    return utils.create_spot_env_action(
+    action_extra_info = SpotActionExtraInfo(
         name, objects, fn, (robot, img, pixel, grasp_rot, thresh, 20.0,
-                            retry_with_no_constraints, do_stow, do_dump))
+                            retry_with_no_constraints, do_stow, do_dump),
+        sim_fn, (sim_robot, grasp_rot, sim_target_obj))
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
@@ -366,10 +435,12 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
     sweep_move_dy = -0.8
     sweep_move_dz = 0.0
 
-    # Execute the sweep.
-    return utils.create_spot_env_action(
+    # Execute the sweep. Note simulation fn and args not implemented yet.
+    action_extra_info = SpotActionExtraInfo(
         name, objects, sweep, (robot, sweep_start_pose, sweep_move_dx,
-                               sweep_move_dy, sweep_move_dz, duration))
+                               sweep_move_dy, sweep_move_dz, duration), None,
+        ())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _pick_and_dump_policy(name: str, robot_obj_idx: int, target_obj_idx: int,
@@ -403,10 +474,13 @@ def _pick_and_dump_policy(name: str, robot_obj_idx: int, target_obj_idx: int,
     def _fn() -> None:
         for action in actions:
             assert isinstance(action.extra_info, (list, tuple))
-            _, _, action_fn, action_fn_args = action.extra_info
+            _, _, action_fn, action_fn_args, _, _ = action.extra_info
             action_fn(*action_fn_args)
 
-    return utils.create_spot_env_action(name, objects, _fn, tuple())
+    # Note simulation fn and args not implemented yet.
+    action_extra_info = SpotActionExtraInfo(name, objects, _fn, tuple(), None,
+                                            tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 ###############################################################################
@@ -462,6 +536,25 @@ def _pick_object_from_top_policy(state: State, memory: Dict,
     name = "PickObjectFromTop"
     target_obj_idx = 1
     return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
+
+
+def _sim_safe_pick_object_from_top_policy(state: State, memory: Dict,
+                                          objects: Sequence[Object],
+                                          params: Array) -> Action:
+    del state, memory, params  # unused.
+    name = "SimSafePickObjectFromTop"
+    target_obj_idx = 1
+    robot, _, _ = get_robot()
+    sim_robot = get_simulated_robot()
+    fn = _sim_safe_grasp_at_pixel_and_maybe_stow_or_dump
+    fn_args = (robot, objects[target_obj_idx], _options_rng, 10.0, True, True,
+               False)
+    sim_fn = simulated_grasp_at_pixel
+    sim_target_obj = get_simulated_object(objects[target_obj_idx])
+    sim_fn_args = (sim_robot, sim_target_obj)
+    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
+                                            sim_fn_args)
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _pick_object_to_drag_policy(state: State, memory: Dict,
@@ -538,8 +631,10 @@ def _place_object_on_top_policy(state: State, memory: Dict,
     surface_geom = object_to_top_down_geom(surface_obj, state)
     if surface_geom.contains_point(
             robot_pose.x, robot_pose.y) and surface_obj.name == "floor":
-        return utils.create_spot_env_action(name, objects, _drop_and_stow,
-                                            (robot, ))
+        # Note simulation fn and args not yet implemented.
+        action_extra_info = SpotActionExtraInfo(name, objects, _drop_and_stow,
+                                                (robot, ), None, tuple())
+        return utils.create_spot_env_action(action_extra_info)
 
     # If we're running on the actual robot, we want to be very precise
     # about the robot's current pose when computing the relative
@@ -550,9 +645,11 @@ def _place_object_on_top_policy(state: State, memory: Dict,
         robot_pose = localizer.get_last_robot_pose()
 
     place_rel_pos = robot_pose.inverse() * place_pose
-    return utils.create_spot_env_action(name, objects,
-                                        _place_at_relative_position_and_stow,
-                                        (robot, place_rel_pos))
+    # Note simulation fn and args not yet implemented.
+    action_extra_info = SpotActionExtraInfo(
+        name, objects, _place_at_relative_position_and_stow,
+        (robot, place_rel_pos), None, tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _drop_object_inside_policy(state: State, memory: Dict,
@@ -581,10 +678,11 @@ def _drop_object_inside_policy(state: State, memory: Dict,
     place_rel_pos = math_helpers.Vec3(x=container_rel_pose.x + dx,
                                       y=container_rel_pose.y + dy,
                                       z=place_z)
-
-    return utils.create_spot_env_action(name, objects,
-                                        _drop_at_relative_position_and_look,
-                                        (robot, place_rel_pos))
+    # Note simulation fn and args not yet implemented.
+    action_extra_info = SpotActionExtraInfo(
+        name, objects, _drop_at_relative_position_and_look,
+        (robot, place_rel_pos), None, tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _drop_not_placeable_object_policy(state: State, memory: Dict,
@@ -595,8 +693,11 @@ def _drop_not_placeable_object_policy(state: State, memory: Dict,
     name = "DropNotPlaceableObject"
     robot, _, _ = get_robot()
 
-    return utils.create_spot_env_action(name, objects, _open_and_close_gripper,
-                                        (robot, ))
+    # Note simulation fn and args not yet implemented.
+    action_extra_info = SpotActionExtraInfo(name, objects,
+                                            _open_and_close_gripper, (robot, ),
+                                            None, tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _move_and_drop_object_inside_policy(state: State, memory: Dict,
@@ -625,8 +726,10 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
     # probably the floor). When this happens, just drop the object.
     surface_geom = object_to_top_down_geom(surface_obj, state)
     if surface_geom.contains_point(robot_pose.x, robot_pose.y):
-        return utils.create_spot_env_action(name, objects, _drop_and_stow,
-                                            (robot, ))
+        # Note simulation fn and args not yet implemented.
+        action_extra_info = SpotActionExtraInfo(name, objects, _drop_and_stow,
+                                                (robot, ), None, tuple())
+        return utils.create_spot_env_action(action_extra_info)
 
     # The dz parameter is with respect to the top of the container.
     container_half_height = state.get(container_obj, "height") / 2
@@ -635,10 +738,11 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
     place_abs_pos = math_helpers.Vec3(x=container_pose.x + dx,
                                       y=container_pose.y + dy,
                                       z=place_z)
-
-    return utils.create_spot_env_action(
+    # Note simulation fn and args not yet implemented.
+    action_extra_info = SpotActionExtraInfo(
         name, objects, _move_closer_and_drop_at_relative_position_and_look,
-        (robot, localizer, place_abs_pos))
+        (robot, localizer, place_abs_pos), None, tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _drag_to_unblock_object_policy(state: State, memory: Dict,
@@ -650,9 +754,11 @@ def _drag_to_unblock_object_policy(state: State, memory: Dict,
     robot, _, _ = get_robot()
     dx, dy, dyaw = params
     move_rel_pos = math_helpers.SE2Pose(dx, dy, angle=dyaw)
-
-    return utils.create_spot_env_action(name, objects, _drag_and_release,
-                                        (robot, move_rel_pos))
+    # Note that simulation fn and args not yet implemented.
+    action_extra_info = SpotActionExtraInfo(name, objects, _drag_and_release,
+                                            (robot, move_rel_pos), None,
+                                            tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _drag_to_block_object_policy(state: State, memory: Dict,
@@ -664,9 +770,11 @@ def _drag_to_block_object_policy(state: State, memory: Dict,
     robot, _, _ = get_robot()
     dx, dy, dyaw = params
     move_rel_pos = math_helpers.SE2Pose(dx, dy, angle=dyaw)
-
-    return utils.create_spot_env_action(name, objects, _drag_and_release,
-                                        (robot, move_rel_pos))
+    # Note that simulation fn and args not yet implemented.
+    action_extra_info = SpotActionExtraInfo(name, objects, _drag_and_release,
+                                            (robot, move_rel_pos), None,
+                                            tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _sweep_into_container_policy(state: State, memory: Dict,
@@ -732,10 +840,12 @@ def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
                                          y=place_rel_pose.y + 0.15,
                                          z=place_rel_pose.z,
                                          rot=rot)
-
-    return utils.create_spot_env_action(
+    # Note that simulation fn and args not yet implemented.
+    action_extra_info = SpotActionExtraInfo(
         name, objects, _move_to_absolute_pose_and_place_push_stow,
-        (robot, localizer, absolute_move_pose, place_rel_pose, push_rel_pose))
+        (robot, localizer, absolute_move_pose, place_rel_pose, push_rel_pose),
+        None, tuple())
+    return utils.create_spot_env_action(action_extra_info)
 
 
 def _move_to_ready_sweep_policy(state: State, memory: Dict,
@@ -825,6 +935,14 @@ class _SpotParameterizedOption(utils.SingletonParameterizedOption):
     """
 
     def __init__(self, operator_name: str, types: List[Type]) -> None:
+        # If we're doing proper bilevel planning with a simulator, then
+        # we need to make some adjustments to the params spaces
+        # and policies.
+        if not CFG.bilevel_plan_without_sim:
+            _OPERATOR_NAME_TO_PARAM_SPACE["PickObjectFromTop"] = Box(
+                0, 1, (0, ))
+            _OPERATOR_NAME_TO_POLICY[
+                "PickObjectFromTop"] = _sim_safe_pick_object_from_top_policy
         params_space = _OPERATOR_NAME_TO_PARAM_SPACE[operator_name]
         policy = _OPERATOR_NAME_TO_POLICY[operator_name]
         super().__init__(operator_name, policy, types, params_space)
@@ -840,6 +958,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {
             "spot_cube_env",
+            "spot_soda_floor_env",
             "spot_soda_table_env",
             "spot_soda_bucket_env",
             "spot_soda_chair_env",

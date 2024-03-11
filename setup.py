@@ -41,7 +41,8 @@ setup(
         "bosdyn-client >= 3.1",
         "opencv-python == 4.7.0.72",
         "pg3@git+https://github.com/tomsilver/pg3.git",
-        "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git"  # pylint: disable=line-too-long
+        "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git",  # pylint: disable=line-too-long
+        "pbrspot@git+https://github.com/NishanthJKumar/pbrspot.git"
     ],
     include_package_data=True,
     extras_require={

@@ -78,6 +78,9 @@ class BilevelPlanningApproach(BaseApproach):
                 task, nsrts, preds, timeout, seed)
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
+            atoms_seq = utils.compute_atoms_seq_from_plan(
+                nsrt_plan, utils.abstract(task.init, preds))
+            self._last_atoms_seq = atoms_seq
             policy = utils.option_plan_to_policy(option_plan)
 
         self._save_metrics(metrics, nsrts, preds)
@@ -204,9 +207,7 @@ class BilevelPlanningApproach(BaseApproach):
         return self._last_nsrt_plan
 
     def get_execution_monitoring_info(self) -> List[Set[GroundAtom]]:
-        if self._plan_without_sim:
-            remaining_atoms_seq = list(self._last_atoms_seq)
-            if remaining_atoms_seq:
-                self._last_atoms_seq.pop(0)
-            return remaining_atoms_seq
-        return []
+        remaining_atoms_seq = list(self._last_atoms_seq)
+        if remaining_atoms_seq:
+            self._last_atoms_seq.pop(0)
+        return remaining_atoms_seq

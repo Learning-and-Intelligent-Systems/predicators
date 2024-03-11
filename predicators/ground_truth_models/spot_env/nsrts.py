@@ -286,6 +286,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     def get_env_names(cls) -> Set[str]:
         return {
             "spot_cube_env",
+            "spot_soda_floor_env",
             "spot_soda_table_env",
             "spot_soda_bucket_env",
             "spot_soda_chair_env",
@@ -324,6 +325,13 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "DropNotPlaceableObject": utils.null_sampler,
             "MoveToReadySweep": utils.null_sampler,
         }
+
+        # If we're doing proper bilevel planning with a simulator, then
+        # we need to replace some of the samplers.
+        if not CFG.bilevel_plan_without_sim:
+            operator_name_to_sampler["PickObjectFromTop"] = utils.null_sampler
+            # NOTE: will probably have to replace all other pick ops
+            # similarly in the future.
 
         for strips_op in env.strips_operators:
             sampler = operator_name_to_sampler[strips_op.name]

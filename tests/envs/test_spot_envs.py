@@ -203,6 +203,37 @@ def test_spot_main_sweep_env_dry_run(graph_nav_map):
     _run_ground_nsrt(dump_bucket, state)
 
 
+def test_json_loading():
+    """Tests specific to the main sweeping environment."""
+    utils.reset_config({
+        "env":
+        "spot_soda_floor_env",
+        "approach":
+        "spot_wrapper[oracle]",
+        "num_train_tasks":
+        0,
+        "num_test_tasks":
+        1,
+        "seed":
+        123,
+        "spot_run_dry":
+        True,
+        "bilevel_plan_without_sim":
+        True,
+        "spot_use_perfect_samplers":
+        True,
+        "spot_graph_nav_map":
+        "floor8-sweeping",
+        "test_task_json_dir":
+        "predicators/envs/assets/task_jsons/spot/test/"
+    })
+    # Need to flush cache due to cached graph nav map.
+    utils.flush_cache()
+    env = create_new_env(CFG.env)
+    env_test_tasks = env.get_test_tasks()
+    assert len(env_test_tasks) == 1
+
+
 def real_robot_cube_env_test() -> None:
     """A real robot test, not to be run by unit tests!
 

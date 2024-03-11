@@ -203,6 +203,52 @@ class BaseEnv(abc.ABC):
         assert not goal or isinstance(next(iter(goal)), GroundAtom)
         return all(goal_atom.holds(self._current_state) for goal_atom in goal)
 
+    def _parse_object_name_to_object_from_json(
+            self, json_dict: Dict) -> Dict[str, Object]:
+        """Create a dict mapping object names to corresponding objects."""
+        object_name_to_object: Dict[str, Object] = {}
+        # Parse objects.
+        type_name_to_type = {t.name: t for t in self.types}
+        for obj_name, type_name in json_dict["objects"].items():
+            obj_type = type_name_to_type[type_name]
+            obj = Object(obj_name, obj_type)
+            object_name_to_object[obj_name] = obj
+        return object_name_to_object
+
+    def _parse_init_state_dict_from_json(
+        self, json_dict: Dict, object_name_to_object: Dict[str, Object]
+    ) -> Dict[Object, Dict[str, float]]:
+        """Create a dict mapping objects to their features to be used to
+        construct an initial state."""
+        assert set(object_name_to_object).\
+            issubset(set(json_dict["init"])), \
+            "The init state can only include objects in `objects`."
+        # Parse initial state.
+        init_dict: Dict[Object, Dict[str, float]] = {}
+        for obj_name, obj_dict in json_dict["init"].items():
+            obj = object_name_to_object[obj_name]
+            init_dict[obj] = obj_dict.copy()
+        return init_dict
+
+    def _parse_goal_from_json_dict(self, json_dict: Dict,
+                                   object_name_to_object: Dict[str, Object],
+                                   init_state: State) -> Set[GroundAtom]:
+        """Parse a goal from json_dict."""
+        if "goal" in json_dict:
+            goal = self._parse_goal_from_json(json_dict["goal"],
+                                              object_name_to_object)
+        elif "goal_description" in json_dict:  # pragma: no cover
+            goal = json_dict["goal_description"]
+        else:  # pragma: no cover
+            if CFG.override_json_with_input:
+                goal = self._parse_goal_from_input_to_json(
+                    init_state, json_dict, object_name_to_object)
+            else:
+                assert "language_goal" in json_dict
+                goal = self._parse_language_goal_from_json(
+                    json_dict["language_goal"], object_name_to_object)
+        return goal
+
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         """Create a task from a JSON file.
 
@@ -230,39 +276,14 @@ class BaseEnv(abc.ABC):
         """
         with open(json_file, "r", encoding="utf-8") as f:
             json_dict = json.load(f)
-        object_name_to_object: Dict[str, Object] = {}
-        # Parse objects.
-        type_name_to_type = {t.name: t for t in self.types}
-        for obj_name, type_name in json_dict["objects"].items():
-            obj_type = type_name_to_type[type_name]
-            obj = Object(obj_name, obj_type)
-            object_name_to_object[obj_name] = obj
-        assert set(object_name_to_object).\
-            issubset(set(json_dict["init"])), \
-            "The init state can only include objects in `objects`."
-        assert set(object_name_to_object).\
-            issuperset(set(json_dict["init"])), \
-            "The init state must include every object in `objects`."
-        # Parse initial state.
-        init_dict: Dict[Object, Dict[str, float]] = {}
-        for obj_name, obj_dict in json_dict["init"].items():
-            obj = object_name_to_object[obj_name]
-            init_dict[obj] = obj_dict.copy()
+        object_name_to_object = self._parse_object_name_to_object_from_json(
+            json_dict)
+        init_dict = self._parse_init_state_dict_from_json(
+            json_dict, object_name_to_object)
         init_state = utils.create_state_from_dict(init_dict)
-        # Parse goal.
-        if "goal" in json_dict:
-            goal = self._parse_goal_from_json(json_dict["goal"],
-                                              object_name_to_object)
-        elif "goal_description" in json_dict:  # pragma: no cover
-            goal = json_dict["goal_description"]
-        else:  # pragma: no cover
-            if CFG.override_json_with_input:
-                goal = self._parse_goal_from_input_to_json(
-                    init_state, json_dict, object_name_to_object)
-            else:
-                assert "language_goal" in json_dict
-                goal = self._parse_language_goal_from_json(
-                    json_dict["language_goal"], object_name_to_object)
+        goal = self._parse_goal_from_json_dict(json_dict,
+                                               object_name_to_object,
+                                               init_state)
         return EnvironmentTask(init_state, goal)
 
     def _get_language_goal_prompt_prefix(self,

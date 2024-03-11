@@ -4,6 +4,7 @@ import logging
 import time
 from typing import Tuple
 
+import pbrspot
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
@@ -80,6 +81,22 @@ def navigate_to_relative_pose(robot: Robot,
             return
     if (time.perf_counter() - start_time) > timeout:
         logging.warning("Timed out waiting for movement to execute!")
+
+
+def simulated_navigate_to_relative_pose(
+    sim_robot: pbrspot.spot.Spot,
+    new_pose: math_helpers.SE2Pose,
+) -> None:
+    """Execute an absolute position move.
+
+    The new_pose is the pose to navigate to in the world frame.
+    """
+    curr_pose = sim_robot.get_pose()
+    new_se3 = new_pose.get_closest_se3_transform(curr_pose[0][2])
+    # Set the pose of the robot to the correct new computed pose.
+    sim_robot.set_pose([(new_pose.x, new_pose.y, curr_pose[0][2]),
+                        (new_se3.rot.x, new_se3.rot.y, new_se3.rot.z,
+                         new_se3.rot.w)])
 
 
 def navigate_to_absolute_pose(robot: Robot,

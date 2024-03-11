@@ -21,8 +21,8 @@ from predicators.spot_utils.utils import _container_type, \
     _immovable_object_type, _movable_object_type, _robot_type, \
     get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
-    GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task, \
-    Video
+    GoalDescription, GroundAtom, Object, Observation, Predicate, \
+    SpotActionExtraInfo, State, Task, Video
 
 
 class SpotPerceiver(BasePerceiver):
@@ -96,8 +96,10 @@ class SpotPerceiver(BasePerceiver):
         # Update the curr held item when applicable.
         assert self._curr_env is not None
         if self._prev_action is not None:
-            assert isinstance(self._prev_action.extra_info, (list, tuple))
-            controller_name, objects, _, _ = self._prev_action.extra_info
+            assert isinstance(self._prev_action.extra_info,
+                              SpotActionExtraInfo)
+            controller_name = self._prev_action.extra_info.action_name
+            objects = self._prev_action.extra_info.operator_objects
             logging.info(
                 f"[Perceiver] Previous action was {controller_name}{objects}.")
             # The robot is always the 0th argument of an

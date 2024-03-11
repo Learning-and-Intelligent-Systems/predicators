@@ -4,6 +4,7 @@ import logging
 import time
 from typing import Optional, Tuple
 
+import pbrspot
 from bosdyn.api import geometry_pb2, manipulation_api_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import VISION_FRAME_NAME, \
@@ -134,6 +135,22 @@ def grasp_at_pixel(robot: Robot,
     # to ensure a pick has happened!
     close_gripper(robot)
     time.sleep(0.5)
+
+
+def simulated_grasp_at_pixel(sim_robot: pbrspot.spot.Spot,
+                             obj_to_be_grasped: pbrspot.body.Body) -> None:
+    """Simulated grasping in pybullet.
+
+    For now, this is really dumb and just teleports the object into the
+    hand. In the near future, a simple thing to add is just making sure
+    the hand can IK to the object. In the further future, this function
+    will hopefully be made be much more reasonable in general (we
+    probably want to do BEHAVIOR-style simulated grasping)!
+    """
+    # Start by opening the hand.
+    sim_robot.hand.Open()
+    # Now, teleport the object into the hand.
+    obj_to_be_grasped.set_pose(sim_robot.hand.get_pose())
 
 
 if __name__ == "__main__":

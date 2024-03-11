@@ -11,6 +11,7 @@ from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
 
 import matplotlib
 import numpy as np
+import pbrspot
 from bosdyn.client import RetryableRpcError, create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
@@ -40,16 +41,24 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import _base_object_type, _container_type, \
     _immovable_object_type, _movable_object_type, _robot_type, \
-    get_allowed_map_regions, get_graph_nav_dir, \
-    get_robot_gripper_open_percentage, get_spot_home_pose, \
-    load_spot_metadata, object_to_top_down_geom, verify_estop
+    construct_state_given_pbrspot, get_allowed_map_regions, \
+    get_graph_nav_dir, get_robot_gripper_open_percentage, get_spot_home_pose, \
+    load_spot_metadata, object_to_top_down_geom, update_pbrspot_given_state, \
+    update_pbrspot_robot_conf, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
-    GroundAtom, LiftedAtom, Object, Observation, Predicate, State, \
-    STRIPSOperator, Type, Variable
+    GroundAtom, LiftedAtom, Object, Observation, Predicate, \
+    SpotActionExtraInfo, State, STRIPSOperator, Type, Variable
 
 ###############################################################################
 #                                Base Class                                   #
 ###############################################################################
+
+# NOTE: The main reason we need these two global variables below is
+# that our options need access to this information, and we don't
+# want to kill and respawn the simulation every time this is
+# necessary.
+_SIMULATED_SPOT_ROBOT: Optional[pbrspot.spot.Spot] = None
+_obj_name_to_sim_obj: Dict[str, pbrspot.body.Body] = {}
 
 
 @dataclass(frozen=True)
@@ -165,6 +174,21 @@ def get_detection_id_for_object(obj: Object) -> ObjectDetectionID:
     return obj_to_detection_id[obj]
 
 
+def get_simulated_robot() -> Optional[pbrspot.spot.Spot]:
+    """Return the simulated robot object."""
+    if CFG.spot_run_dry:
+        return None
+    assert _SIMULATED_SPOT_ROBOT is not None
+    return _SIMULATED_SPOT_ROBOT
+
+
+def get_simulated_object(obj: Object) -> Optional[pbrspot.body.Body]:
+    """Return the simulated version of obj."""
+    if CFG.spot_run_dry:
+        return None
+    return _obj_name_to_sim_obj[obj.name]
+
+
 def get_known_immovable_objects() -> Dict[Object, math_helpers.SE3Pose]:
     """Load known immovable object poses from metadata."""
     known_immovables = load_spot_metadata()["known-immovable-objects"]
@@ -198,6 +222,12 @@ class SpotRearrangementEnv(BaseEnv):
         assert "spot_wrapper" in CFG.approach or \
                "spot_wrapper" in CFG.approach_wrapper, \
             "Must use spot wrapper in spot envs!"
+        # If we're doing proper bilevel planning, then we need to instantiate
+        # a simulator!
+        global _SIMULATED_SPOT_ROBOT  # pylint:disable=global-statement
+        if not CFG.bilevel_plan_without_sim:
+            self._initialize_pybullet()
+            _SIMULATED_SPOT_ROBOT = self._sim_robot
         robot, localizer, lease_client = get_robot()
         self._robot = robot
         self._localizer = localizer
@@ -220,6 +250,27 @@ class SpotRearrangementEnv(BaseEnv):
 
         # Used for the move-related hacks in step().
         self._last_known_object_poses: Dict[Object, math_helpers.SE3Pose] = {}
+
+    def _initialize_pybullet(self) -> None:
+        # First, check if we have any connections to pybullet already,
+        # and reset them.
+        clients = pbrspot.utils.get_connection()
+        if clients > 0:
+            pbrspot.utils.disconnect()
+        # Now, launch PyBullet.
+        pbrspot.utils.connect(use_gui=self._using_gui)
+        pbrspot.utils.disable_real_time()
+        pbrspot.utils.set_default_camera()
+        # Create robot object atop the floor.
+        self._sim_robot = pbrspot.spot.Spot()
+        floor_urdf = utils.get_env_asset_path("urdf/floor.urdf")
+        floor_obj = pbrspot.body.createBody(floor_urdf)
+        # The floor is known to be about 60cm below the
+        # robot's position.
+        floor_obj.set_point([0, 0, -0.6])
+        self._sim_robot.set_point(
+            [0, 0,
+             pbrspot.placements.stable_z(self._sim_robot, floor_obj)])
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -258,8 +309,10 @@ class SpotRearrangementEnv(BaseEnv):
             self, action: Action,
             nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
         """Step-like function for spot dry runs."""
-        assert isinstance(action.extra_info, (list, tuple))
-        action_name, action_objs, _, action_args = action.extra_info
+        assert isinstance(action.extra_info, SpotActionExtraInfo)
+        action_name = action.extra_info.action_name
+        action_objs = action.extra_info.operator_objects
+        action_args = action.extra_info.real_world_fn_args
         obs = self._current_observation
         assert isinstance(obs, _SpotObservation)
 
@@ -385,12 +438,47 @@ class SpotRearrangementEnv(BaseEnv):
         self._current_observation = self._current_task.init_obs
         self._current_task_goal_reached = False
         self._last_action = None
+
+        # Start by modifying the simulated robot to be in the right
+        # position and configuration.
+        if not CFG.bilevel_plan_without_sim:
+            global _obj_name_to_sim_obj  # pylint:disable=global-statement
+            # Start by removing all previously-known objects from
+            # the simulation.
+            if len(_obj_name_to_sim_obj) > 0:
+                for sim_obj in _obj_name_to_sim_obj.values():
+                    sim_obj.remove_body()
+            _obj_name_to_sim_obj = {}
+            # If we're connected to a real-world robot, then update the
+            # simulated robot to be in exactly the sasme joint
+            # configuration as the real robot.
+            if self._robot is not None:
+                update_pbrspot_robot_conf(self._robot, self._sim_robot)
+            # Find the relevant object urdfs and then put them at the
+            # right places in the world. Importantly note that we
+            # expect the name of the object to be the same as the name
+            # of the urdf file!
+            for obj in self._current_observation.objects_in_view.keys():
+                # The floor object is loaded during init and thus treated
+                # separately.
+                if obj.name == "floor":
+                    continue
+                obj_urdf = utils.get_env_asset_path(f"urdf/{obj.name}.urdf",
+                                                    assert_exists=True)
+                sim_obj = pbrspot.body.createBody(obj_urdf)
+                _obj_name_to_sim_obj[obj.name] = sim_obj
+
         return self._current_task.init_obs
 
     def step(self, action: Action) -> Observation:
-        """Override step() because simulate() is not implemented."""
-        assert isinstance(action.extra_info, (list, tuple))
-        action_name, action_objs, action_fn, action_fn_args = action.extra_info
+        """Override step() for real-world execution!"""
+        assert isinstance(action.extra_info, SpotActionExtraInfo)
+        action_name = action.extra_info.action_name
+        action_objs = action.extra_info.operator_objects
+        action_fn = action.extra_info.real_world_fn
+        action_fn_args = action.extra_info.real_world_fn_args
+        sim_action_fn = action.extra_info.simulation_fn
+        sim_action_args = action.extra_info.simulation_fn_args
         self._last_action = action
         # The extra info is (action name, objects, function, function args).
         # The action name is either an operator name (for use with nonpercept
@@ -426,7 +514,7 @@ class SpotRearrangementEnv(BaseEnv):
 
         # Otherwise, the action is either an operator to execute or a special
         # action. The only difference between the two is that operators update
-        # the non-perfect states.
+        # the non-percept states.
 
         operator_names = {o.name for o in self._strips_operators}
 
@@ -456,7 +544,8 @@ class SpotRearrangementEnv(BaseEnv):
             # Get the new observation. Again, automatically retry if needed.
             while True:
                 try:
-                    next_obs = self._build_observation(next_nonpercept)
+                    next_obs = self._build_realworld_observation(
+                        next_nonpercept)
                     break
                 except RetryableRpcError as e:
                     logging.warning("WARNING: the following retryable error "
@@ -500,14 +589,14 @@ class SpotRearrangementEnv(BaseEnv):
                                           math_helpers.SE2Pose)
                         angle = self._noise_rng.uniform(-np.pi / 6, np.pi / 6)
                     rel_pose = math_helpers.SE2Pose(0, 0, angle)
+                    assert isinstance(action_fn_args, tuple)
                     new_action_args = action_fn_args[0:1] + (rel_pose, ) + \
                         action_fn_args[2:]
+
                     new_action = utils.create_spot_env_action(
-                        action_name,
-                        action_objs,
-                        action_fn,
-                        new_action_args,
-                    )
+                        SpotActionExtraInfo(action_name, action_objs,
+                                            action_fn, new_action_args,
+                                            sim_action_fn, sim_action_args))
                     return self.step(new_action)
 
         self._current_observation = next_obs
@@ -519,9 +608,9 @@ class SpotRearrangementEnv(BaseEnv):
     def goal_reached(self) -> bool:
         return self._current_task_goal_reached
 
-    def _build_observation(self,
-                           ground_atoms: Set[GroundAtom]) -> _SpotObservation:
-        """Helper for building a new _SpotObservation().
+    def _build_realworld_observation(
+            self, ground_atoms: Set[GroundAtom]) -> _SpotObservation:
+        """Helper for building a new _SpotObservation() from real-robot data.
 
         This is an environment method because the nonpercept predicates
         may vary per environment.
@@ -597,8 +686,10 @@ class SpotRearrangementEnv(BaseEnv):
         # the observation so that the swept object is inside the container.
         # Otherwise do nothing and let the lost object dance proceed.
         if self._last_action is not None:
-            assert isinstance(self._last_action.extra_info, (list, tuple))
-            op_name, op_objects, _, _ = self._last_action.extra_info
+            assert isinstance(self._last_action.extra_info,
+                              SpotActionExtraInfo)
+            op_name = self._last_action.extra_info.action_name
+            op_objects = self._last_action.extra_info.operator_objects
             if op_name == "SweepTwoObjectsIntoContainer":
                 swept_objects: Set[Object] = set(op_objects[2:4])
                 container: Optional[Object] = op_objects[-1]
@@ -655,8 +746,9 @@ class SpotRearrangementEnv(BaseEnv):
 
         This should be deprecated eventually.
         """
-        assert isinstance(action.extra_info, (list, tuple))
-        op_name, op_objects, _, _ = action.extra_info
+        assert isinstance(action.extra_info, SpotActionExtraInfo)
+        op_name = action.extra_info.action_name
+        op_objects = action.extra_info.operator_objects
         op_name_to_op = {o.name: o for o in self._strips_operators}
         op = op_name_to_op[op_name]
         ground_op = op.ground(tuple(op_objects))
@@ -671,7 +763,54 @@ class SpotRearrangementEnv(BaseEnv):
         }
 
     def simulate(self, state: State, action: Action) -> State:
-        raise NotImplementedError("Simulate not implemented for SpotEnv.")
+        assert isinstance(action.extra_info, SpotActionExtraInfo)
+        action_name = action.extra_info.action_name
+        action_objs = action.extra_info.operator_objects
+        sim_action_fn = action.extra_info.simulation_fn
+        sim_action_fn_args = action.extra_info.simulation_fn_args
+        # The extra info is (action name, objects, function, function args).
+        # The action name is either an operator name (for use with nonpercept
+        # predicates) or a special name. See below for the special names.
+        assert self.action_space.contains(action.arr)
+
+        # Update the poses of the robot and all relevant objects
+        # to be in the correct position(s).
+        update_pbrspot_given_state(self._sim_robot, _obj_name_to_sim_obj,
+                                   state)
+
+        # Special case: the action is "done", indicating that the robot
+        # believes it has finished the task. Used for goal checking.
+        if action_name == "done":
+            # During planning, trust that the goal is accomplished if the
+            # done action is returned.
+            self._current_task_goal_reached = True
+            return state
+
+        # Execute the action in the PyBullet env. Automatically retry
+        # if a retryable error is encountered.
+        sim_action_fn(*sim_action_fn_args)  # type: ignore
+
+        # Construct a new state given the updated simulation.
+        next_state = construct_state_given_pbrspot(self._sim_robot,
+                                                   _obj_name_to_sim_obj, state)
+
+        # In the future, we'll probably actually implement proper ways to
+        # check things like InHandView and other quantities below
+        # in the simulator (e.g., by shooting a ray!). However for now,
+        # we're going to just hack things such that the expected atoms check
+        # passes. This will be done in a manner similar to dry sim.
+        if action_name == "MoveToHandViewObject":
+            obj_to_view = action_objs[1]
+            next_state.set(obj_to_view, "in_hand_view", 1.0)
+        elif action_name == "SimSafePickObjectFromTop":
+            obj_to_pick = action_objs[1]
+            next_state.set(obj_to_pick, "held", 1.0)
+            next_state.set(obj_to_pick, "in_hand_view", 0.0)
+        else:
+            raise NotImplementedError(f"Simulation for {action_name} " + \
+                                      "not implemented.")
+
+        return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         goal = self._generate_goal_description()  # currently just one goal
@@ -765,10 +904,22 @@ class SpotRearrangementEnv(BaseEnv):
         raise NotImplementedError("This env does not use Matplotlib")
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
-        # Use the BaseEnv default code for loading from JSON, which will
-        # create a State as an observation. We'll then convert that State
-        # into a _SpotObservation instead.
-        base_env_task = super()._load_task_from_json(json_file)
+        with open(json_file, "r", encoding="utf-8") as f:
+            json_dict = json.load(f)
+        object_name_to_object = self._parse_object_name_to_object_from_json(
+            json_dict)
+        init_dict = self._parse_init_state_dict_from_json(
+            json_dict, object_name_to_object)
+        # Get the object detection id's, which are features of
+        # each object type.
+        for i, (obj, init_val) in enumerate(sorted(init_dict.items())):
+            init_val["object_id"] = i
+        init_state = utils.create_state_from_dict(init_dict)
+        goal = self._parse_goal_from_json_dict(json_dict,
+                                               object_name_to_object,
+                                               init_state)
+        base_env_task = EnvironmentTask(init_state, goal)
+
         init = base_env_task.init
         # Images not currently saved or used.
         images: Dict[str, RGBDImageWithContext] = {}
@@ -2335,6 +2486,56 @@ class SpotCubeEnv(SpotRearrangementEnv):
         # Finish the task.
         goal_description = self._generate_goal_description()
         return EnvironmentTask(init_obs, goal_description)
+
+
+###############################################################################
+#                                Soda Floor Env                               #
+###############################################################################
+
+
+class SpotSodaFloorEnv(SpotRearrangementEnv):
+    """An extremely basic environment where a soda can needs to be picked up.
+
+    Very simple and mostly just for testing.
+    """
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        op_names_to_keep = {
+            "MoveToReachObject",
+            "MoveToHandViewObject",
+            "PickObjectFromTop",
+            "PlaceObjectOnTop",
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_soda_floor_env"
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+
+        soda_can = Object("soda_can", _movable_object_type)
+        soda_can_detection = LanguageObjectDetectionID("soda can")
+        detection_id_to_obj[soda_can_detection] = soda_can
+
+        for obj, pose in get_known_immovable_objects().items():
+            detection_id = KnownStaticObjectDetectionID(obj.name, pose)
+            detection_id_to_obj[detection_id] = obj
+
+        return detection_id_to_obj
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "pick up the soda can"
+
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("Dry task generation not implemented.")
 
 
 ###############################################################################

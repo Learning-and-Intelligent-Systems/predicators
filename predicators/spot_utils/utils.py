@@ -8,6 +8,7 @@ from typing import Collection, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+import pbrspot
 import scipy
 import yaml
 from bosdyn.api import estop_pb2, robot_state_pb2
@@ -45,6 +46,7 @@ DEFAULT_HAND_PRE_DUMP_POSE = math_helpers.SE3Pose(
     math_helpers.Quat.from_yaw(np.pi / 1.1))
 DEFAULT_HAND_POST_DUMP_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 2))
+DEFAULT_SIM_ROBOT_Z_OFFSET = 0.6
 
 
 # Spot-specific types.
@@ -411,3 +413,86 @@ def spot_pose_to_geom2d(pose: math_helpers.SE3Pose) -> Rectangle:
     yaw = pose.rot.to_yaw()
     return Rectangle.from_center(pose.x, pose.y, front_to_back_length,
                                  side_length, yaw)
+
+
+def update_pbrspot_robot_conf(robot: Robot,
+                              sim_robot: pbrspot.spot.Spot) -> None:
+    """Simply updates the simulated spot to mirror the configuration of the
+    real robot."""
+    curr_robot_state = get_robot_state(robot)
+    robot_joint_to_curr_conf: Dict[str, float] = {}
+    for joint in curr_robot_state.kinematic_state.joint_states:
+        robot_joint_to_curr_conf[joint.name.replace(".", "_").replace(
+            "arm0", "arm")] = joint.position.value
+    sim_robot.set_joint_positions(sim_robot.body_joint_names, [
+        robot_joint_to_curr_conf[j_name]
+        for j_name in sim_robot.body_joint_names
+    ])
+    arm_conf = [
+        robot_joint_to_curr_conf[j_name]
+        for j_name in sim_robot.arm_joint_names
+    ]
+    sim_robot.arm.set_configuration(arm_conf)
+
+
+def update_pbrspot_given_state(sim_robot: pbrspot.spot.Spot,
+                               obj_name_to_sim_obj: Dict[str,
+                                                         pbrspot.body.Body],
+                               state: State) -> None:
+    """Update simulated environment to match state."""
+    for obj in state:
+        # The floor object is loaded during init and thus treated
+        # separately.
+        if obj.name == "floor":
+            continue
+        if obj.type.name == "robot":
+            sim_robot.set_pose(([
+                state.get(obj, "x"),
+                state.get(obj, "y"),
+                state.get(obj, "z") - DEFAULT_SIM_ROBOT_Z_OFFSET
+            ], [
+                state.get(obj, "qx"),
+                state.get(obj, "qy"),
+                state.get(obj, "qz"),
+                state.get(obj, "qw")
+            ]))
+        else:
+            sim_obj = obj_name_to_sim_obj[obj.name]
+            sim_obj.set_point([
+                state.get(obj, "x"),
+                state.get(obj, "y"),
+                state.get(obj, "z")
+            ])
+
+
+def construct_state_given_pbrspot(sim_robot: pbrspot.spot.Spot,
+                                  obj_name_to_sim_obj: Dict[str,
+                                                            pbrspot.body.Body],
+                                  state: State) -> State:
+    """Construct state to match new simulated env state.
+
+    Return an updated copy of the state.
+    """
+    sim_robot_pose = sim_robot.get_pose()
+    next_state = state.copy()
+    for obj in state:
+        if obj.name == "floor":
+            continue
+        if obj.type.name == "robot":
+            next_state.set(obj, "x", sim_robot_pose[0][0])
+            next_state.set(obj, "y", sim_robot_pose[0][1])
+            next_state.set(obj, "z",
+                           sim_robot_pose[0][2] + DEFAULT_SIM_ROBOT_Z_OFFSET)
+            next_state.set(obj, "qx", sim_robot_pose[1][0])
+            next_state.set(obj, "qy", sim_robot_pose[1][1])
+            next_state.set(obj, "qz", sim_robot_pose[1][2])
+            next_state.set(obj, "qw", sim_robot_pose[1][3])
+            next_state.set(obj, "gripper_open_percentage",
+                           sim_robot.hand.GetJointPositions() * -100.0)
+        else:
+            sim_obj = obj_name_to_sim_obj[obj.name]
+            sim_obj_pose = sim_obj.get_pose()
+            next_state.set(obj, "x", sim_obj_pose[0][0])
+            next_state.set(obj, "y", sim_obj_pose[0][1])
+            next_state.set(obj, "z", sim_obj_pose[0][2])
+    return next_state

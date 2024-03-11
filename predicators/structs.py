@@ -1808,6 +1808,29 @@ class GroundMacro:
         return len(self.ground_nsrts)
 
 
+@dataclass(frozen=True, repr=False, eq=False)
+class SpotActionExtraInfo:
+    """A sequence of things that are in the extra_info field of actions for the
+    SpotEnv.
+
+    We expect every action is linked to a parameterized skill. Thus, the
+    action name is the skill name. The operator objects are the discrete
+    skill parameters. The real_world_fn is an implementation of the
+    policy for the skill that should execute on a real world spot robot.
+    The real_world_fn_args are the arguments that this function requires
+    (which includes the continuous params and any other necessary)
+    params. The simulation_fn is an implementation of the skill policy
+    that should execute with a pbrspot simulation. The
+    simulation_fn_args are the arguments the simulation_fn requires.
+    """
+    action_name: str
+    operator_objects: Sequence[Object]
+    real_world_fn: Optional[Callable]
+    real_world_fn_args: Tuple
+    simulation_fn: Optional[Callable]
+    simulation_fn_args: Tuple
+
+
 # Convenience higher-order types useful throughout the code
 Observation = Any
 GoalDescription = Any
