@@ -168,8 +168,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
             print("USEFUL OBJECTS", useful_objects)
             print("USEFUL POS PREDICATES", useful_predicates)
             print("PRECONDS", ranked_atoms)
-        
-        saycan_scores = [atom for sublist in ranked_atoms[0:3] for atom in sublist]
+
+        saycan_scores = [atom for sublist in ranked_atoms for atom in sublist]
         """
         pos_classifications = {}
         neg_classifications = {}
@@ -218,19 +218,22 @@ class GPTObjectApproach(PG3AnalogyApproach):
             new_var = leftover_object.type("?" + leftover_object.name)
             obj_to_var_mapping[leftover_object] = new_var
 
-        #TODO: MAY NEED TO ADD NSRT PRECONDITIONS TO SATISFY REQUIREMENTS
         rule_pos_state_preconditions = set()
+        rule_neg_state_preconditions = set()
         rule_goal_preconditions = set()
         for saycan_atom in saycan_scores:
             if "WANT" in saycan_atom.predicate.name:
                 new_predicate = remove_wanted_prefix(saycan_atom.predicate)
                 new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
                 rule_goal_preconditions.add(new_predicate(new_variables))
+                rule_neg_state_preconditions.add(new_predicate(new_variables))
             else:
                 new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
                 rule_pos_state_preconditions.add(saycan_atom.predicate(new_variables))
         
-        final_rule = LDLRule("generated-rule", sorted(obj_to_var_mapping.values()), rule_pos_state_preconditions, set(), rule_goal_preconditions, lifted_action)
+        for needed_condition in lifted_action.preconditions:
+            rule_pos_state_preconditions.add(needed_condition)
+        final_rule = LDLRule("generated-rule", sorted(obj_to_var_mapping.values()), rule_pos_state_preconditions, rule_neg_state_preconditions, rule_goal_preconditions, lifted_action)
         return final_rule
     
     def _score_all(self, useful_objects, useful_predicates, task_index, index):
@@ -244,10 +247,10 @@ class GPTObjectApproach(PG3AnalogyApproach):
             score = 0.0
             pred = atom.predicate
             if pred.name in useful_predicates:
-                score += 0.5 
+                score += 1.0
             for obj in atom.objects:
                 if obj in useful_objects:
-                    score += 1.5
+                    score += 1.0/len(atom.objects)
             final_scores[atom] = score
         return final_scores
        
@@ -263,11 +266,11 @@ class GPTObjectApproach(PG3AnalogyApproach):
             score = 0.0
             pred = atom.predicate
             if pred.name in useful_predicates:
-                score += 0.5 
+                score += 0.5
             for obj in atom.objects:
                 if obj in useful_objects:
-                    score += 1.5
-            if score > 0.0:
+                    score += 1.0/len(atom.objects)
+            if score >= 1.0:
                 useful_pos_atoms[atom] = score
                 final_atoms.add(atom)
         sorted_atoms, sorted_scores = sort_atoms_by_score(useful_pos_atoms)
@@ -310,7 +313,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if available_variable in condition.variables:
                     goal_conditions.add(condition)
 
-            object_distribution = {obj: 0 for obj in self._target_states[task_index][state_index].data}
+            object_distribution = {obj: 1 for obj in self._target_states[task_index][state_index].data}
             for list_index, conditions in enumerate([pos_conditions, goal_conditions]):
                 for cond in conditions:
                     if list_index == 0: # If pos conditions, don't add WANT
@@ -421,11 +424,11 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
         # Gripper -> Detyped Miconic
         if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
-            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin']]
+            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin'], target_env_name_to_predicate['WANT-served']]
 
         # Ferry -> Detyped Miconic
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
-            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin']]
+            self._predicate_analogies['WANT-at'] = [target_env_name_to_predicate['destin'], target_env_name_to_predicate['WANT-served']]
 
     def setup_basic_predicate_analogies(self):
         predicate_input = {}
@@ -627,11 +630,11 @@ class GPTObjectApproach(PG3AnalogyApproach):
 
         # Gripper -> Detyped Miconic
         if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
-            nsrt_input = { "move": ["up"], "pick": ["board"], "drop": ["depart"], }
+            nsrt_input = { "move": ["up", "down"], "pick": ["board"], "drop": ["depart"], }
 
         # Ferry -> Detyped Miconic
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
-            nsrt_input = { "sail": ["up"], "board": ["board"], "debark": ["depart"], }
+            nsrt_input = { "sail": ["up", "down"], "board": ["board"], "debark": ["depart"], }
 
         target_env_nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in self._target_nsrts}
         analagous_target_nsrts = [target_env_nsrt_name_to_nsrt[nsrt_name] for nsrt_name in nsrt_input[rule.nsrt.name]]
@@ -659,6 +662,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             variable_input = {
                 ("up", "move") : {"?f1": "?from", "?f2": "?to"},
+                ("down", "move") : {"?f1": "?from", "?f2": "?to"},
                 ("board", "pick") : {"?p": "?obj", "?f": "?room"},
                 ("depart", "drop") : {"?p": "?obj", "?f": "?room"},
             }
@@ -666,6 +670,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             variable_input = {
                 ("up", "sail") : {"?f1": "?from", "?f2": "?to"},
+                ("down", "move") : {"?f1": "?from", "?f2": "?to"},
                 ("board", "board") : {"?p": "?car", "?f": "?loc"},
                 ("depart", "debark") : {"?p": "?car", "?f": "?loc"},
             }
