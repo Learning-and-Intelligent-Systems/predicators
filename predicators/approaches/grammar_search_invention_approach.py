@@ -3633,347 +3633,372 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for op in ddd.keys():
                 fff[op] = []
                 fff[op].append(
-                    set(p for p in ddd[op][0] if p in final_potential_ops[op]["pre"])
+                    set(p for p in ddd[op][0] if p in final_potential_ops2[op]["pre"])
                 )
                 fff[op].append(
-                    set(p for p in ddd[op][1] if p in final_potential_ops[op]["add"])
+                    set(p for p in ddd[op][1] if p in final_potential_ops2[op]["add"])
                 )
                 fff[op].append(
-                    set(p for p in ddd[op][2] if p in final_potential_ops[op]["del"])
+                    set(p for p in ddd[op][2] if p in final_potential_ops2[op]["del"])
                 )
                 fff[op].append(ddd[op][3])
 
             # Check each delete effect of each operator to make sure it satisfies harmlessness if we include it
-            total_count = sum(len(ddd[op_name][2]) for op_name in final_potential_ops.keys())
-            count = 1
-            for op_name2 in final_potential_ops.keys():
-                for delete_effect in ddd[op_name2][2]:
-                    print(f"Evaluating delete effect #{count} of {total_count} from {op_name2}.")
-                    # Try including it and see what happens.
-                    final_potential_ops[op_name2]["del"].add(delete_effect)
-                    fff[op_name2][2].add(delete_effect)
-                    self._clusters = fff
+            from predicators.structs import STRIPSOperator, Variable, PNAD
+            pnads: List[PNAD] = []
+            ops_to_print = []
+            for name, v in self._clusters.items():
+                preconds, add_effects, del_effects, segments = v
+                seg_0 = segments[0]
+                opt_objs = tuple(seg_0.get_option().objects)
+                relevant_add_effects = [a for a in seg_0.add_effects if a.predicate in add_effects]
+                relevant_del_effects = [a for a in seg_0.delete_effects if a.predicate in del_effects]
+                objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
+                objects_list = sorted(objects)
+
+                params = utils.create_new_variables([o.type for o in objects_list])
+                obj_to_var = dict(zip(objects_list, params))
+                var_to_obj = dict(zip(params, objects_list))
+
+                relevant_preconds = [a for a in seg_0.init_atoms if (a.predicate in preconds and set(a.objects).issubset(set(objects_list)))]
+                op_add_effects = {atom.lift(obj_to_var) for atom in relevant_add_effects}
+                op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
+                op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
+
+                option_vars = [obj_to_var[o] for o in opt_objs]
+                option_spec = [seg_0.get_option().parent, option_vars]
+
+                op_ignore_effects = set()
+                op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+
+
+                from itertools import permutations, product
+                def get_mapping_between_params(params1):
+                    unique_types_old = sorted(set(elem.type for elem in params1))
+                    # unique types with same order as params, don't want to sort it because of issue in painting with robby:robot and receptacle_shelf:shelf
+                    unique_types = []
+                    unique_types_set = set()
+                    for param in params1:
+                        if param.type not in unique_types_set:
+                            unique_types.append(param.type)
+                            unique_types_set.add(param.type)
+
+                    group_params_by_type = []
+                    for elem_type in unique_types:
+                        elements_of_type = [elem for elem in params1 if elem.type == elem_type]
+                        group_params_by_type.append(elements_of_type)
+
+                    all_mappings = list(product(*list(permutations(l) for l in group_params_by_type)))
+                    squash = []
+                    for m in all_mappings:
+                        a = []
+                        for i in m:
+                            a.extend(i)
+                        squash.append(a)
+
+                    return squash
+
+                ops = []
+                for seg in segments:
+                    opt_objs = tuple(seg.get_option().objects)
+                    relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
+                    relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
+                    objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
+                    objects_list = sorted(objects)
+                    # objects_list = sorted(objects, key=lambda x: (x.type.name, x.name))
+                    # have to do this otherwise robby:robot and receptacle_shelf:shelf get swapped later after they are lifted and sort by type and not name
+                    params = utils.create_new_variables([o.type for o in objects_list])
+                    obj_to_var = dict(zip(objects_list, params))
+                    var_to_obj = dict(zip(params, objects_list))
+                    relevant_preconds = [a for a in seg.init_atoms if (a.predicate in preconds and set(a.objects).issubset(set(objects_list)))]
+
+                    op_add_effects = {atom.lift(obj_to_var) for atom in relevant_add_effects}
+                    op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
+                    op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
+                    # t = (params, var_to_obj, obj_to_var, op_preconds, op_add_effects, op_del_effects)
+                    t = (params, objects_list, relevant_preconds, relevant_add_effects, relevant_del_effects, seg, opt_objs)
+                    ops.append(t)
+
+
+                # We would like to take the intersection of preconditions, add effects, and delete effects
+                # between operators in a particular cluster to weed out ones that do not generalize, e.g. that
+                # the block you are stacking on (in Op2-Stack), is also on another block (ratherr than on the table).
+                # But the object -> variable mapping is not consistent, so this takes some extra effort. For example,
+                # consider Op2-Stack, which operates on two blocks and one robot. Sometimes, blockn is put on blockn+1,
+                # but other times, blockn+1 is put on blockn. Because the object -> variable mapping is done with sorted
+                # objects (which sort by name and then by type), the stack operators created from some segments will have
+                # the first parameter be the top block, while others will have the first operator be the second block. So,
+                # if we just took an intersection of lifted atoms between the two operators, the predicates would would not
+                # correspond to each other properly.
+                # if name in  ["Op2-Stack"]:
+                # if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
+
+                # print(f"DOING THIS FOR {name}")
+                # if name == "Op0-Pick":
+                #     import pdb; pdb.set_trace()
+                op1 = ops[0]
+                op1_opt_objs = op1[-1]
+                op1_params = op1[0]
+                op1_objs_list = op1[1]
+                op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
+                op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
+                op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
+                op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
+
+                op1_preconds_str = set(str(a) for a in op1_preconds)
+                op1_adds_str = set(str(a) for a in op1_add_effects)
+                op1_dels_str = set(str(a) for a in op1_del_effects)
+
+                # debug:
+                # maybe explicitly go find operators where n+1 is put on n, and then where n is put on n+1
+                # look at add effects and see the numbers
+                # demo 7 seems to have n on n+1 at some point in it
+                # demo 0 has n+1 on n
+                import re
+                def extract_numbers_from_string(input_string):
+                    # Use regular expression to find all numeric sequences in the 'blockX' format
+                    numbers = re.findall(r'\bblock(\d+)\b', input_string)
+                    # Convert the found strings to integers and return a set
+                    return set(map(int, numbers))
+                def print_predicates(preds):
+                    l = sorted(list(preds))
+                    print("Printing set: ")
+                    for p in l:
+                        print(p)
+                    print()
+                # for x, seg in enumerate(segments):
+                #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
+                #     # now see if n+1 on n or n on n+1
+                #     assert len(relevant) == 1
+                #     z = relevant[0]
+                #     nums = extract_numbers_from_string(z)
+                #     assert len(nums) == 2
+                #     nums_sorted = sorted(list(nums))
+                #     higher_on_top = z.index(str(nums_sorted[1])) < z.index(str(nums_sorted[0]))
+                    # if not higher_on_top:
+                    #     print("HIGHER NOT ON TOP")
+                    #     import pdb; pdb.set_trace()
+
+                for i in range(1, len(ops)):
+                    op2 = ops[i]
+                    op2_params = op2[0]
+                    op2_objs_list = op2[1]
+
+                    mappings = get_mapping_between_params(op2_params)
+                    mapping_scores = []
+                    for m in mappings:
+
+                        mapping = dict(zip(op2_params, m))
+
+                        overlap = 0
+
+                        # Get Operator 2's preconditions, add effects, and delete effects
+                        # in terms of a particular object -> variable mapping.
+                        new_op2_params = [mapping[p] for p in op2_params]
+                        new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
+                        # import pdb; pdb.set_trace()
+                        try:
+                            op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                        except:
+                            import pdb; pdb.set_trace()
+                        op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                        op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
+                        op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
+
+                        # Take the intersection of lifted atoms across both operators, and
+                        # count the overlap.
+                        op2_preconds_str = set(str(a) for a in op2_preconds)
+                        op2_adds_str = set(str(a) for a in op2_add_effects)
+                        op2_dels_str = set(str(a) for a in op2_del_effects)
+
+                        score1 = len(op1_preconds_str.intersection(op2_preconds_str))
+                        score2 = len(op1_adds_str.intersection(op2_adds_str))
+                        score3 = len(op1_dels_str.intersection(op2_dels_str))
+                        score = score1 + score2 + score3
+
+                        new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
+                        new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
+                        new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
+
+                        mapping_scores.append((score, new_preconds, new_adds, new_dels))
+
+                    s, a, b, c = max(mapping_scores, key=lambda x: x[0])
+                    op1_preconds = a
+                    op1_add_effects = b
+                    op1_del_effects = c
+                    op1_preconds_str = set(str(a) for a in op1_preconds)
+                    op1_adds_str = set(str(a) for a in op1_add_effects)
+                    op1_dels_str = set(str(a) for a in op1_del_effects)
+
                     # import pdb; pdb.set_trace()
 
-                    # Learn pnads.
-                    from predicators.structs import STRIPSOperator, Variable, PNAD
-                    pnads: List[PNAD] = []
-                    ops_to_print = []
-                    for name, v in self._clusters.items():
-                        preconds, add_effects, del_effects, segments = v
-                        seg_0 = segments[0]
-                        opt_objs = tuple(seg_0.get_option().objects)
-                        relevant_add_effects = [a for a in seg_0.add_effects if a.predicate in add_effects]
-                        relevant_del_effects = [a for a in seg_0.delete_effects if a.predicate in del_effects]
-                        objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
-                        objects_list = sorted(objects)
+                # import pdb; pdb.set_trace()
 
-                        params = utils.create_new_variables([o.type for o in objects_list])
-                        obj_to_var = dict(zip(objects_list, params))
-                        var_to_obj = dict(zip(params, objects_list))
+                # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
+                # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
 
-                        relevant_preconds = [a for a in seg_0.init_atoms if (a.predicate in preconds and set(a.objects).issubset(set(objects_list)))]
-                        op_add_effects = {atom.lift(obj_to_var) for atom in relevant_add_effects}
-                        op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
-                        op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
-
-                        option_vars = [obj_to_var[o] for o in opt_objs]
-                        option_spec = [seg_0.get_option().parent, option_vars]
-
-                        op_ignore_effects = set()
-                        op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+                # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+                op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
+                ops_to_print.append(op)
+                # import pdb; pdb.set_trace()
 
 
-                        from itertools import permutations, product
-                        def get_mapping_between_params(params1):
-                            unique_types_old = sorted(set(elem.type for elem in params1))
-                            # unique types with same order as params, don't want to sort it because of issue in painting with robby:robot and receptacle_shelf:shelf
-                            unique_types = []
-                            unique_types_set = set()
-                            for param in params1:
-                                if param.type not in unique_types_set:
-                                    unique_types.append(param.type)
-                                    unique_types_set.add(param.type)
-
-                            group_params_by_type = []
-                            for elem_type in unique_types:
-                                elements_of_type = [elem for elem in params1 if elem.type == elem_type]
-                                group_params_by_type.append(elements_of_type)
-
-                            all_mappings = list(product(*list(permutations(l) for l in group_params_by_type)))
-                            squash = []
-                            for m in all_mappings:
-                                a = []
-                                for i in m:
-                                    a.extend(i)
-                                squash.append(a)
-
-                            return squash
-
-                        ops = []
-                        for seg in segments:
-                            opt_objs = tuple(seg.get_option().objects)
-                            relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
-                            relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
-                            objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
-                            objects_list = sorted(objects)
-                            # objects_list = sorted(objects, key=lambda x: (x.type.name, x.name))
-                            # have to do this otherwise robby:robot and receptacle_shelf:shelf get swapped later after they are lifted and sort by type and not name
-                            params = utils.create_new_variables([o.type for o in objects_list])
-                            obj_to_var = dict(zip(objects_list, params))
-                            var_to_obj = dict(zip(params, objects_list))
-                            relevant_preconds = [a for a in seg.init_atoms if (a.predicate in preconds and set(a.objects).issubset(set(objects_list)))]
-
-                            op_add_effects = {atom.lift(obj_to_var) for atom in relevant_add_effects}
-                            op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
-                            op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
-                            # t = (params, var_to_obj, obj_to_var, op_preconds, op_add_effects, op_del_effects)
-                            t = (params, objects_list, relevant_preconds, relevant_add_effects, relevant_del_effects, seg, opt_objs)
-                            ops.append(t)
+                datastore = []
+                counter = 0
+                for seg in segments:
+                    seg_opt_objs = tuple(seg.get_option().objects)
+                    var_to_obj = {v: o for v, o in zip(option_vars, seg_opt_objs)}
 
 
-                        # We would like to take the intersection of preconditions, add effects, and delete effects
-                        # between operators in a particular cluster to weed out ones that do not generalize, e.g. that
-                        # the block you are stacking on (in Op2-Stack), is also on another block (ratherr than on the table).
-                        # But the object -> variable mapping is not consistent, so this takes some extra effort. For example,
-                        # consider Op2-Stack, which operates on two blocks and one robot. Sometimes, blockn is put on blockn+1,
-                        # but other times, blockn+1 is put on blockn. Because the object -> variable mapping is done with sorted
-                        # objects (which sort by name and then by type), the stack operators created from some segments will have
-                        # the first parameter be the top block, while others will have the first operator be the second block. So,
-                        # if we just took an intersection of lifted atoms between the two operators, the predicates would would not
-                        # correspond to each other properly.
-                        # if name in  ["Op2-Stack"]:
-                        # if name in  ["Op0-Pick", "Op1-PutOnTable", "Op2-Stack", "Op3-Pick"]:
+                    relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
+                    relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
 
-                        # print(f"DOING THIS FOR {name}")
-                        # if name == "Op0-Pick":
-                        #     import pdb; pdb.set_trace()
-                        op1 = ops[0]
-                        op1_opt_objs = op1[-1]
-                        op1_params = op1[0]
-                        op1_objs_list = op1[1]
-                        op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
-                        op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
-                        op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
-                        op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
+                    seg_objs = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(seg_opt_objs)
 
-                        op1_preconds_str = set(str(a) for a in op1_preconds)
-                        op1_adds_str = set(str(a) for a in op1_add_effects)
-                        op1_dels_str = set(str(a) for a in op1_del_effects)
+                    seg_objs_list = sorted(seg_objs)
+                    # seg_objs_list = sorted(seg_objs, key=lambda x: (x.type.name, x.name))
 
-                        # debug:
-                        # maybe explicitly go find operators where n+1 is put on n, and then where n is put on n+1
-                        # look at add effects and see the numbers
-                        # demo 7 seems to have n on n+1 at some point in it
-                        # demo 0 has n+1 on n
-                        import re
-                        def extract_numbers_from_string(input_string):
-                            # Use regular expression to find all numeric sequences in the 'blockX' format
-                            numbers = re.findall(r'\bblock(\d+)\b', input_string)
-                            # Convert the found strings to integers and return a set
-                            return set(map(int, numbers))
-                        def print_predicates(preds):
-                            l = sorted(list(preds))
-                            print("Printing set: ")
-                            for p in l:
-                                print(p)
-                            print()
-                        # for x, seg in enumerate(segments):
-                        #     relevant = [str(a) for a in seg.add_effects if a.predicate.name == "On"]
-                        #     # now see if n+1 on n or n on n+1
-                        #     assert len(relevant) == 1
-                        #     z = relevant[0]
-                        #     nums = extract_numbers_from_string(z)
-                        #     assert len(nums) == 2
-                        #     nums_sorted = sorted(list(nums))
-                        #     higher_on_top = z.index(str(nums_sorted[1])) < z.index(str(nums_sorted[0]))
-                            # if not higher_on_top:
-                            #     print("HIGHER NOT ON TOP")
-                            #     import pdb; pdb.set_trace()
+                    remaining_objs = [o for o in seg_objs_list if o not in seg_opt_objs]
+                    # if you do this, then there's an issue in sampler learning, because it uses
+                    # pre.variables for pre in preconditions -- so it will look for ?x0 but not find it
+                    # and there is a key error
+                    # remaining_params = utils.create_new_variables(
+                    #     [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys()))
 
-                        for i in range(1, len(ops)):
-                            op2 = ops[i]
-                            op2_params = op2[0]
-                            op2_objs_list = op2[1]
+                    from predicators.structs import Variable
+                    def diff_create_new_variables(types, existing_vars, var_prefix: str = "?x"):
+                        pre_len = len(var_prefix)
+                        existing_var_nums = set()
+                        if existing_vars:
+                            for v in existing_vars:
+                                if v.name.startswith(var_prefix) and v.name[pre_len:].isdigit():
+                                    existing_var_nums.add(int(v.name[pre_len:]))
+                        def get_next_num(used):
+                            counter = 0
+                            while True:
+                                if counter in used:
+                                    counter += 1
+                                else:
+                                    return counter
+                        new_vars = []
+                        for t in types:
+                            num = get_next_num(existing_var_nums)
+                            existing_var_nums.add(num)
+                            new_var_name = f"{var_prefix}{num}"
+                            new_var = Variable(new_var_name, t)
+                            new_vars.append(new_var)
+                        return new_vars
+                    remaining_params = diff_create_new_variables(
+                        [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys())
+                    )
 
-                            mappings = get_mapping_between_params(op2_params)
-                            mapping_scores = []
-                            for m in mappings:
+                    var_to_obj2 = dict(zip(remaining_params, remaining_objs))
+                    # var_to_obj = dict(zip(seg_params, seg_objs_list))
+                    var_to_obj = {**var_to_obj, **var_to_obj2}
+                    datastore.append((seg, var_to_obj))
+                    # if name == "Op2-Stack" and counter == 10:
+                        # normally, block n+1 is stacked on block n, but here
+                        # block2 is stacked on block3.
+                        # so, when we sort the seg_objs_list, we have [block2, block3, robot]
+                        # the operator params are such that [?x0:block, "?x1:block, "?x2: robot]
+                        # ?x1 is stacked on ?x0.
+                        # so, later, in "learn_option_specs()", we get the error: assert option_args == option.objects
+                        # because option_args are [block2, robot], while the gt option objects are [block3, robot]
+                        # so: how do we order var_to_obj here correctly?
+                        # we want a consistent map - take one of the predicates that involves two blocks, and
+                        # make sure the assignment of variables is the same (order-wise) as was used in the construction of
+                        # params?
+                        # that is, if we saw On(x1, x0) in params, then we must also have that here.
+                        # how do you choose On to do this for?
+                        # or, you can ensure the sub is correct for the option spec
 
-                                mapping = dict(zip(op2_params, m))
+                        # hardcode it for now
 
-                                overlap = 0
+                    counter += 1
 
-                                # Get Operator 2's preconditions, add effects, and delete effects
-                                # in terms of a particular object -> variable mapping.
-                                new_op2_params = [mapping[p] for p in op2_params]
-                                new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
-                                # import pdb; pdb.set_trace()
-                                try:
-                                    op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                                except:
-                                    import pdb; pdb.set_trace()
-                                op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                                op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
-                                op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
+                option_vars = [op1_obj_to_var[o] for o in op1_opt_objs]
+                option_spec = [seg_0.get_option().parent, option_vars]
+                pnads.append(PNAD(op, datastore, option_spec))
 
-                                # Take the intersection of lifted atoms across both operators, and
-                                # count the overlap.
-                                op2_preconds_str = set(str(a) for a in op2_preconds)
-                                op2_adds_str = set(str(a) for a in op2_add_effects)
-                                op2_dels_str = set(str(a) for a in op2_del_effects)
+            ##################################
+            # IDENTIFY HARMLESS DELETE EFFECTS
+            ##################################
+            # want a list, not a set, as the return value
+            def _ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator], option_specs: Sequence[OptionSpec]) -> Set[NSRT]:
+                """Create NSRTs from strips operators and option specs with dummy
+                samplers."""
+                assert len(strips_ops) == len(option_specs)
+                nsrts = []
+                for op, (param_option, option_vars) in zip(strips_ops, option_specs):
+                    nsrt = op.make_nsrt(
+                        param_option,
+                        option_vars,  # dummy sampler
+                        lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
+                    nsrts.append(nsrt)
 
-                                score1 = len(op1_preconds_str.intersection(op2_preconds_str))
-                                score2 = len(op1_adds_str.intersection(op2_adds_str))
-                                score3 = len(op1_dels_str.intersection(op2_dels_str))
-                                score = score1 + score2 + score3
+                return nsrts
 
-                                new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
-                                new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
-                                new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
+            predicates_we_kept = set()
+            for op_name in final_potential_ops2.keys():
+                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
+                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
+                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
+            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
+            pruned_segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
+            pruned_low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+            pruned_atom_seq = [atom_seq for _, atom_seq in pruned_atom_data]
 
-                                mapping_scores.append((score, new_preconds, new_adds, new_dels))
+            strips_ops = [pnad.op for pnad in pnads]
+            option_specs = [pnad.option_spec for pnad in pnads]
+            dummy_nsrts = _ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+            pnad_to_nsrt = dict(zip(pnads, dummy_nsrts))
 
-                            s, a, b, c = max(mapping_scores, key=lambda x: x[0])
-                            op1_preconds = a
-                            op1_add_effects = b
-                            op1_del_effects = c
-                            op1_preconds_str = set(str(a) for a in op1_preconds)
-                            op1_adds_str = set(str(a) for a in op1_add_effects)
-                            op1_dels_str = set(str(a) for a in op1_del_effects)
+            harmful_del_effs_per_nsrt = {p.op.name: set() for p in pnads}
 
-                            # import pdb; pdb.set_trace()
+            low_level_trajs = [llt for llt, _ in atom_dataset]
+            for ccc, tup in enumerate(zip(low_level_trajs, segmented_trajs)):
+                ll_traj, seg_traj = tup
+                # this segmented data has atoms from the entire grammar
+                ground_nsrt_plan = []
+                for seg in seg_traj:
+                    for pnad in pnads:
+                        for seg2, sub in pnad.datastore:
+                            if seg2 == seg:
+                                nsrt = pnad_to_nsrt[pnad]
+                                grounding = tuple(sub[p] for p in nsrt.parameters)
+                                ground_nsrt = nsrt.ground(grounding)
+                                ground_nsrt_plan.append(ground_nsrt)
 
-                        # import pdb; pdb.set_trace()
+                init_state = ll_traj.states[0]
+                init_atoms = utils.abstract(init_state, predicates_we_kept)
+                curr_abstract_state = init_atoms
+                prev_nsrts = []
+                for h, nsrt in enumerate(ground_nsrt_plan):
+                    if not nsrt.preconditions.issubset(curr_abstract_state):
+                        missing = nsrt.preconditions - nsrt.preconditions.intersection(curr_abstract_state)
+                        for miss in missing:
+                            for prev in prev_nsrts[::-1]:
+                                if miss in prev.delete_effects:
+                                    harmful_del_effs_per_nsrt[prev.op.name].add(miss.predicate)
+                                    break
+                                    # only care about most recent one => may have to do multiple passes,
+                                    # if two previous nsrts had it as a deleted effect (which may be unlikely or impossible, idk)
+                            # TODO: do something about the condition where you don't find the miss anywhere
 
-                        # NOT-Forall[0:block].[NOT-On(0,1)](?x0:block) --> there exists a block that is on top of ?x0
-                        # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
+                    curr_abstract_state = (curr_abstract_state | nsrt.add_effects) - nsrt.delete_effects
+                    prev_nsrts.append(nsrt)
 
-                        # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
-                        op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
-                        ops_to_print.append(op)
-                        # import pdb; pdb.set_trace()
-
-
-                        datastore = []
-                        counter = 0
-                        for seg in segments:
-                            seg_opt_objs = tuple(seg.get_option().objects)
-                            var_to_obj = {v: o for v, o in zip(option_vars, seg_opt_objs)}
-
-
-                            relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
-                            relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
-
-                            seg_objs = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(seg_opt_objs)
-
-                            seg_objs_list = sorted(seg_objs)
-                            # seg_objs_list = sorted(seg_objs, key=lambda x: (x.type.name, x.name))
-
-                            remaining_objs = [o for o in seg_objs_list if o not in seg_opt_objs]
-                            # if you do this, then there's an issue in sampler learning, because it uses
-                            # pre.variables for pre in preconditions -- so it will look for ?x0 but not find it
-                            # and there is a key error
-                            # remaining_params = utils.create_new_variables(
-                            #     [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys()))
-
-                            from predicators.structs import Variable
-                            def diff_create_new_variables(types, existing_vars, var_prefix: str = "?x"):
-                                pre_len = len(var_prefix)
-                                existing_var_nums = set()
-                                if existing_vars:
-                                    for v in existing_vars:
-                                        if v.name.startswith(var_prefix) and v.name[pre_len:].isdigit():
-                                            existing_var_nums.add(int(v.name[pre_len:]))
-                                def get_next_num(used):
-                                    counter = 0
-                                    while True:
-                                        if counter in used:
-                                            counter += 1
-                                        else:
-                                            return counter
-                                new_vars = []
-                                for t in types:
-                                    num = get_next_num(existing_var_nums)
-                                    existing_var_nums.add(num)
-                                    new_var_name = f"{var_prefix}{num}"
-                                    new_var = Variable(new_var_name, t)
-                                    new_vars.append(new_var)
-                                return new_vars
-                            remaining_params = diff_create_new_variables(
-                                [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys())
-                            )
-
-                            var_to_obj2 = dict(zip(remaining_params, remaining_objs))
-                            # var_to_obj = dict(zip(seg_params, seg_objs_list))
-                            var_to_obj = {**var_to_obj, **var_to_obj2}
-                            datastore.append((seg, var_to_obj))
-                            # if name == "Op2-Stack" and counter == 10:
-                                # normally, block n+1 is stacked on block n, but here
-                                # block2 is stacked on block3.
-                                # so, when we sort the seg_objs_list, we have [block2, block3, robot]
-                                # the operator params are such that [?x0:block, "?x1:block, "?x2: robot]
-                                # ?x1 is stacked on ?x0.
-                                # so, later, in "learn_option_specs()", we get the error: assert option_args == option.objects
-                                # because option_args are [block2, robot], while the gt option objects are [block3, robot]
-                                # so: how do we order var_to_obj here correctly?
-                                # we want a consistent map - take one of the predicates that involves two blocks, and
-                                # make sure the assignment of variables is the same (order-wise) as was used in the construction of
-                                # params?
-                                # that is, if we saw On(x1, x0) in params, then we must also have that here.
-                                # how do you choose On to do this for?
-                                # or, you can ensure the sub is correct for the option spec
-
-                                # hardcode it for now
-
-                            counter += 1
-
-                        option_vars = [op1_obj_to_var[o] for o in op1_opt_objs]
-                        option_spec = [seg_0.get_option().parent, option_vars]
-                        pnads.append(PNAD(op, datastore, option_spec))
-
-                    # Now check harmlessness. If not harmless, do not include the delete effect.
-                    # If harmless, keep it as is.
-                    strips_ops = [pnad.op for pnad in pnads]
-                    option_specs = [pnad.option_spec for pnad in pnads]
-                    predicates_we_kept = set()
-                    for op_name in final_potential_ops.keys():
-                        predicates_we_kept = predicates_we_kept.union(final_potential_ops[op_name]["pre"])
-                        predicates_we_kept = predicates_we_kept.union(final_potential_ops[op_name]["add"])
-                        predicates_we_kept = predicates_we_kept.union(final_potential_ops[op_name]["del"])
-                    pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
-                    segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
-                    low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
-
-                    harmless = True
-                    for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
-                        if not ll_traj.is_demo:
-                            import pdb; pdb.set_trace()
-                        atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
-                        task = self._train_tasks[ll_traj.train_task_idx]
-                        traj_goal = task.goal
-                        if not traj_goal.issubset(atoms_seq[-1]):
-                            # In this case, the goal predicates are not correct (e.g.,
-                            # we are learning them), so we skip this demonstration.
-                            continue
-                        demo_preserved = self._check_single_demo_preservation(seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops, option_specs, predicates_we_kept)
-                        if not demo_preserved:
-                            harmless = False
-
-                    if not harmless:
-                        print(f"Predicate {str(delete_effect)} in {op_name2} is not harmless.")
-                        final_potential_ops[op_name2]["del"].remove(delete_effect)
-                        fff[op_name2][2].remove(delete_effect)
-                        self._clusters = fff
-                        predicates_we_kept = set()
-                        for op_name in final_potential_ops.keys():
-                            predicates_we_kept = predicates_we_kept.union(final_potential_ops[op_name]["pre"])
-                            predicates_we_kept = predicates_we_kept.union(final_potential_ops[op_name]["add"])
-                            predicates_we_kept = predicates_we_kept.union(final_potential_ops[op_name]["del"])
-
-                    if harmless:
-                        print(f"Predicate {str(delete_effect)} in {op_name2} is harmless!")
-                    count += 1
+            logging.info(f"Harmful delete effects per nsrt: {harmful_del_effs_per_nsrt}")
+            for k, v in harmful_del_effs_per_nsrt.items():
+                for pred in v:
+                    final_potential_ops2[k]["del"].remove(pred)
+                    fff[k][2].remove(pred)
+            self._clusters = fff
+            predicates_we_kept = set()
+            for op_name in final_potential_ops.keys():
+                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
+                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
+                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
 
             ####################################################################
 
