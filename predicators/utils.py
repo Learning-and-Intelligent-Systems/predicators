@@ -3532,6 +3532,25 @@ def f_range_intersection(lb1: float, ub1: float, lb2: float,
     return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
 
 
+def compute_abs_bounds_given_frange(lb1: float, ub1: float, lb2: float,
+                                    ub2: float) -> Tuple[float, float]:
+    """Given upper and lower bounds of two feature ranges, returns the upper and lower bound of |f1 - f2|."""
+    # Now, we must compute the upper and lower bounds of
+    # the expression |t1.f1 - t2.f2|. If the intervals
+    # [lb1, ub1] and [lb2, ub2] overlap, then the lower
+    # bound of the expression is just 0. Otherwise, if
+    # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
+    # ub2 < lb1, the lower bound is |lb1 - ub2|.
+    if f_range_intersection(lb1, ub1, lb2, ub2):
+        lb = 0.0
+    else:
+        lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+    # The upper bound for the expression can be
+    # computed in a similar fashion.
+    ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+    return (lb, ub)
+
+
 def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
     """roundrobin(['ABC...', 'D...', 'EF...']) --> A D E B F C..."""
     # Recipe credited to George Sakkis, code adapted slightly from

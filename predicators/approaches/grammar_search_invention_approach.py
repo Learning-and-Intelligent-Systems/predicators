@@ -217,6 +217,46 @@ class _AttributeDiffCompareClassifier(_BinaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _EuclideanAttributeDiffCompareClassifier(_AttributeDiffCompareClassifier
+                                               ):
+    """Compare the euclidean distance between two feature values with a
+    constant value."""
+
+    def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
+        assert obj1.type == self.object1_type
+        assert obj2.type == self.object2_type
+        return self.compare((s.get(obj1, self.attribute1_name) -
+                             s.get(obj2, self.attribute1_name))**2 +
+                            (s.get(obj1, self.attribute2_name) -
+                             s.get(obj2, self.attribute2_name))**2,
+                            self.constant)
+
+    def __str__(self) -> str:
+        return (f"((({self.object1_index}:{self.object1_type.name})."
+                f"{self.attribute1_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.attribute1_name}) ^ 2"
+                f"+ (({self.object1_index}:{self.object1_type.name})."
+                f"{self.attribute2_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.attribute2_name}) ^ 2)"
+                f"{self.compare_str}[idx {self.constant_idx}]"
+                f"{self.constant:.3})")
+
+    def pretty_str(self) -> Tuple[str, str]:
+        name1 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object1_index]
+        name2 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object2_index]
+        vars_str = (f"{name1}:{self.object1_type.name}, "
+                    f"{name2}:{self.object2_type.name}")
+        body_str = (f"(({name1}.{self.attribute1_name} - "
+                    f"{name2}.{self.attribute2_name}) ^ 2 "
+                    f"+ (({name1}.{self.attribute1_name} - "
+                    f"{name2}.{self.attribute2_name}) ^ 2 "
+                    f"{self.compare_str} {self.constant:.3})")
+        return vars_str, body_str
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _NegationClassifier(_ProgrammaticClassifier):
     """Negate a given classifier."""
     body: Predicate
@@ -539,20 +579,8 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                         lb2, ub2 = feature_ranges[t2][f2]
                         if abs(lb2 - ub2) < 1e-6:
                             continue
-                        # Now, we must compute the upper and lower bounds of
-                        # the expression |t1.f1 - t2.f2|. If the intervals
-                        # [lb1, ub1] and [lb2, ub2] overlap, then the lower
-                        # bound of the expression is just 0. Otherwise, if
-                        # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
-                        # ub2 < lb1, the lower bound is |lb1 - ub2|.
-                        if utils.f_range_intersection(lb1, ub1, lb2, ub2):
-                            lb = 0.0
-                        else:
-                            lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
-                        # The upper bound for the expression can be
-                        # computed in a similar fashion.
-                        ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
-
+                        lb, ub = utils.compute_abs_bounds_given_frange(
+                            lb1, ub1, lb2, ub2)
                         # Scale the constant by the correct range.
                         k = constant * (ub - lb) + lb
                         # Create classifier.
@@ -566,6 +594,57 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                         assert pred.arity == 2
                         yield (pred, 2 + cost
                                )  # cost = arity + cost from constant
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _EuclideanDistancePredicateGrammar(
+        _SingleFeatureInequalitiesPredicateGrammar):
+    """Generates predicates of the form "|0.x - 1.x|^2 + |0.y - 1.y|^2 <= c^2".
+    
+    Importantly, this only operates over types that have features
+    named "x" and "y".
+    """
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # Edge case: if there are no features at all, return immediately.
+        if not any(r for r in feature_ranges.values()):
+            return
+        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        constant_generator = _halving_constant_generator(0.0, 1.0)
+        for constant_idx, (constant, cost) in enumerate(constant_generator):
+            for (t1, t2) in itertools.combinations_with_replacement(
+                    sorted(self.types), 2):
+                if not ("x" in t1.feature_names and "x" in t2.feature_names and
+                        "y" in t1.feature_names and "y" in t2.feature_names):
+                    continue
+                # To create our classifier, we need to leverage the
+                # upper and lower bounds of its x, y features.
+                lbx1, ubx1 = feature_ranges[t1]["x"]
+                lbx2, ubx2 = feature_ranges[t2]["x"]
+                lby1, uby1 = feature_ranges[t1]["y"]
+                lby2, uby2 = feature_ranges[t2]["y"]
+                # Compute the upper and lower bounds of each feature range.
+                lbx, ubx = utils.compute_abs_bounds_given_frange(
+                    lbx1, ubx1, lbx2, ubx2)
+                lby, uby = utils.compute_abs_bounds_given_frange(
+                    lby1, uby1, lby2, uby2)
+                # Now, use these to compute the upper and lower bounds of
+                # the squared expression of interest.
+                lb = lbx**2 + lby**2
+                ub = ubx**2 + uby**2
+                # Scale the constant by the correct range.
+                k = constant * (ub - lb) + lb
+                # Create classifier.
+                comp, comp_str = le, "<="
+                diff_classifier = _EuclideanAttributeDiffCompareClassifier(
+                    0, t1, "x", 1, t2, "y", k, constant_idx, comp, comp_str)
+                name = str(diff_classifier)
+                types = [t1, t2]
+                pred = Predicate(name, types, diff_classifier)
+                assert pred.arity == 2
+                yield (pred, 2 + cost)  # cost = arity + cost from constant
 
 
 @dataclass(frozen=True, eq=False, repr=False)
