@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 from dataclasses import dataclass
 import itertools
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 from predicators.ml_models import DeviceTrackingModule, _get_torch_device
 from torch import nn, Tensor, tensor
 import torch
@@ -38,28 +38,32 @@ class FeasibilityDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         positive_datapoints: Sequence[FeasibilityDatapoint],
-        negative_datapoints: Sequence[FeasibilityDatapoint]
+        negative_datapoints: Sequence[FeasibilityDatapoint],
+        *,
+        equalize_datasets: bool = False,
     ):
         super().__init__()
         assert all(
             2 <= len(datapoint.states) <= len(datapoint.skeleton) # should be at least one encoder and decoder nsrt
             for datapoint in positive_datapoints + negative_datapoints
         )
-        self._positive_datapoints = positive_datapoints
-        self._negative_datapoints = negative_datapoints
-        self._total_label_examples = max(len(positive_datapoints), len(negative_datapoints))
+        if equalize_datasets:
+            if len(positive_datapoints) < len(negative_datapoints):
+                positive_datapoints = [datapoint for datapoint, _ in zip(itertools.cycle(positive_datapoints), negative_datapoints)]
+            else:
+                negative_datapoints = [datapoint for _, datapoint in zip(positive_datapoints, itertools.cycle(negative_datapoints))]
+        else:
+            positive_datapoints, negative_datapoints = list(positive_datapoints), list(negative_datapoints)
+        self._dataset = positive_datapoints + negative_datapoints
+        self._labels = [1.0 for _ in positive_datapoints] + [0.0 for _ in negative_datapoints]
 
     def __len__(self) -> int:
-        return self._total_label_examples * 2
+        return len(self._dataset)
 
     @cache
     def __getitem__(self, idx: int) -> Tuple[Tuple[List[NSRT], List[NSRT], List[npt.NDArray], List[npt.NDArray]], int]:
-        if idx < self._total_label_examples:
-            return self.transform_datapoint(self._positive_datapoints[idx % len(self._positive_datapoints)]), 1.0
-        elif idx < self._total_label_examples * 2:
-            return self.transform_datapoint(
-                self._negative_datapoints[(idx - self._total_label_examples) % len(self._negative_datapoints)]
-            ), 0.0
+        if idx < len(self._dataset):
+            return self.transform_datapoint(self._dataset[idx]), self._labels[idx]
         else:
             raise IndexError()
 
@@ -73,10 +77,10 @@ class FeasibilityDataset(torch.utils.data.Dataset):
 
         return [ground_nsrt.parent for ground_nsrt in datapoint.skeleton[:prefix_length]], \
             [ground_nsrt.parent for ground_nsrt in datapoint.skeleton[prefix_length:]], [
-                state[ground_nsrt.objects]
+                state.vec(ground_nsrt.objects)
                 for state, ground_nsrt in zip(datapoint.states[1:], datapoint.skeleton)
             ], [
-                datapoint.states[-1][ground_nsrt.objects]
+                datapoint.states[-1].vec(ground_nsrt.objects)
                 for ground_nsrt in datapoint.skeleton[prefix_length:]
             ]
 
@@ -127,13 +131,14 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
             state = nn.functional.elu(layer(state))
         return self._layers[-1](state)
 
-class Tokenizer(DeviceTrackingModule):
+class Tokenizer(DeviceTrackingModule): # TODO add start and end tokens
     """Adds a positional embedding and optionally a cls token to the feature vectors"""
     def __init__(
         self,
         feature_size: int,
         embedding_size: int,
         token_size: int,
+        num_nsrts: int,
         concat: bool,
         mark_last_token: bool,
         include_cls: Optional[str],
@@ -158,6 +163,8 @@ class Tokenizer(DeviceTrackingModule):
         self._concat = concat
         self._horizon = horizon
 
+        self._num_nsrts = num_nsrts
+
         feature_vector_size = feature_size
 
         if concat:
@@ -165,6 +172,8 @@ class Tokenizer(DeviceTrackingModule):
             feature_vector_size += embedding_size
         else:
             self._embedding_size = feature_size
+
+        feature_vector_size += num_nsrts
 
         self._mark_last_token = mark_last_token
         feature_vector_size += mark_last_token
@@ -189,14 +198,16 @@ class Tokenizer(DeviceTrackingModule):
         tokens: Tensor,
         invalid_mask: Tensor,
         last_token_mask: Tensor,
+        nsrt_indices: Tensor,
         pos_offset: Optional[Tensor] = None
-    ) -> Tensor: # TODO: reimplement
+    ) -> Tensor:
         """Runs the positional embeddings.
 
         Params:
             tokens - tensor of shape (batch_size, max_sequence_length, feature_size) of outputs from featurizers
             invalid_mask - tensor of shape (batch_size, max_sequence_length) of which tokens are invalid
             last_token_mask - tensor of shape (batch_size, max_sequence_length) of whether to mark the token if last_token_mark is True
+            nsrt_indices - tensor of shape (batch_size, max_sequence_length) of which nsrt is at a specific spot
             pos_offset - tensor of shape (batch_size,) of positions offsets per batch
         """
 
@@ -217,6 +228,11 @@ class Tokenizer(DeviceTrackingModule):
             tokens = torch.cat([tokens, embeddings], dim=-1)
         else:
             tokens += embeddings
+
+        # Marking the nsrts
+        nsrt_marks = torch.zeros((batch_size, max_len, self._num_nsrts), device=self.device)
+        nsrt_marks.scatter_(2, nsrt_indices.unsqueeze(2), 1)
+        tokens = torch.cat([tokens, nsrt_marks], dim=2)
 
         # Marking the last token
         if self._mark_last_token:
@@ -302,6 +318,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     #                                +-----------------+
     def __init__(
         self, # TODO: make sure we use a deterministic seed
+        nsrts: Set[NSRT],
         seed: int,
         featurizer_sizes: List[int],
         positional_embedding_size: int,
@@ -317,7 +334,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         max_train_iters: int,
         general_lr: float,
         transformer_lr: float,
-        max_inference_suffix: int,
+        min_inference_prefix: int,
         batch_size: int,
         threshold_recalibration_percentile: float,
         optimizer_name: str = 'adam',
@@ -335,7 +352,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         assert cls_style in {'learned', 'marked', 'mean'}
         self._cls_style = cls_style
 
-        self._max_inference_suffix = max_inference_suffix
+        self._min_inference_prefix = min_inference_prefix
         self._thresh = classification_threshold
 
         self._num_iters = max_train_iters
@@ -344,17 +361,26 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self._general_lr = general_lr
         self._transformer_lr = transformer_lr
 
-        assert featurizer_sizes
-        self._featurizer_hid_sizes = featurizer_sizes[:-1]
         self._featurizer_output_size = featurizer_sizes[-1]
-        self._featurizer_count: int = 0 # For naming the module when adding it in self._init_featurizer
-        self._encoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {} # Initialized with self._init_featurizer
-        self._decoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {} # Initialized with self._init_featurizer
+        self._nsrt_indices = {nsrt: idx for idx, nsrt in enumerate(sorted(nsrts))}
+        self._encoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {
+            nsrt: self.create_featurizer(
+                f"encoder_featurizer_{self._nsrt_indices[nsrt]}",
+                nsrt, featurizer_sizes
+            ) for nsrt in nsrts
+        }
+        self._decoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {
+            nsrt: self.create_featurizer(
+                f"decoder_featurizer_{self._nsrt_indices[nsrt]}",
+                nsrt, featurizer_sizes
+            ) for nsrt in nsrts
+        }
 
         self._encoder_positional_encoding = Tokenizer(
             feature_size = featurizer_sizes[-1],
             embedding_size = positional_embedding_size,
             token_size = token_size,
+            num_nsrts = len(nsrts),
             concat = positional_embedding_concat,
             mark_last_token = mark_failing_nsrt,
             include_cls = None,
@@ -366,6 +392,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             feature_size = featurizer_sizes[-1],
             embedding_size = positional_embedding_size,
             token_size = token_size,
+            num_nsrts = len(nsrts),
             concat = positional_embedding_concat,
             mark_last_token = False,
             include_cls = {
@@ -394,6 +421,11 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             'adam': torch.optim.Adam,
             'rmsprop': torch.optim.RMSprop
         }[optimizer_name]([
+            {'params': [
+                parameter for featurizer in
+                list(self._encoder_featurizers.values()) + list(self._decoder_featurizers.values())
+                for parameter in featurizer.parameters()
+            ], 'lr': self._general_lr},
             {'params':
                 list(self._encoder_positional_encoding.parameters()) +
                 list(self._decoder_positional_encoding.parameters())
@@ -411,16 +443,15 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
         """Classifies a single datapoint
         """
-        if len(states) == len(skeleton) + 1: # Make sure there is at least one decoder nsrt
-            return True, 1.0
-        if len(skeleton) - self._max_inference_suffix >= len(states): # Make sure we don't have too big of a horizon to predict
-            return True, self._unsure_confidence
         if self._optimizer is not None: # Making sure the classifier is not used if not trained
             return True, 1.0
+        if len(states) == len(skeleton) + 1: # Make sure there is at least one decoder nsrt
+            return True, 1.0
+        if len(states) <= self._min_inference_prefix: # Make sure we don't have too big of a horizon to predict
+            return True, self._unsure_confidence
 
         encoder_nsrts, decoder_nsrts, encoder_states, decoder_states = \
             FeasibilityDataset.transform_datapoint(FeasibilityDatapoint(states, skeleton))
-        self._init_featurizers_datapoint(encoder_nsrts, decoder_nsrts, encoder_states, decoder_states)
 
         self.eval()
         confidence = self([encoder_nsrts], [decoder_nsrts], [encoder_states], [decoder_states]).cpu()
@@ -436,6 +467,9 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             raise RuntimeError("The classifier has been fitted")
 
         if not positive_datapoints or not negative_datapoints:
+            return
+
+        if len(positive_datapoints) + len(negative_datapoints) < 400:
             return
 
         # Diagnostics
@@ -464,9 +498,9 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         test_dataset = FeasibilityDataset(positive_datapoints[positive_train_size:], negative_datapoints[negative_train_size:])
 
         # Initializing per-nsrt featurizers if not initialized already
-        logging.info("Initializing state featurizers")
-        self._init_featurizers_dataset(train_dataset)
-        self._init_featurizers_dataset(test_dataset)
+        logging.info("Rescaling state featurizers")
+        self.rescale_featurizers(train_dataset)
+        self.rescale_featurizers(test_dataset)
 
         # Setting up dataloaders
         train_dataloader = torch.utils.data.DataLoader(
@@ -587,17 +621,12 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             len(encoder_states) == len(encoder_nsrts)
             for encoder_states, encoder_nsrts in zip(encoder_states_batch, encoder_nsrts_batch)
         )
-        max_skeleton_length = max(
-            len(encoder_nsrts) + len(decoder_nsrts)
-            for encoder_nsrts, decoder_nsrts
-            in zip(encoder_nsrts_batch, decoder_nsrts_batch)
-        )
 
         # Calculating feature vectors
-        encoder_tokens, encoder_invalid_mask = self._run_featurizers(
+        encoder_tokens, encoder_invalid_mask, encoder_nsrts_indices = self._run_featurizers(
             self._encoder_featurizers, encoder_states_batch, encoder_nsrts_batch
         )
-        decoder_tokens, decoder_invalid_mask = self._run_featurizers(
+        decoder_tokens, decoder_invalid_mask, decoder_nsrts_indices = self._run_featurizers(
             self._decoder_featurizers, decoder_states_batch, decoder_nsrts_batch
         )
         encoder_sequence_lengths = torch.logical_not(encoder_invalid_mask).sum(dim=1)
@@ -624,12 +653,14 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             tokens = encoder_tokens,
             invalid_mask = encoder_invalid_mask,
             last_token_mask = encoder_last_token_mask,
+            nsrt_indices = encoder_nsrts_indices,
             pos_offset = encoder_offsets,
         )
         decoder_tokens, decoder_invalid_mask = self._decoder_positional_encoding(
             tokens = decoder_tokens,
             invalid_mask = decoder_invalid_mask,
             last_token_mask = decoder_last_token_mask,
+            nsrt_indices = decoder_nsrts_indices,
             pos_offset = decoder_offsets,
         )
 
@@ -660,7 +691,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         featurizers: Dict[NSRT, nn.Module],
         states_batch: Iterable[Sequence[npt.NDArray]],
         nsrts_batch: Iterable[Iterable[NSRT]],
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """ Runs state featurizers that are executed before passing the states into the main transformer
 
         Outputs the transformer inputs and the padding mask for them
@@ -671,6 +702,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         # Preparing to batch the execution of featurizers
         tokens = torch.zeros((batch_size, max_len, self._featurizer_output_size), device=self.device)
         mask = torch.full((batch_size, max_len), True, device='cpu') # Not on device for fast assignment
+        nsrt_indices = torch.zeros((batch_size, max_len), dtype=torch.int64, device='cpu') # Not on device for fast assignment
 
         # Grouping data for batched execution of featurizers
         grouped_data: Dict[NSRT, List[Tuple[Tensor, int, int]]] = {nsrt: [] for nsrt in featurizers.keys()}
@@ -678,6 +710,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             for seq_idx, state, nsrt in zip(range(max_len), states, nsrts):
                 grouped_data[nsrt].append((state, batch_idx, seq_idx))
                 mask[batch_idx, seq_idx] = False
+                nsrt_indices[batch_idx, seq_idx] = self._nsrt_indices[nsrt]
 
         # Batched execution of featurizers
         for nsrt, data in grouped_data.items():
@@ -686,58 +719,39 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             states, batch_indices, seq_indices = zip(*data)
             tokens[batch_indices, seq_indices, :] = featurizers[nsrt](np.stack(states))
 
-        # Moving the mask to the device
+        # Moving the mask and nsrt_indices to the device
         if mask.device != tokens.device:
             mask = mask.to(self.device)
-        return tokens, mask
+        if nsrt_indices.device != tokens.device:
+            nsrt_indices = nsrt_indices.to(self.device)
+        return tokens, mask, nsrt_indices
 
-    def _init_featurizers_dataset(self, dataset: FeasibilityDataset) -> None:
-        """Initializes featurizers that should be learned from that dataset
-        """
-        for idx in range(len(dataset)):
-            (encoder_nsrts, decoder_nsrts, encoder_states, decoder_states), _ = dataset[idx]
-            self._init_featurizers_datapoint(encoder_nsrts, decoder_nsrts, encoder_states, decoder_states)
-
-    def _init_featurizers_datapoint(
+    def create_featurizer(
         self,
-        encoder_nsrts: Sequence[NSRT],
-        decoder_nsrts: Sequence[NSRT],
-        encoder_states: Sequence[npt.NDArray],
-        decoder_states: Sequence[npt.NDArray],
-    ) -> None:
-        """Initializes featurizers that shoud be learned from that datapoint
-        """
-        for nsrt, state in zip(encoder_nsrts, encoder_states):
-            self._init_featurizer(self._encoder_featurizers, state, nsrt)
-        for nsrt, state in zip(decoder_nsrts, decoder_states):
-            self._init_featurizer(self._decoder_featurizers, state, nsrt)
-
-    def _init_featurizer(
-        self,
-        featurizers: Dict[NSRT, nn.Module],
-        state: npt.NDArray,
-        nsrt: NSRT
-    ) -> None:
+        name: str,
+        nsrt: NSRT,
+        featurizer_sizes: List[int],
+    ) -> FeasibilityFeaturizer:
         """ Initializes a featurizer for a single ground nsrt.
 
         NOTE: The assumption is that the concatentated features of all objects that
-        are passed to a given NSRT always have the same data layout and total length.
+        are passed to a given NSRT always have the same data layout and total length
+        equal to the dimensionalities of their types.
         """
-        assert len(state.shape) == 1
-        if nsrt not in featurizers:
-            featurizer = FeasibilityFeaturizer(
-                sizes = [state.size] + self._featurizer_hid_sizes + [self._featurizer_output_size],
-                device = self.device,
-            )
-            self._featurizer_count += 1
+        dim = sum(v.type.dim for v in nsrt.parameters)
+        featurizer = FeasibilityFeaturizer(
+            sizes = [dim] + featurizer_sizes,
+            device = self.device,
+        )
+        self.add_module(name, featurizer)
+        return featurizer
 
-            self.add_module(f"featurizer_{self._featurizer_count}", featurizer)
-            if self._optimizer is not None:
-                self._optimizer.add_param_group(
-                    {'params': featurizer.parameters(), 'lr': self._general_lr}
-                )
-
-            featurizers[nsrt] = featurizer
-        else:
-            featurizer = featurizers[nsrt]
-        featurizer.update_range(state)
+    def rescale_featurizers(self, dataset: FeasibilityDataset) -> None:
+        """Rescales the featurizers based on the states
+        """
+        for idx in range(len(dataset)):
+            (encoder_nsrts, decoder_nsrts, encoder_states, decoder_states), _ = dataset[idx]
+            for nsrt, state in zip(encoder_nsrts, encoder_states):
+                self._encoder_featurizers[nsrt].update_range(state)
+            for nsrt, state in zip(decoder_nsrts, decoder_states):
+                self._decoder_featurizers[nsrt].update_range(state)

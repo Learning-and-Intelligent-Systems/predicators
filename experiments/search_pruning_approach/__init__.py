@@ -140,7 +140,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             SearchPruningApproach._save_data(dataset_path, self._positive_feasibility_dataset, self._negative_feasibility_dataset)
 
         if CFG.feasibility_learning_strategy not in {"ground_truth_classifier"}:
-            self._learn_neural_feasibility_classifier(CFG.horizon)
+            self._learn_neural_feasibility_classifier(1)
 
     @staticmethod
     def _load_data(
@@ -385,7 +385,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         cfg = SimpleNamespace(
             sesame_max_samples_per_step = CFG.sesame_max_samples_per_step,
             sesame_propagate_failures = CFG.sesame_propagate_failures,
-            sesame_check_expected_atoms = CFG.sesame_check_expected_atoms,
+            sesame_check_expected_atoms = True,
             sesame_check_static_object_changes = CFG.sesame_check_static_object_changes,
             sesame_static_object_change_tol = CFG.sesame_static_object_change_tol,
             sampler_disable_classifier = CFG.sampler_disable_classifier,
@@ -395,106 +395,124 @@ class SearchPruningApproach(NSRTLearningApproach):
         )
 
         max_skeleton_length = max(map(len, self._segmented_trajs))
-        for suffix_length in range(1, max_skeleton_length):
-            logging.info(f"Collecting data for suffix length {suffix_length} ...")
+        with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
+            for prefix_length in reversed(range(1, max_skeleton_length)):
+                logging.info(f"Collecting data for prefix length {prefix_length} ...")
 
-            # Moving the feasibility classifier to devices
-            if isinstance(self._feasibility_classifier, torch.nn.Module) and CFG.feasibility_search_device == 'cuda':
-                feasibility_classifiers = [self._feasibility_classifier] + \
-                    [deepcopy(self._feasibility_classifier) for _ in range(1, torch.cuda.device_count())]
-                if len(feasibility_classifiers) == 1:
-                    feasibility_classifier.to('cuda')
+                # Moving the feasibility classifier to devices
+                if isinstance(self._feasibility_classifier, torch.nn.Module) and CFG.feasibility_search_device == 'cuda':
+                    feasibility_classifiers = [self._feasibility_classifier] + \
+                        [deepcopy(self._feasibility_classifier) for _ in range(1, torch.cuda.device_count())]
+                    if len(feasibility_classifiers) == 1:
+                        feasibility_classifier.to('cuda')
+                    else:
+                        for id, feasibility_classifier in enumerate(feasibility_classifiers):
+                            feasibility_classifier.to(f'cuda:{id}')
                 else:
-                    for id, feasibility_classifier in enumerate(feasibility_classifiers):
-                        feasibility_classifier.to(f'cuda:{id}')
-            else:
-                feasibility_classifiers = [self._feasibility_classifier]
-                if isinstance(self._feasibility_classifier, torch.nn.Module):
-                    self._feasibility_classifier.to('cpu').share_memory()
+                    feasibility_classifiers = [self._feasibility_classifier]
+                    if isinstance(self._feasibility_classifier, torch.nn.Module):
+                        self._feasibility_classifier.to('cpu').share_memory()
 
-            # Creating the datapoints to search over and moving them to different devices
-            indices = self._rng.choice(len(search_datapoints), CFG.feasibility_num_datapoints_per_iter)
-            chosen_search_datapoints = [
-                search_datapoints[idx].substitute_nsrts(nsrts_dict)
-                for idx, nsrts_dict in zip(indices, cycle(nsrts_dicts))
-            ]
+                # Creating the datapoints to search over and moving them to different devices
+                viable_datapoints = [d for d in search_datapoints if len(d.skeleton) > prefix_length]
+                indices = self._rng.choice(len(viable_datapoints), CFG.feasibility_num_datapoints_per_iter)
+                chosen_search_datapoints = [
+                    viable_datapoints[idx].substitute_nsrts(nsrts_dict)
+                    for idx, nsrts_dict in zip(indices, cycle(nsrts_dicts))
+                ]
 
-            # Collecting positive examples
-            self._positive_feasibility_dataset.extend(
-                FeasibilityDatapoint(
-                    states = search_datapoint.states[:-suffix_length],
-                    skeleton = search_datapoint.skeleton,
-                )
-                for search_datapoint in tqdm(chosen_search_datapoints, "Collecting positive examples")
-                if len(search_datapoint.skeleton) > suffix_length
-            )
-
-            # Collecting negative examples
-            with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
-                logging.info("Collecting negative examples...")
+                # Collecting data samples
                 start = time.perf_counter()
+                positive_datapoints, negative_datapoints = tuple(zip(*pool.map(
+                    SearchPruningApproach._backtracking_iteration
+                    , zip(
+                        repeat(prefix_length),
+                        repeat(self._option_model),
+                        cycle(feasibility_classifiers),
+                        range(seed, seed + len(chosen_search_datapoints)),
+                        chosen_search_datapoints,
+                        repeat(cfg),
+                    )
+                )))
+                self._positive_feasibility_dataset.extend(
+                    picklable_datapoint.to_feasibility_datapoint(self._nsrts)
+                    for picklable_datapoints in positive_datapoints
+                    for picklable_datapoint in picklable_datapoints
+                )
                 self._negative_feasibility_dataset.extend(
                     picklable_datapoint.to_feasibility_datapoint(self._nsrts)
-                    for datapoints in pool.map(
-                        SearchPruningApproach._negative_data_collection_datapoint
-                        , zip(
-                            repeat(suffix_length),
-                            repeat(self._option_model),
-                            cycle(feasibility_classifiers),
-                            range(seed, seed + len(chosen_search_datapoints)),
-                            chosen_search_datapoints,
-                            repeat(cfg),
-                        )
-                    )
-                    for picklable_datapoint in datapoints
+                    for picklable_datapoints in negative_datapoints
+                    for picklable_datapoint in picklable_datapoints
                 )
                 logging.info(f"Took {time.perf_counter() - start} seconds")
-            # num_correct_negatives = sum([
-            #     1 for datapoint in self._negative_feasibility_dataset if not SearchPruningApproach._shelves2d_ground_truth_classifier(datapoint.states, datapoint.skeleton)[0]
-            # ])
-            # logging.info(f"Negative data purity: {num_correct_negatives / len(self._negative_feasibility_dataset):.1%}")
-            seed += len(chosen_search_datapoints) + 100000
+                # def purity_classifier(datapoint: FeasibilityDatapoint):
+                #     last_state = datapoint.states[-1]
+                #     last_object, = [o for o in datapoint.skeleton[-1].objects if o.is_instance(Donuts._container_type)]
+                #     donut, = last_state.get_objects(Donuts._donut_type)
+                #     if last_object.is_instance(Donuts._box_type):
+                #         return last_state.get(donut, "grasp") < 0.9
+                #     else:
+                #         return last_state.get(donut, "grasp") > 0.1
+                # num_correct_negatives = sum([
+                #     1 for datapoint in self._negative_feasibility_dataset if purity_classifier(datapoint)
+                # ])
+                # num_correct_negatives = sum([
+                #     1 for datapoint in self._negative_feasibility_dataset if not SearchPruningApproach._shelves2d_ground_truth_classifier(datapoint.states, datapoint.skeleton)[0]
+                # ])
+                # if self._negative_feasibility_dataset:
+                #     logging.info(f"Negative data purity: {num_correct_negatives / len(self._negative_feasibility_dataset):.1%}")
+                seed += len(chosen_search_datapoints) + 100000
 
-            if suffix_length < max_skeleton_length - 1:
-                logging.info(f"Number of gathered datapoints: {len(self._positive_feasibility_dataset)} "
-                             f"positive and {len(self._negative_feasibility_dataset)} negative")
-                self._learn_neural_feasibility_classifier(suffix_length)
+                # generated_grasps = [
+                #     datapoint.states[-1].get(list(datapoint.states[-1].get_objects(Donuts._donut_type))[0], "grasp") if
+                #         any(o.is_instance(Donuts._shelf_type) for o in datapoint.skeleton[-1].objects)
+                #     else 1 - datapoint.states[-1].get(list(datapoint.states[-1].get_objects(Donuts._donut_type))[0], "grasp")
+                #     for datapoint in self._negative_feasibility_dataset + self._positive_feasibility_dataset
+                #     if datapoint.skeleton[len(datapoint.states) - 2].name == "Grab"
+                # ]
+                # plt.scatter(np.arange(len(generated_grasps)), generated_grasps)
+                # plt.savefig("generated_grasps.pdf")
+                if prefix_length > 1:
+                    logging.info(f"Number of gathered datapoints: {len(self._positive_feasibility_dataset)} "
+                                f"positive and {len(self._negative_feasibility_dataset)} negative")
+                    self._learn_neural_feasibility_classifier(prefix_length)
 
         logging.info("Generated interleaving-based feasibility dataset of "
                      f"{len(self._positive_feasibility_dataset)} positive and {len(self._negative_feasibility_dataset)} negative datapoints")
 
     @staticmethod
-    def _negative_data_collection_datapoint(
+    def _backtracking_iteration(
         args: Tuple[int, _OptionModelBase, FeasibilityClassifier, int, InterleavedBacktrackingDatapoint, SimpleNamespace]
     ) -> List[PicklableFeasibilityDatapoint]:
         """ Running data collection for a single suffix length and task
         """
         global CFG
         # Extracting args
-        suffix_length, option_model, feasibility_classifier, seed, (states, atoms_sequence, horizons, skeleton), cfg = args
+        prefix_length, option_model, feasibility_classifier, seed, (states, atoms_sequence, horizons, skeleton), cfg = args
+        assert len(skeleton) > prefix_length
         CFG.__dict__.update(cfg.__dict__)
         torch.set_num_threads(1) # Bug in pytorch with shared_memory being slow to use with more than one thread
 
-        logging.basicConfig(filename=f"interleaved_search/{seed}.log", force=True, level=logging.DEBUG)
+        # logging.basicConfig(filename=f"interleaved_search/{seed}.log", force=True, level=logging.DEBUG)
         logging.info("Started negative data collection")
         logging.info(f"Skeleton: {[nsrt.name for nsrt in skeleton]}")
-        logging.info(f"Starting Depth {len(states) - suffix_length - 2}")
-
-        # Checking for suffix length
-        if len(skeleton) <= suffix_length:
-            return []
+        logging.info(f"Starting Depth {prefix_length}")
 
         # Running backtracking
         def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
-            if current_depth < len(skeleton) - suffix_length:
-                logging.info(f"Search called on the highest depth {current_depth}")
-                return tree.num_tries >= CFG.sesame_max_samples_per_step or \
-                    sum(1 for _ in filter(lambda e:e[1] is not None, tree.failed_tries)) and tree.is_successful
+            if current_depth < prefix_length:
+                if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful or \
+                    [mb_subtree for _, mb_subtree in tree.failed_tries if mb_subtree is not None]:
+                    logging.info(f"Finishing search on highest depth {current_depth}, {tree.num_tries} "
+                                f"tries, {CFG.sesame_max_samples_per_step} max samples")
+                return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful or \
+                    [mb_subtree for _, mb_subtree in tree.failed_tries if mb_subtree is not None]
             if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful:
-                logging.info(f"Finishing search on depth {current_depth}, {tree.num_tries} ties, {CFG.sesame_max_samples_per_step} max samples")
+                logging.info(f"Finishing search on depth {current_depth}, {tree.num_tries} "
+                             f"tries, {CFG.sesame_max_samples_per_step} max samples")
             return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful
         backtracking, _ = run_backtracking_for_data_generation(
-            previous_states = states[:-suffix_length - 1],
+            previous_states = states[:prefix_length],
             goal = atoms_sequence[-1],
             option_model = option_model,
             skeleton = skeleton,
@@ -504,27 +522,33 @@ class SearchPruningApproach(NSRTLearningApproach):
             seed = seed,
             timeout = float('inf'),
             metrics = {},
-            max_horizon = horizons[-suffix_length - 1],
+            max_horizon = horizons[prefix_length],
         )
-        next_states = [
+        next_success_states = [
+            subtree.state
+            for _, subtree, _ in backtracking.successful_tries
+        ]
+        next_failed_states = [
             mb_subtree.state
             for _, mb_subtree in backtracking.failed_tries if mb_subtree is not None
-        ]#[:1]
+        ]
         option_params = [
             option.params
             for option, mb_subtree in backtracking.failed_tries if mb_subtree is not None
-        ]#[:1]
-        # if next_states:
-        #     fig = Donuts.render_state_plt(next_states[0], None)
-        #     fig.savefig(f"interleaved_search/{seed}.pdf")
-        #     plt.close(fig)
-        logging.info(f"Finished negative data collection - {next_states} samples found")
+        ]
+
+        logging.info(f"Finished negative data collection - {next_failed_states} samples found")
         logging.info(f"Option params: {option_params}")
         return [
             PicklableFeasibilityDatapoint(FeasibilityDatapoint(
-                states = states[:-suffix_length - 1] + [next_state],
+                states = states[:prefix_length] + [next_state],
                 skeleton = skeleton,
-            )) for next_state in next_states
+            )) for next_state in next_success_states
+        ], [
+            PicklableFeasibilityDatapoint(FeasibilityDatapoint(
+                states = states[:prefix_length] + [next_state],
+                skeleton = skeleton,
+            )) for next_state in next_failed_states
         ]
 
     def _run_sesame_plan(
@@ -593,17 +617,18 @@ class SearchPruningApproach(NSRTLearningApproach):
         raise ApproachFailure("Failed to find a successful backtracking")
 
     def _learn_neural_feasibility_classifier(
-        self, max_inference_suffix: int
+        self, min_inference_prefix: int
     ) -> None:
         """Running training on a fresh classifier
 
         Params:
-            max_inference_suffix - what is the longest suffix (number of decoder NSRTs)
+            max_inference_prefix - what is the shortest prefix (number of decoder NSRTs)
                 which the classifier will attempt to classify
             shared_memory - whether to make the classifier movable between processes
                 (using the torch.multiprocessing library)
         """
         neural_feasibility_classifier = NeuralFeasibilityClassifier(
+            nsrts = self._nsrts,
             seed = CFG.seed,
             featurizer_sizes = CFG.feasibility_featurizer_sizes,
             positional_embedding_size = CFG.feasibility_embedding_size,
@@ -619,7 +644,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             max_train_iters = CFG.feasibility_max_itr,
             general_lr = CFG.feasibility_general_lr,
             transformer_lr = CFG.feasibility_transformer_lr,
-            max_inference_suffix = max_inference_suffix,
+            min_inference_prefix = min_inference_prefix,
             batch_size = CFG.feasibility_batch_size,
             threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
             use_torch_gpu = CFG.use_torch_gpu,

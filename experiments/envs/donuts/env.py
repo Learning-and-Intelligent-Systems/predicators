@@ -24,8 +24,8 @@ class Donuts(BaseEnv):
 
     # Settings
     ## Task generation settings
-    range_train_toppings: ClassVar[Tuple[int, int]] = (1, 1)#(2, 5)
-    range_test_toppings: ClassVar[Tuple[int, int]] = (1, 1)#(10, 10)
+    range_train_toppings: ClassVar[Tuple[int, int]] = (1, 3)
+    range_test_toppings: ClassVar[Tuple[int, int]] = (10, 10)
     range_train_donuts: ClassVar[Tuple[int, int]] = (1, 1)
     range_test_donuts: ClassVar[Tuple[int, int]] = (1, 1)
 
@@ -54,8 +54,8 @@ class Donuts(BaseEnv):
 
     # Variables for parametric types and predicates
     toppings: ClassVar[List[str]] = [
-        "Sprinkles", "Frosting"#, "Sugar", "ChocolateChips", "Strawberries",
-        #"Blueberries", "Nuts", "Honey", "Cinnamon", "Coconut",
+        "Sprinkles", "Frosting", "Sugar", "ChocolateChips", "Strawberries",
+        "Blueberries", "Nuts", "Honey", "Cinnamon", "Coconut",
     ]
     amount_format: ClassVar[str] = "amount{}"
     topper_format: ClassVar[str] = "topperFor{}"

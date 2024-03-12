@@ -80,7 +80,6 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             arr[4] = 0.0
             return arr
 
-        # MoveToDonut
         robot = Variable("?robot", robot_type)
         to_donut = Variable("?to", donut_type)
         nsrts.add(NSRT(
@@ -95,7 +94,6 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             Move_sampler,
         ))
 
-        # MoveToPosition
         robot = Variable("?robot", robot_type)
         to_position = Variable("?to", position_type)
         nsrts.add(NSRT(
@@ -174,12 +172,27 @@ class DonutsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         robot = Variable("?robot", robot_type)
         donut = Variable("?donut", donut_type)
-        container = Variable("?container", container_type)
+        shelf = Variable("?shelf", shelf_type)
         nsrts.add(NSRT(
-            "Place",
-            [robot, donut, container],
-            {NextTo([robot, container]), Held([robot, donut])},
-            {NotHeld([robot]), In([donut, container])},
+            "PlaceToShelf",
+            [robot, donut, shelf],
+            {NextTo([robot, shelf]), Held([robot, donut])},
+            {NotHeld([robot]), In([donut, shelf])},
+            {Held([robot, donut]), Fresh([donut]), NextTo([robot, donut])},
+            {},
+            Act,
+            [],
+            Place_sampler,
+        ))
+
+        robot = Variable("?robot", robot_type)
+        donut = Variable("?donut", donut_type)
+        box = Variable("?box", box_type)
+        nsrts.add(NSRT(
+            "PlaceToBox",
+            [robot, donut, box],
+            {NextTo([robot, box]), Held([robot, donut])},
+            {NotHeld([robot]), In([donut, box])},
             {Held([robot, donut]), Fresh([donut]), NextTo([robot, donut])},
             {},
             Act,
