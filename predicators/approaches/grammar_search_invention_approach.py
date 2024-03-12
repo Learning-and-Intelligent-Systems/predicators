@@ -3031,6 +3031,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             for jjj, cluster in enumerate(all_clusters):
                 op_name = f"Op{jjj}-{cluster[0].get_option().name}"
+                if "Place" not in op_name:
+                    continue
                 # if "PutOnTable" not in op_name:
                 #     continue
                 # final_clusters2 = []
@@ -3045,6 +3047,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 else:
                     for kkk in range(1, 4):
+                        logging.info(f"Evaluating kkk {kkk} for op {op_name}.")
                         example_segment = cluster[0]
                         option_name = example_segment.get_option().name
                         score, eff_kkk = self.get_score(all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset)
