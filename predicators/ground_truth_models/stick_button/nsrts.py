@@ -45,8 +45,9 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # RobotPressButtonFromNothing
         robot = Variable("?robot", robot_type)
         button = Variable("?button", button_type)
-        parameters = [robot, button]
-        option_vars = [robot, button]
+        stick = Variable("?stick", stick_type)
+        parameters = [robot, button, stick]
+        option_vars = [robot, button, stick]
         option = RobotPressButton
         preconditions = {
             LiftedAtom(HandEmpty, [robot]),
@@ -68,8 +69,9 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         button = Variable("?button", button_type)
         from_button = Variable("?from_button", button_type)
-        parameters = [robot, button, from_button]
-        option_vars = [robot, button]
+        stick = Variable("?stick", stick_type)
+        parameters = [robot, button, from_button, stick]
+        option_vars = [robot, button, stick]
         option = RobotPressButton
         preconditions = {
             LiftedAtom(HandEmpty, [robot]),

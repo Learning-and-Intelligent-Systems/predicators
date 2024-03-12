@@ -998,7 +998,10 @@ class _GroundNSRT:
         low = self.option.params_space.low
         high = self.option.params_space.high
         params = np.clip(params, low, high)
-        return self.option.ground(self.option_objs, params)
+        try:
+            return self.option.ground(self.option_objs, params)
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
 
     def copy_with(self, **kwargs: Any) -> _GroundNSRT:
         """Create a copy of the ground NSRT, optionally while replacing any of

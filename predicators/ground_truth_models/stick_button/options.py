@@ -38,12 +38,12 @@ class StickButtonGroundTruthOptionFactory(GroundTruthOptionFactory):
                                        objects: Sequence[Object],
                                        params: Array) -> bool:
             del memory, params  # unused
-            _, button = objects
+            _, button, _ = objects
             return Pressed.holds(state, [button])
 
         RobotPressButton = ParameterizedOption(
             "RobotPressButton",
-            types=[robot_type, button_type],
+            types=[robot_type, button_type, stick_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_robot_press_button_policy(),
             initiable=lambda s, m, o, p: True,
@@ -113,7 +113,7 @@ class StickButtonGroundTruthOptionFactory(GroundTruthOptionFactory):
             if StickButtonEnv.Above_holds(state, objects):
                 return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Otherwise, move toward the button.
-            robot, button = objects
+            robot, button, _ = objects
             rx = state.get(robot, "x")
             ry = state.get(robot, "y")
             px = state.get(button, "x")

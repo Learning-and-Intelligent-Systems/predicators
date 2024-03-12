@@ -44,7 +44,8 @@ def _create_grammar(dataset: Dataset,
                                          alternate=True)
     if CFG.grammar_search_grammar_use_euclidean_dist:
         euclidean_dist_grammar = _EuclideanDistancePredicateGrammar(dataset)
-        grammar = _ChainPredicateGrammar([grammar, euclidean_dist_grammar], alternate=True)
+        grammar = _ChainPredicateGrammar([grammar, euclidean_dist_grammar],
+                                         alternate=True)
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
@@ -237,10 +238,10 @@ class _EuclideanAttributeDiffCompareClassifier(_AttributeDiffCompareClassifier
     def __str__(self) -> str:
         return (f"((({self.object1_index}:{self.object1_type.name})."
                 f"{self.attribute1_name} - ({self.object2_index}:"
-                f"{self.object2_type.name}).{self.attribute1_name}) ^ 2"
-                f"+ (({self.object1_index}:{self.object1_type.name})."
+                f"{self.object2_type.name}).{self.attribute1_name})^2"
+                f" + (({self.object1_index}:{self.object1_type.name})."
                 f"{self.attribute2_name} - ({self.object2_index}:"
-                f"{self.object2_type.name}).{self.attribute2_name}) ^ 2)"
+                f"{self.object2_type.name}).{self.attribute2_name})^2)"
                 f"{self.compare_str}[idx {self.constant_idx}]"
                 f"{self.constant:.3})")
 
@@ -252,9 +253,9 @@ class _EuclideanAttributeDiffCompareClassifier(_AttributeDiffCompareClassifier
         vars_str = (f"{name1}:{self.object1_type.name}, "
                     f"{name2}:{self.object2_type.name}")
         body_str = (f"(({name1}.{self.attribute1_name} - "
-                    f"{name2}.{self.attribute2_name}) ^ 2 "
-                    f"+ (({name1}.{self.attribute1_name} - "
-                    f"{name2}.{self.attribute2_name}) ^ 2 "
+                    f"{name2}.{self.attribute2_name})^2 "
+                    f" + (({name1}.{self.attribute1_name} - "
+                    f"{name2}.{self.attribute2_name})^2 "
                     f"{self.compare_str} {self.constant:.3})")
         return vars_str, body_str
 
@@ -430,6 +431,13 @@ _DEBUG_PREDICATE_PREFIXES = {
     ],
     "repeated_nextto_single_option": [
         "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
+    ],
+    "stick_button": [
+        # StickAboveButton
+        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.206)", # RobotAboveButton
+        "((0:stick).held<=[idx 0]0.5)",  # Handempty
+        # AboveNoButton
+        "NOT-((0:stick).held<=[idx 0]0.5)"  # Grasped
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -608,44 +616,76 @@ class _EuclideanDistancePredicateGrammar(
     named "x" and "y".
     """
 
+    def _compute_xy_bounds(self, feature_ranges: Dict[Type,
+                                                      Dict[str, Tuple[float,
+                                                                      float]]],
+                           t1: Type, t2: type) -> Tuple[float, float]:
+        # To create our classifier, we need to leverage the
+        # upper and lower bounds of its x, y features.
+        lbx1, ubx1 = feature_ranges[t1]["x"]
+        lbx2, ubx2 = feature_ranges[t2]["x"]
+        lby1, uby1 = feature_ranges[t1]["y"]
+        lby2, uby2 = feature_ranges[t2]["y"]
+        # Compute the upper and lower bounds of each feature range.
+        lbx, ubx = utils.compute_abs_bounds_given_frange(
+            lbx1, ubx1, lbx2, ubx2)
+        lby, uby = utils.compute_abs_bounds_given_frange(
+            lby1, uby1, lby2, uby2)
+        # Now, use these to compute the upper and lower bounds of
+        # the squared expression of interest.
+        lb = lbx**2 + lby**2
+        ub = ubx**2 + uby**2
+        return (lb, ub)
+
+    def _generate_pred_given_constant(self, constant_idx: int, constant: float,
+                                      t1: Type, t2: type) -> Predicate:
+        # Create classifier.
+        comp, comp_str = le, "<="
+        diff_classifier = _EuclideanAttributeDiffCompareClassifier(
+            0, t1, "x", 1, t2, "y", constant, constant_idx, comp, comp_str)
+        name = str(diff_classifier)
+        types = [t1, t2]
+        pred = Predicate(name, types, diff_classifier)
+        return pred
+
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # Edge case: if there are no features at all, return immediately.
         if not any(r for r in feature_ranges.values()):
             return
+
+        # Start by generating predicates with a very small constant,
+        # to indicate that the objects are touching/overlapped.
+        for (t1, t2) in itertools.combinations_with_replacement(
+                sorted(self.types), 2):
+            if t1 == t2:
+                continue
+            if not ("x" in t1.feature_names and "x" in t2.feature_names
+                    and "y" in t1.feature_names and "y" in t2.feature_names):
+                continue
+            lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
+            constant = ((ub - lb) / 500) + lb
+            pred = self._generate_pred_given_constant(0, constant,
+                                                      t1, t2)
+            assert pred.arity == 2
+            yield (pred, 3.0)  # cost = arity + cost from constant
+
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
             for (t1, t2) in itertools.combinations_with_replacement(
                     sorted(self.types), 2):
+                if t1 == t2:
+                    continue
                 if not ("x" in t1.feature_names and "x" in t2.feature_names and
                         "y" in t1.feature_names and "y" in t2.feature_names):
                     continue
-                # To create our classifier, we need to leverage the
-                # upper and lower bounds of its x, y features.
-                lbx1, ubx1 = feature_ranges[t1]["x"]
-                lbx2, ubx2 = feature_ranges[t2]["x"]
-                lby1, uby1 = feature_ranges[t1]["y"]
-                lby2, uby2 = feature_ranges[t2]["y"]
-                # Compute the upper and lower bounds of each feature range.
-                lbx, ubx = utils.compute_abs_bounds_given_frange(
-                    lbx1, ubx1, lbx2, ubx2)
-                lby, uby = utils.compute_abs_bounds_given_frange(
-                    lby1, uby1, lby2, uby2)
-                # Now, use these to compute the upper and lower bounds of
-                # the squared expression of interest.
-                lb = lbx**2 + lby**2
-                ub = ubx**2 + uby**2
+                lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
                 # Scale the constant by the correct range.
                 k = constant * (ub - lb) + lb
-                # Create classifier.
-                comp, comp_str = le, "<="
-                diff_classifier = _EuclideanAttributeDiffCompareClassifier(
-                    0, t1, "x", 1, t2, "y", k, constant_idx, comp, comp_str)
-                name = str(diff_classifier)
-                types = [t1, t2]
-                pred = Predicate(name, types, diff_classifier)
+                pred = self._generate_pred_given_constant(
+                    constant_idx + 1, k, t1, t2)
                 assert pred.arity == 2
                 yield (pred, 2 + cost)  # cost = arity + cost from constant
 
