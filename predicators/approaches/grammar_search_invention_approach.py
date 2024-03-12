@@ -3033,6 +3033,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_name = f"Op{jjj}-{cluster[0].get_option().name}"
                 if "Place" not in op_name:
                     continue
+                else:
+                    import pdb; pdb.set_trace()
                 # if "PutOnTable" not in op_name:
                 #     continue
                 # final_clusters2 = []
