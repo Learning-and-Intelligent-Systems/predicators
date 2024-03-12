@@ -42,6 +42,9 @@ def _create_grammar(dataset: Dataset,
         diff_grammar = _FeatureDiffInequalitiesPredicateGrammar(dataset)
         grammar = _ChainPredicateGrammar([grammar, diff_grammar],
                                          alternate=True)
+    if CFG.grammar_search_grammar_use_euclidean_dist:
+        euclidean_dist_grammar = _EuclideanDistancePredicateGrammar(dataset)
+        grammar = _ChainPredicateGrammar([grammar, euclidean_dist_grammar], alternate=True)
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.

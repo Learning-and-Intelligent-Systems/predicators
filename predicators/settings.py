@@ -610,6 +610,7 @@ class GlobalSettings:
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
     grammar_search_grammar_use_diff_features = False
+    grammar_search_grammar_use_euclidean_dist = False
     grammar_search_use_handcoded_debug_grammar = False
     grammar_search_pred_selection_approach = "score_optimization"
     grammar_search_pred_clusterer = "oracle"
