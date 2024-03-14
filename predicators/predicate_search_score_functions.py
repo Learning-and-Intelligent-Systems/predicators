@@ -389,6 +389,162 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             score += expected_planning_time
         return score
 
+    def evaluate_with_operators2(self,
+                                candidate_predicates: FrozenSet[Predicate],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
+                                strips_ops: List[STRIPSOperator],
+                                option_specs: List[OptionSpec]) -> float:
+        assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
+        score = 0.0
+        seen_demos = 0
+        assert len(low_level_trajs) == len(segmented_trajs)
+        for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
+            if seen_demos >= CFG.grammar_search_max_demos:
+                break
+            if not ll_traj.is_demo:
+                continue
+            demo_atoms_sequence = utils.segment_trajectory_to_atoms_sequence(
+                seg_traj)
+            seen_demos += 1
+            init_atoms = demo_atoms_sequence[0]
+            goal = self._train_tasks[ll_traj.train_task_idx].goal
+            # Ground everything once per demo.
+            objects = set(ll_traj.states[0])
+            dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+                strips_ops, option_specs)
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms,
+                objects,
+                dummy_nsrts,
+                allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.sesame_task_planning_heuristic, init_atoms, goal,
+                ground_nsrts, candidate_predicates | self._initial_predicates,
+                objects)
+            # The expected time needed before a low-level plan is found. We
+            # approximate this using node creations and by adding a penalty
+            # for every skeleton after the first to account for backtracking.
+            expected_planning_time = 0.0
+            # Keep track of the probability that a refinable skeleton has still
+            # not been found, updated after each new goal-reaching skeleton is
+            # considered.
+            refinable_skeleton_not_found_prob = 1.0
+            if CFG.grammar_search_expected_nodes_max_skeletons == -1:
+                max_skeletons = CFG.sesame_max_skeletons_optimized
+            else:
+                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
+            assert max_skeletons <= CFG.sesame_max_skeletons_optimized
+            assert not CFG.sesame_use_visited_state_set
+            generator = task_plan(init_atoms,
+                                  goal,
+                                  ground_nsrts,
+                                  reachable_atoms,
+                                  heuristic,
+                                  CFG.seed,
+                                  CFG.grammar_search_task_planning_timeout,
+                                  max_skeletons,
+                                  use_visited_state_set=False)
+            try:
+                for idx, (_, plan_atoms_sequence,
+                          metrics) in enumerate(generator):
+                    assert goal.issubset(plan_atoms_sequence[-1])
+                    # Estimate the probability that this skeleton is refinable.
+                    refinement_prob = self._get_refinement_prob(
+                        demo_atoms_sequence, plan_atoms_sequence)
+                    # Get the number of nodes that have been created or
+                    # expanded so far.
+                    assert self.metric_name in metrics
+                    num_nodes = metrics[self.metric_name]
+                    # This contribution to the expected number of nodes is for
+                    # the event that the current skeleton is refinable, but no
+                    # previous skeleton has been refinable.
+                    p = refinable_skeleton_not_found_prob * refinement_prob
+                    expected_planning_time += p * num_nodes
+                    # Apply a penalty to account for the time that we'd spend
+                    # in backtracking if the last skeleton was not refinable.
+                    if idx > 0:
+                        w = CFG.grammar_search_expected_nodes_backtracking_cost
+                        expected_planning_time += p * w
+                    # Update the probability that no skeleton yet is refinable.
+                    refinable_skeleton_not_found_prob *= (1 - refinement_prob)
+            except (PlanningTimeout, PlanningFailure):
+                import pdb; pdb.set_trace()
+                print("ashay is a noob")
+
+                init_state = ll_traj.states[0]
+                for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
+                # goal - goal.intersection(init_atoms)
+                all_ground_nsrts = []
+                for nsrt in sorted(dummy_nsrts):
+                    for gn in utils.all_ground_nsrts(nsrt, objects):
+                        all_ground_nsrts.append(gn)
+
+                import pdb; pdb.set_trace()
+                print("ashay is a noob2")
+
+                first = all_ground_nsrts[18] # dry obj2
+                second = all_ground_nsrts[9] # paint obj2 to box
+                third = all_ground_nsrts[15] # place obj2 on table
+                fourth = all_ground_nsrts[0] # open lid
+                fifth = all_ground_nsrts[3] # pick up obj2
+                sixth = all_ground_nsrts[12] # place obj2 in box
+
+                seventh = all_ground_nsrts[1] # pick obj0
+                eighth = all_ground_nsrts[16] # dry obj0
+                ninth = all_ground_nsrts[4] # paint obj0 to shelf
+                tenth = all_ground_nsrts[22] # place obj0 in shelf
+
+                eleventh = all_ground_nsrts[2] # pick obj1
+                twelvth = all_ground_nsrts[20] # wash obj1
+                thirteenth = all_ground_nsrts[17] # dry obj1
+                fourteenth = all_ground_nsrts[5] # paint obj1 to shelf
+                fifteenth = all_ground_nsrts[23] # place obj1 in shelf
+
+                plan = [first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelvth, thirteenth, fourteenth, fifteenth]
+
+                i = 0
+                curr = init_atoms
+                plan[i].preconditions.issubset(curr)
+                curr = (curr | plan[i].add_effects) - plan[i].delete_effects
+                i += 1
+
+
+
+
+
+                # first.preconditions.issubset(init_atoms)
+                # after_first = (init_atoms | first.add_effects) - first.delete_effects
+                # second.preconditions.issubset(after_first)
+                # after_second = (after_first | second.add_effects) - second.delete_effects
+                # third.preconditions.issubset(after_second)
+                # after_third = (after_second | third.add_effects) - third.delete_effects
+                # fourth.preconditions.issubset(after_third)
+                # after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+                # fifth.preconditions.issubset(after_fourth)
+                # after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
+                # sixth.preconditions.issubset(after_fifth)
+                # after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
+                # seventh.preconditions.issubset(after_sixth)
+                # after_seventh = (after_sixth | seventh.add_effects) - seventh.delete_effects
+                # eighth.preconditions.issubset(after_sixth)
+                # after_eighth = (after_seventh | eighth.add_effects) - eighth.delete_effects
+                # traj_goal.issubset(after_eighth)
+                # my_plan = [first, second, third, fourth, fifth, sixth, seventh, eighth]
+
+                # Note if we failed to find any skeleton, the next lines add
+                # the upper bound with refinable_skeleton_not_found_prob = 1.0,
+                # so no special action is required.
+                pass
+            # After exhausting the skeleton budget or timeout, we use this
+            # probability to estimate a "worst-case" planning time, making the
+            # soft assumption that some skeleton will eventually work.
+            ub = CFG.grammar_search_expected_nodes_upper_bound
+            expected_planning_time += refinable_skeleton_not_found_prob * ub
+            # The score is simply the total expected planning time.
+            score += expected_planning_time
+        return score
+
     @staticmethod
     def _get_refinement_prob(
             demo_atoms_sequence: Sequence[Set[GroundAtom]],

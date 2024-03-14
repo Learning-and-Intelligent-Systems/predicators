@@ -992,24 +992,24 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #     seventh = Op0Pick.ground((block3, block2, robot))
         #     eighth = Op2Stack.ground((block2, block1, robot))
         #
-        #     first.preconditions.issubset(init_atoms)
-        #     after_first = (init_atoms | first.add_effects) - first.delete_effects
-        #     second.preconditions.issubset(after_first)
-        #     after_second = (after_first | second.add_effects) - second.delete_effects
-        #     third.preconditions.issubset(after_second)
-        #     after_third = (after_second | third.add_effects) - third.delete_effects
-        #     fourth.preconditions.issubset(after_third)
-        #     after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
-        #     fifth.preconditions.issubset(after_fourth)
-        #     after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
-        #     sixth.preconditions.issubset(after_fifth)
-        #     after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
-        #     seventh.preconditions.issubset(after_sixth)
-        #     after_seventh = (after_sixth | seventh.add_effects) - seventh.delete_effects
-        #     eighth.preconditions.issubset(after_sixth)
-        #     after_eighth = (after_seventh | eighth.add_effects) - eighth.delete_effects
-        #     traj_goal.issubset(after_eighth)
-        #     my_plan = [first, second, third, fourth, fifth, sixth, seventh, eighth]
+            # first.preconditions.issubset(init_atoms)
+            # after_first = (init_atoms | first.add_effects) - first.delete_effects
+            # second.preconditions.issubset(after_first)
+            # after_second = (after_first | second.add_effects) - second.delete_effects
+            # third.preconditions.issubset(after_second)
+            # after_third = (after_second | third.add_effects) - third.delete_effects
+            # fourth.preconditions.issubset(after_third)
+            # after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+            # fifth.preconditions.issubset(after_fourth)
+            # after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
+            # sixth.preconditions.issubset(after_fifth)
+            # after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
+            # seventh.preconditions.issubset(after_sixth)
+            # after_seventh = (after_sixth | seventh.add_effects) - seventh.delete_effects
+            # eighth.preconditions.issubset(after_sixth)
+            # after_eighth = (after_seventh | eighth.add_effects) - eighth.delete_effects
+            # traj_goal.issubset(after_eighth)
+            # my_plan = [first, second, third, fourth, fifth, sixth, seventh, eighth]
 
         return ground_nsrt_plan is not None
 
@@ -1921,7 +1921,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             pnads.append(PNAD(op, datastore, option_spec))
 
 
-
+        import pdb; pdb.set_trace()
+        logging.info(f"Right before delete effects harmlessness check.")
         ##################################
         # IDENTIFY HARMLESS DELETE EFFECTS
         ##################################
@@ -2001,6 +2002,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
             predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
             predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
+
+        import pdb; pdb.set_trace()
+        logging.info(f"Right after delete effects harmlessness check.")
         # ########################################################################
         # ####################
         # # OLD HARMLESS CHECK
@@ -2397,6 +2401,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #     indices_considered.add(i)
         #     pruned_pnads.append(pnad)
 
+        import pdb; pdb.set_trace()
+        print("ashay")
+
         pnads = pruned_pnads
 
         # # how many effective clusters do we have for the thing we are exploring sub-clustering for?
@@ -2405,6 +2412,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #     if p.option_spec[0].name == example_segment.get_option().name:
         #         effective_clusters += 1
 
+        import pdb; pdb.set_trace()
+        print("ashay2")
+
         from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
         score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
         pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
@@ -2412,7 +2422,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
-        op_score = score_function.evaluate_with_operators(
+        op_score = score_function.evaluate_with_operators2(
             predicates_we_kept,
             low_level_trajs,
             segmented_trajs,
@@ -3057,6 +3067,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             break
                         clustering_scores[op_name].append((kkk, score, eff_kkk))
 
+                        import pdb; pdb.set_trace()
+                        print("asdf")
 
                     # best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))[0]
                     # best_k = 1
