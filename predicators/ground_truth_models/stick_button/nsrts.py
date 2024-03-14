@@ -288,13 +288,13 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         option_vars = [robot, button]
         option = RobotMoveToButton
         preconditions = {
-            LiftedAtom(AboveNoButton, [robot]),
+            LiftedAtom(AboveNoButton, []),
             LiftedAtom(HandEmpty, [robot]),
         }
         add_effects = {
-            LiftedAtom(RobotAboveButton, [robot, from_button]),
+            LiftedAtom(RobotAboveButton, [robot, button]),
         }
-        delete_effects = {LiftedAtom(AboveNoButton, [robot])}
+        delete_effects = {LiftedAtom(AboveNoButton, [])}
         ignore_effects = set()
         robot_moveto_button_from_nothing_nsrt = NSRT("RobotMoveToButtonFromNothing",
                                        parameters, preconditions, add_effects,
@@ -330,7 +330,7 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         to_button = Variable("?to", button_type)
         from_button = Variable("?from", button_type)
         parameters = [robot, stick, to_button, from_button]
-        option_vars = [robot, stick, to_button]
+        option_vars = [robot, to_button, stick]
         option = StickMoveToButton
         preconditions = {
             LiftedAtom(Grasped, [robot, stick]),
@@ -353,16 +353,16 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         button = Variable("?to", button_type)
         from_button = Variable("?from", button_type)
         parameters = [robot, stick, to_button, from_button]
-        option_vars = [robot, stick, to_button]
+        option_vars = [robot, to_button, stick]
         option = StickMoveToButton
         preconditions = {
             LiftedAtom(Grasped, [robot, stick]),
-            LiftedAtom(AboveNoButton, [robot])
+            LiftedAtom(AboveNoButton, [])
         }
         add_effects = {
             LiftedAtom(StickAboveButton, [stick, button]),
         }
-        delete_effects = {LiftedAtom(AboveNoButton, [robot])}
+        delete_effects = {LiftedAtom(AboveNoButton, [])}
         ignore_effects = set()
         stick_moveto_button_from_nothing_nsrt = NSRT("StickMoveToButtonFromNothing", parameters,
                                  preconditions, add_effects, delete_effects,

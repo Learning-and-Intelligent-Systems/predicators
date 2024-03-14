@@ -271,16 +271,16 @@ class StickButtonMovementGroundTruthOptionFactory(StickButtonGroundTruthOptionFa
                                        objects: Sequence[Object],
                                        params: Array) -> bool:
             del memory, params  # unused
-            _, button, _ = objects
-            return RobotAboveButton.holds(state, [button])
+            robot, button = objects
+            return RobotAboveButton.holds(state, [robot, button])
         
         # StickMoveToButton
         def _StickMoveToButton_terminal(state: State, memory: Dict,
                                        objects: Sequence[Object],
                                        params: Array) -> bool:
             del memory, params  # unused
-            _, button, _ = objects
-            return StickAboveButton.holds(state, [button])
+            _, button, stick = objects
+            return StickAboveButton.holds(state, [stick, button])
 
         RobotMoveToButton = ParameterizedOption(
             "RobotMoveToButton",
@@ -298,7 +298,7 @@ class StickButtonMovementGroundTruthOptionFactory(StickButtonGroundTruthOptionFa
             initiable=lambda s, m, o, p: True,
             terminal=_StickMoveToButton_terminal,
         )
-        movement_options = set(RobotMoveToButton, StickMoveToButton)
+        movement_options = set((RobotMoveToButton, StickMoveToButton))
 
         return init_options | movement_options
 
@@ -334,7 +334,7 @@ class StickButtonMovementGroundTruthOptionFactory(StickButtonGroundTruthOptionFa
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory, params  # unused
-            _, stick, button = objects
+            _, button, stick = objects
             stick_rect = StickButtonEnv.object_to_geom(stick, state)
             assert isinstance(stick_rect, utils.Rectangle)
             tip_rect = StickButtonEnv.stick_rect_to_tip_rect(stick_rect)
