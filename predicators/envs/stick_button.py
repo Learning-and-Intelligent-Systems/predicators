@@ -477,3 +477,88 @@ class StickButtonEnv(BaseEnv):
             return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
 
         return _event_to_action
+
+
+class StickButtonMovementEnv(StickButtonEnv):
+    """An extension to the stick button env that also has movement options
+    (the pick and place options don't implicitly contain movement."""
+    
+    @classmethod
+    def get_name(cls) -> str:
+        return "stick_button_move"
+    
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        # TODO!
+        norm_dx, norm_dy, norm_dtheta, press = action.arr
+        # Actions are normalized to [-1, 1]. Denormalize them here.
+        dx = norm_dx * self.max_speed
+        dy = norm_dy * self.max_speed
+        if CFG.stick_button_disable_angles:
+            dtheta = 0.0
+        else:
+            dtheta = norm_dtheta * self.max_angular_speed
+        # Update the robot state.
+        rx = state.get(self._robot, "x")
+        ry = state.get(self._robot, "y")
+        rtheta = state.get(self._robot, "theta")
+        new_rx = rx + dx
+        new_ry = ry + dy
+        new_rtheta = rtheta + dtheta
+        # The robot cannot leave the reachable zone. If it tries to, noop.
+        rad = self.robot_radius
+        if not self.rz_x_lb + rad <= new_rx <= self.rz_x_ub - rad or \
+           not self.rz_y_lb + rad <= new_ry <= self.rz_y_ub - rad:
+            return state.copy()
+        next_state = state.copy()
+        next_state.set(self._robot, "x", new_rx)
+        next_state.set(self._robot, "y", new_ry)
+        next_state.set(self._robot, "theta", new_rtheta)
+        robot_circ = self.object_to_geom(self._robot, next_state)
+
+        # Check if the stick is held. If so, we need to move and rotate it.
+        stick_held = state.get(self._stick, "held") > 0.5
+        stick_rect = self.object_to_geom(self._stick, state)
+        assert isinstance(stick_rect, utils.Rectangle)
+        if stick_held:
+            if not CFG.stick_button_disable_angles:
+                stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
+            stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
+                                         y=(stick_rect.y + dy),
+                                         width=stick_rect.width,
+                                         height=stick_rect.height,
+                                         theta=stick_rect.theta)
+            next_state.set(self._stick, "x", stick_rect.x)
+            next_state.set(self._stick, "y", stick_rect.y)
+            next_state.set(self._stick, "theta", stick_rect.theta)
+
+        if press > 0:
+            # Check for placing the stick.
+            holder_rect = self.object_to_geom(self._holder, state)
+            if stick_held and stick_rect.intersects(holder_rect):
+                # Place the stick back on the holder.
+                next_state.set(self._stick, "held", 0.0)
+
+            # Check if the stick is now held for the first time.
+            if not stick_held and stick_rect.intersects(robot_circ):
+                # Check for a collision with the stick holder. The reason that
+                # we only check for a collision here, as opposed to every
+                # timestep, is that we imagine the robot moving down in the z
+                # direction to pick up the stick, at which button it may
+                # collide with the stick holder. On other timesteps, the robot
+                # would be high enough above the holder to avoid collisions.
+                if robot_circ.intersects(holder_rect):
+                    # No-op in case of collision.
+                    return state.copy()
+
+                next_state.set(self._stick, "held", 1.0)
+
+            # Check if any button is now pressed.
+            tip_rect = self.stick_rect_to_tip_rect(stick_rect)
+            for button in state.get_objects(self._button_type):
+                circ = self.object_to_geom(button, state)
+                if (circ.intersects(tip_rect) and stick_held) or \
+                   (circ.intersects(robot_circ) and not stick_held):
+                    next_state.set(button, "pressed", 1.0)
+
+        return next_state
