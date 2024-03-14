@@ -432,12 +432,14 @@ _DEBUG_PREDICATE_PREFIXES = {
     "repeated_nextto_single_option": [
         "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
     ],
-    "stick_button": [
-        # StickAboveButton
+    "stick_button_move": [
+        "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)", # StickAboveButton; NOTE: maybe we can achieve this by saying x == and y between robot and button is a certain offset?
         "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.206)", # RobotAboveButton
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         # AboveNoButton
-        "NOT-((0:stick).held<=[idx 0]0.5)"  # Grasped
+        "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
+        "((0:button).y<=[idx 0]2.96)",  # ButtonReachable
+        # "NOT-((0:button).y<=[idx 0]2.96)"  # ButtonUnreachable; NOTE: This isn't getting selected, which is weird...
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -573,6 +575,38 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         # Edge case: if there are no features at all, return immediately.
         if not any(r for r in feature_ranges.values()):
             return
+        
+        # Start by generating predicates such that the two features are
+        # very close together.
+        for (t1, t2) in itertools.combinations_with_replacement(
+                    sorted(self.types), 2):
+            for f1 in t1.feature_names:
+                for f2 in t2.feature_names:
+                    # To create our classifier, we need to leverage the
+                    # upper and lower bounds of its features.
+                    # First, we extract these and move on if these
+                    # bounds are relatively close together.
+                    lb1, ub1 = feature_ranges[t1][f1]
+                    if abs(lb1 - ub1) < 1e-6:
+                        continue
+                    lb2, ub2 = feature_ranges[t2][f2]
+                    if abs(lb2 - ub2) < 1e-6:
+                        continue
+                    lb, ub = utils.compute_abs_bounds_given_frange(
+                        lb1, ub1, lb2, ub2)
+                    # Make a very small scaled constant.
+                    k = ((ub - lb) / 60) + lb
+                    # Create classifier.
+                    comp, comp_str = le, "<="
+                    diff_classifier = _AttributeDiffCompareClassifier(
+                        0, t1, f1, 1, t2, f2, k, 0, comp,
+                        comp_str)
+                    name = str(diff_classifier)
+                    types = [t1, t2]
+                    pred = Predicate(name, types, diff_classifier)
+                    assert pred.arity == 2
+                    yield (pred, 4.0)  
+
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
@@ -597,7 +631,7 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                         # Create classifier.
                         comp, comp_str = le, "<="
                         diff_classifier = _AttributeDiffCompareClassifier(
-                            0, t1, f1, 1, t2, f2, k, constant_idx, comp,
+                            0, t1, f1, 1, t2, f2, k, constant_idx + 1, comp,
                             comp_str)
                         name = str(diff_classifier)
                         types = [t1, t2]

@@ -280,6 +280,11 @@ class StickButtonMovementGroundTruthOptionFactory(StickButtonGroundTruthOptionFa
                                        params: Array) -> bool:
             del memory, params  # unused
             _, button, stick = objects
+
+            # if StickAboveButton.holds(state, [stick, button]) and abs(state.get(stick, "x") - state.get(button, "x")) > 0.0349:
+            #     print(abs(state.get(stick, "x") - state.get(button, "x")))
+            #     import ipdb; ipdb.set_trace()
+
             return StickAboveButton.holds(state, [stick, button])
 
         RobotMoveToButton = ParameterizedOption(
