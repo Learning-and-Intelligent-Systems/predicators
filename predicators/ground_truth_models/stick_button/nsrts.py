@@ -296,10 +296,10 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(AboveNoButton, [])}
         ignore_effects = set()
-        robot_moveto_button_from_nothing_nsrt = NSRT("RobotMoveToButtonFromNothing",
-                                       parameters, preconditions, add_effects,
-                                       delete_effects, ignore_effects, option,
-                                       option_vars, null_sampler)
+        robot_moveto_button_from_nothing_nsrt = NSRT(
+            "RobotMoveToButtonFromNothing", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
         nsrts.add(robot_moveto_button_from_nothing_nsrt)
 
         # RobotMoveToButtonFromButton
@@ -318,10 +318,10 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(RobotAboveButton, [robot, from_button])}
         ignore_effects = set()
-        robot_moveto_button_from_button_nsrt = NSRT("RobotMoveToButtonFromButton",
-                                       parameters, preconditions, add_effects,
-                                       delete_effects, ignore_effects, option,
-                                       option_vars, null_sampler)
+        robot_moveto_button_from_button_nsrt = NSRT(
+            "RobotMoveToButtonFromButton", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
         nsrts.add(robot_moveto_button_from_button_nsrt)
 
         # StickMoveToButtonFromNothing
@@ -341,10 +341,10 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(StickAboveButton, [stick, from_button])}
         ignore_effects = set()
-        stick_moveto_button_from_button_nsrt = NSRT("StickMoveToButtonFromButton", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 ignore_effects, option, option_vars,
-                                 null_sampler)
+        stick_moveto_button_from_button_nsrt = NSRT(
+            "StickMoveToButtonFromButton", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
         nsrts.add(stick_moveto_button_from_button_nsrt)
 
         # StickMoveToButtonFromButton
@@ -364,10 +364,10 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(AboveNoButton, [])}
         ignore_effects = set()
-        stick_moveto_button_from_nothing_nsrt = NSRT("StickMoveToButtonFromNothing", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 ignore_effects, option, option_vars,
-                                 null_sampler)
+        stick_moveto_button_from_nothing_nsrt = NSRT(
+            "StickMoveToButtonFromNothing", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
         nsrts.add(stick_moveto_button_from_nothing_nsrt)
 
         # RobotPressButton
@@ -381,13 +381,11 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(RobotAboveButton, [robot, button]),
         }
-        add_effects = {
-            LiftedAtom(Pressed, [button])
-        }
+        add_effects = {LiftedAtom(Pressed, [button])}
         delete_effects = set()
         ignore_effects: Set[Predicate] = set()
-        robot_press_button_nsrt = NSRT("RobotPressButton",
-                                       parameters, preconditions, add_effects,
+        robot_press_button_nsrt = NSRT("RobotPressButton", parameters,
+                                       preconditions, add_effects,
                                        delete_effects, ignore_effects, option,
                                        option_vars, null_sampler)
         nsrts.add(robot_press_button_nsrt)
@@ -460,15 +458,12 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
             LiftedAtom(Grasped, [robot, stick]),
             LiftedAtom(StickAboveButton, [stick, button])
         }
-        add_effects = {
-            LiftedAtom(Pressed, [button])
-        }
+        add_effects = {LiftedAtom(Pressed, [button])}
         delete_effects = {LiftedAtom(AboveNoButton, [])}
         ignore_effects = set()
-        stick_button_nsrt = NSRT("StickPressButton", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 ignore_effects, option, option_vars,
-                                 null_sampler)
+        stick_button_nsrt = NSRT("StickPressButton", parameters, preconditions,
+                                 add_effects, delete_effects, ignore_effects,
+                                 option, option_vars, null_sampler)
         nsrts.add(stick_button_nsrt)
 
         # PlaceStickFromNothing

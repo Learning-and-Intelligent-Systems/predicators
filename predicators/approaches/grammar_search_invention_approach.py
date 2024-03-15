@@ -433,13 +433,12 @@ _DEBUG_PREDICATE_PREFIXES = {
         "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
     ],
     "stick_button_move": [
-        "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)", # StickAboveButton; NOTE: maybe we can achieve this by saying x == and y between robot and button is a certain offset?
-        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.206)", # RobotAboveButton
+        "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)",  # StickAboveButton; use 0.146 sometimes
+        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.206)",  # RobotAboveButton; use 0.207 sometimes
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
-        # AboveNoButton
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
         "((0:button).y<=[idx 0]2.96)",  # ButtonReachable
-        # "NOT-((0:button).y<=[idx 0]2.96)"  # ButtonUnreachable; NOTE: This isn't getting selected, which is weird...
+        # "NOT-((0:button).y<=[idx 0]2.96)"  # ButtonUnreachable; NOTE: This isn't getting selected because we sometimes use the stick to press reachable buttons...
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -470,6 +469,7 @@ class _DebugGrammar(_PredicateGrammar):
             if any(
                     str(predicate).startswith(debug_str)
                     for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
+                print(predicate)
                 yield (predicate, cost)
 
 
@@ -575,11 +575,11 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         # Edge case: if there are no features at all, return immediately.
         if not any(r for r in feature_ranges.values()):
             return
-        
+
         # Start by generating predicates such that the two features are
         # very close together.
         for (t1, t2) in itertools.combinations_with_replacement(
-                    sorted(self.types), 2):
+                sorted(self.types), 2):
             for f1 in t1.feature_names:
                 for f2 in t2.feature_names:
                     # To create our classifier, we need to leverage the
@@ -599,13 +599,12 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                     # Create classifier.
                     comp, comp_str = le, "<="
                     diff_classifier = _AttributeDiffCompareClassifier(
-                        0, t1, f1, 1, t2, f2, k, 0, comp,
-                        comp_str)
+                        0, t1, f1, 1, t2, f2, k, 0, comp, comp_str)
                     name = str(diff_classifier)
                     types = [t1, t2]
                     pred = Predicate(name, types, diff_classifier)
                     assert pred.arity == 2
-                    yield (pred, 4.0)  
+                    yield (pred, 4.0)
 
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
@@ -700,8 +699,7 @@ class _EuclideanDistancePredicateGrammar(
                 continue
             lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
             constant = ((ub - lb) / 500) + lb
-            pred = self._generate_pred_given_constant(0, constant,
-                                                      t1, t2)
+            pred = self._generate_pred_given_constant(0, constant, t1, t2)
             assert pred.arity == 2
             yield (pred, 3.0)  # cost = arity + cost from constant
 

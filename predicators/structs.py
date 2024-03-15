@@ -1001,7 +1001,8 @@ class _GroundNSRT:
         try:
             return self.option.ground(self.option_objs, params)
         except AssertionError:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+            ipdb.set_trace()
 
     def copy_with(self, **kwargs: Any) -> _GroundNSRT:
         """Create a copy of the ground NSRT, optionally while replacing any of

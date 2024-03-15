@@ -480,9 +480,9 @@ class StickButtonEnv(BaseEnv):
 
 
 class StickButtonMovementEnv(StickButtonEnv):
-    """An extension to the stick button env that also has movement options
-    (the pick and place options don't implicitly contain movement."""
-    
+    """An extension to the stick button env that also has movement options (the
+    pick and place options don't implicitly contain movement."""
+
     @classmethod
     def get_name(cls) -> str:
         return "stick_button_move"
