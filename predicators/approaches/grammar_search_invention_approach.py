@@ -1021,7 +1021,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #         assert any(segment in seg for seg in segmented_trajs)
         # import pdb; pdb.set_trace()
         ####
-
         indices_of_sub_clusters = set()
 
         option_name = example_segment.get_option().name
@@ -1207,6 +1206,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         print(f"MATCH! : {i}, {j}")
                         predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[i])
                         predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[j])
+                        for p in add_effects_per_cluster[i] | add_effects_per_cluster[j]:
+                            if p in inconsistent_preds:
+                                print(f"ADDING BACK: {p}")
 
         # Remove the initial predicates.
         # predicates_to_keep -= initial_predicates
@@ -1585,6 +1587,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         }
         for k, po in enumerate(all_potential_ops):
             for op_name in po.keys():
+
                 final_potential_ops2[op_name]["pre"] = final_potential_ops2[op_name]["pre"].union(po[op_name]["pre"])
                 final_potential_ops2[op_name]["add"] = final_potential_ops2[op_name]["add"].union(po[op_name]["add"])
                 final_potential_ops2[op_name]["del"] = final_potential_ops2[op_name]["del"].union(po[op_name]["del"])
@@ -1921,7 +1924,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             pnads.append(PNAD(op, datastore, option_spec))
 
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         logging.info(f"Right before delete effects harmlessness check.")
         ##################################
         # IDENTIFY HARMLESS DELETE EFFECTS
@@ -1957,6 +1960,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         pnad_to_nsrt = dict(zip(pnads, dummy_nsrts))
 
         harmful_del_effs_per_nsrt = {p.op.name: set() for p in pnads}
+        harmful_preconds_per_nsrt = {p.op.name: set() for p in pnads}
 
         low_level_trajs = [llt for llt, _ in atom_dataset]
         for ccc, tup in enumerate(zip(low_level_trajs, segmented_trajs)):
@@ -1980,22 +1984,33 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 if not nsrt.preconditions.issubset(curr_abstract_state):
                     missing = nsrt.preconditions - nsrt.preconditions.intersection(curr_abstract_state)
                     for miss in missing:
+                        miss_caused_by_delete_effect = False
                         for prev in prev_nsrts[::-1]:
                             if miss in prev.delete_effects:
                                 harmful_del_effs_per_nsrt[prev.op.name].add(miss.predicate)
+                                miss_caused_by_delete_effect = True
                                 break
                                 # only care about most recent one => may have to do multiple passes,
                                 # if two previous nsrts had it as a deleted effect (which may be unlikely or impossible, idk)
+
                         # TODO: do something about the condition where you don't find the miss anywhere
+                        if not miss_caused_by_delete_effect:
+                            # we should remove this predicate
+                            harmful_preconds_per_nsrt[nsrt.op.name].add(miss.predicate)
 
                 curr_abstract_state = (curr_abstract_state | nsrt.add_effects) - nsrt.delete_effects
                 prev_nsrts.append(nsrt)
 
         logging.info(f"Harmful delete effects per nsrt: {harmful_del_effs_per_nsrt}")
+        logging.info(f"Harmful preconditions per nsrt: {harmful_preconds_per_nsrt}")
         for k, v in harmful_del_effs_per_nsrt.items():
             for pred in v:
                 final_potential_ops2[k]["del"].remove(pred)
                 fff[k][2].remove(pred)
+        for k, v in harmful_preconds_per_nsrt.items():
+            for pred in v:
+                final_potential_ops2[k]["pre"].remove(pred)
+                fff[k][0].remove(pred)
         self._clusters = fff
         predicates_we_kept = set()
         for op_name in final_potential_ops.keys():
@@ -2003,7 +2018,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
             predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         logging.info(f"Right after delete effects harmlessness check.")
         # ########################################################################
         # ####################
@@ -2401,7 +2416,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #     indices_considered.add(i)
         #     pruned_pnads.append(pnad)
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         print("ashay")
 
         pnads = pruned_pnads
@@ -2412,7 +2427,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #     if p.option_spec[0].name == example_segment.get_option().name:
         #         effective_clusters += 1
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         print("ashay2")
 
         from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
@@ -3043,8 +3058,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_name = f"Op{jjj}-{cluster[0].get_option().name}"
                 if "Place" not in op_name:
                     continue
-                else:
-                    import pdb; pdb.set_trace()
                 # if "PutOnTable" not in op_name:
                 #     continue
                 # final_clusters2 = []
@@ -3067,7 +3080,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             break
                         clustering_scores[op_name].append((kkk, score, eff_kkk))
 
-                        import pdb; pdb.set_trace()
+                        # import pdb; pdb.set_trace()
+                        logging.info(f"Clustering scores: {clustering_scores}")
                         print("asdf")
 
                     # best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))[0]

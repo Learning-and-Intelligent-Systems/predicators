@@ -469,45 +469,45 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     # Update the probability that no skeleton yet is refinable.
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
             except (PlanningTimeout, PlanningFailure):
-                import pdb; pdb.set_trace()
-                print("ashay is a noob")
-
-                init_state = ll_traj.states[0]
-                for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
-                # goal - goal.intersection(init_atoms)
-                all_ground_nsrts = []
-                for nsrt in sorted(dummy_nsrts):
-                    for gn in utils.all_ground_nsrts(nsrt, objects):
-                        all_ground_nsrts.append(gn)
-
-                import pdb; pdb.set_trace()
-                print("ashay is a noob2")
-
-                first = all_ground_nsrts[18] # dry obj2
-                second = all_ground_nsrts[9] # paint obj2 to box
-                third = all_ground_nsrts[15] # place obj2 on table
-                fourth = all_ground_nsrts[0] # open lid
-                fifth = all_ground_nsrts[3] # pick up obj2
-                sixth = all_ground_nsrts[12] # place obj2 in box
-
-                seventh = all_ground_nsrts[1] # pick obj0
-                eighth = all_ground_nsrts[16] # dry obj0
-                ninth = all_ground_nsrts[4] # paint obj0 to shelf
-                tenth = all_ground_nsrts[22] # place obj0 in shelf
-
-                eleventh = all_ground_nsrts[2] # pick obj1
-                twelvth = all_ground_nsrts[20] # wash obj1
-                thirteenth = all_ground_nsrts[17] # dry obj1
-                fourteenth = all_ground_nsrts[5] # paint obj1 to shelf
-                fifteenth = all_ground_nsrts[23] # place obj1 in shelf
-
-                plan = [first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelvth, thirteenth, fourteenth, fifteenth]
-
-                i = 0
-                curr = init_atoms
-                plan[i].preconditions.issubset(curr)
-                curr = (curr | plan[i].add_effects) - plan[i].delete_effects
-                i += 1
+                # import pdb; pdb.set_trace()
+                # print("ashay is a noob")
+                #
+                # init_state = ll_traj.states[0]
+                # for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
+                # # goal - goal.intersection(init_atoms)
+                # all_ground_nsrts = []
+                # for nsrt in sorted(dummy_nsrts):
+                #     for gn in utils.all_ground_nsrts(nsrt, objects):
+                #         all_ground_nsrts.append(gn)
+                #
+                # import pdb; pdb.set_trace()
+                # print("ashay is a noob2")
+                #
+                # first = all_ground_nsrts[18] # dry obj2
+                # second = all_ground_nsrts[9] # paint obj2 to box
+                # third = all_ground_nsrts[15] # place obj2 on table
+                # fourth = all_ground_nsrts[0] # open lid
+                # fifth = all_ground_nsrts[3] # pick up obj2
+                # sixth = all_ground_nsrts[12] # place obj2 in box
+                #
+                # seventh = all_ground_nsrts[1] # pick obj0
+                # eighth = all_ground_nsrts[16] # dry obj0
+                # ninth = all_ground_nsrts[4] # paint obj0 to shelf
+                # tenth = all_ground_nsrts[22] # place obj0 in shelf
+                #
+                # eleventh = all_ground_nsrts[2] # pick obj1
+                # twelvth = all_ground_nsrts[20] # wash obj1
+                # thirteenth = all_ground_nsrts[17] # dry obj1
+                # fourteenth = all_ground_nsrts[5] # paint obj1 to shelf
+                # fifteenth = all_ground_nsrts[23] # place obj1 in shelf
+                #
+                # plan = [first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelvth, thirteenth, fourteenth, fifteenth]
+                #
+                # i = 0
+                # curr = init_atoms
+                # plan[i].preconditions.issubset(curr)
+                # curr = (curr | plan[i].add_effects) - plan[i].delete_effects
+                # i += 1
 
 
 
