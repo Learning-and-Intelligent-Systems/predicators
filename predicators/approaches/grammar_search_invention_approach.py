@@ -3056,8 +3056,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             for jjj, cluster in enumerate(all_clusters):
                 op_name = f"Op{jjj}-{cluster[0].get_option().name}"
-                if "Place" not in op_name:
-                    continue
                 # if "PutOnTable" not in op_name:
                 #     continue
                 # final_clusters2 = []
