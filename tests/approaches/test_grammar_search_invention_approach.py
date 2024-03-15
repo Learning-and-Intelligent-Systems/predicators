@@ -83,7 +83,7 @@ def test_predicate_grammar(segmenter):
         "env": "cover",
     })
     forall_grammar = _create_grammar(dataset, env.predicates)
-    assert len(forall_grammar.generate(max_num=100)) == 55
+    assert len(forall_grammar.generate(max_num=100)) == 9
     # Test CFG.grammar_search_predicate_cost_upper_bound.
     default = CFG.grammar_search_predicate_cost_upper_bound
     utils.reset_config({"grammar_search_predicate_cost_upper_bound": 0})

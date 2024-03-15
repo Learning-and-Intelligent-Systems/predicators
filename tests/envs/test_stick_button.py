@@ -175,7 +175,7 @@ def test_stick_button():
     assert StickPressButton.name == "StickPressButton"
 
     # Test RobotPressButton.
-    option = RobotPressButton.ground([robot, reachable_button], [])
+    option = RobotPressButton.ground([robot, reachable_button, stick], [])
     option_plan = [option]
 
     policy = utils.option_plan_to_policy(option_plan)

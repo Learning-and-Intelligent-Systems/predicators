@@ -3534,7 +3534,10 @@ def f_range_intersection(lb1: float, ub1: float, lb2: float,
 
 def compute_abs_bounds_given_frange(lb1: float, ub1: float, lb2: float,
                                     ub2: float) -> Tuple[float, float]:
-    """Given upper and lower bounds of two feature ranges, returns the upper and lower bound of |f1 - f2|."""
+    """Given upper and lower bounds of two feature ranges, returns the upper.
+
+    and lower bound of |f1 - f2|.
+    """
     # Now, we must compute the upper and lower bounds of
     # the expression |t1.f1 - t2.f2|. If the intervals
     # [lb1, ub1] and [lb2, ub2] overlap, then the lower

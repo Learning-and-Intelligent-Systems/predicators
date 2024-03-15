@@ -71,7 +71,7 @@ def _create_grammar(dataset: Dataset,
     # Also don't do this if we explicitly don't want to prune such
     # predicates.
     if not CFG.grammar_search_use_handcoded_debug_grammar and \
-        not CFG.grammar_search_prune_redundant_preds:
+        CFG.grammar_search_prune_redundant_preds:
         grammar = _PrunedGrammar(dataset, grammar)
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
@@ -433,12 +433,16 @@ _DEBUG_PREDICATE_PREFIXES = {
         "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
     ],
     "stick_button_move": [
-        "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)",  # StickAboveButton; use 0.146 sometimes
-        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.206)",  # RobotAboveButton; use 0.207 sometimes
+        # NOTE: sometimes (especially with more demos) we need
+        # to use 0.146 and 0.207 for the first two constants
+        # respectively.
+        "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)",  # StickAboveButton
+        # RobotAboveButton
+        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)"+ \
+            "<=[idx 0]0.206)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
         "((0:button).y<=[idx 0]2.96)",  # ButtonReachable
-        # "NOT-((0:button).y<=[idx 0]2.96)"  # ButtonUnreachable; NOTE: This isn't getting selected because we sometimes use the stick to press reachable buttons...
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -469,7 +473,6 @@ class _DebugGrammar(_PredicateGrammar):
             if any(
                     str(predicate).startswith(debug_str)
                     for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
-                print(predicate)
                 yield (predicate, cost)
 
 
@@ -652,7 +655,7 @@ class _EuclideanDistancePredicateGrammar(
     def _compute_xy_bounds(self, feature_ranges: Dict[Type,
                                                       Dict[str, Tuple[float,
                                                                       float]]],
-                           t1: Type, t2: type) -> Tuple[float, float]:
+                           t1: Type, t2: Type) -> Tuple[float, float]:
         # To create our classifier, we need to leverage the
         # upper and lower bounds of its x, y features.
         lbx1, ubx1 = feature_ranges[t1]["x"]
@@ -671,7 +674,7 @@ class _EuclideanDistancePredicateGrammar(
         return (lb, ub)
 
     def _generate_pred_given_constant(self, constant_idx: int, constant: float,
-                                      t1: Type, t2: type) -> Predicate:
+                                      t1: Type, t2: Type) -> Predicate:
         # Create classifier.
         comp, comp_str = le, "<="
         diff_classifier = _EuclideanAttributeDiffCompareClassifier(
