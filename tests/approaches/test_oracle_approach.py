@@ -33,7 +33,8 @@ from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.sandwich import SandwichEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
-from predicators.envs.stick_button import StickButtonEnv, StickButtonMovementEnv
+from predicators.envs.stick_button import StickButtonEnv, \
+    StickButtonMovementEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
     TouchPointEnvParam
@@ -69,9 +70,9 @@ ENV_NAME_AND_CLS = [
     ("pddl_easy_delivery_procedural_tasks",
      ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
     ("touch_point_param", TouchPointEnvParam), ("touch_open", TouchOpenEnv),
-    ("stick_button", StickButtonEnv), ("stick_button", StickButtonEnv), 
-    ("doors", DoorsEnv), ("coffee", CoffeeEnv), 
-    ("pybullet_blocks", PyBulletBlocksEnv)
+    ("stick_button", StickButtonEnv),
+    ("stick_button_move", StickButtonMovementEnv), ("doors", DoorsEnv),
+    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional

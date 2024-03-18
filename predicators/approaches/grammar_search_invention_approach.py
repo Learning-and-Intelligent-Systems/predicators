@@ -572,15 +572,10 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Generates features of the form "|0.feature - 1.feature| <= c"."""
 
-    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-        # Get ranges of feature values from data.
-        feature_ranges = self._get_feature_ranges()
-        # Edge case: if there are no features at all, return immediately.
-        if not any(r for r in feature_ranges.values()):
-            return
-
-        # Start by generating predicates such that the two features are
-        # very close together.
+    def _yield_pred_given_const(
+            self, feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]],
+            constant_idx: int, constant: float,
+            cost: float) -> Iterator[Tuple[Predicate, float]]:
         for (t1, t2) in itertools.combinations_with_replacement(
                 sorted(self.types), 2):
             for f1 in t1.feature_names:
@@ -597,50 +592,34 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                         continue
                     lb, ub = utils.compute_abs_bounds_given_frange(
                         lb1, ub1, lb2, ub2)
-                    # Make a very small scaled constant.
-                    k = ((ub - lb) / 60) + lb
+                    # Scale the constant by the correct range.
+                    k = constant * (ub - lb) + lb
                     # Create classifier.
                     comp, comp_str = le, "<="
                     diff_classifier = _AttributeDiffCompareClassifier(
-                        0, t1, f1, 1, t2, f2, k, 0, comp, comp_str)
+                        0, t1, f1, 1, t2, f2, k, constant_idx, comp, comp_str)
                     name = str(diff_classifier)
                     types = [t1, t2]
                     pred = Predicate(name, types, diff_classifier)
                     assert pred.arity == 2
-                    yield (pred, 4.0)
+                    yield (pred, cost)
 
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # Edge case: if there are no features at all, return immediately.
+        if not any(r for r in feature_ranges.values()):
+            return
+        # Start by generating predicates such that the two features are
+        # very close together.
+        for ret_val in self._yield_pred_given_const(feature_ranges, 0,
+                                                    (1 / 60.0), 4.0):
+            yield ret_val
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
-            for (t1, t2) in itertools.combinations_with_replacement(
-                    sorted(self.types), 2):
-                for f1 in t1.feature_names:
-                    for f2 in t2.feature_names:
-                        # To create our classifier, we need to leverage the
-                        # upper and lower bounds of its features.
-                        # First, we extract these and move on if these
-                        # bounds are relatively close together.
-                        lb1, ub1 = feature_ranges[t1][f1]
-                        if abs(lb1 - ub1) < 1e-6:
-                            continue
-                        lb2, ub2 = feature_ranges[t2][f2]
-                        if abs(lb2 - ub2) < 1e-6:
-                            continue
-                        lb, ub = utils.compute_abs_bounds_given_frange(
-                            lb1, ub1, lb2, ub2)
-                        # Scale the constant by the correct range.
-                        k = constant * (ub - lb) + lb
-                        # Create classifier.
-                        comp, comp_str = le, "<="
-                        diff_classifier = _AttributeDiffCompareClassifier(
-                            0, t1, f1, 1, t2, f2, k, constant_idx + 1, comp,
-                            comp_str)
-                        name = str(diff_classifier)
-                        types = [t1, t2]
-                        pred = Predicate(name, types, diff_classifier)
-                        assert pred.arity == 2
-                        yield (pred, 2 + cost
-                               )  # cost = arity + cost from constant
+            return self._yield_pred_given_const(feature_ranges, constant_idx,
+                                                constant, cost)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -697,14 +676,13 @@ class _EuclideanDistancePredicateGrammar(
                 sorted(self.types), 2):
             if t1 == t2:
                 continue
-            if not ("x" in t1.feature_names and "x" in t2.feature_names
+            if ("x" in t1.feature_names and "x" in t2.feature_names
                     and "y" in t1.feature_names and "y" in t2.feature_names):
-                continue
-            lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
-            constant = ((ub - lb) / 500) + lb
-            pred = self._generate_pred_given_constant(0, constant, t1, t2)
-            assert pred.arity == 2
-            yield (pred, 3.0)  # cost = arity + cost from constant
+                lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
+                constant = ((ub - lb) / 500) + lb
+                pred = self._generate_pred_given_constant(0, constant, t1, t2)
+                assert pred.arity == 2
+                yield (pred, 3.0)  # cost = arity + cost from constant
 
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
@@ -713,16 +691,16 @@ class _EuclideanDistancePredicateGrammar(
                     sorted(self.types), 2):
                 if t1 == t2:
                     continue
-                if not ("x" in t1.feature_names and "x" in t2.feature_names and
-                        "y" in t1.feature_names and "y" in t2.feature_names):
-                    continue
-                lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
-                # Scale the constant by the correct range.
-                k = constant * (ub - lb) + lb
-                pred = self._generate_pred_given_constant(
-                    constant_idx + 1, k, t1, t2)
-                assert pred.arity == 2
-                yield (pred, 2 + cost)  # cost = arity + cost from constant
+                if ("x" in t1.feature_names and "x" in t2.feature_names
+                        and "y" in t1.feature_names
+                        and "y" in t2.feature_names):
+                    lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
+                    # Scale the constant by the correct range.
+                    k = constant * (ub - lb) + lb
+                    pred = self._generate_pred_given_constant(
+                        constant_idx + 1, k, t1, t2)
+                    assert pred.arity == 2
+                    yield (pred, 2 + cost)  # cost = arity + cost from constant
 
 
 @dataclass(frozen=True, eq=False, repr=False)

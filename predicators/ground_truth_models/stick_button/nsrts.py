@@ -323,7 +323,7 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
             null_sampler)
         nsrts.add(robot_moveto_button_from_button_nsrt)
 
-        # StickMoveToButtonFromNothing
+        # StickMoveToButtonFromButton
         robot = Variable("?robot", robot_type)
         stick = Variable("?stick", stick_type)
         to_button = Variable("?to", button_type)
@@ -346,12 +346,11 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
             null_sampler)
         nsrts.add(stick_moveto_button_from_button_nsrt)
 
-        # StickMoveToButtonFromButton
+        # StickMoveToButtonFromNothing
         robot = Variable("?robot", robot_type)
         stick = Variable("?stick", stick_type)
         button = Variable("?to", button_type)
-        from_button = Variable("?from", button_type)
-        parameters = [robot, stick, to_button, from_button]
+        parameters = [robot, stick, to_button]
         option_vars = [robot, to_button, stick]
         option = StickMoveToButton
         preconditions = {

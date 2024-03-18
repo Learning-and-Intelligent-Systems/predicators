@@ -371,11 +371,13 @@ class StickButtonMovementGroundTruthOptionFactory(
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory, params  # unused
+            action = Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
             # If the robot and button are already pressing, press.
             if StickButtonEnv.Above_holds(state, objects):
-                return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+                action = Action(
+                    np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
-            return Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
+            return action
 
         return policy
 
