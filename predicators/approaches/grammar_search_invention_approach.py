@@ -2437,7 +2437,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
-        op_score = score_function.evaluate_with_operators2(
+        op_score = score_function.evaluate_with_operators(
             predicates_we_kept,
             low_level_trajs,
             segmented_trajs,
