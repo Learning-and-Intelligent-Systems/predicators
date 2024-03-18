@@ -366,8 +366,8 @@ def test_stick_button_move():
     assert GroundAtom(AboveNoButton, []).holds(state)
     ## Test options ##
     options = get_gt_options(env.get_name())
-    PickStick, PlaceStick, RobotMoveToButton, RobotPressButton, StickMoveToButton, StickPressButton = sorted(
-        options)
+    PickStick, PlaceStick, RobotMoveToButton, RobotPressButton, \
+        StickMoveToButton, StickPressButton = sorted(options)
     assert PickStick.name == "PickStick"
     assert PlaceStick.name == "PlaceStick"
     assert RobotPressButton.name == "RobotPressButton"

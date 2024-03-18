@@ -618,15 +618,15 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
-            return self._yield_pred_given_const(feature_ranges, constant_idx,
-                                                constant, cost)
+            for ret_val in self._yield_pred_given_const(
+                    feature_ranges, constant_idx, constant, cost):
+                yield ret_val
 
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _EuclideanDistancePredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Generates predicates of the form "|0.x - 1.x|^2 + |0.y - 1.y|^2 <= c^2".
-    
     Importantly, this only operates over types that have features
     named "x" and "y".
     """
