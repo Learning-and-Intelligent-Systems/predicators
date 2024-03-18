@@ -439,6 +439,9 @@ _DEBUG_PREDICATE_PREFIXES = {
         # as necessary.
         "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)",  # StickAboveButton
         # "(|(0:button).x - (1:stick).x|<=[idx 0]0.146)",  # StickAboveButton
+        # StickNotAboveButton
+        "Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|" + \
+            "<=[idx 0]0.145)(0,1)]",
         # RobotAboveButton
         "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)"+ \
             "<=[idx 0]0.206)",
