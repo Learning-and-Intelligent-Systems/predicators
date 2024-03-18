@@ -447,6 +447,7 @@ _DEBUG_PREDICATE_PREFIXES = {
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
         "((0:button).y<=[idx 0]2.96)",  # ButtonReachable
+        "Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|<=[idx 0]0.145)(0,1)]"
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -3219,109 +3220,109 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # all_clusters = [c for c in all_clusters if len(c) > 20]
             # import pdb; pdb.set_trace()
 
-            # Step 4:
-            final_clusters = []
-
-            clustering_scores = {}
-            for z, cluster in enumerate(all_clusters):
-                op_name = f"Op{z}-{cluster[0].get_option().name}"
-                clustering_scores[op_name] = [] # will hold scores for 1, 2, etc. clusterings
-
-            for jjj, cluster in enumerate(all_clusters):
-                op_name = f"Op{jjj}-{cluster[0].get_option().name}"
-                # if "PutOnTable" not in op_name:
-                #     continue
-                # final_clusters2 = []
-                # for x, c in enumerate(all_clusters):
-                #     if x != j:
-                #         final_clusters2.append(c)
-                example_segment = cluster[0]
-                option_name = example_segment.get_option().name
-                if len(example_segment.get_option().params) == 0:
-                    final_clusters.append(cluster)
-                    logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
-
-                else:
-                    for kkk in range(1, 4):
-                        logging.info(f"Evaluating kkk {kkk} for op {op_name}.")
-                        example_segment = cluster[0]
-                        option_name = example_segment.get_option().name
-                        score, eff_kkk = self.get_score(all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset)
-                        if score is None:
-                            break
-                        clustering_scores[op_name].append((kkk, score, eff_kkk))
-
-                        # import pdb; pdb.set_trace()
-                        logging.info(f"Clustering scores: {clustering_scores}")
-                        print("asdf")
-
-                    # best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))[0]
-                    # best_k = 1
-                    best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))
-                    logging.info(f"BEST K: {best_k[0]}, BEST EFFECIVE K: {best_k[-1]}")
-
-                    import numpy as np
-                    from sklearn.mixture import GaussianMixture as GMM
-                    from scipy.stats import kstest
-                    data = np.array([seg.get_option().params for seg in cluster])
-
-
-                    if len(data) == 1:
-                        # Can't fit GMM to 1 data point, need at least 2
-                        # ValueError: Found array with 1 sample(s) (shape=(1, 1)) while a minimum of 2 is required. for GMM.fit() method
-                        # Don't subcluster
-                        final_clusters.append(cluster)
-                    else:
-                        model = GMM(best_k[-1], covariance_type="full", random_state=0).fit(data)
-                        # if "Pick" in option_name:
-                        #     best_k = 2
-                        # elif "PutOnTable" in option_name:
-                        #     best_k = 1
-                        # model = GMM(best_k, covariance_type="full", random_state=0).fit(data)
-                        assignments = model.predict(data)
-                        sub_clusters = {}
-                        for i, assignment in enumerate(assignments):
-                            if assignment in sub_clusters:
-                                sub_clusters[assignment].append(cluster[i])
-                            else:
-                                sub_clusters[assignment] = [cluster[i]]
-                        for c in sub_clusters.values():
-                            final_clusters.append(c)
-
-            logging.info(f"Clustering best k scores: {clustering_scores}")
-            import pdb; pdb.set_trace()
-            print("hecz")
-
-            # ###
-            # # Stuff from oracle learning to test if the stuff is working.
-            # ###
-            # assert CFG.offline_data_method == "demo+gt_operators"
-            # assert dataset.annotations is not None and len(
-            #     dataset.annotations) == len(dataset.trajectories)
-            # assert CFG.segmenter == "option_changes"
-            # # segmented_trajs = [
-            # #     segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in atom_dataset
-            # # ]
-            # assert len(segmented_trajs) == len(dataset.annotations)
-            # # First, get the set of all ground truth operator names.
-            # all_gt_op_names = set(ground_nsrt.parent.name
-            #                       for anno_list in dataset.annotations
-            #                       for ground_nsrt in anno_list)
+            # # Step 4:
+            # final_clusters = []
+            #
+            # clustering_scores = {}
+            # for z, cluster in enumerate(all_clusters):
+            #     op_name = f"Op{z}-{cluster[0].get_option().name}"
+            #     clustering_scores[op_name] = [] # will hold scores for 1, 2, etc. clusterings
+            #
+            # for jjj, cluster in enumerate(all_clusters):
+            #     op_name = f"Op{jjj}-{cluster[0].get_option().name}"
+            #     # if "PutOnTable" not in op_name:
+            #     #     continue
+            #     # final_clusters2 = []
+            #     # for x, c in enumerate(all_clusters):
+            #     #     if x != j:
+            #     #         final_clusters2.append(c)
+            #     example_segment = cluster[0]
+            #     option_name = example_segment.get_option().name
+            #     if len(example_segment.get_option().params) == 0:
+            #         final_clusters.append(cluster)
+            #         logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {jjj+1}th cluster from STEP 3 involving option {option_name}.")
+            #
+            #     else:
+            #         for kkk in range(1, 4):
+            #             logging.info(f"Evaluating kkk {kkk} for op {op_name}.")
+            #             example_segment = cluster[0]
+            #             option_name = example_segment.get_option().name
+            #             score, eff_kkk = self.get_score(all_clusters, example_segment, segmented_trajs, jjj, kkk, candidates, initial_predicates, dataset, atom_dataset)
+            #             if score is None:
+            #                 break
+            #             clustering_scores[op_name].append((kkk, score, eff_kkk))
+            #
+            #             # import pdb; pdb.set_trace()
+            #             logging.info(f"Clustering scores: {clustering_scores}")
+            #             print("asdf")
+            #
+            #         # best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))[0]
+            #         # best_k = 1
+            #         best_k = min(clustering_scores[op_name], key=lambda x: (x[1], x[0]))
+            #         logging.info(f"BEST K: {best_k[0]}, BEST EFFECIVE K: {best_k[-1]}")
+            #
+            #         import numpy as np
+            #         from sklearn.mixture import GaussianMixture as GMM
+            #         from scipy.stats import kstest
+            #         data = np.array([seg.get_option().params for seg in cluster])
+            #
+            #
+            #         if len(data) == 1:
+            #             # Can't fit GMM to 1 data point, need at least 2
+            #             # ValueError: Found array with 1 sample(s) (shape=(1, 1)) while a minimum of 2 is required. for GMM.fit() method
+            #             # Don't subcluster
+            #             final_clusters.append(cluster)
+            #         else:
+            #             model = GMM(best_k[-1], covariance_type="full", random_state=0).fit(data)
+            #             # if "Pick" in option_name:
+            #             #     best_k = 2
+            #             # elif "PutOnTable" in option_name:
+            #             #     best_k = 1
+            #             # model = GMM(best_k, covariance_type="full", random_state=0).fit(data)
+            #             assignments = model.predict(data)
+            #             sub_clusters = {}
+            #             for i, assignment in enumerate(assignments):
+            #                 if assignment in sub_clusters:
+            #                     sub_clusters[assignment].append(cluster[i])
+            #                 else:
+            #                     sub_clusters[assignment] = [cluster[i]]
+            #             for c in sub_clusters.values():
+            #                 final_clusters.append(c)
+            #
+            # logging.info(f"Clustering best k scores: {clustering_scores}")
             # # import pdb; pdb.set_trace()
-            # # Next, make a dictionary mapping operator name to segments
-            # # where that operator was used.
-            # gt_op_to_segments: Dict[str, List[Segment]] = {
-            #     op_name: []
-            #     for op_name in all_gt_op_names
-            # }
-            # for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-            #     assert len(seg_list) == len(op_list)
-            #     for ground_nsrt, segment in zip(op_list, seg_list):
-            #         gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            # final_clusters = list(gt_op_to_segments.values())
-            # ###
+            # # print("hecz")
 
-            ####
+            ###
+            # Stuff from oracle learning to test if the stuff is working.
+            ###
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            # segmented_trajs = [
+            #     segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in atom_dataset
+            # ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_op_names = set(ground_nsrt.parent.name
+                                  for anno_list in dataset.annotations
+                                  for ground_nsrt in anno_list)
+            # import pdb; pdb.set_trace()
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_op_names
+            }
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+            final_clusters = list(gt_op_to_segments.values())
+            ###
+
+            # ###
             # take the clusters involving option paint from our computed ones,
             # but the rest from oracle
             # import pdb; pdb.set_trace()
@@ -3334,7 +3335,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #     if c[0].get_option().name == "Paint":
             #         new_final_clusters.append(c)
             # import pdb; pdb.set_trace()
-            ####
+            # ###
 
 
             # operator to preconditions, and add effects
@@ -3347,17 +3348,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # found = []
             # for operator in ddd.keys():
-            #     if operator == "Op6-StickMoveToButton":
+            #     # if "RobotMoveToButton" in operator:
+            #     if operator == 'Op8-RobotMoveToButton':
             #         c = ddd[operator][3]
-            #         add_effects_per_segment = [s.add_effects for s in c]
+            #         init_atoms_per_segment = [s.init_atoms for s in c]
             #         found = []
-            #         for per in add_effects_per_segment:
+            #         for per in init_atoms_per_segment:
             #             names = list(a.predicate.name for a in per)
             #             # if "(|(0:button).x - (1:stick).x|<=[idx 0]0.145" in names:
-            #             if '(|(0:button).x - (1:stick).x|<=[idx 0]0.145)' in names:
+            #             # if '(|(0:button).x - (1:stick).x|<=[idx 0]0.145)' in names:
+            #             if 'Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|<=[idx 0]0.145)(0,1)]' in names:
             #                 found.append(True)
             #             else:
-            #                 import pdb; pdb.set_trace()
             #                 found.append(False)
             #
             #         import pdb; pdb.set_trace()
@@ -3377,6 +3379,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             add_effects_per_cluster = []
             all_add_effects = set()
+            all_preconditions = set()
             for j, c in enumerate(final_clusters):
 
                 # add effects
@@ -3412,6 +3415,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     print(a)
                 print()
                 all_add_effects |= add_effects
+                all_preconditions |= init_atoms
 
                 # if "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]" in [str(p) for p in add_effects]:
                 #     import pdb; pdb.set_trace()
@@ -3426,7 +3430,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # import pdb; pdb.set_trace()
 
-            predicates_to_keep = all_add_effects
+            predicates_to_keep = all_add_effects | all_preconditions
 
             ##########
             # Remove inconsistent predicates.
@@ -3434,7 +3438,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # Old way to remove inconsistent predicates
             predicates_to_keep: Set[Predicate] = set()
-            for pred in all_add_effects:
+            for pred in all_add_effects | all_preconditions:
                 keep_pred = True
                 for j, seg_list in enumerate(final_clusters):
                     seg_0 = seg_list[0]
@@ -3473,6 +3477,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 else:
                     inconsistent_preds.add(pred)
 
+            import pdb; pdb.set_trace()
+            # only remove inconsistent add effects -- keep all predicates in preconditions
+            predicates_to_keep |= all_preconditions
+            print("screen")
+
             # Re-add inconsistent predicates that were necessary to disambiguate two clusters.
             # That is, if any two clusters's predicates look the same after removing inconsistent predicates from both,
             # keep all those predicates.
@@ -3492,15 +3501,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             print(f"MATCH! : {i}, {j}")
                             predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[i])
                             predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[j])
+                            for p in add_effects_per_cluster[i] | add_effects_per_cluster[j]:
+                                if p in inconsistent_preds:
+                                    print(f"ADDING BACK: {p}")
 
             # Remove the initial predicates.
             # predicates_to_keep -= initial_predicates
 
+            import pdb; pdb.set_trace()
+            print("mouse")
+
             # remove predicates we aren't keeping
-            for i, c in enumerate(final_clusters):
-                if len(c) < 10:
-                    # ddd.pop("Op"+str(i))
-                    op_name = "Op"+str(i)+"-"+str(c[0].get_option().name)
             print()
             print()
             for op, stuff in ddd.items():
@@ -3526,7 +3537,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # import pdb; pdb.set_trace()
 
-            # import pdb; pdb.set_trace()
+            import pdb; pdb.set_trace()
             logging.info("Performing backchaining to decide operator definitions.")
 
             # print("DOING CHECK SEEING IF DDD IS THE SAME")
@@ -4199,7 +4210,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         for seg2, sub in pnad.datastore:
                             if seg2 == seg:
                                 nsrt = pnad_to_nsrt[pnad]
-                                grounding = tuple(sub[p] for p in nsrt.parameters)
+                                try:
+                                    grounding = tuple(sub[p] for p in nsrt.parameters)
+                                except:
+                                    import pdb; pdb.set_trace()
                                 ground_nsrt = nsrt.ground(grounding)
                                 ground_nsrt_plan.append(ground_nsrt)
 
