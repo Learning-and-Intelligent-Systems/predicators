@@ -25,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Dict, Iterator, List, Set, Tuple, Union
+from pg3.policy_search import score_policy
 
 import smepy
 import numpy as np
@@ -50,6 +51,7 @@ from predicators.llm_interface import OpenAILLM
 from openai import OpenAI
 from predicators.approaches.prompt_gen import get_prompt
 import os
+import cProfile
 
 DEBUG = False
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -84,6 +86,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
             target_nsrts: Set[NSRT]) -> List[LiftedDecisionList]:
         # Determine analogical mappings between the current env and the
         # base env that the initialized policy originates from.
+
         self._base_nsrts = base_nsrts
         self._target_nsrts = target_nsrts
 
@@ -94,7 +97,9 @@ class GPTObjectApproach(PG3AnalogyApproach):
             for target_rule in target_rules:
                 final_rules.append(target_rule)
 
-        return [LiftedDecisionList(final_rules)]
+        initial_policy = LiftedDecisionList(final_rules)
+        final_policy = self.pg3_prune_policy(initial_policy)
+        return [final_policy]
 
     def _generate_rules(self, rule: LDLRule) -> List[LDLRule]:
         # Generates "best" rules in target environment given rule in base environment
@@ -247,6 +252,100 @@ class GPTObjectApproach(PG3AnalogyApproach):
             rule_pos_state_preconditions.add(needed_condition)
         final_rule = LDLRule("generated-rule", sorted(obj_to_var_mapping.values()), rule_pos_state_preconditions, rule_neg_state_preconditions, rule_goal_preconditions, lifted_action)
         return final_rule
+    
+    def pg3_prune_policy(self, policy: LiftedDecisionList):
+        # Prunes the policy to remove extraneous conditions using PG3 score function
+        # Generating all deletions
+        list_of_rules = policy.rules.copy()
+
+        things_to_remove = []
+        for i in range(len(list_of_rules)):
+            rule = list_of_rules[i]
+            necessary_conditions = rule.nsrt.preconditions
+            for index, group in [(0, rule.pos_state_preconditions), (1, rule.neg_state_preconditions), (2, rule.goal_preconditions)]:
+                for condition in group:
+                    if index == 0 and condition in necessary_conditions:
+                        continue
+                    things_to_remove.append((i, index, condition))
+        
+
+        # things_to_remove = things_to_remove[:5] # TODO: REMOVE THIS LATER
+
+        current_score = self.get_pg3_scores([str(policy)])[0]
+        current_list_of_rules = policy.rules.copy()
+        print(f"DONE {current_score}")
+        for rule_index, inner_rule_index, condition in things_to_remove:
+            rule = current_list_of_rules[rule_index]
+            new_pos_state_preconditions = rule.pos_state_preconditions.copy()
+            new_neg_state_preconditions = rule.neg_state_preconditions.copy()
+            new_goal_preconditions = rule.goal_preconditions.copy()
+            if inner_rule_index == 0:
+                new_pos_state_preconditions.remove(condition)
+            elif inner_rule_index == 1:
+                new_neg_state_preconditions.remove(condition)
+            else:
+                new_goal_preconditions.remove(condition)
+            new_rule = LDLRule("temp-rule", rule.parameters, new_pos_state_preconditions, new_neg_state_preconditions, new_goal_preconditions, rule.nsrt)
+
+            # Creating new policy
+            new_rules = []
+            for j in range(len(current_list_of_rules)):
+                if j != rule_index:
+                    new_rules.append(current_list_of_rules[j])
+                else:
+                    new_rules.append(new_rule)
+                
+            input = [str(LiftedDecisionList(new_rules))]
+            pg3_score = self.get_pg3_scores(input)[0]
+            if pg3_score < current_score:
+                current_list_of_rules = new_rules
+                current_score = pg3_score
+                print("===========================")
+                print("DELETED", rule_index, inner_rule_index, condition)
+                print(pg3_score)
+                print(LiftedDecisionList(new_rules))
+            else:
+                print("===========================")
+                print("SKIPPED", rule_index, inner_rule_index, condition)
+                
+        print("LOWEST SCORE POLICY")
+        lowest_score_policy = LiftedDecisionList(current_list_of_rules)
+        print(lowest_score_policy)
+        return lowest_score_policy
+    
+    def get_pg3_scores(self, policies: List[str]) -> List[float]:
+        # Get the score of policies using PG3
+        nsrts = self._get_current_nsrts()
+        predicates = self._get_current_predicates()
+        types = self._types
+        domain_name = CFG.env
+        domain_str = utils.create_pddl_domain(nsrts, predicates, types,
+                                              domain_name)
+
+        # Create the problem strs.
+        problem_strs = []
+
+        for i, train_task in enumerate(self._train_tasks):
+            problem_name = f"problem{i}"
+            goal = train_task.goal
+            objects = set(train_task.init)
+            init_atoms = utils.abstract(train_task.init, predicates)
+            problem_str = utils.create_pddl_problem(objects, init_atoms, goal,
+                                                    domain_name, problem_name)
+            problem_strs.append(problem_str)
+        
+        scores =score_policy(
+            domain_str,
+            problem_strs,
+            horizon=CFG.horizon,
+            heuristic_name=CFG.pg3_heuristic,
+            search_method=CFG.pg3_search_method,
+            max_policy_guided_rollout=CFG.pg3_max_policy_guided_rollout,
+            gbfs_max_expansions=CFG.pg3_gbfs_max_expansions,
+            hc_enforced_depth=CFG.pg3_hc_enforced_depth,
+            allow_new_vars=CFG.pg3_add_condition_allow_new_vars,
+            initial_policy_strs=policies) 
+        return scores
     
     def _score_all(self, useful_objects, useful_predicates, task_index, index):
         ground_state = self._target_states[task_index][index].simulator_state.copy()
