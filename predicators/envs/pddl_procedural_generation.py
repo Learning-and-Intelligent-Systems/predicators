@@ -1040,6 +1040,5 @@ def _generate_detypeddelivery_problem(num_locs: int, num_want_locs: int,
     (:init {init_str})
     (:goal (and {goal_str}))
 )"""
-    print("PROBLEM STR: ", problem_str)
 
     return problem_str
