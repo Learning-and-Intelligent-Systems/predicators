@@ -433,13 +433,18 @@ _DEBUG_PREDICATE_PREFIXES = {
         "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
     ],
     "stick_button_move": [
-        # NOTE: sometimes (especially with more demos) we need
-        # to use 0.146 and 0.207 for the first two constants
-        # respectively.
+        # NOTE: we have a few different versions of the same predicate
+        # here because changing the demonstration data slightly causes
+        # the value of the constant to change. Need to uncomment these
+        # as necessary.
         "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)",  # StickAboveButton
+        # "(|(0:button).x - (1:stick).x|<=[idx 0]0.146)",  # StickAboveButton
         # RobotAboveButton
         "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)"+ \
             "<=[idx 0]0.206)",
+        # RobotAboveButton
+        # "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)"+ \
+        #     "<=[idx 0]0.207)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
         "((0:button).y<=[idx 0]2.96)",  # ButtonReachable
@@ -590,7 +595,7 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                     lb2, ub2 = feature_ranges[t2][f2]
                     if abs(lb2 - ub2) < 1e-6:
                         continue
-                    lb, ub = utils.compute_abs_bounds_given_frange(
+                    lb, ub = utils.compute_abs_range_given_two_ranges(
                         lb1, ub1, lb2, ub2)
                     # Scale the constant by the correct range.
                     k = constant * (ub - lb) + lb
@@ -611,9 +616,14 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         if not any(r for r in feature_ranges.values()):
             return
         # Start by generating predicates such that the two features are
-        # very close together.
-        for ret_val in self._yield_pred_given_const(feature_ranges, 0,
-                                                    (1 / 60.0), 4.0):
+        # very close together. The reason we can't just set the constant
+        # to 1e-6 is because objects have some amount of "size", and so even
+        # when they're touching, it's not like their centers overlap.
+        # E.g. in stick button, when the robot touches the button, the center
+        # of the robot and the object might still be offset by a bit
+        for ret_val in self._yield_pred_given_const(
+                feature_ranges, 0,
+                CFG.grammar_search_diff_features_const_multiplier, 4.0):
             yield ret_val
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
@@ -628,8 +638,10 @@ class _EuclideanDistancePredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Generates predicates of the form "|0.x - 1.x|^2 + |0.y - 1.y|^2 <= c^2".
     Importantly, this only operates over types that have features
-    named "x" and "y".
+    named f1_name and f2_name.
     """
+    f1_name: str = "x"
+    f2_name: str = "y"
 
     def _compute_xy_bounds(self, feature_ranges: Dict[Type,
                                                       Dict[str, Tuple[float,
@@ -637,14 +649,14 @@ class _EuclideanDistancePredicateGrammar(
                            t1: Type, t2: Type) -> Tuple[float, float]:
         # To create our classifier, we need to leverage the
         # upper and lower bounds of its x, y features.
-        lbx1, ubx1 = feature_ranges[t1]["x"]
-        lbx2, ubx2 = feature_ranges[t2]["x"]
-        lby1, uby1 = feature_ranges[t1]["y"]
-        lby2, uby2 = feature_ranges[t2]["y"]
+        lbx1, ubx1 = feature_ranges[t1][self.f1_name]
+        lbx2, ubx2 = feature_ranges[t2][self.f1_name]
+        lby1, uby1 = feature_ranges[t1][self.f2_name]
+        lby2, uby2 = feature_ranges[t2][self.f2_name]
         # Compute the upper and lower bounds of each feature range.
-        lbx, ubx = utils.compute_abs_bounds_given_frange(
+        lbx, ubx = utils.compute_abs_range_given_two_ranges(
             lbx1, ubx1, lbx2, ubx2)
-        lby, uby = utils.compute_abs_bounds_given_frange(
+        lby, uby = utils.compute_abs_range_given_two_ranges(
             lby1, uby1, lby2, uby2)
         # Now, use these to compute the upper and lower bounds of
         # the squared expression of interest.
@@ -674,12 +686,13 @@ class _EuclideanDistancePredicateGrammar(
         # to indicate that the objects are touching/overlapped.
         for (t1, t2) in itertools.combinations_with_replacement(
                 sorted(self.types), 2):
-            if t1 == t2:
-                continue
-            if ("x" in t1.feature_names and "x" in t2.feature_names
-                    and "y" in t1.feature_names and "y" in t2.feature_names):
+            if (self.f1_name in t1.feature_names
+                    and self.f1_name in t2.feature_names
+                    and self.f2_name in t1.feature_names
+                    and self.f2_name in t2.feature_names):
                 lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
-                constant = ((ub - lb) / 500) + lb
+                constant = ((ub - lb) *
+                            CFG.grammar_search_euclidean_const_multiplier) + lb
                 pred = self._generate_pred_given_constant(0, constant, t1, t2)
                 assert pred.arity == 2
                 yield (pred, 3.0)  # cost = arity + cost from constant
@@ -689,11 +702,10 @@ class _EuclideanDistancePredicateGrammar(
         for constant_idx, (constant, cost) in enumerate(constant_generator):
             for (t1, t2) in itertools.combinations_with_replacement(
                     sorted(self.types), 2):
-                if t1 == t2:
-                    continue
-                if ("x" in t1.feature_names and "x" in t2.feature_names
-                        and "y" in t1.feature_names
-                        and "y" in t2.feature_names):
+                if (self.f1_name in t1.feature_names
+                        and self.f1_name in t2.feature_names
+                        and self.f2_name in t1.feature_names
+                        and self.f2_name in t2.feature_names):
                     lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
                     # Scale the constant by the correct range.
                     k = constant * (ub - lb) + lb

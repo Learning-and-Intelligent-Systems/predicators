@@ -110,7 +110,7 @@ class StickButtonGroundTruthOptionFactory(GroundTruthOptionFactory):
                    params: Array) -> Action:
             del memory, params  # unused
             # If the robot and button are already pressing, press.
-            if StickButtonEnv.Above_holds(state, objects):
+            if StickButtonEnv.Above_holds(state, objects[:2]):
                 return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Otherwise, move toward the button.
             robot, button, _ = objects
@@ -373,7 +373,7 @@ class StickButtonMovementGroundTruthOptionFactory(
             del memory, params  # unused
             action = Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
             # If the robot and button are already pressing, press.
-            if StickButtonEnv.Above_holds(state, objects):
+            if StickButtonEnv.Above_holds(state, objects[:2]):
                 action = Action(
                     np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
@@ -394,9 +394,6 @@ class StickButtonMovementGroundTruthOptionFactory(
             tip_rect = StickButtonEnv.stick_rect_to_tip_rect(stick_rect)
             # If the stick tip is pressing the button, press.
             if tip_rect.intersects(button_circ):
-                # if (state.get(button, "y") <= 2.96):
-                #     print(state.get(button, "y"))
-                # print(abs(state.get(button, "y") - state.get(stick, "y")))
                 return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
             return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))

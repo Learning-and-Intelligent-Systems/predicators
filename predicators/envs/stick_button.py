@@ -416,11 +416,8 @@ class StickButtonEnv(BaseEnv):
     @classmethod
     def Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Public for use by oracle options."""
-        if len(objects) == 3:
-            obj1, obj2, _ = objects
-        else:
-            assert len(objects) == 2
-            obj1, obj2 = objects
+        assert len(objects) == 2
+        obj1, obj2 = objects
         geom1 = cls.object_to_geom(obj1, state)
         geom2 = cls.object_to_geom(obj2, state)
         return geom1.intersects(geom2)
