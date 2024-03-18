@@ -804,7 +804,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             variable_input = {
                 ("up", "sail") : {"?f1": "?from", "?f2": "?to"},
-                ("down", "move") : {"?f1": "?from", "?f2": "?to"},
+                ("down", "sail") : {"?f1": "?from", "?f2": "?to"},
                 ("board", "board") : {"?p": "?car", "?f": "?loc"},
                 ("depart", "debark") : {"?p": "?car", "?f": "?loc"},
             }
