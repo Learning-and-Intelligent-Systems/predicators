@@ -847,3 +847,199 @@ def _generate_miconic_problem(
 )"""
 
     return problem_str
+
+####### DETYPED MICONIC ########
+def create_detypedmiconic_pddl_generator(
+    min_num_buildings: int,
+    max_num_buildings: int,
+    min_num_floors: int,
+    max_num_floors: int,
+    min_num_passengers: int,
+    max_num_passengers: int,
+) -> PDDLProblemGenerator:
+    """Create a generator for miconic problems."""
+    return functools.partial(_generate_detypedmiconic_problems, min_num_buildings,
+                             max_num_buildings, min_num_floors, max_num_floors,
+                             min_num_passengers, max_num_passengers)
+
+
+def _generate_detypedmiconic_problems(
+    min_num_buildings: int,
+    max_num_buildings: int,
+    min_num_floors: int,
+    max_num_floors: int,
+    min_num_passengers: int,
+    max_num_passengers: int,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_buildings = rng.integers(min_num_buildings, max_num_buildings + 1)
+        num_floors = rng.integers(min_num_floors, max_num_floors + 1)
+        num_passengers = rng.integers(min_num_passengers,
+                                      max_num_passengers + 1)
+        problem = _generate_detypedmiconic_problem(num_buildings, num_floors,
+                                            num_passengers, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_detypedmiconic_problem(
+    num_buildings: int,
+    num_floors: int,
+    num_passengers: int,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create floors and passengers per building.
+    buildings = list(range(num_buildings))
+    building_to_floors: Dict[int, List[str]] = {b: [] for b in buildings}
+    building_to_passengers: Dict[int, List[str]] = {b: [] for b in buildings}
+    for b in buildings:
+        # Create floors.
+        for i in range(num_floors):
+            floor = f"f{i}_b{b}"
+            building_to_floors[b].append(floor)
+            init_strs.add(f"(floor {floor})")
+        # Create passengers.
+        for i in range(num_passengers):
+            passenger = f"p{i}_b{b}"
+            building_to_passengers[b].append(passenger)
+            init_strs.add(f"(passenger {passenger})")
+
+    # Create above atoms.
+    for b in buildings:
+        building_floors = building_to_floors[b]
+        for i, below_floor in enumerate(building_floors[:-1]):
+            for above_floor in building_floors[i + 1:]:
+                init_strs.add(f"(above {below_floor} {above_floor})")
+
+    # Create origin and destination atoms.
+    for b in buildings:
+        building_passengers = building_to_passengers[b]
+        free_floors = list(building_to_floors[b])
+        for passenger in building_passengers:
+            # Only allow one passenger origin or destination per floor.
+            origin = rng.choice(free_floors)
+            free_floors.remove(origin)
+            destination = rng.choice(free_floors)
+            init_strs.add(f"(origin {passenger} {origin})")
+            init_strs.add(f"(destin {passenger} {destination})")
+
+    # Create lift origins.
+    for b in buildings:
+        building_floors = building_to_floors[b]
+        lift_origin = rng.choice(building_floors)
+        init_strs.add(f"(lift-at {lift_origin})")
+
+    # Create goal atoms.
+    for b in buildings:
+        building_passengers = building_to_passengers[b]
+        for passenger in building_passengers:
+            goal_strs.add(f"(served {passenger})")
+
+    # Finalize PDDL problem str.
+    all_floors = [f for fs in building_to_floors.values() for f in fs]
+    all_passengers = [p for ps in building_to_passengers.values() for p in ps]
+    floors_str = " ".join(sorted(all_floors))
+    passengers_str = " ".join(sorted(all_passengers))
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem miconic-procgen)
+    (:domain detypedmiconic)
+    (:objects
+        {floors_str} 
+        {passengers_str} 
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
+
+################################## DETYPED Delivery ###################################
+
+
+def create_detypeddelivery_pddl_generator(
+        min_num_locs: int, max_num_locs: int, min_num_want_locs: int,
+        max_num_want_locs: int, min_num_extra_newspapers: int,
+        max_num_extra_newspapers: int) -> PDDLProblemGenerator:
+    """Create a generator for delivery problems."""
+    return functools.partial(_generate_detypeddelivery_problems, min_num_locs,
+                             max_num_locs, min_num_want_locs,
+                             max_num_want_locs, min_num_extra_newspapers,
+                             max_num_extra_newspapers)
+
+
+def _generate_detypeddelivery_problems(min_num_locs: int, max_num_locs: int,
+                                min_num_want_locs: int, max_num_want_locs: int,
+                                min_num_extra_newspapers: int,
+                                max_num_extra_newspapers: int,
+                                num_problems: int,
+                                rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_locs = rng.integers(min_num_locs, max_num_locs + 1)
+        num_want_locs = rng.integers(min_num_want_locs, max_num_want_locs + 1)
+        num_extra_newspapers = rng.integers(min_num_extra_newspapers,
+                                            max_num_extra_newspapers + 1)
+        num_newspapers = num_want_locs + num_extra_newspapers
+        problem = _generate_detypeddelivery_problem(num_locs, num_want_locs,
+                                             num_newspapers, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_detypeddelivery_problem(num_locs: int, num_want_locs: int,
+                               num_newspapers: int,
+                               rng: np.random.Generator) -> str:
+    init_strs = set()
+    goal_strs = set()
+
+    # Create locations.
+    locs = [f"loc-{i}" for i in range(num_locs)]
+    # Randomize the home location.
+    home_loc = locs[rng.choice(num_locs)]
+    possible_targets = [l for l in locs if l != home_loc]
+    target_locs = rng.choice(possible_targets, num_want_locs, replace=False)
+    # Add the initial state and goal atoms about the locations.
+    for loc in locs:
+        if loc == home_loc:
+            init_strs.add(f"(isHomeBase {loc})")
+            init_strs.add(f"(at {loc})")
+            init_strs.add(f"(safe {loc})")
+            init_strs.add(f"(satisfied {loc})")
+        if loc in target_locs:
+            init_strs.add(f"(wantsPaper {loc})")
+            init_strs.add(f"(safe {loc})")
+            goal_strs.add(f"(satisfied {loc})")
+        init_strs.add(f"(loc {loc})")
+
+    # Create papers.
+    papers = [f"paper-{i}" for i in range(num_newspapers)]
+    # Add the initial state atoms about the papers.
+    for paper in papers:
+        init_strs.add(f"(unpacked {paper})")
+        init_strs.add(f"(paper {paper})")
+
+    # Finalize PDDL problem str.
+    locs_str = "\n        ".join(locs)
+    papers_str = "\n        ".join(papers)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem delivery-procgen)
+    (:domain delivery)
+    (:objects
+        {locs_str}
+        {papers_str}
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+    print("PROBLEM STR: ", problem_str)
+
+    return problem_str
