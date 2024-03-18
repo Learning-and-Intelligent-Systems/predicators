@@ -18,7 +18,7 @@ from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Dataset, GroundAtomTrajectory, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type
+    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type, PNAD
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -82,7 +82,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   self._action_space,
                                   ground_atom_dataset,
                                   sampler_learner=CFG.sampler_learner,
-                                  annotations=annotations)
+                                  annotations=annotations,
+                                  known_pnads=self._pnads)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)

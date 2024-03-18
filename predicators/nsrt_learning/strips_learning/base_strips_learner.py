@@ -22,6 +22,7 @@ class BaseSTRIPSLearner(abc.ABC):
                  segmented_trajs: List[List[Segment]],
                  verify_harmlessness: bool,
                  annotations: Optional[List[Any]],
+                 known_pnads: Optional[Set[PNAD]],
                  verbose: bool = True) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -31,6 +32,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._verbose = verbose
         self._num_segments = sum(len(t) for t in segmented_trajs)
         self._annotations = annotations
+        self._known_pnads = known_pnads
         assert len(self._trajectories) == len(self._segmented_trajs)
 
     def learn(self) -> List[PNAD]:
@@ -115,10 +117,14 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
+
+        counter = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
                 continue
+            print(f"Checking harmlessness on demo {counter}")
+            counter += 1
             atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
             task = self._train_tasks[ll_traj.train_task_idx]
             traj_goal = task.goal
@@ -159,6 +165,78 @@ class BaseSTRIPSLearner(abc.ABC):
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, self._predicates, strips_ops, option_specs, init_atoms,
             traj_goal, option_plan, atoms_seq)
+
+        if ground_nsrt_plan is None:
+            import pdb; pdb.set_trace()
+
+            for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
+            objs = list(init_state.data.keys())
+            robot = [o for o in objs if o.name == "robby"][0]
+            button0 = [o for o in objs if o.name == "button0"][0]
+            button1 = [o for o in objs if o.name == "button1"][0]
+            holder = [o for o in objs if o.name == "holder"][0]
+            stick = [o for o in objs if o.name == "stick"][0]
+
+            # Oracle operators:
+            # RobotMoveToButtonFromNothing
+            # RobotMoveToButtonFromButton
+            # StickMoveToButtonFromNothing
+            # StickMoveToButtonFromButton
+            # RobotPressButton
+            # PickStickFromNothing
+            # PickStickFromButton
+            # StickPressButton
+            # PlaceStickFromNothing
+            # PlaceStickFromButton
+
+            # What we extract with oracle clusters
+            # Op1-RobotMoveToButton'
+            # Op8-RobotMoveToButton
+            # Op5-StickMoveToButton
+            # Op6-StickMoveToButton
+            # Op3-RobotPressButton
+            # Op2-PickStick
+            # Op7-PickStick
+            # Op0-StickPressButton
+            # Op4-PlaceStick
+
+            
+
+
+            # Op0_StickPressButton = [op for op in strips_ops if op.name=="Op0-StickPressButton"][0]
+            # Op1_RobotMoveToButton = [op for op in strips_ops if op.name=="Op1-RobotMoveToButton"][0]
+            # Op2_PickStick = [op for op in strips_ops if op.name=="Op2-PickStick"][0]
+            # Op3_RobotPressButton = [op for op in strips_ops if op.name=="Op3-RobotPressButton"][0]
+            # Op4_PlaceStick = [op for op in strips_ops if op.name=="Op4-PlaceStick"][0]
+            # Op5_StickMoveToButton = [op for op in strips_ops if op.name=="Op5-StickMoveToButton"][0]
+            # Op6_StickMoveToButton = [op for op in strips_ops if op.name=="Op6-StickMoveToButton"][0]
+            # Op7_PickStick = [op for op in strips_ops if op.name=="Op7-PickStick"][0]
+            # Op8_RobotMoveToButton = [op for op in strips_ops if op.name=="Op8-RobotMoveToButton"][0]
+
+            # demo 0: ['Op8-RobotMoveToButton', 'Op3-RobotPressButton', 'Op7-PickStick', 'Op6-StickMoveToButton', 'Op0-StickPressButton']
+            # disagreement between earlier thing, and what is in the harmless check
+            # demo 0: ['Op0-RobotMoveToButton', 'Op1-RobotPressButton', 'Op4-PickStick', 'Op2-StickMoveToButton', 'Op3-StickPressButton']
+
+            # first = Op8_RobotMoveToButton.ground((button0, robot))
+            # second = Op3_RobotPressButton.ground((button0, robot, stick))
+            # third = Op7_PickStick.ground((button0, robot, stick))
+            # fourth = Op6_StickMoveToButton.ground((button1, robot, stick))
+            # fifth = Op0_StickPressButton.ground((button1, robot, stick))
+            # plan = [first, second, third, fourth, fifth]
+
+            first = Op8_RobotMoveToButton.ground((button0, robot))
+            second = Op3_RobotPressButton.ground((button0, robot, stick))
+            third = Op4_PickStick.ground((robot, stick))
+            fourth = Op6_StickMoveToButton.ground((button1, robot, stick))
+            fifth = Op0_StickPressButton.ground((button1, robot, stick))
+            plan = [first, second, third, fourth, fifth]
+
+            curr_atoms = init_atoms
+            i = 0
+            plan[i].preconditions.issubset(curr_atoms)
+            curr_atoms = (curr_atoms | plan[i].add_effects) - plan[i].delete_effects
+            i += 1
+
         return ground_nsrt_plan is not None
 
     def _recompute_datastores_from_segments(self, pnads: List[PNAD]) -> None:

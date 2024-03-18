@@ -45,6 +45,7 @@ class OracleApproach(BilevelPlanningApproach):
         if nsrts is None:
             nsrts = get_gt_nsrts(CFG.env, self._initial_predicates,
                                  self._initial_options)
+        print("LENGTH OF NSRTS: ", len(nsrts))
         self._nsrts = nsrts
 
     @classmethod

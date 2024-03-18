@@ -614,6 +614,7 @@ class GlobalSettings:
     grammar_search_use_handcoded_debug_grammar = False
     grammar_search_pred_selection_approach = "score_optimization"
     grammar_search_pred_clusterer = "oracle"
+    grammar_search_learn_operators_given_clusters = True
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
