@@ -26,7 +26,7 @@ from predicators.envs.pddl_procedural_generation import \
     create_ferry_pddl_generator, create_forest_pddl_generator, \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
     create_spanner_pddl_generator, create_detypedmiconic_pddl_generator, \
-    create_detypeddelivery_pddl_generator
+    create_detypeddelivery_pddl_generator, create_detypedforest_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, PDDLProblemGenerator, Predicate, State, \
@@ -709,6 +709,38 @@ class ProceduralTasksDetypedDeliveryPDDLEnv(_DetypedDeliveryPDDLEnv):
         return create_detypeddelivery_pddl_generator(min_num_locs, max_num_locs,
                                               min_want_locs, max_want_locs,
                                               min_ex_news, max_ex_news)
+
+
+class _DetypedForestPDDLEnv(_PDDLEnv):
+    """The detyped forest domain from the PG3 paper."""
+
+    @classmethod
+    def get_domain_str(cls) -> str:
+        path = utils.get_env_asset_path("pddl/detypedforest/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksDetypedForestPDDLEnv(_DetypedForestPDDLEnv):
+    """The detyped forest domain from the PG3 paper with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_detypedforest_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_size = CFG.pddl_forest_procedural_train_min_size
+        max_size = CFG.pddl_forest_procedural_train_max_size
+        return create_detypedforest_pddl_generator(min_size, max_size)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_size = CFG.pddl_forest_procedural_test_min_size
+        max_size = CFG.pddl_forest_procedural_test_max_size
+        return create_detypedforest_pddl_generator(min_size, max_size)
+
 
 ###############################################################################
 #                            Utility functions                                #

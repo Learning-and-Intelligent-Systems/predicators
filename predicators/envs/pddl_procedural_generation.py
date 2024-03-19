@@ -1042,3 +1042,116 @@ def _generate_detypeddelivery_problem(num_locs: int, num_want_locs: int,
 )"""
 
     return problem_str
+
+################################## DETYPED Forest ###################################
+
+def create_detypedforest_pddl_generator(min_size: int,
+                                 max_size: int) -> PDDLProblemGenerator:
+    """Create a generator for forest problems."""
+    return functools.partial(_generate_detypedforest_problems, min_size, max_size)
+
+
+def _generate_detypedforest_problems(min_size: int, max_size: int, num_problems: int,
+                              rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        height = rng.integers(min_size, max_size + 1)
+        width = rng.integers(min_size, max_size + 1)
+        problem = _generate_detypedforest_problem(height, width, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_detypedforest_problem(height: int, width: int,
+                             rng: np.random.Generator) -> str:
+    grid = np.array(_generate_random_forest_grid(height, width, rng))
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create location objects.
+    objects = set()
+    grid_locs = np.empty(grid.shape, dtype=object)
+    for r in range(grid.shape[0]):
+        for c in range(grid.shape[1]):
+            obj = f"r{r}_c{c}"
+            objects.add(obj)
+            grid_locs[r, c] = obj
+
+    # Add at, IsWater, and isHill to init_strs.
+    for r in range(grid.shape[0]):
+        for c in range(grid.shape[1]):
+            obj = grid_locs[r, c]
+            if grid[r, c] == FOREST_I:
+                init_strs.add(f"(at {obj})")
+
+            if grid[r, c] != FOREST_W:
+                init_strs.add(f"(isNotWater {obj})")
+
+            if grid[r, c] == FOREST_H:
+                init_strs.add(f"(isHill {obj})")
+            else:
+                init_strs.add(f"(isNotHill {obj})")
+            
+            init_strs.add(f"(loc {obj})")
+
+    # Add adjacent to init_strs.
+    def get_neighbors(r: int, c: int) -> Iterator[Tuple[int, int]]:
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr = r + dr
+            nc = c + dc
+            if 0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1]:
+                yield (nr, nc)
+
+    for r in range(grid.shape[0]):
+        for c in range(grid.shape[1]):
+            obj = grid_locs[r, c]
+            for (nr, nc) in get_neighbors(r, c):
+                nobj = grid_locs[nr, nc]
+                init_strs.add(f"(adjacent {obj} {nobj})")
+
+    # Add onTrail to init_strs.
+
+    # Construct the entire path from the initial location to the goal while
+    # staying on then trail.
+    trail_path = []
+    r, c = np.argwhere(grid == FOREST_I)[0]
+    while True:
+        trail_path.append((r, c))
+        if grid[r, c] == FOREST_G:
+            break
+        for (nr, nc) in get_neighbors(r, c):
+            if (nr, nc) in trail_path:
+                continue
+            if grid[nr, nc] in [FOREST_P, FOREST_G, FOREST_H]:
+                r, c = nr, nc
+                break
+        else:  # pragma: no cover
+            raise Exception("Should not happen")
+
+    for (r, c), (nr, nc) in zip(trail_path[:-1], trail_path[1:]):
+        obj = grid_locs[r, c]
+        nobj = grid_locs[nr, nc]
+        init_strs.add(f"(onTrail {obj} {nobj})")
+
+    # Create goal str.
+    goal_rcs = np.argwhere(grid == FOREST_G)
+    assert len(goal_rcs) == 1
+    goal_r, goal_c = goal_rcs[0]
+    goal_obj = grid_locs[goal_r, goal_c]
+    goal_strs.add(f"(at {goal_obj})")
+
+    # Finalize PDDL problem str.
+    locs_str = "\n        ".join(objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem forest-procgen)
+    (:domain forest)
+    (:objects
+        {locs_str}
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
