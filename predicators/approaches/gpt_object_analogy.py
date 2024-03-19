@@ -569,6 +569,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             # name_analogies = {'WANT-at': ['destin', 'WANT-served'], 'empty-ferry': ['NOT-boarded']}
             pass
+
+        # Gripper -> Detyped Forest
+        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            pass
+
+        # Ferry -> Detyped Forest
+        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            pass
         
         for base_name, target_names in name_analogies.items():
             self._predicate_analogies[base_name] = [target_env_name_to_predicate[target_name] for target_name in target_names]
@@ -614,6 +622,23 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 "at-ferry": ["at"],
                 "on": ["carrying"],
             }
+
+        # Gripper -> Detyped Forest
+        if 'gripper' in self._base_env.get_name() and 'detypedforest' in self._target_env.get_name():
+            predicate_input = {
+                "room": ["loc"],
+                "at-robby": ["at"],
+                "at": ["at"],
+            }
+
+        # Ferry -> Detyped Miconic
+        if 'ferry' in self._base_env.get_name() and 'detypedforest' in self._target_env.get_name():
+            predicate_input = {
+                "location": ["loc"],
+                "at-ferry": ["at"],
+                "at": ["at"],
+            }
+
 
         target_env_name_to_predicate = {}
         for predicate in self._target_env.predicates:
@@ -781,11 +806,20 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'gripper' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
             nsrt_input = { "move": ["move"], "pick": ["pick-up"], "drop": ["deliver"], }
 
-        # Ferry -> Gripper
+        # Ferry -> Detyped Delivery
         if 'ferry' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
             nsrt_input = { "sail": ["move"], "board": ["pick-up"], "debark": ["deliver"], }
 
+        # Gripper -> Detyped Forest
+        if 'gripper' in self._base_env.get_name() and 'detypedforest' in self._target_env.get_name():
+            nsrt_input = { "move": ["walk", "climb"]}
 
+        # Ferry -> Detyped Forest
+        if 'ferry' in self._base_env.get_name() and 'detypedforest' in self._target_env.get_name():
+            nsrt_input = { "sail": ["walk", "climb"]}
+
+        if rule.nsrt.name not in nsrt_input:
+            return []
         target_env_nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in self._target_nsrts}
         analagous_target_nsrts = [target_env_nsrt_name_to_nsrt[nsrt_name] for nsrt_name in nsrt_input[rule.nsrt.name]]
         return analagous_target_nsrts
@@ -839,6 +873,20 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 ("move", "sail") : {"?from": "?from", "?to": "?to"},
                 ("pick-up", "board") : {"?paper": "?car", "?loc": "?loc"},
                 ("deliver", "debark") : {"?paper": "?car", "?loc": "?loc"},
+            }
+
+         # Gripper -> Detyped Forest
+        if 'gripper' in self._base_env.get_name() and 'detypedforest' in self._target_env.get_name():
+            variable_input = {
+                ("walk", "move") : {"?from": "?from", "?to": "?to"},
+                ("climb", "move") : {"?from": "?from", "?to": "?to"},
+            }
+
+        # Ferry -> Detyped Forest
+        if 'ferry' in self._base_env.get_name() and 'detypedforest' in self._target_env.get_name():
+            variable_input = {
+                ("walk", "sail") : {"?from": "?from", "?to": "?to"},
+                ("climb", "sail") : {"?from": "?from", "?to": "?to"},
             }
 
         if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
