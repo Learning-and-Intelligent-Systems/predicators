@@ -51,7 +51,6 @@ from predicators.llm_interface import OpenAILLM
 from openai import OpenAI
 from predicators.approaches.prompt_gen import get_prompt
 import os
-import cProfile
 
 DEBUG = False
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -560,6 +559,16 @@ class GPTObjectApproach(PG3AnalogyApproach):
         # Ferry -> Detyped Miconic
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             name_analogies = {'WANT-at': ['destin', 'WANT-served'], 'empty-ferry': ['NOT-boarded']}
+
+        # Gripper -> Detyped Delivery
+        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            # name_analogies = {'WANT-at': ['destin', 'WANT-served'], 'free': ['NOT-boarded']}
+            pass
+
+        # Ferry -> Detyped Delivery
+        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            # name_analogies = {'WANT-at': ['destin', 'WANT-served'], 'empty-ferry': ['NOT-boarded']}
+            pass
         
         for base_name, target_names in name_analogies.items():
             self._predicate_analogies[base_name] = [target_env_name_to_predicate[target_name] for target_name in target_names]
@@ -591,21 +600,19 @@ class GPTObjectApproach(PG3AnalogyApproach):
         # Gripper -> Detyped Miconic
         if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             predicate_input = {
-                "ball": ["passenger"],
-                "room": ["floor"],
-                "at-robby": ["lift-at"],
-                "at": ["origin", "destin"],
-                "carry": ["boarded"],
+                "ball": ["paper"],
+                "room": ["loc"],
+                "at-robby": ["at"],
+                "carry": ["carrying"],
             }
 
         # Ferry -> Detyped Miconic
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             predicate_input = {
-                "car": ["passenger"],
-                "location": ["floor"],
-                "at-ferry": ["lift-at"],
-                "at": ["origin", "destin"],
-                "on": ["boarded"],
+                "car": ["paper"],
+                "location": ["loc"],
+                "at-ferry": ["at"],
+                "on": ["carrying"],
             }
 
         target_env_name_to_predicate = {}
@@ -770,6 +777,15 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             nsrt_input = { "sail": ["up", "down"], "board": ["board"], "debark": ["depart"], }
 
+        # Gripper -> Detyped Delivery
+        if 'gripper' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
+            nsrt_input = { "move": ["move"], "pick": ["pick-up"], "drop": ["deliver"], }
+
+        # Ferry -> Gripper
+        if 'ferry' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
+            nsrt_input = { "sail": ["move"], "board": ["pick-up"], "debark": ["deliver"], }
+
+
         target_env_nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in self._target_nsrts}
         analagous_target_nsrts = [target_env_nsrt_name_to_nsrt[nsrt_name] for nsrt_name in nsrt_input[rule.nsrt.name]]
         return analagous_target_nsrts
@@ -807,6 +823,22 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 ("down", "sail") : {"?f1": "?from", "?f2": "?to"},
                 ("board", "board") : {"?p": "?car", "?f": "?loc"},
                 ("depart", "debark") : {"?p": "?car", "?f": "?loc"},
+            }
+        
+        # Gripper -> Detyped Delivery
+        if 'gripper' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
+            variable_input = {
+                ("move", "move") : {"?from": "?from", "?to": "?to"},
+                ("pick-up", "pick") : {"?paper": "?obj", "?loc": "?room"},
+                ("deliver", "drop") : {"?paper": "?obj", "?loc": "?room"},
+            }
+
+        # Ferry -> Detyped Delivery
+        if 'ferry' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
+            variable_input = {
+                ("move", "sail") : {"?from": "?from", "?to": "?to"},
+                ("pick-up", "board") : {"?paper": "?car", "?loc": "?loc"},
+                ("deliver", "debark") : {"?paper": "?car", "?loc": "?loc"},
             }
 
         if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
