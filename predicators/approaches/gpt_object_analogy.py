@@ -127,6 +127,9 @@ class GPTObjectApproach(PG3AnalogyApproach):
         best_index = None
         best_task_index = None
         for task_index in range(len(self._target_tasks)):
+            # In case planning for a task fails
+            if task_index >= len(self._target_states) or len(self._target_states[task_index]) == 0:
+                continue
             for i in range(len(self._target_states[task_index])-1):
                 target_action = self._target_actions[task_index][i]
                 if target_action.name != target_nsrt.name:
@@ -577,6 +580,10 @@ class GPTObjectApproach(PG3AnalogyApproach):
         # Ferry -> Detyped Forest
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             pass
+
+        # Gripper -> Logistics
+        if 'gripper' in self._base_env.get_name() and 'logistics' in self._target_env.get_name():
+            name_analogies = {'WANT-at': ['WANT-at']}
         
         for base_name, target_names in name_analogies.items():
             self._predicate_analogies[base_name] = [target_env_name_to_predicate[target_name] for target_name in target_names]
@@ -639,6 +646,16 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 "at": ["at"],
             }
 
+        # Gripper -> Logistics
+        if 'gripper' in self._base_env.get_name() and 'logistics' in self._target_env.get_name():
+            predicate_input = {
+                "room": ["location", "city", "airport"],
+                "ball": ["obj"],
+                "gripper": ["truck", "airplane"],
+                "at-robby": ["at"],
+                "at": ["at"],
+                "carry": ["in"],
+            }
 
         target_env_name_to_predicate = {}
         for predicate in self._target_env.predicates:
@@ -818,6 +835,12 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'ferry' in self._base_env.get_name() and 'detypedforest' in self._target_env.get_name():
             nsrt_input = { "sail": ["walk", "climb"]}
 
+        # Gripper -> Logistics
+        if 'gripper' in self._base_env.get_name() and 'logistics' in self._target_env.get_name():
+            nsrt_input = { "move": ["drive-truck", "fly-airplane"],
+                            "pick": ["load-truck", "load-airplane"],
+                            "drop": ["unload-truck", "unload-airplane"]}
+
         if rule.nsrt.name not in nsrt_input:
             return []
         target_env_nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in self._target_nsrts}
@@ -888,6 +911,18 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 ("walk", "sail") : {"?from": "?from", "?to": "?to"},
                 ("climb", "sail") : {"?from": "?from", "?to": "?to"},
             }
+
+         # Gripper -> Logistics
+        if 'gripper' in self._base_env.get_name() and 'logistics' in self._target_env.get_name():
+            variable_input = {
+                ("drive-truck", "move") : {"?loc-from": "?from", "?loc-to": "?to"},
+                ("fly-airplane", "move") : {"?loc-from": "?from", "?loc-to": "?to"},
+                ("unload-truck", "drop") : {"?obj": "?obj", "?loc": "?room", "?truck": "?gripper"},
+                ("unload-airplane", "drop") : {"?obj": "?obj", "?loc": "?room", "?airplane": "?gripper"},
+                ("load-truck", "pick") : {"?obj": "?obj", "?loc": "?room", "?truck": "?gripper"},
+                ("load-airplane", "pick") : {"?obj": "?obj", "?loc": "?room", "?airplane": "?gripper"},
+            }
+
 
         if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
             var_name = variable_input[(target_nsrt.name, rule.nsrt.name)][nsrt_param.name]
