@@ -259,6 +259,29 @@ class GlobalSettings:
     pddl_miconic_procedural_test_min_passengers = 1
     pddl_miconic_procedural_test_max_passengers = 2
 
+    """
+    1 - 3 airplanes
+    2 - 4 cities (equal number of trucks, one per city)
+    1 - 5 locations per city (one location per city is an airport)
+    1 - 3 objects total (goal is random among ALL locations)
+    """
+    # pddl logistics env parameters
+    pddl_logistics_procedural_train_min_airplanes = 1
+    pddl_logistics_procedural_train_max_airplanes = 3
+    pddl_logistics_procedural_train_min_cities = 2
+    pddl_logistics_procedural_train_max_cities = 3
+    pddl_logistics_procedural_train_min_locations_per_city = 1
+    pddl_logistics_procedural_train_max_locations_per_city = 3
+    pddl_logistics_procedural_train_min_objects = 1
+    pddl_logistics_procedural_train_max_objects = 3
+    pddl_logistics_procedural_test_min_airplanes = 3
+    pddl_logistics_procedural_test_max_airplanes = 9
+    pddl_logistics_procedural_test_min_cities = 6
+    pddl_logistics_procedural_test_max_cities = 12
+    pddl_logistics_procedural_test_min_locations_per_city = 3
+    pddl_logistics_procedural_test_max_locations_per_city = 15
+    pddl_logistics_procedural_test_min_objects = 3
+    pddl_logistics_procedural_test_max_objects = 9
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]

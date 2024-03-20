@@ -1155,3 +1155,103 @@ def _generate_detypedforest_problem(height: int, width: int,
 )"""
 
     return problem_str
+
+
+################################## Logistics ###################################
+
+def create_logistics_pddl_generator(
+    min_num_cities: int, max_num_cities: int, min_num_locs_per_city: int,
+    max_num_locs_per_city: int, min_num_objects: int, max_num_objects: int,
+    min_num_airplanes: int, max_num_airplanes) -> PDDLProblemGenerator:
+    """Create a generator for logistics problems."""
+    return functools.partial(_generate_logistics_problems, min_num_cities,
+                 max_num_cities, min_num_locs_per_city,
+                 max_num_locs_per_city, min_num_objects, max_num_objects,
+                    min_num_airplanes, max_num_airplanes)
+
+
+def _generate_logistics_problems(min_num_cities: int, max_num_cities: int,
+                                min_num_locs_per_city: int, max_num_locs_per_city: int,
+                                min_num_objects: int, max_num_objects: int,
+                                min_num_airplanes: int, max_num_airplanes: int,
+                                num_problems: int,
+                                rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_cities = rng.integers(min_num_cities, max_num_cities + 1)
+        num_locs_per_city = [rng.integers(min_num_locs_per_city, max_num_locs_per_city + 1) for _ in range(num_cities)]
+        num_objects = rng.integers(min_num_objects, max_num_objects + 1)
+        num_airplanes = rng.integers(min_num_airplanes, max_num_airplanes + 1)
+        problem = _generate_logistics_problem(num_cities, num_locs_per_city, num_objects, num_airplanes, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_logistics_problem(num_cities: int, num_locs_per_city: List[int], num_objects: int, num_airplanes: int, rng: np.random.Generator) -> str:
+    init_strs = set()
+    goal_strs = set()
+
+    # Create locations.
+    all_locs = []
+    airport_locs = []
+    all_cities = []
+    all_trucks = []
+    for city, num_locs in enumerate(num_locs_per_city):
+        city_str = f"city{city}"
+        all_cities.append(city_str)
+        init_strs.add(f"(city {city_str})")
+        city_locs = []
+        for loc in range(num_locs):
+            loc_str = f"loc{loc}_city{city}"
+            init_strs.add(f"(location {loc_str})")
+            if loc == 0:
+                init_strs.add(f"(airport {loc_str})")
+                airport_locs.append(loc_str)
+            init_strs.add(f"(in-city {loc_str} {city_str})")
+            all_locs.append(loc_str)
+            city_locs.append(loc_str)
+        
+        truck = f"truck_{city}"
+        all_trucks.append(truck)
+        init_strs.add(f"(truck {truck})")
+        init_strs.add(f"(at {truck} {rng.choice(city_locs)})")
+    
+    all_airplanes = []
+    for airplane in range(num_airplanes):
+        airplane_str = f"airplane{airplane}"
+        init_strs.add(f"(airplane {airplane_str})")
+        init_strs.add(f"(at {airplane_str} {rng.choice(airport_locs)})")
+        all_airplanes.append(airplane_str)
+    
+    all_objects = []
+    for obj in range(num_objects):
+        obj_str = f"obj{obj}"
+        init_strs.add(f"(obj {obj_str})")
+        start_loc = rng.choice(all_locs)
+        init_strs.add(f"(at {obj_str} {start_loc})")
+        remaining_locs = all_locs.copy()
+        remaining_locs.remove(start_loc)
+        goal_strs.add(f"(at {obj_str} {rng.choice(remaining_locs)})")
+        all_objects.append(obj_str)
+
+    # Finalize PDDL problem str.
+    locs_str = "\n        ".join(all_locs)
+    cities_str = "\n        ".join(all_cities)
+    trucks_str = "\n        ".join(all_trucks)
+    airplanes_str = "\n        ".join(all_airplanes)
+    objects_str = "\n        ".join(all_objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem logistics-strips)
+    (:domain logistics-strips)
+    (:objects
+        {locs_str}
+        {cities_str}
+        {trucks_str}
+        {airplanes_str}
+        {objects_str}
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+    return problem_str

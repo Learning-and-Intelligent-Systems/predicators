@@ -26,7 +26,8 @@ from predicators.envs.pddl_procedural_generation import \
     create_ferry_pddl_generator, create_forest_pddl_generator, \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
     create_spanner_pddl_generator, create_detypedmiconic_pddl_generator, \
-    create_detypeddelivery_pddl_generator, create_detypedforest_pddl_generator
+    create_detypeddelivery_pddl_generator, create_detypedforest_pddl_generator, \
+    create_logistics_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, PDDLProblemGenerator, Predicate, State, \
@@ -741,6 +742,47 @@ class ProceduralTasksDetypedForestPDDLEnv(_DetypedForestPDDLEnv):
         max_size = CFG.pddl_forest_procedural_test_max_size
         return create_detypedforest_pddl_generator(min_size, max_size)
 
+class _LogisticsPDDLEnv(_PDDLEnv):
+    """The logistcs domain."""
+
+    @classmethod
+    def get_domain_str(cls) -> str:
+        path = utils.get_env_asset_path("pddl/logistics/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksLogisticsPDDLEnv(_LogisticsPDDLEnv):
+    """The logistics domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_logistics_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_airplanes = CFG.pddl_logistics_procedural_train_min_airplanes
+        max_airplanes = CFG.pddl_logistics_procedural_train_max_airplanes
+        min_cities = CFG.pddl_logistics_procedural_train_min_cities
+        max_cities = CFG.pddl_logistics_procedural_train_max_cities
+        min_locations_per_city = CFG.pddl_logistics_procedural_train_min_locations_per_city
+        max_locations_per_city = CFG.pddl_logistics_procedural_train_max_locations_per_city
+        min_objects = CFG.pddl_logistics_procedural_train_min_objects
+        max_objects = CFG.pddl_logistics_procedural_train_max_objects
+        return create_logistics_pddl_generator(min_airplanes, max_airplanes, min_cities, max_cities, min_locations_per_city, max_locations_per_city, min_objects, max_objects)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_airplanes = CFG.pddl_logistics_procedural_test_min_airplanes
+        max_airplanes = CFG.pddl_logistics_procedural_test_max_airplanes
+        min_cities = CFG.pddl_logistics_procedural_test_min_cities
+        max_cities = CFG.pddl_logistics_procedural_test_max_cities
+        min_locations_per_city = CFG.pddl_logistics_procedural_test_min_locations_per_city
+        max_locations_per_city = CFG.pddl_logistics_procedural_test_max_locations_per_city
+        min_objects = CFG.pddl_logistics_procedural_test_min_objects
+        max_objects = CFG.pddl_logistics_procedural_test_max_objects
+        return create_logistics_pddl_generator(min_airplanes, max_airplanes, min_cities, max_cities, min_locations_per_city, max_locations_per_city, min_objects, max_objects)
 
 ###############################################################################
 #                            Utility functions                                #
