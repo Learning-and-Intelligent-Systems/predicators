@@ -756,7 +756,15 @@ class GlobalSettings:
             # button are touching.
             grammar_search_diff_features_const_multiplier=defaultdict(
                 lambda: 1e-6,
-                {"stick_button_move": 1 / 60.0})[args.get("env", "")],
+                {"stick_button_move": 1 / 30.0})[args.get("env", "")],
+
+            # Feature names to use as part of the EuclideanPredicateGrammar.
+            # Each entry is (type1_feature1name, type1_feature2name, type2_feature1name, type2_feature2name)
+            grammar_search_euclidean_feature_names=defaultdict(
+                lambda: [("x", "y", "x", "y")], {
+                    "stick_button_move": [("x", "y", "x", "y"),
+                                          ("x", "y", "tip_x", "tip_y")]
+                })[args.get("env", "")],
 
             # Factor to divide feature range by when instantiating euclidean
             # predicates of the form
@@ -765,7 +773,7 @@ class GlobalSettings:
             # the two objects are "touching".
             grammar_search_euclidean_const_multiplier=defaultdict(
                 lambda: 1e-6,
-                {"stick_button_move": 1 / 500.0})[args.get("env", "")],
+                {"stick_button_move": 1 / 250.0})[args.get("env", "")],
 
             # Parameters specific to the cover environment.
             # cover env parameters

@@ -12,6 +12,12 @@ from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
 
+max_tip_button_x = -float('inf')
+max_tip_button_y = -float('inf')
+max_stick_button_x = -float('inf')
+max_stick_button_y = -float('inf')
+max_tip_button_dist = -float('inf')
+min_tip_button_dist = float('inf')
 
 class StickButtonGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the stick button environment."""
@@ -374,6 +380,8 @@ class StickButtonMovementGroundTruthOptionFactory(
             action = Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
             # If the robot and button are already pressing, press.
             if StickButtonEnv.Above_holds(state, objects[:2]):
+                if state.get(objects[1], "y") > 2.98:
+                    import ipdb; ipdb.set_trace()
                 action = Action(
                     np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
@@ -394,6 +402,31 @@ class StickButtonMovementGroundTruthOptionFactory(
             tip_rect = StickButtonEnv.stick_rect_to_tip_rect(stick_rect)
             # If the stick tip is pressing the button, press.
             if tip_rect.intersects(button_circ):
+                # global max_tip_button_x
+                # global max_tip_button_y
+                # global max_stick_button_x
+                # global max_stick_button_y
+                global max_tip_button_dist
+                global min_tip_button_dist
+                # max_tip_button_x = max(max_tip_button_x, abs(-state.get(stick, "tip_x") + state.get(button, "x")))
+                # max_tip_button_y = max(max_tip_button_y, abs(-state.get(stick, "tip_y") + state.get(button, "y")))
+                # max_stick_button_x = max(max_stick_button_x, abs(-state.get(stick, "x") + state.get(button, "x")))
+                # max_stick_button_y = max(max_stick_button_y, abs(-state.get(stick, "y") + state.get(button, "y")))
+                # max_tip_button_dist = max(max_tip_button_dist, (state.get(button, "x") - state.get(stick, "tip_x")) ** 2 + (state.get(button, "y") - state.get(stick, "tip_y")) ** 2)
+                
+                # all_buttons = state.get_objects(button.type)
+                # for other_button in all_buttons:
+                #     if other_button == button:
+                #         continue
+                #     min_tip_button_dist = min(min_tip_button_dist, (state.get(other_button, "x") - state.get(stick, "tip_x")) ** 2 + (state.get(other_button, "y") - state.get(stick, "tip_y")) ** 2)
+                
+                # print(max_tip_button_x)
+                # print(max_tip_button_y)
+                # print(max_stick_button_x)
+                # print(max_stick_button_y)
+                # print(max_tip_button_dist)
+                # print(min_tip_button_dist)
+                # print()
                 return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
             return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))

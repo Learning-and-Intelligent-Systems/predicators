@@ -293,6 +293,7 @@ class StickButtonEnv(BaseEnv):
                 # Keep only if no intersections with existing objects.
                 if not any(geom.intersects(g) for g in collision_geoms):
                     break
+
             collision_geoms.add(geom)
             if CFG.stick_button_disable_angles:
                 theta = np.pi / 2
@@ -387,7 +388,6 @@ class StickButtonEnv(BaseEnv):
                                    width=cls._get_holder_width(),
                                    height=cls.holder_height,
                                    theta=theta)
-        assert obj.is_instance(cls._stick_type)
         theta = state.get(obj, "theta")
         return utils.Rectangle(x=x,
                                y=y,
@@ -479,6 +479,148 @@ class StickButtonEnv(BaseEnv):
 class StickButtonMovementEnv(StickButtonEnv):
     """An extension to the stick button env that also has movement options (the
     pick and place options don't implicitly contain movement."""
+
+    # Make x_ub smaller to make predicate invention constant finding easier.
+    x_ub: ClassVar[float] = 6.0
+    rz_x_ub: ClassVar[float] = x_ub
+    # The (x, y) is the bottom left-hand corner of the stick, and theta
+    # is CCW angle in radians, consistent with utils.Rectangle. The tip
+    # x and y correspond to the end of the stick.
+    _stick_type = Type("stick", ["x", "y", "tip_x", "tip_y", "theta", "held"])
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+    def _get_tasks(self, num: int, num_button_lst: List[int],
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        tasks = []
+        for _ in range(num):
+            state_dict = {}
+            num_buttons = num_button_lst[rng.choice(len(num_button_lst))]
+            buttons = [
+                Object(f"button{i}", self._button_type)
+                for i in range(num_buttons)
+            ]
+            goal = {GroundAtom(self._Pressed, [p]) for p in buttons}
+            # Sample initial positions for buttons, making sure to keep them
+            # far enough apart from one another.
+            collision_geoms: Set[utils.Circle] = set()
+            radius = self.button_radius + self.init_padding
+            for button in buttons:
+                # Assuming that the dimensions are forgiving enough that
+                # infinite loops are impossible.
+                while True:
+                    x = rng.uniform(self.x_lb + radius, self.x_ub - radius)
+                    y = rng.uniform(self.y_lb + radius, self.y_ub - radius)
+                    geom = utils.Circle(x, y, radius)
+                    # Keep only if no intersections with existing objects.
+                    # Also enforce that the button is clearly on one side
+                    # of the boundary between robot's reachable vs
+                    # unreachable regions to make predicate invention
+                    # easier.
+                    if not any(geom.intersects(g) for g in collision_geoms) and abs(y - self.rz_y_ub) > radius:
+                        break
+                collision_geoms.add(geom)
+                state_dict[button] = {"x": x, "y": y, "pressed": 0.0}
+            # Sample an initial position for the robot, making sure that it
+            # doesn't collide with buttons and that it's in the reachable zone.
+            radius = self.robot_radius + self.init_padding
+            while True:
+                x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
+                y = rng.uniform(self.rz_y_lb + radius, self.rz_y_ub - radius)
+                geom = utils.Circle(x, y, radius)
+                # Keep only if no intersections with existing objects.
+                if not any(geom.intersects(g) for g in collision_geoms):
+                    break
+            collision_geoms.add(geom)
+            if CFG.stick_button_disable_angles:
+                theta = np.pi / 2
+            else:
+                theta = rng.uniform(self.theta_lb, self.theta_ub)
+            state_dict[self._robot] = {"x": x, "y": y, "theta": theta}
+            # Sample the stick, making sure that the origin is in the
+            # reachable zone, and that the stick doesn't collide with anything.
+            radius = self.robot_radius + self.init_padding
+            while True:
+                # The radius here is to prevent the stick from being very
+                # slightly in the reachable zone, but not grabbable.
+                x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
+                y = rng.uniform(self.stick_init_lb, self.stick_init_ub)
+                assert self.rz_y_lb + radius <= y <= self.rz_y_ub - radius
+                if CFG.stick_button_disable_angles:
+                    theta = np.pi / 2
+                else:
+                    theta = rng.uniform(self.theta_lb, self.theta_ub)
+                rect = utils.Rectangle(x, y, self.stick_width,
+                                       self.stick_height, theta)
+                # Keep only if no intersections with existing objects.
+                if not any(rect.intersects(g) for g in collision_geoms):
+                    break
+            tip_rect = self.stick_rect_to_tip_rect(rect)
+            state_dict[self._stick] = {
+                "x": x,
+                "y": y,
+                "tip_x": tip_rect.x,
+                "tip_y": tip_rect.y,
+                "theta": theta,
+                "held": 0.0
+            }
+            # Create the holder for the stick, sampling the position so that it
+            # is somewhere along the long dimension of the stick. To make sure
+            # that the problem is solvable, check that if the stick were
+            # grasped at the lowest reachable position, it would still be
+            # able to press the highest button.
+            max_button_y = max(state_dict[p]["y"] for p in buttons)
+            necessary_reach = max_button_y - self.rz_y_ub
+            while True:
+                # Allow the stick to start in the middle of the holder.
+                x_offset = rng.uniform(-self._get_holder_width(),
+                                       self.stick_width / 2)
+                # Check solvability.
+                # Case 0: If all buttons are within reach, we're all set.
+                if necessary_reach < 0:
+                    break
+                # Case 1: we can grasp the stick from the bottom.
+                if x_offset > 2 * self.robot_radius:
+                    break
+                # Case 2: we can grasp the stick above the holder, but we can
+                # still reach the highest button.
+                min_rel_grasp = x_offset + self._get_holder_width()
+                grasp_to_top = self.stick_width - min_rel_grasp
+                if grasp_to_top > necessary_reach:
+                    break
+            # First orient the rectangle at 0 and then rotate it.
+            # Along the shorter dimension, we want the stick to be in the
+            # center of the holder, so we need to translate the holder's y
+            # position relative to the stick's y position.
+            assert self.holder_height > self.stick_height
+            height_diff = self.holder_height - self.stick_height
+            holder_rect = utils.Rectangle(
+                x=x + x_offset,
+                y=(y - height_diff / 2),
+                width=self._get_holder_width(),
+                height=self.holder_height,
+                theta=0,
+            )
+            holder_rect = holder_rect.rotate_about_point(x, y, theta)
+            state_dict[self._holder] = {
+                "x": holder_rect.x,
+                "y": holder_rect.y,
+                "theta": holder_rect.theta,
+            }
+            init_state = utils.create_state_from_dict(state_dict)
+            task = EnvironmentTask(init_state, goal)
+            tasks.append(task)
+        return tasks
+
+    def simulate(self, state: State, action: Action) -> State:
+        """Run simulation and update tip_x and tip_y."""
+        next_state = super().simulate(state, action)
+        stick_rect = self.object_to_geom(self._stick, next_state)
+        tip_rect = self.stick_rect_to_tip_rect(stick_rect)
+        next_state.set(self._stick, "tip_x", tip_rect.x)
+        next_state.set(self._stick, "tip_y", tip_rect.y)
+        return next_state
 
     @classmethod
     def get_name(cls) -> str:

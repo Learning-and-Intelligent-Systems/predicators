@@ -43,9 +43,12 @@ def _create_grammar(dataset: Dataset,
         grammar = _ChainPredicateGrammar([grammar, diff_grammar],
                                          alternate=True)
     if CFG.grammar_search_grammar_use_euclidean_dist:
-        euclidean_dist_grammar = _EuclideanDistancePredicateGrammar(dataset)
-        grammar = _ChainPredicateGrammar([grammar, euclidean_dist_grammar],
-                                         alternate=True)
+        for (t1_f1, t1_f2, t2_f1,
+             t2_f2) in CFG.grammar_search_euclidean_feature_names:
+            euclidean_dist_grammar = _EuclideanDistancePredicateGrammar(
+                dataset, t1_f1, t2_f1, t1_f2, t2_f2)
+            grammar = _ChainPredicateGrammar([grammar, euclidean_dist_grammar],
+                                             alternate=True)
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
@@ -221,27 +224,38 @@ class _AttributeDiffCompareClassifier(_BinaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _EuclideanAttributeDiffCompareClassifier(_AttributeDiffCompareClassifier
-                                               ):
+class _EuclideanAttributeDiffCompareClassifier(_BinaryClassifier):
     """Compare the euclidean distance between two feature values with a
     constant value."""
+    object1_index: int
+    object1_type: Type
+    obj1_attr1_name: str
+    obj1_attr2_name: str
+    object2_index: int
+    object2_type: Type
+    obj2_attr1_name: str
+    obj2_attr2_name: str
+    constant: float
+    constant_idx: int
+    compare: Callable[[float, float], bool]
+    compare_str: str
 
     def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
         assert obj1.type == self.object1_type
         assert obj2.type == self.object2_type
-        return self.compare((s.get(obj1, self.attribute1_name) -
-                             s.get(obj2, self.attribute1_name))**2 +
-                            (s.get(obj1, self.attribute2_name) -
-                             s.get(obj2, self.attribute2_name))**2,
+        return self.compare((s.get(obj1, self.obj1_attr1_name) -
+                             s.get(obj2, self.obj2_attr1_name))**2 +
+                            (s.get(obj1, self.obj1_attr2_name) -
+                             s.get(obj2, self.obj2_attr2_name))**2,
                             self.constant)
 
     def __str__(self) -> str:
         return (f"((({self.object1_index}:{self.object1_type.name})."
-                f"{self.attribute1_name} - ({self.object2_index}:"
-                f"{self.object2_type.name}).{self.attribute1_name})^2"
+                f"{self.obj1_attr1_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.obj2_attr1_name})^2"
                 f" + (({self.object1_index}:{self.object1_type.name})."
-                f"{self.attribute2_name} - ({self.object2_index}:"
-                f"{self.object2_type.name}).{self.attribute2_name})^2)"
+                f"{self.obj1_attr2_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.obj2_attr2_name})^2)"
                 f"{self.compare_str}[idx {self.constant_idx}]"
                 f"{self.constant:.3})")
 
@@ -252,10 +266,10 @@ class _EuclideanAttributeDiffCompareClassifier(_AttributeDiffCompareClassifier
             self.object2_index]
         vars_str = (f"{name1}:{self.object1_type.name}, "
                     f"{name2}:{self.object2_type.name}")
-        body_str = (f"(({name1}.{self.attribute1_name} - "
-                    f"{name2}.{self.attribute2_name})^2 "
-                    f" + (({name1}.{self.attribute1_name} - "
-                    f"{name2}.{self.attribute2_name})^2 "
+        body_str = (f"(({name1}.{self.obj1_attr1_name} - "
+                    f"{name2}.{self.obj2_attr1_name})^2 "
+                    f" + (({name1}.{self.obj1_attr2_name} - "
+                    f"{name2}.{self.obj2_attr2_name})^2 "
                     f"{self.compare_str} {self.constant:.3})")
         return vars_str, body_str
 
@@ -437,20 +451,15 @@ _DEBUG_PREDICATE_PREFIXES = {
         # here because changing the demonstration data slightly causes
         # the value of the constant to change. Need to uncomment these
         # as necessary.
-        "(|(0:button).x - (1:stick).x|<=[idx 0]0.145)",  # StickAboveButton
-        # "(|(0:button).x - (1:stick).x|<=[idx 0]0.146)",  # StickAboveButton
-        # StickNotAboveButton
-        "Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|" + \
-            "<=[idx 0]0.145)(0,1)]",
+        # # StickNotAboveButtonX
+        # "Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|<=[idx 0]0.159)(0,1)]",
+        # StickAboveButton
+        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",        
         # RobotAboveButton
-        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)"+ \
-            "<=[idx 0]0.206)",
-        # RobotAboveButton
-        # "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)"+ \
-        #     "<=[idx 0]0.207)",
+        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.194)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
-        "((0:button).y<=[idx 0]2.96)",  # ButtonReachable
+        "((0:button).y<=[idx 0]3.01)",  # ButtonReachable
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -623,7 +632,7 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         # to 1e-6 is because objects have some amount of "size", and so even
         # when they're touching, it's not like their centers overlap.
         # E.g. in stick button, when the robot touches the button, the center
-        # of the robot and the object might still be offset by a bit
+        # of the robot and the object might still be offset by a bit.
         for ret_val in self._yield_pred_given_const(
                 feature_ranges, 0,
                 CFG.grammar_search_diff_features_const_multiplier, 4.0):
@@ -643,8 +652,10 @@ class _EuclideanDistancePredicateGrammar(
     Importantly, this only operates over types that have features
     named f1_name and f2_name.
     """
-    f1_name: str = "x"
-    f2_name: str = "y"
+    t1_f1_name: str
+    t2_f1_name: str
+    t1_f2_name: str
+    t2_f2_name: str
 
     def _compute_xy_bounds(self, feature_ranges: Dict[Type,
                                                       Dict[str, Tuple[float,
@@ -652,10 +663,10 @@ class _EuclideanDistancePredicateGrammar(
                            t1: Type, t2: Type) -> Tuple[float, float]:
         # To create our classifier, we need to leverage the
         # upper and lower bounds of its x, y features.
-        lbx1, ubx1 = feature_ranges[t1][self.f1_name]
-        lbx2, ubx2 = feature_ranges[t2][self.f1_name]
-        lby1, uby1 = feature_ranges[t1][self.f2_name]
-        lby2, uby2 = feature_ranges[t2][self.f2_name]
+        lbx1, ubx1 = feature_ranges[t1][self.t1_f1_name]
+        lbx2, ubx2 = feature_ranges[t2][self.t2_f1_name]
+        lby1, uby1 = feature_ranges[t1][self.t1_f2_name]
+        lby2, uby2 = feature_ranges[t2][self.t2_f2_name]
         # Compute the upper and lower bounds of each feature range.
         lbx, ubx = utils.compute_abs_range_given_two_ranges(
             lbx1, ubx1, lbx2, ubx2)
@@ -668,11 +679,14 @@ class _EuclideanDistancePredicateGrammar(
         return (lb, ub)
 
     def _generate_pred_given_constant(self, constant_idx: int, constant: float,
-                                      t1: Type, t2: Type) -> Predicate:
+                                      t1: Type, t2: Type, t1_f1_name: str,
+                                      t1_f2_name: str, t2_f1_name: str,
+                                      t2_f2_name: str) -> Predicate:
         # Create classifier.
         comp, comp_str = le, "<="
         diff_classifier = _EuclideanAttributeDiffCompareClassifier(
-            0, t1, "x", 1, t2, "y", constant, constant_idx, comp, comp_str)
+            0, t1, t1_f1_name, t1_f2_name, 1, t2, t2_f1_name, t2_f2_name,
+            constant, constant_idx, comp, comp_str)
         name = str(diff_classifier)
         types = [t1, t2]
         pred = Predicate(name, types, diff_classifier)
@@ -689,14 +703,16 @@ class _EuclideanDistancePredicateGrammar(
         # to indicate that the objects are touching/overlapped.
         for (t1, t2) in itertools.combinations_with_replacement(
                 sorted(self.types), 2):
-            if (self.f1_name in t1.feature_names
-                    and self.f1_name in t2.feature_names
-                    and self.f2_name in t1.feature_names
-                    and self.f2_name in t2.feature_names):
+            if (self.t1_f1_name in t1.feature_names
+                    and self.t2_f1_name in t2.feature_names
+                    and self.t1_f2_name in t1.feature_names
+                    and self.t2_f2_name in t2.feature_names):
                 lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
                 constant = ((ub - lb) *
                             CFG.grammar_search_euclidean_const_multiplier) + lb
-                pred = self._generate_pred_given_constant(0, constant, t1, t2)
+                pred = self._generate_pred_given_constant(
+                    0, constant, t1, t2, self.t1_f1_name, self.t1_f2_name,
+                    self.t2_f1_name, self.t2_f2_name)
                 assert pred.arity == 2
                 yield (pred, 3.0)  # cost = arity + cost from constant
 
@@ -705,15 +721,16 @@ class _EuclideanDistancePredicateGrammar(
         for constant_idx, (constant, cost) in enumerate(constant_generator):
             for (t1, t2) in itertools.combinations_with_replacement(
                     sorted(self.types), 2):
-                if (self.f1_name in t1.feature_names
-                        and self.f1_name in t2.feature_names
-                        and self.f2_name in t1.feature_names
-                        and self.f2_name in t2.feature_names):
+                if (self.t1_f1_name in t1.feature_names
+                        and self.t2_f1_name in t2.feature_names
+                        and self.t1_f2_name in t1.feature_names
+                        and self.t2_f2_name in t2.feature_names):
                     lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
                     # Scale the constant by the correct range.
                     k = constant * (ub - lb) + lb
                     pred = self._generate_pred_given_constant(
-                        constant_idx + 1, k, t1, t2)
+                        constant_idx + 1, k, t1, t2, self.t1_f1_name,
+                        self.t1_f2_name, self.t2_f1_name, self.t2_f2_name)
                     assert pred.arity == 2
                     yield (pred, 2 + cost)  # cost = arity + cost from constant
 
