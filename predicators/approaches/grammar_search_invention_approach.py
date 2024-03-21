@@ -3337,6 +3337,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # import pdb; pdb.set_trace()
             # ###
 
+            # new_final_clusters = []
+            # for i, clus in enumerate(final_clusters):
+            #     if i == 6:
+            #         new_clus = []
+            #         for segg in clus:
+            #             if len(segg.add_effects) > 0:
+            #                 new_clus.append(segg)
+            #         new_final_clusters.append(new_clus)
+            #     else:
+            #         new_final_clusters.append(clus)
+            # final_clusters = new_final_clusters
 
             # operator to preconditions, and add effects
             # filter out an operator that barely ever appears
@@ -3345,6 +3356,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_name = "Op"+str(i)+"-"+str(c[0].get_option().name)
                 # preconditions, add effects, delete effects, segments
                 ddd[op_name] = [set(), set(), set(), c]
+                # if op_name == "Op6-StickMoveToButton":
+                #     new_c = []
+                #     for segg in c:
+                #         print("segg add effects: ", segg.add_effects)
+                #         if len(segg.add_effects) > 0:
+                #             new_c.append(segg)
+                #     import pdb; pdb.set_trace()
+                #     ddd[op_name] = [set(), set(), set(), new_c]
+                # else:
+                #     ddd[op_name] = [set(), set(), set(), c]
 
             # found = []
             # for operator in ddd.keys():
@@ -3376,6 +3397,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
 
             ####
+
+            # import pdb; pdb.set_trace()
+            # print("star wars")
 
             add_effects_per_cluster = []
             all_add_effects = set()
@@ -3409,7 +3433,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 ddd[op_name][1] = add_effects
                 ddd[op_name][2] = del_effects
 
-
                 print(f"Cluster {j} with option {c[0].get_option().name}, predicates:")
                 for a in add_effects:
                     print(a)
@@ -3431,6 +3454,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # import pdb; pdb.set_trace()
 
             predicates_to_keep = all_add_effects | all_preconditions
+
+            import pdb; pdb.set_trace()
+            print("keyboard")
 
             ##########
             # Remove inconsistent predicates.
@@ -3559,6 +3585,19 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     if segment in c:
                         # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
                         return f"Op{i}-{c[0].get_option().name}"
+
+            # def seg_to_op(segment, clusters):
+            #     found = ""
+            #     for i, c in enumerate(clusters):
+            #         if segment in c:
+            #             # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
+            #             found = f"Op{i}-{c[0].get_option().name}"
+            #             break
+            #     if len(found) > 0:
+            #         return found
+            #     else:
+            #         return f"Something-{segment.get_option().name}"
+
             # Go through demos
             logging.info(f"Printing demos!!!!!")
             temp = []
@@ -3884,6 +3923,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 )
                 fff[op].append(ddd[op][3])
 
+            import pdb; pdb.set_trace()
+            print("mandalorian")
             self._clusters = fff
 
             # Check each delete effect of each operator to make sure it satisfies harmlessness if we include it
@@ -3914,6 +3955,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_ignore_effects = set()
                 op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
 
+                # if op.name == "Op0-StickPressButton":
+                #     import pdb; pdb.set_trace()
+                #     print("slot")
 
                 from itertools import permutations, product
                 def get_mapping_between_params(params1):
@@ -4051,6 +4095,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # Take the intersection of lifted atoms across both operators, and
                         # count the overlap.
                         op2_preconds_str = set(str(a) for a in op2_preconds)
+                        # if op.name == "Op0-StickPressButton":
+                        #     print(f"Op2 preconds: {op2_preconds}")
                         op2_adds_str = set(str(a) for a in op2_add_effects)
                         op2_dels_str = set(str(a) for a in op2_del_effects)
 
@@ -4060,6 +4106,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         score = score1 + score2 + score3
 
                         new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
+                        # if op.name == "Op0-StickPressButton":
+                        #     print(f"New preconds: {new_preconds}")
                         new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
                         new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
 
@@ -4082,6 +4130,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
                 op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
+                # if op.name == "Op0-StickPressButton":
+                #     import pdb; pdb.set_trace()
+                #     print("camera")
                 ops_to_print.append(op)
                 # import pdb; pdb.set_trace()
 
@@ -4162,6 +4213,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 option_vars = [op1_obj_to_var[o] for o in op1_opt_objs]
                 option_spec = [seg_0.get_option().parent, option_vars]
                 pnads.append(PNAD(op, datastore, option_spec))
+                # if op.name == "Op0-StickPressButton":
+                #     import pdb; pdb.set_trace()
+                #     print("power button")
+
+            for p in pnads:
+                print(p)
 
             ##################################
             # IDENTIFY HARMLESS DELETE EFFECTS
@@ -4264,7 +4321,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
                 predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
 
-            # import pdb; pdb.set_trace()
+            import pdb; pdb.set_trace()
             logging.info(f"Right after delete effects harmlessness check.")
             ####################################################################
 

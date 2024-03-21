@@ -2261,6 +2261,15 @@ def all_ground_nsrts(nsrt: NSRT,
     for choice in get_object_combinations(objects, types):
         yield nsrt.ground(tuple(choice))
 
+def all_ground_nsrts2(nsrt: NSRT,
+                     objects: Collection[Object]) -> Iterator[_GroundNSRT]:
+    """Get all possible groundings of the given NSRT with the given objects."""
+    types = [p.type for p in nsrt.parameters]
+    to_return = []
+    for choice in get_object_combinations(objects, types):
+        to_return.append(nsrt.ground(tuple(choice)))
+    return to_return
+
 
 def all_ground_nsrts_fd_translator(
         nsrts: Set[NSRT], objects: Collection[Object],
@@ -2702,6 +2711,20 @@ def get_applicable_operators(
         applicable = op.preconditions.issubset(atoms)
         if applicable:
             yield op
+
+def get_applicable_operators2(
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        atoms: Collection[GroundAtom]) -> Iterator[GroundNSRTOrSTRIPSOperator]:
+    """Iterate over ground operators whose preconditions are satisfied.
+
+    Note: the order may be nondeterministic. Users should be invariant.
+    """
+    applicable_ops = []
+    for op in ground_ops:
+        applicable = op.preconditions.issubset(atoms)
+        if applicable:
+            applicable_ops.append(op)
+    return applicable_ops
 
 
 def apply_operator(op: GroundNSRTOrSTRIPSOperator,

@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from predicators import utils
-from predicators.planning import task_plan_with_option_plan_constraint
+from predicators.planning import task_plan_with_option_plan_constraint, task_plan_with_option_plan_constraint2
 from predicators.settings import CFG
 from predicators.structs import PNAD, DummyOption, GroundAtom, LiftedAtom, \
     LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, Predicate, \
@@ -115,6 +115,12 @@ class BaseSTRIPSLearner(abc.ABC):
         (i.e., the predicates and operators don't render any
         demonstrated trajectory impossible).
         """
+
+        print("STRIPS LEARNER HARMLESS CHECK -- PRINTING PNADS FIRST")
+        for p in pnads:
+            print(p)
+        print("DONE PRINTING PNADS")
+
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
 
@@ -136,12 +142,19 @@ class BaseSTRIPSLearner(abc.ABC):
                 seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
                 option_specs)
             if not demo_preserved:
-                logging.debug("Harmlessness not preserved for demo!")
-                logging.debug(f"Initial atoms: {atoms_seq[0]}")
+                # logging.debug("Harmlessness not preserved for demo!")
+                # logging.debug(f"Initial atoms: {atoms_seq[0]}")
+                # for t in range(1, len(atoms_seq)):
+                #     logging.debug(f"Timestep {t} add effects: "
+                #                   f"{atoms_seq[t] - atoms_seq[t-1]}")
+                #     logging.debug(f"Timestep {t} del effects: "
+                #                   f"{atoms_seq[t-1] - atoms_seq[t]}")
+                logging.info("Harmlessness not preserved for demo!")
+                logging.info(f"Initial atoms: {atoms_seq[0]}")
                 for t in range(1, len(atoms_seq)):
-                    logging.debug(f"Timestep {t} add effects: "
+                    logging.info(f"Timestep {t} add effects: "
                                   f"{atoms_seq[t] - atoms_seq[t-1]}")
-                    logging.debug(f"Timestep {t} del effects: "
+                    logging.info(f"Timestep {t} del effects: "
                                   f"{atoms_seq[t-1] - atoms_seq[t]}")
                 return False
         return True
@@ -167,7 +180,10 @@ class BaseSTRIPSLearner(abc.ABC):
             traj_goal, option_plan, atoms_seq)
 
         if ground_nsrt_plan is None:
+
+            # ground_nsrt_plan2 = task_plan_with_option_plan_constraint2(objects, self._predicates, strips_ops, option_specs, init_atoms, traj_goal, option_plan, atoms_seq)
             import pdb; pdb.set_trace()
+
 
             for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
             objs = list(init_state.data.keys())
@@ -200,18 +216,15 @@ class BaseSTRIPSLearner(abc.ABC):
             # Op0-StickPressButton
             # Op4-PlaceStick
 
-            
-
-
-            # Op0_StickPressButton = [op for op in strips_ops if op.name=="Op0-StickPressButton"][0]
-            # Op1_RobotMoveToButton = [op for op in strips_ops if op.name=="Op1-RobotMoveToButton"][0]
-            # Op2_PickStick = [op for op in strips_ops if op.name=="Op2-PickStick"][0]
-            # Op3_RobotPressButton = [op for op in strips_ops if op.name=="Op3-RobotPressButton"][0]
-            # Op4_PlaceStick = [op for op in strips_ops if op.name=="Op4-PlaceStick"][0]
-            # Op5_StickMoveToButton = [op for op in strips_ops if op.name=="Op5-StickMoveToButton"][0]
-            # Op6_StickMoveToButton = [op for op in strips_ops if op.name=="Op6-StickMoveToButton"][0]
-            # Op7_PickStick = [op for op in strips_ops if op.name=="Op7-PickStick"][0]
-            # Op8_RobotMoveToButton = [op for op in strips_ops if op.name=="Op8-RobotMoveToButton"][0]
+            Op0_StickPressButton = [op for op in strips_ops if op.name=="Op0-StickPressButton"][0]
+            Op1_RobotMoveToButton = [op for op in strips_ops if op.name=="Op1-RobotMoveToButton"][0]
+            Op2_PickStick = [op for op in strips_ops if op.name=="Op2-PickStick"][0]
+            Op3_RobotPressButton = [op for op in strips_ops if op.name=="Op3-RobotPressButton"][0]
+            Op4_PlaceStick = [op for op in strips_ops if op.name=="Op4-PlaceStick"][0]
+            Op5_StickMoveToButton = [op for op in strips_ops if op.name=="Op5-StickMoveToButton"][0]
+            Op6_StickMoveToButton = [op for op in strips_ops if op.name=="Op6-StickMoveToButton"][0]
+            Op7_PickStick = [op for op in strips_ops if op.name=="Op7-PickStick"][0]
+            Op8_RobotMoveToButton = [op for op in strips_ops if op.name=="Op8-RobotMoveToButton"][0]
 
             # demo 0: ['Op8-RobotMoveToButton', 'Op3-RobotPressButton', 'Op7-PickStick', 'Op6-StickMoveToButton', 'Op0-StickPressButton']
             # disagreement between earlier thing, and what is in the harmless check
@@ -224,11 +237,13 @@ class BaseSTRIPSLearner(abc.ABC):
             # fifth = Op0_StickPressButton.ground((button1, robot, stick))
             # plan = [first, second, third, fourth, fifth]
 
-            first = Op8_RobotMoveToButton.ground((button0, robot))
-            second = Op3_RobotPressButton.ground((button0, robot, stick))
-            third = Op4_PickStick.ground((robot, stick))
-            fourth = Op6_StickMoveToButton.ground((button1, robot, stick))
-            fifth = Op0_StickPressButton.ground((button1, robot, stick))
+            # ['Op2-PickStick', None, 'Op0-StickPressButton', 'Op5-StickMoveToButton', 'Op0-StickPressButton']
+
+            first = Op2_PickStick.ground((robot, stick))
+            second = Op6_StickMoveToButton.ground((button1, robot, stick))
+            third = Op0_StickPressButton.ground((button1, robot, stick))
+            fourth = Op5_StickMoveToButton.ground((button0, button1, robot, stick))
+            fifth = Op0_StickPressButton.ground((button0, robot, stick))
             plan = [first, second, third, fourth, fifth]
 
             curr_atoms = init_atoms
