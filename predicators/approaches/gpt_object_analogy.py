@@ -22,29 +22,18 @@ Command for testing gripper / ferry:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import cached_property
-from typing import Any, Dict, Iterator, List, Set, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple, Union
 from pg3.policy_search import score_policy
-
-import smepy
-import numpy as np
-import itertools
-import math
-from collections import Counter
 
 from predicators.approaches.pg3_analogy_approach import PG3AnalogyApproach
 from predicators.envs.base_env import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import NSRT, LDLRule, LiftedAtom, \
-    LiftedDecisionList, Predicate, Type, Variable, _GroundNSRT
-from predicators.structs import Action, Box, Dataset, GroundAtom, \
-    LiftedDecisionList, Object, ParameterizedOption, Predicate, State, Task, \
-    Type, _GroundNSRT
+    LiftedDecisionList, Predicate, Variable, _GroundNSRT
+from predicators.structs import Dataset, GroundAtom, \
+    LiftedDecisionList, Object, Predicate, _GroundNSRT
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.envs import create_new_env
-from predicators.datasets import create_dataset
-from predicators.ground_truth_models import get_gt_options
 
 from predicators import utils
 from predicators.llm_interface import OpenAILLM
@@ -73,6 +62,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
         self._target_env = create_new_env(CFG.env)
 
         self._predicate_analogies = {} # Base Predicate Name -> Target Predicate
+        self._nsrt_analogies = {} # Base NSRT -> Target NSRT
+        self._variable_analogies = {} # Base Variable -> Target Variable
         self.setup_basic_predicate_analogies()
         self._target_actions = []
         for i in range(len(dataset.trajectories)):
@@ -83,69 +74,40 @@ class GPTObjectApproach(PG3AnalogyApproach):
             self, base_policy: LiftedDecisionList, base_env: BaseEnv,
             target_env: BaseEnv, base_nsrts: Set[NSRT],
             target_nsrts: Set[NSRT]) -> List[LiftedDecisionList]:
-        # Determine analogical mappings between the current env and the
-        # base env that the initialized policy originates from.
+        # Generates new policy in target environment using base policy and analogies
 
         self._base_nsrts = base_nsrts
         self._target_nsrts = target_nsrts
 
         self._generate_expanded_predicates(base_policy)
-        final_rules = []
-        for rule in base_policy.rules:
-            target_rules = self._generate_rules(rule)
+        new_policy_rules = []
+        for base_rule in base_policy.rules:
+            target_rules = self._generate_rules(base_rule)
             for target_rule in target_rules:
-                final_rules.append(target_rule)
+                new_policy_rules.append(target_rule)
 
-        initial_policy = LiftedDecisionList(final_rules)
-        final_policy = self.pg3_prune_policy(initial_policy)
-        return [final_policy]
+        pre_prune_policy = LiftedDecisionList(new_policy_rules)
+        post_prune_policy = self.pg3_prune_policy(pre_prune_policy)
+        return [post_prune_policy]
 
     def _generate_rules(self, rule: LDLRule) -> List[LDLRule]:
         # Generates "best" rules in target environment given rule in base environment
         target_nsrts = self._get_analagous_nsrts(rule) 
-        final_rules = []
+        translated_rules = []
         for target_nsrt in target_nsrts:
             new_rule = self._generate_best_rule(rule, target_nsrt)
-            final_rules.append(new_rule)
-        return final_rules
+            translated_rules.append(new_rule)
+        return translated_rules
     
     def _generate_best_rule(self, rule: LDLRule, target_nsrt: NSRT) -> LDLRule:
         # Generates best rule in target environment given rule in base environment and a target nsrt
 
-        mapping = {} # Mapping from target param to rule variable
-        for target_nsrt_param in target_nsrt.parameters:
-            # Ask GPT what is the best variable in rule for target_nsrt_param
-            best_rule_variable = self._get_analagous_variable(target_nsrt_param, rule, target_nsrt)
-            if best_rule_variable != None:
-                mapping[target_nsrt_param] = best_rule_variable
-        
-        # Search for a state that we can ground on the target environment
-        # best_task_index, best_state_index = self._find_best_ground_state(rule, target_nsrt)
-        # import ipdb; ipdb.set_trace();
-        best_score = -1.0
-        best_object_mapping = None
-        best_index = None
-        best_task_index = None
-        for task_index in range(len(self._target_tasks)):
-            # In case planning for a task fails
-            if task_index >= len(self._target_states) or len(self._target_states[task_index]) == 0:
-                continue
-            for i in range(len(self._target_states[task_index])-1):
-                target_action = self._target_actions[task_index][i]
-                if target_action.name != target_nsrt.name:
-                    continue
+        # Search across all tasks and state for mapping
+        best_object_mapping, best_task_index, best_state_index = self.search_for_best_state_and_mapping(rule, target_nsrt) 
 
-                object_mapping, gini_index = self._get_object_distribution_and_score(rule, target_nsrt, mapping, task_index, i)
-                if gini_index > best_score:
-                    best_task_index = task_index
-                    best_object_mapping = object_mapping
-                    best_score = gini_index
-                    best_index = i
-        
         # Get useful objects
-        one_to_one_object_mapping = best_object_mapping # self._filter_object_mapping(best_object_mapping)
-        useful_objects = set(one_to_one_object_mapping.values())
-        useful_objects.update(self._target_actions[best_task_index][best_index].objects)
+        useful_objects = set(best_object_mapping.values())
+        useful_objects.update(self._target_actions[best_task_index][best_state_index].objects)
 
         # Getting useful analagous predicates
         useful_predicates = set()
@@ -169,92 +131,91 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 useful_predicates.update(set_goal_analagous_predicate_names)
 
         # Getting final ranking of atoms in ground state
-        ranked_atoms = self._score_conds(useful_objects, useful_predicates, best_task_index, best_index)
-        scored_atoms = self._score_all(useful_objects, useful_predicates, best_task_index, best_index)
+        ranked_atoms = self._score_conds(useful_objects, useful_predicates, best_task_index, best_state_index)
+        useful_atoms = [atom for sublist in ranked_atoms for atom in sublist] 
         if DEBUG:
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
             print("RULE\n", rule)
-            print("GROUND ACTION\n", self._target_actions[best_task_index][best_index])
+            print("GROUND ACTION\n", self._target_actions[best_task_index][best_state_index])
             print("GROUND ACTIONS\n", [self._target_actions[best_task_index][i].name for i in range(len(self._target_actions[best_task_index]))])
             print("BEST TASK INDEX", best_task_index)
-            print("BEST INDEX: ", best_index)
-            print("GROUND STATE\n", sorted(self._target_states[best_task_index][best_index].simulator_state))
+            print("BEST INDEX: ", best_state_index)
+            print("GROUND STATE\n", sorted(self._target_states[best_task_index][best_state_index].simulator_state))
             print("GOAL\n", self._target_tasks[best_task_index].goal)
             print("USEFUL OBJECTS", useful_objects)
             print("USEFUL POS PREDICATES", useful_predicates)
             print("PRECONDS", ranked_atoms)
 
-        saycan_scores = [atom for sublist in ranked_atoms for atom in sublist]
-        """
-        pos_classifications = {}
-        neg_classifications = {}
-        for sample_atom in sorted(self._target_states[best_task_index][best_index].simulator_state):
-            prompt = get_prompt(self._base_env.get_name(), self._target_env.get_name(), rule, self._target_actions[best_task_index][best_index], sorted(self._target_states[best_task_index][best_index].simulator_state), self._target_tasks[best_task_index].goal, useful_predicates, useful_objects, sample_atom)
-            completion = get_completion(
-                [{"role": "user", "content": prompt}],
-                model="gpt-4-0125-preview",
-                logprobs=True,
-                top_logprobs=5,
-            )
+        # Creates the lifted rule from useful atoms (preconditions) and ground action
+        new_rule = self.create_lifted_rule(useful_atoms, best_object_mapping, self._target_actions[best_task_index][best_state_index])
+        return new_rule
 
-            # Calculating Yes or No
-            log_probs = completion.choices[0].logprobs.content[0].top_logprobs #JSON Object
-            best_yes_logprob = -float('inf')
-            best_no_logprob = -float('inf')
+    # =========================== LIFTED RULE FINALIZATION ===========================
 
-            for elem in log_probs:
-                lower_token = elem.token.lower()
-                elem_logprob = elem.logprob
-                if "yes" in lower_token and elem_logprob > best_yes_logprob:
-                    best_yes_logprob = elem_logprob
-                if "no" in lower_token and elem_logprob > best_no_logprob:
-                    best_no_logprob = elem_logprob
-
-            pos_classifications[sample_atom] = best_yes_logprob
-            neg_classifications[sample_atom] = best_no_logprob
-        saycan_scores = []
-
-        to_be_lifted_conditions = []
-        for a, v in pos_classifications.items():
-            saycan_scores.append((np.exp(v) + scored_atoms[a], a))
-        
-        """
-        # Lifting the rule
-        ground_action = self._target_actions[best_task_index][best_index]
+    def create_lifted_rule(self, useful_atoms: List[LiftedAtom], obj_to_var_mapping: Dict[Object, Variable], ground_action: _GroundNSRT) -> LDLRule:
+        # Preprocessing
         lifted_action = ground_action.parent
         obj_to_var_mapping = {}
-        all_final_objects = set()
-        for saycan_atom in saycan_scores:
-            for saycan_atom_object in saycan_atom.objects:
-                all_final_objects.add(saycan_atom_object)
+        all_final_objects = {saycan_atom_object for useful_atom in useful_atoms for saycan_atom_object in useful_atom.objects}
         for i in range(len(ground_action.objects)):
             obj_to_var_mapping[ground_action.objects[i]] = lifted_action.parameters[i]
         for leftover_object in sorted(all_final_objects - set(obj_to_var_mapping.keys())):
             new_var = leftover_object.type("?" + leftover_object.name)
             obj_to_var_mapping[leftover_object] = new_var
 
+        # Creating the rule
         rule_pos_state_preconditions = set()
         rule_neg_state_preconditions = set()
         rule_goal_preconditions = set()
-        for saycan_atom in saycan_scores:
-            if "WANT" in saycan_atom.predicate.name:
-                new_predicate = remove_wanted_prefix(saycan_atom.predicate)
-                new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
+        for useful_atom in useful_atoms:
+            if "WANT" in useful_atom.predicate.name:
+                new_predicate = remove_wanted_prefix(useful_atom.predicate)
+                new_variables = [obj_to_var_mapping[o] for o in useful_atom.objects]
                 rule_goal_preconditions.add(new_predicate(new_variables))
                 rule_neg_state_preconditions.add(new_predicate(new_variables))
-            elif "NOT" in saycan_atom.predicate.name:
-                new_predicate = remove_not_prefix(saycan_atom.predicate)
-                new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
+            elif "NOT" in useful_atom.predicate.name:
+                new_predicate = remove_not_prefix(useful_atom.predicate)
+                new_variables = [obj_to_var_mapping[o] for o in useful_atom.objects]
                 rule_neg_state_preconditions.add(new_predicate(new_variables))
             else:
-                new_variables = [obj_to_var_mapping[o] for o in saycan_atom.objects]
-                rule_pos_state_preconditions.add(saycan_atom.predicate(new_variables))
+                new_variables = [obj_to_var_mapping[o] for o in useful_atom.objects]
+                rule_pos_state_preconditions.add(useful_atom.predicate(new_variables))
         
         for needed_condition in lifted_action.preconditions:
             rule_pos_state_preconditions.add(needed_condition)
         final_rule = LDLRule("generated-rule", sorted(obj_to_var_mapping.values()), rule_pos_state_preconditions, rule_neg_state_preconditions, rule_goal_preconditions, lifted_action)
         return final_rule
-    
+
+    def _score_conds(self, useful_objects, useful_predicates, task_index, index):
+        # Returns a list of atoms sorted by score
+
+        # Creates the ground state consisting of positive atoms, goal atoms, and negated atoms over the plan
+        ground_state = self._target_states[task_index][index].simulator_state.copy()
+        for atom in self._target_tasks[task_index].goal:
+            wanted_atom = add_wanted_prefix(atom)
+            ground_state.add(wanted_atom)
+        for action in self._target_actions[task_index]: 
+            deleted_atoms = action.delete_effects.copy() 
+            for deleted_atom in deleted_atoms:
+                if deleted_atom not in ground_state:
+                    ground_state.add(add_not_prefix(deleted_atom))
+        useful_pos_atoms = {}
+        final_atoms = set()
+        for atom in ground_state:
+            score = 0.0
+            pred = atom.predicate
+            if pred.name in useful_predicates:
+                score += 0.5
+            for obj in atom.objects:
+                if obj in useful_objects:
+                    score += 1.0/len(atom.objects)
+            if score >= 1.0:
+                useful_pos_atoms[atom] = score
+                final_atoms.add(atom)
+        sorted_atoms, sorted_scores = sort_atoms_by_score(useful_pos_atoms)
+        return sorted_atoms
+
+    # =========================== PRUNING ===========================
     def pg3_prune_policy(self, policy: LiftedDecisionList):
         # Prunes the policy to remove extraneous conditions using PG3 score function
         # Generating all deletions
@@ -270,9 +231,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
                         continue
                     things_to_remove.append((i, index, condition))
         
-
-        # things_to_remove = things_to_remove[:5] # TODO: REMOVE THIS LATER
-
         current_score = self.get_pg3_scores([str(policy)])[0]
         current_list_of_rules = policy.rules.copy()
         print(f"DONE {current_score}")
@@ -349,68 +307,72 @@ class GPTObjectApproach(PG3AnalogyApproach):
             initial_policy_strs=policies) 
         return scores
     
-    def _score_all(self, useful_objects, useful_predicates, task_index, index):
-        ground_state = self._target_states[task_index][index].simulator_state.copy()
-        for atom in self._target_tasks[task_index].goal:
-            wanted_atom = add_wanted_prefix(atom)
-            ground_state.add(wanted_atom)
+    # =========================== SEARCH FOR BEST STATE AND MAPPING ===========================
+    def search_for_best_state_and_mapping(self, rule: LDLRule, target_nsrt: NSRT) -> Tuple[Dict[Variable, Object], int, int]:
+        mapping = {} # Mapping from target param to rule variable
+        for target_nsrt_param in target_nsrt.parameters:
+            # Ask GPT what is the best variable in rule for target_nsrt_param
+            best_rule_variable = self._get_analagous_variable(target_nsrt_param, rule, target_nsrt)
+            if best_rule_variable != None:
+                mapping[target_nsrt_param] = best_rule_variable
+        
+        # Search for a state that we can ground on the target environment
+        best_score = -1.0
+        best_object_mapping = None
+        best_state_index = None
+        best_task_index = None
+        for task_index in range(len(self._target_tasks)):
+            # In case planning for a task fails
+            if task_index >= len(self._target_states) or len(self._target_states[task_index]) == 0:
+                continue
+            for i in range(len(self._target_states[task_index])-1):
+                target_action = self._target_actions[task_index][i]
+                if target_action.name != target_nsrt.name:
+                    continue
 
-        final_scores = {}
-        for atom in ground_state:
-            score = 0.0
-            pred = atom.predicate
-            if pred.name in useful_predicates:
-                score += 1.0
-            for obj in atom.objects:
-                if obj in useful_objects:
-                    score += 1.0/len(atom.objects)
-            final_scores[atom] = score
-        return final_scores
-       
-    def _score_conds(self, useful_objects, useful_predicates, task_index, index):
-        # Returns a list of atoms sorted by score
+                object_mapping, gini_index = self._get_object_distribution_and_score(rule, target_nsrt, mapping, task_index, i)
+                if gini_index > best_score:
+                    best_task_index = task_index
+                    best_object_mapping = object_mapping
+                    best_score = gini_index
+                    best_state_index = i
+        
+        return best_object_mapping, best_task_index, best_state_index
+ 
+    def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], task_index: int, state_index: int):
+        # Performs best-first search filling variables with objects, if possible
+        initial_variables = set([var for var in rule.parameters]) - set(existing_mapping.values())
 
-        # Creates the ground state consisting of positive atoms, goal atoms, and negated atoms over the plan
-        ground_state = self._target_states[task_index][index].simulator_state.copy()
-        for atom in self._target_tasks[task_index].goal:
-            wanted_atom = add_wanted_prefix(atom)
-            ground_state.add(wanted_atom)
-        for action in self._target_actions[task_index]: 
-            deleted_atoms = action.delete_effects.copy() 
-            for deleted_atom in deleted_atoms:
-                if deleted_atom not in ground_state:
-                    ground_state.add(add_not_prefix(deleted_atom))
-        useful_pos_atoms = {}
-        final_atoms = set()
-        for atom in ground_state:
-            score = 0.0
-            pred = atom.predicate
-            if pred.name in useful_predicates:
-                score += 0.5
-            for obj in atom.objects:
-                if obj in useful_objects:
-                    score += 1.0/len(atom.objects)
-            if score >= 1.0:
-                useful_pos_atoms[atom] = score
-                final_atoms.add(atom)
-        sorted_atoms, sorted_scores = sort_atoms_by_score(useful_pos_atoms)
-        return sorted_atoms
+        ground_target_nsrt = self._target_actions[task_index][state_index]
+        constraints = {} # Base domain var to object
+        for target_var, base_var in existing_mapping.items():
+            index_of_object = target_nsrt.parameters.index(target_var)
+            target_object = ground_target_nsrt.objects[index_of_object]
+            constraints[base_var] = target_object
+        
+        distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
 
-    def _filter_object_mapping(self, object_mapping):
-        # Picks the best mapping for each variable
-        final_mapping = {}
-        rankings = []
-        for var in object_mapping:
-            for obj, obj_score in object_mapping[var].items():
-                rankings.append((obj_score, obj, var))
-        rankings.sort(reverse = True)
-        for ranking in rankings:
-            score = ranking[0]
-            obj = ranking[1]
-            var = ranking[2]
-            if var not in final_mapping.keys() and obj not in final_mapping.values() and score > 0:
-                final_mapping[var] = obj
-        return final_mapping
+        gini_state_score = 0.0
+
+        while True:
+            best_var = None
+            best_gini_score = 0.0
+            for var, var_distribution in distributions.items():
+                gini_score = gini_index_from_dict(var_distribution)
+                if gini_score > best_gini_score:
+                    best_var = var
+                    best_gini_score = gini_score
+            
+            if best_var is None:
+                break
+
+            best_object = max(distributions[best_var], key=distributions[best_var].get)
+            constraints[best_var] = best_object
+            initial_variables.remove(best_var)
+            gini_state_score += best_gini_score
+            distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
+        
+        return constraints, gini_state_score
 
     def find_distribution(self, rule: LDLRule, available_variables: List[Variable], constraints: Dict[Variable, Object], task_index: int, state_index: int):
         # Gets the distribution of variables to objects in a current state under constraints
@@ -461,41 +423,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
             all_distributions[available_variable] = object_distribution
         return all_distributions
 
-    def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], task_index: int, state_index: int):
-        # Performs best-first search filling variables with objects, if possible
-        initial_variables = set([var for var in rule.parameters]) - set(existing_mapping.values())
 
-        ground_target_nsrt = self._target_actions[task_index][state_index]
-        constraints = {} # Base domain var to object
-        for target_var, base_var in existing_mapping.items():
-            index_of_object = target_nsrt.parameters.index(target_var)
-            target_object = ground_target_nsrt.objects[index_of_object]
-            constraints[base_var] = target_object
-        
-        distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
-
-        gini_state_score = 0.0
-
-        while True:
-            best_var = None
-            best_gini_score = 0.0
-            for var, var_distribution in distributions.items():
-                gini_score = gini_index_from_dict(var_distribution)
-                if gini_score > best_gini_score:
-                    best_var = var
-                    best_gini_score = gini_score
-            
-            if best_var is None:
-                break
-
-            best_object = max(distributions[best_var], key=distributions[best_var].get)
-            constraints[best_var] = best_object
-            initial_variables.remove(best_var)
-            gini_state_score += best_gini_score
-            distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
-        
-        return constraints, gini_state_score
-
+    # =========================== UTILS ===========================
     def get_analagous_predicates(self, pred: Union[Predicate, str], want_name: bool = False):
         predicate_name = None
         if isinstance(pred, Predicate):
@@ -612,8 +541,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 "on": ["carry"],
             }
 
-        # Gripper -> Detyped Miconic
-        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+        # Gripper -> Detyped Delivery
+        if 'gripper' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
             predicate_input = {
                 "ball": ["paper"],
                 "room": ["loc"],
@@ -621,13 +550,33 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 "carry": ["carrying"],
             }
 
-        # Ferry -> Detyped Miconic
-        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+        # Ferry -> Detyped Delivery
+        if 'ferry' in self._base_env.get_name() and 'detypeddelivery' in self._target_env.get_name():
             predicate_input = {
                 "car": ["paper"],
                 "location": ["loc"],
                 "at-ferry": ["at"],
                 "on": ["carrying"],
+            }
+
+        # Gripper -> Detyped Miconic
+        if 'gripper' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            predicate_input = {
+                "ball": ["passenger"],
+                "room": ["floor"],
+                "at-robby": ["lift-at"],
+                "at": ["origin", "destin"],
+                "carry": ["boarded"],
+            }
+
+        # Ferry -> Detyped Miconic
+        if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
+            predicate_input = {
+                "car": ["passenger"],
+                "location": ["floor"],
+                "at-ferry": ["lift-at"],
+                "at": ["origin", "destin"],
+                "on": ["boarded"],
             }
 
         # Gripper -> Detyped Forest
@@ -664,141 +613,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
         for base_name, target_names in predicate_input.items():
             target_predicates = [target_env_name_to_predicate[target_name] for target_name in target_names]
             self._predicate_analogies[base_name] = target_predicates
-    
-    def _find_objects_and_conditions(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], state_index: int) -> Tuple([GroundLDLRule, float]):
-        # Note: state_index is the index of self._target_states that we try grounding on
-        all_rule_variables = set([var for var in rule.parameters])
-        used_rule_variables = set(existing_mapping.values())
-        
-        # Getting mapping from base variable to object using the plan's ground action
-        ground_target_nsrt = self._target_actions[state_index]
-        mapping_to_objects = {}
-        for target_var, base_var in existing_mapping.items():
-            index_of_object = target_nsrt.parameters.index(target_var)
-            target_object = ground_target_nsrt.objects[index_of_object]
-            mapping_to_objects[base_var] = target_object
-        
-        ground_state = self._target_states[state_index]
-        available_objects = sorted(set(ground_state.data.keys()) - set(mapping_to_objects.values()))
-
-        final_ground_objects = set(mapping_to_objects.values())
-
-        # Finding best object in ground state TODO: CAN CHANGE THIS: RIGHT NOW THIS IS A DETERMINISTIC PROCESS
-        for unused_rule_var in sorted(all_rule_variables - used_rule_variables):
-            relevant_variables = set([])
-            for condition in rule.pos_state_preconditions:
-                if unused_rule_var in condition.variables:
-                    relevant_variables.update(condition.variables)
-            # TODO: add neg_state_preconditions? (to find relevant variables)
-            for condition in rule.goal_preconditions:
-                if unused_rule_var in condition.variables:
-                    relevant_variables.update(condition.variables)
-            relevant_variables.remove(unused_rule_var)
-            relevant_objects = set([mapping_to_objects[var] for var in relevant_variables])
-
-            relevant_atoms = set()
-            for atom in ground_state.simulator_state:
-                if len(relevant_objects & set(atom.objects)) > 0 and len(set(atom.objects) - relevant_objects) > 0 : # If some relevant object is in atom, but not the only atom, include it
-                    relevant_atoms.add(atom)
-            
-            best_objects = set()
-            for relevant_atom in relevant_atoms:
-                for obj in relevant_atom.objects:
-                    if obj not in relevant_objects:
-                        best_objects.add(obj)
-            
-            best_object = None
-            if len(best_objects) > 0:
-                best_object = sorted(best_objects)[0] # TODO: Probably find a better way to do this
-                final_ground_objects.add(best_object)
-
-        # Getting ground conditions for rule with desired objects 
-        final_preconditions = set()
-        final_goalconditions = set()
-
-        for ground_atom in ground_state.simulator_state:
-            # if all objects in ground_atom are in final_ground_objects
-            ground_atom_objects = set(ground_atom.objects)
-            if ground_atom_objects.issubset(final_ground_objects):
-                final_preconditions.add(ground_atom)
-
-        for ground_atom in self._target_task.goal:
-            # if all objects in ground_atom are in final_ground_objects
-            ground_atom_objects = set(ground_atom.objects)
-            if ground_atom_objects.issubset(final_ground_objects):
-                final_goalconditions.add(ground_atom)
-        
-        return final_ground_objects, final_preconditions, final_goalconditions
-
-    def _design_lifted_rule_from_conditions(self, objects, target_nsrt, preconditions, goalconditions):
-        # 1. Find asssignment of target_nsrt to preconditions (assumes only one)
-        param_to_pos_preds: Dict[Variable, Set[Predicate]] = {
-            p: set()
-            for p in target_nsrt.parameters
-        }
-        object_to_loc = {
-            o: set()
-            for o in objects
-        }
-        for atom in target_nsrt.preconditions:
-            for i in range(len(atom.variables)):
-                var = atom.variables[i]
-                param_to_pos_preds[var].add((atom.predicate.name, i))
-
-        for atom in preconditions:
-            for i in range(len(atom.objects)):
-                obj = atom.objects[i]
-                object_to_loc[obj].add((atom.predicate.name, i))
-        
-        mapping = {} # From var in target_nsrt to object
-        param_choices = []  # list of lists of possible objects for each param
-        for var in target_nsrt.parameters:
-            var_locs = param_to_pos_preds[var]
-            param_choices.append([])
-            for obj, obj_locs in object_to_loc.items():
-                if var_locs.issubset(obj_locs):
-                    param_choices[-1].append(obj)
-            # No satisfying assignment/matching
-            if len(param_choices[-1]) == 0:
-                return None, 0.0
-
-        min_param = None
-        min_unique_count = float('inf')
-        for choice in itertools.product(*param_choices):
-            unique_count = len(set(choice))
-            if unique_count <= min_unique_count:
-                min_param = choice
-                min_unique_count = unique_count
-        
-        ground_nsrt = target_nsrt.ground(min_param)
-
-        # 2. Create a lifted rule from this
-
-        lifted_variables = target_nsrt.parameters.copy()
-        mapping = {} # Mapping from object to variable
-        for i in range(len(min_param)):
-            mapping[min_param[i]] = target_nsrt.parameters[i]
-        
-        for obj in objects:
-            if obj not in mapping.keys():
-                new_var = _convert_object_to_variable(obj)
-                mapping[obj] = new_var
-                lifted_variables.append(new_var)
-
-        lifted_preconditions = set()
-        for precondition in preconditions:
-            predicate = precondition.predicate
-            params = [mapping[precondition.objects[i]] for i in range(len(precondition.objects))]
-            lifted_preconditions.add(predicate(params))
-        
-        lifted_goalconditions = set()
-        for precondition in goalconditions:
-            predicate = precondition.predicate
-            params = [mapping[precondition.objects[i]] for i in range(len(precondition.objects))]
-            lifted_goalconditions.add(predicate(params))
-        lifted_rule = LDLRule("gen-rule", lifted_variables, lifted_preconditions, set(), lifted_goalconditions, target_nsrt)
-        return lifted_rule, 0.0
-
     
     def _get_analagous_nsrts(self, rule: LDLRule) -> List[NSRT]:
         # Returns NSRT(s) in target environment that is analagous to the NSRT in rule
@@ -873,6 +687,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 ("board", "pick") : {"?p": "?obj", "?f": "?room"},
                 ("depart", "drop") : {"?p": "?obj", "?f": "?room"},
             }
+
         # Ferry -> Detyped Miconic
         if 'ferry' in self._base_env.get_name() and 'detypedmiconic' in self._target_env.get_name():
             variable_input = {
@@ -922,7 +737,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 ("load-truck", "pick") : {"?obj": "?obj", "?loc": "?room", "?truck": "?gripper"},
                 ("load-airplane", "pick") : {"?obj": "?obj", "?loc": "?room", "?airplane": "?gripper"},
             }
-
 
         if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
             var_name = variable_input[(target_nsrt.name, rule.nsrt.name)][nsrt_param.name]
@@ -1010,7 +824,6 @@ def remove_wanted_prefix(element: Union[Predicate, LiftedAtom, GroundAtom]):
         return new_atom
     else:
         return None
-
 
 def _convert_object_to_variable(obj: Object) -> Variable:
     return obj.type("?" + obj.name)
