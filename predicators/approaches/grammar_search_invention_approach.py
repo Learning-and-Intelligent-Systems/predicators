@@ -465,6 +465,7 @@ _DEBUG_PREDICATE_PREFIXES = {
 
         # 200 train tasks
         "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.184)",
+        "Forall[0:button,1:robot].[(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.203)(0,1)]",
         # RobotAboveButton
         "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.203)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
@@ -3212,6 +3213,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 option, segments = pair
                 clusters = {}
                 for seg in segments:
+                    # import pdb; pdb.set_trace()
+                    # TODO: where I'd have to consider delete effects if we want to make a different operator for things that only show up in the delete effects
+                    # all_types = [set(a.predicate.types) for a in (seg.add_effects | seg.delete_effects)]
                     all_types = [set(a.predicate.types) for a in seg.add_effects]
                     if len(all_types) == 0 or len(set.union(*all_types)) == 0:
                         # Either there are no add effects, or the object
@@ -3478,6 +3482,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 print()
                 all_add_effects |= add_effects
                 all_preconditions |= init_atoms
+
+                if j == 6:
+                    # temp = c[14]
+                    # # find which demo trajectory it came from
+                    # for x, trajec in enumerate(segmented_trajs):
+                    #     if temp in trajec:
+                    #         import pdb; pdb.set_trace()
+
+                    import pdb; pdb.set_trace()
 
                 # if "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]" in [str(p) for p in add_effects]:
                 #     import pdb; pdb.set_trace()
@@ -3993,6 +4006,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 op_ignore_effects = set()
                 op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+
+                if name == "Op6-StickMoveToButton":
+                    import pdb; pdb.set_trace()
 
                 # if op.name == "Op0-StickPressButton":
                 #     import pdb; pdb.set_trace()
