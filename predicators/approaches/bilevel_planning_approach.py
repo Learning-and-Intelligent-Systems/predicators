@@ -72,6 +72,15 @@ class BilevelPlanningApproach(BaseApproach):
             for act in nsrt_plan:
                 logging.debug(act)
 
+        # if self._num_calls == 3:
+        #     import pdb; pdb.set_trace()
+        #     init_state = task.init
+        #     goal = task.goal
+        #     for k, v in init_state.data.items(): print(f"{k}: {v.tolist()}")
+        #     objs = list(init_state.data.keys())
+        #
+        #     nsrt_plan, atoms_seq, metrics = self._run_task_plan(task, nsrts, preds, timeout, seed)
+
         # Run full bilevel planning.
         else:
             option_plan, nsrt_plan, metrics = self._run_sesame_plan(

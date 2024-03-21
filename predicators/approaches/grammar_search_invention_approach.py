@@ -454,12 +454,22 @@ _DEBUG_PREDICATE_PREFIXES = {
         # # StickNotAboveButtonX
         # "Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|<=[idx 0]0.159)(0,1)]",
         # StickAboveButton
-        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",
+
+        # # 50 train tasks:
+        # "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",
+        # # RobotAboveButton
+        # "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.194)",
+        # "((0:stick).held<=[idx 0]0.5)",  # Handempty
+        # "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
+        # "((0:button).y<=[idx 0]3.01)",  # ButtonReachable
+
+        # 200 train tasks
+        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.184)",
         # RobotAboveButton
-        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.194)",
+        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.203)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
-        "((0:button).y<=[idx 0]3.01)",  # ButtonReachable
+        "((0:button).y<=[idx 0]3.0)",  # ButtonReachable
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -929,6 +939,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         grammar = _create_grammar(dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
+        import pdb; pdb.set_trace()
         logging.info(f"Done: created {len(candidates)} candidates:")
         self._metrics["grammar_size"] = len(candidates)
         for predicate, cost in candidates.items():
@@ -1075,6 +1086,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                            segmented_trajs,
                                            verify_harmlessness=False,
                                            annotations=None,
+                                           known_pnads=None,
                                            verbose=False):
             for atom in pnad.op.preconditions:
                 preds_in_preconds.add(atom.predicate)
@@ -3638,7 +3650,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     traj.append(seg_to_op(seg, final_clusters))
                 temp.append(traj)
 
-                print(traj)
+                print(a, traj)
                 # if a == 1:
                 #     import pdb; pdb.set_trace()
             # import pdb; pdb.set_trace()
@@ -4673,7 +4685,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #
             # pnads = pruned_pnads
 
-            # import pdb; pdb.set_trace()
+            import pdb; pdb.set_trace()
 
             def print_ops(op):
                 print("====")

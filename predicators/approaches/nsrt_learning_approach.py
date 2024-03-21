@@ -32,6 +32,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         self._nsrts: Set[NSRT] = set()
         self._segmented_trajs: List[List[Segment]] = []
         self._seg_to_nsrt: Dict[Segment, NSRT] = {}
+        self._pnads = None
 
     @classmethod
     def get_name(cls) -> str:

@@ -150,7 +150,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                                            segmented_trajs,
                                            verify_harmlessness=False,
                                            verbose=False,
-                                           annotations=None)
+                                           annotations=None,
+                                           known_pnads=None)
         except TimeoutError:
             logging.info(
                 "Warning: Operator Learning timed out! Skipping evaluation.")

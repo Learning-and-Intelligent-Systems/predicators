@@ -139,8 +139,8 @@ def learn_nsrts_from_data(
         logging.info(nsrt)
     logging.info("")
 
+    import pdb; pdb.set_trace()
     return set(nsrts), segmented_trajs, seg_to_nsrt
-
 
 def _learn_pnad_options(pnads: List[PNAD],
                         known_options: Set[ParameterizedOption],
