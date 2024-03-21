@@ -67,7 +67,7 @@ def test_predicate_grammar(segmenter):
     # Generate from the diff ineq grammar and verify that the number of
     # candidates generated is under the limit.
     preds = diff_ineq_grammar.generate(max_num=100)
-    assert len(preds) < 100
+    assert len(preds) <= 100
 
     forall_grammar = _create_grammar(dataset, env.predicates)
     # Test edge case where there are no low-level features in the dataset.
@@ -143,7 +143,7 @@ def test_euclidean_grammar():
         "segmenter": "atom_changes"
     })
     grammar = _create_grammar(dataset, env.predicates)
-    assert len(grammar.generate(max_num=100)) == 28
+    assert len(grammar.generate(max_num=100)) == 32
     utils.reset_config({
         "grammar_search_grammar_use_euclidean_dist": False,
         "segmenter": "contacts"

@@ -3548,15 +3548,14 @@ def find_all_balanced_expressions(s: str) -> List[str]:
     return exprs
 
 
-def f_range_intersection(lb1: float, ub1: float, lb2: float,
-                         ub2: float) -> bool:
-    """Given upper and lower bounds for two feature ranges, returns True iff
-    the ranges intersect."""
+def range_intersection(lb1: float, ub1: float, lb2: float, ub2: float) -> bool:
+    """Given upper and lower bounds for two ranges, returns True iff the ranges
+    intersect."""
     return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
 
 
-def compute_abs_bounds_given_frange(lb1: float, ub1: float, lb2: float,
-                                    ub2: float) -> Tuple[float, float]:
+def compute_abs_range_given_two_ranges(lb1: float, ub1: float, lb2: float,
+                                       ub2: float) -> Tuple[float, float]:
     """Given upper and lower bounds of two feature ranges, returns the upper.
 
     and lower bound of |f1 - f2|.
@@ -3567,7 +3566,7 @@ def compute_abs_bounds_given_frange(lb1: float, ub1: float, lb2: float,
     # bound of the expression is just 0. Otherwise, if
     # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
     # ub2 < lb1, the lower bound is |lb1 - ub2|.
-    if f_range_intersection(lb1, ub1, lb2, ub2):
+    if range_intersection(lb1, ub1, lb2, ub2):
         lb = 0.0
     else:
         lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
