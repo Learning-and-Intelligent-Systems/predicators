@@ -454,12 +454,13 @@ _DEBUG_PREDICATE_PREFIXES = {
         # # StickNotAboveButtonX
         # "Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|<=[idx 0]0.159)(0,1)]",
         # StickAboveButton
-        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",        
+        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",
         # RobotAboveButton
         "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.194)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
-        "((0:button).y<=[idx 0]3.01)",  # ButtonReachable
+        "((0:button).y<=[idx 0]3.01)",  # ButtonReachableByRobot
+        "NOT-((0:button).y<=[idx 0]3.01)",  # ButtonNotReachableByRobot
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",

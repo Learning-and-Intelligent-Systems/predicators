@@ -380,8 +380,6 @@ class StickButtonMovementGroundTruthOptionFactory(
             action = Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
             # If the robot and button are already pressing, press.
             if StickButtonEnv.Above_holds(state, objects[:2]):
-                if state.get(objects[1], "y") > 2.98:
-                    import ipdb; ipdb.set_trace()
                 action = Action(
                     np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
@@ -413,13 +411,13 @@ class StickButtonMovementGroundTruthOptionFactory(
                 # max_stick_button_x = max(max_stick_button_x, abs(-state.get(stick, "x") + state.get(button, "x")))
                 # max_stick_button_y = max(max_stick_button_y, abs(-state.get(stick, "y") + state.get(button, "y")))
                 # max_tip_button_dist = max(max_tip_button_dist, (state.get(button, "x") - state.get(stick, "tip_x")) ** 2 + (state.get(button, "y") - state.get(stick, "tip_y")) ** 2)
-                
+
                 # all_buttons = state.get_objects(button.type)
                 # for other_button in all_buttons:
                 #     if other_button == button:
                 #         continue
                 #     min_tip_button_dist = min(min_tip_button_dist, (state.get(other_button, "x") - state.get(stick, "tip_x")) ** 2 + (state.get(other_button, "y") - state.get(stick, "tip_y")) ** 2)
-                
+
                 # print(max_tip_button_x)
                 # print(max_tip_button_y)
                 # print(max_stick_button_x)
