@@ -270,8 +270,6 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         Grasped = predicates["Grasped"]
         HandEmpty = predicates["HandEmpty"]
         AboveNoButton = predicates["AboveNoButton"]
-        ButtonReachableByRobot = predicates["ButtonReachableByRobot"]
-        ButtonNotReachableByRobot = predicates["ButtonNotReachableByRobot"]
 
         # Options
         RobotPressButton = options["RobotPressButton"]
@@ -292,7 +290,6 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(AboveNoButton, []),
             LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(ButtonReachableByRobot, [button])
         }
         add_effects = {
             LiftedAtom(RobotAboveButton, [robot, button]),
@@ -315,7 +312,6 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(RobotAboveButton, [robot, from_button]),
             LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(ButtonReachableByRobot, [to_button])
         }
         add_effects = {
             LiftedAtom(RobotAboveButton, [robot, to_button]),
@@ -338,7 +334,6 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(Grasped, [robot, stick]),
             LiftedAtom(StickAboveButton, [stick, from_button]),
-            LiftedAtom(ButtonNotReachableByRobot, [to_button])
         }
         add_effects = {
             LiftedAtom(StickAboveButton, [stick, to_button]),
@@ -361,7 +356,6 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(Grasped, [robot, stick]),
             LiftedAtom(AboveNoButton, []),
-            LiftedAtom(ButtonNotReachableByRobot, [to_button])
         }
         add_effects = {
             LiftedAtom(StickAboveButton, [stick, button]),

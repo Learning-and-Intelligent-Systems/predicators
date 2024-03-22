@@ -759,7 +759,8 @@ class GlobalSettings:
                 {"stick_button_move": 1 / 30.0})[args.get("env", "")],
 
             # Feature names to use as part of the EuclideanPredicateGrammar.
-            # Each entry is (type1_feature1name, type1_feature2name, type2_feature1name, type2_feature2name)
+            # Each entry is (type1_feature1name, type1_feature2name,
+            # type2_feature1name, type2_feature2name)
             grammar_search_euclidean_feature_names=defaultdict(
                 lambda: [("x", "y", "x", "y")], {
                     "stick_button_move": [("x", "y", "x", "y"),

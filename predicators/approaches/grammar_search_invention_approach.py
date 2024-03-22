@@ -451,9 +451,11 @@ _DEBUG_PREDICATE_PREFIXES = {
         # the value of the constant to change. Need to uncomment these
         # as necessary.
         # StickAboveButton
-        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",
+        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - " + \
+            "(1:stick).tip_y)^2)<=[idx 0]0.18)",
         # RobotAboveButton
-        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.194)",
+        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - " + \
+            "(1:robot).y)^2)<=[idx 0]0.194)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty
         "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
         "((0:button).y<=[idx 0]3.01)",  # ButtonReachableByRobot

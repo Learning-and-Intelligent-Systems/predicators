@@ -13,7 +13,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
-from predicators.utils import _Geom2D
+from predicators.utils import _Geom2D, Rectangle
 
 
 class StickButtonEnv(BaseEnv):
@@ -293,7 +293,6 @@ class StickButtonEnv(BaseEnv):
                 # Keep only if no intersections with existing objects.
                 if not any(geom.intersects(g) for g in collision_geoms):
                     break
-
             collision_geoms.add(geom)
             if CFG.stick_button_disable_angles:
                 theta = np.pi / 2
@@ -488,20 +487,6 @@ class StickButtonMovementEnv(StickButtonEnv):
     # x and y correspond to the end of the stick.
     _stick_type = Type("stick", ["x", "y", "tip_x", "tip_y", "theta", "held"])
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-        self._ButtonReachableByRobot = Predicate(
-            "ButtonReachableByRobot", [self._button_type],
-            self._ButtonReachableByRobot_holds)
-        self._ButtonNotReachableByRobot = Predicate(
-            "ButtonNotReachableByRobot", [self._button_type],
-            self._ButtonNotReachableByRobot_holds)
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return super().predicates | set(
-            [self._ButtonReachableByRobot, self._ButtonNotReachableByRobot])
-
     def _get_tasks(self, num: int, num_button_lst: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
@@ -630,6 +615,7 @@ class StickButtonMovementEnv(StickButtonEnv):
         """Run simulation and update tip_x and tip_y."""
         next_state = super().simulate(state, action)
         stick_rect = self.object_to_geom(self._stick, next_state)
+        assert isinstance(stick_rect, Rectangle)
         tip_rect = self.stick_rect_to_tip_rect(stick_rect)
         next_state.set(self._stick, "tip_x", tip_rect.x)
         next_state.set(self._stick, "tip_y", tip_rect.y)
@@ -638,12 +624,3 @@ class StickButtonMovementEnv(StickButtonEnv):
     @classmethod
     def get_name(cls) -> str:
         return "stick_button_move"
-
-    def _ButtonReachableByRobot_holds(self, state: State,
-                                      objects: Sequence[Object]) -> bool:
-        button, = objects
-        return self.rz_y_lb < state.get(button, "y") < self.rz_y_ub
-
-    def _ButtonNotReachableByRobot_holds(self, state: State,
-                                         objects: Sequence[Object]) -> bool:
-        return not self._ButtonReachableByRobot_holds(state, objects)
