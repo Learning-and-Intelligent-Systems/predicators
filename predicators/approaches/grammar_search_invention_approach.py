@@ -447,14 +447,11 @@ _DEBUG_PREDICATE_PREFIXES = {
         "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
     ],
     "stick_button_move": [
-        # NOTE: we have a few different versions of the same predicate
-        # here because changing the demonstration data slightly causes
+        # NOTE: changing the demonstration data slightly causes
         # the value of the constant to change. Need to uncomment these
         # as necessary.
-        # # StickNotAboveButtonX
-        # "Forall[0:button,1:stick].[NOT-(|(0:button).x - (1:stick).x|<=[idx 0]0.159)(0,1)]",
         # StickAboveButton
-        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",        
+        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - (1:stick).tip_y)^2)<=[idx 0]0.18)",
         # RobotAboveButton
         "(((0:button).x - (1:robot).x)^2 + ((0:button).y - (1:robot).y)^2)<=[idx 0]0.194)",
         "((0:stick).held<=[idx 0]0.5)",  # Handempty

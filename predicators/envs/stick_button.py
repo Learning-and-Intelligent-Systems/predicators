@@ -518,7 +518,9 @@ class StickButtonMovementEnv(StickButtonEnv):
                     # of the boundary between robot's reachable vs
                     # unreachable regions to make predicate invention
                     # easier.
-                    if not any(geom.intersects(g) for g in collision_geoms) and abs(y - self.rz_y_ub) > radius:
+                    if not any(geom.intersects(g)
+                               for g in collision_geoms) and abs(
+                                   y - self.rz_y_ub) > radius:
                         break
                 collision_geoms.add(geom)
                 state_dict[button] = {"x": x, "y": y, "pressed": 0.0}
