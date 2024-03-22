@@ -490,6 +490,17 @@ class StickButtonMovementEnv(StickButtonEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+        self._ButtonReachableByRobot = Predicate(
+            "ButtonReachableByRobot", [self._button_type],
+            self._ButtonReachableByRobot_holds)
+        self._ButtonNotReachableByRobot = Predicate(
+            "ButtonNotReachableByRobot", [self._button_type],
+            self._ButtonNotReachableByRobot_holds)
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return super().predicates | set(
+            [self._ButtonReachableByRobot, self._ButtonNotReachableByRobot])
 
     def _get_tasks(self, num: int, num_button_lst: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -627,3 +638,12 @@ class StickButtonMovementEnv(StickButtonEnv):
     @classmethod
     def get_name(cls) -> str:
         return "stick_button_move"
+
+    def _ButtonReachableByRobot_holds(self, state: State,
+                                      objects: Sequence[Object]) -> bool:
+        button, = objects
+        return self.rz_y_lb < state.get(button, "y") < self.rz_y_ub
+
+    def _ButtonNotReachableByRobot_holds(self, state: State,
+                                         objects: Sequence[Object]) -> bool:
+        return not self._ButtonReachableByRobot_holds(state, objects)

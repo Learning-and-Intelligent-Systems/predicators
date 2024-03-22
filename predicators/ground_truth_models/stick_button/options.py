@@ -381,9 +381,6 @@ class StickButtonMovementGroundTruthOptionFactory(
             action = Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
             # If the robot and button are already pressing, press.
             if StickButtonEnv.Above_holds(state, objects[:2]):
-                if state.get(objects[1], "y") > 2.98:
-                    import ipdb
-                    ipdb.set_trace()
                 action = Action(
                     np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
