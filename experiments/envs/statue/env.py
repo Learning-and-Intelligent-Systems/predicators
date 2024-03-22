@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 import math
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple, cast
 import numpy as np
@@ -12,7 +13,7 @@ from matplotlib.lines import Line2D
 import matplotlib.patches as patches
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("tkagg")
+# matplotlib.use("tkagg")
 
 from predicators.utils import abstract
 
@@ -25,16 +26,18 @@ class SimulatorState:
     vertical_doors: List[List[Object]]
     horizontal_doors: List[List[Object]]
     door_height_class: Dict[Object, bool] # True if Large (used for drawing)
+    rooms_x_offset: int
+    rooms_y_offset: int
 
 class Statue(BaseEnv):
-    """Base environment."""
+    """Statue environment"""
 
     # Settings
     ## Task generation settings
-    range_train_world_width: ClassVar[Tuple[int, int]] = (2, 5)
-    range_test_world_width: ClassVar[Tuple[int, int]] = (7, 10)
-    range_train_world_height: ClassVar[Tuple[int, int]] = (2, 5)
-    range_test_world_height: ClassVar[Tuple[int, int]] = (7, 10)
+    range_train_world_width: ClassVar[Tuple[int, int]] = (2, 4)
+    range_test_world_width: ClassVar[Tuple[int, int]] = (7, 7)
+    range_train_world_height: ClassVar[Tuple[int, int]] = (2, 3)
+    range_test_world_height: ClassVar[Tuple[int, int]] = (7, 7)
 
     ## World shape settings
     range_small_door_width = (0.4, 0.6)
@@ -47,6 +50,7 @@ class Statue(BaseEnv):
     range_statue_depth = (0.1, 0.3)
 
     room_size = 2.0
+    world_generation_margin = 0.01
 
     robot_radius = 0.2 # Only for drawing
     statue_radius = 0.12 # Only for drawing
@@ -127,6 +131,7 @@ class Statue(BaseEnv):
 
     @classmethod
     def _transition_move(cls, state: State, action: Action) -> State:
+        logging.info("TRANSITION MOVE")
         new_x, new_y = action.arr[0:2]
         next_state = state.copy()
         simulator_state = cls._get_simulator_state(state)
@@ -135,54 +140,55 @@ class Statue(BaseEnv):
         # Check if the robot is not moving out of bounds
         robot_x, robot_y = state.get(cls._robot, "x"), state.get(cls._robot, "y")
 
-        room_x = int(robot_x / cls.room_size)
-        room_y = int(robot_y / cls.room_size)
-        new_room_x = int(new_x / cls.room_size)
-        new_room_y = int(new_y / cls.room_size)
+        room_x = math.floor(robot_x / cls.room_size)
+        room_y = math.floor(robot_y / cls.room_size)
+        new_room_x = math.floor(new_x / cls.room_size)
+        new_room_y = math.floor(new_y / cls.room_size)
 
-        if new_room_x < 0 or new_room_y < 0 or new_room_x >= simulator_state.world_width or \
-                new_room_y >= simulator_state.world_height:
+        if new_room_x < simulator_state.rooms_x_offset or \
+            new_room_y < simulator_state.rooms_y_offset or \
+            new_room_x >= simulator_state.world_width + simulator_state.rooms_x_offset or \
+            new_room_y >= simulator_state.world_height + simulator_state.rooms_y_offset:
+            logging.info("ROBOT OOB")
             return next_state
 
-        # Check if the robot is moving by one space only, the door and the direction
+        # Check if the robot is moving at most one space and the door through which it goes
         door = None
-        if np.allclose(room_x, new_room_x, atol=cls.equality_margin) and \
-            np.allclose(room_y, new_room_y, atol=cls.equality_margin):
-            horizontal = np.abs(room_x - new_room_x) >= np.abs(room_y -new_room_y)
-        elif np.allclose(room_y, new_room_y, atol=cls.equality_margin) and \
-            0 <= np.abs(room_x - new_room_x) <= 1 + cls.equality_margin:
+        if (new_room_x, new_room_y) == (room_x, room_y):
+            horizontal = np.abs(robot_x - new_x) <= np.abs(robot_y - new_y)
+        elif (new_room_x, new_room_y) in {(room_x - 1, room_y), (room_x + 1, room_y)}:
+            horizontal = True
             if mb_statue is not None:
-                door = simulator_state.vertical_doors[room_y][min(room_x, new_room_x)]
-            horizontal = False # Whether the statue is horizontal after the move
-        elif np.allclose(room_x, new_room_x, atol=cls.equality_margin) and \
-            0 <= np.abs(room_y - new_room_y) <= 1 + cls.equality_margin:
+                door = simulator_state.vertical_doors[room_y - simulator_state.rooms_y_offset][
+                    min(room_x, new_room_x) - simulator_state.rooms_x_offset
+                ]
+        elif (new_room_x, new_room_y) in {(room_x, room_y - 1), (room_x, room_y + 1)}:
+            horizontal = False
             if mb_statue is not None:
-                door = simulator_state.horizontal_doors[min(room_y, new_room_y)][room_x]
-            horizontal = True # Whether the statue is horizontal after the move
+                door = simulator_state.horizontal_doors[
+                    min(room_y, new_room_y) - simulator_state.rooms_y_offset
+                ][room_x - simulator_state.rooms_x_offset]
         else:
+            logging.info("ROBOT NOT MOVING TO AN ADJACENT ROOM")
             return next_state
 
         # Check if the statue fits
-        if door is not None:
+        if door is not None and mb_statue is not None:
             door_width = state.get(door, "width")
             door_height = state.get(door, "height")
-            statue_width = state.get(mb_statue, "width")
-            statue_height = state.get(mb_statue, "height")
-            statue_grasp = state.get(mb_statue, "grasp")
-            if statue_grasp < cls.statue_vertical_thresh:
-                statue_width, statue_height = statue_height, statue_width
-            if door_width < statue_width or door_height < statue_height:
+            statue_x_size, _, statue_z_size = \
+                cls._get_statue_shape(state, mb_statue)
+            if door_width < statue_x_size or door_height < statue_z_size:
+                logging.info("STATUE DOES NOT FIT THROUGH THE DOORWAY")
                 return next_state
 
         # Check if the statue does not go out of the room's bounds
         if mb_statue is not None:
-            statue_width = state.get(mb_statue, "width")
-            statue_depth = state.get(mb_statue, "depth")
-            if not horizontal:
-                statue_width, statue_depth = statue_depth, statue_width
+            statue_x_size, statue_y_size, _ = cls._get_statue_shape(state, mb_statue, horizontal)
             room_box = BoxWH(new_room_x * cls.room_size, new_room_y * cls.room_size, cls.room_size, cls.room_size)
-            statue_box = BoxWH(new_x - statue_width / 2, new_y - statue_depth / 2, statue_width, statue_depth)
+            statue_box = BoxWH(new_x - statue_x_size / 2, new_y - statue_y_size / 2, statue_x_size, statue_y_size)
             if not room_box.contains(statue_box):
+                logging.info("STATUE OOB")
                 return next_state
 
         # Move the robot
@@ -192,47 +198,62 @@ class Statue(BaseEnv):
             next_state.set(mb_statue, "x", new_x)
             next_state.set(mb_statue, "y", new_y)
 
+        # Move all the objects so that the robot is in room (0,0)
+        cls._normalize_object_positions(next_state)
+
         return next_state
 
     @classmethod
     def _transition_grab(cls, state: State, action: Action) -> State:
+        logging.info("TRANSITION GRAB")
         next_state = state.copy()
         grasp = action.arr[2]
 
         # Make sure the robot isn't holding anything
         if cls._get_held_statue(state) is not None:
+            logging.info("STATUE ALREADY HELD")
+            return next_state
+
+        # Check if the robot and statue are in the same room
+        robot_x, robot_y = state.get(cls._robot, "x"), state.get(cls._robot, "y")
+        robot_room_x = math.floor(robot_x / cls.room_size)
+        robot_room_y = math.floor(robot_y / cls.room_size)
+
+        statue_x, statue_y = state.get(cls._statue, "x"), state.get(cls._statue, "y")
+        statue_room_x = math.floor(statue_x / cls.room_size)
+        statue_room_y = math.floor(statue_y / cls.room_size)
+
+        if (robot_room_x, robot_room_y) != (statue_room_x, statue_room_y):
+            logging.info("STATUE IN A DIFFERENT ROOM")
             return next_state
 
         # Check if the new placement of the statue won't interfere with the room
-        robot_x, robot_y = state.get(cls._robot, "x"), state.get(cls._robot, "y")
-        statue_width = state.get(cls._statue, "width")
-        statue_depth = state.get(cls._statue, "depth")
-
-        room_x = int(robot_x / cls.room_size)
-        room_y = int(robot_y / cls.room_size)
-
-        room_box = BoxWH(room_x * cls.room_size, room_y * cls.room_size, cls.room_size, cls.room_size)
-        statue_box = BoxWH(robot_x - statue_width/2, robot_y - statue_depth/2, statue_width, statue_depth)
-
-        if not room_box.contains(statue_box):
-            return next_state
-
-        # Grab the new statue
         next_state.set(cls._statue, "x", robot_x)
         next_state.set(cls._statue, "y", robot_y)
         next_state.set(cls._statue, "grasp", grasp)
         next_state.set(cls._statue, "held", 1.0)
         next_state.set(cls._robot, "fingers", 0.0)
 
+        statue_x_size, statue_y_size, _ = cls._get_statue_shape(state, cls._statue)
+
+        room_box = BoxWH(robot_room_x * cls.room_size, robot_room_y * cls.room_size, cls.room_size, cls.room_size)
+        statue_box = BoxWH(robot_x - statue_x_size/2, robot_y - statue_y_size/2, statue_x_size, statue_y_size)
+
+        if not room_box.contains(statue_box):
+            logging.info("STATUE OOB")
+            return state.copy()
+
         return next_state
 
     @classmethod
     def _transition_place(cls, state: State, action: Action) -> State:
+        logging.info("TRANSITION PLACE")
         next_state = state.copy()
 
         # Make sure that a statue is held
         mb_statue = cls._get_held_statue(state)
         if mb_statue is None:
+            logging.info("STATUE NOT HELD")
             return next_state
 
         # Place the statue
@@ -255,6 +276,37 @@ class Statue(BaseEnv):
             if state.get(statue, "held") >= cls.held_thresh
         ]
         return statue
+
+    @classmethod
+    def _get_statue_shape(cls, state: State, statue: Object, horizontal: bool = False) -> Tuple[float, float, float]:
+        """Outputs the projected size of the statue in the x, y and z axis"""
+        assert statue.is_instance(cls._statue_type)
+        statue_vertical = state.get(statue, "grasp") > cls.statue_vertical_thresh or \
+            state.get(statue, "held") < cls.held_thresh
+        statue_width = state.get(statue, "width")
+        statue_depth = state.get(statue, "depth")
+        statue_height = state.get(statue, "height")
+        if not statue_vertical:
+            statue_width, statue_height = statue_height, statue_width
+        if horizontal:
+            statue_width, statue_depth = statue_depth, statue_width
+        return statue_width, statue_depth, statue_height
+
+    @classmethod
+    def _normalize_object_positions(cls, state: State) -> None:
+        """Moves all the objects so that the robot is in the center room"""
+        return
+        simulator_state = cls._get_simulator_state(state)
+
+        rooms_x_offset = -math.floor(state.get(cls._robot, "x") / cls.room_size)
+        rooms_y_offset = -math.floor(state.get(cls._robot, "y") / cls.room_size)
+        offset_x, offset_y = rooms_x_offset * cls.room_size, rooms_y_offset * cls.room_size
+
+        simulator_state.rooms_x_offset += rooms_x_offset
+        simulator_state.rooms_y_offset += rooms_y_offset
+        for obj in state:
+            assert obj.type.feature_names[:2] == ["x", "y"]
+            state[obj][:2] += (offset_x, offset_y)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         if not self._train_tasks:
@@ -299,6 +351,8 @@ class Statue(BaseEnv):
     ) -> EnvironmentTask:
         world_width = rng.integers(*range_world_width, endpoint=True)
         world_height = rng.integers(*range_world_height, endpoint=True)
+        rooms_x_offset = rng.integers(0, max(self.range_train_world_width + self.range_test_world_width) - world_width, endpoint=True)
+        rooms_y_offset = rng.integers(0, max(self.range_train_world_height + self.range_test_world_height) - world_height, endpoint=True)
 
         # Generating objects
         rooms = [[Object(f"room({x},{y})", self._room_type) for x in range(world_width)] for y in range(world_height)]
@@ -313,21 +367,35 @@ class Statue(BaseEnv):
         state: State = State({
             obj: np.zeros((obj.type.dim,), dtype=np.float32)
             for obj in sum(rooms, []) + sum(vertical_doors, []) + sum(horizontal_doors, []) + [self._robot, self._statue]
-        }, SimulatorState(world_width, world_height, vertical_doors, horizontal_doors, door_height_class))
-
-        # Setting robot position
-        state.set(self._robot, "x", rng.uniform(0, world_width))
-        state.set(self._robot, "y", rng.uniform(0, world_height))
-        state.set(self._robot, "fingers", 1.0)
+        }, SimulatorState(world_width, world_height, vertical_doors, horizontal_doors, door_height_class, rooms_x_offset, rooms_y_offset))
 
         # Setting statue params
+        statue_width = rng.uniform(*self.range_statue_width)
+        statue_height = rng.uniform(*self.range_statue_height)
+        statue_depth = rng.uniform(*self.range_statue_depth)
         state.set(self._statue, "x", rng.random())
         state.set(self._statue, "y", rng.random())
-        state.set(self._statue, "width", rng.uniform(*self.range_statue_width))
-        state.set(self._statue, "height", rng.uniform(*self.range_statue_height))
-        state.set(self._statue, "depth", rng.uniform(*self.range_statue_depth))
+        state.set(self._statue, "width", statue_width)
+        state.set(self._statue, "height", statue_height)
+        state.set(self._statue, "depth", statue_depth)
         state.set(self._statue, "held", 0.0)
         state.set(self._statue, "grasp", 1.0)
+
+        # Setting robot position
+        while True:
+            robot_x = rng.uniform(0, world_width * self.room_size)
+            robot_y = rng.uniform(0, world_height * self.room_size)
+            if robot_x % self.room_size > self.room_size - max(statue_width, statue_depth) - self.world_generation_margin or\
+                robot_x % self.room_size < max(statue_width, statue_depth) + self.world_generation_margin:
+                continue
+            if robot_y % self.room_size > self.room_size - statue_depth - self.world_generation_margin or\
+                robot_y % self.room_size < statue_depth + self.world_generation_margin:
+                continue
+            break
+
+        state.set(self._robot, "x", robot_x)
+        state.set(self._robot, "y", robot_y)
+        state.set(self._robot, "fingers", 1.0)
 
         # Setting positions of rooms
         for y, rooms_row in enumerate(rooms):
@@ -372,12 +440,20 @@ class Statue(BaseEnv):
         while np.all(small_doors_orientation) or np.all(np.logical_not(small_doors_orientation)):
             small_doors_orientation = rng.choice([True, False], len(small_doors))
 
-        for small_door, orientation in zip(small_doors, small_doors_orientation, strict=True):
+        for small_door, orientation in zip(small_doors, small_doors_orientation):#, strict=True):
             if orientation:
                 state.set(small_door, "height", rng.uniform(*self.range_small_door_height))
                 door_height_class[small_door] = False
             else:
                 state.set(small_door, "width", rng.uniform(*self.range_small_door_width))
+
+        # Adjusting the position of everything to accommodate the offset
+        for obj in state:
+            assert obj.type.feature_names[:2] == ["x", "y"]
+            state[obj][:2] += (rooms_x_offset * self.room_size, rooms_y_offset * self.room_size)
+
+        # Normalizing the positions of everything with respect to the robot
+        self._normalize_object_positions(state)
 
         return EnvironmentTask(state, goal)
 
@@ -396,12 +472,10 @@ class Statue(BaseEnv):
     @property
     def action_space(self) -> gym.spaces.Box:
         """(x, y, grasp, move, grab_place)"""
-        lower_bound = np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
-        upper_bound = np.array([
-            max(self.range_train_world_width[1], self.range_test_world_width[1]) * self.room_size - self.equality_margin,
-            max(self.range_train_world_height[1], self.range_test_world_height[1]) * self.room_size - self.equality_margin,
-            1.0, 1.0, 1.0
-        ], dtype=np.float32)
+        max_x = max(self.range_train_world_width[1], self.range_test_world_width[1]) * self.room_size - self.equality_margin
+        max_y = max(self.range_train_world_height[1], self.range_test_world_height[1]) * self.room_size - self.equality_margin
+        lower_bound = np.array([-max_x, -max_y, 0.0, 0.0, -1.0], dtype=np.float32)
+        upper_bound = np.array([max_x, max_y, 1.0, 1.0, 1.0], dtype=np.float32)
         return gym.spaces.Box(lower_bound, upper_bound)
 
     @classmethod
@@ -415,6 +489,7 @@ class Statue(BaseEnv):
         fig = plt.figure()
         ax = fig.add_subplot()
         simulator_state = cls._get_simulator_state(state)
+        fig.suptitle(caption)
 
         # Draw the horizontal doors
         for y, doors_row in enumerate(simulator_state.horizontal_doors):
@@ -438,10 +513,14 @@ class Statue(BaseEnv):
 
         # Draw the robot
         robot_x, robot_y = state.get(cls._robot, "x"), state.get(cls._robot, "y")
+        robot_x -= simulator_state.rooms_x_offset * cls.room_size
+        robot_y -= simulator_state.rooms_y_offset * cls.room_size
         ax.add_patch(patches.Circle((robot_x, robot_y), cls.robot_radius, color='yellow'))
 
         # Draw the statue
         statue_x, statue_y = state.get(cls._statue, "x"), state.get(cls._statue, "y")
+        statue_x -= simulator_state.rooms_x_offset * cls.room_size
+        statue_y -= simulator_state.rooms_y_offset * cls.room_size
         ax.add_patch(patches.Circle((statue_x, statue_y), cls.statue_radius, color='black'))
 
         ax.autoscale_view()

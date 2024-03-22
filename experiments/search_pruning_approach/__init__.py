@@ -17,9 +17,9 @@ from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple, ca
 
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("tkagg")
+# matplotlib.use("tkagg")
 
-from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, FeasibilityDatapoint, NeuralFeasibilityClassifier, StaticFeasibilityClassifier
+from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityAugmentationDatapoint, FeasibilityClassifier, FeasibilityDatapoint, NeuralFeasibilityClassifier, StaticFeasibilityClassifier
 from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_backtracking_for_data_generation, run_low_level_search
 from experiments.envs.shelves2d import Shelves2DEnv
 
@@ -58,12 +58,27 @@ class PicklableFeasibilityDatapoint:
         self.states = datapoint.states
         self.skeleton = [PicklableGroundNSRT(ground_nsrt) for ground_nsrt in datapoint.skeleton]
 
-    def to_feasibility_datapoint(self, nsrts: Set[NSRT]) -> _GroundNSRT:
+    def to_feasibility_datapoint(self, nsrts: Set[NSRT]) -> FeasibilityDatapoint:
         nsrts_dict = {str(nsrt): nsrt for nsrt in nsrts}
         return FeasibilityDatapoint(self.states, [
             picklable_ground_nsrt.to_ground_nsrt(nsrts_dict)
             for picklable_ground_nsrt in self.skeleton
         ])
+
+class PicklableFeasibilityAugmentationDatapoint:
+    def __init__(self, datapoint: FeasibilityAugmentationDatapoint):
+        self.states = datapoint.states
+        self.skeleton = [PicklableGroundNSRT(ground_nsrt) for ground_nsrt in datapoint.skeleton]
+        self.suffix = datapoint.suffix
+
+    def to_feasibility_augmentation_datapoint(self, nsrts: Set[NSRT]) -> FeasibilityAugmentationDatapoint:
+        nsrts_dict = {str(nsrt): nsrt for nsrt in nsrts}
+        augmentation_datapoint = FeasibilityAugmentationDatapoint(self.states, [
+            picklable_ground_nsrt.to_ground_nsrt(nsrts_dict)
+            for picklable_ground_nsrt in self.skeleton
+        ], "")
+        object.__setattr__(augmentation_datapoint, "suffix", self.suffix)
+        return augmentation_datapoint
 
 @dataclass(frozen=True)
 class InterleavedBacktrackingDatapoint():
@@ -93,6 +108,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         super().__init__(initial_predicates, initial_options, types, action_space, train_tasks)
         self._positive_feasibility_dataset: List[FeasibilityDatapoint] = []
         self._negative_feasibility_dataset: List[FeasibilityDatapoint] = []
+        self._augmentation_feasibility_dataset: List[FeasibilityAugmentationDatapoint] = []
         self._feasibility_classifier = ConstFeasibilityClassifier()
 
     @classmethod
@@ -116,6 +132,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         # Preparing data collection and training
         self._positive_feasibility_dataset: List[FeasibilityDatapoint] = []
         self._negative_feasibility_dataset: List[FeasibilityDatapoint] = []
+        self._augmentation_feasibility_dataset: List[FeasibilityAugmentationDatapoint] = []
         dataset_path: str = utils.create_dataset_filename_str(["feasibility_dataset"])[0]
 
         # Running data collection and training
@@ -365,6 +382,18 @@ class SearchPruningApproach(NSRTLearningApproach):
             ) for segmented_traj in self._segmented_trajs
         ]
 
+        # # Printing the ground truth distribution of grasps
+        # ground_truth_grasps = [
+        #     state.get(list(state.get_objects(Donuts._donut_type))[0], "grasp") if
+        #         any(o.is_instance(Donuts._shelf_type) for o in datapoint.skeleton[-1].objects)
+        #     else 1 - state.get(list(state.get_objects(Donuts._donut_type))[0], "grasp")
+        #     for datapoint in search_datapoints
+        #     for state, nsrt in zip(datapoint.states[1:], datapoint.skeleton)
+        #     if nsrt.name == "Grab"
+        # ]
+        # plt.scatter(np.arange(len(ground_truth_grasps)), ground_truth_grasps)
+        # plt.savefig("ground_truth_grasps.pdf")
+
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':
             nsrts_dicts: List[Dict[str, NSRT]] = [{str(nsrt): nsrt for nsrt in self._nsrts}]
@@ -415,15 +444,24 @@ class SearchPruningApproach(NSRTLearningApproach):
 
                 # Creating the datapoints to search over and moving them to different devices
                 viable_datapoints = [d for d in search_datapoints if len(d.skeleton) > prefix_length]
-                indices = self._rng.choice(len(viable_datapoints), CFG.feasibility_num_datapoints_per_iter)
+                indices = self._rng.choice(len(viable_datapoints), min(len(viable_datapoints), CFG.feasibility_num_datapoints_per_iter), replace=False)
                 chosen_search_datapoints = [
                     viable_datapoints[idx].substitute_nsrts(nsrts_dict)
                     for idx, nsrts_dict in zip(indices, cycle(nsrts_dicts))
                 ]
 
-                # Collecting data samples
+                # Collecting positive data samples
+                # self._positive_feasibility_dataset.extend(
+                #     FeasibilityDatapoint(
+                #         states = search_datapoint.states[:prefix_length + 1],
+                #         skeleton = search_datapoint.skeleton,
+                #     )
+                #     for search_datapoint in chosen_search_datapoints
+                # )
+
+                # Collecting negative data samples
                 start = time.perf_counter()
-                positive_datapoints, negative_datapoints = tuple(zip(*pool.map(
+                positive_datapoints, negative_datapoints, augmentation_datapoints = tuple(zip(*pool.map(
                     SearchPruningApproach._backtracking_iteration
                     , zip(
                         repeat(prefix_length),
@@ -444,6 +482,11 @@ class SearchPruningApproach(NSRTLearningApproach):
                     for picklable_datapoints in negative_datapoints
                     for picklable_datapoint in picklable_datapoints
                 )
+                self._augmentation_feasibility_dataset = [
+                    picklable_augmentation_datapoint.to_feasibility_augmentation_datapoint(self._nsrts)
+                    for picklable_augmentation_datapoints in augmentation_datapoints
+                    for picklable_augmentation_datapoint in picklable_augmentation_datapoints
+                ]
                 logging.info(f"Took {time.perf_counter() - start} seconds")
                 # def purity_classifier(datapoint: FeasibilityDatapoint):
                 #     last_state = datapoint.states[-1]
@@ -483,7 +526,7 @@ class SearchPruningApproach(NSRTLearningApproach):
     @staticmethod
     def _backtracking_iteration(
         args: Tuple[int, _OptionModelBase, FeasibilityClassifier, int, InterleavedBacktrackingDatapoint, SimpleNamespace]
-    ) -> List[PicklableFeasibilityDatapoint]:
+    ) -> Tuple[List[PicklableFeasibilityDatapoint], List[PicklableFeasibilityDatapoint], List[PicklableFeasibilityAugmentationDatapoint]]:
         """ Running data collection for a single suffix length and task
         """
         global CFG
@@ -493,7 +536,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         CFG.__dict__.update(cfg.__dict__)
         torch.set_num_threads(1) # Bug in pytorch with shared_memory being slow to use with more than one thread
 
-        # logging.basicConfig(filename=f"interleaved_search/{seed}.log", force=True, level=logging.DEBUG)
+        logging.basicConfig(filename=f"interleaved_search/{seed}.log", force=True, level=logging.DEBUG)
         logging.info("Started negative data collection")
         logging.info(f"Skeleton: {[nsrt.name for nsrt in skeleton]}")
         logging.info(f"Starting Depth {prefix_length}")
@@ -536,6 +579,15 @@ class SearchPruningApproach(NSRTLearningApproach):
             option.params
             for option, mb_subtree in backtracking.failed_tries if mb_subtree is not None
         ]
+        if backtracking.is_successful:
+            successful_states, _ = backtracking.successful_trajectory
+            augmentation_datapoints = [PicklableFeasibilityAugmentationDatapoint(FeasibilityAugmentationDatapoint(
+                states = states[:prefix_length] + successful_states[1:],
+                skeleton = skeleton,
+                suffix = "_aug",
+            ))]
+        else:
+            augmentation_datapoints = []
 
         logging.info(f"Finished negative data collection - {next_failed_states} samples found")
         logging.info(f"Option params: {option_params}")
@@ -549,7 +601,7 @@ class SearchPruningApproach(NSRTLearningApproach):
                 states = states[:prefix_length] + [next_state],
                 skeleton = skeleton,
             )) for next_state in next_failed_states
-        ]
+        ], augmentation_datapoints
 
     def _run_sesame_plan(
         self,
@@ -649,6 +701,8 @@ class SearchPruningApproach(NSRTLearningApproach):
             threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
             use_torch_gpu = CFG.use_torch_gpu,
             optimizer_name = CFG.feasibility_optim,
+            l1_penalty = CFG.feasibility_l1_penalty,
+            l2_penalty = CFG.feasibility_l2_penalty,
         )
-        neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset)
+        neural_feasibility_classifier.fit(self._positive_feasibility_dataset, self._negative_feasibility_dataset, self._augmentation_feasibility_dataset)
         self._feasibility_classifier = neural_feasibility_classifier

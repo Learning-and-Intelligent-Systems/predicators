@@ -120,10 +120,8 @@ class State:
         """An iterator over the state's objects, in sorted order."""
         return iter(sorted(self.data))
 
-    def __getitem__(self, key: Union[Object, Sequence[Object]]) -> Array:
-        if issubclass(type(key), Object):
-            return self.data[key]
-        return np.concatenate([self.data[obj] for obj in key])
+    def __getitem__(self, key: Object) -> Array:
+        return self.data[key]
 
     def get(self, obj: Object, feature_name: str) -> Any:
         """Look up an object feature by name."""

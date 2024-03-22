@@ -507,16 +507,18 @@ class GlobalSettings:
     feasibility_enc_num_layers = 1
     feasibility_dec_num_layers = 1
     feasibility_ffn_hid_size = feasibility_token_size * 4
-    feasibility_max_itr = 4000
+    feasibility_max_itr = 2000
     feasibility_general_lr = 0.001
     feasibility_transformer_lr = 5e-5
     feasibility_cls_style = 'mean'
-    feasibility_batch_size = 2048
+    feasibility_batch_size = 8192
     feasibility_loss_output_file = ""
     feasibility_threshold_recalibration_percentile = 0.0
     feasibility_num_negative_loaded_datapoints = 2500
     feasibility_num_datapoints_per_iter = 3000
     feasibility_optim = 'adam'
+    feasibility_l1_penalty = 0.001
+    feasibility_l2_penalty = 0
 
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import numpy as np
@@ -13,7 +14,7 @@ import gym
 import matplotlib.patches as patches
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("tkagg")
+# matplotlib.use("tkagg")
 
 from predicators.utils import abstract
 
@@ -25,7 +26,7 @@ class Donuts(BaseEnv):
     # Settings
     ## Task generation settings
     range_train_toppings: ClassVar[Tuple[int, int]] = (1, 3)
-    range_test_toppings: ClassVar[Tuple[int, int]] = (10, 10)
+    range_test_toppings: ClassVar[Tuple[int, int]] = (10, 10)#(15, 15)
     range_train_donuts: ClassVar[Tuple[int, int]] = (1, 1)
     range_test_donuts: ClassVar[Tuple[int, int]] = (1, 1)
 
@@ -51,11 +52,12 @@ class Donuts(BaseEnv):
     top_grasp_thresh: ClassVar[float] = 0.9
     fresh_thresh = 0.5
 
-
     # Variables for parametric types and predicates
     toppings: ClassVar[List[str]] = [
         "Sprinkles", "Frosting", "Sugar", "ChocolateChips", "Strawberries",
         "Blueberries", "Nuts", "Honey", "Cinnamon", "Coconut",
+        # "MapleSyrup", "Caramel", "PeanutButter", "ChocolateGlaze", "VanillaGlaze",
+        # "LemonZest", "Nutella", "Bacon", "Marshmallows", "OreoCrumbs",
     ]
     amount_format: ClassVar[str] = "amount{}"
     topper_format: ClassVar[str] = "topperFor{}"
@@ -154,13 +156,14 @@ class Donuts(BaseEnv):
             (grab_place + 1, cls._transition_place),
         ] + [
             (affinity, cls._transition_toppings_gen(topping))
-            for topping, affinity in zip(cls.toppings, topping_affinities, strict=True)
+            for topping, affinity in zip(cls.toppings, topping_affinities)#, strict=True)
         ]
         _, transition_fn = min(affinities, key = lambda t: t[0])
         return transition_fn(state, action)
 
     @classmethod
     def _transition_move(cls, state: State, action: Action) -> State:
+        logging.info("TRANSITION MOVE")
         next_state = state.copy()
         dx, dy = action.arr[:2]
 
@@ -173,6 +176,7 @@ class Donuts(BaseEnv):
             if obj not in [cls._robot, mb_donut]
         ]
         if cls._collides(state, non_active_objects, new_robot_polygon):
+            logging.info("ROBOT COLLIDES WITH OBJECTS")
             return next_state
 
         # Check if the new robot position is within the bounds of the world
@@ -181,6 +185,7 @@ class Donuts(BaseEnv):
             cls.range_world_x[1], cls.range_world_y[1],
         )
         if not world.contains(new_robot_polygon):
+            logging.info("ROBOT OOB")
             return next_state
 
         # Move the robot
@@ -198,11 +203,13 @@ class Donuts(BaseEnv):
 
     @classmethod
     def _transition_grab(cls, state: State, action: Action) -> State:
+        logging.info("TRANSITION GRAB")
         next_state = state.copy()
         grasp = action.arr[2]
 
         # Check if a donut isn't already grabbed
         if cls._get_held_donut(state) is not None:
+            logging.info("DONUT ALREADY HELD")
             return next_state
 
         # Get closest donut
@@ -213,6 +220,7 @@ class Donuts(BaseEnv):
 
         # Check if the donut is next to the robot
         if not cls._NextTo_holds(state, [cls._robot, donut]):
+            logging.info("DONUT NOT NEXT TO THE ROBOT")
             return next_state
 
         # Move the donut
@@ -224,12 +232,14 @@ class Donuts(BaseEnv):
 
     @classmethod
     def _transition_place(cls, state: State, action: Action) -> State:
+        logging.info("TRANSITION PLACE")
         next_state = state.copy()
         x, y = action.arr[:2]
 
         # Check what donut is held
         mb_donut = cls._get_held_donut(state)
         if mb_donut is None:
+            logging.info("DONUT NOT HELD")
             return next_state
 
         # Check if the placement spot doesn't collide with others
@@ -238,29 +248,35 @@ class Donuts(BaseEnv):
             donut for donut in state.get_objects(cls._donut_type)
             if donut != mb_donut
         ], new_donut_polygon):
+            logging.info("DONUT COLLIDES WITH OBJECTS")
             return next_state
 
         # Check what the donut is placed into
         mb_container = cls._get_container(state, new_donut_polygon)
         if mb_container is None:
+            logging.info("DONUT NOT PLACED INTO CONTAINER")
             return next_state
 
         # Check if we are next to the container
         if not cls._NextTo_holds(state, [cls._robot, mb_container]):
+            logging.info("ROBOT NOT NEXT TO A CONTAINER")
             return next_state
 
         # Check if the donut would be placed into the container
         shapes = Donuts._get_shapes(state)
         if not shapes[mb_container].contains(new_donut_polygon):
+            logging.info("DONUT NOT PLACED INTO THE CONTAINER")
             return next_state
 
         # Check for correct grasp
         grasp = state.get(mb_donut, "grasp")
         if mb_container.is_instance(cls._box_type):
             if grasp < cls.top_grasp_thresh:
+                logging.info("SIDE GRASP CANNOT BE PLACED INTO A BOX")
                 return next_state
         else:
             if grasp > cls.side_grasp_thresh:
+                logging.info("TOP GRASP CANNOT BE PLACED ON A SHELF")
                 return next_state
 
         # Move the donut
@@ -273,19 +289,23 @@ class Donuts(BaseEnv):
     @classmethod
     def _transition_toppings_gen(cls, topping: str) -> Callable[[State, Action], State]:
         def _transition_toppings(state: State, action: Action) -> State:
+            logging.info(f"TRANSITION TOPPING {topping}")
             next_state = state.copy()
 
             # Robot not next to the topper
             if not Donuts._NextTo_holds(state, [cls._robot, cls._toppers[topping]]):
+                logging.info("ROBOT NOT NEXT TO THE TOPER")
                 return next_state
 
             # Robot not holding anything
             mb_donut = cls._get_held_donut(state)
             if mb_donut is None:
+                logging.info("ROBOT NOT HOLDING ANYTHING")
                 return next_state
 
-            # Donut is fresh
+            # Donut is not fresh
             if not Donuts._Fresh_holds(state, [mb_donut]):
+                logging.info("DONUT NOT FRESH")
                 return next_state
 
             # Adding topping to the donut
@@ -388,8 +408,7 @@ class Donuts(BaseEnv):
             for i in range(num_donuts)
         ]
         containers = [
-            Object(f"box{i}", self._box_type) if rng.choice([True, False])
-            else Object(f"shelf{i}", self._shelf_type)
+            rng.choice([Object(f"box{i}", self._box_type), Object(f"shelf{i}", self._shelf_type)])
             for i in range(num_donuts)
         ]
 
@@ -507,6 +526,7 @@ class Donuts(BaseEnv):
             state.set(donut, "held", 0.0)
             shapes[donut] = donut_polygon
             world = world.union(donut_polygon)
+
         return EnvironmentTask(state, goal)
 
     @property

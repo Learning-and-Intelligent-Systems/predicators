@@ -3,7 +3,7 @@ import numpy as np
 from experiments.envs.donuts.env import Donuts
 from experiments.envs.statue.env import Statue
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, Array, GroundAtom, Object, ParameterizedOption, Predicate, State, Type, Variable
+from predicators.structs import NSRT, _GroundNSRT, Array, GroundAtom, Object, ParameterizedOption, Predicate, State, Type, Variable
 from shapely.affinity import translate
 
 __all__ = ['StatueGroundTruthNSRTFactory']
@@ -44,13 +44,11 @@ class StatueGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             goal: Set[GroundAtom],
             rng: np.random.Generator,
             objects: Sequence[Object],
-            skeleton: Sequence[NSRT] = []
+            skeleton: Sequence[_GroundNSRT] = []
         ) -> Array:
             statue = None
             if len(objects) == 5:
                 robot, statue, room_from, _, room_to = objects
-                statue_width = state.get(statue, "width")
-                statue_depth = state.get(statue, "depth")
             else:
                 robot, room_from, _, room_to = objects
 
@@ -58,18 +56,44 @@ class StatueGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             x_to, y_to = state.get(room_to, "x"), state.get(room_to, "y")
 
             if statue is None:
-                x = rng.uniform(x_to, x_to + Statue.room_size)
-                y = rng.uniform(y_to, y_to + Statue.room_size)
+                statue_width, statue_height, statue_depth = 0, 0, 0
+                if skeleton[1:] and skeleton[1].name.startswith("Grab"):
+                    statue, = state.get_objects(statue_type)
+                    statue_width = state.get(statue, "width")
+                    statue_depth = state.get(statue, "depth")
+                    statue_height = state.get(statue, "height")
+                x = rng.uniform(
+                    x_to + max(statue_width, statue_height) / 2 + Statue.equality_margin,
+                    x_to + Statue.room_size - max(statue_width, statue_height) / 2 - Statue.equality_margin,
+                )
+                y = rng.uniform(
+                    y_to + statue_depth / 2 + Statue.equality_margin,
+                    y_to + Statue.room_size - statue_depth / 2 - Statue.equality_margin,
+                )
             elif np.allclose(x_from, x_to, atol=Statue.equality_margin) and \
                 np.abs(y_from - y_to) <= Statue.room_size + Statue.equality_margin:
-                x = rng.uniform(x_to + statue_width / 2, x_to + Statue.room_size - statue_width / 2)
-                y = rng.uniform(y_to + statue_depth / 2, y_to + Statue.room_size - statue_depth / 2)
+                statue_x_size, statue_y_size, _ = Statue._get_statue_shape(state, statue, False)
+                x = rng.uniform(
+                    x_to + statue_x_size / 2 + Statue.equality_margin,
+                    x_to + Statue.room_size - statue_x_size / 2 - Statue.equality_margin
+                )
+                y = rng.uniform(
+                    y_to + statue_y_size / 2 + Statue.equality_margin,
+                    y_to + Statue.room_size - statue_y_size / 2 - Statue.equality_margin
+                )
             elif np.allclose(y_from, y_to, atol=Statue.equality_margin) and \
                 np.abs(x_from - x_to) <= Statue.room_size + Statue.equality_margin:
-                x = rng.uniform(x_to + statue_depth / 2, x_to + Statue.room_size - statue_depth / 2)
-                y = rng.uniform(y_to + statue_width / 2, y_to + Statue.room_size - statue_width / 2)
+                statue_x_size, statue_y_size, _ = Statue._get_statue_shape(state, statue, True)
+                x = rng.uniform(
+                    x_to + statue_x_size / 2 + Statue.equality_margin,
+                    x_to + Statue.room_size - statue_x_size / 2 - Statue.equality_margin
+                )
+                y = rng.uniform(
+                    y_to + statue_y_size / 2 + Statue.equality_margin,
+                    y_to + Statue.room_size - statue_y_size / 2 - Statue.equality_margin
+                )
             else:
-                x, y = state.get(robot, "x"), state.get(robot, "y")
+                raise ValueError("Rooms not adjacent")
 
             arr = np.ones(Act.params_space.shape[0])
             arr[0] = x
@@ -120,7 +144,7 @@ class StatueGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             goal: Set[GroundAtom],
             rng: np.random.Generator,
             objects: Sequence[Object],
-            skeleton: Sequence[NSRT] = []
+            skeleton: Sequence[_GroundNSRT] = []
         ) -> Array:
             _, statue, _ = objects
 
@@ -157,7 +181,7 @@ class StatueGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             goal: Set[GroundAtom],
             rng: np.random.Generator,
             objects: Sequence[Object],
-            skeleton: Sequence[NSRT] = []
+            skeleton: Sequence[_GroundNSRT] = []
         ) -> Array:
             arr = np.ones(Act.params_space.shape[0])
             arr[4] = -1.0

@@ -82,7 +82,7 @@ class BacktrackingTree:
         self._successful_tries.append((option, tree, refinement_time))
 
     @property
-    def successful_trajectory(self) -> Optional[Tuple[List[State], List[_Option]]]:
+    def successful_trajectory(self) -> Tuple[List[State], List[_Option]]:
         def visitor(tree: 'BacktrackingTree'):
             if not tree._successful_tries:
                 return None
@@ -141,6 +141,8 @@ def run_low_level_search(
         if skeleton[current_depth].option.params_space.shape[0] == 0:
             return bool(tree.num_failed_tries)
         return tree.num_failed_tries >= CFG.sesame_max_samples_per_step
+
+    logging.info([(nsrt.name, nsrt.objects) for nsrt in skeleton])
 
     tree, mb_failure = _backtrack(
         [task.init],
@@ -231,6 +233,7 @@ def _backtrack( # TODO: add comments and docstring
         metrics["num_samples"] = 0
     assert len(states) >= 1
     current_depth = len(states) - 1
+    max_depth = len(skeleton)
     current_state = states[-1]
     tree = BacktrackingTree(current_state)
     if current_depth == len(skeleton):
@@ -255,7 +258,7 @@ def _backtrack( # TODO: add comments and docstring
             next_state, num_actions = \
                 option_model.get_next_state_and_num_actions(current_state, option)
         except EnvironmentFailure as e:
-            logging.info(f"Depth {current_depth} Environment failure")
+            logging.info(f"Depth {current_depth}/{max_depth} Environment failure")
             tree.append_failed_try(option, None)
             if CFG.sesame_propagate_failures == "immediately":
                 return tree, (_DiscoveredFailure(e, nsrt), current_depth)
@@ -265,11 +268,11 @@ def _backtrack( # TODO: add comments and docstring
 
         if _check_static_object_changed(set(current_state) - set(nsrt.objects), current_state, next_state) or\
           num_actions > max_horizon or num_actions == 0:
-            logging.info(f"Depth {current_depth} State not changed")
+            logging.info(f"Depth {current_depth}/{max_depth} State not changed")
             tree.append_failed_try(option, None)
             continue
         if CFG.sesame_check_expected_atoms and not all(a.holds(next_state) for a in atoms_sequence[current_depth + 1]):
-            logging.info(f"Depth {current_depth} Expected atoms do not hold")
+            logging.info(f"Depth {current_depth}/{max_depth} Expected atoms do not hold")
             tree.append_failed_try(option, None) # REMOVED FAILURE MANAGEMENT FROM HERE
             # if current_depth == len(skeleton) - 1 and iter >= max_tries[current_depth] // 2:
             #     Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
@@ -281,16 +284,17 @@ def _backtrack( # TODO: add comments and docstring
         if feasibility_classifier is not None and len(next_states) < len(skeleton) + 1:
             feasible, confidence = feasibility_classifier.classify(next_states, skeleton)
             if not feasible:
-                logging.info(f"Depth {current_depth} Feasibility classifier does not hold")
+                logging.info(f"Depth {current_depth}/{max_depth} Feasibility classifier does not hold")
                 # if iter >= max_tries[current_depth] // 2:
                     # Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
                     # plt.show()
                 tree.append_failed_try(option, None)
                 continue
             else:
-                logging.info(f"Depth {current_depth} Feasibility classifier holds")
+                logging.info(f"Depth {current_depth}/{max_depth} Feasibility classifier holds")
                 # Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
                 # plt.show()
+        logging.info(f"Depth {current_depth}/{max_depth} Classifier Confidence {confidence}")
 
         try_end_time = time.perf_counter()
         refinement_time = try_end_time - try_start_time
@@ -311,21 +315,21 @@ def _backtrack( # TODO: add comments and docstring
         )
 
         if time.perf_counter() > end_time: # Timeout handling
-            logging.info(f"Depth {current_depth} Timeout")
+            logging.info(f"Depth {current_depth}/{max_depth} Timeout")
             return tree, None
 
         if next_tree.is_successful:
-            logging.info(f"Depth {current_depth} Subtree Succeeded")
+            logging.info(f"Depth {current_depth}/{max_depth} Subtree Succeeded")
             tree.append_successful_try(option, next_tree, refinement_time)
             continue
 
         tree.append_failed_try(option, next_tree)
 
         if feasibility_classifier is not None and confidence > min_confidence: # Backjumping handling
-            logging.info(f"Depth {current_depth} Backjumping")
+            logging.info(f"Depth {current_depth}/{max_depth} Backjumping, Current Confidence {confidence}, Min Confidence {float(min_confidence)}")
             return tree, None
 
-        logging.info(f"Depth {current_depth} Subtree Failed")
+        logging.info(f"Depth {current_depth}/{max_depth} Subtree Failed")
 
         if not mb_next_env_failure:
             continue
