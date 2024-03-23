@@ -610,6 +610,7 @@ class GlobalSettings:
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
     grammar_search_grammar_use_diff_features = False
+    grammar_search_grammar_use_euclidean_dist = False
     grammar_search_use_handcoded_debug_grammar = False
     grammar_search_pred_selection_approach = "score_optimization"
     grammar_search_pred_clusterer = "oracle"
@@ -620,6 +621,7 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1e-4
     grammar_search_max_predicates = 200
     grammar_search_predicate_cost_upper_bound = 6
+    grammar_search_prune_redundant_preds = True
     grammar_search_score_function = "expected_nodes_created"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_max_demos = float("inf")
@@ -722,6 +724,7 @@ class GlobalSettings:
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
+                    "stick_button_move": 1000
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into refining a single skeleton.
@@ -742,6 +745,36 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
+
+            # Factor to divide feature range by when instantiating predicates
+            # of the form |t1.f1 - t2.f2| < c to indicate that t1.f1 and
+            # t2.f2 are "touching" or close. E.g. for the predicate
+            # |robot.x - button.x| < c in the StickButtonMovement env,
+            # we set this constant to 1/60.0 because that will yield
+            # |robot.x - button.x| < ((ub - lb)/60.0) + ub, which corresponds
+            # to a predicate that correctly classifies when the robot and
+            # button are touching.
+            grammar_search_diff_features_const_multiplier=defaultdict(
+                lambda: 1e-6,
+                {"stick_button_move": 1 / 30.0})[args.get("env", "")],
+
+            # Feature names to use as part of the EuclideanPredicateGrammar.
+            # Each entry is (type1_feature1name, type1_feature2name,
+            # type2_feature1name, type2_feature2name)
+            grammar_search_euclidean_feature_names=defaultdict(
+                lambda: [("x", "y", "x", "y")], {
+                    "stick_button_move": [("x", "y", "x", "y"),
+                                          ("x", "y", "tip_x", "tip_y")]
+                })[args.get("env", "")],
+
+            # Factor to divide feature range by when instantiating euclidean
+            # predicates of the form
+            # (t1.f1 - t2.f1)^2 + (t1.f2 - t2.f2)^2 < c^2 to indicate that
+            # the euclidean distance between f1 and f2 is close enough that.
+            # the two objects are "touching".
+            grammar_search_euclidean_const_multiplier=defaultdict(
+                lambda: 1e-6,
+                {"stick_button_move": 1 / 250.0})[args.get("env", "")],
 
             # Parameters specific to the cover environment.
             # cover env parameters
