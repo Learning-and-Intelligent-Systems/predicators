@@ -13,7 +13,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
-from predicators.utils import _Geom2D, Rectangle
+from predicators.utils import Rectangle, _Geom2D
 
 
 class StickButtonEnv(BaseEnv):
