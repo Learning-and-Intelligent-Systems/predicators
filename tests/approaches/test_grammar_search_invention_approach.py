@@ -52,7 +52,8 @@ def test_predicate_grammar(segmenter):
     env = CoverEnv()
     single_ineq_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
     diff_ineq_grammar = _FeatureDiffInequalitiesPredicateGrammar(dataset)
-    euclidean_grammar = _EuclideanDistancePredicateGrammar(dataset)
+    euclidean_grammar = _EuclideanDistancePredicateGrammar(
+        dataset, "x", "y", "x", "y")
     assert len(single_ineq_grammar.generate(max_num=1)) == 1
     sing_feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
     assert sing_feature_ranges[robby.type]["hand"] == (0.5, 0.8)
@@ -82,7 +83,8 @@ def test_predicate_grammar(segmenter):
         dummy_dataset)
     dummy_doub_grammar = _FeatureDiffInequalitiesPredicateGrammar(
         dummy_dataset)
-    dummy_euc_grammar = _EuclideanDistancePredicateGrammar(dummy_dataset)
+    dummy_euc_grammar = _EuclideanDistancePredicateGrammar(
+        dummy_dataset, "x", "y", "x", "y")
     assert len(dummy_sing_grammar.generate(max_num=1)) == 0
     assert len(dummy_doub_grammar.generate(max_num=1)) == 0
     assert len(dummy_euc_grammar.generate(max_num=1)) == 0
@@ -140,10 +142,10 @@ def test_euclidean_grammar():
     ])
     utils.reset_config({
         "grammar_search_grammar_use_euclidean_dist": True,
-        "segmenter": "atom_changes"
+        "segmenter": "atom_changes",
     })
     grammar = _create_grammar(dataset, env.predicates)
-    assert len(grammar.generate(max_num=100)) == 32
+    assert len(grammar.generate(max_num=100)) == 28
     utils.reset_config({
         "grammar_search_grammar_use_euclidean_dist": False,
         "segmenter": "contacts"
@@ -253,9 +255,9 @@ def test_euclidean_classifier_and_grammar():
     a_type = Type("a_type", ["x", "y"])
     b_type = Type("b_type", ["x", "y"])
     classifier0 = _EuclideanAttributeDiffCompareClassifier(
-        0, a_type, "x", 1, b_type, "y", 1.0, 0, gt, ">")
+        0, a_type, "x", "y", 1, b_type, "x", "y", 1.0, 0, gt, ">")
     assert classifier0.pretty_str() == (
-        '?x:a_type, ?y:b_type', '((?x.x - ?y.y)^2  + ((?x.x - ?y.y)^2 > 1.0)')
+        '?x:a_type, ?y:b_type', '((?x.x - ?y.x)^2  + ((?x.y - ?y.y)^2 > 1.0)')
 
 
 def test_unrecognized_clusterer():
