@@ -11,9 +11,8 @@ The name "CogMan" is due to Leslie Kaelbling.
 import logging
 from typing import Callable, List, Optional, Sequence, Set
 
-
 from predicators.approaches import BaseApproach
-from predicators.approaches import delivery_approach
+from predicators.approaches.delivery_approach import DeliverySpecificApproach
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
 from predicators.settings import CFG
@@ -25,7 +24,7 @@ from predicators.structs import Action, Dataset, EnvironmentTask, GroundAtom, \
 class CogMan:
     """Cognitive manager."""
 
-    def __init__(self, approach: delivery_approach, perceiver: BasePerceiver,
+    def __init__(self, approach: BaseApproach, perceiver: BasePerceiver,
                  execution_monitor: BaseExecutionMonitor) -> None:
         self._approach = approach
         self._perceiver = perceiver
