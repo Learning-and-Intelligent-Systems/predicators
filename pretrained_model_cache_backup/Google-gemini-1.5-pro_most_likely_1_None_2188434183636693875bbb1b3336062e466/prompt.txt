@@ -1,0 +1,23 @@
+1. there is no block directly on top of block3.
+2. there is no block directly on top of block4.
+3. there is no block directly on top of block5.
+4. there is no block directly on top of block6.
+5. there is no block directly on top of block7.
+6. block3 is directly resting on table2's surface.
+7. block4 is directly resting on table2's surface.
+8. block5 is directly resting on table2's surface.
+9. block6 is directly resting on table2's surface.
+10. block7 is directly resting on table2's surface.
+11. block5 is directly on top of block4 with no blocks in between.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+1. there is no block directly on top of block3.: True
+2. there is no block directly on top of block4.: False
+3. there is no block directly on top of block5.: True
+4. there is no block directly on top of block6.: True
+5. there is no block directly on top of block7.: True
+6. block3 is directly resting on table2's surface.: True
+7. block4 is directly resting on table2's surface.: False
+8. block5 is directly resting on table2's surface.: False
+9. block6 is directly resting on table2's surface.: True
+10. block7 is directly resting on table2's surface.: True
+11. block5 is directly on top of block4 with no blocks in between.: True 

@@ -240,6 +240,72 @@ class PyBulletEnv(BaseEnv):
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
+    def render_segmented_obj(self,
+                action: Optional[Action] = None,
+                caption: Optional[str] = None) -> Dict[str, Video]: 
+        '''Render the scene and the segmented objects in the scene.
+        '''
+        # if not self.using_gui:
+        #     raise Exception(
+        #         "Rendering only works with GUI on. See "
+        #         "https://github.com/bulletphysics/bullet3/issues/1157")
+
+        view_matrix = p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=self._camera_target,
+            distance=self._camera_distance,
+            yaw=self._camera_yaw,
+            pitch=self._camera_pitch,
+            roll=0,
+            upAxisIndex=2,
+            physicsClientId=self._physics_client_id)
+
+        width = CFG.pybullet_camera_width
+        height = CFG.pybullet_camera_height
+
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=60,
+            aspect=float(width / height),
+            nearVal=0.1,
+            farVal=100.0,
+            physicsClientId=self._physics_client_id)
+
+        # Initialize an empty dictionary
+        segmented_images = {}
+
+        # Get the original image and segmentation mask
+        (_, _, rgbImg, _, segImg) = p.getCameraImage(
+            width=width,
+            height=height,
+            viewMatrix=view_matrix,
+            projectionMatrix=proj_matrix,
+            renderer=p.ER_BULLET_HARDWARE_OPENGL,
+            physicsClientId=self._physics_client_id)
+
+
+        # Convert to numpy arrays
+        original_image = np.array(rgbImg).reshape((height, width, 4))
+        seg_image = np.array(segImg).reshape((height, width))
+        # imageio.imsave(f'./prompts/og_image.png', original_image)
+        # imageio.imsave(f'./prompts/seg_image.png', seg_image)
+
+        segmented_images['scene'] = [original_image]
+
+        # Iterate over all bodies
+        for bodyId in range(p.getNumBodies(self._physics_client_id)):
+            # Create a mask for the current body using the segmentation mask
+            mask = seg_image == bodyId
+
+            # Use the mask to crop the original image
+            cropped_image = np.where(mask[..., None], original_image, 0)
+
+            # Save the cropped image
+            # imageio.imsave(f'./prompts/obj_{bodyId}.png', cropped_image)
+
+            # Add the cropped image to the dictionary
+            segmented_images[bodyId] = [cropped_image]
+
+        return segmented_images
+
     def step(self, action: Action) -> Observation:
         # Send the action to the robot.
         target_joint_positions = action.arr.tolist()
@@ -290,7 +356,16 @@ class PyBulletEnv(BaseEnv):
             self._held_obj_id = None
 
         self._current_observation = self._get_state()
-        return self._current_observation.copy()
+        
+        state_copy = self._current_observation.copy()
+        # if CFG.rgb_observation:
+        #     rendered_state = utils.PyBulletRenderedState(
+        #         state_copy.data, state_copy.simulator_state,
+        #         self.render_segmented_obj()
+        #     )
+        #     return rendered_state
+        # else:
+        return state_copy
 
     def _detect_held_object(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists.
@@ -391,11 +466,21 @@ class PyBulletEnv(BaseEnv):
         for task in tasks:
             # Reset the robot.
             init = task.init
-            self._pybullet_robot.reset_state(self._extract_robot_state(init))
-            # Extract the joints.
-            joint_positions = self._pybullet_robot.get_joints()
-            pybullet_init = utils.PyBulletState(
-                init.data.copy(), simulator_state=joint_positions)
+            if CFG.rgb_observation:
+                # Extract the joints.
+                self._reset_state(init)
+                joint_positions = self._pybullet_robot.get_joints()
+                # add the segmented rendering to the initial state
+                pybullet_init = utils.PyBulletRenderedState(
+                    init.data.copy(), simulator_state=joint_positions,
+                    rendered_state=self.render_segmented_obj()
+                )
+            else:
+                # Extract the joints.
+                self._pybullet_robot.reset_state(self._extract_robot_state(init))
+                joint_positions = self._pybullet_robot.get_joints()
+                pybullet_init = utils.PyBulletState(
+                    init.data.copy(), simulator_state=joint_positions)
             pybullet_task = EnvironmentTask(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks

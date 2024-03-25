@@ -29,7 +29,7 @@ class GlobalSettings:
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
-    pretty_print_when_loading = False
+    pretty_print_when_loading = True
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
     # Optionally define test tasks in JSON format
@@ -407,6 +407,7 @@ class GlobalSettings:
     llm_openai_max_response_tokens = 700
     llm_use_cache_only = False
     llm_model_name = "text-curie-001"  # "text-davinci-002"
+    vlm_model_name = "text-curie-001"  # "text-davinci-002"
     llm_temperature = 0.5
     llm_num_completions = 1
 

@@ -28,5 +28,7 @@ tests/_fake_trajs
 tests/_fake_results
 sas_plan
 
+slurm_outputs/
+
 # Jetbrains IDEs
 .idea/

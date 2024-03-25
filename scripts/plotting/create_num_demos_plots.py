@@ -55,6 +55,7 @@ X_KEY_AND_LABEL = [
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
+    # ("LEARNING_TIME", "learning_time"),
     # ("AVG_NODES_CREATED", "Averaged nodes created"),
 ]
 

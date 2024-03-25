@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
+from copy import deepcopy
 
 import dill as pkl
 import imageio
@@ -1045,6 +1046,16 @@ class PyBulletState(State):
         simulator_state_copy = list(self.joint_positions)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
+@dataclass
+class PyBulletRenderedState(PyBulletState):
+    rendered_state: Dict[str, Video] = None
+
+    def copy(self) -> State:
+        state_dict_copy = super().copy().data
+        simulator_state_copy = list(self.joint_positions)
+        rendered_state_copy = deepcopy(self.rendered_state)
+        return PyBulletRenderedState(state_dict_copy, simulator_state_copy, 
+                                     rendered_state_copy)
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for
@@ -1156,6 +1167,22 @@ def run_policy(
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
+
+    # if CFG.rgb_observation:
+    #     for i, rgb_state in enumerate(states):
+    #         # assert rgb_state.rendered_state['scene'][0] is a np.array
+    #         assert isinstance(rgb_state.rendered_state['scene'][0], np.ndarray)
+    #     print("All states has RGB observations")
+
+    if CFG.rgb_observation and CFG.make_segmented_demo_videos:
+        video = monitor._seg_video['scene']
+        for i, (rend_s, images) in enumerate(zip(states, video)):
+            try:
+                assert (rend_s.rendered_state['scene'][0] == images).all()
+            except:
+                print(f"frmae {i} is different")
+                breakpoint()
+
     traj = LowLevelTrajectory(states, actions)
     return traj, metrics
 
@@ -3194,6 +3221,38 @@ class VideoMonitor(LoggingMonitor):
         """Return the video."""
         return self._video
 
+@dataclass
+class SegmentedVideoMonitor(LoggingMonitor):
+    """Similar to VideoMonitor, but saves the video for the scene and each 
+    segment object in a dictionary of Videos.
+    """
+    _render_fn: Callable[[Optional[Action], Optional[str]], Dict[str, Video]]
+    _seg_video: Dict[str, Video] = field(init=False, default_factory=dict)
+
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self._seg_video = {}
+    
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        del obs  # unused
+        # Get the segmented video from the render function
+        # if the key is not in the dictionary, add it
+        # otherwise extend to the current video
+        seg_video = self._render_fn(action, None)
+        for key, video in seg_video.items():
+            self._seg_video.setdefault(key, []).extend(video)    
+    
+    def get_video(self) -> Dict[str, Video]:
+        """Return the videos."""
+        return self._seg_video
+
+    # _render_fn: Callable[[Optional[Action], Optional[str]], Video]
+    # _video: Video = field(init=False, default_factory=list)
+
+    # def reset(self, train_or_test: str, task_idx: int) -> None:
+    #     self._video = []
+
+    # def observe(self, obs: Observation, action: Optional[Action]) -> None:
+    #     del obs
 
 @dataclass
 class SimulateVideoMonitor(LoggingMonitor):

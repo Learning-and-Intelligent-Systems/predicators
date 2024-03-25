@@ -1,0 +1,37 @@
+1. there is no block directly on top of block3.
+2. there is no block directly on top of block4.
+3. there is no block directly on top of block5.
+4. there is no block directly on top of block6.
+5. there is no block directly on top of block7.
+6. there is no block directly on top of block8.
+7. block3 is directly resting on table2's surface.
+8. block4 is directly resting on table2's surface.
+9. block5 is directly resting on table2's surface.
+10. block6 is directly resting on table2's surface.
+11. block7 is directly resting on table2's surface.
+12. block8 is directly resting on table2's surface.
+13. block4 is directly on top of block3 with no blocks in between.
+14. block5 is directly on top of block3 with no blocks in between.
+15. block5 is directly on top of block4 with no blocks in between.
+16. block7 is directly on top of block6 with no blocks in between.
+17. block8 is directly on top of block6 with no blocks in between.
+18. block8 is directly on top of block7 with no blocks in between.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+1. there is no block directly on top of block3: False
+2. there is no block directly on top of block4: False
+3. there is no block directly on top of block5: True
+4. there is no block directly on top of block6: False
+5. there is no block directly on top of block7: False
+6. there is no block directly on top of block8: True
+7. block3 is directly resting on table2's surface: True
+8. block4 is directly resting on table2's surface: False
+9. block5 is directly resting on table2's surface: False
+10. block6 is directly resting on table2's surface: True
+11. block7 is directly resting on table2's surface: False
+12. block8 is directly resting on table2's surface: False
+13. block4 is directly on top of block3 with no blocks in between: True
+14. block5 is directly on top of block3 with no blocks in between: False
+15. block5 is directly on top of block4 with no blocks in between: True
+16. block7 is directly on top of block6 with no blocks in between: True
+17. block8 is directly on top of block6 with no blocks in between: False
+18. block8 is directly on top of block7 with no blocks in between: True 

@@ -212,6 +212,26 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                         utils.HumanDemonstrationFailure,
                     },
                     monitor=video_monitor)
+
+            if CFG.make_demo_videos:
+                monitor = utils.VideoMonitor(env.render)
+            elif CFG.make_segmented_demo_videos:
+                monitor = utils.SegmentedVideoMonitor(env.render_segmented_obj)
+            else:
+                monitor = None
+            print("Generated Plan for task", idx, "start running the policy")
+            traj, _ = utils.run_policy(
+                policy,
+                env,
+                "train",
+                idx,
+                termination_function=termination_function,
+                max_num_steps=CFG.horizon,
+                exceptions_to_break_on={
+                    utils.OptionExecutionFailure,
+                    utils.HumanDemonstrationFailure,
+                },
+                monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
@@ -245,11 +265,6 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         if annotate_with_gt_ops:
             last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
             annotations.append(list(last_nsrt_plan))
-        if CFG.make_demo_videos:
-            assert video_monitor is not None
-            video = video_monitor.get_video()
-            outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
-            utils.save_video(outfile, video)
         if CFG.make_demo_images:
             assert video_monitor is not None
             video = video_monitor.get_video()
@@ -257,6 +272,12 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             task_number = str(idx).zfill(width)
             outfile_prefix = f"{CFG.env}__{CFG.seed}__demo__task{task_number}"
             utils.save_images(outfile_prefix, video)
+        elif CFG.make_segmented_demo_videos:
+            assert monitor is not None
+            seg_videos = monitor.get_video()
+            for key, video in seg_videos.items():
+                outfile = (f"{CFG.env}__{CFG.seed}__demo__task{idx}__{key}.mp4")
+                utils.save_video(outfile, video)
     if annotate_with_gt_ops:
         dataset = Dataset(trajectories, annotations)
     else:
