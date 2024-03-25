@@ -492,12 +492,12 @@ class GlobalSettings:
     neural_gaus_regressor_max_itr = 1000
     diffusion_regressor_hid_sizes = [512, 512]
     diffusion_regressor_max_itr = 10000
-    diffusion_regressor_timesteps = 50
+    diffusion_regressor_timesteps = 100
 
     feasibility_learning_strategy = 'backtracking'
     feasibility_search_device = 'cpu'
     feasibility_num_data_collection_threads = 12
-    feasibility_featurizer_sizes = [128, 128, 64]
+    feasibility_featurizer_sizes = [64, 64, 32]#[128, 128, 64]
     feasibility_embedding_size = feasibility_featurizer_sizes[-1]
     feasibility_embedding_concat = True
     feasibility_embedding_max_idx = 40
@@ -509,12 +509,12 @@ class GlobalSettings:
     feasibility_ffn_hid_size = feasibility_token_size * 4
     feasibility_max_itr = 2000
     feasibility_general_lr = 0.001
-    feasibility_transformer_lr = 5e-5
+    feasibility_transformer_lr = 1e-5
     feasibility_cls_style = 'mean'
-    feasibility_batch_size = 8192
+    feasibility_batch_size = 2048
+    feasibility_validation_fraction = 0.8
     feasibility_loss_output_file = ""
-    feasibility_threshold_recalibration_percentile = 0.0
-    feasibility_num_negative_loaded_datapoints = 2500
+    feasibility_threshold_recalibration_percentile = 0.90
     feasibility_num_datapoints_per_iter = 3000
     feasibility_optim = 'adam'
     feasibility_l1_penalty = 0.001

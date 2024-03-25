@@ -141,28 +141,6 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
 
     # Fit classifier to data
     logging.info("Fitting classifier...")
-    X_classifier: List[List[Array]] = []
-    for state, sub, option, goal in positive_data + negative_data:
-        # input is state features and option parameters
-        X_classifier.append([np.array(1.0)])  # start with bias term
-        for var in variables:
-            X_classifier[-1].extend(state[sub[var]])
-        X_classifier[-1].extend(option.params)
-        # For sampler learning, we currently make the extremely limiting
-        # assumption that there is one goal atom, with one goal object. This
-        # will not be true in most cases. This is a placeholder for better
-        # methods to come.
-        if CFG.sampler_learning_use_goals:
-            assert goal is not None
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            X_classifier[-1].extend(state[goal_obj])
-    X_arr_classifier = np.array(X_classifier)
-    # output is binary signal
-    y_arr_classifier = np.array([1 for _ in positive_data] +
-                                [0 for _ in negative_data])
     classifier = MLPBinaryClassifier(
         seed=CFG.seed,
         balance_data=CFG.mlp_classifier_balance_data,
@@ -176,6 +154,29 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
         weight_init="default")
     if not CFG.sampler_disable_classifier:
+        X_classifier: List[List[Array]] = []
+        for state, sub, option, goal in positive_data + negative_data:
+            # input is state features and option parameters
+            X_classifier.append([np.array(1.0)])  # start with bias term
+            for var in variables:
+                X_classifier[-1].extend(state[sub[var]])
+            X_classifier[-1].extend(option.params)
+            # For sampler learning, we currently make the extremely limiting
+            # assumption that there is one goal atom, with one goal object. This
+            # will not be true in most cases. This is a placeholder for better
+            # methods to come.
+            if CFG.sampler_learning_use_goals:
+                assert goal is not None
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 1
+                goal_obj = goal_atom.objects[0]
+                X_classifier[-1].extend(state[goal_obj])
+        X_arr_classifier = np.array(X_classifier)
+        # output is binary signal
+        y_arr_classifier = np.array([1 for _ in positive_data] +
+                                    [0 for _ in negative_data])
+
         classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
