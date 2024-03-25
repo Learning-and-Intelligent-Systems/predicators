@@ -209,11 +209,6 @@ class PyBulletEnv(BaseEnv):
         # and cannot be used in headless mode.
         del caption  # unused
 
-        if not self.using_gui:
-            raise Exception(
-                "Rendering only works with GUI on. See "
-                "https://github.com/bulletphysics/bullet3/issues/1157")
-
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=self._camera_target,
             distance=self._camera_distance,
