@@ -197,8 +197,11 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
 
             if CFG.make_demo_videos:
                 monitor = utils.VideoMonitor(env.render)
+            elif CFG.make_segmented_demo_videos:
+                monitor = utils.SegmentedVideoMonitor(env.render_segmented_obj)
             else:
                 monitor = None
+            print("Generated Plan for task", idx, "start running the policy")
             traj, _ = utils.run_policy(
                 policy,
                 env,
@@ -249,6 +252,12 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             video = monitor.get_video()
             outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
+        elif CFG.make_segmented_demo_videos:
+            assert monitor is not None
+            seg_videos = monitor.get_video()
+            for key, video in seg_videos.items():
+                outfile = (f"{CFG.env}__{CFG.seed}__demo__task{idx}__{key}.mp4")
+                utils.save_video(outfile, video)
     if annotate_with_gt_ops:
         dataset = Dataset(trajectories, annotations)
     else:

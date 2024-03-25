@@ -369,4 +369,12 @@ class BaseEnv(abc.ABC):
     def get_observation(self) -> Observation:
         """Get the current observation of this environment."""
         assert isinstance(self._current_observation, State)
-        return self._current_observation.copy()
+        state_copy = self._current_observation.copy()
+        if CFG.rgb_observation:
+            rendered_state = utils.PyBulletRenderedState(
+                state_copy.data, state_copy.simulator_state,
+                self.render_segmented_obj()
+            )
+            return rendered_state
+        else:
+            return state_copy

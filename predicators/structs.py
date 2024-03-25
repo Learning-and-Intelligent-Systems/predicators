@@ -293,6 +293,22 @@ class Predicate:
         # Separate this into a named function for pickling reasons.
         return not self._classifier(state, objects)
 
+@dataclass(frozen=True, order=True, repr=False)
+class AnnotatedPredicate(Predicate):
+    """Subclass of Predicate with a natural language description."""
+    # name: str
+    # types: Sequence[Type]
+    description: str
+    # _classifier: Callable[[State, Sequence[Object]],
+    #                       bool] = field(compare=False)
+
+    def __post_init__(self):
+        if not isinstance(self.description, str):
+            raise TypeError("Description must be a string")
+
+    def __str__(self) -> str:
+        types_str = ', '.join([t.name for t in self.types])
+        return f"{self.name}({types_str}) --- {self.description}"
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _Atom:

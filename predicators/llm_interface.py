@@ -4,8 +4,10 @@ import abc
 import logging
 import os
 from typing import List, Optional
+import json
 
 import openai
+from openai import OpenAI
 
 from predicators.settings import CFG
 
@@ -63,7 +65,12 @@ class LargeLanguageModel(abc.ABC):
         assert _CACHE_SEP not in prompt
         os.makedirs(CFG.llm_prompt_cache_dir, exist_ok=True)
         llm_id = self.get_id()
-        prompt_id = hash(prompt)
+        if CFG.rgb_observation:
+            prompt_json = json.dumps(prompt, indent=2)
+            # only use the text component for id
+            prompt_id = hash(prompt_json)
+        else:
+            prompt_id = hash(prompt)
         # If the temperature is 0, the seed does not matter.
         if temperature == 0.0:
             config_id = f"most_likely_{num_completions}_{stop_token}"
@@ -79,6 +86,8 @@ class LargeLanguageModel(abc.ABC):
             completions = self._sample_completions(prompt, temperature, seed,
                                                    stop_token, num_completions)
             # Cache the completion.
+            if CFG.rgb_observation:
+                prompt = prompt_json
             cache_str = prompt + _CACHE_SEP + _CACHE_SEP.join(completions)
             with open(cache_filepath, 'w', encoding='utf-8') as f:
                 f.write(cache_str)
@@ -89,6 +98,8 @@ class LargeLanguageModel(abc.ABC):
         logging.debug(f"Loaded LLM response from {cache_filepath}.")
         assert cache_str.count(_CACHE_SEP) == num_completions
         cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
+        if CFG.rgb_observation:
+            prompt = prompt_json
         assert cached_prompt == prompt
         completions = completion_strs.split(_CACHE_SEP)
         return completions
@@ -135,3 +146,55 @@ class OpenAILLM(LargeLanguageModel):
             response["choices"][i]["text"] for i in range(num_completions)
         ]
         return text_responses
+
+
+class OpenAILLMNEW(OpenAILLM):
+    """New interface to openAI LLMs (GPT-3.5, 4).
+    
+    This uses OpenAI().chat.completions.create() instead of
+    OpenAI().completions.create().
+    Assumes that an environment variable OPENAI_API_KEY is set to a
+    private API key for beta.openai.com.
+    """
+    def __init__(self, model_name: str) -> None:
+        super().__init__(model_name)
+        self.client = OpenAI()
+
+    def _sample_completions(
+            self,
+            prompt: str,
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
+
+        # response = self.client.chat.completions.create(
+        #     model=self._model_name,  # type: ignore
+        #     prompt=prompt,
+        #     temperature=temperature,
+        #     max_tokens=self._max_tokens,
+        #     stop=stop_token,
+        #     n=num_completions,
+        #     seed=seed)
+
+        # assert len(response["choices"]) == num_completions
+        # text_responses = [
+        #     response["choices"][i]["text"] for i in range(num_completions)
+        # ]
+        # return text_responses
+        return ['''To develop predicates for effective task planning in the domain described, where a robot must move blocks to cover targets on a table, we need to represent states, actions, and conditions that are important for understanding the task environment and making planning decisions. Here are some useful predicates:
+
+1. `OnTable(block:block)` -- Does the block currently lie on the table?
+2. `Holding(robot:robot, block:block)` -- Is the robot holding a particular block?
+3. `Clear(target:target)` -- Is the target area clear of any blocks?
+4. `AtTarget(block:block, target:target)` -- Is the block at the target position?
+5. `InMotion(block:block)` -- Is the block currently being moved by the robot?
+6. `Adjacent(block:block, target:target)` -- Is the block adjacent to the target area?
+7. `Above(block:block, target:target)` -- Is the block directly above the target area, potentially during a pick or place operation?
+8. `IsEmptyHand(robot:robot)` -- Is the robot's hand empty?
+9. `IsFullHand(robot:robot)` -- Is the robot's hand holding a block?
+10. `IsAlignedWithTarget(robot:robot, target:target)` -- Is the robot aligned with the target area for placing a block?
+11. `IsPathClear(robot:robot, block:block, target:target)` -- Is the path clear for the robot to move the block to the target?
+12. `IsPlaced(block:block, target:target)` -- Is the block placed on the target?
+
+Each predicate answers a binary question about the state of the world relevant to the task of covering targets with blocks. These predicates form the basis for creating rules and actions in a planning system, such as preconditions and effects for movement and placement actions.''']
