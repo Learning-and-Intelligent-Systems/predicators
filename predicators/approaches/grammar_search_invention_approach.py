@@ -3614,12 +3614,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # print("mouse")
 
             ###########
-            # predicate_classifier_to_instance = {}
-            # for pred in predicates_to_keep:
-            #     if pred._classifier in predicate_classifier_to_instance:
-            #         predicate_classifier_to_instance[type(pred._classifier)].append(pred)
-            #     else:
-            #         predicate_classifier_to_instance[type(pred._classifier)] = [pred]
             import re
             def extract_pattern(string):
                 pattern = r'\[idx \d+\]([\d.]+)'
@@ -3628,8 +3622,33 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     number = match.group(1)
                     return number
 
-            import pdb; pdb.set_trace()
-            print("cat")
+            # predicate_classifier_to_instance = {}
+            # for p in predicates_to_keep:
+            #     constant = extract_pattern(p.name)
+            #     if constant is not None:
+            #         trunk = p.name.replace(constant, "")
+            #         index_of_idx = trunk.find("idx")
+            #         index_of_end = index_of_idx
+            #         while True:
+            #             index_of_end += 1
+            #             if trunk[index_of_end] == "]":
+            #                 idx_number = int(trunk[index_of_idx + 4: index_of_end])
+            #                 trunk_list = list(trunk)
+            #                 for i in range(index_of_idx, index_of_end):
+            #                     trunk_list[i] = "*"
+            #                 trunk = "".join(trunk_list)
+            #                 import pdb; pdb.set_trace()
+            #                 break
+            #
+            #     else:
+            #         trunk = p.name
+            #     if trunk in predicate_classifier_to_instance:
+            #         predicate_classifier_to_instance[trunk].append(p)
+            #     else:
+            #         predicate_classifier_to_instance[trunk] = [p]
+
+            # import pdb; pdb.set_trace()
+            # print("cat")
             ###########
 
 
@@ -3985,9 +4004,57 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     "del": ddd[op_name][2]
                 } for op_name in all_potential_ops[0].keys()
             }
+            ####################################################################
+            for op_name in all_potential_ops[0].keys():
+
+                predicate_pool = ddd[op_name][0]
+
+                # Get a mapping from predicate form -> a list of every predicate in that form (with different constants)
+                predicate_classifier_to_instance_with_costs = {}
+                predicate_classifier_to_instance_without_costs = {}
+                for p in predicate_pool:
+                    constant = extract_pattern(p.name)
+                    if constant is not None:
+                        trunk = p.name.replace(constant, "")
+                        index_of_idx = trunk.find("idx")
+                        index_of_end = index_of_idx
+                        while True:
+                            index_of_end += 1
+                            if trunk[index_of_end] == "]":
+                                idx_number = int(trunk[index_of_idx + 4: index_of_end])
+                                trunk_list = list(trunk)
+                                for i in range(index_of_idx, index_of_end):
+                                    trunk_list[i] = "*"
+                                trunk = "".join(trunk_list)
+                                break
+
+                        if trunk in predicate_classifier_to_instance_with_costs:
+                            predicate_classifier_to_instance_with_costs[trunk].append(p)
+                        else:
+                            predicate_classifier_to_instance_with_costs[trunk] = [p]
+                    else:
+                        trunk = p.name
+                        if trunk in predicate_classifier_to_instance_without_costs:
+                            predicate_classifier_to_instance_without_costs[trunk].append(p)
+                        else:
+                            predicate_classifier_to_instance_without_costs[trunk] = [p]
+
+                # Now, go through each form and take the predicate with the lowest cost
+                preconditions_to_keep = set()
+                for k, v in predicate_classifier_to_instance_with_costs.items():
+                    min_pred = min(v, key=lambda x: candidates[x])
+                    preconditions_to_keep.add(min_pred)
+
+                for k, v in predicate_classifier_to_instance_without_costs.items():
+                    preconditions_to_keep.add(v[0]) # should only have 1 of this form
+
+                final_potential_ops2[op_name]["pre"] = preconditions_to_keep
+                # import pdb; pdb.set_trace()
+
+            ####################################################################
             for k, po in enumerate(all_potential_ops):
                 for op_name in po.keys():
-                    final_potential_ops2[op_name]["pre"] = final_potential_ops2[op_name]["pre"].union(po[op_name]["pre"])
+                    # final_potential_ops2[op_name]["pre"] = final_potential_ops2[op_name]["pre"].union(po[op_name]["pre"])
                     final_potential_ops2[op_name]["add"] = final_potential_ops2[op_name]["add"].union(po[op_name]["add"])
                     final_potential_ops2[op_name]["del"] = final_potential_ops2[op_name]["del"].union(po[op_name]["del"])
 
@@ -4618,6 +4685,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # NOT-Forall[1:block].[NOT-On(0,1)](?x1:block) --> there exists a block that ?x1 is on top of
 
                 # op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
+
+                #############
+                #############
                 op = STRIPSOperator(name, op1_params, op1_preconds, op1_add_effects, op1_del_effects, set())
                 ops_to_print.append(op)
                 # import pdb; pdb.set_trace()
