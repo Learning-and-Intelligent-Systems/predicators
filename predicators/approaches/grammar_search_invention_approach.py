@@ -3589,6 +3589,26 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             import pdb; pdb.set_trace()
             print("mouse")
 
+            ###########
+            # predicate_classifier_to_instance = {}
+            # for pred in predicates_to_keep:
+            #     if pred._classifier in predicate_classifier_to_instance:
+            #         predicate_classifier_to_instance[type(pred._classifier)].append(pred)
+            #     else:
+            #         predicate_classifier_to_instance[type(pred._classifier)] = [pred]
+            import re
+            def extract_pattern(string):
+                pattern = r'\[idx \d+\]([\d.]+)'
+                match = re.search(pattern, string)
+                if match:
+                    number = match.group(1)
+                    return number
+
+            import pdb; pdb.set_trace()
+            print("cat")
+            ###########
+
+
             # remove predicates we aren't keeping
             print()
             print()
@@ -4007,8 +4027,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_ignore_effects = set()
                 op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
 
-                if name == "Op6-StickMoveToButton":
-                    import pdb; pdb.set_trace()
+                # if name == "Op6-StickMoveToButton":
+                #     import pdb; pdb.set_trace()
 
                 # if op.name == "Op0-StickPressButton":
                 #     import pdb; pdb.set_trace()
