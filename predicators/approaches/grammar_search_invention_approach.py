@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Optional, \
     Sequence, Set, Tuple
 
 import numpy as np
+import dill as pkl
 from gym.spaces import Box
 from scipy.stats import kstest
 from sklearn.mixture import GaussianMixture as GMM
@@ -3448,7 +3449,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             all_add_effects = set()
             all_preconditions = set()
             for j, c in enumerate(final_clusters):
-
                 # add effects
                 add_effects_per_segment = [s.add_effects for s in c]
                 ungrounded_add_effects_per_segment = []
@@ -3483,14 +3483,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 all_add_effects |= add_effects
                 all_preconditions |= init_atoms
 
-                if j == 6:
+                # if j == 6:
                     # temp = c[14]
                     # # find which demo trajectory it came from
                     # for x, trajec in enumerate(segmented_trajs):
                     #     if temp in trajec:
                     #         import pdb; pdb.set_trace()
 
-                    import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
 
                 # if "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]" in [str(p) for p in add_effects]:
                 #     import pdb; pdb.set_trace()
@@ -3511,49 +3511,73 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             print("keyboard")
 
             ##########
-            # Remove inconsistent predicates.
-            inconsistent_preds = set()
+            # Get the template str for the dataset filename for saving
+            # a ground atom dataset.
+            incons_dataset_fname, _ = utils.create_dataset_filename_str(False)
+            # Add a bunch of things relevant to grammar search to the
+            # dataset filename string.
+            incons_dataset_fname = incons_dataset_fname[:-5] + \
+                f"_{CFG.grammar_search_max_predicates}" + \
+                f"_{CFG.grammar_search_grammar_includes_givens}" + \
+                f"_{CFG.grammar_search_grammar_includes_foralls}" + \
+                f"_{CFG.grammar_search_grammar_use_diff_features}" + \
+                f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
+                ".incons_preds"
+            # Load inconsistent predicates.
+            if CFG.load_atoms:
+                print("Loading saved inconsistent predicates.")
+                with open(incons_dataset_fname, "rb") as f:
+                    inconsistent_preds = pkl.load(f)
+            else:
+                # Remove inconsistent predicates.
+                inconsistent_preds = set()
 
-            # Old way to remove inconsistent predicates
-            predicates_to_keep: Set[Predicate] = set()
-            for pred in all_add_effects | all_preconditions:
-                keep_pred = True
-                for j, seg_list in enumerate(final_clusters):
-                    seg_0 = seg_list[0]
-                    pred_in_add_effs_0 = pred in [
-                        atom.predicate for atom in seg_0.add_effects
-                    ]
-                    pred_in_del_effs_0 = pred in [
-                        atom.predicate for atom in seg_0.delete_effects
-                    ]
-                    for seg in seg_list[1:]:
-                        pred_in_curr_add_effs = pred in [
-                            atom.predicate for atom in seg.add_effects
+                # Old way to remove inconsistent predicates
+                predicates_to_keep: Set[Predicate] = set()
+                for pred in all_add_effects | all_preconditions:
+                    keep_pred = True
+                    for j, seg_list in enumerate(final_clusters):
+                        seg_0 = seg_list[0]
+                        pred_in_add_effs_0 = pred in [
+                            atom.predicate for atom in seg_0.add_effects
                         ]
-                        pred_in_curr_del_effs = pred in [
-                            atom.predicate for atom in seg.delete_effects
+                        pred_in_del_effs_0 = pred in [
+                            atom.predicate for atom in seg_0.delete_effects
                         ]
-                        A = pred_in_add_effs_0 != pred_in_curr_add_effs
-                        B = pred_in_del_effs_0 != pred_in_curr_del_effs
-                        if A or B:
-                        # if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
-                        #         and
-                        #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
-                            keep_pred = False
-                            # if str(pred) == "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]":
-                            #     import pdb; pdb.set_trace()
-                            print("INCONSISTENT: ", pred.name)
+                        for seg in seg_list[1:]:
+                            pred_in_curr_add_effs = pred in [
+                                atom.predicate for atom in seg.add_effects
+                            ]
+                            pred_in_curr_del_effs = pred in [
+                                atom.predicate for atom in seg.delete_effects
+                            ]
+                            A = pred_in_add_effs_0 != pred_in_curr_add_effs
+                            B = pred_in_del_effs_0 != pred_in_curr_del_effs
+                            if A or B:
+                            # if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+                            #         and
+                            #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+                                keep_pred = False
+                                # if str(pred) == "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]":
+                                #     import pdb; pdb.set_trace()
+                                print("INCONSISTENT: ", pred.name)
 
-                            inconsistent_preds.add(pred)
-                            # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
-                            #     import pdb; pdb.set_trace()
+                                inconsistent_preds.add(pred)
+                                # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
+                                #     import pdb; pdb.set_trace()
+                                break
+                        if not keep_pred:
                             break
-                    if not keep_pred:
-                        break
-                if keep_pred:
-                    predicates_to_keep.add(pred)
-                else:
-                    inconsistent_preds.add(pred)
+                    if keep_pred:
+                        predicates_to_keep.add(pred)
+                    else:
+                        inconsistent_preds.add(pred)
+
+            if CFG.save_atoms and not CFG.load_atoms:
+                # Save inconsistent predicates.
+                print("Saving inconsistent preds...")
+                with open(incons_dataset_fname, "wb") as f:
+                    pkl.dump(inconsistent_preds, f)
 
             import pdb; pdb.set_trace()
             # only remove inconsistent add effects -- keep all predicates in preconditions
@@ -3586,8 +3610,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Remove the initial predicates.
             # predicates_to_keep -= initial_predicates
 
-            import pdb; pdb.set_trace()
-            print("mouse")
+            # import pdb; pdb.set_trace()
+            # print("mouse")
 
             # remove predicates we aren't keeping
             print()
@@ -3615,7 +3639,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # import pdb; pdb.set_trace()
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             logging.info("Performing backchaining to decide operator definitions.")
 
             # print("DOING CHECK SEEING IF DDD IS THE SAME")
