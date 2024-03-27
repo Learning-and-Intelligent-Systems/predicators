@@ -3876,6 +3876,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # import pdb; pdb.set_trace()
 
+            # keep track of which preconditions are dynamic
+            # because out of the ones that are static, we may only one to keep one of them
+            # (or at least, not all of the static preconditions)
+            dynamic_preconds_per_op = {
+                op_name: [] for op_name in ddd.keys()
+            }
+
             def process_adds(potential_ops, remaining_story, goal):
                 curr_entry = remaining_story[0]
                 name = curr_entry[0]
@@ -3890,30 +3897,31 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             # if "pre" not in potential_ops[entry[0]].keys():
                             #     import pdb; pdb.set_trace()
                             potential_ops[entry[0]]["pre"].add(ground_atom.predicate)
+                            dynamic_preconds_per_op[name].append(ground_atom.predicate)
                     if ground_atom in goal:
                         # then we add it!
                         to_add.append(ground_atom) # for debugging
                         potential_ops[name]["add"].add(ground_atom.predicate)
 
-            def process_adds2(potential_ops, remaining_story, goal):
-                # import pdb; pdb.set_trace()
-                curr_entry = remaining_story[0]
-                name = curr_entry[0]
-                to_add = []
-                for ground_atom in curr_entry[2]: # add effects
-                    # can we find this atom in the preconditions of any future segment
-                    for entry in remaining_story[1:]:
-                        if ground_atom in entry[1]: # preconditions
-                            # then we add it!
-                            to_add.append(ground_atom) # for debugging
-                            potential_ops[name]["add"].add(ground_atom.predicate)
-                            # if "pre" not in potential_ops[entry[0]].keys():
-                            #     import pdb; pdb.set_trace()
-                            potential_ops[entry[0]]["pre"].add(ground_atom.predicate)
-                    if ground_atom in goal:
-                        # then we add it!
-                        to_add.append(ground_atom) # for debugging
-                        potential_ops[name]["add"].add(ground_atom.predicate)
+            # def process_adds2(potential_ops, remaining_story, goal):
+            #     # import pdb; pdb.set_trace()
+            #     curr_entry = remaining_story[0]
+            #     name = curr_entry[0]
+            #     to_add = []
+            #     for ground_atom in curr_entry[2]: # add effects
+            #         # can we find this atom in the preconditions of any future segment
+            #         for entry in remaining_story[1:]:
+            #             if ground_atom in entry[1]: # preconditions
+            #                 # then we add it!
+            #                 to_add.append(ground_atom) # for debugging
+            #                 potential_ops[name]["add"].add(ground_atom.predicate)
+            #                 # if "pre" not in potential_ops[entry[0]].keys():
+            #                 #     import pdb; pdb.set_trace()
+            #                 potential_ops[entry[0]]["pre"].add(ground_atom.predicate)
+            #         if ground_atom in goal:
+            #             # then we add it!
+            #             to_add.append(ground_atom) # for debugging
+            #             potential_ops[name]["add"].add(ground_atom.predicate)
 
             def process_dels(potential_ops, potential_ops2, remaining_story):
                 curr_entry = remaining_story[0]
@@ -3986,10 +3994,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             if p in self._train_tasks[j].goal:
                                 potential_ops[name]["add"].add(p.predicate)
                     else:
-                        if name == "Op12-Place" and j == 2:
-                            process_adds2(potential_ops, remaining_story, self._train_tasks[j].goal)
-                        else:
-                            process_adds(potential_ops, remaining_story, self._train_tasks[j].goal)
+                        process_adds(potential_ops, remaining_story, self._train_tasks[j].goal)
                         process_dels(potential_ops, potential_ops2, remaining_story)
 
 
@@ -4048,7 +4053,22 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for k, v in predicate_classifier_to_instance_without_costs.items():
                     preconditions_to_keep.add(v[0]) # should only have 1 of this form
 
-                final_potential_ops2[op_name]["pre"] = preconditions_to_keep
+                dynamic_preds = dynamic_preconds_per_op[op_name]
+                static_preds = []
+                for p in predicate_pool:
+                    if p not in dynamic_preds:
+                        static_preds.append(p)
+                # now, only keep the static predicate with the lowest cost
+                # TODO: for tiebreakers, might want to pick the form that is the simplest form?
+                # some static preds (the goal predicates) are not in candidates so don't consider those
+                # import pdb; pdb.set_trace()
+                static_preds_in_candidates = [pred for pred in static_preds if pred in candidates]
+                # TODO: if there are static predicates that are goal predicates, take those over
+                # preds we constructed?
+                single_static_pred = min(static_preds_in_candidates, key=lambda x: candidates[x])
+                preconditions_to_keep2 = set(dynamic_preds) | {single_static_pred}
+
+                final_potential_ops2[op_name]["pre"] = preconditions_to_keep2
                 # import pdb; pdb.set_trace()
 
             ####################################################################
@@ -4583,7 +4603,25 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # print(f"DOING THIS FOR {name}")
                 # if name == "Op0-Pick":
                 #     import pdb; pdb.set_trace()
-                op1 = ops[0]
+
+                # Different segments have different numbers of objects affected sometimes
+                # because, note -- we may have certain predicates in our add effects,
+                # but different that predicate could appear in different ground atoms, eg
+                # segment 1 may only have A(button0) but segment 2 may have A(button0) and A(button1)
+                # TODO: think about how this may affect our clustering on number step... it'll end up
+                # being a different clustering I think! With oracle clusters we have to handle that issue
+                # for how we do var_to_obj properly given this -- we want to take the minimum number of objects affected
+                # as our actual operator's parameters.
+                # also -- one segment could have (robot, button, stick), another could have (robot, button, button, stick, stick)
+                # that is -- different types of objects could also have different numbers
+                # or like -- one segment could have (robot, button, button, stick), and another segment could have
+                # (robot, button, stick, stick) -- so that the # objects are the same -- but things are different
+                # So, first find the first segment with the least number of objects in objs_list
+                num_objs_affected = [(i, _op[1]) for i, _op in enumerate(ops)]
+                reference_op_num = min(num_objs_affected, key=lambda x: len(x[1]))[0]
+                reference_op = ops[reference_op_num]
+
+                op1 = ops[reference_op_num]
                 op1_opt_objs = op1[-1]
                 op1_params = op1[0]
                 op1_objs_list = op1[1]
@@ -4626,7 +4664,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     #     print("HIGHER NOT ON TOP")
                     #     import pdb; pdb.set_trace()
 
-                for i in range(1, len(ops)):
+                var_to_obj_for_datastore = [dict(zip(op1_params, op1_objs_list))]
+
+                for i in range(0, len(ops)):
+                    if i == reference_op_num:
+                        continue
+
                     op2 = ops[i]
                     op2_params = op2[0]
                     op2_objs_list = op2[1]
@@ -4667,9 +4710,21 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
                         new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
 
-                        mapping_scores.append((score, new_preconds, new_adds, new_dels))
+                        mapping_scores.append((score, new_preconds, new_adds, new_dels, mapping))
 
-                    s, a, b, c = max(mapping_scores, key=lambda x: x[0])
+                    s, a, b, c, mapping_in_this = max(mapping_scores, key=lambda x: x[0])
+
+                    adjusted_op2_params = [mapping_in_this[p] for p in op2_params]
+                    adjusted_op2_var_to_obj = dict(zip(adjusted_op2_params, op2_objs_list))
+                    var_to_obj_for_datastore.append(adjusted_op2_var_to_obj)
+
+                    # if name == "Op8-PickStick":
+                    #     import pdb; pdb.set_trace()
+                    #     print("gungan")
+                    if name == "Op3-PickStick" and i == 3:
+                        import pdb; pdb.set_trace()
+                        print("gungan")
+
                     op1_preconds = a
                     op1_add_effects = b
                     op1_del_effects = c
@@ -4694,91 +4749,98 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 temp = []
 
+                ##################################
+                ##################################
+                # Datastore var_to_obj computation
+                ##################################
                 datastore = []
-                counter = 0
-                for seg in segments:
-                    seg_opt_objs = tuple(seg.get_option().objects)
-                    var_to_obj = {v: o for v, o in zip(option_vars, seg_opt_objs)}
-
-
-                    relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
-                    relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
-
-                    seg_objs = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(seg_opt_objs)
-
-                    seg_objs_list = sorted(seg_objs)
-
-                    # if op.name == "Op6-StickMoveToButton":
-                    #     button = seg_objs_list[0]
-                    #     stick = seg_objs_list[-1]
-                    #     button_x = seg.states[-1].get(button, "x")
-                    #     stick_x = seg.states[-1].get(stick, "x")
-                    #     temp.append(abs(button_x - stick_x))
-
-                    # seg_objs_list = sorted(seg_objs, key=lambda x: (x.type.name, x.name))
-
-                    remaining_objs = [o for o in seg_objs_list if o not in seg_opt_objs]
-                    # if you do this, then there's an issue in sampler learning, because it uses
-                    # pre.variables for pre in preconditions -- so it will look for ?x0 but not find it
-                    # and there is a key error
-                    # remaining_params = utils.create_new_variables(
-                    #     [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys()))
-
-                    from predicators.structs import Variable
-                    def diff_create_new_variables(types, existing_vars, var_prefix: str = "?x"):
-                        pre_len = len(var_prefix)
-                        existing_var_nums = set()
-                        if existing_vars:
-                            for v in existing_vars:
-                                if v.name.startswith(var_prefix) and v.name[pre_len:].isdigit():
-                                    existing_var_nums.add(int(v.name[pre_len:]))
-                        def get_next_num(used):
-                            counter = 0
-                            while True:
-                                if counter in used:
-                                    counter += 1
-                                else:
-                                    return counter
-                        new_vars = []
-                        for t in types:
-                            num = get_next_num(existing_var_nums)
-                            existing_var_nums.add(num)
-                            new_var_name = f"{var_prefix}{num}"
-                            new_var = Variable(new_var_name, t)
-                            new_vars.append(new_var)
-                        return new_vars
-                    remaining_params = diff_create_new_variables(
-                        [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys())
-                    )
-
-                    var_to_obj2 = dict(zip(remaining_params, remaining_objs))
-                    # var_to_obj = dict(zip(seg_params, seg_objs_list))
-                    var_to_obj = {**var_to_obj, **var_to_obj2}
+                for i, seg in enumerate(segments):
+                    var_to_obj = var_to_obj_for_datastore[i]
                     datastore.append((seg, var_to_obj))
-                    # if name == "Op2-Stack" and counter == 10:
-                        # normally, block n+1 is stacked on block n, but here
-                        # block2 is stacked on block3.
-                        # so, when we sort the seg_objs_list, we have [block2, block3, robot]
-                        # the operator params are such that [?x0:block, "?x1:block, "?x2: robot]
-                        # ?x1 is stacked on ?x0.
-                        # so, later, in "learn_option_specs()", we get the error: assert option_args == option.objects
-                        # because option_args are [block2, robot], while the gt option objects are [block3, robot]
-                        # so: how do we order var_to_obj here correctly?
-                        # we want a consistent map - take one of the predicates that involves two blocks, and
-                        # make sure the assignment of variables is the same (order-wise) as was used in the construction of
-                        # params?
-                        # that is, if we saw On(x1, x0) in params, then we must also have that here.
-                        # how do you choose On to do this for?
-                        # or, you can ensure the sub is correct for the option spec
 
-                        # hardcode it for now
-
-                    counter += 1
+                if name == "Op3-PickStick":
+                    import pdb; pdb.set_trace()
+                    print("gungan")
+                # datastore = []
+                # counter = 0
+                # for seg in segments:
+                #     seg_opt_objs = tuple(seg.get_option().objects)
+                #     var_to_obj = {v: o for v, o in zip(option_vars, seg_opt_objs)}
+                #
+                #
+                #     relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
+                #     relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
+                #
+                #     seg_objs = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(seg_opt_objs)
+                #
+                #     seg_objs_list = sorted(seg_objs)
+                #     # seg_objs_list = sorted(seg_objs, key=lambda x: (x.type.name, x.name))
+                #
+                #     remaining_objs = [o for o in seg_objs_list if o not in seg_opt_objs]
+                #     # if you do this, then there's an issue in sampler learning, because it uses
+                #     # pre.variables for pre in preconditions -- so it will look for ?x0 but not find it
+                #     # and there is a key error
+                #     # remaining_params = utils.create_new_variables(
+                #     #     [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys()))
+                #
+                #     from predicators.structs import Variable
+                #     def diff_create_new_variables(types, existing_vars, var_prefix: str = "?x"):
+                #         pre_len = len(var_prefix)
+                #         existing_var_nums = set()
+                #         if existing_vars:
+                #             for v in existing_vars:
+                #                 if v.name.startswith(var_prefix) and v.name[pre_len:].isdigit():
+                #                     existing_var_nums.add(int(v.name[pre_len:]))
+                #         def get_next_num(used):
+                #             counter = 0
+                #             while True:
+                #                 if counter in used:
+                #                     counter += 1
+                #                 else:
+                #                     return counter
+                #         new_vars = []
+                #         for t in types:
+                #             num = get_next_num(existing_var_nums)
+                #             existing_var_nums.add(num)
+                #             new_var_name = f"{var_prefix}{num}"
+                #             new_var = Variable(new_var_name, t)
+                #             new_vars.append(new_var)
+                #         return new_vars
+                #     remaining_params = diff_create_new_variables(
+                #         [o.type for o in remaining_objs], existing_vars = list(var_to_obj.keys())
+                #     )
+                #
+                #     var_to_obj2 = dict(zip(remaining_params, remaining_objs))
+                #     # var_to_obj = dict(zip(seg_params, seg_objs_list))
+                #     var_to_obj = {**var_to_obj, **var_to_obj2}
+                #     datastore.append((seg, var_to_obj))
+                #     # if name == "Op2-Stack" and counter == 10:
+                #         # normally, block n+1 is stacked on block n, but here
+                #         # block2 is stacked on block3.
+                #         # so, when we sort the seg_objs_list, we have [block2, block3, robot]
+                #         # the operator params are such that [?x0:block, "?x1:block, "?x2: robot]
+                #         # ?x1 is stacked on ?x0.
+                #         # so, later, in "learn_option_specs()", we get the error: assert option_args == option.objects
+                #         # because option_args are [block2, robot], while the gt option objects are [block3, robot]
+                #         # so: how do we order var_to_obj here correctly?
+                #         # we want a consistent map - take one of the predicates that involves two blocks, and
+                #         # make sure the assignment of variables is the same (order-wise) as was used in the construction of
+                #         # params?
+                #         # that is, if we saw On(x1, x0) in params, then we must also have that here.
+                #         # how do you choose On to do this for?
+                #         # or, you can ensure the sub is correct for the option spec
+                #         # hardcode it for now
+                #
+                #     counter += 1
+                ##################################
+                ##################################
 
                 # if op.name == "Op6-StickMoveToButton":
                 #     print(f"max of temp: {max(temp)}")
                 #     print(f"min of temp: {min(temp)}")
                 #     import pdb; pdb.set_trace()
+
+
 
                 option_vars = [op1_obj_to_var[o] for o in op1_opt_objs]
                 option_spec = [seg_0.get_option().parent, option_vars]
