@@ -4539,7 +4539,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
 
 
-                from itertools import permutations, product
+                from itertools import permutations, product, combinations
                 def get_mapping_between_params(params1):
                     unique_types_old = sorted(set(elem.type for elem in params1))
                     # unique types with same order as params, don't want to sort it because of issue in painting with robby:robot and receptacle_shelf:shelf
@@ -4664,6 +4664,89 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     #     print("HIGHER NOT ON TOP")
                     #     import pdb; pdb.set_trace()
 
+
+                ################################################################
+                # When there are multiple objects of one type in an operator's
+                # parameters, we need to make sure the var_to_obj mapping is
+                # done correctly. For example, an operator may have parameters
+                # (?x0: button, "?x1: button, ?x2: robot, ?x3: stick).
+                # Consider some predicate named A. We may see A(button0, button1)
+                # as an add effect in segment 1, but see A(button1, button0) as
+                # an add effect in segment 2. If we make the operator's parameters
+                # such that the first argument of A appears earlier in its params,
+                # then the var_to_obj for segment 1 will be {?x0: button0, ?x1: button1}
+                # but the var_to_obj for segment 2 will be {?x0: button0, ?x1: button1},
+                # which is incorrect for segment 2 -- it shiould be
+                # {?x0: button1, "x1: button0"}.
+                # Furthermore, when using oracle clusters (or any clustering that
+                # isn't done with type/number as a step), the number of objects
+                # of each type may not be the same between the two segments.
+                # For this -- take a segment with the minimum number of objects
+                # that appear in effects -- and match all other segments to that one.
+
+                def get_object_mapping(ref_objs_list, seg_obj_list):
+                    # These two object lists may have different numbers and
+                    # types of objects.
+                    # We assume ref_objs_list has the minimum *number* of objects
+                    # out of any possible seg_obj_list of segments in the cluster.
+                    # Technically, a seg_obj_list may not have an object type
+                    # that ref_objs_list has, which would be a problem -- but
+                    # we'll assume for now that this doesn't happen -- so seg_obj_list
+                    # can have more objects but has at least the same # of objects of each type
+                    # that ref_objs_list has.
+                    ref_type_groups = {}
+                    for obj in ref_objs_list:
+                        ref_type_groups.setdefault(obj.type, []).append(obj)
+
+                    seg_type_groups = {}
+                    for obj in seg_obj_list:
+                        seg_type_groups.setdefault(obj.type, []).append(obj)
+
+                    # We don't expect this to happen in any of our four environments.
+                    for type in ref_type_groups.keys():
+                        if len(seg_type_groups[type]) < len(ref_type_groups[type]):
+                            print(f"Fewer objects in this segment of type {type} than reference segment.")
+                            return None
+
+                    # The order of the objects doesn't really matter because the next step will
+                    # try all possible permutations
+                    # We just want many lists of objects, where each list has different objects,
+                    # but the same number of each type as ref_objs_list.
+                    all_combinations = list(product(*list(combinations(v, len(ref_type_groups[k])) for k, v in seg_type_groups.items())))
+                    squash = []
+                    for c in all_combinations:
+                        a = []
+                        for i in c:
+                            a.extend(i)
+                        squash.append(a)
+                    import pdb; pdb.set_trace()
+
+                    # unique_types_old = sorted(set(elem.type for elem in params1))
+                    # # unique types with same order as params, don't want to sort it because of issue in painting with robby:robot and receptacle_shelf:shelf
+                    # unique_types = []
+                    # unique_types_set = set()
+                    # for param in params1:
+                    #     if param.type not in unique_types_set:
+                    #         unique_types.append(param.type)
+                    #         unique_types_set.add(param.type)
+                    #
+                    # group_params_by_type = []
+                    # for elem_type in unique_types:
+                    #     elements_of_type = [elem for elem in params1 if elem.type == elem_type]
+                    #     group_params_by_type.append(elements_of_type)
+                    #
+                    # all_mappings = list(product(*list(permutations(l) for l in group_params_by_type)))
+                    # squash = []
+                    # for m in all_mappings:
+                    #     a = []
+                    #     for i in m:
+                    #         a.extend(i)
+                    #     squash.append(a)
+                    #
+                    # return squash
+
+                ################################################################
+
                 var_to_obj_for_datastore = [dict(zip(op1_params, op1_objs_list))]
 
                 for i in range(0, len(ops)):
@@ -4673,6 +4756,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     op2 = ops[i]
                     op2_params = op2[0]
                     op2_objs_list = op2[1]
+
+                    if name == "Op3-PickStick" and i == 3:
+                        print("running get_object_mapping.")
+                        get_object_mapping(op1_objs_list, op2_objs_list)
 
                     mappings = get_mapping_between_params(op2_params)
                     mapping_scores = []
@@ -4714,6 +4801,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                     s, a, b, c, mapping_in_this = max(mapping_scores, key=lambda x: x[0])
 
+
+                    # What does this fix?
+                    # This fixes the issue that button0 and button1 (which weren't in the option objects)
+                    # weren't mapped correctly in the var_to_obj -- so use the mapping that ensured the correspondence
+                    # between the two segments.
+                    # But, there is the issue that some segments have more objects than other (with oracle clusters)
+                    # so there is a key error in option learning, can't find ?x1 robot since in another segment robot is ?x2.
                     adjusted_op2_params = [mapping_in_this[p] for p in op2_params]
                     adjusted_op2_var_to_obj = dict(zip(adjusted_op2_params, op2_objs_list))
                     var_to_obj_for_datastore.append(adjusted_op2_var_to_obj)
