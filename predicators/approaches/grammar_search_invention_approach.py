@@ -4626,10 +4626,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op1_params = op1[0]
                 op1_objs_list = op1[1]
                 op1_obj_to_var = dict(zip(op1_objs_list, op1_params))
+
                 op1_preconds = {atom.lift(op1_obj_to_var) for atom in op1[2]}
                 op1_add_effects = {atom.lift(op1_obj_to_var) for atom in op1[3]}
                 op1_del_effects = {atom.lift(op1_obj_to_var) for atom in op1[4]}
-
                 op1_preconds_str = set(str(a) for a in op1_preconds)
                 op1_adds_str = set(str(a) for a in op1_add_effects)
                 op1_dels_str = set(str(a) for a in op1_del_effects)
@@ -4719,32 +4719,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         for i in c:
                             a.extend(i)
                         squash.append(a)
-                    import pdb; pdb.set_trace()
-
-                    # unique_types_old = sorted(set(elem.type for elem in params1))
-                    # # unique types with same order as params, don't want to sort it because of issue in painting with robby:robot and receptacle_shelf:shelf
-                    # unique_types = []
-                    # unique_types_set = set()
-                    # for param in params1:
-                    #     if param.type not in unique_types_set:
-                    #         unique_types.append(param.type)
-                    #         unique_types_set.add(param.type)
-                    #
-                    # group_params_by_type = []
-                    # for elem_type in unique_types:
-                    #     elements_of_type = [elem for elem in params1 if elem.type == elem_type]
-                    #     group_params_by_type.append(elements_of_type)
-                    #
-                    # all_mappings = list(product(*list(permutations(l) for l in group_params_by_type)))
-                    # squash = []
-                    # for m in all_mappings:
-                    #     a = []
-                    #     for i in m:
-                    #         a.extend(i)
-                    #     squash.append(a)
-                    #
-                    # return squash
-
+                    return squash
                 ################################################################
 
                 var_to_obj_for_datastore = [dict(zip(op1_params, op1_objs_list))]
@@ -4757,59 +4732,69 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     op2_params = op2[0]
                     op2_objs_list = op2[1]
 
-                    if name == "Op3-PickStick" and i == 3:
-                        print("running get_object_mapping.")
-                        get_object_mapping(op1_objs_list, op2_objs_list)
+                    object_mappings = get_object_mapping(op1_objs_list, op2_objs_list)
+                    object_mapping_scores = []
+                    for object_mapping in object_mappings:
 
-                    mappings = get_mapping_between_params(op2_params)
-                    mapping_scores = []
-                    for m in mappings:
+                        op2_objs_list = object_mapping
+                        op2_params = utils.create_new_variables([o.type for o in op2_objs_list])
 
-                        mapping = dict(zip(op2_params, m))
+                        variable_mappings = get_mapping_between_params(op2_params)
+                        mapping_scores = []
+                        for m in variable_mappings:
 
-                        overlap = 0
+                            mapping = dict(zip(op2_params, m))
 
-                        # Get Operator 2's preconditions, add effects, and delete effects
-                        # in terms of a particular object -> variable mapping.
-                        new_op2_params = [mapping[p] for p in op2_params]
-                        new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
-                        # import pdb; pdb.set_trace()
-                        try:
-                            op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                        except:
-                            import pdb; pdb.set_trace()
-                        op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
-                        op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3]}
-                        op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4]}
+                            overlap = 0
 
-                        # Take the intersection of lifted atoms across both operators, and
-                        # count the overlap.
-                        op2_preconds_str = set(str(a) for a in op2_preconds)
-                        op2_adds_str = set(str(a) for a in op2_add_effects)
-                        op2_dels_str = set(str(a) for a in op2_del_effects)
+                            # Get Operator 2's preconditions, add effects, and delete effects
+                            # in terms of a particular object -> variable mapping.
+                            new_op2_params = [mapping[p] for p in op2_params]
+                            new_op2_obj_to_var = dict(zip(op2_objs_list, new_op2_params))
+                            # import pdb; pdb.set_trace()
+                            # try:
+                            #     op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2]}
+                            # except:
+                            #     import pdb; pdb.set_trace()
+                            op2_preconds = {atom.lift(new_op2_obj_to_var) for atom in op2[2] if set(atom.objects).issubset(set(new_op2_obj_to_var.keys()))}
+                            op2_add_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[3] if set(atom.objects).issubset(set(new_op2_obj_to_var.keys()))}
+                            op2_del_effects = {atom.lift(new_op2_obj_to_var) for atom in op2[4] if set(atom.objects).issubset(set(new_op2_obj_to_var.keys()))}
 
-                        score1 = len(op1_preconds_str.intersection(op2_preconds_str))
-                        score2 = len(op1_adds_str.intersection(op2_adds_str))
-                        score3 = len(op1_dels_str.intersection(op2_dels_str))
-                        score = score1 + score2 + score3
+                            # Take the intersection of lifted atoms across both operators, and
+                            # count the overlap.
+                            op2_preconds_str = set(str(a) for a in op2_preconds)
+                            op2_adds_str = set(str(a) for a in op2_add_effects)
+                            op2_dels_str = set(str(a) for a in op2_del_effects)
 
-                        new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
-                        new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
-                        new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
+                            score1 = len(op1_preconds_str.intersection(op2_preconds_str))
+                            score2 = len(op1_adds_str.intersection(op2_adds_str))
+                            score3 = len(op1_dels_str.intersection(op2_dels_str))
+                            score = score1 + score2 + score3
 
-                        mapping_scores.append((score, new_preconds, new_adds, new_dels, mapping))
+                            new_preconds = set(a for a in op1_preconds if str(a) in op1_preconds_str.intersection(op2_preconds_str))
+                            new_adds = set(a for a in op1_add_effects if str(a) in op1_adds_str.intersection(op2_adds_str))
+                            new_dels = set(a for a in op1_del_effects if str(a) in op1_dels_str.intersection(op2_dels_str))
 
-                    s, a, b, c, mapping_in_this = max(mapping_scores, key=lambda x: x[0])
+                            mapping_scores.append((score, new_preconds, new_adds, new_dels, mapping))
 
+                        s, a, b, c, mapping_in_this = max(mapping_scores, key=lambda x: x[0])
+                        object_mapping_scores.append((s, a, b, c, mapping_in_this, object_mapping))
 
-                    # What does this fix?
-                    # This fixes the issue that button0 and button1 (which weren't in the option objects)
-                    # weren't mapped correctly in the var_to_obj -- so use the mapping that ensured the correspondence
-                    # between the two segments.
-                    # But, there is the issue that some segments have more objects than other (with oracle clusters)
-                    # so there is a key error in option learning, can't find ?x1 robot since in another segment robot is ?x2.
-                    adjusted_op2_params = [mapping_in_this[p] for p in op2_params]
-                    adjusted_op2_var_to_obj = dict(zip(adjusted_op2_params, op2_objs_list))
+                    _s, _a, _b, _c, _mapping_in_this, _object_mapping = max(object_mapping_scores, key=lambda x: x[0])
+
+                    # # What does this fix?
+                    # # This fixes the issue that button0 and button1 (which weren't in the option objects)
+                    # # weren't mapped correctly in the var_to_obj -- so use the mapping that ensured the correspondence
+                    # # between the two segments.
+                    # # But, there is the issue that some segments have more objects than other (with oracle clusters)
+                    # # so there is a key error in option learning, can't find ?x1 robot since in another segment robot is ?x2.
+                    # adjusted_op2_params = [mapping_in_this[p] for p in op2_params]
+                    # adjusted_op2_var_to_obj = dict(zip(adjusted_op2_params, op2_objs_list))
+                    # var_to_obj_for_datastore.append(adjusted_op2_var_to_obj)
+                    adjusted_op2_objs_list = _object_mapping
+                    adjusted_op2_params = utils.create_new_variables([o.type for o in adjusted_op2_objs_list])
+                    adjusted_again_op2_params = [_mapping_in_this[p] for p in adjusted_op2_params]
+                    adjusted_op2_var_to_obj = dict(zip(adjusted_again_op2_params, adjusted_op2_objs_list))
                     var_to_obj_for_datastore.append(adjusted_op2_var_to_obj)
 
                     # if name == "Op8-PickStick":
@@ -4817,11 +4802,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     #     print("gungan")
                     if name == "Op3-PickStick" and i == 3:
                         import pdb; pdb.set_trace()
-                        print("gungan")
+                        print("jedi")
 
-                    op1_preconds = a
-                    op1_add_effects = b
-                    op1_del_effects = c
+                    # op1_preconds = a
+                    # op1_add_effects = b
+                    # op1_del_effects = c
+                    # op1_preconds_str = set(str(a) for a in op1_preconds)
+                    # op1_adds_str = set(str(a) for a in op1_add_effects)
+                    # op1_dels_str = set(str(a) for a in op1_del_effects)
+                    op1_preconds = _a
+                    op1_add_effects = _b
+                    op1_del_effects = _c
                     op1_preconds_str = set(str(a) for a in op1_preconds)
                     op1_adds_str = set(str(a) for a in op1_add_effects)
                     op1_dels_str = set(str(a) for a in op1_del_effects)
