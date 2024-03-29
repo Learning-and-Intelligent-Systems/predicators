@@ -938,9 +938,35 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
         logging.info("Generating candidate predicates...")
-        grammar = _create_grammar(dataset, self._initial_predicates)
-        candidates = grammar.generate(
-            max_num=CFG.grammar_search_max_predicates)
+
+        ##########
+        # Get the template str for the dataset filename for saving
+        # a ground atom dataset.
+        candidate_preds_dataset_fname, _ = utils.create_dataset_filename_str(False)
+        # Add a bunch of things relevant to grammar search to the
+        # dataset filename string.
+        candidate_preds_dataset_fname = candidate_preds_dataset_fname[:-5] + \
+            f"_{CFG.grammar_search_max_predicates}" + \
+            f"_{CFG.grammar_search_grammar_includes_givens}" + \
+            f"_{CFG.grammar_search_grammar_includes_foralls}" + \
+            f"_{CFG.grammar_search_grammar_use_diff_features}" + \
+            f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
+            ".candidate_preds"
+        # Load inconsistent predicates.
+        if CFG.load_atoms:
+            print("Loading saved candidate predicates.")
+            with open(candidate_preds_dataset_fname, "rb") as f:
+                candidates = pkl.load(f)
+        else:
+            grammar = _create_grammar(dataset, self._initial_predicates)
+            candidates = grammar.generate(
+                max_num=CFG.grammar_search_max_predicates)
+            if CFG.save_atoms and not CFG.load_atoms:
+                # Save candidate preds
+                print("Saving candidate preds...")
+                with open(candidate_preds_dataset_fname, "wb") as f:
+                    pkl.dump(candidates, f)
+
         import pdb; pdb.set_trace()
         logging.info(f"Done: created {len(candidates)} candidates:")
         self._metrics["grammar_size"] = len(candidates)
@@ -4843,9 +4869,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     var_to_obj = var_to_obj_for_datastore[i]
                     datastore.append((seg, var_to_obj))
 
-                if name == "Op3-PickStick":
-                    import pdb; pdb.set_trace()
-                    print("gungan")
+                # if name == "Op3-PickStick":
+                #     import pdb; pdb.set_trace()
+                #     print("gungan")
                 # datastore = []
                 # counter = 0
                 # for seg in segments:
@@ -4962,8 +4988,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #
             # pnads = pruned_pnads
 
-            import pdb; pdb.set_trace()
-
             def print_ops(op):
                 print("====")
                 print(op.name)
@@ -4981,6 +5005,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             for operator in ops_to_print:
                 print_ops(operator)
+
+            pnads = [p for p in pnads if p.op.name != "Op0-PlaceStick"]
+            import pdb; pdb.set_trace()
 
             # import pdb; pdb.set_trace()
             self._pnads = pnads
