@@ -2,6 +2,7 @@
 environment."""
 
 from typing import List, Set
+import os
 
 from predicators import utils
 from predicators.datasets.demo_only import create_demo_data
@@ -40,6 +41,14 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         n = int(CFG.teacher_dataset_num_examples)
         assert n >= 1, "Must have at least 1 example of each predicate"
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
+    if CFG.offline_data_method == "demo+handlabeled_atoms":
+        dataset_fpath = os.path.join(
+            CFG.data_dir,
+            CFG.handmade_demo_filename)
+        structured_states, structured_actions = utils.parse_handmade_vlmtraj_file_into_structured_trajs(dataset_fpath)
+        # TODO: load this dataset.
+        import ipdb; ipdb.set_trace()
+    
     if CFG.offline_data_method == "empty":
         return Dataset([])
     raise NotImplementedError("Unrecognized dataset method.")

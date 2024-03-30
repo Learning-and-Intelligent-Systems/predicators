@@ -3679,11 +3679,11 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
     return state
 
 
-def parse_handmade_vlmtrajs_into_structured_traj(
+def parse_handmade_vlmtraj_into_structured_traj(
     text: str
 ) -> Tuple[List[Dict[str, Dict[Tuple[str, ...], bool]]], List[Tuple[str, Tuple[
         str, ...]]]]:
-    """Parse handwritten trajectories saved as text into a structured
+    """Parse a handwritten trajectory saved as text into a structured
     representation that can be used to convert these into
     GroundAtomTrajectories suitable for predicate invention, operator learning,
     etc.
@@ -3727,3 +3727,34 @@ def parse_handmade_vlmtrajs_into_structured_traj(
             structured_actions_output.append(current_option)
 
     return (structured_state_output, structured_actions_output)
+
+
+def parse_handmade_vlmtraj_file_into_structured_trajs(
+    filename: str
+) -> Tuple[List[List[Dict[str, Dict[Tuple[str, ...], bool]]]], List[List[Tuple[str, Tuple[
+        str, ...]]]]]:
+    """Parse a txt file full ofhandwritten trajectories into a structured
+    representation that can be used to convert these into
+    GroundAtomTrajectories suitable for predicate invention, operator learning,
+    etc.
+
+    We assume the vlmtraj is saved in a txt file with the following encoding
+    scheme: (TODO)
+    This function outputs two lists of lists, where each element is the output
+    of the above parse_handmade_vlmtraj_into_structured_traj function.
+    """
+    with open(filename, "r") as f:
+        full_file_text = f.read()
+    pattern = r"(?<====\n)(.*?)(?=\n===)"
+    matches = re.findall(pattern, full_file_text, re.DOTALL)
+    output_state_trajs, output_action_trajs = [], []
+    for match in matches:
+        curr_state_traj, curr_action_traj = parse_handmade_vlmtraj_into_structured_traj(match)
+        output_state_trajs.append(curr_state_traj)
+        output_action_trajs.append(curr_action_traj)
+    return (output_state_trajs, output_action_trajs)
+
+
+# filename = "/home/njk/Documents/GitHub/predicators/saved_datasets/apple_slice__demo+handlabeled_atoms__manual__1.txt"
+# state_trajs, action_trajs = parse_handmade_vlmtraj_file_into_structured_trajs(filename)
+# import ipdb; ipdb.set_trace()

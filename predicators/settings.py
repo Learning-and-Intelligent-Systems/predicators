@@ -644,6 +644,10 @@ class GlobalSettings:
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
 
+    # filepath to be used if offline_data_method is set to
+    # demo+handlabeled_atoms
+    handmade_demo_filename = ""
+
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the

@@ -924,6 +924,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        import ipdb; ipdb.set_trace()
         # Generate a candidate set of predicates.
         logging.info("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
