@@ -3677,3 +3677,53 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"
     return state
+
+
+def parse_handmade_vlmtrajs_into_structured_traj(
+    text: str
+) -> Tuple[List[Dict[str, Dict[Tuple[str, ...], bool]]], List[Tuple[str, Tuple[
+        str, ...]]]]:
+    """Parse handwritten trajectories saved as text into a structured
+    representation that can be used to convert these into
+    GroundAtomTrajectories suitable for predicate invention, operator learning,
+    etc.
+
+    This function outputs two lists. The first contains a dictionary
+    whose keys are names of predicates, and whose values are a dict
+    mapping a tuple of object names to a boolean value for the ground
+    predicate at this particular timestep. The second contains a tuple
+    whose first element is the current option name, and the second
+    element contains all the objects used by this option.
+    """
+    pattern_block_of_state = r'\[(.*?)\]'
+    pattern_predicate = r'(\w+)\(([^)]+)\) - (\w+)'
+    pattern_option = r'(\w+)\(([^)]+)\) ->'
+    state_blocks_matches = re.findall(pattern_block_of_state, text, re.DOTALL)
+    option_matches = re.findall(pattern_option, text)
+    assert len(state_blocks_matches) == 1 + len(
+        option_matches
+    ), "Manual data malformed; num states != 1 + num options."
+
+    structured_state_output = []
+    structured_actions_output = []
+
+    for i, state_block_match in enumerate(state_blocks_matches):
+        predicate_matches_within_state_block = re.findall(
+            pattern_predicate, state_block_match)
+        current_predicate_data = {}
+        for predicate_match in predicate_matches_within_state_block:
+            classifier_name = predicate_match[0]
+            objects = tuple(map(str.strip, predicate_match[1].split(',')))
+            truth_value = predicate_match[2] == 'True'
+            if classifier_name not in current_predicate_data:
+                current_predicate_data[classifier_name] = {}
+            current_predicate_data[classifier_name][objects] = truth_value
+        structured_state_output.append(current_predicate_data.copy())
+        if i < len(option_matches):
+            current_option = (option_matches[i][0],
+                              tuple(
+                                  map(str.strip,
+                                      option_matches[i][1].split(','))))
+            structured_actions_output.append(current_option)
+
+    return (structured_state_output, structured_actions_output)
