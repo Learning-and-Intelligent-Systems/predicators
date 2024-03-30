@@ -103,6 +103,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         self._interaction_goals = save_dict["interaction_goals"]
         self._online_learning_cycle = CFG.skip_until_cycle + 1
 
+    #an nsrt is a high level action. 
+    #ground nsrt is a specific high level action for specific location and stuff
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
                      annotations: Optional[List[Any]]) -> None:
@@ -141,7 +143,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             else:  # pragma: no cover
                 raise ValueError(
                     f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+            #eventually change the goal to good state
             goals = [t.goal for t in self._train_tasks]
+            #initing the input vector
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
