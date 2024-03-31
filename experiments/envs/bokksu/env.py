@@ -21,8 +21,8 @@ class Bokksu(BaseEnv):
     ## Task generation settings
     num_tries: ClassVar[int] = 100000
 
-    range_train_blocks: ClassVar[Tuple[int, int]] = (3, 3)
-    range_test_blocks: ClassVar[Tuple[int, int]] = (2, 2)
+    range_train_blocks: ClassVar[Tuple[int, int]] = (5, 8)
+    range_test_blocks: ClassVar[Tuple[int, int]] = (5, 6)
 
     ## World shape settings
     world_range_x: ClassVar[Tuple[float, float]] = (0, 20)
@@ -30,8 +30,8 @@ class Bokksu(BaseEnv):
 
     bokksu_x_pos: ClassVar[float] = 0.0
     bokksu_y_pos: ClassVar[float] = 0.0
-    bokksu_width: ClassVar[int] = 2
-    bokksu_height: ClassVar[int] = 2
+    bokksu_width: ClassVar[int] = 3
+    bokksu_height: ClassVar[int] = 3
 
     blocks_start_x: ClassVar[float] = 4.0
     blocks_start_y: ClassVar[float] = 0.0
@@ -47,12 +47,17 @@ class Bokksu(BaseEnv):
     _block_type = Type("block", ["x", "y", "orientation", "sub_block_0", "sub_block_1"])
 
     # Predicates
+    ## Inside predicate
     def _Inside_holds(state: State, objects: Sequence[Object]) -> bool:
         bokksu, block = objects
         return Bokksu._get_shape(state, bokksu).contains(Bokksu._get_shape(state, block))
 
     _Inside: ClassVar[Predicate] = Predicate("Inside", [_bokksu_type, _block_type], _Inside_holds)
-    _Outside: ClassVar[Predicate] = Predicate("Outside", [_bokksu_type, _block_type], lambda s, objs: not Bokksu._Inside_holds(s, objs))
+
+    ## Outside predicate
+    def _Outside_holds(state: State, objects: Sequence[Object]) -> bool:
+        return not Bokksu._Inside_holds(state, objects)
+    _Outside: ClassVar[Predicate] = Predicate("Outside", [_bokksu_type, _block_type], _Outside_holds)
 
 
     # Common Objects
@@ -275,8 +280,9 @@ class Bokksu(BaseEnv):
         upper_bound = np.array([self.world_range_x[1], self.world_range_y[1]] * 2 + [1], dtype=np.float32)
         return gym.spaces.Box(lower_bound, upper_bound)
 
+    @classmethod
     def render_state_plt(
-        self,
+        cls,
         state: State,
         task: EnvironmentTask,
         action: Optional[Action] = None,
@@ -288,16 +294,16 @@ class Bokksu(BaseEnv):
 
         # Drawing the box
         ax.add_patch(patches.Rectangle(
-            (state.get(self._bokksu, "x"), state.get(self._bokksu, "y")),
-            state.get(self._bokksu, "width"), state.get(self._bokksu, "height"),
+            (state.get(cls._bokksu, "x"), state.get(cls._bokksu, "y")),
+            state.get(cls._bokksu, "width"), state.get(cls._bokksu, "height"),
             color = 'pink'
         ))
 
         # Drawing the blocks
-        for block in state.get_objects(self._block_type):
-            sub_block_size = self.sub_cell_size - self.sub_cell_margin * 2
-            if state.get(block, "sub_block_1") > self.sub_block_present_thresh:
-                if state.get(block, "orientation") > self.orientation_vertical_thresh:
+        for block in state.get_objects(cls._block_type):
+            sub_block_size = cls.sub_cell_size - cls.sub_cell_margin * 2
+            if state.get(block, "sub_block_1") > cls.sub_block_present_thresh:
+                if state.get(block, "orientation") > cls.orientation_vertical_thresh:
                     width = sub_block_size
                     height = sub_block_size * 2
                 else:
@@ -307,7 +313,10 @@ class Bokksu(BaseEnv):
                 width = sub_block_size
                 height = sub_block_size
             ax.add_patch(patches.Rectangle(
-                (state.get(self._bokksu, "x"), state.get(self._bokksu, "y")),
+                (state.get(cls._bokksu, "x"), state.get(cls._bokksu, "y")),
                 width, height, color = 'black'
             ))
+
+        ax.set_xlim(*cls.world_range_x)
+        ax.set_ylim(*cls.world_range_y)
         return fig

@@ -166,7 +166,6 @@ class PyTorchRegressor(_NormalizingRegressor, DeviceTrackingModule):
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
                  disable_normalization: bool = False) -> None:
-        torch.manual_seed(seed)
         _NormalizingRegressor.__init__(
             self, seed, disable_normalization=disable_normalization)
         DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
@@ -402,7 +401,6 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, DeviceTrackingModule
                  weight_decay: float = 0,
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000) -> None:
-        torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
         self._max_train_iters = max_train_iters
@@ -1597,7 +1595,6 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
                  max_train_iters: int, timesteps: int,
                  learning_rate: float, use_torch_gpu: bool = False) -> None:
         torch.set_num_threads(8)
-        torch.manual_seed(seed)
         DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
         self._linears = nn.ModuleList()
         self._hid_sizes = hid_sizes

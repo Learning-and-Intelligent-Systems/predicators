@@ -163,19 +163,19 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
 
     def add_augmentation_datapoint(self, skeleton: Sequence[_GroundNSRT], states: Sequence[State]) -> None:
         assert len(states) == len(skeleton) + 1
-        self._invalidate_cache()
-        object_indices = self._create_object_indices(states[0])
-        self._augmentation_datapoints.append(self.Datapoint(
-            encoder_inputs = self._create_feasibility_datapoint_inputs(
-                self._nsrt_indices.keys(), skeleton, states[1:], object_indices
-            ),
-            decoder_inputs = self._create_feasibility_datapoint_inputs(
-                self._nsrt_indices.keys(), skeleton, [states[-1]] * len(skeleton), object_indices
-            ),
-            total_encoder_length = len(skeleton),
-            total_decoder_length = len(skeleton),
-            num_objects = len(object_indices),
-        ))
+        # self._invalidate_cache()
+        # object_indices = self._create_object_indices(states[0])
+        # self._augmentation_datapoints.append(self.Datapoint(
+        #     encoder_inputs = self._create_feasibility_datapoint_inputs(
+        #         self._nsrt_indices.keys(), skeleton, states[1:], object_indices
+        #     ),
+        #     decoder_inputs = self._create_feasibility_datapoint_inputs(
+        #         self._nsrt_indices.keys(), skeleton, [states[-1]] * len(skeleton), object_indices
+        #     ),
+        #     total_encoder_length = len(skeleton),
+        #     total_decoder_length = len(skeleton),
+        #     num_objects = len(object_indices),
+        # ))
 
     def _invalidate_cache(self) -> None:
         if "state_ranges" in self.__dict__:
@@ -205,7 +205,8 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
     ) -> Tuple[FeasibilityInputBatch, FeasibilityInputBatch]:
         assert 2 <= len(states) <= len(skeleton)
         datapoint = cls._create_main_datapoint(nsrt_indices.keys(), skeleton, states)
-        object_indices = np.linspace(0, 1, datapoint.num_objects, endpoint=True)
+        object_indices = np.zeros(datapoint.num_objects, dtype=np.float32)
+        # object_indices = np.linspace(0, 1, datapoint.num_objects, endpoint=True)
         return cls._transform_datapoint(
             datapoint.total_encoder_length, nsrt_indices, object_indices, datapoint.encoder_inputs
         ), cls._transform_datapoint(
@@ -616,7 +617,7 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
         }, datapoint.total_encoder_length, datapoint.total_decoder_length, datapoint.num_objects)
 
     def loads(self, data: bytes, nsrts: Iterable[NSRT]) -> None:
-        nsrt_map = {nsrt: str(nsrt) for nsrt in nsrts}
+        nsrt_map = {str(nsrt): nsrt for nsrt in nsrts}
         unpickle_datapoint = lambda dp: self._unpickle_datapoint(dp, nsrt_map)
 
         pickled_positive_datapoints, pickled_negative_datapoints, pickled_augmentation_datapoints = pickle.loads(data)

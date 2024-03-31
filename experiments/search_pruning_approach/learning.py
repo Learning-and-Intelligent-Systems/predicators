@@ -12,9 +12,9 @@ from experiments.search_pruning_approach.dataset import FeasibilityDataset, Feas
 from predicators.ml_models import DeviceTrackingModule, _get_torch_device
 from torch import nn, Tensor, tensor
 import torch
-from predicators.settings import CFG
 import logging
 import sys
+import os
 
 from predicators.structs import NSRT, _GroundNSRT, Object, State, Variable
 
@@ -215,8 +215,8 @@ def sigmoid_focal_loss(
     inputs: Tensor,
     targets: Tensor,
     alpha: float = -1,
-    gamma_pos: float = 2.5,
-    gamma_neg: float = 2.5,
+    gamma_pos: float = 2.0,
+    gamma_neg: float = 2.0,
     reduction: str = "none",
 ) -> Tensor:
     """Adapted from torchvision.ops.focal_loss"""
@@ -248,7 +248,7 @@ class FeasibilityClassifier(ABC):
 
 class ConstFeasibilityClassifier(FeasibilityClassifier):
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
-        return 1.0, True
+        return True, 1.0
 
 class StaticFeasibilityClassifier(FeasibilityClassifier):
     def __init__(self, classify: Callable[[Sequence[State], Sequence[_GroundNSRT]], Tuple[bool, float]]):
@@ -278,9 +278,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     #                               \    CLASSIFIER     /
     #                                +-----------------+
     def __init__(
-        self, # TODO: make sure we use a deterministic seed
+        self,
         nsrts: Set[NSRT],
-        seed: int,
         featurizer_sizes: List[int],
         positional_embedding_size: int,
         positional_embedding_concat: bool,
@@ -307,7 +306,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         use_torch_gpu: bool = False,
         check_nans: bool = False,
     ):
-        torch.manual_seed(seed)
         torch.set_num_threads(num_threads)
         DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
 
@@ -413,14 +411,17 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             return True, 1.0
 
         self.eval()
-        confidence = self(*FeasibilityDataset.transform_input(self._nsrt_indices, skeleton, states))[0].cpu()
-        logging.info(f"Confidence {float(confidence)}")
+        confidence, logits = self(*FeasibilityDataset.transform_input(self._nsrt_indices, skeleton, states))
+        confidence = confidence.cpu()
+        logits = logits.detach().cpu().numpy()
+        logging.info(f"Confidence {float(confidence)}; Logits {logits}")
         return confidence >= self._thresh, confidence
 
     def fit(
         self,
         train_dataset: FeasibilityDataset,
         validation_dataset: FeasibilityDataset,
+        training_snapshot_directory: str = "",
     ) -> None:
         if self._optimizer is None:
             raise RuntimeError("The classifier has been fitted")
@@ -466,7 +467,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                     l1_loss.backward()
 
                     self._optimizer.step()
-
 
                 if itr % 50 == 0:
                     # Evaluating on a test dataset
@@ -532,8 +532,9 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                     #     )
                     #     sub_test_loss = float(test_loss_fn(torch.tensor(sub_y_pred), torch.tensor(sub_y_true)).cpu().detach()) / sub_y_pred.size
                     #     logging.info(f"Plan length {n}: Test Loss {sub_test_loss}, Acc: {sub_matches.mean():.1%}")
-
-                    if matches.mean() >= 0.99:
+                    if training_snapshot_directory:
+                        torch.save(self, os.path.join(training_snapshot_directory, f"model-{itr}.pt"))
+                    if matches.mean() >= 0.95 and (itr - best_params["iter"]) >= 500:
                         break
 
         # Loading the best params
@@ -549,7 +550,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         #     logging.info(test_loss, file=open(CFG.feasibility_loss_output_file, "w"))
         #     raise RuntimeError()
 
-        # Threshold recalibration
+        # Threshold recalibration and final metrics
         self.eval()
         y_pred_batches, y_true_batches = zip(*(
             (self(*x_test_batch)[0], torch.from_numpy(y_test_batch).to(self.device))
@@ -557,14 +558,20 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         ))
         y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
 
-        num_positives = (torch.abs(y_true - 0.0) < 0.0001).cpu().detach().numpy().sum()
+        test_loss = float(test_loss_fn(y_pred, y_true).cpu().detach()) / len(validation_dataset)
+        matches = torch.logical_or(
+            torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred <= self._thresh),
+            torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= self._thresh)
+        ).cpu().detach().numpy()
 
+        logging.info(f"Final metrics: Test Loss: {test_loss}, Acc: {matches.mean():.1%}")
+
+        num_positives = (torch.abs(y_true - 0.0) < 0.0001).cpu().detach().numpy().sum()
         positive_confidence = float(torch.kthvalue(torch.cat(
             [y_pred[torch.abs(y_true - 0.0) < 0.0001].flatten(), tensor([0], device=self.device)]
         ).cpu(), int(num_positives * self._threshold_recalibration_frac) + 1).values)
 
         self._unsure_confidence = max(self._thresh, positive_confidence)
-
         logging.info(f"Unsure confidence set to {self._unsure_confidence}")
 
         # Making sure we don't fit twice and turn on classification
@@ -639,6 +646,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             tgt=decoder_tokens,
             src_key_padding_mask=encoder_invalid_mask,
             tgt_key_padding_mask=decoder_invalid_mask,
+            memory_key_padding_mask=encoder_invalid_mask,
             # src_is_causal=False,
             # tgt_is_causal=False,
         )

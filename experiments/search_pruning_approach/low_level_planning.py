@@ -288,7 +288,7 @@ def _backtrack( # TODO: add comments and docstring
                 # if iter >= max_tries[current_depth] // 2:
                     # Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
                     # plt.show()
-                tree.append_failed_try(option, None)
+                tree.append_failed_try(option, BacktrackingTree(next_state))
                 continue
             else:
                 logging.info(f"Depth {current_depth}/{max_depth} Feasibility classifier holds")
@@ -354,6 +354,6 @@ def _check_static_object_changed(static_objs: Set[Object], state: State, next_st
         if not np.allclose(
                 next_state[obj],
                 state[obj],
-                atol=CFG.tol):
+                atol=CFG.sesame_static_object_change_tol):
             return True
     return False

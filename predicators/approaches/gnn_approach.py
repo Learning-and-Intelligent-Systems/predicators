@@ -46,8 +46,6 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         self._input_normalizers: Dict = {}
         self._target_normalizers: Dict = {}
         self._data_exemplar: Tuple[Dict, Dict] = ({}, {})
-        # Seed torch.
-        torch.manual_seed(self._seed)
 
     @abc.abstractmethod
     def _generate_data_from_dataset(

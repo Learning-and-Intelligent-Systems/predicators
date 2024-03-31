@@ -31,6 +31,8 @@ import imageio
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+import random
 import pathos.multiprocessing as mp
 from gym.spaces import Box
 from matplotlib import patches
@@ -3541,3 +3543,12 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"
     return state
+
+def set_global_seed(seed: int) -> None:
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    logging.info(f"Random seed set to {seed}")

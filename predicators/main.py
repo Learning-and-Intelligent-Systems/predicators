@@ -87,6 +87,8 @@ def main() -> None:
     logging.info("Full config:")
     logging.info(CFG)
     logging.info(f"Git commit hash: {utils.get_git_commit_hash()}")
+    # Set a deterministic global seed
+    utils.set_global_seed(CFG.seed)
     # Create results directory.
     os.makedirs(CFG.results_dir, exist_ok=True)
     # Create the eval trajectories directory.
@@ -558,7 +560,6 @@ def _save_test_results(results: Metrics,
         del results[k]
     logging.info(f"Test results: {results}")
     logging.info(f"Wrote out test results to {outfile}")
-
 
 if __name__ == "__main__":  # pragma: no cover
     # Write out the exception to the log file.

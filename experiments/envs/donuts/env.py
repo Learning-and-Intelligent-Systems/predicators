@@ -26,7 +26,7 @@ class Donuts(BaseEnv):
     # Settings
     ## Task generation settings
     range_train_toppings: ClassVar[Tuple[int, int]] = (1, 3)
-    range_test_toppings: ClassVar[Tuple[int, int]] = (10, 10)#(15, 15)
+    range_test_toppings: ClassVar[Tuple[int, int]] = (3, 3)#(10, 10)
     range_train_donuts: ClassVar[Tuple[int, int]] = (1, 1)
     range_test_donuts: ClassVar[Tuple[int, int]] = (1, 1)
 

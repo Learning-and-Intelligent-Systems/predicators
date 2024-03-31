@@ -71,7 +71,7 @@ class Shelves2DEnv(BaseEnv):
     range_subtasks_test: ClassVar[Tuple[(int, int)]] = (1, 1)#(10, 12)
 
     range_shelves_train: ClassVar[Tuple[(int, int)]] = (2, 5)#(2, 3)
-    range_shelves_test: ClassVar[Tuple[(int, int)]] = (10, 10)#(12, 15)
+    # range_shelves_test: ClassVar[Tuple[(int, int)]] = (10, 10)#(12, 15)
 
     range_box_width: ClassVar[Tuple[(float, float)]] = (1, 5)
     range_box_height: ClassVar[Tuple[(float, float)]] = (7, 15)
@@ -152,7 +152,7 @@ class Shelves2DEnv(BaseEnv):
             self._test_tasks = self._get_tasks(
                 num_tasks=CFG.num_test_tasks,
                 range_subtasks=self.range_subtasks_test,
-                range_shelves=self.range_shelves_test,
+                range_shelves=(CFG.shelves2d_test_num_boxes, CFG.shelves2d_test_num_boxes),
                 rng=self._test_rng
             )
         # self._generate_tasks()

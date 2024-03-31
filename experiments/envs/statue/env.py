@@ -35,9 +35,9 @@ class Statue(BaseEnv):
     # Settings
     ## Task generation settings
     range_train_world_width: ClassVar[Tuple[int, int]] = (2, 4)
-    range_test_world_width: ClassVar[Tuple[int, int]] = (7, 7)
-    range_train_world_height: ClassVar[Tuple[int, int]] = (2, 3)
-    range_test_world_height: ClassVar[Tuple[int, int]] = (7, 7)
+    range_test_world_width: ClassVar[Tuple[int, int]] = (4, 4)#(7, 7)
+    range_train_world_height: ClassVar[Tuple[int, int]] = (2, 4)
+    range_test_world_height: ClassVar[Tuple[int, int]] = (4, 4)#(7, 7)
 
     ## World shape settings
     range_small_door_width = (0.4, 0.6)
