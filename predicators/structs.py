@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
+from inspect import getsource
 
 import numpy as np
 from gym.spaces import Box
@@ -283,6 +284,12 @@ class Predicate:
                             for i, t in enumerate(self.types))
         return f"({self.name} {vars_str})"
 
+    def classifier_str(self) -> str:
+        """Get a string representation of the classifier."""
+        pddl_str = self.pddl_str()
+        clf_str = getsource(self._classifier)
+        return f"{clf_str}"
+    
     def get_negation(self) -> Predicate:
         """Return a negated version of this predicate."""
         return Predicate("NOT-" + self.name, self.types,

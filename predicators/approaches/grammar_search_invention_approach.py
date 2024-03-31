@@ -759,6 +759,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         grammar = _create_grammar(dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
+        for p, _ in candidates.items():
+            print(p, "---", p.pretty_str())
         logging.info(f"Done: created {len(candidates)} candidates:")
         for predicate, cost in candidates.items():
             logging.info(f"{predicate} {cost}")
