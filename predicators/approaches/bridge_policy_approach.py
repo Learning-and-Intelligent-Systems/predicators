@@ -56,7 +56,7 @@ from predicators.settings import CFG
 from predicators.structs import Action, BridgeDataset, DefaultState, \
     DemonstrationQuery, DemonstrationResponse, InteractionRequest, \
     InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
-    Type, _Option, _GroundNSRT
+    Type, _Option, _GroundNSRT, LowLevelTrajectory
 from predicators.utils import OptionExecutionFailure
 
 
@@ -275,6 +275,7 @@ class BridgePolicyApproach(OracleApproach):
         if not results:
             return None
 
+
         for result in results:
             response = result.responses[-1]
             # Interaction didn't involve any queries.
@@ -431,6 +432,10 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
     def _init_nsrts(self):
         nsrts = self._get_current_nsrts()
+
+        # assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
+        # for nsrt in self._nsrts:
+        #     assert nsrt.option_vars == nsrt.parameters
         all_ground_nsrts: Set[_GroundNSRT] = set()
         if CFG.sesame_grounder == "naive":
             for nsrt in nsrts:
@@ -461,6 +466,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         #initing the input vector
         self._mapleq._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
+        print("NSRTS", self._mapleq._q_function._ground_nsrt_to_idx)
         
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
@@ -472,7 +478,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             print("mapleq inited")
             self._init_nsrts()
             
-
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
@@ -530,7 +535,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 #     max_option_steps=CFG.max_num_steps_option_rollout,
                 #     raise_error_on_repeated_state=True,
                 # )
-                # import ipdb; ipdb.set_trace()
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
                 # step, then this approach would be performing MPC.
@@ -609,12 +613,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
-
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
         
-        
-
         #turn state action things from results into trajectory
 
         # TO DO call learn nsrts on mapleq object after trajectories are created
@@ -627,96 +628,26 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # If we haven't collected any new results on this cycle, skip learning
         # for efficiency.
 
+        #naurrr the results are all Nones ;-;
+        #basically this is bc the teacher is None since the setting thingy returns an empty set
+        #so then all the request_responses are Nones
+
         if not results:
             return None
+        
+        trajs=[]
         
         #TO DO make trajectories within this loop!!
         #make sure u start from the start state
         for result in results:
 
-            #TO DO REWRITE ALL THIS CODE
-            response = result.responses[-1]
-            print(result.responses)
-            # import ipdb; ipdb.set_trace()
-            # Interaction didn't involve any queries.
-            if response is None:
-                continue
-            assert isinstance(response, DemonstrationResponse)
-            query = response.query
-            assert isinstance(query, DemonstrationQuery)
-            goal = self._train_tasks[query.train_task_idx].goal
-            all_failed_options = query.get_info("all_failed_options")
-
-            # Abstract and segment the trajectory.
-            traj = response.teacher_traj
-            print("traj", traj)
-            assert traj is not None
-            atom_traj = [utils.abstract(s, preds) for s in traj.states]
-            segmented_traj = segment_trajectory(traj, preds, atom_traj)
-            if not segmented_traj:
-                assert len(atom_traj) == 1
-                states = [traj.states[0]]
-                atoms = atom_traj
-            else:
-                states = utils.segment_trajectory_to_state_sequence(
-                    segmented_traj)
-                atoms = utils.segment_trajectory_to_atoms_sequence(
-                    segmented_traj)
-            assert len(states) == len(atoms)
-            seq_len = len(atoms)
-
-            # Prepare to excise the rational transitions.
-            optimal_ctgs: List[float] = []
-            for state in states:
-                task = Task(state, goal)
-                # Assuming optimal task planning here.
-                assert (CFG.sesame_task_planner == "astar" and \
-                        CFG.sesame_task_planning_heuristic == "lmcut") or \
-                        CFG.sesame_task_planner == "fdopt"
-                try:
-                    nsrt_plan, _, _ = self._run_task_plan(
-                        task, nsrts, preds, CFG.timeout, self._seed)
-                    ctg: float = len(nsrt_plan)
-                except ApproachFailure:  # pragma: no cover
-                    # Planning failed, put in infinite cost to go.
-                    ctg = float("inf")
-                optimal_ctgs.append(ctg)
-
-            # For later converting atoms into ground NSRTs.
-            objects = set(states[0])
-            effects_to_ground_nsrt = {}
-            for nsrt in nsrts:
-                for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-                    add_atoms = frozenset(ground_nsrt.add_effects)
-                    del_atoms = frozenset(ground_nsrt.delete_effects)
-                    ground_effects = (add_atoms, del_atoms)
-                    effects_to_ground_nsrt[ground_effects] = ground_nsrt
-
-            # Collect the irrational transitions and turn atom changes into
-            # ground NSRTs.
-            for t in range(seq_len - 1):
-                # Step was rational, so skip it.
-                if optimal_ctgs[t] == optimal_ctgs[t + 1] + 1:
-                    continue
-                # Step was irrational, so include it.
-                # Assume all changes were necessary; we don't know otherwise.
-                add_atoms = frozenset(atoms[t + 1] - atoms[t])
-                del_atoms = frozenset(atoms[t] - atoms[t + 1])
-                ground_effects = (add_atoms, del_atoms)
-                try:
-                    ground_nsrt = effects_to_ground_nsrt[ground_effects]
-                except KeyError:  # pragma: no cover
-                    logging.warning("WARNING: no NSRT found for add atoms "
-                                    f"{add_atoms}. Skipping transition.")
-                    continue
-                self._bridge_dataset.append((
-                    all_failed_options,
-                    ground_nsrt,
-                    atoms[t],
-                    states[t],
-                ))
-
-        # self._mapleq._learn_nsrts(self, trajectories: List[LowLevelTrajectory],online_learning_cycle: Optional[int], annotations: Optional[List[Any]])
+            new_traj=LowLevelTrajectory(result.states, result.actions)
+            trajs.append(new_traj)
+            actions = [action.get_option() for action in new_traj.actions]
+            print(actions)
+            
+        self._mapleq.get_interaction_requests()
+        self._mapleq._learn_nsrts(trajs, 1, []*len(trajs))
         
         # return self._bridge_policy.learn_from_demos(self._bridge_dataset)
 

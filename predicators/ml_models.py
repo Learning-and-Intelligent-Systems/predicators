@@ -1387,6 +1387,7 @@ class MapleQFunction(MLPRegressor):
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
             state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+        
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
@@ -1520,6 +1521,17 @@ class MapleQFunction(MLPRegressor):
             if n.option == option.parent
             and tuple(n.objects) == tuple(option.objects)
         ]
+
+        #code breaks here ;-;
+
+        # for (x,i) in  self._ground_nsrt_to_idx.items():
+
+        # import ipdb; ipdb.set_trace()
+            
+        #     if x.option == option.parent and tuple(x.objects) == tuple(option.objects):
+        #         print("nice")
+
+        
         assert len(matches) == 1
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
@@ -1573,4 +1585,5 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
+        
         return sampled_options

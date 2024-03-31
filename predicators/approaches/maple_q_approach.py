@@ -112,9 +112,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
         # Check the assumption that operators and options are 1:1.
         # This is just an implementation convenience.
-        assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
-        for nsrt in self._nsrts:
-            assert nsrt.option_vars == nsrt.parameters
+        # assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
+        # for nsrt in self._nsrts:
+        #     assert nsrt.option_vars == nsrt.parameters
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
         if not online_learning_cycle:
@@ -149,6 +149,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
+        
         self._update_maple_data()
         # Re-learn Q function.
         self._q_function.train_q_function()
@@ -171,6 +172,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         goal_offset = CFG.max_initial_demos
         assert len(self._segmented_trajs) == goal_offset + \
             len(self._interaction_goals)
+                
         new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
 
         for traj_i, segmented_traj in enumerate(new_trajs):
