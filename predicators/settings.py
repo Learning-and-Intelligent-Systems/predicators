@@ -508,12 +508,11 @@ class GlobalSettings:
     feasibility_mark_failing_nsrt = True
     feasibility_token_size = feasibility_featurizer_sizes[-1] + (feasibility_embedding_size if feasibility_embedding_concat else 0)
     feasibility_num_heads = 8
-    feasibility_enc_num_layers = 1
-    feasibility_dec_num_layers = 1
+    feasibility_num_layers = 1
     feasibility_ffn_hid_size = feasibility_token_size * 4
     feasibility_max_itr = 2000
-    feasibility_general_lr = 0.001
-    feasibility_transformer_lr = 5e-5
+    feasibility_general_lr = 0.0001
+    feasibility_transformer_lr = 1e-5
     feasibility_cls_style = 'mean'
     feasibility_batch_size = 2048
     feasibility_validation_fraction = 0.8
@@ -521,7 +520,7 @@ class GlobalSettings:
     feasibility_threshold_recalibration_percentile = 0.85
     feasibility_num_datapoints_per_iter = 3000
     feasibility_optim = 'adam'
-    feasibility_l1_penalty = 0.001
+    feasibility_l1_penalty = 0
     feasibility_l2_penalty = 0
     feasibility_debug_directory = ""
     feasibility_load_path = ""

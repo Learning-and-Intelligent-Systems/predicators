@@ -8,7 +8,7 @@ import numpy.typing as npt
 from dataclasses import dataclass
 import itertools
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Tuple, Union
-from experiments.search_pruning_approach.dataset import FeasibilityDataset, FeasibilityInputBatch
+from experiments.search_pruning_approach.dataset import FeasibilityDataset, FeasibilityInputBatch, SkeletonNSRT
 from predicators.ml_models import DeviceTrackingModule, _get_torch_device
 from torch import nn, Tensor, tensor
 import torch
@@ -286,8 +286,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         mark_failing_nsrt: bool,
         token_size: int,
         transformer_num_heads: int,
-        transformer_encoder_num_layers: int,
-        transformer_decoder_num_layers: int,
+        transformer_num_layers: int,
         transformer_ffn_hidden_size: int,
         cls_style: str,
         embedding_horizon: int,
@@ -320,55 +319,41 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self._general_lr = general_lr
         self._transformer_lr = transformer_lr
 
+        skeleton_nsrts = [(nsrt, ran_flag) for nsrt in sorted(nsrts) for ran_flag in [True, False]]
+        self._skeleton_nsrt_indices = {skeleton_nsrt: idx for idx, skeleton_nsrt in enumerate(skeleton_nsrts)}
         self._featurizer_output_size = featurizer_sizes[-1]
-        self._nsrt_indices = {nsrt: idx for idx, nsrt in enumerate(sorted(nsrts))}
-        self._encoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {
-            nsrt: self.create_featurizer(
-                f"encoder_featurizer_{nsrt.name}_{self._nsrt_indices[nsrt]}",
+        self._featurizers: Dict[SkeletonNSRT, FeasibilityFeaturizer] = {
+            (nsrt, ran_flag): self.create_featurizer(
+                f"featurizer_{self._skeleton_nsrt_indices[(nsrt, ran_flag)]}_{nsrt.name}_{'ran' if ran_flag else 'not_ran'}",
                 nsrt, featurizer_sizes, 0.0,
-            ) for nsrt in nsrts
-        }
-        self._decoder_featurizers: Dict[NSRT, FeasibilityFeaturizer] = {
-            nsrt: self.create_featurizer(
-                f"decoder_featurizer_{nsrt.name}_{self._nsrt_indices[nsrt]}",
-                nsrt, featurizer_sizes, 0.0,
-            ) for nsrt in nsrts
+            ) for nsrt in nsrts for ran_flag in [True, False]
         }
 
-        self._encoder_positional_encoding = Tokenizer(
+        self._positional_encoding = Tokenizer(
             feature_size = featurizer_sizes[-1],
             embedding_size = positional_embedding_size,
             token_size = token_size,
-            num_nsrts = len(nsrts),
+            num_nsrts = len(skeleton_nsrts),
             concat = positional_embedding_concat,
             mark_last_token = mark_failing_nsrt,
-            include_cls = None,
-            horizon = embedding_horizon,
-            device = self.device,
-
-        )
-        self._decoder_positional_encoding = Tokenizer(
-            feature_size = featurizer_sizes[-1],
-            embedding_size = positional_embedding_size,
-            token_size = token_size,
-            num_nsrts = len(nsrts),
-            concat = positional_embedding_concat,
-            mark_last_token = False,
             include_cls = {
                 'mean': None, 'learned': 'learned', 'marked': 'marked'
             }[cls_style],
             horizon = embedding_horizon,
             device = self.device,
         )
-        self._transformer = nn.Transformer(
-            d_model = token_size,
-            nhead = transformer_num_heads,
-            num_encoder_layers = transformer_encoder_num_layers,
-            num_decoder_layers = transformer_decoder_num_layers,
-            dim_feedforward = transformer_ffn_hidden_size,
-            dropout = dropout,
-            batch_first = True,
-            device = self.device,
+        self._transformer = nn.TransformerEncoder(
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model = token_size,
+                nhead = transformer_num_heads,
+                dim_feedforward = transformer_ffn_hidden_size,
+                dropout = dropout,
+                batch_first = True,
+                device = self.device
+            ), norm = nn.LayerNorm(
+                normalized_shape = token_size,
+                device = self.device
+            ), num_layers = transformer_num_layers,
         )
         self._classifier_head = nn.Sequential(
             nn.Linear(token_size, 1, device=self.device),
@@ -382,14 +367,10 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             'rmsprop': torch.optim.RMSprop
         }[optimizer_name]([
             {'params': [
-                parameter for featurizer in
-                list(self._encoder_featurizers.values()) + list(self._decoder_featurizers.values())
+                parameter for featurizer in self._featurizers.values()
                 for parameter in featurizer.parameters()
             ], 'lr': self._general_lr, "weight_decay": l2_penalty * self._general_lr},
-            {'params':
-                list(self._encoder_positional_encoding.parameters()) +
-                list(self._decoder_positional_encoding.parameters())
-            , 'lr': self._general_lr, "weight_decay": l2_penalty * self._general_lr},
+            {'params': self._positional_encoding.parameters(), 'lr': self._general_lr, "weight_decay": l2_penalty * self._general_lr},
             {'params': self._classifier_head.parameters(), 'lr': self._general_lr, "weight_decay": l2_penalty * self._general_lr},
             {'params': self._transformer.parameters(), 'lr': self._transformer_lr, "weight_decay": l2_penalty * self._transformer_lr},
         ])
@@ -403,7 +384,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
         """Classifies a single datapoint
         """
-        if len(states) == len(skeleton) + 1: # Make sure there is at least one decoder nsrt
+        if len(states) == len(skeleton) + 1: # Make sure there is at least one not-run nsrt
             return True, 1.0
         if len(states) <= self._min_inference_prefix: # Make sure we don't have too big of a horizon to predict
             return True, self._unsure_confidence
@@ -411,7 +392,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             return True, 1.0
 
         self.eval()
-        confidence, logits = self(*FeasibilityDataset.transform_input(self._nsrt_indices, skeleton, states))
+        confidence, logits = self(FeasibilityDataset.transform_input(self._skeleton_nsrt_indices, skeleton, states))
         confidence = confidence.cpu()
         logits = logits.detach().cpu().numpy()
         logging.info(f"Confidence {float(confidence)}; Logits {logits}")
@@ -459,7 +440,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                 self.train()
                 for x_train_batch, y_train_batch in train_dataset:
                     self._optimizer.zero_grad()
-                    outputs, logits = self(*x_train_batch)
+                    outputs, logits = self(x_train_batch)
                     train_loss = train_loss_fn(outputs, logits, torch.from_numpy(y_train_batch).to(self.device))
                     train_loss.backward()
 
@@ -469,10 +450,14 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                     self._optimizer.step()
 
                 if itr % 50 == 0:
+                    # Reporting gradient statistics
+                    for name, param in self.named_parameters():
+                        logging.info(f"-- PARAM NAME {(name + ' '*70)[:70]} gradient stats: {tensor_stats(param.grad)}")
+
                     # Evaluating on a test dataset
                     self.eval()
                     y_pred_batches, y_true_batches = zip(*(
-                        (self(*x_test_batch)[0], torch.from_numpy(y_test_batch).to(self.device))
+                        (self(x_test_batch)[0], torch.from_numpy(y_test_batch).to(self.device))
                         for x_test_batch, y_test_batch in validation_dataset
                     ))
                     y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
@@ -542,18 +527,10 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         del best_params["iter"]
         self.load_state_dict(best_params)
 
-        # if CFG.feasibility_loss_output_file:
-        #     test_loss = np.concatenate([
-        #         test_loss_fn(self(*x_test_batch), y_test_batch).detach().numpy()
-        #         for x_test_batch, y_test_batch in test_dataloader
-        #     ]).mean()
-        #     logging.info(test_loss, file=open(CFG.feasibility_loss_output_file, "w"))
-        #     raise RuntimeError()
-
         # Threshold recalibration and final metrics
         self.eval()
         y_pred_batches, y_true_batches = zip(*(
-            (self(*x_test_batch)[0], torch.from_numpy(y_test_batch).to(self.device))
+            (self(x_test_batch)[0], torch.from_numpy(y_test_batch).to(self.device))
             for x_test_batch, y_test_batch in validation_dataset
         ))
         y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
@@ -577,84 +554,47 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         # Making sure we don't fit twice and turn on classification
         self._optimizer = None
 
-    def _collate_batch(
-        self, batch: Sequence[Tuple[Tuple[Sequence[NSRT], Sequence[NSRT], Sequence[npt.NDArray], Sequence[npt.NDArray]], int]]
-    ) -> Tuple[Tuple[Sequence[Sequence[NSRT]], Sequence[Sequence[NSRT]], Sequence[Sequence[npt.NDArray]], Sequence[Sequence[npt.NDArray]]], Tensor]:
-        """ Convert a batch of datapoints to batched datapoints
-        """
-        return (
-            [dp[0][0] for dp in batch], [dp[0][1] for dp in batch],
-            [dp[0][2] for dp in batch], [dp[0][3] for dp in batch]
-        ), tensor([dp[1] for dp in batch], device=self.device)
-
     def forward(
         self,
-        encoder_batch: FeasibilityInputBatch,
-        decoder_batch: FeasibilityInputBatch,
+        batch: FeasibilityInputBatch,
     ) -> float:
-        """Runs the core of the classifier with given encoder and decoder nsrts and state vectors.
+        """Runs the core of the classifier.
         """
 
         # Calculating feature vectors
-        encoder_tokens, encoder_invalid_mask, encoder_nsrts_indices = encoder_batch.run_featurizers(
-            self._encoder_featurizers, self._featurizer_output_size, self.device
+        tokens, invalid_mask, skeleton_nsrt_indices, last_token_mask = batch.run_featurizers(
+            self._featurizers, self._skeleton_nsrt_indices, self._featurizer_output_size, self.device
         )
-        decoder_tokens, decoder_invalid_mask, decoder_nsrts_indices = decoder_batch.run_featurizers(
-            self._decoder_featurizers, self._featurizer_output_size, self.device
-        )
-        encoder_sequence_lengths = torch.logical_not(encoder_invalid_mask).sum(dim=1)
-        decoder_sequence_lenghts = torch.logical_not(decoder_invalid_mask).sum(dim=1)
-
-        # Calculating the last token masks
-        encoder_last_token_mask = torch.full_like(encoder_invalid_mask, False)
-        decoder_last_token_mask = torch.full_like(decoder_invalid_mask, False)
-        encoder_last_token_mask[torch.arange(encoder_sequence_lengths.shape[0]), encoder_sequence_lengths - 1] = True
+        sequence_lengths = torch.logical_not(invalid_mask).sum(dim=1)
 
         # Calculating offsets for encoding
-        encoder_offsets = torch.zeros((encoder_sequence_lengths.shape[0],), device=self.device)
-        decoder_offsets = encoder_sequence_lengths
-        if self.training:
-            random_offsets = (
-                torch.rand((decoder_offsets.shape[0],), device=self.device) *
-                (self._decoder_positional_encoding._horizon - encoder_sequence_lengths - decoder_sequence_lenghts)
-            ).long()
-            encoder_offsets += random_offsets
-            decoder_offsets += random_offsets
+        pos_offsets = torch.zeros((invalid_mask.shape[0],), device=self.device)
+        # if self.training:
+        #     pos_offsets += (torch.rand_like(pos_offsets) * (self._positional_encoding._horizon - sequence_lengths - 1)).long()
 
         # Adding positional encoding and cls token
-        encoder_tokens, encoder_invalid_mask = self._encoder_positional_encoding(
-            tokens = encoder_tokens,
-            invalid_mask = encoder_invalid_mask,
-            last_token_mask = encoder_last_token_mask,
-            nsrt_indices = encoder_nsrts_indices,
-            pos_offset = encoder_offsets,
-        )
-        decoder_tokens, decoder_invalid_mask = self._decoder_positional_encoding(
-            tokens = decoder_tokens,
-            invalid_mask = decoder_invalid_mask,
-            last_token_mask = decoder_last_token_mask,
-            nsrt_indices = decoder_nsrts_indices,
-            pos_offset = decoder_offsets,
+        tokens, invalid_mask = self._positional_encoding(
+            tokens = tokens,
+            invalid_mask = invalid_mask,
+            last_token_mask = last_token_mask,
+            nsrt_indices = skeleton_nsrt_indices,
+            pos_offset = pos_offsets,
         )
         if not self.training:
-            logging.info(f"-- FORWARD encoder tokens stats: {tensor_stats(encoder_tokens)}")
-            logging.info(f"-- FORWARD decoder tokens stats: {tensor_stats(decoder_tokens)}")
+            logging.info(f"-- FORWARD tokens stats: {tensor_stats(tokens)}")
 
+        assert tokens.shape[:2] == invalid_mask.shape
         # Running the core transformer
         transformer_outputs = self._transformer(
-            src=encoder_tokens,
-            tgt=decoder_tokens,
-            src_key_padding_mask=encoder_invalid_mask,
-            tgt_key_padding_mask=decoder_invalid_mask,
-            memory_key_padding_mask=encoder_invalid_mask,
-            # src_is_causal=False,
-            # tgt_is_causal=False,
+            src=tokens,
+            src_key_padding_mask=invalid_mask,
+            # is_causal=False,
         )
 
         # Preparing for the classifier head
         if self._cls_style == 'mean':
-            transformer_outputs[decoder_invalid_mask.unsqueeze(-1).expand(-1, -1, transformer_outputs.shape[2])] = 0
-            classifier_tokens = transformer_outputs.sum(dim=1) / decoder_sequence_lenghts.unsqueeze(-1)
+            transformer_outputs[invalid_mask.unsqueeze(-1).expand(-1, -1, transformer_outputs.shape[2])] = 0
+            classifier_tokens = transformer_outputs.sum(dim=1) / sequence_lengths.unsqueeze(-1)
             if not self.training:
                 logging.info(f"-- FORWARD classifier outputs stats: {tensor_stats(self._classifier_head[0](transformer_outputs))}")
         else:
@@ -691,6 +631,5 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
     def rescale_featurizers(self, dataset: FeasibilityDataset) -> None:
         """Rescales the featurizers based on the states
         """
-        for nsrt, (min_state, max_state) in dataset.state_ranges.items():
-            self._encoder_featurizers[nsrt].update_range(min_state, max_state)
-            self._decoder_featurizers[nsrt].update_range(min_state, max_state)
+        for skeleton_nsrt, (min_state, max_state) in dataset.state_ranges.items():
+            self._featurizers[skeleton_nsrt].update_range(min_state, max_state)

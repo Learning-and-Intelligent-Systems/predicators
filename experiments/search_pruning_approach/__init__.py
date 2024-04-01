@@ -423,15 +423,13 @@ class SearchPruningApproach(NSRTLearningApproach):
         ), search_datapoints)
         positive_datapoints = []
         negative_datapoints = []
-        for (positive_paths, negative_paths, augmentation_paths), (_1, _2, _3, skeleton) in loop_data:
+        for (positive_paths, negative_paths), (_1, _2, _3, skeleton) in loop_data:
             for positive_path in positive_paths:
                 positive_datapoints.append((skeleton, positive_path))
                 dataset.add_positive_datapoint(skeleton, positive_path)
             for negative_path in negative_paths:
                 negative_datapoints.append((skeleton, negative_path))
                 dataset.add_negative_datapoint(skeleton, negative_path)
-            for augmentation_path in augmentation_paths:
-                dataset.add_augmentation_datapoint(skeleton, augmentation_path)
         return time.perf_counter() - start, positive_datapoints, negative_datapoints
 
     @staticmethod
@@ -492,11 +490,6 @@ class SearchPruningApproach(NSRTLearningApproach):
             option.params
             for option, mb_subtree in backtracking.failed_tries if mb_subtree is not None
         ]
-        if backtracking.is_successful:
-            successful_states, _ = backtracking.successful_trajectory
-            augmentation_datapoints = [states[:prefix_length] + successful_states[1:]]
-        else:
-            augmentation_datapoints = []
 
         positive_datapoints = [
             states[:prefix_length] + [next_state] for next_state in next_success_states
@@ -512,7 +505,7 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         logging.info(f"Finished negative data collection - {next_failed_states} samples found")
         logging.info(f"Option params: {option_params}")
-        return positive_datapoints, negative_datapoints, augmentation_datapoints
+        return positive_datapoints, negative_datapoints
 
     def _run_sesame_plan(
         self,
@@ -612,8 +605,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             mark_failing_nsrt = CFG.feasibility_mark_failing_nsrt,
             token_size = CFG.feasibility_token_size,
             transformer_num_heads = CFG.feasibility_num_heads,
-            transformer_encoder_num_layers = CFG.feasibility_enc_num_layers,
-            transformer_decoder_num_layers = CFG.feasibility_dec_num_layers,
+            transformer_num_layers = CFG.feasibility_num_layers,
             transformer_ffn_hidden_size = CFG.feasibility_ffn_hid_size,
             cls_style = CFG.feasibility_cls_style,
             embedding_horizon = CFG.feasibility_embedding_max_idx,
