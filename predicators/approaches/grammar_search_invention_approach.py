@@ -967,7 +967,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 with open(candidate_preds_dataset_fname, "wb") as f:
                     pkl.dump(candidates, f)
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         logging.info(f"Done: created {len(candidates)} candidates:")
         self._metrics["grammar_size"] = len(candidates)
         for predicate, cost in candidates.items():
@@ -3533,7 +3533,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             predicates_to_keep = all_add_effects | all_preconditions
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             print("keyboard")
 
             ##########
@@ -3605,10 +3605,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 with open(incons_dataset_fname, "wb") as f:
                     pkl.dump(inconsistent_preds, f)
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
+            print("screen")
             # only remove inconsistent add effects -- keep all predicates in preconditions
             predicates_to_keep |= all_preconditions
-            print("screen")
+
 
             # Re-add inconsistent predicates that were necessary to disambiguate two clusters.
             # That is, if any two clusters's predicates look the same after removing inconsistent predicates from both,
@@ -3923,7 +3924,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             # if "pre" not in potential_ops[entry[0]].keys():
                             #     import pdb; pdb.set_trace()
                             potential_ops[entry[0]]["pre"].add(ground_atom.predicate)
-                            dynamic_preconds_per_op[name].append(ground_atom.predicate)
+                            dynamic_preconds_per_op[entry[0]].append(ground_atom.predicate)
                     if ground_atom in goal:
                         # then we add it!
                         to_add.append(ground_atom) # for debugging
@@ -4035,6 +4036,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     "del": ddd[op_name][2]
                 } for op_name in all_potential_ops[0].keys()
             }
+
+            # import pdb; pdb.set_trace()
+            print("yoda")
+
             ####################################################################
             for op_name in all_potential_ops[0].keys():
 
@@ -4086,16 +4091,26 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         static_preds.append(p)
                 # now, only keep the static predicate with the lowest cost
                 # TODO: for tiebreakers, might want to pick the form that is the simplest form?
-                # some static preds (the goal predicates) are not in candidates so don't consider those
+                # some static preds (the goal predicates) are not in candidates so don't consider those?
+                # TODO: figure out if we want to keep goal predicates
                 # import pdb; pdb.set_trace()
                 static_preds_in_candidates = [pred for pred in static_preds if pred in candidates]
                 # TODO: if there are static predicates that are goal predicates, take those over
                 # preds we constructed?
-                single_static_pred = min(static_preds_in_candidates, key=lambda x: candidates[x])
-                preconditions_to_keep2 = set(dynamic_preds) | {single_static_pred}
+                # TODO: lowest cost predicate may completely ignore really important objects,
+                # maybe keep taking next low cost predicate until all objects are covered?
+                if len(static_preds_in_candidates) > 0:
+                    single_static_pred = min(static_preds_in_candidates, key=lambda x: candidates[x])
+                    preconditions_to_keep2 = set(dynamic_preds) | {single_static_pred}
+                else:
+                    preconditions_to_keep2 = set(dynamic_preds)
 
                 final_potential_ops2[op_name]["pre"] = preconditions_to_keep2
-                # import pdb; pdb.set_trace()
+
+                # if op_name == "Op5-PlaceStick":
+                # if op_name == "Op1-StickPressButton":
+                #     import pdb; pdb.set_trace()
+                #     print("anakin")
 
             ####################################################################
             for k, po in enumerate(all_potential_ops):
@@ -4132,7 +4147,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 )
                 fff[op].append(ddd[op][3])
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             print("mandalorian")
             self._clusters = fff
 
@@ -4533,7 +4548,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
                 predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             logging.info(f"Right after delete effects harmlessness check.")
             ####################################################################
 
@@ -4826,9 +4841,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     # if name == "Op8-PickStick":
                     #     import pdb; pdb.set_trace()
                     #     print("gungan")
-                    if name == "Op3-PickStick" and i == 3:
-                        import pdb; pdb.set_trace()
-                        print("jedi")
+                    # if name == "Op3-PickStick" and i == 3:
+                    #     import pdb; pdb.set_trace()
+                    #     print("jedi")
 
                     # op1_preconds = a
                     # op1_add_effects = b
@@ -4988,28 +5003,38 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #
             # pnads = pruned_pnads
 
-            def print_ops(op):
-                print("====")
-                print(op.name)
-                print(op.parameters)
-                print("preconditions:")
-                for p in sorted(op.preconditions):
-                    print(p)
-                print("add effects:")
-                for p in sorted(op.add_effects):
-                    print(p)
-                print("delete effects:")
-                for p in sorted(op.delete_effects):
-                    print(p)
-                print("====")
+            # def print_ops(op):
+            #     print("====")
+            #     print(op.name)
+            #     print(op.parameters)
+            #     print("preconditions:")
+            #     for p in sorted(op.preconditions):
+            #         print(p)
+            #     print("add effects:")
+            #     for p in sorted(op.add_effects):
+            #         print(p)
+            #     print("delete effects:")
+            #     for p in sorted(op.delete_effects):
+            #         print(p)
+            #     print("====")
+            #
+            # for operator in ops_to_print:
+            #     print_ops(operator)
 
-            for operator in ops_to_print:
-                print_ops(operator)
+            def print_op(op):
+                relevant = _DEBUG_PREDICATE_PREFIXES["stick_button_move"]
+                filtered_preconds = [p for p in op.preconditions if (str(p.predicate) in relevant or p.predicate in initial_predicates)]
+                filtered_adds = [p for p in op.add_effects if (str(p.predicate) in relevant or p.predicate in initial_predicates)]
+                filtered_dels = [p for p in op.delete_effects if (str(p.predicate) in relevant or p.predicate in initial_predicates)]
+                filtered_op = op.copy_with(preconditions=filtered_preconds, add_effects=filtered_adds, delete_effects=filtered_dels)
+                print(filtered_op)
+            # for pnad in pnads:
+            #     print_op(pnad.op)
 
-            pnads = [p for p in pnads if p.op.name != "Op0-PlaceStick"]
-            import pdb; pdb.set_trace()
-
+            # pnads = [p for p in pnads if p.op.name != "Op0-PlaceStick"]
             # import pdb; pdb.set_trace()
+
+            import pdb; pdb.set_trace()
             self._pnads = pnads
             return predicates_we_kept
             # return predicates_to_keep
