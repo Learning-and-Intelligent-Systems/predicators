@@ -25,7 +25,7 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtomTrajectory, Object, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type
+    ParameterizedOption, Predicate, Segment, State, Task, Type, GroundAtom
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -924,45 +924,63 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        import ipdb; ipdb.set_trace()
-        # Generate a candidate set of predicates.
-        logging.info("Generating candidate predicates...")
-        grammar = _create_grammar(dataset, self._initial_predicates)
-        candidates = grammar.generate(
-            max_num=CFG.grammar_search_max_predicates)
-        logging.info(f"Done: created {len(candidates)} candidates:")
-        self._metrics["grammar_size"] = len(candidates)
-        for predicate, cost in candidates.items():
-            logging.info(f"{predicate} {cost}")
-        # Apply the candidate predicates to the data.
-        logging.info("Applying predicates to data...")
+        if CFG.offline_data_method != "demo+handlabeled_atoms":
+            # Generate a candidate set of predicates.
+            logging.info("Generating candidate predicates...")
+            grammar = _create_grammar(dataset, self._initial_predicates)
+            candidates = grammar.generate(
+                max_num=CFG.grammar_search_max_predicates)
+            logging.info(f"Done: created {len(candidates)} candidates:")
+            self._metrics["grammar_size"] = len(candidates)
+            for predicate, cost in candidates.items():
+                logging.info(f"{predicate} {cost}")
+            # Apply the candidate predicates to the data.
+            logging.info("Applying predicates to data...")
 
-        # Get the template str for the dataset filename for saving
-        # a ground atom dataset.
-        dataset_fname, _ = utils.create_dataset_filename_str(True)
-        # Add a bunch of things relevant to grammar search to the
-        # dataset filename string.
-        dataset_fname = dataset_fname[:-5] + \
-            f"_{CFG.grammar_search_max_predicates}" + \
-            f"_{CFG.grammar_search_grammar_includes_givens}" + \
-            f"_{CFG.grammar_search_grammar_includes_foralls}" + \
-            f"_{CFG.grammar_search_grammar_use_diff_features}" + \
-            f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
-            dataset_fname[-5:]
+            # Get the template str for the dataset filename for saving
+            # a ground atom dataset.
+            dataset_fname, _ = utils.create_dataset_filename_str(True)
+            # Add a bunch of things relevant to grammar search to the
+            # dataset filename string.
+            dataset_fname = dataset_fname[:-5] + \
+                f"_{CFG.grammar_search_max_predicates}" + \
+                f"_{CFG.grammar_search_grammar_includes_givens}" + \
+                f"_{CFG.grammar_search_grammar_includes_foralls}" + \
+                f"_{CFG.grammar_search_grammar_use_diff_features}" + \
+                f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
+                dataset_fname[-5:]
 
-        # Load pre-saved data if the CFG.load_atoms flag is set.
-        atom_dataset: Optional[List[GroundAtomTrajectory]] = None
-        if CFG.load_atoms:
-            atom_dataset = utils.load_ground_atom_dataset(
-                dataset_fname, dataset.trajectories)
+            # Load pre-saved data if the CFG.load_atoms flag is set.
+            atom_dataset: Optional[List[GroundAtomTrajectory]] = None
+            if CFG.load_atoms:
+                atom_dataset = utils.load_ground_atom_dataset(
+                    dataset_fname, dataset.trajectories)
+            else:
+                atom_dataset = utils.create_ground_atom_dataset(
+                    dataset.trajectories,
+                    set(candidates) | self._initial_predicates)
+                # Save this atoms dataset if the save_atoms flag is set.
+                if CFG.save_atoms:
+                    utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
+            logging.info("Done.")
         else:
-            atom_dataset = utils.create_ground_atom_dataset(
-                dataset.trajectories,
-                set(candidates) | self._initial_predicates)
-            # Save this atoms dataset if the save_atoms flag is set.
-            if CFG.save_atoms:
-                utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
-        logging.info("Done.")
+            # In this case, we're inventing over hand-defined VLM predicates!
+            # We rely on the annotations as our ground atom datasets.
+            assert dataset.annotations is not None
+            # We now turn these into GroundAtomTrajectories.
+            atom_dataset = []
+            for traj, atoms in zip(dataset.trajectories, dataset.annotations):
+                atom_dataset.append((traj, atoms))
+            # Also generate the grammar by ripping out all the Predicates
+            # associated with each of the atoms in our sets.
+            candidates = {}
+            for traj in dataset.annotations:
+                for ground_atom_state in traj:
+                    for ground_atom in ground_atom_state:
+                        assert isinstance(ground_atom, GroundAtom)
+                        if ground_atom.predicate not in candidates:
+                            # The cost of this predicate is simply its arity.
+                            candidates[ground_atom.predicate] = len(ground_atom.objects)
 
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")

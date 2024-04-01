@@ -3731,8 +3731,8 @@ def parse_handmade_vlmtraj_into_structured_traj(
 
 def parse_handmade_vlmtraj_file_into_structured_trajs(
     filename: str
-) -> Tuple[List[List[Dict[str, Dict[Tuple[str, ...], bool]]]], List[List[Tuple[str, Tuple[
-        str, ...]]]]]:
+) -> Tuple[List[List[Dict[str, Dict[Tuple[str, ...], bool]]]], List[List[Tuple[
+        str, Tuple[str, ...]]]]]:
     """Parse a txt file full ofhandwritten trajectories into a structured
     representation that can be used to convert these into
     GroundAtomTrajectories suitable for predicate invention, operator learning,
@@ -3749,7 +3749,8 @@ def parse_handmade_vlmtraj_file_into_structured_trajs(
     matches = re.findall(pattern, full_file_text, re.DOTALL)
     output_state_trajs, output_action_trajs = [], []
     for match in matches:
-        curr_state_traj, curr_action_traj = parse_handmade_vlmtraj_into_structured_traj(match)
+        curr_state_traj, curr_action_traj = parse_handmade_vlmtraj_into_structured_traj(
+            match)
         output_state_trajs.append(curr_state_traj)
         output_action_trajs.append(curr_action_traj)
     return (output_state_trajs, output_action_trajs)

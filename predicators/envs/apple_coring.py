@@ -1,5 +1,4 @@
-"""Dummy apple-coring environment to test predicate invention.
-"""
+"""Dummy apple-coring environment to test predicate invention."""
 
 from typing import ClassVar, List, Optional, Sequence, Set
 
@@ -16,18 +15,12 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
 
 
 class AppleCoringEnv(BaseEnv):
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Types
-        self._gripper_type = Type("gripper",
-                              ["open_percentage"])
-        self._apple_type = Type("apple", [])
-        self._apple_type = Type("slicing_tool", [])
-        self._apple_type = Type("plate", [])
-
-        # Predicates
-
+        self._object_type = Type("object", [])
 
     @classmethod
     def get_name(cls) -> str:
@@ -50,30 +43,21 @@ class AppleCoringEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {
-            self._Sees, self._CalibrationTarget, self._IsCalibrated,
-            self._HasCamera, self._HasInfrared, self._HasGeiger,
-            self._ShootsChemX, self._ShootsChemY, self._HasChemX,
-            self._HasChemY, self._CameraReadingTaken,
-            self._InfraredReadingTaken, self._GeigerReadingTaken
-        }
+        return set()
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {
-            self._CameraReadingTaken, self._InfraredReadingTaken,
-            self._GeigerReadingTaken
-        }
+        return set()
 
     @property
     def types(self) -> Set[Type]:
-        return {self._sat_type, self._obj_type}
+        return {self._object_type}
 
     @property
     def action_space(self) -> Box:
         # [cur sat x, cur sat y, obj x, obj y, target sat x, target sat y,
         # calibrate, shoot Chemical X, shoot Chemical Y, use instrument]
-        return Box(low=0.0, high=1.0, shape=(10, ), dtype=np.float32)
+        return Box(low=0.0, high=1.0, shape=(0, ), dtype=np.float32)
 
     def render_state_plt(
             self,
