@@ -149,7 +149,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
-        
         self._update_maple_data()
         # Re-learn Q function.
         self._q_function.train_q_function()
@@ -182,6 +181,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 goal = new_traj_goals[traj_i]
                 o = segment.get_option()
                 ns = segment.states[-1]
+                #eventually improve this reward
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
                 self._q_function.add_datum_to_replay_buffer(

@@ -1531,8 +1531,10 @@ class MapleQFunction(MLPRegressor):
         #     if x.option == option.parent and tuple(x.objects) == tuple(option.objects):
         #         print("nice")
 
-        
-        assert len(matches) == 1
+        try:
+            assert len(matches) == 1
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
         discrete_vec[matches[0]] = 1.0

@@ -464,6 +464,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         #eventually change the goal to good state
         goals = [t.goal for t in self._mapleq._train_tasks]
         #initing the input vector
+        # import ipdb; ipdb.set_trace()
         self._mapleq._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         print("NSRTS", self._mapleq._q_function._ground_nsrt_to_idx)
@@ -639,6 +640,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         
         #TO DO make trajectories within this loop!!
         #make sure u start from the start state
+
         for result in results:
 
             new_traj=LowLevelTrajectory(result.states, result.actions)
@@ -647,7 +649,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             print(actions)
             
         self._mapleq.get_interaction_requests()
-        self._mapleq._learn_nsrts(trajs, 1, []*len(trajs))
+        self._mapleq._learn_nsrts(trajs, 0, []*len(trajs))
         
         # return self._bridge_policy.learn_from_demos(self._bridge_dataset)
 
