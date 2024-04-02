@@ -4028,7 +4028,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 all_potential_ops.append(potential_ops)
                 all_potential_ops2.append(potential_ops2)
 
-            # Leave out delete effects for now.
             final_potential_ops2 = {
                 op_name: {
                     "pre": ddd[op_name][0], # take all the precondition predicates
@@ -4127,8 +4126,39 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # proxy for what ends up in the operator parameters (this is usually accurate,
                 # especially when you are clustering on number, but may not be if you have oracle
                 # clusters or some other clustering).
+                # Also, take all the static preconditions that are initial predicates.
+                def get_next_lowest_cost_pred(pool, have_so_far, pred_to_cost):
+                    # Sort the predicates by cost.
+                    sorted_pool = sorted(pool, key=lambda x: pred_to_cost[x])
+                    for p in sorted_pool:
+                        if p in have_so_far:
+                            continue
+                        else:
+                            return p
+
                 static_preds_in_candidates = [pred for pred in static_preds if pred in candidates]
                 if len(static_preds_in_candidates) > 0:
+
+                    # What are the relevant objects
+                    # opt_objs = tuple(seg.get_option().objects)
+                    # relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects]
+                    # relevant_del_effects = [a for a in seg.delete_effects if a.predicate in del_effects]
+                    # objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
+                    # objects_list = sorted(objects)
+                    # probably need to loop through all the segments?
+
+                    segments_in_cluster = ddd[op_name][0]
+                    chosen_static_predicates = set()
+                    for seg in segments_in_cluster:
+                        # Get the relevant objects in this segment.
+                        add_effects_via_intersection = ddd[op_name][1]
+                        delete_effects_via_intersection = ddd[op_name][2]
+                        opt_objs = tuple(seg.get_option().objects)
+                        relevant_add_effects = [a for a in seg.add_effects if a.predicate in add_effects_via_intersection]
+                        relevant_del_effects = [a for a in seg.delete_effects if a.predicate in delete_effects_via_intersection]
+                        objects_list = sorted({o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs))
+
+                        # The 
 
                     single_static_pred = min(static_preds_in_candidates, key=lambda x: candidates[x])
                     preconditions_to_keep2 = set(dynamic_preds) | {single_static_pred}
@@ -4213,9 +4243,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_ignore_effects = set()
                 op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
 
-                if name == "Op9-RobotMoveToButton":
-                    import pdb; pdb.set_trace()
-                    print("qui-gon")
+                # if name == "Op9-RobotMoveToButton":
+                #     import pdb; pdb.set_trace()
+                #     print("qui-gon")
 
 
                 from itertools import permutations, product, combinations
