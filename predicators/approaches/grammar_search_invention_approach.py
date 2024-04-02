@@ -4127,14 +4127,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # especially when you are clustering on number, but may not be if you have oracle
                 # clusters or some other clustering).
                 # Also, take all the static preconditions that are initial predicates.
-                def get_next_lowest_cost_pred(pool, have_so_far, pred_to_cost):
+                def get_lowest_cost_pred_covering_obj(pool, have_so_far, pred_to_cost, missing_obj, seg_init_atoms):
                     # Sort the predicates by cost.
                     sorted_pool = sorted(pool, key=lambda x: pred_to_cost[x])
                     for p in sorted_pool:
                         if p in have_so_far:
                             continue
                         else:
-                            return p
+                            corresponding_ground_atoms = [ga for ga in seg_init_atoms if ga.predicate == p]
+                            for ga in corresponding_ground_atoms:
+                                if missing_obj in ga.objects:
+                                    return ga.predicate, ga.objects
+                    return None, None
 
                 static_preds_in_candidates = [pred for pred in static_preds if pred in candidates]
                 if len(static_preds_in_candidates) > 0:
@@ -4147,10 +4151,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     # objects_list = sorted(objects)
                     # probably need to loop through all the segments?
 
-                    segments_in_cluster = ddd[op_name][0]
-                    chosen_static_predicates = set()
+                    segments_in_cluster = ddd[op_name][3]
+                    # Select any predicates that are initial predicates (heuristic).
+                    chosen_static_predicates = set([p for p in predicate_pool if p in initial_predicates])
                     for seg in segments_in_cluster:
                         # Get the relevant objects in this segment.
+                        # TODO: given how this is done a lot across the code,
+                        # maybe make a function for it.
                         add_effects_via_intersection = ddd[op_name][1]
                         delete_effects_via_intersection = ddd[op_name][2]
                         opt_objs = tuple(seg.get_option().objects)
@@ -4158,10 +4165,43 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         relevant_del_effects = [a for a in seg.delete_effects if a.predicate in delete_effects_via_intersection]
                         objects_list = sorted({o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs))
 
-                        # The 
+                        # Check if the static preconditions chosen so far cover the relevant objects,
+                        # and compute which objects aren't covered.
+                        preconds_in_seg_with_chosen_pred = [p for p in seg.init_atoms if p.predicate in chosen_static_predicates]
+                        objects_missing = set(objects_list)
+                        for ground_atom in preconds_in_seg_with_chosen_pred:
+                            objects_missing -= set(ground_atom.objects)
 
-                    single_static_pred = min(static_preds_in_candidates, key=lambda x: candidates[x])
-                    preconditions_to_keep2 = set(dynamic_preds) | {single_static_pred}
+                        # Add static preconditions in order of lowest cost until objects are covered.
+                        # Note: you may not be able to cover all objects if we don't have
+                        # predicates that allow us to do so.
+                        # This is a bit complicated in that, you might prefer
+                        # a single (potentially higher cost) static predicate that covers, say, all three missing objects,
+                        # rather than 3 (lower cost) static predicates that cover them.
+                        # TODO: investigate more optimal possibilities for above ^.
+                        # Our strategy:
+                        # - pick next missing object, find minimum cost predicate that covers it, if one exists
+                        while len(objects_missing) > 0:
+                            # Get arbitrary missing object.
+                            missing_obj = list(objects_missing)[0]
+                            covering_pred, covered_objs = get_lowest_cost_pred_covering_obj(
+                                static_preds_in_candidates,
+                                chosen_static_predicates,
+                                candidates,
+                                missing_obj,
+                                seg.init_atoms
+                            )
+                            if covering_pred is not None:
+                                chosen_static_predicates.add(covering_pred)
+                                objects_missing -= set(covered_objs)
+                            else:
+                                # Can't make progress.
+                                break
+
+                    preconditions_to_keep2 = set(dynamic_preds) | chosen_static_predicates
+                    # Alternative: we just take a single static predicate
+                    # single_static_pred = min(static_preds_in_candidates, key=lambda x: candidates[x])
+                    # preconditions_to_keep2 = set(dynamic_preds) | {single_static_pred}
                 else:
                     preconditions_to_keep2 = set(dynamic_preds)
 
