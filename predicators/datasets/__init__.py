@@ -54,15 +54,26 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
 
         # Now, parse out and make all necessary predicates.
         # Also, start making a list of all the names of different objects.
-        # For now, assume that there is only one type called "object".
+        # For now, assume that there is only one type called "object",
+        # and it has only one attribute (that the environment uses
+        # to check whether the goal has been achieved).
         assert len(env.types) == 1
         type_name_to_type = {t.name: t for t in env.types}
         assert "object" in type_name_to_type
-        assert type_name_to_type["object"].dim == 0
+        assert type_name_to_type["object"].dim == 1
 
         def _stripped_classifier(state: State,
                                  objects: Sequence[Object]) -> bool:
             raise Exception("Stripped classifier should never be called!")
+
+        # HACK! Create a bunch of necessary, hardcoded stuff
+        # to make the initial states and goals line up with the training
+        # tasks and domain.
+        objs = list(set(train_tasks[0].init.data))
+        dummy_obj = objs[0]
+        assert len(env.goal_predicates) == 1
+        goal_preds = list(env.goal_predicates)
+        goal_atom = GroundAtom(goal_preds[0], [dummy_obj])
 
         # NOTE: for now, the predicates aren't typed, but rather all predicates
         # consumer things of type "default_type".
@@ -101,14 +112,43 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
                                     pred_name_to_pred[pred_name],
                                     [obj_name_to_obj[o] for o in obj_args]))
                 curr_atoms_traj.append(curr_ground_atoms_state)
+            # Add the goal atom at the end of the trajectory.
+            curr_atoms_traj[-1].add(goal_atom)
             atoms_trajs.append(curr_atoms_traj)
 
-        # Construct a default state that just contains all the objects in the
-        # domain with no attributes.
+        # HACK! Create a bunch of necessary, hardcoded stuff
+        # to make the initial states and goals line up with the training
+        # tasks and domain.
         state_dict = {}
         for obj in obj_name_to_obj.values():
-            state_dict[obj] = []
+            state_dict[obj] = [0.0]
+        state_dict.update(train_tasks[0].init.data)
         default_state = State(state_dict)
+        objs = list(set(train_tasks[0].init.data))
+        dummy_obj = objs[0]
+        # NOTE: Given the assumption that the goal predicate is a simple
+        # classifier on the dummy_object from the initial state, we need
+        # to set the goal to be true in the final state.
+        final_state = default_state.copy()
+        final_state.set(dummy_obj, "goal_true", 1.0)
+        # NOTE: We also add in the dummy goal predicate here.
+        assert len(env.goal_predicates) == 1
+        goal_preds = list(env.goal_predicates)
+        goal_atom = GroundAtom(goal_preds[0], [dummy_obj])
+
+
+        # Construct a default state that just contains all the objects in the
+        # domain with no attributes. Also include any any objects that are
+        # in the initial state of the train tasks.
+        # NOTE: For now, assume that all train tasks have the same initial
+        # state.
+        for task in train_tasks:
+            assert len(task.init.data) == 1
+            for obj in set(task.init.data):
+                assert obj.name == "dummy_goal_obj"
+            assert len(task.goal) == 1
+            for atom in task.goal:
+                assert "DummyGoal" in atom.predicate.name
 
         # Next, we link option names to actual options.
         option_name_to_option = {o.name: o for o in known_options}
@@ -142,9 +182,9 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
                 curr_traj_actions.append(
                     Action(np.zeros(0),
                            option_trajs[traj_num][idx_within_traj]))
-            # Need to append one last default state because
-            # there are 1 more states than actions.
-            curr_traj_states.append(default_state)
+            # Now, we need to append the final state because there are 1 more
+            # states than actions.
+            curr_traj_states.append(final_state)
             curr_traj = LowLevelTrajectory(curr_traj_states, curr_traj_actions,
                                            True, traj_num)
             trajs.append(curr_traj)
