@@ -9,6 +9,9 @@ from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
 
+# TODO: copy this class and make a subclass called GridRowDoorGroundTruthNSRTFactory.
+# You'll want all of these NSRTs, but also an NSRT that has no preconditions and no effects but
+# calls the option that opens the door (and maybe another one that closes the door).
 
 class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the grid row environment."""

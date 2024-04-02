@@ -174,3 +174,33 @@ class GridRowEnv(BaseEnv):
         # return abs(dist - 1.0) < 1e-3
         del state  # not used
         return obj1 in self._cell_to_neighbors[obj2]
+
+
+class GridRowDoorEnv(GridRowEnv):
+    """Simple variant on GridRow where there is also a door.
+    """
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+        # TODO: you'll want to add a new type called 'door' and have it probably
+        # have two features: ['x', and 'open']
+        
+    @classmethod
+    def get_name(cls) -> str:
+        return "grid_row_door"
+
+    @property
+    def types(self) -> Set[Type]:
+        # TODO: add the new door type to this below return list!
+        return {self._robot_type, self._cell_type, self._light_type}
+    
+
+    def simulate(self, state: State, action: Action) -> State:
+        # TODO: you'll need to override the simulate function to
+        # include logic for the door. Basically, you'll want to copy
+        # most of the code from the simulate function of the superclass
+        # and add two new things:
+        # don't allow the agent to move if it's currently in front
+        # of a cell that has a door on it
+        # add some action that allows the agent to open the door
+        raise NotImplementedError("Implement Me!")

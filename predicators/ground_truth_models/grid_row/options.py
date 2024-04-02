@@ -10,6 +10,8 @@ from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
+# TODO: copy this class and make a subclass called GridRowDoorGroundTruthOptionFactory.
+# You'll want all of these options, but also an option to open the door (and maybe one to close it too?).
 
 class GridRowGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the grid row environment."""
