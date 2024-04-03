@@ -495,7 +495,7 @@ class GlobalSettings:
     neural_gaus_regressor_max_itr = 1000
     diffusion_regressor_hid_sizes = [512, 512]
     diffusion_regressor_max_itr = 10000
-    diffusion_regressor_timesteps = 100
+    diffusion_regressor_timesteps = 10
 
     feasibility_learning_strategy = 'backtracking'
     feasibility_search_device = 'cpu'

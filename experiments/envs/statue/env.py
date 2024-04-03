@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import dataclass
 import logging
 import math
@@ -356,8 +357,12 @@ class Statue(BaseEnv):
 
         # Generating objects
         rooms = [[Object(f"room({x},{y})", self._room_type) for x in range(world_width)] for y in range(world_height)]
-        vertical_doors = [[Object(f"doorvert({x},{y})", self._door_type) for x in range(world_width - 1)] for y in range(world_height)]
-        horizontal_doors = [[Object(f"doorhoriz({x},{y})", self._door_type) for x in range(world_width)] for y in range(world_height - 1)]
+
+        vert_ids = rng.permutation((world_width - 1) * world_height).reshape((world_width - 1, world_height))
+        vertical_doors = [[Object(f"doorvert_{vert_ids[x, y]}({x},{y})", self._door_type) for x in range(world_width - 1)] for y in range(world_height)]
+
+        horiz_ids = rng.permutation(world_width * (world_height - 1)).reshape((world_width, world_height - 1))
+        horizontal_doors = [[Object(f"doorhoriz_{horiz_ids[x, y]}({x},{y})", self._door_type) for x in range(world_width)] for y in range(world_height - 1)]
 
         # Generating goal
         goal = {self._InRoom([self._statue, rooms[-1][-1]])}

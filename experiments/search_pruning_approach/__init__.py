@@ -19,9 +19,11 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set,
 
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("tkagg")
+
+from experiments.envs.utils import plot_polygon
 
 # from experiments.envs.shelves2d.env import Shelves2DEnv
+from experiments.envs.jigsaw.env import Jigsaw
 from experiments.search_pruning_approach.dataset import FeasibilityDataset
 from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, NeuralFeasibilityClassifier
 from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_backtracking_for_data_generation, run_low_level_search
@@ -176,6 +178,66 @@ class InterleavedBacktrackingDatapoint():
 #     f"negative datapoints per class: {num_negative_datapoints_per_class}") if negative_datapoints else "No negative datapoints collected"
 #     return positive_report + '\n' + negative_report
 
+def visualize_jigsaw_placement(
+    skeleton: List[_GroundNSRT],
+    previous_states: List[State],
+    goal: Set[GroundAtom],
+    option_model: _OptionModelBase,
+    seed: int,
+    atoms_sequence: List[Set[GroundAtom]],
+):
+    assert previous_states
+    current_state = previous_states[-1]
+    nsrt = skeleton[len(previous_states) - 1]
+    rng_sampler = np.random.default_rng(seed)
+
+    datapoints: List[State] = []
+
+    for _ in range(100):
+        option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
+        next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
+
+        if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
+            continue
+
+        datapoints.append(next_state)
+
+    fig = Jigsaw.render_state_plt(current_state, None)
+    ax, = fig.axes
+
+    for next_state in datapoints:
+        ax.add_patch(plot_polygon(Jigsaw._get_shape(next_state, nsrt.objects[1]), facecolor='red', edgecolor='darkred', alpha=0.05))
+
+    return fig
+
+def run_jigsaw_visualization_saving(
+    search_datapoints: List[InterleavedBacktrackingDatapoint],
+    option_model: _OptionModelBase,
+    seed: int,
+    prefix_length: int,
+    visualization_directory: str,
+) -> None:
+    logging_level = deepcopy(logging.getLogger().level)
+    os.makedirs(visualization_directory, exist_ok=True)
+    for idx, search_datapoint in zip(range(10), search_datapoints):
+        states, atoms_sequence, horizons, skeleton = search_datapoint
+
+        logging.getLogger().setLevel(logging.WARNING)
+        fig = visualize_jigsaw_placement(
+            skeleton = skeleton,
+            previous_states = states[:prefix_length],
+            goal = atoms_sequence[-1],
+            option_model = option_model,
+            seed = seed,
+            atoms_sequence = atoms_sequence,
+        )
+        logging.getLogger().setLevel(logging_level)
+
+        filepath = os.path.join(visualization_directory, f"{idx}.pdf")
+        logging.info(f"Saving visualization to file {filepath} with "
+                     f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
+        fig.savefig(filepath)
+
 class SearchPruningApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -260,7 +322,8 @@ class SearchPruningApproach(NSRTLearningApproach):
         # Precomputing the datapoints for interleaved backtracking
         search_datapoints: List[InterleavedBacktrackingDatapoint] = [
             InterleavedBacktrackingDatapoint(
-                states = [segment.states[0] for segment in segmented_traj] + [segmented_traj[-1].states[-1]],
+                states = [segment.states[0] for segment in segmented_traj] + \
+                    [segmented_traj[-1].states[-1]],
                 atoms_sequence = [segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
                 horizons = CFG.horizon - np.cumsum([len(segment.actions) for segment in segmented_traj]),
                 skeleton = [self._seg_to_ground_nsrt[segment] for segment in segmented_traj]
@@ -273,6 +336,11 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         num_validation_datapoints_per_iter = round(CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
         num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - num_validation_datapoints_per_iter
+
+        run_jigsaw_visualization_saving(
+            search_datapoints,self._option_model, seed,
+            1, os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
+        )
 
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':
