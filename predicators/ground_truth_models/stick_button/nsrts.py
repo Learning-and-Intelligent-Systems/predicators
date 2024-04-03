@@ -225,11 +225,13 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # PlaceStickFromButton
         robot = Variable("?robot", robot_type)
         stick = Variable("?stick", stick_type)
-        parameters = [robot, stick]
+        from_button = Variable("?from_button", button_type)
+        parameters = [robot, stick, from_button]
         option_vars = [robot, stick]
         option = PlaceStick
         preconditions = {
             LiftedAtom(Grasped, [robot, stick]),
+            LiftedAtom(StickAboveButton, [stick, from_button])
         }
         add_effects = {
             LiftedAtom(HandEmpty, [robot]),
