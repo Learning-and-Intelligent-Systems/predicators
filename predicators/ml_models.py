@@ -1590,7 +1590,7 @@ class MapleQFunction(MLPRegressor):
                 sampled_options.append(option)
         return sampled_options
 
-class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: this is your diffusion code
+class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
     def __init__(self, seed: int, hid_sizes: List[int],
                  max_train_iters: int, timesteps: int,
                  learning_rate: float, use_torch_gpu: bool = False) -> None:
@@ -1624,7 +1624,7 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
         self._cache_num_samples = CFG.sesame_max_samples_per_step
         self._cache = {}
 
-    def forward(self, X_cond, Y_out, t, return_aux=False):
+    def forward(self, X_cond, Y_out, t):
         half_t_dim = self._t_dim // 2
         t_embeddings = np.log(10000) / (half_t_dim - 1)
         t_embeddings = torch.exp(torch.arange(half_t_dim, device=self.device) * -t_embeddings)
@@ -1634,11 +1634,9 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
         for linear in self._linears[:-1]:
             X = F.relu(linear(X))
         X = self._linears[-1](X)
-        if return_aux:
-            return X[:, self._y_dim:]
         return X[:, :self._y_dim]
 
-    def fit(self, X_cond: Array, Y_out: Array, Y_aux: Optional[Array] = None) -> None:
+    def fit(self, X_cond: Array, Y_out: Array) -> None:
         self.train()
         num_data, _ = Y_out.shape
         if not self.is_trained:
@@ -1656,16 +1654,10 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
             self._output_scale = np.max(Y_out - self._output_shift, axis=0)
             self._output_scale = np.clip(self._output_scale, 0.1, None)
 
-            if Y_aux is not None:
-                self._y_aux_dim = Y_aux.shape[1]
-                self._output_aux_shift = np.min(Y_aux, axis=0)
-                self._output_aux_scale = np.max(Y_aux - self._output_aux_shift, axis=0)
-                self._output_aux_scale = np.clip(self._output_aux_scale, 0.1, None)
-
         X_cond = ((X_cond - self._input_shift) / self._input_scale) * 2 - 1
         Y_out = ((Y_out - self._output_shift) / self._output_scale) * 2 - 1
-        if Y_aux is not None:
-            Y_aux = ((Y_aux - self._output_aux_shift) / self._output_aux_scale) * 2 - 1
+
+        logging.info(Y_out)
 
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
@@ -1678,41 +1670,23 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
         tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
         tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
 
-        if Y_aux is not None:
-            tensor_Y_aux = torch.from_numpy(np.array(Y_aux, dtype=np.float32)).to(self.device)
-            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out, tensor_Y_aux)
-        else:
-            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
+        data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
         dataloader = torch.utils.data.DataLoader(data, batch_size=1000, shuffle=True)
 
         assert isinstance(self._max_train_iters, int)
         self.train()
 
-        for itr, tensors in zip(range(self._max_train_iters), itertools.cycle(dataloader)):
-            if len(tensors) == 3:
-                tensor_X, tensor_Y, tensor_Y_aux = tensors
-            else:
-                tensor_X, tensor_Y = tensors
-                tensor_Y_aux = None
-            t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)
-            loss = self._p_losses(tensor_X, tensor_Y, t, tensor_Y_aux)
-            if torch.isnan(loss):
-                logging.info('Got NaNs while trianing model...')
-                logging.info(f'X, {torch.isnan(tensor_X).any()}. {torch.abs(tensor_X).max()}')
-                logging.info(f'Y, {torch.isnan(tensor_Y).any()}. {torch.abs(tensor_Y).max()}')
-                logging.info(f't, {torch.isnan(t).any()}. {torch.abs(t).max()}')
-                for name, p in self.named_parameters():
-                    logging.info(f'{name}, {torch.isnan(p).any()}. {torch.abs(p).max()}')
-                logging.info(f'Aux, {torch.isnan(tensor_Y_aux).any()}')
-                logging.info('Will soon error out...')
+        for itr in reversed(range(self._max_train_iters, 0, -1)):
+            total_loss = 0.0
             optimizer.zero_grad()
-            loss.backward()
+            for tensor_X, tensor_Y in dataloader:
+                t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)
+                loss = self._p_losses(tensor_X, tensor_Y, t) / tensor_X_cond.shape[0]
+                loss.backward()
+                total_loss += loss.item()
             optimizer.step()
-            if itr % 1000 == 0:
-                logging.info(f"Loss: {loss.item():.5f}, iter: {itr}/{self._max_train_iters}")
-
-        # logging.info(f"Trained model with loss: {cum_loss:.5f}")
-        # return cum_loss
+            if itr % 500 == 0:
+                logging.info(f"Loss: {total_loss:.5f}, iter: {itr}/{self._max_train_iters}")
 
     @torch.no_grad()
     def _p_sample(self, x_cond, y_out, t, t_index):
@@ -1745,8 +1719,8 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
         y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self.device, requires_grad=True)
         y_outs = []
 
-        for i in reversed(range(0, self._timesteps)):
-            y_out = self._p_sample(x_cond, y_out, torch.full((self._cache_num_samples,), i, device=self.device, dtype=torch.long), i)
+        for t in reversed(range(0, self._timesteps)):
+            y_out = self._p_sample(x_cond, y_out, torch.full((self._cache_num_samples,), t, device=self.device, dtype=torch.long), t)
             y_outs.append(y_out.detach().cpu().numpy())
         return y_outs
 
@@ -1771,18 +1745,15 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
 
     def _initialize_net(self):
         if len(self._linears) == 0:
-            self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
-            for i in range(len(self._hid_sizes) - 1):
-                self._linears.append(
-                    nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
-            self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim))
+            sizes = [self._x_dim] + self._hid_sizes + [self._y_dim]
+            self._linears.extend([nn.Linear(in_size, out_size) for in_size, out_size in zip(sizes[:-1], sizes[1:])])
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
         # if self._optimizer is None:
         #     logging.info('Creating optimizer afresh')
         #     self._optimizer = optim.RMSprop(self.parameters(), lr=self._learning_rate)
-        return optim.RMSprop(self.parameters(), lr=self._learning_rate)
+        return optim.Adadelta(self.parameters(), lr=self._learning_rate)
 
     @classmethod
     def _cosine_beta_schedule(cls, timesteps, s=0.008):
@@ -1802,26 +1773,15 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
         beta_end = 0.02
         return torch.linspace(beta_start, beta_end, timesteps)
 
-    def _p_losses(self, X_cond, Y_start, t, Y_aux):
+    def _p_losses(self, X_cond, Y_start, t):
         noise = torch.randn_like(Y_start)
         Y_noisy = self._q_sample(Y_start, t, noise)
         mask = torch.ones((X_cond.shape[0], 1), dtype=torch.long, device=X_cond.device)
         X_cond = X_cond * mask
         predicted_noise_label = self(X_cond, Y_noisy, t)
         predicted_noise = predicted_noise_label
-        loss = F.smooth_l1_loss(noise, predicted_noise)
-        if loss.isnan():
-            logging.info('Got NaNs in _p_losses computation, should exit after this')
-            logging.info(f'X_cond, {torch.isnan(X_cond).any()}. {torch.abs(X_cond).max()}')
-            logging.info(f'Y_noisy, {torch.isnan(Y_noisy).any()}. {torch.abs(Y_noisy).max()}')
-            logging.info(f'Y_start, {torch.isnan(Y_start).any()}. {torch.abs(Y_start).max()}')
-            logging.info(f'predicted_noise, {torch.isnan(predicted_noise).any()}. {torch.abs(predicted_noise).max()}')
-            logging.info(f'noise, {torch.isnan(noise).any()}. {torch.abs(noise).max()}')
-
-        if Y_aux is not None:
-            Y_aux_hat = self(X_cond, Y_start, torch.zeros_like(t), return_aux=True)
-            loss += F.smooth_l1_loss(Y_aux, Y_aux_hat)
-
+        loss = F.smooth_l1_loss(noise, predicted_noise, reduction='sum')
+        assert not loss.isnan()
         return loss
 
     def _q_sample(self, Y_start, t, noise):
@@ -1836,3 +1796,44 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor): # JORGE: 
         batch_size = t.shape[0]
         out = a.gather(-1, t.cpu())
         return out.reshape(batch_size, *((1,) * (len(shape) - 1))).to(t.device)
+
+class MultiDiffusionRegressor(DiffusionRegressor):
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: int, timesteps: int,
+                 learning_rate: float, use_torch_gpu: bool = False) -> None:
+        super().__init__(seed, hid_sizes, max_train_iters, timesteps, learning_rate, use_torch_gpu)
+        del self._linears
+        self._num_models = 2
+        self._models = nn.ModuleList()
+        self._model_thresholds = np.round(np.linspace(0, timesteps, self._num_models + 1))
+
+    def _initialize_net(self):
+        if len(self._models) == 0:
+            sizes = [self._x_dim] + self._hid_sizes + [self._y_dim]
+            self._models.extend([
+                nn.Sequential(*[
+                    layer
+                    for in_size, out_size in zip(sizes[:-1], sizes[1:])
+                    for layer in [nn.Linear(in_size, out_size), nn.ReLU()]
+                ][:-1])
+                for _ in range(self._num_models)
+            ])
+
+    def forward(self, X_cond, Y_out, t):
+        half_t_dim = self._t_dim // 2
+        t_embeddings = np.log(10000) / (half_t_dim - 1)
+        t_embeddings = torch.exp(torch.arange(half_t_dim, device=self.device) * -t_embeddings)
+        t_embeddings = t[:, None] * t_embeddings[None, :]
+        t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
+        if not self.train:
+            logging.info(X_cond.detach().cpu().numpy())
+        X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
+        X_out = torch.empty_like(Y_out, device=self.device)
+        for idx, (start_thresh, end_thresh) in enumerate(zip(self._model_thresholds[:-1], self._model_thresholds[1:])):
+            t_numpy = t.detach().cpu().numpy()
+            mask = np.logical_and(t_numpy < end_thresh, t_numpy >= start_thresh)
+            X_masked = X[mask]
+            if X_masked.size == 0:
+                continue
+            X_out[mask] = self._models[idx](X[mask])
+        return X_out

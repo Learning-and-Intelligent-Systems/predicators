@@ -40,7 +40,7 @@ class Type:
         return hash((self.name, tuple(self.feature_names)))
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class _TypedEntity:
     """Struct defining an entity with some type, either an object (e.g.,
     block3) or a variable (e.g., ?block).
@@ -75,7 +75,7 @@ class _TypedEntity:
         return False
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class Object(_TypedEntity):
     """Struct defining an Object, which is just a _TypedEntity whose name does
     not start with "?"."""
@@ -89,7 +89,7 @@ class Object(_TypedEntity):
         return self._hash
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class Variable(_TypedEntity):
     """Struct defining a Variable, which is just a _TypedEntity whose name
     starts with "?"."""
@@ -155,7 +155,11 @@ class State:
         new_data = {}
         for obj in self:
             new_data[obj] = self._copy_state_value(self.data[obj])
-        return State(new_data, simulator_state=deepcopy(self.simulator_state))
+        if hasattr(self.simulator_state, "copy"):
+            new_simulator_state = self.simulator_state.copy()
+        else:
+            new_simulator_state = self.simulator_state
+        return State(new_data, simulator_state=new_simulator_state)
 
     def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):

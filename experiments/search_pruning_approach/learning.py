@@ -25,12 +25,11 @@ import matplotlib
 np.set_printoptions(linewidth=np.inf, precision=4, floatmode='fixed', threshold=sys.maxsize)
 
 def tensor_stats(x: Tensor, full_tensor: bool = False):
-    x = x.detach().cpu()
     if x.numel() == 0:
         return f"shape: {x.shape}"
     if full_tensor:
-        return f"min: {x.min(dim=0).values.numpy()}; max: {x.max(dim=0).values.numpy()}; mean: {x.mean(dim=0).numpy()}; std: {x.std(dim=0).numpy()}; shape: {x.shape}"
-    return f"min: {float(x.min()):.4f}; max: {float(x.max()):.4f}; mean: {float(x.mean()):.4f}; std: {float(x.std()):.4f}; shape: {x.shape}"
+        return f"min: {x.min(dim=0).values.tolist()}; max: {x.max(dim=0).values.tolist()}; mean: {x.mean(dim=0).tolist()}; std: {x.std(dim=0).tolist()}; shape: {x.shape}"
+    return f"min: {x.min().item():.4f}; max: {x.max().item():.4f}; mean: {x.mean().item():.4f}; std: {x.std().item():.4f}; shape: {x.shape}"
 
 def l1_regularization(models: Union[nn.Module, Iterable[nn.Module]]) -> Tensor:
     if isinstance(models, nn.Module):
@@ -394,7 +393,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self.eval()
         confidence, logits = self(FeasibilityDataset.transform_input(self._skeleton_nsrt_indices, skeleton, states))
         confidence = confidence.cpu()
-        logits = logits.detach().cpu().numpy()
+        logits = logits.tolist()
         logging.info(f"Confidence {float(confidence)}; Logits {logits}")
         return confidence >= self._thresh, confidence
 
@@ -466,16 +465,16 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                         logging.info(f"-- PARAM NAME {(name + ' '*70)[:70]} stats: {tensor_stats(param)}")
 
                     # Calculating the loss and accuracy
-                    test_loss = float(test_loss_fn(y_pred, y_true).cpu().detach()) / len(validation_dataset)
-                    matches = torch.logical_or(
+                    test_loss = test_loss_fn(y_pred, y_true).item() / len(validation_dataset)
+                    acc = torch.logical_or(
                         torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred <= self._thresh),
                         torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= self._thresh)
-                    ).cpu().detach().numpy()
+                    ).mean().item()
 
                     # Calculating additional metrics
-                    num_false_positives = torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh).cpu().detach().numpy().sum()
-                    num_false_negatives = torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred <= self._thresh).cpu().detach().numpy().sum()
-                    num_positives = (torch.abs(y_true - 0.0) < 0.0001).cpu().detach().numpy().sum()
+                    num_false_positives = torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh).sum().item()
+                    num_false_negatives = torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred <= self._thresh).sum().item()
+                    num_positives = (torch.abs(y_true - 0.0) < 0.0001).sum().item()
 
                     positive_confidence = float(torch.kthvalue(
                         torch.cat([y_pred[torch.abs(y_true - 0.0) < 0.0001].flatten(), tensor([0], device=self.device)]).cpu(),
@@ -483,8 +482,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                     ).values)
 
                     acceptance_rate = (
-                        torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= positive_confidence).cpu().detach().numpy().sum() /
-                        (torch.abs(y_true - 1.0) < 0.0001).cpu().detach().numpy().sum()
+                        torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= positive_confidence).sum().item() /
+                        (torch.abs(y_true - 1.0) < 0.0001).sum().item()
                     )
 
                     # Updating the best parameters
@@ -495,7 +494,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                         best_params = copy.deepcopy(self.state_dict())
                         best_params["iter"] = itr
 
-                    logging.info(f"Train Loss: {float(train_loss.cpu().detach())}, Test Loss: {test_loss}, Acc: {matches.mean():.1%}, "
+                    logging.info(f"Train Loss: {train_loss.item()}, Test Loss: {test_loss}, Acc: {acc:.1%}, "
                                 f"%False+: {num_false_positives/len(y_true):.1%}, %False-: {num_false_negatives/len(y_true):.1%}, "
                                 f"{self._threshold_recalibration_frac:.0%} Positive Thresh: {positive_confidence:.4}, Acceptance rate: {acceptance_rate:.1%}, "
                                 f"Training Iter {itr}/{self._num_iters}")
@@ -515,11 +514,11 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                     #         np.logical_and(np.abs(sub_y_true - 0.0) < 0.0001, sub_y_pred <= self._thresh),
                     #         np.logical_and(np.abs(sub_y_true - 1.0) < 0.0001, sub_y_pred >= self._thresh)
                     #     )
-                    #     sub_test_loss = float(test_loss_fn(torch.tensor(sub_y_pred), torch.tensor(sub_y_true)).cpu().detach()) / sub_y_pred.size
+                    #     sub_test_loss = test_loss_fn(torch.tensor(sub_y_pred), torch.tensor(sub_y_true)).item() / sub_y_pred.size
                     #     logging.info(f"Plan length {n}: Test Loss {sub_test_loss}, Acc: {sub_matches.mean():.1%}")
                     if training_snapshot_directory:
                         torch.save(self, os.path.join(training_snapshot_directory, f"model-{itr}.pt"))
-                    if matches.mean() >= 0.95 and (itr - best_params["iter"]) >= 500:
+                    if acc >= 0.95 and (itr - best_params["iter"]) >= 500:
                         break
 
         # Loading the best params
@@ -535,18 +534,18 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         ))
         y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
 
-        test_loss = float(test_loss_fn(y_pred, y_true).cpu().detach()) / len(validation_dataset)
-        matches = torch.logical_or(
+        test_loss = test_loss_fn(y_pred, y_true).item() / len(validation_dataset)
+        acc = torch.logical_or(
             torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred <= self._thresh),
             torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= self._thresh)
-        ).cpu().detach().numpy()
+        ).mean().item()
 
-        logging.info(f"Final metrics: Test Loss: {test_loss}, Acc: {matches.mean():.1%}")
+        logging.info(f"Final metrics: Test Loss: {test_loss}, Acc: {acc:.1%}")
 
-        num_positives = (torch.abs(y_true - 0.0) < 0.0001).cpu().detach().numpy().sum()
-        positive_confidence = float(torch.kthvalue(torch.cat(
+        num_positives = (torch.abs(y_true - 0.0) < 0.0001).sum().item()
+        positive_confidence = torch.kthvalue(torch.cat(
             [y_pred[torch.abs(y_true - 0.0) < 0.0001].flatten(), tensor([0], device=self.device)]
-        ).cpu(), int(num_positives * self._threshold_recalibration_frac) + 1).values)
+        ).cpu(), int(num_positives * self._threshold_recalibration_frac) + 1).values.item()
 
         self._unsure_confidence = max(self._thresh, positive_confidence)
         logging.info(f"Unsure confidence set to {self._unsure_confidence}")

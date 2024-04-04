@@ -21,6 +21,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 from experiments.envs.utils import plot_polygon
+# matplotlib.use("tkagg")
 
 # from experiments.envs.shelves2d.env import Shelves2DEnv
 from experiments.envs.jigsaw.env import Jigsaw
@@ -35,7 +36,7 @@ from predicators.nsrt_learning.sampler_learning import _LearnedSampler
 from predicators.option_model import _OptionModelBase
 from predicators.planning import PlanningTimeout, task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, _GroundNSRT, _Option, Dataset, GroundAtom, Metrics, ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import NSRT, _GroundNSRT, _Option, Dataset, GroundAtom, Metrics, ParameterizedOption, Predicate, State, Task, Type, Segment
 
 
 __all__ = ["SearchPruningApproach"]
@@ -193,7 +194,7 @@ def visualize_jigsaw_placement(
 
     datapoints: List[State] = []
 
-    for _ in range(100):
+    for _ in range(300):
         option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
         next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
 
@@ -202,13 +203,16 @@ def visualize_jigsaw_placement(
 
         datapoints.append(next_state)
 
-    fig = Jigsaw.render_state_plt(current_state, None)
-    ax, = fig.axes
-
+    fig1 = Jigsaw.render_state_plt(current_state, None)
+    ax1, = fig1.axes
     for next_state in datapoints:
-        ax.add_patch(plot_polygon(Jigsaw._get_shape(next_state, nsrt.objects[1]), facecolor='red', edgecolor='darkred', alpha=0.05))
+        ax1.add_patch(plot_polygon(Jigsaw._get_shape(next_state, nsrt.objects[1]), facecolor='none', edgecolor='black', alpha=0.1))
 
-    return fig
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot()
+    ax2.scatter(list(range(len(datapoints))), [Jigsaw._get_shape(next_state, nsrt.objects[1]).envelope.centroid.y for next_state in datapoints])
+
+    return fig1, fig2
 
 def run_jigsaw_visualization_saving(
     search_datapoints: List[InterleavedBacktrackingDatapoint],
@@ -223,7 +227,7 @@ def run_jigsaw_visualization_saving(
         states, atoms_sequence, horizons, skeleton = search_datapoint
 
         logging.getLogger().setLevel(logging.WARNING)
-        fig = visualize_jigsaw_placement(
+        fig1, fig2 = visualize_jigsaw_placement(
             skeleton = skeleton,
             previous_states = states[:prefix_length],
             goal = atoms_sequence[-1],
@@ -233,10 +237,40 @@ def run_jigsaw_visualization_saving(
         )
         logging.getLogger().setLevel(logging_level)
 
-        filepath = os.path.join(visualization_directory, f"{idx}.pdf")
-        logging.info(f"Saving visualization to file {filepath} with "
+        filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
+        filepath2 = os.path.join(visualization_directory, f"{idx}-scatter.pdf")
+        logging.info(f"Saving visualizations to files {filepath1} and {filepath2} with "
                      f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
-        fig.savefig(filepath)
+        fig1.savefig(filepath1)
+        fig2.savefig(filepath2)
+        plt.close(fig1)
+        plt.close(fig2)
+
+def run_jigsaw_ground_truth_saving(
+    segmented_trajs: List[List[Segment]],
+    seg_to_ground_nsrt: Dict[Segment, _GroundNSRT],
+    visualization_directory: str,
+) -> None:
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.set_xlim(0, 25)
+    ax.set_ylim(0, 25)
+
+    for segmented_traj in segmented_trajs:
+        subfig = Jigsaw.render_state_plt(segmented_traj[1].states[0], None)
+        subax, = subfig.axes
+        block = seg_to_ground_nsrt[segmented_traj[1]].objects[1]
+        cells = segmented_traj[1].states[0][block][3:]
+        for patch in subax.patches:
+            patch.remove()
+            patch.set(alpha=0.01)
+            ax.add_patch(patch)
+        plt.close(subfig)
+
+    os.makedirs(visualization_directory, exist_ok=True)
+    filepath = os.path.join(visualization_directory, f"ground-truth-data.pdf")
+    fig.savefig(filepath)
+    plt.close(fig)
 
 class SearchPruningApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
@@ -337,10 +371,16 @@ class SearchPruningApproach(NSRTLearningApproach):
         num_validation_datapoints_per_iter = round(CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
         num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - num_validation_datapoints_per_iter
 
+        # run_jigsaw_ground_truth_saving(
+        #     self._segmented_trajs,
+        #     self._seg_to_ground_nsrt,
+        #     CFG.feasibility_debug_directory,
+        # )
         run_jigsaw_visualization_saving(
             search_datapoints,self._option_model, seed,
             1, os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
         )
+        assert False
 
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':

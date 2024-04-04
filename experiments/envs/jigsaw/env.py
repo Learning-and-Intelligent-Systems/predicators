@@ -14,6 +14,7 @@ from shapely.affinity import translate, rotate
 
 from matplotlib import patches, pyplot as plt
 import matplotlib
+from copy import deepcopy
 
 class SimulatorState():
     def __init__(self):
@@ -30,7 +31,7 @@ class Jigsaw(BaseEnv):
 
     range_train_blocks: ClassVar[Tuple[int, int]] = (12, 12)
     range_test_blocks: ClassVar[Tuple[int, int]] = (12, 12)
-    range_t_blocks: ClassVar[Tuple[int, int]] = (1, 3)
+    range_t_blocks: ClassVar[Tuple[int, int]] = (1, 1)
 
     ## World shape settings
     world_range_x: ClassVar[Tuple[float, float]] = (-1, 30)
@@ -43,7 +44,7 @@ class Jigsaw(BaseEnv):
     blocks_start_x: ClassVar[float] = 3.0
     blocks_start_y: ClassVar[float] = 0.0
     sub_cell_size: ClassVar[float] = 1.0
-    sub_cell_margin: ClassVar[float] = 0.2
+    sub_cell_margin: ClassVar[float] = 0.1
 
     ## Predicate thresholds
     sub_block_present_thresh: ClassVar[float] = 0.5
@@ -169,7 +170,16 @@ class Jigsaw(BaseEnv):
         num_tasks: int,
         range_blocks: Tuple[int, int]
     ) -> List[EnvironmentTask]:
-        return [self._generate_task(rng, range_blocks) for _ in range(num_tasks)]
+        task = self._generate_task(rng, range_blocks)
+        return [self._modify_task(task, rng) for _ in range(num_tasks)]
+
+    def _modify_task(self, task: EnvironmentTask, rng: np.random.Generator) -> EnvironmentTask:
+        # task = deepcopy(task)
+        # blocks = task.init.get_objects(self._block_type)
+        # block_ids = rng.permutation(len(blocks))
+        # for block_id, block in zip(block_ids, blocks):
+        #     block.name = f"{block_id}_" + block.name
+        return task
 
     def _generate_task(
         self,
