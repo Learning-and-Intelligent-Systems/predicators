@@ -5,6 +5,10 @@ Example to make videos:
 python src/main.py --env stick_button --approach oracle --seed 0 --make_test_videos \
     --pybullet_use_gui True --num_test_tasks 1 --stick_button_render_mode pybullet \
     --pybullet_control_mode reset
+
+python predicators/src/main.py --env stick_button --approach oracle --seed 0 --make_test_videos \
+    --num_test_tasks 1 --stick_button_render_mode pybullet \
+    --pybullet_control_mode reset
 """
 
 import logging
@@ -794,7 +798,7 @@ class StickButtonEnv(BaseEnv):
 
 
     def _initialize_pybullet(self) -> None:
-        self._physics_client_id = p.connect(p.GUI)
+        self._physics_client_id = p.connect(p.DIRECT)
         # Disable the preview windows for faster rendering.
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,
                                    False,
