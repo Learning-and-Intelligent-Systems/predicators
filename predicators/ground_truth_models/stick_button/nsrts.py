@@ -237,7 +237,10 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(AboveNoButton, [])
         }
-        delete_effects = {LiftedAtom(Grasped, [robot, stick])}
+        delete_effects = {
+            LiftedAtom(Grasped, [robot, stick]),
+            LiftedAtom(StickAboveButton, [stick, from_button])
+        }
         ignore_effects = set()
         place_stick_nsrt = NSRT("PlaceStickFromButton", parameters,
                                 preconditions, add_effects, delete_effects,
