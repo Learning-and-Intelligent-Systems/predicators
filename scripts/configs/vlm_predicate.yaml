@@ -3,26 +3,27 @@
 APPROACHES:
   learn_all:
     NAME: "vlm_invention"
-    FLAGS:
-      min_perc_data_for_nsrt: 1
-      segmenter: "contacts"
-      neural_gaus_regressor_max_itr: 50000
-      option_learner: direct_bc
-      sesame_max_samples_per_step: 100  # mainly to improve demo collection
+    FLAGS: []
 ENVS:
-  cover:
-    NAME: "pybullet_cover"
+  stick_button:
+    NAME: "stick_button"
 ARGS: 
   # []
   - "debug"
-  - "rgb_observation"
+  # - "rgb_observation" # stick_button doesn't support rendering
   # - "make_segmented_demo_videos"
   # - "make_demo_videos" 
   # - "use_gui"
 FLAGS:
+  excluded_predicates: "'Grasped,StickAboveButton'"
+  included_options: "RobotPressButton"
+  sesame_max_samples_per_step: 100  # mainly to improve demo collection
+  min_perc_data_for_nsrt: 1
+  segmenter: "contacts"
+  option_learner: direct_bc
+  neural_gaus_regressor_max_itr: 50000
   vlm_model_name: "gpt-3.5-turbo-0125"
   num_train_tasks: 2
-  excluded_predicates: "all"
   timeout: 300
   pybullet_camera_width: 1674 
   pybullet_camera_height: 900

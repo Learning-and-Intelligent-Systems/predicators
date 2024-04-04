@@ -51,19 +51,19 @@ def _main():
     # for pred in env.goal_predicates:
     #     print(pred.pddl_str())
 
-    print("# All Predicates:")
-    for pred in preds:
-        print(pred.pddl_str())
-        print(pred.classifier_str())
-    print()
+    # print("# All Predicates:")
+    # for pred in preds:
+    #     print(pred.pddl_str())
+    #     print(pred.classifier_str())
+    # print()
     
     # Print the GT NSRTs
-    # approach = create_approach(approach_name, preds, options, env.types,
-    #                             env.action_space, stripped_train_tasks)
-    # print("# NSRTs:")
-    # nsrts = approach._nsrts
-    # for nsrt in nsrts:
-    #     print(nsrt)
+    approach = create_approach(approach_name, preds, options, env.types,
+                                env.action_space, stripped_train_tasks)
+    print("# NSRTs:")
+    nsrts = approach._nsrts
+    for nsrt in nsrts:
+        print(nsrt)
 
 if __name__ == "__main__":
     args = utils.parse_args()

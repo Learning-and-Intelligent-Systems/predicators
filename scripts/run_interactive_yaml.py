@@ -3,6 +3,7 @@ Run the code by taking in a YAML config file, in an interactive
 mode, as opposed to submitting a slurm job.
 """
 import sys
+import shlex
 import argparse
 import subprocess
 
@@ -15,11 +16,12 @@ def _main():
     args = parser.parse_args()
 
     # generate configs--will only take the first one
+    # breakpoint()
     cfg = next(generate_run_configs(args.config))
-    cmd_flags = config_to_cmd_flags(cfg).split()
+    cmd_str = config_to_cmd_flags(cfg)
+    cmd_flags = shlex.split(cmd_str)
     
     # run the command
-    # breakpoint()
     subprocess.run(["python", "predicators/main.py"] + cmd_flags)
 
 if __name__ == "__main__":
