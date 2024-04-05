@@ -26,6 +26,11 @@ class AppleCoringGroundTruthOptionFactory(GroundTruthOptionFactory):
         del env_name, predicates  # unused.
 
         object_type = types["object"]
+        goal_object_type = types["goal_object"]
+        apple_type = types["apple"]
+        slicing_tool_type = types["slicing_tool"]
+        plate_type = types["plate"]
+        hand_type = types["hand"]
 
         PickApple = utils.SingletonParameterizedOption(
             # variables: [object to pick]
@@ -39,14 +44,14 @@ class AppleCoringGroundTruthOptionFactory(GroundTruthOptionFactory):
             # params: []
             "place_on",
             cls._create_dummy_policy(action_space),
-            types=[object_type, object_type])
+            types=[apple_type, plate_type])
 
         Slice = utils.SingletonParameterizedOption(
-            # variables: [tool to slice with, obj to slice]
+            # variables: [tool to slice with, obj to slice, robot]
             # params: []
             "slice",
             cls._create_dummy_policy(action_space),
-            types=[object_type, object_type])
+            types=[slicing_tool_type, apple_type, hand_type])
 
         return {PickApple, PlaceOn, Slice}
 

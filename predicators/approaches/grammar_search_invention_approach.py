@@ -24,8 +24,8 @@ from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
-from predicators.structs import Dataset, GroundAtomTrajectory, Object, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type, GroundAtom
+from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -980,7 +980,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         assert isinstance(ground_atom, GroundAtom)
                         if ground_atom.predicate not in candidates:
                             # The cost of this predicate is simply its arity.
-                            candidates[ground_atom.predicate] = len(ground_atom.objects)
+                            candidates[ground_atom.predicate] = len(
+                                ground_atom.objects)
 
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
@@ -1031,6 +1032,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         # Start the search with no candidates.
         init: FrozenSet[Predicate] = frozenset()
+
+        # import ipdb; ipdb.set_trace()
 
         # Greedy local hill climbing search.
         if CFG.grammar_search_search_algorithm == "hill_climbing":

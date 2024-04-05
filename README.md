@@ -27,7 +27,7 @@ Methods for predicate learning are implemented as Approaches (e.g., `predicators
 A simple implementation of search-then-sample bilevel planning is provided in `predicators/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
 
 ## Installation
-* This repository uses Python versions 3.8+.
+* This repository uses Python versions between 3.9 and 3.11.
 * Run `pip install -e .` to install dependencies.
 
 ## Instructions For Running Code

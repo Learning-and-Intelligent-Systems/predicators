@@ -647,6 +647,9 @@ class GlobalSettings:
     # filepath to be used if offline_data_method is set to
     # demo+handlabeled_atoms
     handmade_demo_filename = ""
+    # filepath to be used if offline_data_method is set to
+    # img_demos
+    vlm_trajs_folder_name = ""
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
