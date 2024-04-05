@@ -3112,6 +3112,108 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #     print("power button")
         return pnads
 
+    def remove_harmful_predicates(self, final_potential_ops2, atom_dataset, initial_predicates, segmented_trajs, fff):
+        pnads = self.learn_pnads()
+
+        # want a list, not a set, as the return value
+        def _ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator], option_specs: Sequence[OptionSpec]) -> Set[NSRT]:
+            """Create NSRTs from strips operators and option specs with dummy
+            samplers."""
+            assert len(strips_ops) == len(option_specs)
+            nsrts = []
+            for op, (param_option, option_vars) in zip(strips_ops, option_specs):
+                nsrt = op.make_nsrt(
+                    param_option,
+                    option_vars,  # dummy sampler
+                    lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
+                nsrts.append(nsrt)
+
+            return nsrts
+
+        predicates_we_kept = set()
+        for op_name in final_potential_ops2.keys():
+            predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
+            predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
+            predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
+        pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
+        pruned_segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
+        pruned_low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        pruned_atom_seq = [atom_seq for _, atom_seq in pruned_atom_data]
+
+        strips_ops = [pnad.op for pnad in pnads]
+        option_specs = [pnad.option_spec for pnad in pnads]
+        dummy_nsrts = _ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        pnad_to_nsrt = dict(zip(pnads, dummy_nsrts))
+
+        harmful_del_effs_per_nsrt = {p.op.name: set() for p in pnads}
+        harmful_preconds_per_nsrt = {p.op.name: set() for p in pnads}
+
+        low_level_trajs = [llt for llt, _ in atom_dataset]
+        for ccc, tup in enumerate(zip(low_level_trajs, segmented_trajs)):
+            ll_traj, seg_traj = tup
+            # this segmented data has atoms from the entire grammar
+            ground_nsrt_plan = []
+            for seg in seg_traj:
+                for pnad in pnads:
+                    for seg2, sub in pnad.datastore:
+                        if seg2 == seg:
+                            nsrt = pnad_to_nsrt[pnad]
+                            try:
+                                grounding = tuple(sub[p] for p in nsrt.parameters)
+                            except:
+                                import pdb; pdb.set_trace()
+                            ground_nsrt = nsrt.ground(grounding)
+                            ground_nsrt_plan.append(ground_nsrt)
+
+            init_state = ll_traj.states[0]
+            init_atoms = utils.abstract(init_state, predicates_we_kept)
+            curr_abstract_state = init_atoms
+            prev_nsrts = []
+            logging.info(f"ccc: {ccc}, len(ground_nsrt_plan): {len(ground_nsrt_plan)}")
+            for h, nsrt in enumerate(ground_nsrt_plan):
+                # if ccc == 0 and h == len(ground_nsrt_plan) - 1:
+                # # if ccc == 0:
+                #     import pdb; pdb.set_trace()
+                #     print("aimbot123")
+                if not nsrt.preconditions.issubset(curr_abstract_state):
+                    missing = nsrt.preconditions - nsrt.preconditions.intersection(curr_abstract_state)
+                    for miss in missing:
+                        miss_caused_by_delete_effect = False
+                        for prev in prev_nsrts[::-1]:
+                            if miss in prev.delete_effects:
+                                harmful_del_effs_per_nsrt[prev.op.name].add(miss.predicate)
+                                miss_caused_by_delete_effect = True
+                                break
+                                # only care about most recent one => may have to do multiple passes,
+                                # if two previous nsrts had it as a deleted effect (which may be unlikely or impossible, idk)
+
+                        # TODO: do something about the condition where you don't find the miss anywhere
+                        if not miss_caused_by_delete_effect:
+                            # we should remove this predicate
+                            harmful_preconds_per_nsrt[nsrt.op.name].add(miss.predicate)
+
+                curr_abstract_state = (curr_abstract_state | nsrt.add_effects) - nsrt.delete_effects
+                prev_nsrts.append(nsrt)
+
+        logging.info(f"Harmful delete effects per nsrt: {harmful_del_effs_per_nsrt}")
+        logging.info(f"Harmful preconditions per nsrt: {harmful_preconds_per_nsrt}")
+        for k, v in harmful_del_effs_per_nsrt.items():
+            for pred in v:
+                final_potential_ops2[k]["del"].remove(pred)
+                fff[k][2].remove(pred)
+        for k, v in harmful_preconds_per_nsrt.items():
+            for pred in v:
+                final_potential_ops2[k]["pre"].remove(pred)
+                fff[k][0].remove(pred)
+        self._clusters = fff
+        predicates_we_kept = set()
+        for op_name in final_potential_ops2.keys():
+            predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
+            predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
+            predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
+
+        return predicates_we_kept
+
     def _select_predicates_and_learn_operators_by_clustering(
             self, candidates: Dict[Predicate, float],
             initial_predicates: Set[Predicate], dataset: Dataset,
@@ -4430,7 +4532,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         break
                 if skip:
                     logging.info(f"Skipping this trajectory because it has a segment that isn't in any cluster.")
-                    # this is necessary for the weird situation in cover where you get a segment with only type (block) affected, no robot and no target. 
+                    # this is necessary for the weird situation in cover where you get a segment with only type (block) affected, no robot and no target.
                     continue
                 story = get_story2(traj)
                 # if j == 2:
@@ -5137,102 +5239,105 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ##################################
             # import pdb; pdb.set_trace()
             logging.info(f"Right before delete effects harmlessness check.")
-            # want a list, not a set, as the return value
-            def _ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator], option_specs: Sequence[OptionSpec]) -> Set[NSRT]:
-                """Create NSRTs from strips operators and option specs with dummy
-                samplers."""
-                assert len(strips_ops) == len(option_specs)
-                nsrts = []
-                for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-                    nsrt = op.make_nsrt(
-                        param_option,
-                        option_vars,  # dummy sampler
-                        lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
-                    nsrts.append(nsrt)
 
-                return nsrts
+            predicates_we_kept = self.remove_harmful_predicates(final_potential_ops2, atom_dataset, initial_predicates, segmented_trajs, fff)
 
-            predicates_we_kept = set()
-            for op_name in final_potential_ops2.keys():
-                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
-                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
-                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
-            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
-            pruned_segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
-            pruned_low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
-            pruned_atom_seq = [atom_seq for _, atom_seq in pruned_atom_data]
-
-            strips_ops = [pnad.op for pnad in pnads]
-            option_specs = [pnad.option_spec for pnad in pnads]
-            dummy_nsrts = _ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-            pnad_to_nsrt = dict(zip(pnads, dummy_nsrts))
-
-            harmful_del_effs_per_nsrt = {p.op.name: set() for p in pnads}
-            harmful_preconds_per_nsrt = {p.op.name: set() for p in pnads}
-
-            low_level_trajs = [llt for llt, _ in atom_dataset]
-            for ccc, tup in enumerate(zip(low_level_trajs, segmented_trajs)):
-                ll_traj, seg_traj = tup
-                # this segmented data has atoms from the entire grammar
-                ground_nsrt_plan = []
-                for seg in seg_traj:
-                    for pnad in pnads:
-                        for seg2, sub in pnad.datastore:
-                            if seg2 == seg:
-                                nsrt = pnad_to_nsrt[pnad]
-                                try:
-                                    grounding = tuple(sub[p] for p in nsrt.parameters)
-                                except:
-                                    import pdb; pdb.set_trace()
-                                ground_nsrt = nsrt.ground(grounding)
-                                ground_nsrt_plan.append(ground_nsrt)
-
-                init_state = ll_traj.states[0]
-                init_atoms = utils.abstract(init_state, predicates_we_kept)
-                curr_abstract_state = init_atoms
-                prev_nsrts = []
-                logging.info(f"ccc: {ccc}, len(ground_nsrt_plan): {len(ground_nsrt_plan)}")
-                for h, nsrt in enumerate(ground_nsrt_plan):
-                    # if ccc == 0 and h == len(ground_nsrt_plan) - 1:
-                    # # if ccc == 0:
-                    #     import pdb; pdb.set_trace()
-                    #     print("aimbot123")
-                    if not nsrt.preconditions.issubset(curr_abstract_state):
-                        missing = nsrt.preconditions - nsrt.preconditions.intersection(curr_abstract_state)
-                        for miss in missing:
-                            miss_caused_by_delete_effect = False
-                            for prev in prev_nsrts[::-1]:
-                                if miss in prev.delete_effects:
-                                    harmful_del_effs_per_nsrt[prev.op.name].add(miss.predicate)
-                                    miss_caused_by_delete_effect = True
-                                    break
-                                    # only care about most recent one => may have to do multiple passes,
-                                    # if two previous nsrts had it as a deleted effect (which may be unlikely or impossible, idk)
-
-                            # TODO: do something about the condition where you don't find the miss anywhere
-                            if not miss_caused_by_delete_effect:
-                                # we should remove this predicate
-                                harmful_preconds_per_nsrt[nsrt.op.name].add(miss.predicate)
-
-                    curr_abstract_state = (curr_abstract_state | nsrt.add_effects) - nsrt.delete_effects
-                    prev_nsrts.append(nsrt)
-
-            logging.info(f"Harmful delete effects per nsrt: {harmful_del_effs_per_nsrt}")
-            logging.info(f"Harmful preconditions per nsrt: {harmful_preconds_per_nsrt}")
-            for k, v in harmful_del_effs_per_nsrt.items():
-                for pred in v:
-                    final_potential_ops2[k]["del"].remove(pred)
-                    fff[k][2].remove(pred)
-            for k, v in harmful_preconds_per_nsrt.items():
-                for pred in v:
-                    final_potential_ops2[k]["pre"].remove(pred)
-                    fff[k][0].remove(pred)
-            self._clusters = fff
-            predicates_we_kept = set()
-            for op_name in final_potential_ops.keys():
-                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
-                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
-                predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
+            # # want a list, not a set, as the return value
+            # def _ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator], option_specs: Sequence[OptionSpec]) -> Set[NSRT]:
+            #     """Create NSRTs from strips operators and option specs with dummy
+            #     samplers."""
+            #     assert len(strips_ops) == len(option_specs)
+            #     nsrts = []
+            #     for op, (param_option, option_vars) in zip(strips_ops, option_specs):
+            #         nsrt = op.make_nsrt(
+            #             param_option,
+            #             option_vars,  # dummy sampler
+            #             lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
+            #         nsrts.append(nsrt)
+            #
+            #     return nsrts
+            #
+            # predicates_we_kept = set()
+            # for op_name in final_potential_ops2.keys():
+            #     predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
+            #     predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
+            #     predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
+            # pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
+            # pruned_segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
+            # pruned_low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+            # pruned_atom_seq = [atom_seq for _, atom_seq in pruned_atom_data]
+            #
+            # strips_ops = [pnad.op for pnad in pnads]
+            # option_specs = [pnad.option_spec for pnad in pnads]
+            # dummy_nsrts = _ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+            # pnad_to_nsrt = dict(zip(pnads, dummy_nsrts))
+            #
+            # harmful_del_effs_per_nsrt = {p.op.name: set() for p in pnads}
+            # harmful_preconds_per_nsrt = {p.op.name: set() for p in pnads}
+            #
+            # low_level_trajs = [llt for llt, _ in atom_dataset]
+            # for ccc, tup in enumerate(zip(low_level_trajs, segmented_trajs)):
+            #     ll_traj, seg_traj = tup
+            #     # this segmented data has atoms from the entire grammar
+            #     ground_nsrt_plan = []
+            #     for seg in seg_traj:
+            #         for pnad in pnads:
+            #             for seg2, sub in pnad.datastore:
+            #                 if seg2 == seg:
+            #                     nsrt = pnad_to_nsrt[pnad]
+            #                     try:
+            #                         grounding = tuple(sub[p] for p in nsrt.parameters)
+            #                     except:
+            #                         import pdb; pdb.set_trace()
+            #                     ground_nsrt = nsrt.ground(grounding)
+            #                     ground_nsrt_plan.append(ground_nsrt)
+            #
+            #     init_state = ll_traj.states[0]
+            #     init_atoms = utils.abstract(init_state, predicates_we_kept)
+            #     curr_abstract_state = init_atoms
+            #     prev_nsrts = []
+            #     logging.info(f"ccc: {ccc}, len(ground_nsrt_plan): {len(ground_nsrt_plan)}")
+            #     for h, nsrt in enumerate(ground_nsrt_plan):
+            #         # if ccc == 0 and h == len(ground_nsrt_plan) - 1:
+            #         # # if ccc == 0:
+            #         #     import pdb; pdb.set_trace()
+            #         #     print("aimbot123")
+            #         if not nsrt.preconditions.issubset(curr_abstract_state):
+            #             missing = nsrt.preconditions - nsrt.preconditions.intersection(curr_abstract_state)
+            #             for miss in missing:
+            #                 miss_caused_by_delete_effect = False
+            #                 for prev in prev_nsrts[::-1]:
+            #                     if miss in prev.delete_effects:
+            #                         harmful_del_effs_per_nsrt[prev.op.name].add(miss.predicate)
+            #                         miss_caused_by_delete_effect = True
+            #                         break
+            #                         # only care about most recent one => may have to do multiple passes,
+            #                         # if two previous nsrts had it as a deleted effect (which may be unlikely or impossible, idk)
+            #
+            #                 # TODO: do something about the condition where you don't find the miss anywhere
+            #                 if not miss_caused_by_delete_effect:
+            #                     # we should remove this predicate
+            #                     harmful_preconds_per_nsrt[nsrt.op.name].add(miss.predicate)
+            #
+            #         curr_abstract_state = (curr_abstract_state | nsrt.add_effects) - nsrt.delete_effects
+            #         prev_nsrts.append(nsrt)
+            #
+            # logging.info(f"Harmful delete effects per nsrt: {harmful_del_effs_per_nsrt}")
+            # logging.info(f"Harmful preconditions per nsrt: {harmful_preconds_per_nsrt}")
+            # for k, v in harmful_del_effs_per_nsrt.items():
+            #     for pred in v:
+            #         final_potential_ops2[k]["del"].remove(pred)
+            #         fff[k][2].remove(pred)
+            # for k, v in harmful_preconds_per_nsrt.items():
+            #     for pred in v:
+            #         final_potential_ops2[k]["pre"].remove(pred)
+            #         fff[k][0].remove(pred)
+            # self._clusters = fff
+            # predicates_we_kept = set()
+            # for op_name in final_potential_ops.keys():
+            #     predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["pre"])
+            #     predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["add"])
+            #     predicates_we_kept = predicates_we_kept.union(final_potential_ops2[op_name]["del"])
 
             # import pdb; pdb.set_trace()
             logging.info(f"Right after delete effects harmlessness check.")
