@@ -2,6 +2,7 @@
 
 import ast
 import glob
+import logging
 import os
 import re
 from pathlib import Path
@@ -44,12 +45,116 @@ def sample_init_atoms_from_trajectories(
         )
         i = 0
         while i < len(traj._state_imgs):
-            # Get outputs with temperature 1.
+            # Sample VLM outputs with temperature 1 for high diversity.
             curr_vlm_output_atoms_str = vlm.sample_completions(
                 prompt, traj._state_imgs[i], 1.0, CFG.seed)
             aggregated_vlm_output_strs.append(curr_vlm_output_atoms_str)
             i += trajectory_subsample_freq
+    return aggregated_vlm_output_strs
 
+
+def label_trajectories_with_atom_values(
+        trajectories: List[ImageOptionTrajectory],
+        vlm: VisionLanguageModel,
+        atoms_list: List[str]
+) -> List[List[str]]:
+    """Given a list of atoms, label every state in ImageOptionTrajectories
+    with the truth values of a set of atoms."""
+    output_labelled_atoms_txt_list = []
+    prompt = ("You are a vision system for a robot. Your job is to output "
+              "the values of the following predicates based on the provided "
+              "visual scene. For each predicate, output True, False, or "
+              "Unknown if the relevant objects are not in the scene or the "
+              "value of the predicate simply cannot be determined."
+              "\nPredicates:"
+    )
+    for atom_str in atoms_list:
+        prompt += f"\n{atom_str}"
+    
+    for traj in trajectories:
+        curr_traj_labelled_atoms_txt = []
+        for curr_state_img in traj._state_imgs:
+            # Sample VLM outputs with temperature 0 in an attempt to be
+            # accurate.
+            curr_vlm_atom_labelling = vlm.sample_completions(prompt, curr_state_img, 0.0, CFG.seed, num_completions=1)
+            assert len(curr_vlm_atom_labelling) == 1
+            curr_traj_labelled_atoms_txt.append(curr_vlm_atom_labelling[0])
+        output_labelled_atoms_txt_list.append(curr_traj_labelled_atoms_txt)
+
+    return output_labelled_atoms_txt_list
+
+
+def parse_unique_atom_proposals_from_list(
+        atom_strs_proposals_list: List[List[str]],
+        relevant_objects_across_demos: Set[Object]) -> Set[str]:
+    """Given a list of atom proposals that a VLM has constructed for each
+    demonstration, parse these to a unique set of proposals.
+
+    This function currently does 3 steps of sanitization: (1) removing
+    any unnecessary characters, (2) removing any atoms that involve
+    objects that aren't relevant, (3) removing any duplicate atoms.
+    """
+    atoms_strs_set = set()
+    obj_names_set = set(obj.name for obj in relevant_objects_across_demos)
+    num_atoms_considered = 0
+    for atoms_proposal_for_traj in atom_strs_proposals_list:
+        assert len(atoms_proposal_for_traj) == 1
+        curr_atoms_proposal = atoms_proposal_for_traj[0]
+        atoms_proposal_line = curr_atoms_proposal.split('\n')
+        for atom_proposal_txt in atoms_proposal_line:
+            num_atoms_considered += 1
+            atom_is_valid = True
+            atom = re.sub(r"[^\w\s\(\)]", "", atom_proposal_txt).strip(' ')
+            obj_names = re.findall(r'\((.*?)\)', atom)
+            if obj_names:
+                obj_names_list = [
+                    name.strip() for name in obj_names[0].split(',')
+                ]
+                for obj_name in obj_names_list:
+                    if obj_name not in obj_names_set:
+                        atom_is_valid = False
+                        break
+            if atom_is_valid:
+                atoms_strs_set.add(atom)
+    logging.info(f"VLM proposed a total of {num_atoms_considered} atoms.")
+    logging.info(f"Of these, {len(atoms_strs_set)} were valid and unique.")
+    return atoms_strs_set
+
+
+def save_labelled_trajs_as_txt(
+        env: BaseEnv,
+        labelled_atoms_trajs: List[List[str]],
+        ground_option_trajs: List[List[_Option]]
+) -> None:
+    """Save a txt file with a text representation of GroundAtomTrajectories.
+    This serves as a human-readable intermediary output for debugging, and
+    also as a convenient restart point for the pipeline (i.e., these
+    txt files can be loaded and the rest of the pipeline run from there)!"""
+    # All trajectories are delimited between pairs of "===".
+    save_str = "===\n"
+    assert len(labelled_atoms_trajs) == len(ground_option_trajs)
+    for curr_atoms_traj, curr_option_traj in zip(labelled_atoms_trajs, ground_option_trajs):
+        assert len(curr_option_traj) + 1 == len(curr_atoms_traj)
+        for option_ts in range(len(curr_option_traj)):
+            curr_atom_state_str = curr_atoms_traj[option_ts]
+            # Wrap the state in square brackets.
+            curr_state_str = "[" + curr_atom_state_str + "] ->"
+            curr_option = curr_option_traj[option_ts]
+            curr_option_str = curr_option.name + "("
+            for obj in curr_option.objects:
+                curr_option_str += str(obj.name) + ", "
+            curr_option_str += str(curr_option.params.tolist()) + ")" + " -> "
+            save_str += curr_state_str + "\n\n" + curr_option_str + "\n\n"
+        # At the end of the trajectory, we need to append the final state,
+        # and a "===" delimiter.
+        final_atom_state_str = curr_atoms_traj[-1]
+        final_state_str = "[" + final_atom_state_str + "]\n"
+        save_str += final_state_str + "==="
+    # Finally, save this constructed string as a txt file!
+    txt_filename = f"{env.get_name()}__demo+vlmlabeled_atoms__manual__{len(labelled_atoms_trajs)}.txt"
+    filepath = os.path.join(CFG.data_dir, txt_filename)
+    with open(filepath, "w") as f:
+        f.write(save_str)
     import ipdb; ipdb.set_trace()
 
 
@@ -72,6 +177,7 @@ def create_ground_atom_data_from_img_trajs(
     assert num_trajs == CFG.num_train_tasks
     option_name_to_option = {opt.name: opt for opt in known_options}
     image_option_trajs = []
+    all_task_objs = set()
     # TODO: might want to make sure this loop actually accesses the
     # trajectory folders in ascending order.
     for train_task_idx, path in enumerate(
@@ -91,6 +197,7 @@ def create_ground_atom_data_from_img_trajs(
         # Get objects from train tasks to be used for future parsing.
         curr_train_task = train_tasks[train_task_idx]
         curr_task_objs = set(curr_train_task.init)
+        all_task_objs |= curr_task_objs
         curr_task_obj_name_to_obj = {obj.name: obj for obj in curr_task_objs}
         # Parse out actions for the trajectory.
         options_traj_file_list = glob.glob(str(path) + "/*.txt")
@@ -123,9 +230,26 @@ def create_ground_atom_data_from_img_trajs(
         image_option_trajs.append(
             ImageOptionTrajectory(list(curr_task_objs), state_traj,
                                   ground_option_traj, True, train_task_idx))
-    # Given trajectories, we can now query the VLM.
+    # Given trajectories, we can now query the VLM to get proposals for ground
+    # atoms that might be relevant to decision-making.
     gemini_vlm = GoogleGeminiVLM("gemini-pro-vision")
-    sample_init_atoms_from_trajectories(image_option_trajs, gemini_vlm, 1)
+    logging.info("Querying VLM for candidate atom proposals...")
+    atom_strs_proposals_list = sample_init_atoms_from_trajectories(
+        image_option_trajs, gemini_vlm, 1)
+    logging.info("Done querying VLM!")
+    # We now parse and sanitize this set of atoms.
+    atom_proposals_set = parse_unique_atom_proposals_from_list(
+        atom_strs_proposals_list, all_task_objs)
+    # Given this set of unique atom proposals, we now ask the VLM
+    # to label these in every scene from the demonstrations.
+    # NOTE: we convert to a sorted list here to get rid of randomness from set
+    # ordering.
+    unique_atoms_list = sorted(atom_proposals_set)
+    # Now, query the VLM!
+    atom_labels = label_trajectories_with_atom_values(image_option_trajs, gemini_vlm, unique_atoms_list)
+    # Save the output as a human-readable txt file.
+    save_labelled_trajs_as_txt(env, atom_labels, [io_traj._actions for io_traj in image_option_trajs])
+    import ipdb; ipdb.set_trace()
 
 
 def create_ground_atom_data_from_labeled_txt(
@@ -237,6 +361,7 @@ def create_ground_atom_data_from_labeled_txt(
             assert "DummyGoal" in atom.predicate.name
 
     # Next, we link option names to actual options.
+    # TODO: we currently don't parse out continuous parameters!!!
     option_name_to_option = {o.name: o for o in known_options}
     option_trajs = []
     for traj in structured_actions:

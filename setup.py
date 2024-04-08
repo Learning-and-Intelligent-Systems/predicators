@@ -36,7 +36,6 @@ setup(
         "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git",  # pylint: disable=line-too-long
         "ImageHash",
         "google-generativeai"
-
     ],
     include_package_data=True,
     extras_require={
