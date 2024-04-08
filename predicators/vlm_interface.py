@@ -98,7 +98,7 @@ class VisionLanguageModel(abc.ABC):
             logging.debug(f"Querying VLM {vlm_id} with new prompt.")
             # Query the VLM.
             completions = self._sample_completions(prompt, imgs, temperature,
-                                                   seed, stop_token,
+                                                   seed,
                                                    num_completions)
             # Cache the completion.
             cache_str = prompt + _CACHE_SEP + _CACHE_SEP.join(completions)
@@ -106,9 +106,10 @@ class VisionLanguageModel(abc.ABC):
                 f.write(cache_str)
             # Also save the images for easy debugging.
             imgs_folderpath = os.path.join(cache_folderpath, "imgs")
-            imgs_folder = os.makedirs(imgs_folderpath,exist_ok=True)
+            os.makedirs(imgs_folderpath,exist_ok=True)
             for i, img in enumerate(imgs):
-                img.save(os.path.join(imgs_folder, str(i) + ".jpg"))
+                filename_suffix = str(i) + ".jpg"
+                img.save(os.path.join(imgs_folderpath, filename_suffix))
             logging.debug(f"Saved VLM response to {cache_filepath}.")
         # Load the saved completion.
         with open(cache_filepath, 'r', encoding='utf-8') as f:
@@ -143,17 +144,12 @@ class GoogleGeminiVLM(VisionLanguageModel):
                             imgs: List[PIL.Image.Image],
                             temperature: float,
                             seed: int,
-                            stop_token: Optional[str] = None,
                             num_completions: int = 1) -> List[str]:
         del seed  # unused
         generation_config = genai.types.GenerationConfig(
             candidate_count=num_completions,
-            stop_sequences=[stop_token],
-            # max_output_tokens=20,
             temperature=temperature)
-        import ipdb; ipdb.set_trace()
         response = self._model.generate_content(
-            [prompt] + imgs, stream=True, generation_config=generation_config)
+            [prompt] + imgs, generation_config=generation_config)
         response.resolve()
-
-        return response.text
+        return [response.text]

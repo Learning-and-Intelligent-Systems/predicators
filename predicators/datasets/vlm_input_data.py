@@ -27,6 +27,7 @@ def sample_init_atoms_from_trajectories(
     of names of ground atoms from which we can extract predicates that might be
     relevant for planning to recreate these trajectories."""
 
+    aggregated_vlm_output_strs = []
     for traj in trajectories:
         prompt = (
             "You are a robotic vision system who's job is to output a "
@@ -44,10 +45,12 @@ def sample_init_atoms_from_trajectories(
         i = 0
         while i < len(traj._state_imgs):
             # Get outputs with temperature 1.
-            curr_relevant_atom_strs = vlm.sample_completions(
+            curr_vlm_output_atoms_str = vlm.sample_completions(
                 prompt, traj._state_imgs[i], 1.0, CFG.seed)
-            import ipdb
-            ipdb.set_trace()
+            aggregated_vlm_output_strs.append(curr_vlm_output_atoms_str)
+            i += trajectory_subsample_freq
+
+    import ipdb; ipdb.set_trace()
 
 
 def create_ground_atom_data_from_img_trajs(
