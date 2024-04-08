@@ -4,6 +4,7 @@ Note: to promote modularity, this file should NOT import CFG.
 """
 
 import abc
+from copy import deepcopy
 from functools import cached_property
 import logging
 import os
@@ -1657,8 +1658,6 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         X_cond = ((X_cond - self._input_shift) / self._input_scale) * 2 - 1
         Y_out = ((Y_out - self._output_shift) / self._output_scale) * 2 - 1
 
-        logging.info(Y_out)
-
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
 
@@ -1671,22 +1670,33 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
 
         data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
-        dataloader = torch.utils.data.DataLoader(data, batch_size=1000, shuffle=True)
+        dataloader = torch.utils.data.DataLoader(data, batch_size=5000, shuffle=True)
 
         assert isinstance(self._max_train_iters, int)
         self.train()
 
-        for itr in reversed(range(self._max_train_iters, 0, -1)):
-            total_loss = 0.0
+        best_params = self.state_dict()
+        best_params["iter"] = -1
+        best_loss = float('inf')
+
+        for itr, (tensor_X, tensor_Y) in zip(reversed(range(self._max_train_iters, 0, -1)), itertools.cycle(dataloader)):
             optimizer.zero_grad()
-            for tensor_X, tensor_Y in dataloader:
-                t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)
-                loss = self._p_losses(tensor_X, tensor_Y, t) / tensor_X_cond.shape[0]
-                loss.backward()
-                total_loss += loss.item()
+            t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)
+            loss = self._p_losses(tensor_X, tensor_Y, t) / tensor_X.shape[0]
+            loss.backward()
             optimizer.step()
-            if itr % 500 == 0:
-                logging.info(f"Loss: {total_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+            loss_value = loss.item()
+            if best_loss > loss_value:
+                best_loss = loss_value
+                best_params = deepcopy(self.state_dict())
+                best_params["iter"] = itr
+            if itr % 100 == 0:
+                logging.info(f"Loss: {loss_value:.5f} iter: {itr}/{self._max_train_iters}")
+                # for name, param in self.named_parameters():
+                #     logging.info(f"Param {name} stats; {tensor_stats(param.grad)}")
+        logging.info(f"Using params from iter {best_params['iter']} with loss {best_loss:.5}")
+        del best_params["iter"]
+        self.load_state_dict(best_params)
 
     @torch.no_grad()
     def _p_sample(self, x_cond, y_out, t, t_index):
@@ -1753,7 +1763,7 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         # if self._optimizer is None:
         #     logging.info('Creating optimizer afresh')
         #     self._optimizer = optim.RMSprop(self.parameters(), lr=self._learning_rate)
-        return optim.Adadelta(self.parameters(), lr=self._learning_rate)
+        return optim.RMSprop(self.parameters(), lr=self._learning_rate, momentum=0.8)
 
     @classmethod
     def _cosine_beta_schedule(cls, timesteps, s=0.008):
@@ -1796,44 +1806,3 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         batch_size = t.shape[0]
         out = a.gather(-1, t.cpu())
         return out.reshape(batch_size, *((1,) * (len(shape) - 1))).to(t.device)
-
-class MultiDiffusionRegressor(DiffusionRegressor):
-    def __init__(self, seed: int, hid_sizes: List[int],
-                 max_train_iters: int, timesteps: int,
-                 learning_rate: float, use_torch_gpu: bool = False) -> None:
-        super().__init__(seed, hid_sizes, max_train_iters, timesteps, learning_rate, use_torch_gpu)
-        del self._linears
-        self._num_models = 2
-        self._models = nn.ModuleList()
-        self._model_thresholds = np.round(np.linspace(0, timesteps, self._num_models + 1))
-
-    def _initialize_net(self):
-        if len(self._models) == 0:
-            sizes = [self._x_dim] + self._hid_sizes + [self._y_dim]
-            self._models.extend([
-                nn.Sequential(*[
-                    layer
-                    for in_size, out_size in zip(sizes[:-1], sizes[1:])
-                    for layer in [nn.Linear(in_size, out_size), nn.ReLU()]
-                ][:-1])
-                for _ in range(self._num_models)
-            ])
-
-    def forward(self, X_cond, Y_out, t):
-        half_t_dim = self._t_dim // 2
-        t_embeddings = np.log(10000) / (half_t_dim - 1)
-        t_embeddings = torch.exp(torch.arange(half_t_dim, device=self.device) * -t_embeddings)
-        t_embeddings = t[:, None] * t_embeddings[None, :]
-        t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
-        if not self.train:
-            logging.info(X_cond.detach().cpu().numpy())
-        X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
-        X_out = torch.empty_like(Y_out, device=self.device)
-        for idx, (start_thresh, end_thresh) in enumerate(zip(self._model_thresholds[:-1], self._model_thresholds[1:])):
-            t_numpy = t.detach().cpu().numpy()
-            mask = np.logical_and(t_numpy < end_thresh, t_numpy >= start_thresh)
-            X_masked = X[mask]
-            if X_masked.size == 0:
-                continue
-            X_out[mask] = self._models[idx](X[mask])
-        return X_out

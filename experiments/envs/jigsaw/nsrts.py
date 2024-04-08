@@ -12,7 +12,7 @@ __all__ = ['JigsawGroundTruthNSRTFactory']
 class JigsawGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     # Settings
     placement_margin = 0.09999999
-    grasp_margin = 0.2
+    grasp_margin = 0.25
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -51,25 +51,25 @@ class JigsawGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             desired_x, desidred_y, new_orientation = Jigsaw._get_desired_pos(state, block)
             block_shape = Jigsaw._get_shape(state, block).buffer(-JigsawGroundTruthNSRTFactory.grasp_margin, join_style='mitre')
 
-            # grasp_min_x, grasp_min_y, grasp_max_x, grasp_max_y = block_shape.bounds
-            # while True:
-            #     grasp_x, grasp_y = rng.uniform((grasp_min_x, grasp_min_y), (grasp_max_x, grasp_max_y))
-            #     grasp_point = Point(grasp_x, grasp_y)
-            #     if block_shape.intersects(grasp_point):
-            #         break
+            grasp_min_x, grasp_min_y, grasp_max_x, grasp_max_y = block_shape.bounds
+            while True:
+                grasp_x, grasp_y = rng.uniform((grasp_min_x, grasp_min_y), (grasp_max_x, grasp_max_y))
+                grasp_point = Point(grasp_x, grasp_y)
+                if block_shape.intersects(grasp_point):
+                    break
 
-            if state[block][3] >= 0.5:
-                grasp_x, grasp_y = state[block][0:2] + 0.5
-            else:
-                grasp_x, grasp_y = state[block][0:2] + 1.5
+            # if state[block][3] >= 0.5:
+            #     grasp_x, grasp_y = state[block][0:2] + 0.5
+            # else:
+            #     grasp_x, grasp_y = state[block][0:2] + 1.5
 
             # logging.info((desired_x, desidred_y, new_orientation, list(state)))
 
-            # new_x, new_y = rng.uniform(
-            #     (desired_x - jigsaw_margin + placement_margin, desidred_y - jigsaw_margin + placement_margin),
-            #     (desired_x + jigsaw_margin - placement_margin, desidred_y + jigsaw_margin - placement_margin)
-            # )
-            new_x, new_y = desired_x, desidred_y
+            new_x, new_y = rng.uniform(
+                (desired_x - jigsaw_margin + placement_margin, desidred_y - jigsaw_margin + placement_margin),
+                (desired_x + jigsaw_margin - placement_margin, desidred_y + jigsaw_margin - placement_margin)
+            )
+            # new_x, new_y = desired_x, desidred_y
             return np.array([grasp_x, grasp_y, new_x, new_y, new_orientation])
 
         container = Variable("?container", container_type)

@@ -977,7 +977,7 @@ class _GroundNSRT:
         return str(self) > str(other)
 
     def sample_option(self, state: State, goal: Set[GroundAtom],
-                      rng: np.random.Generator, skeleton: List[NSRT] = []) -> _Option:
+                      rng: np.random.Generator, skeleton: List[_GroundNSRT] = []) -> _Option:
         """Sample an _Option for this ground NSRT, by invoking the contained
         sampler.
 
@@ -1802,7 +1802,7 @@ VarToVarSub = Dict[Variable, Variable]
 EntToEntSub = Dict[_TypedEntity, _TypedEntity]
 Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
-    [State, Set[GroundAtom], np.random.Generator, Sequence[Object], Optional[List[NSRT]]], Array]
+    [State, Set[GroundAtom], np.random.Generator, Sequence[Object], List[_GroundNSRT]], Array]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
                              _Atom)

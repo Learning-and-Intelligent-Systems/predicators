@@ -4,7 +4,7 @@ import logging
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import numpy as np
-from experiments.envs.utils import BoxWH, plot_polygon
+from experiments.envs.utils import BoxWH, plot_geometry
 from predicators.envs.base_env import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Object, Predicate, State, Task, Type
@@ -29,9 +29,9 @@ class Jigsaw(BaseEnv):
     ## Task generation settings
     num_tries: ClassVar[int] = 100000
 
-    range_train_blocks: ClassVar[Tuple[int, int]] = (12, 12)
-    range_test_blocks: ClassVar[Tuple[int, int]] = (12, 12)
-    range_t_blocks: ClassVar[Tuple[int, int]] = (1, 1)
+    range_train_blocks: ClassVar[Tuple[int, int]] = (8, 8)
+    range_test_blocks: ClassVar[Tuple[int, int]] = (8, 8)
+    range_t_blocks: ClassVar[Tuple[int, int]] = (1, 3)
 
     ## World shape settings
     world_range_x: ClassVar[Tuple[float, float]] = (-1, 30)
@@ -55,6 +55,7 @@ class Jigsaw(BaseEnv):
 
     # Predicates
     ## Inside predicate
+    @staticmethod
     def _Inside_holds(state: State, objects: Sequence[Object]) -> bool:
         container, block = objects
         return Jigsaw._get_shape(state, container).contains(Jigsaw._get_shape(state, block))
@@ -62,6 +63,7 @@ class Jigsaw(BaseEnv):
     _Inside: ClassVar[Predicate] = Predicate("Inside", [_container_type, _block_type], _Inside_holds)
 
     ## Outside predicate
+    @staticmethod
     def _Outside_holds(state: State, objects: Sequence[Object]) -> bool:
         return not Jigsaw._Inside_holds(state, objects)
     _Outside: ClassVar[Predicate] = Predicate("Outside", [_container_type, _block_type], _Outside_holds)
@@ -71,6 +73,7 @@ class Jigsaw(BaseEnv):
     _container = Object("container", _container_type)
 
     # Common geometries
+    @staticmethod
     def _construct_block_polygon(
         cells: List[float],
         sub_cell_size: float,
@@ -170,8 +173,9 @@ class Jigsaw(BaseEnv):
         num_tasks: int,
         range_blocks: Tuple[int, int]
     ) -> List[EnvironmentTask]:
-        task = self._generate_task(rng, range_blocks)
-        return [self._modify_task(task, rng) for _ in range(num_tasks)]
+        # task = self._generate_task(rng, range_blocks)
+        # return [self._modify_task(task, rng) for _ in range(num_tasks)]
+        return [self._generate_task(rng, range_blocks) for _ in range(num_tasks)]
 
     def _modify_task(self, task: EnvironmentTask, rng: np.random.Generator) -> EnvironmentTask:
         # task = deepcopy(task)
@@ -232,7 +236,8 @@ class Jigsaw(BaseEnv):
         goal = {self._Inside([self._container, block]) for block in blocks}
 
         # Constructing placeholder state
-        state = State({obj: np.zeros((obj.type.dim,), dtype=np.float32) for obj in blocks + (self._container,)}, SimulatorState())
+        simulator_state = SimulatorState()
+        state = State({obj: np.zeros((obj.type.dim,), dtype=np.float32) for obj in blocks + (self._container,)}, simulator_state)
 
         # Setting container params
         container_width = 2 * self.sub_cell_size
@@ -241,7 +246,7 @@ class Jigsaw(BaseEnv):
         state.set(self._container, "y", self.container_y_pos)
         state.set(self._container, "width", container_width)
         state.set(self._container, "height", container_height)
-        state.simulator_state.polys[self._container] = BoxWH(
+        simulator_state.polys[self._container] = BoxWH(
             self.container_x_pos, self.container_y_pos,
             container_width, container_height,
         )
@@ -254,8 +259,8 @@ class Jigsaw(BaseEnv):
             ) + self.container_x_pos + self.sub_cell_size * 2), blocks_data
         ):
             state.data[block] = np.array([block_x_pos, block_y_pos, 0.0] + cells, dtype=np.float32)
-            state.simulator_state.polys[block] = poly
-            state.simulator_state.desired_poses[block] = (self.container_x_pos, desired_y, desired_orientation)
+            simulator_state.polys[block] = poly
+            simulator_state.desired_poses[block] = (self.container_x_pos, desired_y, desired_orientation)
 
         return EnvironmentTask(state, goal)
 
@@ -313,11 +318,11 @@ class Jigsaw(BaseEnv):
         fig.suptitle(caption)
 
         # Drawing the container
-        ax.add_patch(plot_polygon(cls._get_shape(state, cls._container), color='pink', linestyle='--', fill=False))
+        ax.add_patch(plot_geometry(cls._get_shape(state, cls._container), color='pink', linestyle='--', fill=False))
 
         # Drawing the blocks
         for block in state.get_objects(cls._block_type):
-            ax.add_patch(plot_polygon(cls._get_shape(state, block), facecolor='green', edgecolor='darkgreen'))
+            ax.add_patch(plot_geometry(cls._get_shape(state, block), facecolor='green', edgecolor='darkgreen'))
 
         ax.set_xlim(*cls.world_range_x)
         ax.set_ylim(*cls.world_range_y)

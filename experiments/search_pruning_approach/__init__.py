@@ -19,9 +19,9 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set,
 
 import matplotlib
 import matplotlib.pyplot as plt
-
-from experiments.envs.utils import plot_polygon
 # matplotlib.use("tkagg")
+
+from experiments.envs.utils import plot_geometry
 
 # from experiments.envs.shelves2d.env import Shelves2DEnv
 from experiments.envs.jigsaw.env import Jigsaw
@@ -179,98 +179,99 @@ class InterleavedBacktrackingDatapoint():
 #     f"negative datapoints per class: {num_negative_datapoints_per_class}") if negative_datapoints else "No negative datapoints collected"
 #     return positive_report + '\n' + negative_report
 
-def visualize_jigsaw_placement(
-    skeleton: List[_GroundNSRT],
-    previous_states: List[State],
-    goal: Set[GroundAtom],
-    option_model: _OptionModelBase,
-    seed: int,
-    atoms_sequence: List[Set[GroundAtom]],
-):
-    assert previous_states
-    current_state = previous_states[-1]
-    nsrt = skeleton[len(previous_states) - 1]
-    rng_sampler = np.random.default_rng(seed)
+# def visualize_jigsaw_placement(
+#     skeleton: List[_GroundNSRT],
+#     previous_states: List[State],
+#     goal: Set[GroundAtom],
+#     option_model: _OptionModelBase,
+#     seed: int,
+#     atoms_sequence: List[Set[GroundAtom]],
+# ):
+#     assert previous_states
+#     current_state = previous_states[-1]
+#     nsrt = skeleton[len(previous_states) - 1]
+#     rng_sampler = np.random.default_rng(seed)
+#     if nsrt.name.startswith("MoveTo"):
+#         obj = nsrt.objects[0]
+#     else:
+#         obj = nsrt.objects[-1]
 
-    datapoints: List[State] = []
+#     datapoints: List[State] = []
 
-    for _ in range(300):
-        option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
-        next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
+#     for _ in range(300):
+#         option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
+#         next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
 
-        if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
-            continue
+#         if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
+#             continue
 
-        datapoints.append(next_state)
+#         datapoints.append(next_state)
 
-    fig1 = Jigsaw.render_state_plt(current_state, None)
-    ax1, = fig1.axes
-    for next_state in datapoints:
-        ax1.add_patch(plot_polygon(Jigsaw._get_shape(next_state, nsrt.objects[1]), facecolor='none', edgecolor='black', alpha=0.1))
+#     fig1 = Jigsaw.render_state_plt(current_state, None)
+#     ax1, = fig1.axes
+#     for next_state in datapoints:
+#         ax1.add_patch(plot_geometry(Jigsaw._get_shape(next_state, obj), facecolor='none', edgecolor='black', alpha=0.1))
 
-    fig2 = plt.figure()
-    ax2 = fig2.add_subplot()
-    ax2.scatter(list(range(len(datapoints))), [Jigsaw._get_shape(next_state, nsrt.objects[1]).envelope.centroid.y for next_state in datapoints])
+#     fig2 = plt.figure()
+#     ax2 = fig2.add_subplot()
+#     ax2.scatter(list(range(len(datapoints))), [Jigsaw._get_shape(next_state, obj).envelope.centroid.y for next_state in datapoints])
 
-    return fig1, fig2
+#     return fig1, fig2
 
-def run_jigsaw_visualization_saving(
-    search_datapoints: List[InterleavedBacktrackingDatapoint],
-    option_model: _OptionModelBase,
-    seed: int,
-    prefix_length: int,
-    visualization_directory: str,
-) -> None:
-    logging_level = deepcopy(logging.getLogger().level)
-    os.makedirs(visualization_directory, exist_ok=True)
-    for idx, search_datapoint in zip(range(10), search_datapoints):
-        states, atoms_sequence, horizons, skeleton = search_datapoint
+# def run_jigsaw_visualization_saving(
+#     search_datapoints: List[InterleavedBacktrackingDatapoint],
+#     option_model: _OptionModelBase,
+#     seed: int,
+#     visualization_directory: str,
+# ) -> None:
+#     logging_level = deepcopy(logging.getLogger().level)
+#     os.makedirs(visualization_directory, exist_ok=True)
+#     for idx, search_datapoint in zip(range(20), search_datapoints):
+#         states, atoms_sequence, horizons, skeleton = search_datapoint
 
-        logging.getLogger().setLevel(logging.WARNING)
-        fig1, fig2 = visualize_jigsaw_placement(
-            skeleton = skeleton,
-            previous_states = states[:prefix_length],
-            goal = atoms_sequence[-1],
-            option_model = option_model,
-            seed = seed,
-            atoms_sequence = atoms_sequence,
-        )
-        logging.getLogger().setLevel(logging_level)
+#         logging.getLogger().setLevel(logging.WARNING)
+#         fig1, fig2 = visualize_jigsaw_placement(
+#             skeleton = skeleton,
+#             previous_states = states[:(idx // 2 + 1)],
+#             goal = atoms_sequence[-1],
+#             option_model = option_model,
+#             seed = seed,
+#             atoms_sequence = atoms_sequence,
+#         )
+#         logging.getLogger().setLevel(logging_level)
 
-        filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
-        filepath2 = os.path.join(visualization_directory, f"{idx}-scatter.pdf")
-        logging.info(f"Saving visualizations to files {filepath1} and {filepath2} with "
-                     f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
-        fig1.savefig(filepath1)
-        fig2.savefig(filepath2)
-        plt.close(fig1)
-        plt.close(fig2)
+#         filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
+#         filepath2 = os.path.join(visualization_directory, f"{idx}-scatter.pdf")
+#         logging.info(f"Saving visualizations to files {filepath1} and {filepath2} with "
+#                      f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
+#         fig1.savefig(filepath1)
+#         fig2.savefig(filepath2)
+#         plt.close(fig1)
+#         plt.close(fig2)
 
-def run_jigsaw_ground_truth_saving(
-    segmented_trajs: List[List[Segment]],
-    seg_to_ground_nsrt: Dict[Segment, _GroundNSRT],
-    visualization_directory: str,
-) -> None:
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.set_xlim(0, 25)
-    ax.set_ylim(0, 25)
+# def run_jigsaw_ground_truth_saving(
+#     segmented_trajs: List[List[Segment]],
+#     seg_to_ground_nsrt: Dict[Segment, _GroundNSRT],
+#     visualization_directory: str,
+# ) -> None:
+#     fig = plt.figure()
+#     ax = fig.add_subplot()
+#     ax.set_xlim(0, 25)
+#     ax.set_ylim(0, 25)
 
-    for segmented_traj in segmented_trajs:
-        subfig = Jigsaw.render_state_plt(segmented_traj[1].states[0], None)
-        subax, = subfig.axes
-        block = seg_to_ground_nsrt[segmented_traj[1]].objects[1]
-        cells = segmented_traj[1].states[0][block][3:]
-        for patch in subax.patches:
-            patch.remove()
-            patch.set(alpha=0.01)
-            ax.add_patch(patch)
-        plt.close(subfig)
+#     for segmented_traj in segmented_trajs:
+#         subfig = Jigsaw.render_state_plt(segmented_traj[1].states[0], None)
+#         subax, = subfig.axes
+#         for patch in subax.patches:
+#             patch.remove()
+#             patch.set(alpha=0.01)
+#             ax.add_patch(patch)
+#         plt.close(subfig)
 
-    os.makedirs(visualization_directory, exist_ok=True)
-    filepath = os.path.join(visualization_directory, f"ground-truth-data.pdf")
-    fig.savefig(filepath)
-    plt.close(fig)
+#     os.makedirs(visualization_directory, exist_ok=True)
+#     filepath = os.path.join(visualization_directory, f"ground-truth-data.pdf")
+#     fig.savefig(filepath)
+#     plt.close(fig)
 
 class SearchPruningApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
@@ -376,11 +377,11 @@ class SearchPruningApproach(NSRTLearningApproach):
         #     self._seg_to_ground_nsrt,
         #     CFG.feasibility_debug_directory,
         # )
-        run_jigsaw_visualization_saving(
-            search_datapoints,self._option_model, seed,
-            1, os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
-        )
-        assert False
+        # run_jigsaw_visualization_saving(
+        #     search_datapoints,self._option_model, seed,
+        #     os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
+        # )
+        # assert False
 
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':
@@ -605,10 +606,10 @@ class SearchPruningApproach(NSRTLearningApproach):
         negative_datapoints = [
             states[:prefix_length] + [next_state] for next_state in next_failed_states
         ]
-        # if next_success_states + next_failed_states:
-        #     fig = Shelves2DEnv.render_state_plt((next_success_states + next_failed_states)[0], None)
-        #     fig.savefig(os.path.join(debug_dir, f"{seed}.pdf"))
-        #     plt.close()
+        if next_success_states + next_failed_states:
+            fig = Jigsaw.render_state_plt((next_success_states + next_failed_states)[0], None)
+            fig.savefig(os.path.join(debug_dir, f"{seed}.pdf"))
+            plt.close()
         # logging.info(f"Negative datapoint classification - {[shelves2d_ground_truth_classifier(path, skeleton) for path in negative_datapoints]}")
 
         logging.info(f"Finished negative data collection - {next_failed_states} samples found")

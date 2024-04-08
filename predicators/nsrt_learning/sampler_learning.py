@@ -12,7 +12,7 @@ from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DiffusionRegressor, DistributionRegressor, \
-    MLPBinaryClassifier, NeuralGaussianRegressor, MultiDiffusionRegressor
+    MLPBinaryClassifier, NeuralGaussianRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, _GroundNSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
@@ -215,7 +215,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             use_torch_gpu=CFG.use_torch_gpu,
             train_print_every=CFG.pytorch_train_print_every)
     elif CFG.sampler_learning_regressor_model == "diffusion":
-        regressor = MultiDiffusionRegressor(
+        regressor = DiffusionRegressor(
             seed=CFG.seed,
             hid_sizes=CFG.diffusion_regressor_hid_sizes,
             max_train_iters=CFG.diffusion_regressor_max_itr,
