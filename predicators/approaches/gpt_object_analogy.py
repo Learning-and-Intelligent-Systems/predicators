@@ -41,7 +41,7 @@ from openai import OpenAI
 from predicators.approaches.prompt_gen import get_prompt
 import os
 
-DEBUG = False
+DEBUG = True
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class GPTObjectApproach(PG3AnalogyApproach):
@@ -234,6 +234,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         current_score = self.get_pg3_scores([str(policy)])[0]
         current_list_of_rules = policy.rules.copy()
         print(f"DONE {current_score}")
+        print(policy)
         for rule_index, inner_rule_index, condition in things_to_remove:
             rule = current_list_of_rules[rule_index]
             new_pos_state_preconditions = rule.pos_state_preconditions.copy()
@@ -341,14 +342,16 @@ class GPTObjectApproach(PG3AnalogyApproach):
  
     def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], task_index: int, state_index: int):
         # Performs best-first search filling variables with objects, if possible
-        initial_variables = set([var for var in rule.parameters]) - set(existing_mapping.values())
+        initial_variables = set([var for var in rule.parameters]) # - set(existing_mapping.values())
 
         ground_target_nsrt = self._target_actions[task_index][state_index]
         constraints = {} # Base domain var to object
+        """
         for target_var, base_var in existing_mapping.items():
             index_of_object = target_nsrt.parameters.index(target_var)
             target_object = ground_target_nsrt.objects[index_of_object]
             constraints[base_var] = target_object
+        """
         
         distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
 
@@ -395,7 +398,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if available_variable in condition.variables:
                     goal_conditions.add(condition)
 
-            object_distribution = {obj: 1 for obj in self._target_states[task_index][state_index].data}
+            predicate_frequencies = {predicate: 0 for predicate in self._target_env.predicates}
+            matches_array = []
             for list_index, conditions in enumerate([pos_conditions, goal_conditions]):
                 for cond in conditions:
                     if list_index == 0: # If pos conditions, don't add WANT
@@ -415,8 +419,17 @@ class GPTObjectApproach(PG3AnalogyApproach):
                             for obj in pos_atom.objects:
                                 if obj in needed_objects or obj in constraints.values():
                                     continue
-                                object_distribution[obj] += 1
+                                matches_array.append((pos_atom.predicate.name, obj))
+                                if pos_atom.predicate.name in predicate_frequencies:
+                                    predicate_frequencies[pos_atom.predicate.name] += 1
+                                else:
+                                    predicate_frequencies[pos_atom.predicate.name] = 1
 
+            object_distribution = {obj: 1 for obj in self._target_states[task_index][state_index].data}
+            for predicate_name, obj in matches_array:
+                if obj not in object_distribution:
+                    import ipdb; ipdb.set_trace();
+                object_distribution[obj] += 1.0/predicate_frequencies[predicate_name]
             for tobj, object_score in object_distribution.items():
                 object_distribution[tobj] = object_score * object_score * object_score
 
@@ -730,8 +743,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
          # Gripper -> Logistics
         if 'gripper' in self._base_env.get_name() and 'logistics' in self._target_env.get_name():
             variable_input = {
-                ("drive-truck", "move") : {"?loc-from": "?from", "?loc-to": "?to"},
-                ("fly-airplane", "move") : {"?loc-from": "?from", "?loc-to": "?to"},
+                ("drive-truck", "move") : {"?loc_from": "?from", "?loc_to": "?to"},
+                ("fly-airplane", "move") : {"?loc_from": "?from", "?loc_to": "?to"},
                 ("unload-truck", "drop") : {"?obj": "?obj", "?loc": "?room", "?truck": "?gripper"},
                 ("unload-airplane", "drop") : {"?obj": "?obj", "?loc": "?room", "?airplane": "?gripper"},
                 ("load-truck", "pick") : {"?obj": "?obj", "?loc": "?room", "?truck": "?gripper"},
