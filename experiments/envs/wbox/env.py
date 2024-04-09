@@ -5,6 +5,7 @@ from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple, cast
 from copy import deepcopy
 
 import numpy as np
+import numpy.typing as npt
 from experiments.envs.utils import BoxWH, construct_subcell_box, plot_geometry
 from predicators.envs.base_env import BaseEnv
 from predicators.settings import CFG
@@ -46,8 +47,8 @@ class WBox(BaseEnv):
     object_placement_margin = 1.2
 
     ## World shape settings
-    world_range_x: ClassVar[Tuple[float, float]] = (0, 12)
-    world_range_y: ClassVar[Tuple[float, float]] = (0, 12)
+    world_range_x: ClassVar[Tuple[float, float]] = (0, 20)
+    world_range_y: ClassVar[Tuple[float, float]] = (0, 20)
     visualization_margin: ClassVar[float] = 3.0
     robot_point = Point(0, 0)
 
@@ -280,11 +281,12 @@ class WBox(BaseEnv):
 
         # Constructing subtasks
         num_containers = rng.integers(*range_containers, endpoint=True)
+        block_hashes = rng.permutation(num_containers * 3).reshape(num_containers, -1) # so that the blocks cannot be sorted
         container_indices = rng.choice(self.max_num_containers, num_containers, replace=False)
         allowed_area = box(self.world_range_x[0], self.world_range_y[0], self.world_range_x[1], self.world_range_y[1])
         for idx in range(num_containers):
             allowed_area = self._generate_subtask(
-                rng, idx, container_indices[idx], goal,
+                rng, idx, block_hashes[idx], container_indices[idx], goal,
                 simulator_state, state, allowed_area
             )
 
@@ -307,6 +309,7 @@ class WBox(BaseEnv):
         self,
         rng: np.random.Generator,
         idx: int,
+        block_hashes: npt.NDArray[np.int64],
         container_onehot_idx: int,
         goal: Set[GroundAtom],
         simulator_state: SimulatorState,
@@ -329,10 +332,10 @@ class WBox(BaseEnv):
         # Finding the block positions
         num_d_blocks = rng.integers(4)
         blocks_data = [
-            (Object(f"{idx}_i_block_{block_idx}", self._block_type), self.i_block_poly, False)
+            (Object(f"{block_hashes[block_idx + num_d_blocks]}_{idx}_i_block_{block_idx}", self._block_type), self.i_block_poly, False)
             for block_idx in range(3 - num_d_blocks)
         ] + [
-            (Object(f"{idx}_d_block_{block_idx}", self._block_type), self.d_block_poly, True)
+            (Object(f"{block_hashes[block_idx]}_{idx}_d_block_{block_idx}", self._block_type), self.d_block_poly, True)
             for block_idx in range(num_d_blocks)
         ]
         for block, poly, is_d_block in blocks_data:
