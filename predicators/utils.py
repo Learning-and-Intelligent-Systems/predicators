@@ -3679,35 +3679,32 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
     return state
 
 
-def parse_handmade_vlmtraj_into_structured_traj(
-    text: str
-) -> Tuple[List[Dict[str, Dict[Tuple[str, ...], bool]]], List[Tuple[str, Tuple[
-        str, ...]]]]:
-    """Parse a handwritten trajectory saved as text into a structured
-    representation that can be used to convert these into
-    GroundAtomTrajectories suitable for predicate invention, operator learning,
-    etc.
-
-    This function outputs two lists. The first contains a dictionary
-    whose keys are names of predicates, and whose values are a dict
-    mapping a tuple of object names to a boolean value for the ground
-    predicate at this particular timestep. The second contains a tuple
-    whose first element is the current option name, and the second
-    element contains all the objects used by this option.
-    """
-    pattern_block_of_state = r'\[(.*?)\]'
-    pattern_predicate = r'(\w+)\(([^)]+)\) - (\w+)'
-    pattern_option = r'(\w+)\(([^)]+)\) ->'
-    state_blocks_matches = re.findall(pattern_block_of_state, text, re.DOTALL)
-    option_matches = re.findall(pattern_option, text)
-    assert len(state_blocks_matches) == 1 + len(
-        option_matches
-    ), "Manual data malformed; num states != 1 + num options."
-
-    structured_state_output = []
+def parse_options_txt_into_structured_actions(
+        text: str) -> List[Tuple[str, Tuple[str, ...]]]:
+    """Given text that contains a series of ground options convert this into a
+    structured set of tuples suitable for later conversion into more structured
+    GroundAtomTrajectories."""
     structured_actions_output = []
+    pattern_option = r'(\w+)\(([^)]+)\) ->'
+    option_matches = re.findall(pattern_option, text)
+    for i in range(len(option_matches)):
+        current_option = (option_matches[i][0],
+                          tuple(map(str.strip,
+                                    option_matches[i][1].split(','))))
+        structured_actions_output.append(current_option)
+    return structured_actions_output
 
-    for i, state_block_match in enumerate(state_blocks_matches):
+
+def parse_atoms_txt_into_structured_state(
+        text: str) -> List[Dict[str, Dict[Tuple[str, ...], bool]]]:
+    """Given text that contains a series of ground atoms labelled with their
+    specific truth values, convert this into a structured dictionary suitable
+    for later conversion into more structured GroundAtomTrajectories."""
+    pattern_block_of_state = r'\[(.*?)\]'
+    pattern_predicate = r'(\w+)\(([^)]+)\): (\w+)'
+    state_blocks_matches = re.findall(pattern_block_of_state, text, re.DOTALL)
+    structured_state_output = []
+    for state_block_match in state_blocks_matches:
         predicate_matches_within_state_block = re.findall(
             pattern_predicate, state_block_match)
         current_predicate_data = {}
@@ -3719,17 +3716,33 @@ def parse_handmade_vlmtraj_into_structured_traj(
                 current_predicate_data[classifier_name] = {}
             current_predicate_data[classifier_name][objects] = truth_value
         structured_state_output.append(current_predicate_data.copy())
-        if i < len(option_matches):
-            current_option = (option_matches[i][0],
-                              tuple(
-                                  map(str.strip,
-                                      option_matches[i][1].split(','))))
-            structured_actions_output.append(current_option)
-
-    return (structured_state_output, structured_actions_output)
+    return structured_state_output
 
 
-def parse_handmade_vlmtraj_file_into_structured_trajs(
+def parse_vlmtraj_into_structured_traj(
+    text: str
+) -> Tuple[List[Dict[str, Dict[Tuple[str, ...], bool]]], List[Tuple[str, Tuple[
+        str, ...]]]]:
+    """Parse a handwritten trajectory saved as text into a structured
+    representation that can be used to convert these into a more structured
+    description suitable for later conversion into GroundAtomTrajectories.
+
+    This function outputs two lists. The first contains a dictionary
+    whose keys are names of predicates, and whose values are a dict
+    mapping a tuple of object names to a boolean value for the ground
+    predicate at this particular timestep. The second contains a tuple
+    whose first element is the current option name, and the second
+    element contains all the objects used by this option.
+    """
+    structured_state = parse_atoms_txt_into_structured_state(text)
+    structured_actions = parse_options_txt_into_structured_actions(text)
+    assert len(structured_state) == len(
+        structured_actions
+    ) + 1, "Manual data malformed; num states != 1 + num options."
+    return (structured_state, structured_actions)
+
+
+def parse_vlmtraj_file_into_structured_trajs(
     filename: str
 ) -> Tuple[List[List[Dict[str, Dict[Tuple[str, ...], bool]]]], List[List[Tuple[
         str, Tuple[str, ...]]]]]:
@@ -3749,13 +3762,13 @@ def parse_handmade_vlmtraj_file_into_structured_trajs(
     matches = re.findall(pattern, full_file_text, re.DOTALL)
     output_state_trajs, output_action_trajs = [], []
     for match in matches:
-        curr_state_traj, curr_action_traj = parse_handmade_vlmtraj_into_structured_traj(
+        curr_state_traj, curr_action_traj = parse_vlmtraj_into_structured_traj(
             match)
         output_state_trajs.append(curr_state_traj)
         output_action_trajs.append(curr_action_traj)
     return (output_state_trajs, output_action_trajs)
 
 
-# filename = "/home/njk/Documents/GitHub/predicators/saved_datasets/apple_slice__demo+handlabeled_atoms__manual__1.txt"
+# filename = "/home/njk/Documents/GitHub/predicators/saved_datasets/apple_slice__demo+labeled_atoms__manual__1.txt"
 # state_trajs, action_trajs = parse_handmade_vlmtraj_file_into_structured_trajs(filename)
 # import ipdb; ipdb.set_trace()

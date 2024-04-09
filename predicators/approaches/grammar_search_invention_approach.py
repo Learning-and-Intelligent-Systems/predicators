@@ -924,7 +924,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        if CFG.offline_data_method != "demo+handlabeled_atoms":
+        if CFG.offline_data_method not in ["demo+labeled_atoms", "img_demos"]:
             # Generate a candidate set of predicates.
             logging.info("Generating candidate predicates...")
             grammar = _create_grammar(dataset, self._initial_predicates)
@@ -964,7 +964,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
             logging.info("Done.")
         else:
-            # In this case, we're inventing over hand-defined VLM predicates!
+            # In this case, we're inventing over labelled atoms
+            # (probably from a VLM)!
             # We rely on the annotations as our ground atom datasets.
             assert dataset.annotations is not None
             # We now turn these into GroundAtomTrajectories.

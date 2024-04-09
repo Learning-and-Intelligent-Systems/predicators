@@ -46,7 +46,7 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
     if CFG.offline_data_method == "img_demos":
         return create_ground_atom_data_from_img_trajs(env, train_tasks,
                                                       known_options)
-    if CFG.offline_data_method == "demo+handlabeled_atoms":
+    if CFG.offline_data_method == "demo+labeled_atoms":
         return create_ground_atom_data_from_labeled_txt(
             env, train_tasks, known_options)
     if CFG.offline_data_method == "empty":
