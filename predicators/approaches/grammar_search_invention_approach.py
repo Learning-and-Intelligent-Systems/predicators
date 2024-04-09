@@ -4582,6 +4582,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             static_predicate_branching_counts = {
                 op_name: {} for op_name in all_potential_ops[0].keys()
             }
+            static_predicate_evaluations = {
+                op_name: {} for op_name in all_potential_ops[0].keys()
+            }
+            dynamic_predicates_per_op = {
+                op_name: set() for op_name in all_potential_ops[0].keys()
+            }
             for op_name in all_potential_ops[0].keys():
 
                 predicate_pool = ddd[op_name][0]
@@ -4632,6 +4638,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # could stop here, but might want to narrow down more.
 
                 dynamic_preds = set(p for p in dynamic_preconds_per_op[op_name] if p in preconditions_to_keep)
+                dynamic_predicates_per_op[op_name] = dynamic_preds
                 static_preds = []
                 for p in predicate_pool:
                     if p not in dynamic_preconds_per_op[op_name] and p in preconditions_to_keep:
@@ -4639,6 +4646,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 for static in static_preds:
                     static_predicate_branching_counts[op_name][static] = 0
+                    static_predicate_evaluations[op_name][static] = set()
 
                 # ############################################
                 # ############################################
@@ -5425,7 +5433,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ####################################################################
 
             pnads = self.learn_pnads()
-            self._pnads = pnads
+            # self._pnads = pnads
             import pdb; pdb.set_trace()
             print("darth maul")
 
@@ -5440,11 +5448,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             option_specs = [pnad.option_spec for pnad in pnads]
             dummy_nsrts = dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
 
-            for seg in list_of_segments:
+            for idx_1, seg in enumerate(list_of_segments):
                 init_atoms = utils.abstract(seg.states[0], predicates_we_kept)
                 objs = set(seg.states[0])
                 ground_nsrts, _ = task_plan_grounding2(init_atoms, objs, dummy_nsrts, allow_noops=True)
-                for gn in ground_nsrts:
+                for idx_2, gn in enumerate(ground_nsrts):
                     # if gn.parent.name != "Op9-RobotMoveToButton":
                     #     continue
                     # else:
@@ -5460,9 +5468,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     dynamic_preconditions = set(p for p in gn.preconditions if p.predicate not in static_predicate_branching_counts[gn.parent.name].keys())
                     static_preconditions = [p for p in gn.preconditions if p.predicate in static_predicate_branching_counts[gn.parent.name].keys()]
                     if dynamic_preconditions.issubset(init_atoms):
-                        for p in static_preconditions:
+                        for p in static_preconditions: # ground atoms
                             if p not in init_atoms:
                                 static_predicate_branching_counts[gn.parent.name][p.predicate] += 1
+                                static_predicate_evaluations[gn.parent.name][p.predicate].add((idx_1, idx_2))
                     # not_met = gn.preconditions - gn.preconditions.intersection(init_atoms)
                     # if len(not_met) > 0:
                     #     for p in not_met:
@@ -5470,27 +5479,44 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     #         if p.predicate in static_predicate_branching_counts[gn.parent.name].keys():
                     #             static_predicate_branching_counts[gn.parent.name][p.predicate] += 1
 
-            import pdb; pdb.set_trace()
-
             for op_name, d in static_predicate_branching_counts.items():
-                print(op_name, [pnad for pnad in pnads if pnad.op.name == op_name][0].op.parameters)
+                # print(op_name, [pnad for pnad in pnads if pnad.op.name == op_name][0].op.parameters)
                 l = [(k, v) for k, v in d.items()]
                 sorted_predicates = sorted(l, key=lambda x: -x[1])
+                highest_scoring = sorted_predicates[0][0] # (predicate, count)
                 for n, c in sorted_predicates:
-                    print(f"Cost: {c}, Predicate: {n}")
-                print()
+                    # compute overlap between the highest scoring and this one
+                    highest_scoring_evaluations = static_predicate_evaluations[op_name][highest_scoring]
+                    current_predicate_evaluations = static_predicate_evaluations[op_name][n]
+                    overlap = highest_scoring_evaluations.intersection(current_predicate_evaluations)
+                    num_overlap = len(overlap)
+                #     print(f"Cost: {c}, # Overlap: {num_overlap}, Predicate: {n}")
+                # print()
 
+                final_potential_ops2[op_name]["pre"] = {highest_scoring} | dynamic_predicates_per_op[op_name]
             print("dooku")
+            fff = {}
+            for op in ddd.keys():
+                fff[op] = []
+                fff[op].append(
+                    set(p for p in ddd[op][0] if p in final_potential_ops2[op]["pre"])
+                )
+                fff[op].append(
+                    set(p for p in ddd[op][1] if p in final_potential_ops2[op]["add"])
+                )
+                fff[op].append(
+                    set(p for p in ddd[op][2] if p in final_potential_ops2[op]["del"])
+                )
+                fff[op].append(ddd[op][3])
+            self._clusters = fff
 
-
-            ####################################
-            ####################################
-
-
+            predicates_we_kept = self.remove_harmful_predicates(final_potential_ops2, atom_dataset, initial_predicates, segmented_trajs, fff)
+            pnads = self.learn_pnads()
+            self._pnads = pnads
             return predicates_we_kept
 
-
-
+            ####################################
+            ####################################
 
             from predicators.structs import STRIPSOperator, Variable, PNAD
             pnads: List[PNAD] = []
