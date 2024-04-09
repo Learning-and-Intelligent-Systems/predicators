@@ -1790,7 +1790,7 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         X_cond = X_cond * mask
         predicted_noise_label = self(X_cond, Y_noisy, t)
         predicted_noise = predicted_noise_label
-        loss = F.smooth_l1_loss(noise, predicted_noise, reduction='sum')
+        loss = F.mse_loss(noise, predicted_noise, reduction='sum')
         assert not loss.isnan()
         return loss
 

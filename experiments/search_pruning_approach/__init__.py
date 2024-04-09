@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from experiments.envs.utils import plot_geometry
 
 # from experiments.envs.shelves2d.env import Shelves2DEnv
-from experiments.envs.jigsaw.env import Jigsaw
+from experiments.envs.wbox.env import WBox
 from experiments.search_pruning_approach.dataset import FeasibilityDataset
 from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, NeuralFeasibilityClassifier
 from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_backtracking_for_data_generation, run_low_level_search
@@ -179,99 +179,106 @@ class InterleavedBacktrackingDatapoint():
 #     f"negative datapoints per class: {num_negative_datapoints_per_class}") if negative_datapoints else "No negative datapoints collected"
 #     return positive_report + '\n' + negative_report
 
-# def visualize_jigsaw_placement(
-#     skeleton: List[_GroundNSRT],
-#     previous_states: List[State],
-#     goal: Set[GroundAtom],
-#     option_model: _OptionModelBase,
-#     seed: int,
-#     atoms_sequence: List[Set[GroundAtom]],
-# ):
-#     assert previous_states
-#     current_state = previous_states[-1]
-#     nsrt = skeleton[len(previous_states) - 1]
-#     rng_sampler = np.random.default_rng(seed)
-#     if nsrt.name.startswith("MoveTo"):
-#         obj = nsrt.objects[0]
-#     else:
-#         obj = nsrt.objects[-1]
+def visualize_wbox_placement(
+    skeleton: List[_GroundNSRT],
+    previous_states: List[State],
+    goal: Set[GroundAtom],
+    option_model: _OptionModelBase,
+    seed: int,
+    atoms_sequence: List[Set[GroundAtom]],
+):
+    assert previous_states
+    current_state = previous_states[-1]
+    nsrt = skeleton[len(previous_states) - 1]
+    rng_sampler = np.random.default_rng(seed)
+    if nsrt.name.startswith("MoveTo"):
+        obj = nsrt.objects[0]
+    else:
+        obj = nsrt.objects[-1]
 
-#     datapoints: List[State] = []
+    datapoints: List[State] = []
 
-#     for _ in range(300):
-#         option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
-#         next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
+    for _ in range(300):
+        option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
+        next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
 
-#         if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
-#             continue
+        if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
+            continue
 
-#         datapoints.append(next_state)
+        datapoints.append(next_state)
 
-#     fig1 = Jigsaw.render_state_plt(current_state, None)
-#     ax1, = fig1.axes
-#     for next_state in datapoints:
-#         ax1.add_patch(plot_geometry(Jigsaw._get_shape(next_state, obj), facecolor='none', edgecolor='black', alpha=0.1))
+    fig1 = WBox.render_state_plt(current_state, None)
+    ax1, = fig1.axes
+    for next_state in datapoints:
+        ax1.add_patch(WBox._get_obj_patch(next_state, obj, facecolor='none', edgecolor='black', alpha=0.1))
 
-#     fig2 = plt.figure()
-#     ax2 = fig2.add_subplot()
-#     ax2.scatter(list(range(len(datapoints))), [Jigsaw._get_shape(next_state, obj).envelope.centroid.y for next_state in datapoints])
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot()
+    ax2.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(next_state, obj)[0] for next_state in datapoints])
 
-#     return fig1, fig2
+    fig3 = plt.figure()
+    ax3 = fig3.add_subplot()
+    ax3.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(next_state, obj)[1] for next_state in datapoints])
 
-# def run_jigsaw_visualization_saving(
-#     search_datapoints: List[InterleavedBacktrackingDatapoint],
-#     option_model: _OptionModelBase,
-#     seed: int,
-#     visualization_directory: str,
-# ) -> None:
-#     logging_level = deepcopy(logging.getLogger().level)
-#     os.makedirs(visualization_directory, exist_ok=True)
-#     for idx, search_datapoint in zip(range(20), search_datapoints):
-#         states, atoms_sequence, horizons, skeleton = search_datapoint
+    return fig1, fig2, fig3
 
-#         logging.getLogger().setLevel(logging.WARNING)
-#         fig1, fig2 = visualize_jigsaw_placement(
-#             skeleton = skeleton,
-#             previous_states = states[:(idx // 2 + 1)],
-#             goal = atoms_sequence[-1],
-#             option_model = option_model,
-#             seed = seed,
-#             atoms_sequence = atoms_sequence,
-#         )
-#         logging.getLogger().setLevel(logging_level)
+def run_wbox_visualization_saving(
+    search_datapoints: List[InterleavedBacktrackingDatapoint],
+    option_model: _OptionModelBase,
+    seed: int,
+    visualization_directory: str,
+) -> None:
+    logging_level = deepcopy(logging.getLogger().level)
+    os.makedirs(visualization_directory, exist_ok=True)
+    for idx, search_datapoint in zip(range(48), search_datapoints):
+        states, atoms_sequence, horizons, skeleton = search_datapoint
 
-#         filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
-#         filepath2 = os.path.join(visualization_directory, f"{idx}-scatter.pdf")
-#         logging.info(f"Saving visualizations to files {filepath1} and {filepath2} with "
-#                      f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
-#         fig1.savefig(filepath1)
-#         fig2.savefig(filepath2)
-#         plt.close(fig1)
-#         plt.close(fig2)
+        logging.getLogger().setLevel(logging.WARNING)
+        fig1, fig2, fig3 = visualize_wbox_placement(
+            skeleton = skeleton,
+            previous_states = states[:(idx // 4 + 1)],
+            goal = atoms_sequence[-1],
+            option_model = option_model,
+            seed = seed,
+            atoms_sequence = atoms_sequence,
+        )
+        logging.getLogger().setLevel(logging_level)
 
-# def run_jigsaw_ground_truth_saving(
-#     segmented_trajs: List[List[Segment]],
-#     seg_to_ground_nsrt: Dict[Segment, _GroundNSRT],
-#     visualization_directory: str,
-# ) -> None:
-#     fig = plt.figure()
-#     ax = fig.add_subplot()
-#     ax.set_xlim(0, 25)
-#     ax.set_ylim(0, 25)
+        filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
+        filepath2 = os.path.join(visualization_directory, f"{idx}-scatter-x.pdf")
+        filepath3 = os.path.join(visualization_directory, f"{idx}-scatter-y.pdf")
+        logging.info(f"Saving visualizations to files {filepath1}, {filepath2} and {filepath3} with "
+                     f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
+        fig1.savefig(filepath1)
+        fig2.savefig(filepath2)
+        fig3.savefig(filepath3)
+        plt.close(fig1)
+        plt.close(fig2)
+        plt.close(fig3)
 
-#     for segmented_traj in segmented_trajs:
-#         subfig = Jigsaw.render_state_plt(segmented_traj[1].states[0], None)
-#         subax, = subfig.axes
-#         for patch in subax.patches:
-#             patch.remove()
-#             patch.set(alpha=0.01)
-#             ax.add_patch(patch)
-#         plt.close(subfig)
+def run_wbox_ground_truth_saving(
+    segmented_trajs: List[List[Segment]],
+    seg_to_ground_nsrt: Dict[Segment, _GroundNSRT],
+    visualization_directory: str,
+) -> None:
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.set_xlim(0, 25)
+    ax.set_ylim(0, 25)
 
-#     os.makedirs(visualization_directory, exist_ok=True)
-#     filepath = os.path.join(visualization_directory, f"ground-truth-data.pdf")
-#     fig.savefig(filepath)
-#     plt.close(fig)
+    for segmented_traj in segmented_trajs:
+        subfig = WBox.render_state_plt(segmented_traj[1].states[0], None)
+        subax, = subfig.axes
+        for patch in subax.patches:
+            patch.remove()
+            patch.set(alpha=0.01)
+            ax.add_patch(patch)
+        plt.close(subfig)
+
+    os.makedirs(visualization_directory, exist_ok=True)
+    filepath = os.path.join(visualization_directory, f"ground-truth-data.pdf")
+    fig.savefig(filepath)
+    plt.close(fig)
 
 class SearchPruningApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
@@ -372,16 +379,16 @@ class SearchPruningApproach(NSRTLearningApproach):
         num_validation_datapoints_per_iter = round(CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
         num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - num_validation_datapoints_per_iter
 
-        # run_jigsaw_ground_truth_saving(
-        #     self._segmented_trajs,
-        #     self._seg_to_ground_nsrt,
-        #     CFG.feasibility_debug_directory,
-        # )
-        # run_jigsaw_visualization_saving(
-        #     search_datapoints,self._option_model, seed,
-        #     os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
-        # )
-        # assert False
+        run_wbox_ground_truth_saving(
+            self._segmented_trajs,
+            self._seg_to_ground_nsrt,
+            CFG.feasibility_debug_directory,
+        )
+        run_wbox_visualization_saving(
+            search_datapoints,self._option_model, seed,
+            os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
+        )
+        assert False
 
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':
@@ -607,7 +614,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             states[:prefix_length] + [next_state] for next_state in next_failed_states
         ]
         if next_success_states + next_failed_states:
-            fig = Jigsaw.render_state_plt((next_success_states + next_failed_states)[0], None)
+            fig = WBox.render_state_plt((next_success_states + next_failed_states)[0], None)
             fig.savefig(os.path.join(debug_dir, f"{seed}.pdf"))
             plt.close()
         # logging.info(f"Negative datapoint classification - {[shelves2d_ground_truth_classifier(path, skeleton) for path in negative_datapoints]}")

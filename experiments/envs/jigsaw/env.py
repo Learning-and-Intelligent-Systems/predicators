@@ -4,7 +4,7 @@ import logging
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import numpy as np
-from experiments.envs.utils import BoxWH, plot_geometry
+from experiments.envs.utils import BoxWH, construct_subcell_box, plot_geometry
 from predicators.envs.base_env import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Object, Predicate, State, Task, Type
@@ -75,39 +75,27 @@ class Jigsaw(BaseEnv):
     # Common geometries
     @staticmethod
     def _construct_block_polygon(
-        cells: List[float],
+        cells: List[bool],
         sub_cell_size: float,
         sub_cell_margin: float,
         sub_block_present_thresh: float
     ) -> Polygon:
-        main_polygon = BoxWH(0, 0, 2 * sub_cell_size, 3 * sub_cell_size)
-        for (sx, sy), cell in zip(itertools.product(range(2), range(3)), cells):
-            if cell >= sub_block_present_thresh:
-                continue
-            dx, dy, dw, dh = (sx * sub_cell_size, sy * sub_cell_size, sub_cell_size * 2, sub_cell_size)
-            if sx == 0:
-                dx -= sub_cell_size
-            if sy in {0, 2}:
-                dh += sub_cell_size
-            if sy == 0:
-                dy -= sub_cell_size
-            main_polygon = main_polygon.difference(BoxWH(dx, dy, dw, dh))
-        return main_polygon.buffer(-sub_cell_margin, join_style='mitre')
+        return construct_subcell_box(np.array(cells).reshape(3, 2).T, sub_cell_size).buffer(-sub_cell_margin, join_style='mitre')
 
     ## L-block
-    l_block_cells = [1.0, 1.0, 0.0, 1.0, 0.0, 0.0]
+    l_block_cells = [True, True, False, True, False, False]
     l_block_poly = _construct_block_polygon(l_block_cells, sub_cell_size, sub_cell_margin, sub_block_present_thresh)
 
     ## T-block
-    t_block_cells = [1.0, 1.0, 1.0, 0, 1.0, 0]
+    t_block_cells = [True, True, True, False, True, False]
     t_block_poly = _construct_block_polygon(t_block_cells, sub_cell_size, sub_cell_margin, sub_block_present_thresh)
 
     ## Z-block
-    z_block_cells = [1.0, 1.0, 0, 0, 1.0, 1.0]
+    z_block_cells = [True, True, False, False, True, True]
     z_block_poly = _construct_block_polygon(z_block_cells, sub_cell_size, sub_cell_margin, sub_block_present_thresh)
 
     ## S-block
-    s_block_cells = [0, 1.0, 1.0, 1.0, 1.0, 0]
+    s_block_cells = [False, True, True, True, True, False]
     s_block_poly = _construct_block_polygon(s_block_cells, sub_cell_size, sub_cell_margin, sub_block_present_thresh)
 
     @classmethod
@@ -163,7 +151,7 @@ class Jigsaw(BaseEnv):
             self._test_tasks = self._generate_tasks(
                 rng = self._test_rng,
                 num_tasks = CFG.num_test_tasks,
-                range_blocks = self.range_train_blocks,
+                range_blocks = self.range_test_blocks,
             )
         return self._test_tasks
 
@@ -201,11 +189,6 @@ class Jigsaw(BaseEnv):
         z_starting_block = rng.choice([True, False])
 
         # Generating blocks data
-        t_block_cells = [1.0, 1.0, 1.0, 0.0, 1.0, 0.0]
-        z_block_cells = [1.0, 1.0, 0.0, 0.0, 1.0, 1.0]
-        s_block_cells = [0.0, 1.0, 1.0, 1.0, 1.0, 0.0]
-        l_block_cells = [1.0, 1.0, 0.0, 1.0, 0.0, 0.0]
-
         block_range_endpoints = [-1] + t_block_positions + [num_blocks - 2]
         block_ids = rng.permutation(num_blocks)
         blocks_data = [(

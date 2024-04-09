@@ -131,6 +131,8 @@ class State:
     def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
         """Set the value of an object feature by name."""
         idx = obj.type.feature_names.index(feature_name)
+        if obj not in self.data:
+            self.data[obj] = np.zeros(obj.type.dim, dtype=np.float32)
         self.data[obj][idx] = feature_val
 
     def get_objects(self, object_type: Type) -> List[Object]:
@@ -217,7 +219,7 @@ class Predicate:
     _classifier: Callable[[State, Sequence[Object]],
                           bool] = field(compare=False)
 
-    def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
+    def __call__(self, entities: Sequence[_TypedEntity]) -> Union[LiftedAtom, GroundAtom]:
         """Convenience method for generating Atoms."""
         if self.arity == 0:
             raise ValueError("Cannot use __call__ on a 0-arity predicate, "
