@@ -16,7 +16,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, GroundAtom, \
     ImageOptionTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option
+    Predicate, State, Task, _Option
 from predicators.vlm_interface import GoogleGeminiVLM, VisionLanguageModel
 
 
@@ -241,7 +241,6 @@ def _parse_structured_actions_into_ground_options(
         train_tasks: List[Task]) -> List[List[_Option]]:
     """Convert structured actions trajectories into actual lists of ground
     options trajectories."""
-    # TODO: we currently don't parse out continuous parameters!!!
     assert len(structured_actions_trajs) == len(train_tasks)
     option_name_to_option = {o.name: o for o in known_options}
     option_trajs = []
