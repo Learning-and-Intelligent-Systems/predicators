@@ -3680,18 +3680,26 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
 
 
 def parse_options_txt_into_structured_actions(
-        text: str) -> List[Tuple[str, Tuple[str, ...]]]:
+        text: str) -> List[Tuple[str, Tuple[str, ...], List[float]]]:
     """Given text that contains a series of ground options convert this into a
     structured set of tuples suitable for later conversion into more structured
     GroundAtomTrajectories."""
     structured_actions_output = []
-    pattern_option = r'(\w+)\(([^)]+)\) ->'
+    pattern_option = r'(\w+)\(([^)]*)\)\[([\d.,\s]*)\] ->'
     option_matches = re.findall(pattern_option, text)
     for i in range(len(option_matches)):
-        current_option = (option_matches[i][0],
-                          tuple(map(str.strip,
-                                    option_matches[i][1].split(','))))
-        structured_actions_output.append(current_option)
+        current_option_with_objs = (option_matches[i][0],
+                                    tuple(
+                                        map(str.strip,
+                                            option_matches[i][1].split(','))))
+        continuous_params_floats = [
+            float(float_str.strip(' '))
+            for float_str in option_matches[i][2].split(',')
+            if len(float_str) > 0
+        ]
+        structured_actions_output.append(
+            (current_option_with_objs[0], current_option_with_objs[1],
+             continuous_params_floats))
     return structured_actions_output
 
 
@@ -3700,7 +3708,7 @@ def parse_atoms_txt_into_structured_state(
     """Given text that contains a series of ground atoms labelled with their
     specific truth values, convert this into a structured dictionary suitable
     for later conversion into more structured GroundAtomTrajectories."""
-    pattern_block_of_state = r'\[(.*?)\]'
+    pattern_block_of_state = r"\{(.*?[^\d,\s].*?)\}"
     pattern_predicate = r'(\w+)\(([^)]+)\): (\w+)'
     state_blocks_matches = re.findall(pattern_block_of_state, text, re.DOTALL)
     structured_state_output = []
@@ -3722,7 +3730,7 @@ def parse_atoms_txt_into_structured_state(
 def parse_vlmtraj_into_structured_traj(
     text: str
 ) -> Tuple[List[Dict[str, Dict[Tuple[str, ...], bool]]], List[Tuple[str, Tuple[
-        str, ...]]]]:
+        str, ...], List[float]]]]:
     """Parse a handwritten trajectory saved as text into a structured
     representation that can be used to convert these into a more structured
     description suitable for later conversion into GroundAtomTrajectories.
@@ -3745,7 +3753,7 @@ def parse_vlmtraj_into_structured_traj(
 def parse_vlmtraj_file_into_structured_trajs(
     filename: str
 ) -> Tuple[List[List[Dict[str, Dict[Tuple[str, ...], bool]]]], List[List[Tuple[
-        str, Tuple[str, ...]]]]]:
+        str, Tuple[str, ...], List[float]]]]]:
     """Parse a txt file full ofhandwritten trajectories into a structured
     representation that can be used to convert these into
     GroundAtomTrajectories suitable for predicate invention, operator learning,
@@ -3767,8 +3775,3 @@ def parse_vlmtraj_file_into_structured_trajs(
         output_state_trajs.append(curr_state_traj)
         output_action_trajs.append(curr_action_traj)
     return (output_state_trajs, output_action_trajs)
-
-
-# filename = "/home/njk/Documents/GitHub/predicators/saved_datasets/apple_slice__demo+labeled_atoms__manual__1.txt"
-# state_trajs, action_trajs = parse_handmade_vlmtraj_file_into_structured_trajs(filename)
-# import ipdb; ipdb.set_trace()
