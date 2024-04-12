@@ -19,11 +19,6 @@ allowed-regions:
     - [5.0, 2.7]
 
 # Known immovable objects. Assuming default rotations.
-known-immovable-objects:
-  floor:
-    x: 1.5
-    y: 0.5
-    z: -0.6
 # TODO note: later we can add static objects like tables, chairs, etc. here
 #  computer_table:
 
