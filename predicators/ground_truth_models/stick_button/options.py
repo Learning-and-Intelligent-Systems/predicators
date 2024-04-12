@@ -266,6 +266,7 @@ class StickButtonMovementGroundTruthOptionFactory(
         robot_type = types["robot"]
         button_type = types["button"]
         stick_type = types["stick"]
+        holder_type = types["holder"]
 
         RobotAboveButton = predicates["RobotAboveButton"]
         StickAboveButton = predicates["StickAboveButton"]
@@ -322,11 +323,28 @@ class StickButtonMovementGroundTruthOptionFactory(
             terminal=_RobotPressButton_terminal,
         )
 
+        # PlaceStick
+        def _PlaceStick_terminal(state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> bool:
+            del memory, params  # unused
+            robot, stick, _ = objects
+            return not Grasped.holds(state, [robot, stick])
+
+        PlaceStick = ParameterizedOption(
+            "PlaceStick",
+            types=[robot_type, stick_type, holder_type],
+            params_space=Box(-1, 1, (1, )),
+            policy=cls._create_place_stick_policy_diff_signature(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_PlaceStick_terminal,
+        )
+
         unchanged_options = {
             opt
-            for opt in init_options if opt.name != "RobotPressButton"
+            for opt in init_options if opt.name not in ["RobotPressButton", "PlaceStick"]
         }
-        changed_options = {RobotPressButton}
+        changed_options = {RobotPressButton, PlaceStick}
         new_options = {RobotMoveToButton, StickMoveToButton}
         # {RobotPressButton, PickStick, StickPressButton, PlaceStick}
 
@@ -457,16 +475,14 @@ class StickButtonMovementGroundTruthOptionFactory(
         return policy
 
     @classmethod
-    def _create_place_stick_policy(cls,
-                                   holder_type: Type) -> ParameterizedPolicy:
+    def _create_place_stick_policy_diff_signature(cls) -> ParameterizedPolicy:
 
         max_speed = StickButtonEnv.max_speed
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory  # unused
-            robot, _ = objects
-            holder = state.get_objects(holder_type)[0]
+            robot, _, holder = objects
             norm_offset_y, = params
             offset_y = (StickButtonEnv.stick_width / 2) * norm_offset_y
             rx = state.get(robot, "x")

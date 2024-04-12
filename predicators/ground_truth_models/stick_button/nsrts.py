@@ -262,6 +262,7 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         robot_type = types["robot"]
         button_type = types["button"]
         stick_type = types["stick"]
+        holder_type = types["holder"]
 
         # Predicates
         Pressed = predicates["Pressed"]
@@ -464,8 +465,9 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         # PlaceStickFromNothing
         robot = Variable("?robot", robot_type)
         stick = Variable("?stick", stick_type)
-        parameters = [robot, stick]
-        option_vars = [robot, stick]
+        holder = Variable("?holder", holder_type)
+        parameters = [robot, stick, holder]
+        option_vars = [robot, stick, holder]
         option = PlaceStick
         preconditions = {
             LiftedAtom(Grasped, [robot, stick]),
@@ -494,9 +496,10 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         # PlaceStickFromButton
         robot = Variable("?robot", robot_type)
         stick = Variable("?stick", stick_type)
+        holder = Variable("?holder", holder_type)
         from_button = Variable("?from_button", button_type)
-        parameters = [robot, stick, from_button]
-        option_vars = [robot, stick]
+        parameters = [robot, stick, holder, from_button]
+        option_vars = [robot, stick, holder]
         option = PlaceStick
         preconditions = {
             LiftedAtom(StickAboveButton, [stick, from_button]),

@@ -342,6 +342,7 @@ def test_stick_button_move():
     state = env.get_train_tasks()[0].init.copy()
     robot, = state.get_objects(robot_type)
     stick, = state.get_objects(stick_type)
+    holder, = state.get_objects(holder_type)
     buttons = state.get_objects(button_type)
     assert len(buttons) == 2
     robot_x = (env.rz_x_ub + env.rz_x_lb) / 2
@@ -376,7 +377,6 @@ def test_stick_button_move():
     assert StickPressButton.name == "StickPressButton"
     assert RobotMoveToButton.name == "RobotMoveToButton"
     assert StickMoveToButton.name == "StickMoveToButton"
-
     # Test PickStick.
     option = PickStick.ground([robot, stick], [0.1])
     option_plan = [option]
@@ -432,7 +432,7 @@ def test_stick_button_move():
     # Special test for PlaceStick NSRT because it's not used by oracle.
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     nsrt = next(iter(n for n in nsrts if n.name == "PlaceStickFromNothing"))
-    ground_nsrt = nsrt.ground([robot, stick])
+    ground_nsrt = nsrt.ground([robot, stick, holder])
     rng = np.random.default_rng(123)
     option = ground_nsrt.sample_option(state, set(), rng)
     assert -1 <= option.params[0] <= 1
