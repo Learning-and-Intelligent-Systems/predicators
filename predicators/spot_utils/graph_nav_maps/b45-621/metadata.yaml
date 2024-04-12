@@ -20,7 +20,11 @@ allowed-regions:
 
 # Known immovable objects. Assuming default rotations.
 # TODO note: later we can add static objects like tables, chairs, etc. here
-#  computer_table:
+known-immovable-objects:
+  floor:
+    x: 1.4
+    y: 0.5
+    z: -0.5
 
 # Static object features, including the shapes and sizes of known objects.
 static-object-features:
@@ -30,7 +34,7 @@ static-object-features:
     length: 10000000  # effectively infinite
     width: 10000000
     flat_top_surface: 1
-  block_red_1:
+  red_block:
     shape: 2
     height: 0.1
     length: 0.1
