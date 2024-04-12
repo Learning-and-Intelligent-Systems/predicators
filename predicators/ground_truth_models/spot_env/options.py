@@ -280,7 +280,7 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
     del memory  # not used
 
     robot, localizer, _ = get_robot()
-    sim_robot = get_simulated_robot()
+    # sim_robot = get_simulated_robot()
 
     distance = params[distance_param_idx]
     yaw = params[yaw_param_idx]
@@ -298,18 +298,19 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
                                     target_pose.z + target_height / 2)
     fn = navigate_to_relative_pose_and_gaze
     fn_args = (robot, rel_pose, localizer, gaze_target)
-    sim_fn: Callable = simulated_navigate_to_relative_pose_and_gaze
-    sim_fn_args: Tuple = (sim_robot,
-                          robot_pose.get_closest_se2_transform() * rel_pose,
-                          gaze_target)
+    # sim_fn: Callable = simulated_navigate_to_relative_pose_and_gaze
+    # sim_fn_args: Tuple = (sim_robot,
+    #                       robot_pose.get_closest_se2_transform() * rel_pose,
+    #                       gaze_target)
     if not do_gaze:
         fn = navigate_to_relative_pose  # type: ignore
         fn_args = (robot, rel_pose)  # type: ignore
-        sim_fn = simulated_navigate_to_relative_pose
-        sim_fn_args = (sim_robot,
-                       robot_pose.get_closest_se2_transform() * rel_pose)
-    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
-                                            sim_fn_args)
+        # sim_fn = simulated_navigate_to_relative_pose
+        # sim_fn_args = (sim_robot,
+        #                robot_pose.get_closest_se2_transform() * rel_pose)
+    # action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
+    #                                         sim_fn_args)
+    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, None, ())
     return utils.create_spot_env_action(action_extra_info)
 
 
@@ -323,11 +324,13 @@ def _grasp_policy(name: str,
     del memory  # not used
 
     robot, _, _ = get_robot()
-    sim_robot = get_simulated_robot()
+    # sim_robot = get_simulated_robot()
+    sim_robot = None
     assert len(params) == 6
     pixel = (int(params[0]), int(params[1]))
     target_obj = objects[target_obj_idx]
-    sim_target_obj = get_simulated_object(target_obj)
+    # sim_target_obj = get_simulated_object(target_obj)
+    sim_target_obj = None
 
     # Special case: if we're running dry, the image won't be used.
     if CFG.spot_run_dry:
@@ -965,6 +968,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
             "spot_main_sweep_env",
             "spot_ball_and_cup_sticky_table_env",
             "spot_brush_shelf_env",
+            "lis_spot_block_floor_env",
         }
 
     @classmethod
