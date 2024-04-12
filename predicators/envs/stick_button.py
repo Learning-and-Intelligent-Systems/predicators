@@ -727,16 +727,6 @@ class StickButtonMovementEnv(StickButtonEnv):
 
         return next_state
 
-    # def simulate(self, state: State, action: Action) -> State:
-    #     """Run simulation and update tip_x and tip_y."""
-    #     next_state = super().simulate(state, action)
-    #     stick_rect = self.object_to_geom(self._stick, next_state)
-    #     assert isinstance(stick_rect, utils.Rectangle)
-    #     tip_rect = self.stick_rect_to_tip_rect(stick_rect)
-    #     next_state.set(self._stick, "tip_x", tip_rect.x)
-    #     next_state.set(self._stick, "tip_y", tip_rect.y)
-    #     return next_state
-
     @classmethod
     def get_name(cls) -> str:
         return "stick_button_move"
