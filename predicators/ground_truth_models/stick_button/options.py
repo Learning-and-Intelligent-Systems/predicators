@@ -271,6 +271,7 @@ class StickButtonMovementGroundTruthOptionFactory(
         RobotAboveButton = predicates["RobotAboveButton"]
         StickAboveButton = predicates["StickAboveButton"]
         Pressed = predicates["Pressed"]
+        Grasped = predicates["Grasped"]
 
         # RobotMoveToButton
         def _RobotMoveToButton_terminal(state: State, memory: Dict,
@@ -342,7 +343,8 @@ class StickButtonMovementGroundTruthOptionFactory(
 
         unchanged_options = {
             opt
-            for opt in init_options if opt.name not in ["RobotPressButton", "PlaceStick"]
+            for opt in init_options
+            if opt.name not in ["RobotPressButton", "PlaceStick"]
         }
         changed_options = {RobotPressButton, PlaceStick}
         new_options = {RobotMoveToButton, StickMoveToButton}
@@ -370,7 +372,8 @@ class StickButtonMovementGroundTruthOptionFactory(
             dx = dx / max_speed
             dy = dy / max_speed
             # No need to rotate, and we don't want to press until we're there.
-            return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
+            return Action(np.array([dx, dy, 0.0, -1.0, -1.0],
+                                   dtype=np.float32))
 
         return policy
 
@@ -400,7 +403,8 @@ class StickButtonMovementGroundTruthOptionFactory(
                 dx = dx / max_speed
                 dy = dy / max_speed
                 # No need to rotate or press.
-                return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
+                return Action(
+                    np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
             assert not CFG.stick_button_disable_angles
             # Otherwise, rotate the stick.
             dtheta = np.clip(desired_theta - stheta,
@@ -408,7 +412,8 @@ class StickButtonMovementGroundTruthOptionFactory(
                              StickButtonEnv.max_angular_speed)
             # Normalize.
             dtheta = dtheta / StickButtonEnv.max_angular_speed
-            return Action(np.array([0.0, 0.0, dtheta, -1.0, -1.0], dtype=np.float32))
+            return Action(
+                np.array([0.0, 0.0, dtheta, -1.0, -1.0], dtype=np.float32))
 
         return policy
 
@@ -419,7 +424,8 @@ class StickButtonMovementGroundTruthOptionFactory(
                    params: Array) -> Action:
             del memory, params  # unused
             robot, button = objects
-            action = Action(np.array([0.0, 0.0, 0.0, -1.0, -1.0], dtype=np.float32))
+            action = Action(
+                np.array([0.0, 0.0, 0.0, -1.0, -1.0], dtype=np.float32))
             # If the robot is above the button, press.
             if StickButtonEnv.Above_holds(state, [robot, button]):
                 action = Action(
@@ -442,9 +448,11 @@ class StickButtonMovementGroundTruthOptionFactory(
             tip_rect = StickButtonEnv.stick_rect_to_tip_rect(stick_rect)
             # If the stick tip is above the button, press.
             if tip_rect.intersects(button_circ):
-                return Action(np.array([0.0, 0.0, 0.0, 1.0, -1.0], dtype=np.float32))
+                return Action(
+                    np.array([0.0, 0.0, 0.0, 1.0, -1.0], dtype=np.float32))
             # Else, do nothing.
-            return Action(np.array([0.0, 0.0, 0.0, -1.0, -1.0], dtype=np.float32))
+            return Action(
+                np.array([0.0, 0.0, 0.0, -1.0, -1.0], dtype=np.float32))
 
         return policy
 
@@ -462,7 +470,8 @@ class StickButtonMovementGroundTruthOptionFactory(
             tx, ty = cls._get_stick_grasp_loc(state, stick, params)
             # If we're close enough to the grasp location, pickplace.
             if (tx - rx)**2 + (ty - ry)**2 < StickButtonEnv.pick_grasp_tol:
-                return Action(np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
+                return Action(
+                    np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
             # Move toward the target.
             dx = np.clip(tx - rx, -max_speed, max_speed)
             dy = np.clip(ty - ry, -max_speed, max_speed)
@@ -470,7 +479,8 @@ class StickButtonMovementGroundTruthOptionFactory(
             dx = dx / max_speed
             dy = dy / max_speed
             # No need to rotate or press.
-            return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
+            return Action(np.array([dx, dy, 0.0, -1.0, -1.0],
+                                   dtype=np.float32))
 
         return policy
 
@@ -491,7 +501,8 @@ class StickButtonMovementGroundTruthOptionFactory(
             ty = state.get(holder, "y") + offset_y
             # If we're close enough, put the stick down.
             if (tx - rx)**2 + (ty - ry)**2 < StickButtonEnv.pick_grasp_tol:
-                return Action(np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
+                return Action(
+                    np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
             # Move toward the target.
             dx = np.clip(tx - rx, -max_speed, max_speed)
             dy = np.clip(ty - ry, -max_speed, max_speed)
@@ -499,6 +510,7 @@ class StickButtonMovementGroundTruthOptionFactory(
             dx = dx / max_speed
             dy = dy / max_speed
             # No need to rotate or press.
-            return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
+            return Action(np.array([dx, dy, 0.0, -1.0, -1.0],
+                                   dtype=np.float32))
 
         return policy

@@ -13,7 +13,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
-from predicators.utils import Rectangle, _Geom2D
+from predicators.utils import _Geom2D
 
 
 class StickButtonEnv(BaseEnv):
@@ -489,6 +489,12 @@ class StickButtonMovementEnv(StickButtonEnv):
     # We add an attribute for the open/closed status of the robot's gripper.
     _robot_type = _robot_type = Type("robot", ["x", "y", "theta", "fingers"])
 
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds_diff_signature)
+
     def _get_tasks(self, num: int, num_button_lst: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
@@ -538,7 +544,12 @@ class StickButtonMovementEnv(StickButtonEnv):
             else:
                 theta = rng.uniform(self.theta_lb, self.theta_ub)
             # Initialize the robot with open fingers.
-            state_dict[self._robot] = {"x": x, "y": y, "theta": theta, "fingers": 1.0}
+            state_dict[self._robot] = {
+                "x": x,
+                "y": y,
+                "theta": theta,
+                "fingers": 1.0
+            }
             # Sample the stick, making sure that the origin is in the
             # reachable zone, and that the stick doesn't collide with anything.
             radius = self.robot_radius + self.init_padding
@@ -617,10 +628,13 @@ class StickButtonMovementEnv(StickButtonEnv):
     @staticmethod
     def _Grasped_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, stick = objects
-        return state.get(stick, "held") > 0.5 and state.get(robot, "fingers") <= 0.5
+        stick_held = state.get(stick, "held") > 0.5
+        fingers_closed = state.get(robot, "fingers") <= 0.5
+        return stick_held and fingers_closed
 
     @staticmethod
-    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _HandEmpty_holds_diff_signature(state: State,
+                                        objects: Sequence[Object]) -> bool:
         robot, = objects
         return state.get(robot, "fingers") > 0.5
 
@@ -658,10 +672,11 @@ class StickButtonMovementEnv(StickButtonEnv):
         robot_circ = self.object_to_geom(self._robot, next_state)
 
         # Check if the stick is held. If so, we need to move and rotate it.
-        stick_held = state.get(self._stick, "held") > 0.5 and state.get(self._robot, "fingers") <= 0.5
+        stick_held = state.get(self._stick, "held") > 0.5
+        fingers_closed = state.get(self._robot, "fingers") <= 0.5
         stick_rect = self.object_to_geom(self._stick, state)
         assert isinstance(stick_rect, utils.Rectangle)
-        if stick_held:
+        if stick_held and fingers_closed:
             if not CFG.stick_button_disable_angles:
                 stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
             stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
@@ -685,7 +700,8 @@ class StickButtonMovementEnv(StickButtonEnv):
         if pickplace > 0:
             # Check for placing the stick.
             holder_rect = self.object_to_geom(self._holder, state)
-            if stick_held and stick_rect.intersects(holder_rect):
+            if stick_held and fingers_closed and stick_rect.intersects(
+                    holder_rect):
                 # Place the stick back on the holder.
                 next_state.set(self._stick, "held", 0.0)
                 next_state.set(self._robot, "fingers", 1.0)
@@ -715,7 +731,7 @@ class StickButtonMovementEnv(StickButtonEnv):
     #     """Run simulation and update tip_x and tip_y."""
     #     next_state = super().simulate(state, action)
     #     stick_rect = self.object_to_geom(self._stick, next_state)
-    #     assert isinstance(stick_rect, Rectangle)
+    #     assert isinstance(stick_rect, utils.Rectangle)
     #     tip_rect = self.stick_rect_to_tip_rect(stick_rect)
     #     next_state.set(self._stick, "tip_x", tip_rect.x)
     #     next_state.set(self._stick, "tip_y", tip_rect.y)
