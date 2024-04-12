@@ -370,9 +370,8 @@ class StickButtonMoveGroundTruthNSRTFactory(StickButtonGroundTruthNSRTFactory):
         # RobotPressButton
         robot = Variable("?robot", robot_type)
         button = Variable("?button", button_type)
-        stick = Variable("?stick", stick_type)
-        parameters = [robot, button, stick]
-        option_vars = [robot, button, stick]
+        parameters = [robot, button]
+        option_vars = [robot, button]
         option = RobotPressButton
         preconditions = {
             LiftedAtom(HandEmpty, [robot]),

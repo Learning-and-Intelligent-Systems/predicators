@@ -258,15 +258,18 @@ class StickButtonMovementGroundTruthOptionFactory(
                     action_space: Box) -> Set[ParameterizedOption]:
 
         # First, instantiate the original pick and place options,
-        # but override the press button with robot and press button
-        # with stick policies so that they're different.
+        # but (1) override the policies for RobootPressButton and
+        # StickPressButton to make them no longer move the robot, and (2)
+        # redefine RobotPressButton to update its arguments.
         init_options = super().get_options(env_name, types, predicates,
                                            action_space)
         robot_type = types["robot"]
         button_type = types["button"]
         stick_type = types["stick"]
+
         RobotAboveButton = predicates["RobotAboveButton"]
         StickAboveButton = predicates["StickAboveButton"]
+        Pressed = predicates["Pressed"]
 
         # RobotMoveToButton
         def _RobotMoveToButton_terminal(state: State, memory: Dict,
@@ -276,14 +279,6 @@ class StickButtonMovementGroundTruthOptionFactory(
             robot, button = objects
             return RobotAboveButton.holds(state, [robot, button])
 
-        # StickMoveToButton
-        def _StickMoveToButton_terminal(state: State, memory: Dict,
-                                        objects: Sequence[Object],
-                                        params: Array) -> bool:
-            del memory, params  # unused
-            _, button, stick = objects
-            return StickAboveButton.holds(state, [stick, button])
-
         RobotMoveToButton = ParameterizedOption(
             "RobotMoveToButton",
             types=[robot_type, button_type],
@@ -292,6 +287,15 @@ class StickButtonMovementGroundTruthOptionFactory(
             initiable=lambda s, m, o, p: True,
             terminal=_RobotMoveToButton_terminal,
         )
+
+        # StickMoveToButton
+        def _StickMoveToButton_terminal(state: State, memory: Dict,
+                                        objects: Sequence[Object],
+                                        params: Array) -> bool:
+            del memory, params  # unused
+            _, button, stick = objects
+            return StickAboveButton.holds(state, [stick, button])
+
         StickMoveToButton = ParameterizedOption(
             "StickMoveToButton",
             types=[robot_type, button_type, stick_type],
@@ -300,8 +304,32 @@ class StickButtonMovementGroundTruthOptionFactory(
             initiable=lambda s, m, o, p: True,
             terminal=_StickMoveToButton_terminal,
         )
-        movement_options = set((RobotMoveToButton, StickMoveToButton))
-        return init_options | movement_options
+
+        # RobotPressButton
+        def _RobotPressButton_terminal(state: State, memory: Dict,
+                                       objects: Sequence[Object],
+                                       params: Array) -> bool:
+            del memory, params  # unused
+            _, button = objects
+            return Pressed.holds(state, [button])
+
+        RobotPressButton = ParameterizedOption(
+            "RobotPressButton",
+            types=[robot_type, button_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_robot_press_button_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_RobotPressButton_terminal,
+        )
+
+        unchanged_options = {
+            opt
+            for opt in init_options if opt.name != "RobotPressButton"
+        }
+        changed_options = {RobotPressButton}
+        new_options = {RobotMoveToButton, StickMoveToButton}
+
+        return unchanged_options | changed_options | new_options
 
     @classmethod
     def _create_robot_moveto_button_policy(cls) -> ParameterizedPolicy:
@@ -371,9 +399,10 @@ class StickButtonMovementGroundTruthOptionFactory(
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory, params  # unused
+            robot, button = objects
             action = Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
             # If the robot and button are already pressing, press.
-            if StickButtonEnv.Above_holds(state, objects[:2]):
+            if StickButtonEnv.Above_holds(state, [robot, button]):
                 action = Action(
                     np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # Else, do nothing.
