@@ -624,9 +624,14 @@ class StickButtonMovementEnv(StickButtonEnv):
         robot, = objects
         return state.get(robot, "fingers") > 0.5
 
+    @property
+    def action_space(self) -> Box:
+        # Normalized dx, dy, dtheta, press, pickplace.
+        return Box(low=-1., high=1., shape=(5, ), dtype=np.float32)
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        norm_dx, norm_dy, norm_dtheta, press = action.arr
+        norm_dx, norm_dy, norm_dtheta, press, pickplace = action.arr
         # Actions are normalized to [-1, 1]. Denormalize them here.
         dx = norm_dx * self.max_speed
         dy = norm_dy * self.max_speed
@@ -669,6 +674,15 @@ class StickButtonMovementEnv(StickButtonEnv):
             next_state.set(self._stick, "theta", stick_rect.theta)
 
         if press > 0:
+            # Check if any button is now pressed.
+            tip_rect = self.stick_rect_to_tip_rect(stick_rect)
+            for button in state.get_objects(self._button_type):
+                circ = self.object_to_geom(button, state)
+                if (circ.intersects(tip_rect) and stick_held) or \
+                   (circ.intersects(robot_circ) and not stick_held):
+                    next_state.set(button, "pressed", 1.0)
+
+        if pickplace > 0:
             # Check for placing the stick.
             holder_rect = self.object_to_geom(self._holder, state)
             if stick_held and stick_rect.intersects(holder_rect):
@@ -690,14 +704,6 @@ class StickButtonMovementEnv(StickButtonEnv):
 
                 next_state.set(self._stick, "held", 1.0)
                 next_state.set(self._robot, "fingers", 0.0)
-
-            # Check if any button is now pressed.
-            tip_rect = self.stick_rect_to_tip_rect(stick_rect)
-            for button in state.get_objects(self._button_type):
-                circ = self.object_to_geom(button, state)
-                if (circ.intersects(tip_rect) and stick_held) or \
-                   (circ.intersects(robot_circ) and not stick_held):
-                    next_state.set(button, "pressed", 1.0)
 
         tip_rect = self.stick_rect_to_tip_rect(stick_rect)
         next_state.set(self._stick, "tip_x", tip_rect.x)

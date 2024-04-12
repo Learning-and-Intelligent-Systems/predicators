@@ -335,7 +335,7 @@ def test_stick_button_move():
     assert holder_type.name == "holder"
     assert robot_type.name == "robot"
     assert stick_type.name == "stick"
-    assert env.action_space.shape == (4, )
+    assert env.action_space.shape == (5, )
     # Create a custom initial state, with the robot in the middle, one button
     # reachable on the left, one button out of the reachable zone in the middle,
     # and the stick on the right at a 45 degree angle.
@@ -362,6 +362,7 @@ def test_stick_button_move():
     state.set(stick, "x", stick_x)
     state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb) / 4)
     state.set(stick, "theta", np.pi / 4)
+    state.set(stick, "held", 0.0)
     task = EnvironmentTask(state, task.goal)
     env.render_state(state, task)
     assert GroundAtom(AboveNoButton, []).holds(state)
@@ -389,7 +390,9 @@ def test_stick_button_move():
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure})
     assert traj.states[-2].get(stick, "held") < 0.5
+    assert traj.states[-2].get(robot, "fingers") > 0.5
     assert traj.states[-1].get(stick, "held") > 0.5
+    assert traj.states[-1].get(robot, "fingers") <= 0.5
 
     # Test StickPressButton without moving first to show it doesn't work.
     option = StickPressButton.ground([robot, stick, unreachable_button], [])

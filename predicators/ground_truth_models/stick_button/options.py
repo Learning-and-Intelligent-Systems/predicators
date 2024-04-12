@@ -328,6 +328,7 @@ class StickButtonMovementGroundTruthOptionFactory(
         }
         changed_options = {RobotPressButton}
         new_options = {RobotMoveToButton, StickMoveToButton}
+        # {RobotPressButton, PickStick, StickPressButton, PlaceStick}
 
         return unchanged_options | changed_options | new_options
 
@@ -351,7 +352,7 @@ class StickButtonMovementGroundTruthOptionFactory(
             dx = dx / max_speed
             dy = dy / max_speed
             # No need to rotate, and we don't want to press until we're there.
-            return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
+            return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
 
         return policy
 
@@ -381,7 +382,7 @@ class StickButtonMovementGroundTruthOptionFactory(
                 dx = dx / max_speed
                 dy = dy / max_speed
                 # No need to rotate or press.
-                return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
+                return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
             assert not CFG.stick_button_disable_angles
             # Otherwise, rotate the stick.
             dtheta = np.clip(desired_theta - stheta,
@@ -389,7 +390,7 @@ class StickButtonMovementGroundTruthOptionFactory(
                              StickButtonEnv.max_angular_speed)
             # Normalize.
             dtheta = dtheta / StickButtonEnv.max_angular_speed
-            return Action(np.array([0.0, 0.0, dtheta, -1.0], dtype=np.float32))
+            return Action(np.array([0.0, 0.0, dtheta, -1.0, -1.0], dtype=np.float32))
 
         return policy
 
@@ -400,11 +401,11 @@ class StickButtonMovementGroundTruthOptionFactory(
                    params: Array) -> Action:
             del memory, params  # unused
             robot, button = objects
-            action = Action(np.array([0.0, 0.0, 0.0, -1.0], dtype=np.float32))
-            # If the robot and button are already pressing, press.
+            action = Action(np.array([0.0, 0.0, 0.0, -1.0, -1.0], dtype=np.float32))
+            # If the robot is above the button, press.
             if StickButtonEnv.Above_holds(state, [robot, button]):
                 action = Action(
-                    np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+                    np.array([0.0, 0.0, 0.0, 1.0, -1.0], dtype=np.float32))
             # Else, do nothing.
             return action
 
@@ -421,10 +422,67 @@ class StickButtonMovementGroundTruthOptionFactory(
             stick_rect = StickButtonEnv.object_to_geom(stick, state)
             assert isinstance(stick_rect, utils.Rectangle)
             tip_rect = StickButtonEnv.stick_rect_to_tip_rect(stick_rect)
-            # If the stick tip is pressing the button, press.
+            # If the stick tip is above the button, press.
             if tip_rect.intersects(button_circ):
-                return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+                return Action(np.array([0.0, 0.0, 0.0, 1.0, -1.0], dtype=np.float32))
             # Else, do nothing.
-            return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+            return Action(np.array([0.0, 0.0, 0.0, -1.0, -1.0], dtype=np.float32))
+
+        return policy
+
+    @classmethod
+    def _create_pick_stick_policy(cls) -> ParameterizedPolicy:
+
+        max_speed = StickButtonEnv.max_speed
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            del memory  # unused
+            robot, stick = objects
+            rx = state.get(robot, "x")
+            ry = state.get(robot, "y")
+            tx, ty = cls._get_stick_grasp_loc(state, stick, params)
+            # If we're close enough to the grasp location, pickplace.
+            if (tx - rx)**2 + (ty - ry)**2 < StickButtonEnv.pick_grasp_tol:
+                return Action(np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
+            # Move toward the target.
+            dx = np.clip(tx - rx, -max_speed, max_speed)
+            dy = np.clip(ty - ry, -max_speed, max_speed)
+            # Normalize.
+            dx = dx / max_speed
+            dy = dy / max_speed
+            # No need to rotate or press.
+            return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
+
+        return policy
+
+    @classmethod
+    def _create_place_stick_policy(cls,
+                                   holder_type: Type) -> ParameterizedPolicy:
+
+        max_speed = StickButtonEnv.max_speed
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            del memory  # unused
+            robot, _ = objects
+            holder = state.get_objects(holder_type)[0]
+            norm_offset_y, = params
+            offset_y = (StickButtonEnv.stick_width / 2) * norm_offset_y
+            rx = state.get(robot, "x")
+            ry = state.get(robot, "y")
+            tx = state.get(holder, "x") - StickButtonEnv.holder_height / 2
+            ty = state.get(holder, "y") + offset_y
+            # If we're close enough, put the stick down.
+            if (tx - rx)**2 + (ty - ry)**2 < StickButtonEnv.pick_grasp_tol:
+                return Action(np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
+            # Move toward the target.
+            dx = np.clip(tx - rx, -max_speed, max_speed)
+            dy = np.clip(ty - ry, -max_speed, max_speed)
+            # Normalize.
+            dx = dx / max_speed
+            dy = dy / max_speed
+            # No need to rotate or press.
+            return Action(np.array([dx, dy, 0.0, -1.0, -1.0], dtype=np.float32))
 
         return policy
