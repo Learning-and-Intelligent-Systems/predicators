@@ -15,10 +15,10 @@
 - Start actual run. Examples:
 ```
 # template
-python predicators/main.py --spot_ip <spot_ip> --spot_graph_nav_map <map_name> --env <env_name>
+python predicators/main.py --spot_robot_ip <spot_ip> --spot_graph_nav_map <map_name> --env <env_name>
 
 # an example to run LIS Spot
-python predicators/main.py --spot_ip 192.168.80.3 --spot_graph_nav_map b45-621 --env lis_spot_block_floor_env --approach spot_wrapper[oracle] --bilevel_plan_without_sim True --seed 0
+python predicators/main.py --spot_robot_ip 192.168.80.3 --spot_graph_nav_map b45-621 --env lis_spot_block_floor_env --approach spot_wrapper[oracle] --bilevel_plan_without_sim True --seed 0
 ```
 
 ### Implement Your Task
@@ -29,6 +29,9 @@ To create a simple task before you can run, you only need to:
   - In `spot_env.py`, subclass the `SpotRearrangementEnv` and define the necessary methods needed to override.
   - The simplest possible example is `SpotSodaFloorEnv` (and maybe you can directly use this!).
   - Doing this involves selecting some operators that you'll need.
+- Add ground truth model
+  - Add environment name into `SpotEnvsGroundTruthNSRTFactory`  in `ground_truth_models/spot_env/nsrt.py`
+  - Add environment name into `SpotEnvsGroundTruthOptionFactory` in `ground_truth_models/spot_env/options.py`
 - If you want, define a new `goal_description` string. Then, go to the _`create_goal` function of `spot_perceiver.py` and follow the example to convert a goal description string into an actual set of atoms needed to implement the goal.
 
 
