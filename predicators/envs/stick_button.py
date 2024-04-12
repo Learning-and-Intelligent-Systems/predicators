@@ -486,6 +486,8 @@ class StickButtonMovementEnv(StickButtonEnv):
     # is CCW angle in radians, consistent with utils.Rectangle. The tip
     # x and y correspond to the end of the stick.
     _stick_type = Type("stick", ["x", "y", "tip_x", "tip_y", "theta", "held"])
+    # We add an attribute for the open/closed status of the robot's gripper.
+    _robot_type = _robot_type = Type("robot", ["x", "y", "theta", "fingers"])
 
     def _get_tasks(self, num: int, num_button_lst: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -610,6 +612,16 @@ class StickButtonMovementEnv(StickButtonEnv):
             task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
+
+    @staticmethod
+    def _Grasped_holds(state: State, objects: Sequence[Object]) -> bool:
+        robot, stick = objects
+        return state.get(stick, "held") > 0.5 and state.get(robot, "fingers") <= 0.5
+
+    @staticmethod
+    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
+        robot, = objects
+        return state.get(robot, "fingers") > 0.5
 
     def simulate(self, state: State, action: Action) -> State:
         """Run simulation and update tip_x and tip_y."""
