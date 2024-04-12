@@ -348,6 +348,7 @@ def test_stick_button_move():
     state.set(robot, "x", robot_x)
     state.set(robot, "y", (env.rz_y_ub + env.rz_y_lb) / 2)
     state.set(robot, "theta", np.pi / 2)
+    state.set(robot, "fingers", 1.0)
     reachable_button, unreachable_button = buttons
     reachable_x = (env.rz_x_ub + env.rz_x_lb) / 4
     state.set(reachable_button, "x", reachable_x)
