@@ -348,7 +348,6 @@ class StickButtonMovementGroundTruthOptionFactory(
         }
         changed_options = {RobotPressButton, PlaceStick}
         new_options = {RobotMoveToButton, StickMoveToButton}
-        # {RobotPressButton, PickStick, StickPressButton, PlaceStick}
 
         return unchanged_options | changed_options | new_options
 

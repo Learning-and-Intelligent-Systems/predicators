@@ -364,6 +364,7 @@ def test_stick_button_move():
     state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb) / 4)
     state.set(stick, "theta", np.pi / 4)
     state.set(stick, "held", 0.0)
+
     task = EnvironmentTask(state, task.goal)
     env.render_state(state, task)
     assert GroundAtom(AboveNoButton, []).holds(state)
@@ -428,6 +429,39 @@ def test_stick_button_move():
     assert traj.states[-2].get(unreachable_button, "pressed") < 0.5
     # assert pressing worked.
     assert traj.states[-1].get(unreachable_button, "pressed") > 0.5
+
+    # Test PlaceStick
+    utils.reset_config({
+        "env": "stick_button_move",
+        "stick_button_num_buttons_train": [2],
+        "stick_button_disable_angles": True,
+        "stick_button_holder_scale": 0.1,
+    })
+    env = StickButtonMovementEnv()
+    state = env.get_train_tasks()[1].init.copy()
+    task = EnvironmentTask(state, task.goal)
+    robot, = state.get_objects(robot_type)
+    stick, = state.get_objects(stick_type)
+    holder, = state.get_objects(holder_type)
+    buttons = state.get_objects(button_type)
+    option_plan = [
+        PickStick.ground([robot, stick], [0.3]),
+        StickMoveToButton.ground([robot, buttons[0], stick], []),
+        StickPressButton.ground([robot, stick, buttons[0]], []),
+        PlaceStick.ground((robot, stick, holder), [0.4])
+    ]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(stick, "held") > 0.5
+    assert traj.states[-2].get(robot, "fingers") <= 0.5
+    assert traj.states[-1].get(stick, "held") < 0.5
+    assert traj.states[-1].get(robot, "fingers") > 0.5
 
     # Special test for PlaceStick NSRT because it's not used by oracle.
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
