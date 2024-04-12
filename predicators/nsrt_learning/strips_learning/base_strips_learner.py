@@ -181,7 +181,7 @@ class BaseSTRIPSLearner(abc.ABC):
 
         if ground_nsrt_plan is None:
 
-            # ground_nsrt_plan2 = task_plan_with_option_plan_constraint2(objects, self._predicates, strips_ops, option_specs, init_atoms, traj_goal, option_plan, atoms_seq)
+            ground_nsrt_plan2 = task_plan_with_option_plan_constraint2(objects, self._predicates, strips_ops, option_specs, init_atoms, traj_goal, option_plan, atoms_seq)
             import pdb; pdb.set_trace()
 
 
@@ -216,15 +216,35 @@ class BaseSTRIPSLearner(abc.ABC):
             # Op0-StickPressButton
             # Op4-PlaceStick
 
-            Op0_StickPressButton = [op for op in strips_ops if op.name=="Op0-StickPressButton"][0]
-            Op1_RobotMoveToButton = [op for op in strips_ops if op.name=="Op1-RobotMoveToButton"][0]
-            Op2_PickStick = [op for op in strips_ops if op.name=="Op2-PickStick"][0]
-            Op3_RobotPressButton = [op for op in strips_ops if op.name=="Op3-RobotPressButton"][0]
-            Op4_PlaceStick = [op for op in strips_ops if op.name=="Op4-PlaceStick"][0]
-            Op5_StickMoveToButton = [op for op in strips_ops if op.name=="Op5-StickMoveToButton"][0]
-            Op6_StickMoveToButton = [op for op in strips_ops if op.name=="Op6-StickMoveToButton"][0]
-            Op7_PickStick = [op for op in strips_ops if op.name=="Op7-PickStick"][0]
-            Op8_RobotMoveToButton = [op for op in strips_ops if op.name=="Op8-RobotMoveToButton"][0]
+            Op9_RobotMoveToButton = [op for op in strips_ops if op.name=="Op9-RobotMoveToButton"][0]
+            Op4_RobotPressButton = [op for op in strips_ops if op.name=="Op4-RobotPressButton"][0]
+            Op8_PickStick = [op for op in strips_ops if op.name=="Op8-PickStick"][0]
+            Op7_StickMoveToButton = [op for op in strips_ops if op.name=="Op7-StickMoveToButton"][0]
+            Op1_StickPressButton = [op for op in strips_ops if op.name=="Op1-StickPressButton"][0]
+
+            first = Op9_RobotMoveToButton.ground((button0, robot))
+            second = Op4_RobotPressButton.ground((button0, robot, stick))
+            third = Op8_PickStick.ground((button0, robot, stick))
+            fourth = Op7_StickMoveToButton.ground((button1, robot, stick))
+            fifth = Op1_StickPressButton.ground((button1, robot, stick))
+            plan = [first, second, third, fourth, fifth]
+
+            curr_atoms = init_atoms
+            i = 0
+            plan[i].preconditions.issubset(curr_atoms)
+            curr_atoms = (curr_atoms | plan[i].add_effects) - plan[i].delete_effects
+            i += 1
+
+            #
+            # Op0_StickPressButton = [op for op in strips_ops if op.name=="Op0-StickPressButton"][0]
+            # Op1_RobotMoveToButton = [op for op in strips_ops if op.name=="Op1-RobotMoveToButton"][0]
+            # Op2_PickStick = [op for op in strips_ops if op.name=="Op2-PickStick"][0]
+            # Op3_RobotPressButton = [op for op in strips_ops if op.name=="Op3-RobotPressButton"][0]
+            # Op4_PlaceStick = [op for op in strips_ops if op.name=="Op4-PlaceStick"][0]
+            # Op5_StickMoveToButton = [op for op in strips_ops if op.name=="Op5-StickMoveToButton"][0]
+            # Op6_StickMoveToButton = [op for op in strips_ops if op.name=="Op6-StickMoveToButton"][0]
+            # Op7_PickStick = [op for op in strips_ops if op.name=="Op7-PickStick"][0]
+            # Op8_RobotMoveToButton = [op for op in strips_ops if op.name=="Op8-RobotMoveToButton"][0]
 
             # demo 0: ['Op8-RobotMoveToButton', 'Op3-RobotPressButton', 'Op7-PickStick', 'Op6-StickMoveToButton', 'Op0-StickPressButton']
             # disagreement between earlier thing, and what is in the harmless check

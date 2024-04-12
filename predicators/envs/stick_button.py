@@ -167,16 +167,22 @@ class StickButtonEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(
+        self._train_tasks_saved = self._get_tasks(
             num=CFG.num_train_tasks,
             num_button_lst=CFG.stick_button_num_buttons_train,
             rng=self._train_rng)
+        return self._train_tasks_saved
+        # return self._get_tasks(
+        #     num=CFG.num_train_tasks,
+        #     num_button_lst=CFG.stick_button_num_buttons_train,
+        #     rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num=CFG.num_test_tasks,
             num_button_lst=CFG.stick_button_num_buttons_test,
             rng=self._test_rng)
+        # return self._train_tasks_saved
 
     @property
     def predicates(self) -> Set[Predicate]:

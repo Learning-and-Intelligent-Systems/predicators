@@ -83,11 +83,34 @@ class BilevelPlanningApproach(BaseApproach):
 
         # Run full bilevel planning.
         else:
+            # print("Initial state: ")
+            # for k, v in task.init.data.items(): print(f"{k}: {v.tolist()}")
+
+            # strips_ops = [n.op for n in nsrts]
+            # option_specs = [(n.option, n.option_vars) for n in nsrts]
+            # dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+            # init_atoms = utils.abstract(task.init, preds)
+            # objects = set(task.init)
+            # from predicators.planning import task_plan_grounding
+            # ground_nsrts, _ = task_plan_grounding(init_atoms, objects, dummy_nsrts, allow_noops=True)
+            # number_of_applicable_ops = utils.get_reachable_atoms2(ground_nsrts, init_atoms)
+            # print(f"NUMBER OF APPLICABLE OPERATORS: {number_of_applicable_ops} for task {self._num_calls}")
+            # raise ApproachFailure("Not a real failiure.")
+
             option_plan, nsrt_plan, metrics = self._run_sesame_plan(
                 task, nsrts, preds, timeout, seed)
+            print("Plan:")
+            for act in nsrt_plan:
+                print(act.parent.name, act.objects)
+            print("Plan done.")
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
             policy = utils.option_plan_to_policy(option_plan)
+
+            # print("_plan_without_sim: ", self._plan_without_sim)
+            # print("Current Task Plan:")
+            # for act in nsrt_plan:
+            #     print(act)
 
         self._save_metrics(metrics, nsrts, preds)
 

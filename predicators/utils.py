@@ -2699,6 +2699,23 @@ def get_reachable_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
             break
     return reachables
 
+def get_reachable_atoms2(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                        atoms: Collection[GroundAtom]):
+    """Get all atoms that are reachable from the init atoms."""
+    reachables = set(atoms)
+    number_of_applicable_ops = 0
+    while True:
+        fixed_point_reached = True
+        for op in ground_ops:
+            if op.preconditions.issubset(reachables):
+                number_of_applicable_ops += 1
+                for new_reachable_atom in op.add_effects - reachables:
+                    fixed_point_reached = False
+                    reachables.add(new_reachable_atom)
+        if fixed_point_reached:
+            break
+    return number_of_applicable_ops
+
 
 def get_applicable_operators(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
@@ -3154,6 +3171,7 @@ def create_video_from_partial_refinements(
         policy = option_plan_to_policy(plan)
         video: Video = []
         state = env.reset(train_or_test, task_idx)
+
         for _ in range(max_num_steps):
             try:
                 act = policy(state)

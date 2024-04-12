@@ -985,13 +985,15 @@ def task_plan_grounding2(
 
     reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
 
-    import pdb; pdb.set_trace()
+    return ground_nsrts, reachable_atoms
 
-    reachable_nsrts = [
-        nsrt for nsrt in ground_nsrts
-        if nsrt.preconditions.issubset(reachable_atoms)
-    ]
-    return reachable_nsrts, reachable_atoms
+    # import pdb; pdb.set_trace()
+    #
+    # reachable_nsrts = [
+    #     nsrt for nsrt in ground_nsrts
+    #     if nsrt.preconditions.issubset(reachable_atoms)
+    # ]
+    # return reachable_nsrts, reachable_atoms
 
 def task_plan_with_option_plan_constraint2(
     objects: Set[Object],
@@ -1014,10 +1016,10 @@ def task_plan_with_option_plan_constraint2(
     """
     dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
 
-    ground_nsrts2, _ = task_plan_grounding2(init_atoms,
-                                          objects,
-                                          dummy_nsrts,
-                                          allow_noops=True)
+    # ground_nsrts2, _ = task_plan_grounding2(init_atoms,
+    #                                       objects,
+    #                                       dummy_nsrts,
+    #                                       allow_noops=True)
 
     ground_nsrts, _ = task_plan_grounding(init_atoms,
                                           objects,
@@ -1061,12 +1063,16 @@ def task_plan_with_option_plan_constraint2(
             # during grounding.
             print(f"Applicable NSRT in _get_successor_with_correct_option before checks: {applicable_nsrt}, idx_into_traj: {idx_into_traj}, option_to_match: {gt_param_option}")
             if applicable_nsrt.option != gt_param_option:
+                print(f"applicable nsrt option {applicable_nsrt.option} does not match gt option {gt_param_option}.")
                 continue
             if applicable_nsrt.option_objs != gt_objects:
+                print(f"applicable nsrt option objs {applicable_nsrt.option_objs} do not match gt objects {gt_objects}.")
                 continue
             if atoms_seq is not None and not \
                 applicable_nsrt.preconditions.issubset(
                     atoms_seq[idx_into_traj]):
+                import pdb; pdb.set_trace()
+                print(f"This situation...")
                 continue
             print(f"Applicable NSRT in _get_successor_with_correct_option: {applicable_nsrt}, idx_into_traj: {idx_into_traj}, option_to_match: {gt_param_option}")
             next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))

@@ -3768,10 +3768,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for j, pair in enumerate(option_to_segments.items()):
                 option, segments = pair
                 clusters = {}
+                types_from_option = set(o.type for o in segments[0].get_option().objects)
                 for seg in segments:
                     # import pdb; pdb.set_trace()
                     # TODO: where I'd have to consider delete effects if we want to make a different operator for things that only show up in the delete effects
                     # all_types = [set(a.predicate.types) for a in (seg.add_effects | seg.delete_effects)]
+                    # TODO: sometimes option arguments won't show up in the add effects,
+                    # e.g. if the robot has to move so little to hit a button that the threshold for
+                    # whatever predicate isn't met for delta robot.x. So just include option arguments
+                    # as a default for all of these -- also makes sense because those would get added
+                    # in the operator's parameters anyways.
                     all_types = [set(a.predicate.types) for a in seg.add_effects]
                     if len(all_types) == 0 or len(set.union(*all_types)) == 0:
                         # Either there are no add effects, or the object
@@ -3780,18 +3786,78 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # predicates with no object arguments). The former
                         # happens in repeated_nextto.
                         continue
-                    types = tuple(sorted(list(set.union(*all_types))))
+                    # types = tuple(sorted(list(set.union(*all_types))))
+                    old_types = tuple(sorted(list(set.union(*all_types))))
+                    types_from_effects = set.union(*all_types)
+                    types = tuple(sorted(list(types_from_option | types_from_effects)))
+                    # if option == "RobotMoveToButton":
+                    #     import pdb; pdb.set_trace()
                     if types in clusters:
                         clusters[types].append(seg)
                     else:
 
                         clusters[types] = [seg]
-                        # print("New unique type: ", types) # to detect the issue in cover where it infers an incorrect cluster with just type (block, )
+                        print("New unique type: ", types, "when sub-clustering from option", option) # to detect the issue in cover where it infers an incorrect cluster with just type (block, )
                         # if len(types) == 1:
                             # import pdb; pdb.set_trace()
+
                 logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for for {j+1}th cluster from STEP 1 involving option {option}.")
                 for _, c in clusters.items():
                     all_clusters.append(c)
+
+                if option == "RobotPressButton":
+                    print(option)
+                    keys = list(clusters.keys())
+                    for key in keys:
+                        print(key)
+                        for p in clusters[key][0].add_effects:
+                            print(p)
+                        print()
+
+                    # segs = clusters[keys[-1]]
+                    # for seg in segs:
+                    #     objs = [ga.objects for ga in seg.add_effects]
+
+                    import pdb; pdb.set_trace()
+
+                # if option == "RobotMoveToButton":
+                #     # get the unique add effects (predicates) -- but print the ground atoms -- in each cluster
+                #     # so, first compute that ones that are shared across all the clusters
+                #     add_effects_per_cluster = []
+                #     for key, c in clusters.items():
+                #         add_effects_per_segment = [s.add_effects for s in c]
+                #         ungrounded_add_effects_per_segment = []
+                #         for add_effects in add_effects_per_segment:
+                #             ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                #         ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
+                #         add_effects_per_cluster.append(ungrounded_add_effects)
+                #
+                #     # now go through and find the unique ones
+                #     shared = add_effects_per_cluster[0]
+                #     for adds in add_effects_per_cluster:
+                #         shared = shared.intersection(adds)
+                #
+                #     # now find the unique ones in each cluster
+                #     differences = {}
+                #     count = 0
+                #     for key, c in clusters.items():
+                #         adds = add_effects_per_cluster[count]
+                #         difference = adds - adds.intersection(shared)
+                #         differences[key] = difference
+                #         count += 1
+                #
+                #     # unexpected
+                #     # ((Type(name='button'), Type(name='robot'), Type(name='stick')), 0)
+                #     # ((Type(name='button'), Type(name='holder'), Type(name='robot'), Type(name='stick')), 0)
+                #     # ((Type(name='button'), Type(name='robot')), 0)
+                #     # ((Type(name='button'), Type(name='holder'), Type(name='robot')), 12)
+
+
+
+                    # import pdb; pdb.set_trace()
+
+            import pdb; pdb.set_trace()
+            print("ron")
 
             # Step 3:
             next_clusters = []
@@ -3807,11 +3873,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         clusters[max_num_unique_objs].append(seg)
                     else:
                         clusters[max_num_unique_objs] = [seg]
+                        print("New unique number: ", max_num_unique_objs)
                 for c in clusters.values():
                     next_clusters.append(c)
                 logging.info(f"STEP 3: generated {len(clusters.values())} num-object-based clusters for the {j+1}th cluster from STEP 2 involving option {seg.get_option().name}.")
             # final_clusters = next_clusters
             all_clusters = next_clusters
+
+            import pdb; pdb.set_trace()
+            print("harry")
 
             # TODO: ******************
             # Only keep sufficiently sized clusters.
@@ -3920,6 +3990,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     gt_op_to_segments[ground_nsrt.parent.name].append(segment)
             final_clusters = list(gt_op_to_segments.values())
             ###
+
+            ##########
+            # final_clusters = list(option_to_segments.values())
+            ##########
 
             # ###
             # take the clusters involving option paint from our computed ones,
@@ -5434,6 +5508,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             pnads = self.learn_pnads()
             # self._pnads = pnads
+            # return predicates_we_kept
             import pdb; pdb.set_trace()
             print("darth maul")
 
@@ -5483,7 +5558,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # print(op_name, [pnad for pnad in pnads if pnad.op.name == op_name][0].op.parameters)
                 l = [(k, v) for k, v in d.items()]
                 sorted_predicates = sorted(l, key=lambda x: -x[1])
-                highest_scoring = sorted_predicates[0][0] # (predicate, count)
+                highest_scoring = sorted_predicates[0][0] # first one, and then the predicate part of the tuple
+                if op_name == "Op2-RobotMoveToButton":
+                    highest_scoring = sorted_predicates[8][0]
                 for n, c in sorted_predicates:
                     # compute overlap between the highest scoring and this one
                     highest_scoring_evaluations = static_predicate_evaluations[op_name][highest_scoring]
@@ -5513,6 +5590,25 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             predicates_we_kept = self.remove_harmful_predicates(final_potential_ops2, atom_dataset, initial_predicates, segmented_trajs, fff)
             pnads = self.learn_pnads()
             self._pnads = pnads
+
+            import pdb; pdb.set_trace()
+            from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
+            score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
+            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
+            segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+            strips_ops = [pnad.op for pnad in pnads]
+            option_specs = [pnad.option_spec for pnad in pnads]
+            op_score = score_function.evaluate_with_operators(
+                predicates_we_kept,
+                low_level_trajs,
+                segmented_trajs,
+                strips_ops,
+                option_specs
+            )
+            import pdb; pdb.set_trace()
+            print("jargon")
+
             return predicates_we_kept
 
             ####################################
