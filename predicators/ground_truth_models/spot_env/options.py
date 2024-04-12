@@ -280,7 +280,10 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
     del memory  # not used
 
     robot, localizer, _ = get_robot()
-    # sim_robot = get_simulated_robot()
+    if not CFG.bilevel_plan_without_sim:
+        sim_robot = get_simulated_robot()
+    else:
+        sim_robot = None
 
     distance = params[distance_param_idx]
     yaw = params[yaw_param_idx]
@@ -298,19 +301,30 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
                                     target_pose.z + target_height / 2)
     fn = navigate_to_relative_pose_and_gaze
     fn_args = (robot, rel_pose, localizer, gaze_target)
-    # sim_fn: Callable = simulated_navigate_to_relative_pose_and_gaze
-    # sim_fn_args: Tuple = (sim_robot,
-    #                       robot_pose.get_closest_se2_transform() * rel_pose,
-    #                       gaze_target)
+
+    if not CFG.bilevel_plan_without_sim:
+        sim_fn: Callable = simulated_navigate_to_relative_pose_and_gaze
+        sim_fn_args: Tuple = (sim_robot,
+                              robot_pose.get_closest_se2_transform() * rel_pose,
+                              gaze_target)
+    else:
+        sim_fn: Callable = lambda _: None
+        sim_fn_args: Tuple = ()
+
     if not do_gaze:
         fn = navigate_to_relative_pose  # type: ignore
         fn_args = (robot, rel_pose)  # type: ignore
-        # sim_fn = simulated_navigate_to_relative_pose
-        # sim_fn_args = (sim_robot,
-        #                robot_pose.get_closest_se2_transform() * rel_pose)
-    # action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
-    #                                         sim_fn_args)
-    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, None, ())
+
+        if not CFG.bilevel_plan_without_sim:
+            sim_fn = simulated_navigate_to_relative_pose
+            sim_fn_args = (sim_robot,
+                           robot_pose.get_closest_se2_transform() * rel_pose)
+        else:
+            sim_fn: Callable = lambda _: None
+            sim_fn_args: Tuple = ()
+
+    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
+                                            sim_fn_args)
     return utils.create_spot_env_action(action_extra_info)
 
 
@@ -324,13 +338,18 @@ def _grasp_policy(name: str,
     del memory  # not used
 
     robot, _, _ = get_robot()
-    # sim_robot = get_simulated_robot()
-    sim_robot = None
+    if not CFG.bilevel_plan_without_sim:
+        sim_robot = get_simulated_robot()
+    else:
+        sim_robot = None
+
     assert len(params) == 6
     pixel = (int(params[0]), int(params[1]))
     target_obj = objects[target_obj_idx]
-    # sim_target_obj = get_simulated_object(target_obj)
-    sim_target_obj = None
+    if not CFG.bilevel_plan_without_sim:
+        sim_target_obj = get_simulated_object(target_obj)
+    else:
+        sim_target_obj = None
 
     # Special case: if we're running dry, the image won't be used.
     if CFG.spot_run_dry:
@@ -548,13 +567,23 @@ def _sim_safe_pick_object_from_top_policy(state: State, memory: Dict,
     name = "SimSafePickObjectFromTop"
     target_obj_idx = 1
     robot, _, _ = get_robot()
-    sim_robot = get_simulated_robot()
+    if not CFG.bilevel_plan_without_sim:
+        sim_robot = get_simulated_robot()
+    else:
+        sim_robot = None
+
     fn = _sim_safe_grasp_at_pixel_and_maybe_stow_or_dump
     fn_args = (robot, objects[target_obj_idx], _options_rng, 10.0, True, True,
                False)
-    sim_fn = simulated_grasp_at_pixel
-    sim_target_obj = get_simulated_object(objects[target_obj_idx])
-    sim_fn_args = (sim_robot, sim_target_obj)
+
+    if not CFG.bilevel_plan_without_sim:
+        sim_fn = simulated_grasp_at_pixel
+        sim_target_obj = get_simulated_object(objects[target_obj_idx])
+        sim_fn_args = (sim_robot, sim_target_obj)
+    else:
+        sim_fn: Callable = lambda _: None
+        sim_fn_args: Tuple = ()
+
     action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
                                             sim_fn_args)
     return utils.create_spot_env_action(action_extra_info)
