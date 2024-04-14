@@ -1,4 +1,4 @@
-"""Ground-truth options for the apple coring environment."""
+"""Ground-truth options for the (non-pybullet) blocks environment."""
 
 from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple
 
@@ -11,12 +11,12 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
 
 
-class AppleCoringGroundTruthOptionFactory(GroundTruthOptionFactory):
-    """Ground-truth options for the apple coring environment."""
+class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the tea making environment."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"apple_coring"}
+        return {"iced_tea_making"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
@@ -26,34 +26,33 @@ class AppleCoringGroundTruthOptionFactory(GroundTruthOptionFactory):
         del env_name, predicates  # unused.
 
         object_type = types["object"]
-        goal_object_type = types["goal_object"]
-        apple_type = types["apple"]
-        slicing_tool_type = types["slicing_tool"]
-        plate_type = types["plate"]
+        teabag_type = types["teabag"]
+        ice_type = types["ice"]
+        cup_type = types["cup"]
         hand_type = types["hand"]
 
-        PickApple = utils.SingletonParameterizedOption(
-            # variables: [object to pick]
+        PickTeaBag = utils.SingletonParameterizedOption(
+            # variables: [teabag to pick]
             # params: []
             "pick",
             cls._create_dummy_policy(action_space),
-            types=[object_type])
+            types=[teabag_type, hand_type])
+        
+        PickIce = utils.SingletonParameterizedOption(
+            # variables: [ice to pick]
+            # params: []
+            "pick",
+            cls._create_dummy_policy(action_space),
+            types=[ice_type, hand_type])
 
-        PlaceOn = utils.SingletonParameterizedOption(
-            # variables: [object to pick, thing to place on]
+        PlaceInCup = utils.SingletonParameterizedOption(
+            # variables: [object to place, thing to place in]
             # params: []
             "place_on",
             cls._create_dummy_policy(action_space),
-            types=[apple_type, plate_type])
+            types=[object_type, cup_type])
 
-        Slice = utils.SingletonParameterizedOption(
-            # variables: [tool to slice with, obj to slice, robot]
-            # params: []
-            "slice",
-            cls._create_dummy_policy(action_space),
-            types=[slicing_tool_type, apple_type, hand_type])
-
-        return {PickApple, PlaceOn, Slice}
+        return {PickTeaBag, PickIce, PlaceInCup}
 
     @classmethod
     def _create_dummy_policy(cls, action_space: Box) -> ParameterizedPolicy:

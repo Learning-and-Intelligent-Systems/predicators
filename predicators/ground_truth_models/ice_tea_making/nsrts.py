@@ -1,4 +1,4 @@
-"""Ground-truth NSRTs for the apple coring environment."""
+"""Ground-truth NSRTs for the blocks environment."""
 
 from typing import Dict, Sequence, Set
 
@@ -10,12 +10,12 @@ from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
 from predicators.utils import null_sampler
 
 
-class AppleCoringGroundTruthNSRTFactory(GroundTruthNSRTFactory):
+class TeaMakingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the apple_coring environment."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"apple_coring"}
+        return {"iced_tea_making"}
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],

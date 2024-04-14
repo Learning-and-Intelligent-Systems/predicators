@@ -1,21 +1,18 @@
-"""Dummy apple-coring environment to test predicate invention."""
+"""A bunch of environments to help test VLM-based Predicate Invention."""
 
-from typing import ClassVar, List, Optional, Sequence, Set
+from typing import List, Optional, Sequence, Set
 
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, DefaultState, EnvironmentTask, \
+from predicators.structs import Action, EnvironmentTask, \
     GroundAtom, Object, Predicate, State, Type
 
 
-class AppleCoringEnv(BaseEnv):
-
+class VLMPredicateEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -23,18 +20,10 @@ class AppleCoringEnv(BaseEnv):
         self._object_type = Type("object", [])
         self._goal_object_type = Type("goal_object", ["goal_true"],
                                       self._object_type)
-        self._apple_type = Type("apple", [], self._object_type)
-        self._slicing_tool_type = Type("slicing_tool", [], self._object_type)
-        self._plate_type = Type("plate", [], self._object_type)
-        self._hand_type = Type("hand", [], self._object_type)
 
         # Predicates
         self._DummyGoal = Predicate("DummyGoal", [self._goal_object_type],
                                     self._Dummy_Goal_holds)
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "apple_coring"
 
     def simulate(self, state: State, action: Action) -> State:
         raise ValueError("simulate shouldn't be getting called!")
@@ -59,13 +48,6 @@ class AppleCoringEnv(BaseEnv):
         return set([self._DummyGoal])
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            self._goal_object_type, self._apple_type, self._slicing_tool_type,
-            self._plate_type, self._object_type, self._hand_type
-        }
-
-    @property
     def action_space(self) -> Box:
         return Box(low=0.0, high=1.0, shape=(0, ), dtype=np.float32)
 
@@ -76,6 +58,27 @@ class AppleCoringEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise ValueError("shouldn't be trying to render env at any point!")
+    
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del num, rng # unused
+        return []
+
+
+class AppleCoringEnv(VLMPredicateEnv):
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._apple_type = Type("apple", [], self._object_type)
+        self._slicing_tool_type = Type("slicing_tool", [], self._object_type)
+        self._plate_type = Type("plate", [], self._object_type)
+        self._hand_type = Type("hand", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "apple_coring"
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -97,3 +100,44 @@ class AppleCoringEnv(BaseEnv):
                 set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
             for _ in range(num)
         ]
+
+
+class IceTeaMakingEnv(VLMPredicateEnv):
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._teabag_type = Type("teabag", [], self._object_type)
+        self._ice_type = Type("ice", [], self._object_type)
+        self._cup_type = Type("cup", [], self._object_type)
+        self._plate_type = Type("plate", [], self._object_type)
+        self._hand_type = Type("hand", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "iced_tea_making"
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        dummy_goal_obj = Object("dummy_goal_obj", self._goal_object_type)
+        teabag_obj = Object("teabag", self._teabag_type)
+        ice_obj = Object("ice", self._ice_type)
+        cup_obj = Object("cup", self._cup_type)
+        plate_obj = Object("plate", self._plate_type)
+        hand_obj = Object("hand", self._hand_type)
+        init_state = State({
+            dummy_goal_obj: [0.0],
+            teabag_obj: [],
+            plate_obj: [],
+            ice_obj: [],
+            cup_obj: [],
+            hand_obj: []
+        })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
+
