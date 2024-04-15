@@ -1200,9 +1200,9 @@ def in_general_view_classifier(state: State,
 
 def _obj_reachable_from_spot_pose(spot_pose: math_helpers.SE3Pose,
                                   obj_position: math_helpers.Vec3) -> bool:
-    is_xy_near = np.sqrt((spot_pose.x - obj_position.x)**2 +
-                         (spot_pose.y -
-                          obj_position.y)**2) <= _REACHABLE_THRESHOLD
+    is_xy_near = np.sqrt(
+        (spot_pose.x - obj_position.x)**2 +
+        (spot_pose.y - obj_position.y)**2) <= _REACHABLE_THRESHOLD
 
     # Compute angle between spot's forward direction and the line from
     # spot to the object.
