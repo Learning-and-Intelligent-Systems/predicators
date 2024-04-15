@@ -20,17 +20,12 @@ from predicators.structs import Action, Dataset, GroundAtom, \
 from predicators.vlm_interface import GoogleGeminiVLM, VisionLanguageModel
 
 
-def _sample_init_atoms_from_trajectories(
-        trajectories: List[ImageOptionTrajectory],
-        vlm: VisionLanguageModel,
-        trajectory_subsample_freq=1) -> List[str]:
-    """Given a list of ImageOptionTrajectories, query a VLM to generate a list
-    of names of ground atoms from which we can extract predicates that might be
-    relevant for planning to recreate these trajectories."""
-    aggregated_vlm_output_strs = []
-    total_num_queries = sum(len(traj._state_imgs) // trajectory_subsample_freq for traj in trajectories)
-    curr_num_queries = 0
-    for traj in trajectories:
+def _generate_prompt_for_atom_proposals(
+        traj: ImageOptionTrajectory, trajectory_subsample_freq: int
+) -> List[Tuple[str, List[PIL.Image.Image]]]:
+    """Prompt for generating proposals for atoms."""
+    ret_list = []
+    if CFG.grammar_search_vlm_prompt_type == "naive_each_step":
         prompt = (
             "You are a robotic vision system who's job is to output a "
             "structured set of predicates useful for running a task and motion "
@@ -39,20 +34,68 @@ def _sample_init_atoms_from_trajectories(
             "For each predicate, output it in the following format: "
             "predicate_name(obj1, obj2, obj3...) "
             "(for instance is_sliced(apple), is_not_sliced(apple), etc.). "
-            "Also, for each predicate you list, also list its negation. "
+            "Also, for each predicate you list, list its negation. "
             "List as many predicates as you can possibly think of, even if they're only "
             "tangentially relevant to what you see in the scene and even if they're false, "
-            "given the following scene taken from a demonstration for the task. "
-        )
+            "given the following scene taken from a demonstration for the task."
+            "Do not list any other text other than the names and arguments of predicates. "
+            "List each proposal as a bulleted list item on a separate line.")
         i = 0
         while i < len(traj._state_imgs):
-            # Sample VLM outputs with temperature 1 for high diversity.
-            curr_vlm_output_atoms_str = vlm.sample_completions(
-                prompt, traj._state_imgs[i], 1.0, CFG.seed)
-            aggregated_vlm_output_strs.append(curr_vlm_output_atoms_str)
+            ret_list.append((prompt, traj._state_imgs[i]))
             i += trajectory_subsample_freq
-            curr_num_queries += 1
-            logging.info(f"Completed ({curr_num_queries}/approx. {total_num_queries}) init atoms queries to the VLM.")
+    elif CFG.grammar_search_vlm_prompt_type == "naive_whole_traj":
+        prompt = (
+            "You are a robotic vision system who's job is to output a "
+            "structured set of predicates useful for running a task and motion "
+            "planning system from the following demonstration. Please provide predicates "
+            f"in terms of the following objects: {[str(obj.name) for obj in traj._objects if obj.name != 'dummy_goal_obj']}. "
+            "For each predicate, output it in the following format: "
+            "predicate_name(obj1, obj2, obj3...) "
+            "(for instance is_sliced(apple), is_not_sliced(apple), etc.). "
+            "Also, for each predicate you list, list its negation. "
+            "List as many predicates as you can possibly think of, even if they're only "
+            "tangentially relevant to teh goal the demonstration is trying to accomplish."
+            "Do not list any other text other than the names and arguments of predicates. "
+            "List each proposal as a bulleted list item on a separate line.")
+        # NOTE: we rip out just one img from each of the state images. This is fine/works
+        # for the case where we only have one camera view, but probably will need to be
+        # amended in the future!
+        ret_list.append(
+            (prompt,
+             [traj._state_imgs[i][0] for i in range(len(traj._state_imgs))]))
+    else:
+        raise ValueError(
+            f"Unknown VLM prompting option {CFG.grammar_search_vlm_prompt_type}"
+        )
+    return ret_list
+
+
+def _sample_init_atoms_from_trajectories(
+        trajectories: List[ImageOptionTrajectory],
+        vlm: VisionLanguageModel,
+        trajectory_subsample_freq=1) -> List[str]:
+    """Given a list of ImageOptionTrajectories, query a VLM to generate a list
+    of names of ground atoms from which we can extract predicates that might be
+    relevant for planning to recreate these trajectories."""
+    aggregated_vlm_output_strs = []
+    all_vlm_queries_list = []
+    for traj in trajectories:
+        all_vlm_queries_list += _generate_prompt_for_atom_proposals(
+            traj, trajectory_subsample_freq)
+    curr_num_queries = 0
+    total_num_queries = len(all_vlm_queries_list)
+    for query in all_vlm_queries_list:
+        aggregated_vlm_output_strs.append(
+            vlm.sample_completions(query[0],
+                                   query[1],
+                                   1.0,
+                                   CFG.seed,
+                                   num_completions=1))
+        curr_num_queries += 1
+        logging.info(
+            f"Completed ({curr_num_queries}/{total_num_queries}) init atoms queries to the VLM."
+        )
     return aggregated_vlm_output_strs
 
 
@@ -85,7 +128,9 @@ def _label_trajectories_with_atom_values(
             assert len(curr_vlm_atom_labelling) == 1
             curr_traj_labelled_atoms_txt.append(curr_vlm_atom_labelling[0])
             curr_scenes_labelled += 1
-            logging.info(f"Completed ({curr_scenes_labelled}/{total_scenes_to_label}) label queries to VLM!")
+            logging.info(
+                f"Completed ({curr_scenes_labelled}/{total_scenes_to_label}) label queries to VLM!"
+            )
         output_labelled_atoms_txt_list.append(curr_traj_labelled_atoms_txt)
     return output_labelled_atoms_txt_list
 
@@ -110,7 +155,7 @@ def _parse_unique_atom_proposals_from_list(
         for atom_proposal_txt in atoms_proposal_line:
             num_atoms_considered += 1
             atom_is_valid = True
-            atom = re.sub(r"[^\w\s\(\)]", "", atom_proposal_txt).strip(' ')
+            atom = re.sub(r"[^\w\s\(\),]", "", atom_proposal_txt).strip(' ')
             obj_names = re.findall(r'\((.*?)\)', atom)
             if obj_names:
                 obj_names_list = [
@@ -190,7 +235,7 @@ def _parse_structured_state_into_ground_atoms(
     for t in env.types:
         obj_type = t.oldest_ancestor
         assert obj_type.name == "object"
-    assert obj_type is not None    
+    assert obj_type is not None
 
     def _stripped_classifier(state: State, objects: Sequence[Object]) -> bool:
         raise Exception("Stripped classifier should never be called!")
@@ -247,7 +292,8 @@ def _parse_structured_state_into_ground_atoms(
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
                         pred_name_to_pred[pred_name] = Predicate(
-                            pred_name, [obj_type for _ in range(num_args)], _stripped_classifier)
+                            pred_name, [obj_type for _ in range(num_args)],
+                            _stripped_classifier)
 
                 # Given that we've now built up predicates and object
                 # dictionaries. We can now convert the current state into
@@ -362,7 +408,6 @@ def create_ground_atom_data_from_img_trajs(
     # First, run some checks on the folder name to make sure
     # we're not accidentally loading the wrong one.
     folder_name_components = CFG.vlm_trajs_folder_name.split('__')
-    # import ipdb; ipdb.set_trace()
     assert folder_name_components[0] == CFG.env
     assert folder_name_components[1] == "vlm_demos"
     assert int(folder_name_components[2]) == CFG.seed
@@ -421,7 +466,8 @@ def create_ground_atom_data_from_img_trajs(
             try:
                 ground_option = option.ground(objects, np.array(option_params))
             except AssertionError:
-                import ipdb; ipdb.set_trace()
+                import ipdb
+                ipdb.set_trace()
             # NOTE: we assert the option was initiable in the env's initial
             # state because during learning, we will assert that the option's
             # initiable function was previously called.
@@ -433,7 +479,7 @@ def create_ground_atom_data_from_img_trajs(
                                   ground_option_traj, True, train_task_idx))
     # Given trajectories, we can now query the VLM to get proposals for ground
     # atoms that might be relevant to decision-making.
-    gemini_vlm = GoogleGeminiVLM("gemini-pro-vision")
+    gemini_vlm = GoogleGeminiVLM("gemini-1.5-pro-latest")
     logging.info("Querying VLM for candidate atom proposals...")
     atom_strs_proposals_list = _sample_init_atoms_from_trajectories(
         image_option_trajs, gemini_vlm, 1)

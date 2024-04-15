@@ -8,11 +8,12 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, \
-    GroundAtom, Object, Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class VLMPredicateEnv(BaseEnv):
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -27,7 +28,7 @@ class VLMPredicateEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         raise ValueError("simulate shouldn't be getting called!")
-    
+
     @property
     def types(self) -> Set[Type]:
         return {self._object_type, self._goal_object_type}
@@ -62,10 +63,10 @@ class VLMPredicateEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise ValueError("shouldn't be trying to render env at any point!")
-    
+
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
-        del num, rng # unused
+        del num, rng  # unused
         return []
 
 
@@ -86,7 +87,10 @@ class AppleCoringEnv(VLMPredicateEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return super().types | {self._apple_type, self._slicing_tool_type, self._plate_type, self._hand_type}
+        return super().types | {
+            self._apple_type, self._slicing_tool_type, self._plate_type,
+            self._hand_type
+        }
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -128,7 +132,10 @@ class IceTeaMakingEnv(VLMPredicateEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return super().types | {self._teabag_type, self._ice_type, self._cup_type, self._plate_type, self._hand_type}
+        return super().types | {
+            self._teabag_type, self._ice_type, self._cup_type,
+            self._plate_type, self._hand_type
+        }
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -152,4 +159,3 @@ class IceTeaMakingEnv(VLMPredicateEnv):
                 set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
             for _ in range(num)
         ]
-

@@ -29,7 +29,7 @@ class Type:
     def dim(self) -> int:
         """Dimensionality of the feature vector of this object type."""
         return len(self.feature_names)
-    
+
     @property
     def oldest_ancestor(self) -> Type:
         """Crawl up all the parent types to return the one at the top."""

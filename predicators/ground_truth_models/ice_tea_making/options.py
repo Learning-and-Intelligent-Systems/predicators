@@ -37,7 +37,7 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
             "pick",
             cls._create_dummy_policy(action_space),
             types=[object_type, hand_type])
-        
+
         # PickIce = utils.SingletonParameterizedOption(
         #     # variables: [ice to pick]
         #     # params: []
