@@ -3062,7 +3062,9 @@ class LISSpotBlockFloorEnv(SpotRearrangementEnv):
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
 
         red_block = Object("red_block", _movable_object_type)
-        red_block_detection = LanguageObjectDetectionID("red block/orange block/yellow block")
+        red_block_detection = LanguageObjectDetectionID(
+            "red block/orange block/yellow block"
+        )
         detection_id_to_obj[red_block_detection] = red_block
 
         for obj, pose in get_known_immovable_objects().items():
