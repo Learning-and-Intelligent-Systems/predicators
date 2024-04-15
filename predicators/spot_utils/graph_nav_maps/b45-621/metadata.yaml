@@ -1,9 +1,15 @@
 # Additional info associated with the map.
 ---
+# NOTE: close to the center of the room
+#spot-home-pose:
+#  x: 2.85
+#  y: 0.0
+#  angle: -1.45769
+# NOTE: a place closer to the corner that the cable can reach - easier for debug
 spot-home-pose:
-  x: 2.85
-  y: 0.0
-  angle: -1.45769
+  x: 3.5
+  y: 0.45
+  angle: 0.
 april-tag-offsets: []
 
 # Allowed regions. Each region is defined by a set of points
