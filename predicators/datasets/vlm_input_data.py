@@ -28,6 +28,8 @@ def _sample_init_atoms_from_trajectories(
     of names of ground atoms from which we can extract predicates that might be
     relevant for planning to recreate these trajectories."""
     aggregated_vlm_output_strs = []
+    total_num_queries = sum(len(traj._state_imgs) // trajectory_subsample_freq for traj in trajectories)
+    curr_num_queries = 0
     for traj in trajectories:
         prompt = (
             "You are a robotic vision system who's job is to output a "
@@ -49,6 +51,8 @@ def _sample_init_atoms_from_trajectories(
                 prompt, traj._state_imgs[i], 1.0, CFG.seed)
             aggregated_vlm_output_strs.append(curr_vlm_output_atoms_str)
             i += trajectory_subsample_freq
+            curr_num_queries += 1
+            logging.info(f"Completed ({curr_num_queries}/approx. {total_num_queries}) init atoms queries to the VLM.")
     return aggregated_vlm_output_strs
 
 
@@ -57,6 +61,8 @@ def _label_trajectories_with_atom_values(
         atoms_list: List[str]) -> List[List[str]]:
     """Given a list of atoms, label every state in ImageOptionTrajectories with
     the truth values of a set of atoms."""
+    total_scenes_to_label = sum(len(traj._state_imgs) for traj in trajectories)
+    curr_scenes_labelled = 0
     output_labelled_atoms_txt_list = []
     prompt = ("You are a vision system for a robot. Your job is to output "
               "the values of the following predicates based on the provided "
@@ -78,6 +84,8 @@ def _label_trajectories_with_atom_values(
                                                              num_completions=1)
             assert len(curr_vlm_atom_labelling) == 1
             curr_traj_labelled_atoms_txt.append(curr_vlm_atom_labelling[0])
+            curr_scenes_labelled += 1
+            logging.info(f"Completed ({curr_scenes_labelled}/{total_scenes_to_label}) label queries to VLM!")
         output_labelled_atoms_txt_list.append(curr_traj_labelled_atoms_txt)
     return output_labelled_atoms_txt_list
 
@@ -150,7 +158,7 @@ def save_labelled_trajs_as_txt(
         # and a "===" delimiter.
         final_atom_state_str = curr_atoms_traj[-1]
         final_state_str = "{" + final_atom_state_str + "}\n"
-        save_str += final_state_str + "==="
+        save_str += final_state_str + "===\n"
     # Finally, save this constructed string as a txt file!
     txt_filename = f"{env.get_name()}__demo+labeled_atoms__manual__{len(labelled_atoms_trajs)}.txt"
     filepath = os.path.join(CFG.data_dir, txt_filename)
@@ -176,6 +184,13 @@ def _parse_structured_state_into_ground_atoms(
     goal_preds_list = list(env.goal_predicates)
     goal_predicate = goal_preds_list[0]
     assert goal_predicate.name == "DummyGoal"
+    # We also assume that there is precisely one "object" type that is
+    # a superset of all other object types.
+    obj_type = None
+    for t in env.types:
+        obj_type = t.oldest_ancestor
+        assert obj_type.name == "object"
+    assert obj_type is not None    
 
     def _stripped_classifier(state: State, objects: Sequence[Object]) -> bool:
         raise Exception("Stripped classifier should never be called!")
@@ -204,20 +219,36 @@ def _parse_structured_state_into_ground_atoms(
                 # Sliced(apple, cutting_tool)). We might want to explicitly
                 # check for this in the future.
                 if pred_name not in pred_name_to_pred:
-                    # For each predicate, there is precisely one set of
-                    # objects grounding it, and that set is linked to
-                    # exactly one truth value (i.e., the value of this
-                    # ground atom).
-                    assert len(objs_and_val_dict.keys()) == 1
-                    for obj_args in objs_and_val_dict.keys():
-                        # We need to construct the types being
-                        # fed into this predicate.
-                        pred_types = []
-                        for obj_name in obj_args:
-                            curr_obj = curr_obj_name_to_obj[obj_name]
-                            pred_types.append(curr_obj.type)
+                    if len(objs_and_val_dict.keys()) == 1:
+                        # In this case, we make a predicate that takes in
+                        # exactly one types argument.
+                        for obj_args in objs_and_val_dict.keys():
+                            # We need to construct the types being
+                            # fed into this predicate.
+                            pred_types = []
+                            for obj_name in obj_args:
+                                curr_obj = curr_obj_name_to_obj[obj_name]
+                                pred_types.append(curr_obj.type)
+                            pred_name_to_pred[pred_name] = Predicate(
+                                pred_name, pred_types, _stripped_classifier)
+                    else:
+                        # In this case, we need to make a predicate that
+                        # takes in the generic 'object' type such that
+                        # multiple different objs could potentially be
+                        # subbed in.
+                        # Start by checking that the number of object
+                        # args are always the same
+                        num_args = 0
+                        for obj_args in objs_and_val_dict.keys():
+                            if num_args == 0:
+                                num_args = len(obj_args)
+                            else:
+                                assert num_args == len(obj_args)
+                        # Given this, add one new predicate with num_args
+                        # number of 'object' type arguments.
                         pred_name_to_pred[pred_name] = Predicate(
-                            pred_name, pred_types, _stripped_classifier)
+                            pred_name, [obj_type for _ in range(num_args)], _stripped_classifier)
+
                 # Given that we've now built up predicates and object
                 # dictionaries. We can now convert the current state into
                 # ground atoms!
@@ -331,6 +362,7 @@ def create_ground_atom_data_from_img_trajs(
     # First, run some checks on the folder name to make sure
     # we're not accidentally loading the wrong one.
     folder_name_components = CFG.vlm_trajs_folder_name.split('__')
+    # import ipdb; ipdb.set_trace()
     assert folder_name_components[0] == CFG.env
     assert folder_name_components[1] == "vlm_demos"
     assert int(folder_name_components[2]) == CFG.seed
@@ -386,7 +418,10 @@ def create_ground_atom_data_from_img_trajs(
                 for opt_arg in option_objs_strs_list
             ]
             option = option_name_to_option[option_name]
-            ground_option = option.ground(objects, np.array(option_params))
+            try:
+                ground_option = option.ground(objects, np.array(option_params))
+            except AssertionError:
+                import ipdb; ipdb.set_trace()
             # NOTE: we assert the option was initiable in the env's initial
             # state because during learning, we will assert that the option's
             # initiable function was previously called.
@@ -402,7 +437,7 @@ def create_ground_atom_data_from_img_trajs(
     logging.info("Querying VLM for candidate atom proposals...")
     atom_strs_proposals_list = _sample_init_atoms_from_trajectories(
         image_option_trajs, gemini_vlm, 1)
-    logging.info("Done querying VLM!")
+    logging.info("Done querying VLM for candidate atoms!")
     # We now parse and sanitize this set of atoms.
     atom_proposals_set = _parse_unique_atom_proposals_from_list(
         atom_strs_proposals_list, all_task_objs)
@@ -412,9 +447,11 @@ def create_ground_atom_data_from_img_trajs(
     # ordering.
     unique_atoms_list = sorted(atom_proposals_set)
     # Now, query the VLM!
+    logging.info("Querying VLM to label every scene...")
     atom_labels = _label_trajectories_with_atom_values(image_option_trajs,
                                                        gemini_vlm,
                                                        unique_atoms_list)
+    logging.info("Done querying VLM for scene labelling!")
     # Save the output as a human-readable txt file.
     save_labelled_trajs_as_txt(
         env, atom_labels, [io_traj._actions for io_traj in image_option_trajs])

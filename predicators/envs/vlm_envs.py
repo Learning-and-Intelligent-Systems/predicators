@@ -27,6 +27,10 @@ class VLMPredicateEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         raise ValueError("simulate shouldn't be getting called!")
+    
+    @property
+    def types(self) -> Set[Type]:
+        return {self._object_type, self._goal_object_type}
 
     def _Dummy_Goal_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
@@ -80,6 +84,10 @@ class AppleCoringEnv(VLMPredicateEnv):
     def get_name(cls) -> str:
         return "apple_coring"
 
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {self._apple_type, self._slicing_tool_type, self._plate_type, self._hand_type}
+
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         dummy_goal_obj = Object("dummy_goal_obj", self._goal_object_type)
@@ -117,6 +125,10 @@ class IceTeaMakingEnv(VLMPredicateEnv):
     @classmethod
     def get_name(cls) -> str:
         return "iced_tea_making"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {self._teabag_type, self._ice_type, self._cup_type, self._plate_type, self._hand_type}
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:

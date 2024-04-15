@@ -31,28 +31,28 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         cup_type = types["cup"]
         hand_type = types["hand"]
 
-        PickTeaBag = utils.SingletonParameterizedOption(
+        Pick = utils.SingletonParameterizedOption(
             # variables: [teabag to pick]
             # params: []
             "pick",
             cls._create_dummy_policy(action_space),
-            types=[teabag_type, hand_type])
+            types=[object_type, hand_type])
         
-        PickIce = utils.SingletonParameterizedOption(
-            # variables: [ice to pick]
-            # params: []
-            "pick",
-            cls._create_dummy_policy(action_space),
-            types=[ice_type, hand_type])
+        # PickIce = utils.SingletonParameterizedOption(
+        #     # variables: [ice to pick]
+        #     # params: []
+        #     "pick_ice",
+        #     cls._create_dummy_policy(action_space),
+        #     types=[ice_type, hand_type])
 
         PlaceInCup = utils.SingletonParameterizedOption(
             # variables: [object to place, thing to place in]
             # params: []
-            "place_on",
+            "place_in",
             cls._create_dummy_policy(action_space),
             types=[object_type, cup_type])
 
-        return {PickTeaBag, PickIce, PlaceInCup}
+        return {Pick, PlaceInCup}
 
     @classmethod
     def _create_dummy_policy(cls, action_space: Box) -> ParameterizedPolicy:
