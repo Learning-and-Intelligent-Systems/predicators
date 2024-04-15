@@ -3035,8 +3035,8 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
 
 
 class LISSpotBlockFloorEnv(SpotRearrangementEnv):
-    """An extremely basic environment where a block needs to be picked up
-    and is specifically used for testing in the LIS Spot room.
+    """An extremely basic environment where a block needs to be picked up and
+    is specifically used for testing in the LIS Spot room.
 
     Very simple and mostly just for testing.
     """
