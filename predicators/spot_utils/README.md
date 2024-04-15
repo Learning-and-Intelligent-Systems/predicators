@@ -7,7 +7,7 @@
 **Steps:**
 - Set up the codebase, perception pipeline, and Spot
   - You need to have access to a GPU server for the perception pipeline (e.g., the Detic-SAM pipeline)
-  - You need to connect to Spot (through WiFi or ethernet cable). Spot in its own WiFi AP mode is on IP `192.168.80.3`.
+  - You need to connect to Spot (through WiFi or ethernet cable). The Spot at LIS uses its own WiFi AP mode and is on IP `192.168.80.3`.
   - To connect to both Spot and GPU server, our current solution is to use WiFi for Spot and ethernet cable for the GPU server.
 - Create a new map of the environment: See the `Mapping` section.
   - Prepare the metadata file: See the `Prepare Metadata` section.
