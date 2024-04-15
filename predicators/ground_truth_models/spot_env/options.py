@@ -276,7 +276,6 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
                            target_obj_idx: int, do_gaze: bool, state: State,
                            memory: Dict, objects: Sequence[Object],
                            params: Array) -> Action:
-
     del memory  # not used
 
     robot, localizer, _ = get_robot()
@@ -305,11 +304,11 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
     if not CFG.bilevel_plan_without_sim:
         sim_fn: Callable = simulated_navigate_to_relative_pose_and_gaze
         sim_fn_args: Tuple = (sim_robot,
-                              robot_pose.get_closest_se2_transform() * rel_pose,
-                              gaze_target)
+                              robot_pose.get_closest_se2_transform() *
+                              rel_pose, gaze_target)
     else:
-        sim_fn: Callable = lambda _: None
-        sim_fn_args: Tuple = ()
+        sim_fn = lambda _: None
+        sim_fn_args = ()
 
     if not do_gaze:
         fn = navigate_to_relative_pose  # type: ignore
@@ -320,8 +319,8 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
             sim_fn_args = (sim_robot,
                            robot_pose.get_closest_se2_transform() * rel_pose)
         else:
-            sim_fn: Callable = lambda _: None
-            sim_fn_args: Tuple = ()
+            sim_fn = lambda _: None
+            sim_fn_args = ()
 
     action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
                                             sim_fn_args)
@@ -366,10 +365,10 @@ def _grasp_policy(name: str,
                                       params[5])
     # If the target object is reasonably large, don't try to stow!
     target_obj_volume = state.get(target_obj, "height") * \
-        state.get(target_obj, "length") * state.get(target_obj, "width")
+                        state.get(target_obj, "length") * state.get(target_obj, "width")
 
     do_stow = not do_dump and \
-        target_obj_volume < CFG.spot_grasp_stow_volume_threshold
+              target_obj_volume < CFG.spot_grasp_stow_volume_threshold
     fn = _grasp_at_pixel_and_maybe_stow_or_dump
     sim_fn = None  # NOTE: cannot simulate using this option, so this
     # shouldn't be called anyways...
@@ -396,7 +395,6 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                          memory: Dict,
                                          objects: Sequence[Object],
                                          params: Array) -> Action:
-
     del memory  # not used
 
     robot, _, _ = get_robot()
@@ -577,12 +575,12 @@ def _sim_safe_pick_object_from_top_policy(state: State, memory: Dict,
                False)
 
     if not CFG.bilevel_plan_without_sim:
-        sim_fn = simulated_grasp_at_pixel
+        sim_fn: Callable = simulated_grasp_at_pixel
         sim_target_obj = get_simulated_object(objects[target_obj_idx])
-        sim_fn_args = (sim_robot, sim_target_obj)
+        sim_fn_args: Tuple = (sim_robot, sim_target_obj)
     else:
-        sim_fn: Callable = lambda _: None
-        sim_fn_args: Tuple = ()
+        sim_fn = lambda _: None
+        sim_fn_args = ()
 
     action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
                                             sim_fn_args)
@@ -665,7 +663,7 @@ def _place_object_on_top_policy(state: State, memory: Dict,
             robot_pose.x, robot_pose.y) and surface_obj.name == "floor":
         # Note simulation fn and args not yet implemented.
         action_extra_info = SpotActionExtraInfo(name, objects, _drop_and_stow,
-                                                (robot, ), None, tuple())
+                                                (robot,), None, tuple())
         return utils.create_spot_env_action(action_extra_info)
 
     # If we're running on the actual robot, we want to be very precise
@@ -727,7 +725,7 @@ def _drop_not_placeable_object_policy(state: State, memory: Dict,
 
     # Note simulation fn and args not yet implemented.
     action_extra_info = SpotActionExtraInfo(name, objects,
-                                            _open_and_close_gripper, (robot, ),
+                                            _open_and_close_gripper, (robot,),
                                             None, tuple())
     return utils.create_spot_env_action(action_extra_info)
 
@@ -760,7 +758,7 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
     if surface_geom.contains_point(robot_pose.x, robot_pose.y):
         # Note simulation fn and args not yet implemented.
         action_extra_info = SpotActionExtraInfo(name, objects, _drop_and_stow,
-                                                (robot, ), None, tuple())
+                                                (robot,), None, tuple())
         return utils.create_spot_env_action(action_extra_info)
 
     # The dz parameter is with respect to the top of the container.
@@ -825,7 +823,6 @@ def _sweep_into_container_policy(state: State, memory: Dict,
 def _sweep_two_objects_into_container_policy(state: State, memory: Dict,
                                              objects: Sequence[Object],
                                              params: Array) -> Action:
-
     name = "SweepTwoObjectsIntoContainer"
     robot_obj_idx = 0
     target_obj_idxs = {2, 3}
@@ -972,7 +969,7 @@ class _SpotParameterizedOption(utils.SingletonParameterizedOption):
         # and policies.
         if not CFG.bilevel_plan_without_sim:
             _OPERATOR_NAME_TO_PARAM_SPACE["PickObjectFromTop"] = Box(
-                0, 1, (0, ))
+                0, 1, (0,))
             _OPERATOR_NAME_TO_POLICY[
                 "PickObjectFromTop"] = _sim_safe_pick_object_from_top_policy
         params_space = _OPERATOR_NAME_TO_PARAM_SPACE[operator_name]
