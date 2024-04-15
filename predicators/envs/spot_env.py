@@ -1200,9 +1200,9 @@ def in_general_view_classifier(state: State,
 
 def _obj_reachable_from_spot_pose(spot_pose: math_helpers.SE3Pose,
                                   obj_position: math_helpers.Vec3) -> bool:
-    is_xy_near = np.sqrt(
-        (spot_pose.x - obj_position.x)**2 +
-        (spot_pose.y - obj_position.y)**2) <= _REACHABLE_THRESHOLD
+    is_xy_near = np.sqrt((spot_pose.x - obj_position.x)**2 +
+                         (spot_pose.y -
+                          obj_position.y)**2) <= _REACHABLE_THRESHOLD
 
     # Compute angle between spot's forward direction and the line from
     # spot to the object.
@@ -3033,6 +3033,7 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
 #                             LIS Test Block Floor                            #
 ###############################################################################
 
+
 class LISSpotBlockFloorEnv(SpotRearrangementEnv):
     """An extremely basic environment where a block needs to be picked up
     and is specifically used for testing in the LIS Spot room.
@@ -3063,8 +3064,7 @@ class LISSpotBlockFloorEnv(SpotRearrangementEnv):
 
         red_block = Object("red_block", _movable_object_type)
         red_block_detection = LanguageObjectDetectionID(
-            "red block/orange block/yellow block"
-        )
+            "red block/orange block/yellow block")
         detection_id_to_obj[red_block_detection] = red_block
 
         for obj, pose in get_known_immovable_objects().items():
