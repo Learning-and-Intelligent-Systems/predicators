@@ -495,6 +495,6 @@ def test_stick_button_move():
     state.set(holder, "x", x - (env.holder_height - env.stick_height) / 2)
     state.set(holder, "y", y)
     # Press to pick up the stick.
-    action = Action(np.array([0., 0., 0., 1.], dtype=np.float32))
+    action = Action(np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
     next_state = env.simulate(state, action)
     assert state.allclose(next_state)  # should noop
