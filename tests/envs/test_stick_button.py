@@ -498,3 +498,4 @@ def test_stick_button_move():
     action = Action(np.array([0., 0., 0., 1.], dtype=np.float32))
     next_state = env.simulate(state, action)
     assert state.allclose(next_state)  # should noop
+    
