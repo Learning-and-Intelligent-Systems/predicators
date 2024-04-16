@@ -147,9 +147,9 @@ class StickButtonEnv(BaseEnv):
                 # Check for a collision with the stick holder. The reason that
                 # we only check for a collision here, as opposed to every
                 # timestep, is that we imagine the robot moving down in the z
-                # direction to pick up the stick, at which button it may
-                # collide with the stick holder. On other timesteps, the robot
-                # would be high enough above the holder to avoid collisions.
+                # direction to pick up the stick after it has reached it on the
+                # x-y plane. On other timesteps, the robot would be high enough
+                # above the holder to avoid collisions.
                 if robot_circ.intersects(holder_rect):
                     # No-op in case of collision.
                     return state.copy()
@@ -711,9 +711,9 @@ class StickButtonMovementEnv(StickButtonEnv):
                 # Check for a collision with the stick holder. The reason that
                 # we only check for a collision here, as opposed to every
                 # timestep, is that we imagine the robot moving down in the z
-                # direction to pick up the stick, at which button it may
-                # collide with the stick holder. On other timesteps, the robot
-                # would be high enough above the holder to avoid collisions.
+                # direction to pick up the stick after it has reached it on the
+                # x-y plane. On other timesteps, the robot would be high enough
+                # above the holder to avoid collisions.
                 if robot_circ.intersects(holder_rect):
                     # No-op in case of collision.
                     return state.copy()
