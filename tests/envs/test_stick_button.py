@@ -470,3 +470,31 @@ def test_stick_button_move():
     rng = np.random.default_rng(123)
     option = ground_nsrt.sample_option(state, set(), rng)
     assert -1 <= option.params[0] <= 1
+
+    # Test that an EnviromentFailure is raised if the robot tries to pick
+    # when colliding with the stick holder.
+    utils.reset_config({
+        "env": "stick_button",
+        "stick_button_num_buttons_train": [1],
+        "stick_button_disable_angles": True,
+        "stick_button_holder_scale": 0.1,
+    })
+    env = StickButtonEnv()
+    # Create a custom initial state, with the robot right on top of the stick
+    # and stick holder.
+    state = env.get_train_tasks()[0].init.copy()
+    holder, = state.get_objects(holder_type)
+    robot, = state.get_objects(robot_type)
+    stick, = state.get_objects(stick_type)
+    x = (env.rz_x_ub + env.rz_x_lb) / 2
+    y = (env.rz_y_ub + env.rz_y_lb) / 2
+    state.set(robot, "x", x)
+    state.set(robot, "y", y)
+    state.set(stick, "x", x)
+    state.set(stick, "y", y)
+    state.set(holder, "x", x - (env.holder_height - env.stick_height) / 2)
+    state.set(holder, "y", y)
+    # Press to pick up the stick.
+    action = Action(np.array([0., 0., 0., 1.], dtype=np.float32))
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)  # should noop
