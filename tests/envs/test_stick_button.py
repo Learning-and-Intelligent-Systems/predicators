@@ -479,7 +479,7 @@ def test_stick_button_move():
         "stick_button_disable_angles": True,
         "stick_button_holder_scale": 0.1,
     })
-    env = StickButtonEnv()
+    env = StickButtonMovementEnv()
     # Create a custom initial state, with the robot right on top of the stick
     # and stick holder.
     state = env.get_train_tasks()[0].init.copy()
