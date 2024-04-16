@@ -335,19 +335,21 @@ def test_stick_button_move():
     assert holder_type.name == "holder"
     assert robot_type.name == "robot"
     assert stick_type.name == "stick"
-    assert env.action_space.shape == (4, )
+    assert env.action_space.shape == (5, )
     # Create a custom initial state, with the robot in the middle, one button
     # reachable on the left, one button out of the reachable zone in the middle,
     # and the stick on the right at a 45 degree angle.
     state = env.get_train_tasks()[0].init.copy()
     robot, = state.get_objects(robot_type)
     stick, = state.get_objects(stick_type)
+    holder, = state.get_objects(holder_type)
     buttons = state.get_objects(button_type)
     assert len(buttons) == 2
     robot_x = (env.rz_x_ub + env.rz_x_lb) / 2
     state.set(robot, "x", robot_x)
     state.set(robot, "y", (env.rz_y_ub + env.rz_y_lb) / 2)
     state.set(robot, "theta", np.pi / 2)
+    state.set(robot, "fingers", 1.0)
     reachable_button, unreachable_button = buttons
     reachable_x = (env.rz_x_ub + env.rz_x_lb) / 4
     state.set(reachable_button, "x", reachable_x)
@@ -361,6 +363,8 @@ def test_stick_button_move():
     state.set(stick, "x", stick_x)
     state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb) / 4)
     state.set(stick, "theta", np.pi / 4)
+    state.set(stick, "held", 0.0)
+
     task = EnvironmentTask(state, task.goal)
     env.render_state(state, task)
     assert GroundAtom(AboveNoButton, []).holds(state)
@@ -374,7 +378,6 @@ def test_stick_button_move():
     assert StickPressButton.name == "StickPressButton"
     assert RobotMoveToButton.name == "RobotMoveToButton"
     assert StickMoveToButton.name == "StickMoveToButton"
-
     # Test PickStick.
     option = PickStick.ground([robot, stick], [0.1])
     option_plan = [option]
@@ -388,7 +391,9 @@ def test_stick_button_move():
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure})
     assert traj.states[-2].get(stick, "held") < 0.5
+    assert traj.states[-2].get(robot, "fingers") > 0.5
     assert traj.states[-1].get(stick, "held") > 0.5
+    assert traj.states[-1].get(robot, "fingers") <= 0.5
 
     # Test StickPressButton without moving first to show it doesn't work.
     option = StickPressButton.ground([robot, stick, unreachable_button], [])
@@ -425,10 +430,71 @@ def test_stick_button_move():
     # assert pressing worked.
     assert traj.states[-1].get(unreachable_button, "pressed") > 0.5
 
+    # Test PlaceStick
+    utils.reset_config({
+        "env": "stick_button_move",
+        "stick_button_num_buttons_train": [2],
+        "stick_button_disable_angles": True,
+        "stick_button_holder_scale": 0.1,
+    })
+    env = StickButtonMovementEnv()
+    state = env.get_train_tasks()[1].init.copy()
+    task = EnvironmentTask(state, task.goal)
+    robot, = state.get_objects(robot_type)
+    stick, = state.get_objects(stick_type)
+    holder, = state.get_objects(holder_type)
+    buttons = state.get_objects(button_type)
+    option_plan = [
+        PickStick.ground([robot, stick], [0.3]),
+        StickMoveToButton.ground([robot, buttons[0], stick], []),
+        StickPressButton.ground([robot, stick, buttons[0]], []),
+        PlaceStick.ground((robot, stick, holder), [0.4])
+    ]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(stick, "held") > 0.5
+    assert traj.states[-2].get(robot, "fingers") <= 0.5
+    assert traj.states[-1].get(stick, "held") < 0.5
+    assert traj.states[-1].get(robot, "fingers") > 0.5
+
     # Special test for PlaceStick NSRT because it's not used by oracle.
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     nsrt = next(iter(n for n in nsrts if n.name == "PlaceStickFromNothing"))
-    ground_nsrt = nsrt.ground([robot, stick])
+    ground_nsrt = nsrt.ground([robot, stick, holder])
     rng = np.random.default_rng(123)
     option = ground_nsrt.sample_option(state, set(), rng)
     assert -1 <= option.params[0] <= 1
+
+    # Test that an EnviromentFailure is raised if the robot tries to pick
+    # when colliding with the stick holder.
+    utils.reset_config({
+        "env": "stick_button",
+        "stick_button_num_buttons_train": [1],
+        "stick_button_disable_angles": True,
+        "stick_button_holder_scale": 0.1,
+    })
+    env = StickButtonMovementEnv()
+    # Create a custom initial state, with the robot right on top of the stick
+    # and stick holder.
+    state = env.get_train_tasks()[0].init.copy()
+    holder, = state.get_objects(holder_type)
+    robot, = state.get_objects(robot_type)
+    stick, = state.get_objects(stick_type)
+    x = (env.rz_x_ub + env.rz_x_lb) / 2
+    y = (env.rz_y_ub + env.rz_y_lb) / 2
+    state.set(robot, "x", x)
+    state.set(robot, "y", y)
+    state.set(stick, "x", x)
+    state.set(stick, "y", y)
+    state.set(holder, "x", x - (env.holder_height - env.stick_height) / 2)
+    state.set(holder, "y", y)
+    # Press to pick up the stick.
+    action = Action(np.array([0.0, 0.0, 0.0, -1.0, 1.0], dtype=np.float32))
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)  # should noop
