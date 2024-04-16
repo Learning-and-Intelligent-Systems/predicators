@@ -274,7 +274,7 @@ def _query_detic_sam(
     # Create buffer dictionary to send to server.
     buf_dict = {}
     for camera_name, rgbd in rgbds.items():
-        pil_rotated_img = PIL.Image.fromarray(rgbd.rotated_rgb)
+        pil_rotated_img = PIL.Image.fromarray(rgbd.rotated_rgb)  # type: ignore
         buf_dict[camera_name] = _image_to_bytes(pil_rotated_img)
 
     # Extract all the classes that we want to detect.
