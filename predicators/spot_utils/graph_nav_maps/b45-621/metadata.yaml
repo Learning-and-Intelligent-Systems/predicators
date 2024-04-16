@@ -1,0 +1,49 @@
+# Additional info associated with the map.
+---
+# NOTE: close to the center of the room
+#spot-home-pose:
+#  x: 2.85
+#  y: 0.0
+#  angle: -1.45769
+# NOTE: a place closer to the corner that the cable can reach - easier for debug
+spot-home-pose:
+  x: 3.5
+  y: 0.45
+  angle: 0.
+april-tag-offsets: []
+
+# Allowed regions. Each region is defined by a set of points
+# that form the boundary of the region. We will check
+# whether a pose is within the region by checking whether the
+# robot will be within the convex hull of these boundary
+# points.
+allowed-regions:
+  spot-room:
+    - [0.25, 1.9]
+    - [1.2, -2.5]
+    - [5.7, -1.5]
+    - [5.0, 2.7]
+
+# Known immovable objects. Assuming default rotations.
+# TODO note: later we can add static objects like tables, chairs, etc. here
+known-immovable-objects:
+  floor:
+    x: 1.4
+    y: 0.5
+    z: -0.5
+
+# Static object features, including the shapes and sizes of known objects.
+static-object-features:
+  floor:
+    shape: 1
+    height: 0.0001
+    length: 10000000  # effectively infinite
+    width: 10000000
+    flat_top_surface: 1
+  red_block:
+    shape: 2
+    height: 0.1
+    length: 0.1
+    width: 0.1
+    placeable: 1
+    is_sweeper: 0

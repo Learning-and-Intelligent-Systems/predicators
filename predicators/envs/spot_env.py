@@ -3027,3 +3027,55 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("Dry task generation not implemented.")
+
+
+###############################################################################
+#                             LIS Test Block Floor                            #
+###############################################################################
+
+
+class LISSpotBlockFloorEnv(SpotRearrangementEnv):
+    """An extremely basic environment where a block needs to be picked up and
+    is specifically used for testing in the LIS Spot room.
+
+    Very simple and mostly just for testing.
+    """
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        op_names_to_keep = {
+            "MoveToReachObject",
+            "MoveToHandViewObject",
+            "PickObjectFromTop",
+            "PlaceObjectOnTop",
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "lis_spot_block_floor_env"
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+
+        red_block = Object("red_block", _movable_object_type)
+        red_block_detection = LanguageObjectDetectionID(
+            "red block/orange block/yellow block")
+        detection_id_to_obj[red_block_detection] = red_block
+
+        for obj, pose in get_known_immovable_objects().items():
+            detection_id = KnownStaticObjectDetectionID(obj.name, pose)
+            detection_id_to_obj[detection_id] = obj
+
+        return detection_id_to_obj
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "pick up the red block"
+
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("Dry task generation not implemented.")
