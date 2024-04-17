@@ -16,6 +16,7 @@ from predicators.approaches import BaseApproach
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
 from predicators.settings import CFG
+from predicators.envs import BaseEnv
 from predicators.structs import Action, Dataset, EnvironmentTask, GroundAtom, \
     InteractionRequest, InteractionResult, LowLevelTrajectory, Metrics, \
     Observation, State, Task, Video
@@ -118,6 +119,12 @@ class CogMan:
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """See BaseApproach docstring."""
         return self._approach.learn_from_offline_dataset(dataset)
+
+    def learn_from_tasks(self, 
+                           env: BaseEnv,
+                           train_tasks: List[Task]) -> None:
+        """See BaseApproach docstring."""
+        return self._approach.learn_from_tasks(env, train_tasks)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         """See BaseApproach docstring."""

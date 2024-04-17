@@ -1,0 +1,53 @@
+To improve the effectiveness and efficiency of the planning process in the robotic arm scenario you've described, it would be beneficial to define new predicates that can capture more specific conditions relevant to the operations being performed. These predicates can help to quickly determine the feasibility of actions and provide more informed preconditions for action operators.
+
+Here are a few suggested new predicates along with their classifiers:
+
+1. **InReach** - Checks if an object is within the operational reach of the robotic arm based on position.
+2. **IsAligned** - Verifies if the robotic hand is aligned with another object along the y-axis, useful for simplifying positioning before pressing buttons.
+3. **IsAbove** - Determines if one object is directly above another along the y-axis within a threshold, helpful for precise movements or setups.
+
+### Predicate Definitions
+
+#### 1. `InReach` Predicate
+This predicate checks if an object's position is within a predefined reachability threshold of the robotic hand. This is useful to quickly rule out actions that involve unreachable objects.
+
+```python
+def _InReach_holds(state: State, objects: Sequence[Object]) -> bool:
+    hand, obj = objects
+    hand_position = state.get(hand, 'x'), state.get(hand, 'y')
+    obj_position = state.get(obj, 'x'), state.get(obj, 'y')
+    max_reach_distance = 5.0  # Assume some reasonable maximum reach distance
+    # return np.linalg.norm(np.array(hand_position) - np.array(obj_position)) <= max_reach_distance
+    return obj_position[1] < 3.0
+
+InReach = Predicate("InReach", [_hand_type, _button_type], _InReach_holds)
+```
+
+#### 2. `IsAligned` Predicate
+This predicate ensures the robotic hand is aligned with another object along the y-axis before attempting a press. It simplifies the approach logic and ensures proper positioning.
+
+```python
+def _IsAligned_holds(state: State, objects: Sequence[Object]) -> bool:
+    hand, obj = objects
+    hand_y = state.get(hand, 'y')
+    obj_y = state.get(obj, 'y')
+    return abs(hand_y - obj_y) < 0.1  # Small threshold to consider as aligned
+
+IsAligned = Predicate("IsAligned", [_hand_type, _button_type], _IsAligned_holds)
+```
+
+#### 3. `IsAbove` Predicate
+Determines if one object (e.g., hand) is positioned directly above another (e.g., button) within a small vertical margin, facilitating more precise vertical movements.
+
+```python
+def _IsAbove_holds(state: State, objects: Sequence[Object]) -> bool:
+    above_obj, below_obj = objects
+    above_x, above_y = state.get(above_obj, 'x'), state.get(above_obj, 'y')
+    below_x, below_y = state.get(below_obj, 'x'), state.get(below_obj, 'y')
+    return abs(above_x - below_x) < 0.1 and above_y > below_y
+
+IsAbove = Predicate("IsAbove", [_hand_type, _button_type], _IsAbove_holds)
+```
+
+### Usage in Planning
+These predicates can be incorporated into new or existing NSRTs as preconditions or effects, enhancing the preconditions to better reflect the reality of the robot's capabilities and constraints. This setup allows for more targeted action planning, reducing unnecessary computations and improving the overall efficiency of the plan execution.

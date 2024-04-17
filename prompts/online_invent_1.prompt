@@ -1,0 +1,557 @@
+Class definition for `Predicate`, `State`, `Type`, `_TypedEntities`, `Object`
+```python
+class Predicate:
+    """Struct defining a predicate (a lifted classifier over states)."""
+    name: str
+    types: Sequence[Type]
+    # The classifier takes in a complete state and a sequence of objects
+    # representing the arguments. These objects should be the only ones
+    # treated "specially" by the classifier.
+    _classifier: Callable[[State, Sequence[Object]],
+                          bool] = field(compare=False)
+
+    def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
+        """Convenience method for generating Atoms."""
+        if self.arity == 0:
+            raise ValueError("Cannot use __call__ on a 0-arity predicate, "
+                             "since we can't determine whether it becomes a "
+                             "LiftedAtom or a GroundAtom. Use the LiftedAtom "
+                             "or GroundAtom constructors directly instead")
+        if all(isinstance(ent, Variable) for ent in entities):
+            return LiftedAtom(self, entities)
+        if all(isinstance(ent, Object) for ent in entities):
+            return GroundAtom(self, entities)
+        raise ValueError("Cannot instantiate Atom with mix of "
+                         "variables and objects")
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    @cached_property
+    def arity(self) -> int:
+        """The arity of this predicate (number of arguments)."""
+        return len(self.types)
+
+    def holds(self, state: State, objects: Sequence[Object]) -> bool:
+        """Public method for calling the classifier.
+
+        Performs type checking first.
+        """
+        assert len(objects) == self.arity
+        for obj, pred_type in zip(objects, self.types):
+            assert isinstance(obj, Object)
+            assert obj.is_instance(pred_type)
+        return self._classifier(state, objects)
+
+```
+
+
+```python
+class State:
+    """Struct defining the low-level state of the world."""
+    data: Dict[Object, Array]
+    # Some environments will need to store additional simulator state, so
+    # this field is provided.
+    simulator_state: Optional[Any] = None
+
+    def __post_init__(self) -> None:
+        # Check feature vector dimensions.
+        for obj in self:
+            assert len(self[obj]) == obj.type.dim
+
+    def __iter__(self) -> Iterator[Object]:
+        """An iterator over the state's objects, in sorted order."""
+        return iter(sorted(self.data))
+
+    def __getitem__(self, key: Object) -> Array:
+        return self.data[key]
+
+    def get(self, obj: Object, feature_name: str) -> Any:
+        """Look up an object feature by name."""
+        idx = obj.type.feature_names.index(feature_name)
+        return self.data[obj][idx]
+
+    def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
+        """Set the value of an object feature by name."""
+        idx = obj.type.feature_names.index(feature_name)
+        self.data[obj][idx] = feature_val
+
+    def get_objects(self, object_type: Type) -> List[Object]:
+        """Return objects of the given type in the order of __iter__()."""
+        return [o for o in self if o.is_instance(object_type)]
+
+    def vec(self, objects: Sequence[Object]) -> Array:
+        """Concatenated vector of features for each of the objects in the given
+        ordered list."""
+        feats: List[Array] = []
+        if len(objects) == 0:
+            return np.zeros(0, dtype=np.float32)
+        for obj in objects:
+            feats.append(self[obj])
+        return np.hstack(feats)
+
+    def copy(self) -> State:
+        """Return a copy of this state.
+
+        The simulator state is assumed to be immutable.
+        """
+        new_data = {}
+        for obj in self:
+            new_data[obj] = self._copy_state_value(self.data[obj])
+        return State(new_data, simulator_state=self.simulator_state)
+
+    def _copy_state_value(self, val: Any) -> Any:
+        if val is None or isinstance(val, (float, bool, int, str)):
+            return val
+        if isinstance(val, (list, tuple, set)):
+            return type(val)(self._copy_state_value(v) for v in val)
+        assert hasattr(val, "copy")
+        return val.copy()
+
+    def allclose(self, other: State) -> bool:
+        """Return whether this state is close enough to another one, i.e., its
+        objects are the same, and the features are close."""
+        if self.simulator_state is not None or \
+           other.simulator_state is not None:
+            raise NotImplementedError("Cannot use allclose when "
+                                      "simulator_state is not None.")
+        if not sorted(self.data) == sorted(other.data):
+            return False
+        for obj in self.data:
+            if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
+                return False
+        return True
+
+    def pretty_str(self) -> str:
+        """Display the state in a nice human-readable format."""
+        type_to_table: Dict[Type, List[List[str]]] = {}
+        for obj in self:
+            if obj.type not in type_to_table:
+                type_to_table[obj.type] = []
+            type_to_table[obj.type].append([obj.name] + \
+                                            list(map(str, self[obj])))
+        table_strs = []
+        for t in sorted(type_to_table):
+            headers = ["type: " + t.name] + list(t.feature_names)
+            table_strs.append(tabulate(type_to_table[t], headers=headers))
+        ll = max(
+            len(line) for table in table_strs for line in table.split("\n"))
+        prefix = "#" * (ll // 2 - 3) + " STATE " + "#" * (ll - ll // 2 -
+                                                          4) + "\n"
+        suffix = "\n" + "#" * ll + "\n"
+        return prefix + "\n\n".join(table_strs) + suffix
+
+```
+
+
+```python
+class Type:
+    """Struct defining a type."""
+    name: str
+    feature_names: Sequence[str] = field(repr=False)
+    parent: Optional[Type] = field(default=None, repr=False)
+
+    @property
+    def dim(self) -> int:
+        """Dimensionality of the feature vector of this object type."""
+        return len(self.feature_names)
+
+    def __call__(self, name: str) -> _TypedEntity:
+        """Convenience method for generating _TypedEntities."""
+        if name.startswith("?"):
+            return Variable(name, self)
+        return Object(name, self)
+
+    def __hash__(self) -> int:
+        return hash((self.name, tuple(self.feature_names)))
+
+    def type_str(self) -> str:
+        """Get a string representation of the type's name and feature names.
+        """
+        features_str = ', '.join(self.feature_names)
+        return f"Type `{self.name}` has features: {features_str}"
+
+class _TypedEntity:
+    """Struct defining an entity with some type, either an object (e.g.,
+    block3) or a variable (e.g., ?block).
+
+    Should not be instantiated externally.
+    """
+    name: str
+    type: Type
+
+    @cached_property
+    def _str(self) -> str:
+        return f"{self.name}:{self.type.name}"
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return self._str
+
+    def is_instance(self, t: Type) -> bool:
+        """Return whether this entity is an instance of the given type, taking
+        hierarchical typing into account."""
+        cur_type: Optional[Type] = self.type
+        while cur_type is not None:
+            if cur_type == t:
+                return True
+            cur_type = cur_type.parent
+        return False
+
+class Object(_TypedEntity):
+    """Struct defining an Object, which is just a _TypedEntity whose name does
+    not start with "?"."""
+
+    def __post_init__(self) -> None:
+        assert not self.name.startswith("?")
+
+    def __hash__(self) -> int:
+        # By default, the dataclass generates a new __hash__ method when
+        # frozen=True and eq=True, so we need to override it.
+        return self._hash
+
+```
+
+
+The object types in the domain are:
+```python
+    # Types
+    # The (x, y) is the center of the robot. Theta is only relevant when
+    # the hand is holding the stick.
+    _hand_type = Type("hand", ["x", "y", "theta"])
+    # The (x, y) is the center of the button.
+    _button_type = Type("button", ["x", "y", "pressed"])
+    # The (x, y) is the bottom left-hand corner of the stick, and theta
+    # is CCW angle in radians, consistent with utils.Rectangle.
+    _stick_type = Type("stick", ["x", "y", "theta", "held"])
+    # Holds the stick up so that it can be grasped by the robot.
+    _holder_type = Type("holder", ["x", "y", "theta"])
+```
+
+
+The existing predicates are:
+{HandEmpty, HandAboveButton, AboveNoButton, Pressed}
+
+Predicate `HandEmpty` is created by
+```python
+self._HandEmpty = Predicate("HandEmpty", [self._hand_type],
+                                    self._HandEmpty_holds)
+```
+This creates Predicate (HandEmpty ?x0 - hand) with classifier
+```python
+    def _HandEmpty_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        hand, = objects
+        stick, = state.get_objects(self._stick_type)
+        return not self._Grasped_holds(state, [hand, stick])
+```
+
+Predicate `HandAboveButton` is created by
+```python
+self._HandAboveButton = Predicate(
+            "HandAboveButton", [self._hand_type, self._button_type],
+            self.Above_holds)
+```
+This creates Predicate (HandAboveButton ?x0 - hand ?x1 - button) with classifier
+```python
+    @classmethod
+    def Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        """Public for use by oracle options."""
+        assert len(objects) == 2
+        obj1, obj2 = objects
+        geom1 = cls.object_to_geom(obj1, state)
+        geom2 = cls.object_to_geom(obj2, state)
+        return geom1.intersects(geom2)
+```
+
+Predicate `AboveNoButton` is created by
+```python
+self._AboveNoButton = Predicate("AboveNoButton", [],
+                                        self._AboveNoButton_holds)
+```
+This creates Predicate (AboveNoButton) with classifier
+```python
+    def _AboveNoButton_holds(self, state: State,
+                             objects: Sequence[Object]) -> bool:
+        assert not objects
+        hand, = state.get_objects(self._hand_type)
+        stick, = state.get_objects(self._stick_type)
+        for button in state.get_objects(self._button_type):
+            if self.Above_holds(state, [hand, button]):
+                return False
+            if self.Above_holds(state, [stick, button]):
+                return False
+        return True
+```
+
+Predicate `Pressed` is created by
+```python
+self._Pressed = Predicate("Pressed", [self._button_type],
+                                  self._Pressed_holds)
+```
+This creates Predicate (Pressed ?x0 - button) with classifier
+```python
+    @staticmethod
+    def _Pressed_holds(state: State, objects: Sequence[Object]) -> bool:
+        button, = objects
+        return state.get(button, "pressed") > 0.5
+```
+
+
+The existing abstract action operators with options are:
+NSRT-HandPressButtonFromButton:
+    Parameters: [?robot_hand:hand, ?button:button, ?from_button:button, ?stick:stick]
+    Preconditions: [HandAboveButton(?robot_hand:hand, ?from_button:button), HandEmpty(?robot_hand:hand)]
+    Add Effects: [HandAboveButton(?robot_hand:hand, ?button:button), Pressed(?button:button)]
+    Delete Effects: [HandAboveButton(?robot_hand:hand, ?from_button:button)]
+    Ignore Effects: []
+    Option Spec: HandPressButton(?robot_hand:hand, ?button:button, ?stick:stick)
+NSRT-HandPressButtonFromNothing:
+    Parameters: [?robot_hand:hand, ?button:button, ?stick:stick]
+    Preconditions: [AboveNoButton(), HandEmpty(?robot_hand:hand)]
+    Add Effects: [HandAboveButton(?robot_hand:hand, ?button:button), Pressed(?button:button)]
+    Delete Effects: [AboveNoButton()]
+    Ignore Effects: []
+    Option Spec: HandPressButton(?robot_hand:hand, ?button:button, ?stick:stick)
+
+The agents controls a robotic arm on a stationary base.
+The agents has attempted the following tasks and got the following results:
+
+Task 0:
+Initial State with objects and feature names: 
+##################### STATE #####################
+type: button          x        y    pressed
+--------------  -------  -------  ---------
+button0         4.53937  1.19547          0
+
+type: hand          x        y    theta
+------------  -------  -------  -------
+robby's hand  7.24268  2.35138   1.5708
+
+type: holder          x       y    theta
+--------------  -------  ------  -------
+holder          1.36807  2.0372   1.5708
+
+type: stick          x         y    theta    held
+-------------  -------  --------  -------  ------
+stick          1.33057  0.904308   1.5708       0
+#################################################
+
+Initial Abstract State: {AboveNoButton(), HandEmpty(robby's hand:hand)}
+
+Task goal: {Pressed(button0:button)}
+
+The bilevel planning succeeded.
+
+The high-level plan is:
+Step 0: GroundNSRT-HandPressButtonFromNothing:
+    Parameters: (robby's hand:hand, button0:button, stick:stick)
+    Preconditions: [AboveNoButton(), HandEmpty(robby's hand:hand)]
+    Add Effects: [HandAboveButton(robby's hand:hand, button0:button), Pressed(button0:button)]
+    Delete Effects: [AboveNoButton()]
+    Ignore Effects: []
+    Option: ParameterizedOption(name='HandPressButton', types=[Type(name='hand'), Type(name='button'), Type(name='stick')])
+    Option Objects: [robby's hand:hand, button0:button, stick:stick]
+Done.
+
+The state-action trajectory is:
+State: {button0:button: [4.54, 1.2, 0.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [7.24, 2.35, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Abstract State: {AboveNoButton(), HandEmpty(robby's hand:hand)}
+
+Start executing Step 0: GroundNSRT-HandPressButtonFromNothing:
+    Parameters: (robby's hand:hand, button0:button, stick:stick)
+    Preconditions: [AboveNoButton(), HandEmpty(robby's hand:hand)]
+    Add Effects: [HandAboveButton(robby's hand:hand, button0:button), Pressed(button0:button)]
+    Delete Effects: [AboveNoButton()]
+    Ignore Effects: []
+    Option: ParameterizedOption(name='HandPressButton', types=[Type(name='hand'), Type(name='button'), Type(name='stick')])
+    Option Objects: [robby's hand:hand, button0:button, stick:stick]
+
+Action: [-1. -1.  0. -1.]
+
+State: {button0:button: [4.54, 1.2, 0.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [6.74, 1.85, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Action: [-1. -1.  0. -1.]
+
+State: {button0:button: [4.54, 1.2, 0.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [6.24, 1.35, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Action: [-1.  -0.3  0.  -1. ]
+
+State: {button0:button: [4.54, 1.2, 0.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [5.74, 1.2, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Action: [-1.0e+00 -1.2e-08  0.0e+00 -1.0e+00]
+
+State: {button0:button: [4.54, 1.2, 0.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [5.24, 1.2, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Action: [-1.  0.  0. -1.]
+
+State: {button0:button: [4.54, 1.2, 0.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [4.74, 1.2, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Action: [-0.4  0.   0.  -1. ]
+
+State: {button0:button: [4.54, 1.2, 0.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [4.54, 1.2, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Action: [0. 0. 0. 1.]
+
+State: {button0:button: [4.54, 1.2, 1.0], holder:holder: [1.37, 2.04, 1.57], robby's hand:hand: [4.54, 1.2, 1.57], stick:stick: [1.33, 0.9, 1.57, 0.0]}
+
+Abstract State: {HandEmpty(robby's hand:hand), HandAboveButton(robby's hand:hand, button0:button), Pressed(button0:button)}
+
+Task 1:
+Initial State with objects and feature names: 
+##################### STATE #####################
+type: button         x        y    pressed
+--------------  ------  -------  ---------
+button0         4.1296  5.31646          0
+
+type: hand          x        y    theta
+------------  -------  -------  -------
+robby's hand  2.68312  1.60325   1.5708
+
+type: holder          x        y    theta
+--------------  -------  -------  -------
+holder          5.27109  1.05527   1.5708
+
+type: stick          x         y    theta    held
+-------------  -------  --------  -------  ------
+stick          5.23359  0.919391   1.5708       0
+#################################################
+
+Initial Abstract State: {AboveNoButton(), HandEmpty(robby's hand:hand)}
+
+Task goal: {Pressed(button0:button)}
+
+The bilevel planning failed because: Planning ran out of skeletons!
+
+The first task plan (skeleton) the planner found is: 
+Step 0: GroundNSRT-HandPressButtonFromNothing:
+    Parameters: (robby's hand:hand, button0:button, stick:stick)
+    Preconditions: [AboveNoButton(), HandEmpty(robby's hand:hand)]
+    Add Effects: [HandAboveButton(robby's hand:hand, button0:button), Pressed(button0:button)]
+    Delete Effects: [AboveNoButton()]
+    Ignore Effects: []
+    Option: ParameterizedOption(name='HandPressButton', types=[Type(name='hand'), Type(name='button'), Type(name='stick')])
+    Option Objects: [robby's hand:hand, button0:button, stick:stick]
+
+The motion plan (refinment) got stuck at step 0
+
+The state-action trajectory is:
+State: {button0:button: [4.13, 5.32, 0.0], holder:holder: [5.27, 1.06, 1.57], robby's hand:hand: [2.68, 1.6, 1.57], stick:stick: [5.23, 0.92, 1.57, 0.0]}
+
+Abstract State: {AboveNoButton(), HandEmpty(robby's hand:hand)}
+
+Start executing Step 0 which failed: GroundNSRT-HandPressButtonFromNothing:
+    Parameters: (robby's hand:hand, button0:button, stick:stick)
+    Preconditions: [AboveNoButton(), HandEmpty(robby's hand:hand)]
+    Add Effects: [HandAboveButton(robby's hand:hand, button0:button), Pressed(button0:button)]
+    Delete Effects: [AboveNoButton()]
+    Ignore Effects: []
+    Option: ParameterizedOption(name='HandPressButton', types=[Type(name='hand'), Type(name='button'), Type(name='stick')])
+    Option Objects: [robby's hand:hand, button0:button, stick:stick]
+
+Action: [ 1.  1.  0. -1.]
+
+State: {button0:button: [4.13, 5.32, 0.0], holder:holder: [5.27, 1.06, 1.57], robby's hand:hand: [3.18, 2.1, 1.57], stick:stick: [5.23, 0.92, 1.57, 0.0]}
+
+Action: [ 1.  1.  0. -1.]
+
+State: {button0:button: [4.13, 5.32, 0.0], holder:holder: [5.27, 1.06, 1.57], robby's hand:hand: [3.68, 2.6, 1.57], stick:stick: [5.23, 0.92, 1.57, 0.0]}
+
+Action: [ 0.9  1.   0.  -1. ]
+
+State: {button0:button: [4.13, 5.32, 0.0], holder:holder: [5.27, 1.06, 1.57], robby's hand:hand: [3.68, 2.6, 1.57], stick:stick: [5.23, 0.92, 1.57, 0.0]}
+
+Action attempt: [ 0.9  1.   0.  -1. ]
+
+The option failed because: Encountered repeated state.
+
+Task 2:
+Initial State with objects and feature names: 
+##################### STATE ####################
+type: button          x        y    pressed
+--------------  -------  -------  ---------
+button0         3.57696  4.47551          0
+
+type: hand          x         y    theta
+------------  -------  --------  -------
+robby's hand  3.80649  0.917431   1.5708
+
+type: holder          x       y    theta
+--------------  -------  ------  -------
+holder          7.48126  1.5037   1.5708
+
+type: stick          x        y    theta    held
+-------------  -------  -------  -------  ------
+stick          7.44376  1.28201   1.5708       0
+################################################
+
+Initial Abstract State: {AboveNoButton(), HandEmpty(robby's hand:hand)}
+
+Task goal: {Pressed(button0:button)}
+
+The bilevel planning failed because: Planning ran out of skeletons!
+
+The first task plan (skeleton) the planner found is: 
+Step 0: GroundNSRT-HandPressButtonFromNothing:
+    Parameters: (robby's hand:hand, button0:button, stick:stick)
+    Preconditions: [AboveNoButton(), HandEmpty(robby's hand:hand)]
+    Add Effects: [HandAboveButton(robby's hand:hand, button0:button), Pressed(button0:button)]
+    Delete Effects: [AboveNoButton()]
+    Ignore Effects: []
+    Option: ParameterizedOption(name='HandPressButton', types=[Type(name='hand'), Type(name='button'), Type(name='stick')])
+    Option Objects: [robby's hand:hand, button0:button, stick:stick]
+
+The motion plan (refinment) got stuck at step 0
+
+The state-action trajectory is:
+State: {button0:button: [3.58, 4.48, 0.0], holder:holder: [7.48, 1.5, 1.57], robby's hand:hand: [3.81, 0.92, 1.57], stick:stick: [7.44, 1.28, 1.57, 0.0]}
+
+Abstract State: {AboveNoButton(), HandEmpty(robby's hand:hand)}
+
+Start executing Step 0 which failed: GroundNSRT-HandPressButtonFromNothing:
+    Parameters: (robby's hand:hand, button0:button, stick:stick)
+    Preconditions: [AboveNoButton(), HandEmpty(robby's hand:hand)]
+    Add Effects: [HandAboveButton(robby's hand:hand, button0:button), Pressed(button0:button)]
+    Delete Effects: [AboveNoButton()]
+    Ignore Effects: []
+    Option: ParameterizedOption(name='HandPressButton', types=[Type(name='hand'), Type(name='button'), Type(name='stick')])
+    Option Objects: [robby's hand:hand, button0:button, stick:stick]
+
+Action: [-0.5  1.   0.  -1. ]
+
+State: {button0:button: [3.58, 4.48, 0.0], holder:holder: [7.48, 1.5, 1.57], robby's hand:hand: [3.58, 1.42, 1.57], stick:stick: [7.44, 1.28, 1.57, 0.0]}
+
+Action: [ 2.1e-10  1.0e+00  0.0e+00 -1.0e+00]
+
+State: {button0:button: [3.58, 4.48, 0.0], holder:holder: [7.48, 1.5, 1.57], robby's hand:hand: [3.58, 1.92, 1.57], stick:stick: [7.44, 1.28, 1.57, 0.0]}
+
+Action: [ 0.  1.  0. -1.]
+
+State: {button0:button: [3.58, 4.48, 0.0], holder:holder: [7.48, 1.5, 1.57], robby's hand:hand: [3.58, 2.42, 1.57], stick:stick: [7.44, 1.28, 1.57, 0.0]}
+
+Action: [ 0.  1.  0. -1.]
+
+State: {button0:button: [3.58, 4.48, 0.0], holder:holder: [7.48, 1.5, 1.57], robby's hand:hand: [3.58, 2.42, 1.57], stick:stick: [7.44, 1.28, 1.57, 0.0]}
+
+Action attempt: [ 0.  1.  0. -1.]
+
+The option failed because: Encountered repeated state.
+
+
+Your task: define new predicates in the format of
+```
+predicate_name = Predicate(name: Str, types: Sequence[Type], _classifier: Callable[[State, Sequence[Object]], bool])
+```
+to make the planning more effective and efficient (e.g., stops fast when the goals are not achievable).
+Note that new action operators (NSRTs, with preconditions and effects) and options can be learned from predicates, and make sure the invented predicates they don't require extra constants.

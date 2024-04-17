@@ -39,6 +39,12 @@ class Type:
     def __hash__(self) -> int:
         return hash((self.name, tuple(self.feature_names)))
 
+    def type_str(self) -> str:
+        """Get a string representation of the type's name and feature names.
+        """
+        features_str = ', '.join(self.feature_names)
+        return f"Type `{self.name}` has features: {features_str}"
+
 
 @dataclass(frozen=True, order=True, repr=False)
 class _TypedEntity:
@@ -286,10 +292,17 @@ class Predicate:
 
     def classifier_str(self) -> str:
         """Get a string representation of the classifier."""
-        pddl_str = self.pddl_str()
         clf_str = getsource(self._classifier)
         return f"{clf_str}"
-    
+
+    def predicate_str(self) -> str:
+        """Get a string representation of the predicate's name, types, and 
+        classifier.
+        """
+        classifier_str = getsource(self._classifier)
+        return f"{self.pddl_str()} with classifier\n"+\
+               f"```python\n{classifier_str}```\n"
+
     def get_negation(self) -> Predicate:
         """Return a negated version of this predicate."""
         return Predicate("NOT-" + self.name, self.types,

@@ -1,0 +1,27 @@
+Class definition for `Predicate`, `State`, `Type`, `_TypedEntities`, `Object`
+[PREDICATE_CLASS_DEFINITION]
+
+[STATE_CLASS_DEFININTION]
+
+[OBJECT_CLASS_DEFINITION]
+
+The object types in the domain are:
+[TYPES_IN_ENV]
+
+The existing predicates are:
+[PREDICATES_IN_ENV]
+
+The existing abstract action operators with options are:
+[NSRTS_IN_ENV]
+
+The agents controls a robotic arm on a stationary base.
+The agents has attempted the following tasks and got the following results:
+
+[INTERACTION_RESULTS]
+
+Your task: define new predicates in the format of
+```
+predicate_name = Predicate(name: str, types: Sequence[Type], _classifier: Callable[[State, Sequence[Object]], bool])
+```
+to make the planning more effective and efficient (e.g., stops fast when the goals are not achievable).
+Note that new action operators (NSRTs, with preconditions and effects) and options can be learned from predicates, and make sure the invented predicates they don't require extra constants.

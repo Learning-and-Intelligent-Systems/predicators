@@ -47,8 +47,8 @@ class StickButtonEnv(BaseEnv):
 
     # Types
     # The (x, y) is the center of the robot. Theta is only relevant when
-    # the robot is holding the stick.
-    _robot_type = Type("robot", ["x", "y", "theta"])
+    # the hand is holding the stick.
+    _hand_type = Type("hand", ["x", "y", "theta"])
     # The (x, y) is the center of the button.
     _button_type = Type("button", ["x", "y", "pressed"])
     # The (x, y) is the bottom left-hand corner of the stick, and theta
@@ -66,18 +66,22 @@ class StickButtonEnv(BaseEnv):
         self._StickAboveButton = Predicate(
             "StickAboveButton", [self._stick_type, self._button_type],
             self.Above_holds)
-        self._RobotAboveButton = Predicate(
-            "RobotAboveButton", [self._robot_type, self._button_type],
+        self._HandAboveButton = Predicate(
+            "HandAboveButton", [self._hand_type, self._button_type],
             self.Above_holds)
         self._Grasped = Predicate("Grasped",
-                                  [self._robot_type, self._stick_type],
+                                  [self._hand_type, self._stick_type],
                                   self._Grasped_holds)
-        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+        self._HandEmpty = Predicate("HandEmpty", [self._hand_type],
                                     self._HandEmpty_holds)
         self._AboveNoButton = Predicate("AboveNoButton", [],
                                         self._AboveNoButton_holds)
+        self._ReachableByHand = Predicate("ReachableByHand", 
+                                          [self._button_type],
+                                          self._ReachableByHand_holds)
+
         # Static objects (always exist no matter the settings).
-        self._robot = Object("robby", self._robot_type)
+        self._robot = Object("robby's hand", self._hand_type)
         self._stick = Object("stick", self._stick_type)
         self._holder = Object("holder", self._holder_type)
 
@@ -181,8 +185,9 @@ class StickButtonEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._Pressed, self._RobotAboveButton, self._StickAboveButton,
-            self._Grasped, self._HandEmpty, self._AboveNoButton
+            self._Pressed, self._HandAboveButton, self._StickAboveButton,
+            self._Grasped, self._HandEmpty, self._AboveNoButton,
+            # self._ReachableByHand
         }
 
     @property
@@ -192,7 +197,7 @@ class StickButtonEnv(BaseEnv):
     @property
     def types(self) -> Set[Type]:
         return {
-            self._holder_type, self._robot_type, self._stick_type,
+            self._holder_type, self._hand_type, self._stick_type,
             self._button_type
         }
 
@@ -236,7 +241,7 @@ class StickButtonEnv(BaseEnv):
         rect = self.stick_rect_to_tip_rect(rect)
         rect.plot(ax, facecolor="saddlebrown", edgecolor=color)
         # Draw the robot.
-        robot, = state.get_objects(self._robot_type)
+        robot, = state.get_objects(self._hand_type)
         circ = self.object_to_geom(robot, state)
         assert isinstance(circ, utils.Circle)
         circ.plot(ax, facecolor="red", edgecolor="black")
@@ -271,12 +276,26 @@ class StickButtonEnv(BaseEnv):
             # far enough apart from one another.
             collision_geoms: Set[utils.Circle] = set()
             radius = self.button_radius + self.init_padding
-            for button in buttons:
+            for i, button in enumerate(buttons):
                 # Assuming that the dimensions are forgiving enough that
                 # infinite loops are impossible.
+                at_least_one_top = False
                 while True:
                     x = rng.uniform(self.x_lb + radius, self.x_ub - radius)
-                    y = rng.uniform(self.y_lb + radius, self.y_ub - radius)
+                    if CFG.stick_button_button_position == "uniform":
+                        y = rng.uniform(self.y_lb+radius, self.y_ub-radius)
+                    elif CFG.stick_button_button_position == "only_top":
+                        y = rng.uniform(self.rz_y_ub+radius, self.y_ub-radius)
+                    elif CFG.stick_button_button_position == "only_bottom":
+                        y = rng.uniform(self.y_lb+radius, self.rz_y_ub-radius)
+                    elif CFG.stick_button_button_position == "at_least_one_top":
+                        # at least one button is at the top
+                        y = rng.uniform(self.y_lb+radius, self.y_ub-radius)
+                        if y > self.rz_y_ub:
+                            at_least_one_top = True
+                        if not at_least_one_top and i == num_buttons-1:
+                            y = rng.uniform(self.rz_y_ub+radius, 
+                                            self.y_ub-radius)
                     geom = utils.Circle(x, y, radius)
                     # Keep only if no intersections with existing objects.
                     if not any(geom.intersects(g) for g in collision_geoms):
@@ -376,7 +395,7 @@ class StickButtonEnv(BaseEnv):
         """Public for use by oracle options."""
         x = state.get(obj, "x")
         y = state.get(obj, "y")
-        if obj.is_instance(cls._robot_type):
+        if obj.is_instance(cls._hand_type):
             return utils.Circle(x, y, cls.robot_radius)
         if obj.is_instance(cls._button_type):
             return utils.Circle(x, y, cls.button_radius)
@@ -412,6 +431,13 @@ class StickButtonEnv(BaseEnv):
         button, = objects
         return state.get(button, "pressed") > 0.5
 
+    def _ReachableByHand_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        button, = objects
+        x = state.get(button, "x")
+        y = state.get(button, "y")
+        return cls.rz_x_lb <= x <= cls.rz_x_ub and \
+               cls.rz_y_lb <= y <= cls.rz_y_ub
+
     @classmethod
     def Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         """Public for use by oracle options."""
@@ -428,17 +454,17 @@ class StickButtonEnv(BaseEnv):
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
-        robot, = objects
+        hand, = objects
         stick, = state.get_objects(self._stick_type)
-        return not self._Grasped_holds(state, [robot, stick])
+        return not self._Grasped_holds(state, [hand, stick])
 
     def _AboveNoButton_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
         assert not objects
-        robot, = state.get_objects(self._robot_type)
+        hand, = state.get_objects(self._hand_type)
         stick, = state.get_objects(self._stick_type)
         for button in state.get_objects(self._button_type):
-            if self.Above_holds(state, [robot, button]):
+            if self.Above_holds(state, [hand, button]):
                 return False
             if self.Above_holds(state, [stick, button]):
                 return False

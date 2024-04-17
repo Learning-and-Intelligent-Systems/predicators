@@ -13,6 +13,7 @@ import imageio
 
 from predicators import utils
 from predicators.settings import CFG
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.llm_interface import OpenAILLM, OpenAILLMNEW
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.structs import Dataset, LowLevelTrajectory, Predicate, \
@@ -28,6 +29,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
+        # Initial Predicates
+        nsrts = get_gt_nsrts(CFG.env, self._initial_predicates,
+                             self._initial_options)
+        self._nsrts = nsrts
+
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
         # Set up the VLM
