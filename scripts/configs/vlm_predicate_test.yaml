@@ -2,8 +2,7 @@
 ---
 APPROACHES:
   learn_all:
-    NAME: "vlm_online_invention"
-    # NAME: "oracle"
+    NAME: "oracle"
     FLAGS: []
 ENVS:
   stick_button:
@@ -12,19 +11,18 @@ ARGS:
   # []
   - "debug"
   # - "rgb_observation" # stick_button doesn't support rendering
+  # - "make_failure_videos"
+  # - "make_test_videos"
   # - "make_segmented_demo_videos"
   # - "make_demo_videos" 
   # - "use_gui"
-  - "load_approach"
 FLAGS:
-  num_train_tasks: 0
-  num_test_tasks: 10
-  num_tasks_for_prompt: 3
+  num_train_tasks: 10
+  num_test_tasks: 1
   option_learner: direct_bc # So it doesn' include all oracle options in init
                             # when including all options, should also include
                             # all predicates.
-  included_options: "HandPressButton"
-  # stick_button_button_position: "at_least_one_top"
+  included_options: "RobotPressButton"
   # stick_button_button_position: "only_bottom"
   # stick_button_button_position: "only_top"
   # bilevel_plan_without_sim: True

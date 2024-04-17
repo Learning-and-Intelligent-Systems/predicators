@@ -16,6 +16,7 @@ class GlobalSettings:
     # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
+    num_tasks_for_prompt = 3
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.
     num_online_learning_cycles = 10
@@ -273,6 +274,7 @@ class GlobalSettings:
     stick_button_num_buttons_test = [3, 4]
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
+    stick_button_button_position = "uniform" # "only_top" "only_bottom"
 
     # screws env parameters
     screws_num_screws_train = [15, 20]

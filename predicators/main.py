@@ -175,13 +175,21 @@ def _run_pipeline(env: BaseEnv,
             cogman.load(online_learning_cycle=None)
             learning_time = 0.0  # ignore loading time
         else:
+            # Offline learning.
             learning_start = time.perf_counter()
             cogman.learn_from_offline_dataset(offline_dataset)
             learning_time = time.perf_counter() - learning_start
+
+            # Self Online Learning.
+            if CFG.approach == "vlm_online_invention":
+                learning_start = time.perf_counter()
+                cogman.learn_from_tasks(env, train_tasks)
+                learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {
             f"offline_learning_{k}": v
             for k, v in cogman.metrics.items()
         }
+
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
             results = _run_testing(env, cogman)
