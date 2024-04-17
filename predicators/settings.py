@@ -395,6 +395,9 @@ class GlobalSettings:
     llm_temperature = 0.5
     llm_num_completions = 1
 
+    # parameters for vision language models
+    vlm_model_name = "gemini-pro-vision" # "gemini-1.5-pro-latest"
+
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
     sesame_task_planning_heuristic = "lmcut"

@@ -27,7 +27,7 @@ def _generate_prompt_for_atom_proposals(
     ret_list = []
     if CFG.grammar_search_vlm_prompt_type == "naive_each_step":
         prompt = (
-            "You are a robotic vision system who's job is to output a "
+            "You are a robotic vision system whose job is to output a "
             "structured set of predicates useful for running a task and motion "
             "planning system from the following scene. Please provide predicates "
             f"in terms of the following objects: {[str(obj.name) for obj in traj._objects if obj.name != 'dummy_goal_obj']}. "
@@ -46,18 +46,41 @@ def _generate_prompt_for_atom_proposals(
             i += trajectory_subsample_freq
     elif CFG.grammar_search_vlm_prompt_type == "naive_whole_traj":
         prompt = (
-            "You are a robotic vision system who's job is to output a "
-            "structured set of predicates useful for running a task and motion "
-            "planning system from the following demonstration. Please provide predicates "
-            f"in terms of the following objects: {[str(obj.name) for obj in traj._objects if obj.name != 'dummy_goal_obj']}. "
+            "You are a robotic vision system whose job is to output a "
+            "structured set of predicates useful for describing the important concepts from "
+            "the following demonstration. Please provide predicates "
+            f"in terms of the objects: {[obj.name for obj in traj._objects if obj.name != 'dummy_goal_obj']}. "
             "For each predicate, output it in the following format: "
             "predicate_name(obj1, obj2, obj3...) "
             "(for instance is_sliced(apple), is_not_sliced(apple), etc.). "
             "Also, for each predicate you list, list its negation. "
-            "List as many predicates as you can possibly think of, even if they're only "
-            "tangentially relevant to teh goal the demonstration is trying to accomplish."
+            "Generate as many predicates as you can possibly think of, even if they're only "
+            "tangentially relevant to the task goal: 'make a cup of ice tea'"
             "Do not list any other text other than the names and arguments of predicates. "
             "List each proposal as a bulleted list item on a separate line.")
+        # NOTE: we rip out just one img from each of the state images. This is fine/works
+        # for the case where we only have one camera view, but probably will need to be
+        # amended in the future!
+        ret_list.append(
+            (prompt,
+             [traj._state_imgs[i][0] for i in range(len(traj._state_imgs))]))
+    elif CFG.grammar_search_vlm_prompt_type == "options_labels_whole_traj":
+        prompt = (
+            "You are a robotic vision system whose job is to output a structured " 
+            "set of predicates useful for describing important concepts in the "
+            "following demonstration of a task. You will be provided with a list "
+            "of actions used during the task, as well as images of states before "
+            "and after every action execution. Please provide predicates in terms "
+            "of the following objects: [teabag, hand, plate, cup, ice]. For each "
+            "predicate, output it in the following format: "
+            "predicate_name(obj1, obj2, obj3...). Start by generating predicates that "
+            "change before and after each action. After this, generate any other "
+            "predicates that perhaps do not change but are still important to "
+            "describing the demonstration shown."
+
+            "\n\nActions executed as part of demonstration:\n"
+        )
+        prompt += f"\n".join(act.name + str(act.objects) for act in traj._actions)
         # NOTE: we rip out just one img from each of the state images. This is fine/works
         # for the case where we only have one camera view, but probably will need to be
         # amended in the future!
@@ -68,6 +91,7 @@ def _generate_prompt_for_atom_proposals(
         raise ValueError(
             f"Unknown VLM prompting option {CFG.grammar_search_vlm_prompt_type}"
         )
+    
     return ret_list
 
 
@@ -89,7 +113,7 @@ def _sample_init_atoms_from_trajectories(
         aggregated_vlm_output_strs.append(
             vlm.sample_completions(query[0],
                                    query[1],
-                                   1.0,
+                                   0.0,
                                    CFG.seed,
                                    num_completions=1))
         curr_num_queries += 1
@@ -111,7 +135,10 @@ def _label_trajectories_with_atom_values(
               "the values of the following predicates based on the provided "
               "visual scene. For each predicate, output True, False, or "
               "Unknown if the relevant objects are not in the scene or the "
-              "value of the predicate simply cannot be determined."
+              "value of the predicate simply cannot be determined. "
+              "Output each predicate value as a bulleted list with each predicate"
+              "and value on a different line. "
+              "Do not output any text except the names and truth values of predicates."
               "\nPredicates:")
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
@@ -151,8 +178,11 @@ def _parse_unique_atom_proposals_from_list(
     for atoms_proposal_for_traj in atom_strs_proposals_list:
         assert len(atoms_proposal_for_traj) == 1
         curr_atoms_proposal = atoms_proposal_for_traj[0]
-        atoms_proposal_line = curr_atoms_proposal.split('\n')
-        for atom_proposal_txt in atoms_proposal_line:
+        # Regex pattern to match predicates
+        atom_match_pattern = r"\b[a-z]+\([a-z0-9, ]+\)" 
+        # Find all matches in the text
+        matches = re.findall(atom_match_pattern, curr_atoms_proposal)
+        for atom_proposal_txt in matches:
             num_atoms_considered += 1
             atom_is_valid = True
             atom = re.sub(r"[^\w\s\(\),]", "", atom_proposal_txt).strip(' ')
@@ -463,11 +493,7 @@ def create_ground_atom_data_from_img_trajs(
                 for opt_arg in option_objs_strs_list
             ]
             option = option_name_to_option[option_name]
-            try:
-                ground_option = option.ground(objects, np.array(option_params))
-            except AssertionError:
-                import ipdb
-                ipdb.set_trace()
+            ground_option = option.ground(objects, np.array(option_params))
             # NOTE: we assert the option was initiable in the env's initial
             # state because during learning, we will assert that the option's
             # initiable function was previously called.
@@ -479,7 +505,7 @@ def create_ground_atom_data_from_img_trajs(
                                   ground_option_traj, True, train_task_idx))
     # Given trajectories, we can now query the VLM to get proposals for ground
     # atoms that might be relevant to decision-making.
-    gemini_vlm = GoogleGeminiVLM("gemini-1.5-pro-latest")
+    gemini_vlm = GoogleGeminiVLM(CFG.vlm_model_name)
     logging.info("Querying VLM for candidate atom proposals...")
     atom_strs_proposals_list = _sample_init_atoms_from_trajectories(
         image_option_trajs, gemini_vlm, 1)
