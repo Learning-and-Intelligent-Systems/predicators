@@ -12,6 +12,8 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
+import time
+
 SkeletonNSRT = Tuple[NSRT, bool] # (NSRT, was_ran)
 
 @dataclass(frozen=True)
@@ -77,26 +79,27 @@ class FeasibilityDataset:
 
     @dataclass(frozen=True)
     class DatasetSkeletonNSRTCache:
+        num_objects: int
         state_counts: npt.NDArray[np.int64] # (num_datapoints,)
         datapoint_ranges: npt.NDArray[np.int64] #(num_datapoints + 1,)
         states: npt.NDArray[np.float32] #(sum(state_counts), state_width)
-        objects: npt.NDArray[np.int64] #(sum(state_counts), num_objects_per_nsrt)
+        objects: npt.NDArray[np.int64] #(sum(state_counts), num_objects_per_nsrt * max_num_objects)
         seq_indices: npt.NDArray[np.int64] #(sum(state_counts),)
 
     @dataclass(frozen=True)
     class DatasetCache:
         num_datapoints: int
-        num_objects: int
 
         skeleton_lengths: npt.NDArray[np.int64] #(num_datapoints,)
         labels: npt.NDArray[np.float32] #(num_datapoints,)
 
         skeleton_nsrt_cache: Dict[SkeletonNSRT, 'FeasibilityDataset.DatasetSkeletonNSRTCache']
 
-    def __init__(self, nsrts: Iterable[NSRT], batch_size: int, equalize_categories: bool = False):
+    def __init__(self, nsrts: Iterable[NSRT], batch_size: int, max_num_objects: int, equalize_categories: bool = False):
         super().__init__()
         self._equalize_categories = equalize_categories
         self._batch_size = batch_size
+        self._max_num_objects = max_num_objects
         self._skeleton_nsrts = [(nsrt, ran_flag) for nsrt in nsrts for ran_flag in [True, False]]
 
         self._positive_datapoints: List[FeasibilityDataset.Datapoint] = []
@@ -132,13 +135,13 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
     def add_positive_datapoint(self, skeleton: Sequence[_GroundNSRT], states: Sequence[State]) -> None:
         assert 2 <= len(states) <= len(skeleton)
         self._invalidate_cache()
-        self._positive_datapoints.append(self._create_datapoint(skeleton, states))
+        self._positive_datapoints.append(self._create_datapoint(skeleton, states, self._max_num_objects))
         self._positive_nsrt_statistics[skeleton[len(states) - 2].parent] += 1
 
     def add_negative_datapoint(self, skeleton: Sequence[_GroundNSRT], states: Sequence[State]) -> None:
         assert 2 <= len(states) <= len(skeleton)
         self._invalidate_cache()
-        self._negative_datapoints.append(self._create_datapoint(skeleton, states))
+        self._negative_datapoints.append(self._create_datapoint(skeleton, states, self._max_num_objects))
         self._negative_nsrt_statistics[skeleton[len(states) - 2].parent] += 1
 
     def _invalidate_cache(self) -> None:
@@ -152,8 +155,8 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
         dataset = self._dataset
         return {
             skeleton_nsrt: (
-                np.hstack([dataset.skeleton_nsrt_cache[skeleton_nsrt].states.min(0)] + [0]*len(nsrt.parameters)),
-                np.hstack([dataset.skeleton_nsrt_cache[skeleton_nsrt].states.max(0)] + [1]*len(nsrt.parameters)),
+                np.hstack([dataset.skeleton_nsrt_cache[skeleton_nsrt].states.min(0)] + [0]*len(nsrt.parameters)*self._max_num_objects),
+                np.hstack([dataset.skeleton_nsrt_cache[skeleton_nsrt].states.max(0)] + [1]*len(nsrt.parameters)*self._max_num_objects),
             ) for skeleton_nsrt in self._skeleton_nsrts
             for nsrt, _ in [skeleton_nsrt]
             if dataset.skeleton_nsrt_cache[skeleton_nsrt].states.shape[0]
@@ -161,20 +164,22 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
 
     @classmethod
     def transform_input(
-        cls, skeleton_nsrts: Iterable[SkeletonNSRT], skeleton: Sequence[_GroundNSRT], states: Sequence[State]
-    ) -> Tuple[FeasibilityInputBatch, FeasibilityInputBatch]:
+        cls, skeleton_nsrts: Iterable[SkeletonNSRT], skeleton: Sequence[_GroundNSRT], states: Sequence[State], max_num_objects: int
+    ) -> FeasibilityInputBatch:
         assert 2 <= len(states) <= len(skeleton)
-        datapoint = cls._create_datapoint(skeleton, states)
-        object_indices = cls._create_random_object_indices(datapoint.num_objects)
+        datapoint = cls._create_datapoint(skeleton, states, max_num_objects)
+        # object_indices = cls.permutationindices(max_num_objects)
+        object_onehots = np.eye(max_num_objects)
         return FeasibilityInputBatch(
             max_len = datapoint.total_length, batch_size = 1,
             states = {
                 skeleton_nsrt: np.hstack([
-                    np.vstack(datapoint.inputs[skeleton_nsrt].states),
-                    object_indices[np.array(datapoint.inputs[skeleton_nsrt].objects, dtype=np.int64)]
-                ]) if datapoint.inputs[skeleton_nsrt].states else np.empty((0, sum(p.type.dim + 1 for p in nsrt.parameters)), dtype=np.float32)
+                    np.vstack(nsrt_input.states),
+                    object_onehots[nsrt_input.objects].reshape(-1, max_num_objects * len(nsrt.parameters))
+                    # object_indices[np.array(nsrt_input.objects, dtype=np.int64)]
+                ]) if nsrt_input.states else np.empty((0, sum(p.type.dim + 1 for p in nsrt.parameters)), dtype=np.float32)
                 for skeleton_nsrt in skeleton_nsrts
-                for nsrt, _ in [skeleton_nsrt]
+                for (nsrt, _), nsrt_input in [(skeleton_nsrt, datapoint.inputs[skeleton_nsrt])]
             },
             seq_indices = {
                 skeleton_nsrt: np.hstack([np.empty((0,), dtype=np.int64)] + datapoint.inputs[skeleton_nsrt].seq_indices)
@@ -190,9 +195,12 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
     def _create_datapoint(
         cls,
         skeleton: Sequence[_GroundNSRT],
-        states: Sequence[State]
+        states: Sequence[State],
+        max_num_objects: int
     ) -> Datapoint:
-        object_indices = {obj:idx for idx, obj in enumerate(states[0])}
+        objects = set(states[0])
+        assert len(objects) <= max_num_objects
+        object_indices = dict(zip(objects, np.random.choice(max_num_objects, len(objects), replace=False)))
 
         inputs = defaultdict(lambda: cls.SkeletonNSRTDatapoint())
         for idx, state, ran_flag, ground_nsrt in zip(
@@ -214,7 +222,7 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
         dataset = self._dataset
 
         datapoint_permutation = np.random.permutation(dataset.num_datapoints)
-        object_indices = self._create_random_object_indices(dataset.num_objects)
+        onehot_permutation = np.random.permutation(self._max_num_objects)
 
         premuted_skeleton_lengths = dataset.skeleton_lengths[datapoint_permutation]
         batches_indices = [
@@ -231,7 +239,6 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
 
         for skeleton_nsrt in self._skeleton_nsrts:
             skeleton_nsrt_cache = dataset.skeleton_nsrt_cache[skeleton_nsrt]
-
             # Calculating various index information about the permuted states
             ## Ranges of datapoints in permuted states
             permuted_datapoint_ranges = np.cumsum(np.hstack([0, skeleton_nsrt_cache.state_counts[datapoint_permutation]]))
@@ -247,16 +254,20 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
             np.add.at(permuted_datapoint_indices, permuted_datapoint_ranges[1:], 1)
             permuted_datapoint_indices = np.cumsum(permuted_datapoint_indices)[:-1]
 
-            # Calculating permuted states and indices
-            permuted_states = np.hstack([
-                skeleton_nsrt_cache.states, object_indices[skeleton_nsrt_cache.objects]
-            ])[permuted_states_original_indices]
+            # Calculating permuted states
+            nsrt_onehot_permutation = np.tile(onehot_permutation, skeleton_nsrt_cache.num_objects) + \
+                np.repeat(np.arange(skeleton_nsrt_cache.num_objects) * self._max_num_objects, self._max_num_objects)
+            object_annotations = skeleton_nsrt_cache.objects[:, nsrt_onehot_permutation]
+            full_states = np.hstack([skeleton_nsrt_cache.states, object_annotations])
+            permuted_full_states = full_states[permuted_states_original_indices]
+
+            # Calculating permuted indices
             permuted_seq_indices = skeleton_nsrt_cache.seq_indices[permuted_states_original_indices]
             batch_indices = permuted_datapoint_indices % self._batch_size
 
             for input_batch, batch_start_idx, batch_end_idx in batches_indices:
                 batch_slice = slice(permuted_datapoint_ranges[batch_start_idx], permuted_datapoint_ranges[batch_end_idx])
-                input_batch.states[skeleton_nsrt] = permuted_states[batch_slice]
+                input_batch.states[skeleton_nsrt] = permuted_full_states[batch_slice]
                 input_batch.seq_indices[skeleton_nsrt] = permuted_seq_indices[batch_slice]
                 input_batch.batch_indices[skeleton_nsrt] = batch_indices[batch_slice]
 
@@ -265,9 +276,8 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
             yield (input_batch, permuted_labels[batch_start_idx:batch_end_idx])
 
     @classmethod
-    def _create_random_object_indices(cls, num_objects: int) -> npt.NDArray[np.float32]:
-        # return (np.random.permutation(num_objects) / (num_objects - 1)).astype(np.float32)
-        return np.zeros(num_objects, dtype=np.float32)
+    def _create_random_object_permutation(cls, max_num_objects: int) -> npt.NDArray[np.int64]:
+        return np.random.permutation(np.random.permutation(max_num_objects))
 
     @cached_property
     def _dataset(self) -> DatasetCache:
@@ -277,26 +287,26 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
             positive_datapoints = [datapoint for datapoint, _ in zip(cycle(positive_datapoints), negative_datapoints)]
             negative_datapoints = [datapoint for _, datapoint in zip(positive_datapoints, cycle(negative_datapoints))]
         all_main_datapoints = positive_datapoints + negative_datapoints
-
-        object_offsets = np.cumsum([0] + [datapoint.num_objects for datapoint in all_main_datapoints])
+        object_onehots = np.eye(self._max_num_objects)
 
         return self.DatasetCache(
             num_datapoints = len(all_main_datapoints),
-            num_objects = object_offsets[-1],
 
             skeleton_lengths = np.hstack([np.empty((0,), dtype=np.int64)] + [datapoint.total_length for datapoint in all_main_datapoints]),
             labels = np.hstack([np.ones(len(positive_datapoints), dtype=np.float32), np.zeros(len(negative_datapoints), dtype=np.float32)]),
 
             skeleton_nsrt_cache = {
                 skeleton_nsrt: self.DatasetSkeletonNSRTCache(
+                    num_objects = num_objects,
                     state_counts = state_counts,
                     datapoint_ranges = np.cumsum(np.hstack([0, state_counts])),
                     states = np.vstack([np.empty((0, sum(v.type.dim for v in nsrt.parameters)), dtype=np.float32)] + [
                         state for datapoint in all_main_datapoints for state in datapoint.inputs[skeleton_nsrt].states
                     ]),
-                    objects = np.vstack([np.empty((0, num_objects), dtype=np.int64)] + [
-                        np.array(datapoint.inputs[skeleton_nsrt].objects, dtype=np.int64).reshape(-1, num_objects) + object_offset
-                        for object_offset, datapoint in zip(object_offsets, all_main_datapoints)
+                    objects = np.vstack([np.empty((0, num_objects * self._max_num_objects), dtype=np.int64)] + [
+                        object_onehots[datapoint.inputs[skeleton_nsrt].objects].reshape(-1, num_objects * self._max_num_objects)
+                        for datapoint in all_main_datapoints
+                        if datapoint.inputs[skeleton_nsrt].objects
                     ]),
                     seq_indices = np.hstack([np.empty((0,), dtype=np.int64)] + [
                         seq_index for datapoint in all_main_datapoints for seq_index in datapoint.inputs[skeleton_nsrt].seq_indices
@@ -327,14 +337,14 @@ Negative datapoints per failing nsrt: {[(nsrt.name, count) for nsrt, count in se
 
     def loads(self, data: bytes, nsrts: Iterable[NSRT]) -> None:
         nsrt_map = {str(nsrt): nsrt for nsrt in nsrts}
-        unpickle_datapoint = lambda dp: self._unpickle_datapoint(dp, nsrt_map)
+        unpickle_datapoint = lambda dp: self._unpickle_datapoint(dp, nsrt_map, self._max_num_objects)
 
         pickled_positive_datapoints, pickled_negative_datapoints = pickle.loads(data)
         self._positive_datapoints = list(map(unpickle_datapoint, pickled_positive_datapoints))
         self._negative_datapoints = list(map(unpickle_datapoint, pickled_negative_datapoints))
 
     @classmethod
-    def _unpickle_datapoint(cls, datapoint: PicklableDatapoint, nsrt_map: Dict[str, NSRT]) -> Datapoint:
+    def _unpickle_datapoint(cls, datapoint: PicklableDatapoint, nsrt_map: Dict[str, NSRT], max_num_objects: int) -> Datapoint:
         return cls.Datapoint(datapoint.total_length, datapoint.num_objects, {
             (nsrt_map[nsrt_str], ran_flag): skeleton_nsrt_input
             for (nsrt_str, ran_flag), skeleton_nsrt_input in datapoint.inputs.items()

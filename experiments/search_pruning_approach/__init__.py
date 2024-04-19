@@ -186,6 +186,7 @@ def visualize_wbox_placement(
     option_model: _OptionModelBase,
     seed: int,
     atoms_sequence: List[Set[GroundAtom]],
+    feasibility_classifier: FeasibilityClassifier,
 ):
     assert previous_states
     current_state = previous_states[-1]
@@ -198,10 +199,9 @@ def visualize_wbox_placement(
 
     datapoints: List[State] = []
 
-    for _ in range(300):
+    for _ in range(100):
         option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
         next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
-
         if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
             continue
 
@@ -210,7 +210,8 @@ def visualize_wbox_placement(
     fig1 = WBox.render_state_plt(current_state, None)
     ax1, = fig1.axes
     for next_state in datapoints:
-        ax1.add_patch(WBox._get_obj_patch(next_state, obj, facecolor='none', edgecolor='black', alpha=0.1))
+        feasible, _ = feasibility_classifier.classify(previous_states + [next_state], skeleton)
+        ax1.add_patch(WBox._get_obj_patch(next_state, obj, facecolor='none', edgecolor='darkgreen' if feasible else 'darkred', alpha=0.1))
 
     fig2 = plt.figure()
     ax2 = fig2.add_subplot()
@@ -226,21 +227,24 @@ def run_wbox_visualization_saving(
     search_datapoints: List[InterleavedBacktrackingDatapoint],
     option_model: _OptionModelBase,
     seed: int,
+    prefix_length: int,
     visualization_directory: str,
+    feasibility_classifier: FeasibilityClassifier,
 ) -> None:
     logging_level = deepcopy(logging.getLogger().level)
     os.makedirs(visualization_directory, exist_ok=True)
-    for idx, search_datapoint in zip(range(48), search_datapoints):
+    for idx, search_datapoint in zip(range(20), search_datapoints):
         states, atoms_sequence, horizons, skeleton = search_datapoint
 
         logging.getLogger().setLevel(logging.WARNING)
         fig1, fig2, fig3 = visualize_wbox_placement(
             skeleton = skeleton,
-            previous_states = states[:(idx // 4 + 1)],
+            previous_states = states[:prefix_length],
             goal = atoms_sequence[-1],
             option_model = option_model,
             seed = seed,
             atoms_sequence = atoms_sequence,
+            feasibility_classifier = feasibility_classifier,
         )
         logging.getLogger().setLevel(logging_level)
 
@@ -285,11 +289,11 @@ class SearchPruningApproach(NSRTLearningApproach):
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types, action_space, train_tasks)
-        self._train_feasibility_dataset: Optional[FeasibilityDataset] = None
+        self._training_feasibility_dataset: Optional[FeasibilityDataset] = None
         self._validation_feasibility_dataset: Optional[FeasibilityDataset] = None
         self._feasibility_classifier = ConstFeasibilityClassifier()
         # self._test_tasks_ran = 0
-        assert CFG.feasibility_debug_directory[-1] == '/'
+        assert CFG.feasibility_learning_strategy in {"backtracking", "load_data", "load_model"}
 
     @classmethod
     def get_name(cls) -> str:
@@ -313,14 +317,12 @@ class SearchPruningApproach(NSRTLearningApproach):
         )
 
         # Preparing data collection and training
-        self._train_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size)
-        self._validation_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size)
-        dataset_path: str = utils.create_dataset_filename_str(["feasibility_dataset"])[0]
+        self._training_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count)
+        self._validation_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count)
+        dataset_path = utils.create_dataset_filename_str(["feasibility_dataset"])[0]
 
         # Running data collection and training
         seed = self._seed + 100000
-        assert CFG.feasibility_learning_strategy in {"backtracking", "load_data", "load_model"}
-
         if CFG.feasibility_learning_strategy == "load_model":
             assert CFG.feasibility_load_path
             self._feasibility_classifier = torch.load(CFG.feasibility_load_path)
@@ -340,14 +342,14 @@ class SearchPruningApproach(NSRTLearningApproach):
         """Loads the feasibility datasets saved under a path.
         """
         train_data, validation_data = pickle.load(open(path, 'rb'))
-        self._train_feasibility_dataset.loads(train_data, nsrts)
+        self._training_feasibility_dataset.loads(train_data, nsrts)
         self._validation_feasibility_dataset.loads(validation_data, nsrts)
 
     def _save_data(self, path: str) -> None:
         """Saves the feasibility datasets under a path.
         """
         pickle.dump((
-            self._train_feasibility_dataset.dumps(),
+            self._training_feasibility_dataset.dumps(),
             self._validation_feasibility_dataset.dumps()
         ), open(path, "wb"))
         logging.info(f"saved generated feasibility datasets to {path}")
@@ -384,11 +386,11 @@ class SearchPruningApproach(NSRTLearningApproach):
             self._seg_to_ground_nsrt,
             CFG.feasibility_debug_directory,
         )
-        run_wbox_visualization_saving(
-            search_datapoints,self._option_model, seed,
-            os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
-        )
-        assert False
+        # run_wbox_visualization_saving(
+        #     search_datapoints,self._option_model, seed,
+        #     os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
+        # )
+        # assert False
 
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':
@@ -448,7 +450,9 @@ class SearchPruningApproach(NSRTLearningApproach):
                 # Creating the datapoints to search over and moving them to different devices
                 training_viable_datapoints = [d for d in training_search_datapoints if len(d.skeleton) > prefix_length]
                 training_indices = self._rng.choice(
-                    len(training_viable_datapoints), min(len(training_viable_datapoints), num_training_datapoints_per_iter), replace=False
+                    len(training_viable_datapoints),
+                    num_training_datapoints_per_iter,
+                    replace=True
                 )
                 chosen_training_search_datapoints = [
                     training_viable_datapoints[idx].substitute_nsrts(nsrts_dict)
@@ -457,7 +461,9 @@ class SearchPruningApproach(NSRTLearningApproach):
 
                 validation_viable_datapoints = [d for d in validation_search_datapoints if len(d.skeleton) > prefix_length]
                 validation_indices = self._rng.choice(
-                    len(validation_viable_datapoints), min(len(validation_viable_datapoints), num_validation_datapoints_per_iter), replace=False
+                    len(validation_viable_datapoints),
+                    num_validation_datapoints_per_iter,
+                    replace=True
                 )
                 chosen_validation_search_datapoints = [
                     validation_viable_datapoints[idx].substitute_nsrts(nsrts_dict)
@@ -467,7 +473,7 @@ class SearchPruningApproach(NSRTLearningApproach):
                 # Collecting data samples
                 duration, train_positive_datapoints, train_negative_datapoints = \
                     SearchPruningApproach._backtracking_fill_dataset(
-                    self._train_feasibility_dataset, pool, prefix_length, self._option_model,
+                    self._training_feasibility_dataset, pool, prefix_length, self._option_model,
                     feasibility_classifiers, seed, chosen_training_search_datapoints, cfg,
                     os.path.join(prefix_directory, f'train-data-gathering'),
                 )
@@ -495,6 +501,11 @@ class SearchPruningApproach(NSRTLearningApproach):
                 #     prefix_length, os.path.join(prefix_directory, f"visualization"),
                 #     self._feasibility_classifier
                 # )
+                run_wbox_visualization_saving(
+                    chosen_validation_search_datapoints, self._option_model, seed,
+                    prefix_length, os.path.join(prefix_directory, f"visualization"),
+                    self._feasibility_classifier
+                )
                 self._save_data(os.path.join(
                     prefix_directory,
                     f'feasibility-classifier-data-snapshot.data'
@@ -507,8 +518,8 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         logging.info(
             "Generated interleaving-based feasibility dataset of "
-            f"{self._train_feasibility_dataset.num_positive_datapoints} positive and "
-            f"{self._train_feasibility_dataset.num_negative_datapoints} negative datapoints"
+            f"{self._training_feasibility_dataset.num_positive_datapoints} positive and "
+            f"{self._training_feasibility_dataset.num_negative_datapoints} negative datapoints"
         )
 
     @staticmethod
@@ -565,7 +576,7 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         logging.basicConfig(filename=os.path.join(debug_dir, f"{seed}.log"), force=True, level=logging.DEBUG)
         logging.info("Started negative data collection")
-        logging.info(f"Skeleton: {[nsrt.name for nsrt in skeleton]}")
+        logging.info(f"Skeleton: {[f'{nsrt.name}({nsrt.objects})' for nsrt in skeleton]}")
         logging.info(f"Starting Depth {prefix_length}")
 
         # Running backtracking
@@ -713,27 +724,36 @@ class SearchPruningApproach(NSRTLearningApproach):
             shared_memory - whether to make the classifier movable between processes
                 (using the torch.multiprocessing library)
         """
-        neural_feasibility_classifier = NeuralFeasibilityClassifier(
-            nsrts = self._nsrts,
-            featurizer_sizes = CFG.feasibility_featurizer_sizes,
-            positional_embedding_size = CFG.feasibility_embedding_size,
-            positional_embedding_concat = CFG.feasibility_embedding_concat,
-            mark_failing_nsrt = CFG.feasibility_mark_failing_nsrt,
-            token_size = CFG.feasibility_token_size,
-            transformer_num_heads = CFG.feasibility_num_heads,
-            transformer_num_layers = CFG.feasibility_num_layers,
-            transformer_ffn_hidden_size = CFG.feasibility_ffn_hid_size,
-            cls_style = CFG.feasibility_cls_style,
-            embedding_horizon = CFG.feasibility_embedding_max_idx,
-            max_train_iters = CFG.feasibility_max_itr,
-            general_lr = CFG.feasibility_general_lr,
-            transformer_lr = CFG.feasibility_transformer_lr,
-            min_inference_prefix = min_inference_prefix,
-            threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
-            use_torch_gpu = CFG.use_torch_gpu,
-            optimizer_name = CFG.feasibility_optim,
-            l1_penalty = CFG.feasibility_l1_penalty,
-            l2_penalty = CFG.feasibility_l2_penalty,
+        if not CFG.feasibility_keep_model_params or not isinstance(self._feasibility_classifier, torch.nn.Module):
+            neural_feasibility_classifier = NeuralFeasibilityClassifier(
+                nsrts = self._nsrts,
+                featurizer_sizes = CFG.feasibility_featurizer_sizes,
+                positional_embedding_size = CFG.feasibility_embedding_size,
+                positional_embedding_concat = CFG.feasibility_embedding_concat,
+                mark_failing_nsrt = CFG.feasibility_mark_failing_nsrt,
+                token_size = CFG.feasibility_token_size,
+                transformer_num_heads = CFG.feasibility_num_heads,
+                transformer_num_layers = CFG.feasibility_num_layers,
+                transformer_ffn_hidden_size = CFG.feasibility_ffn_hid_size,
+                cls_style = CFG.feasibility_cls_style,
+                embedding_horizon = CFG.feasibility_embedding_max_idx,
+                max_train_iters = CFG.feasibility_max_itr,
+                general_lr = CFG.feasibility_general_lr,
+                transformer_lr = CFG.feasibility_transformer_lr,
+                min_inference_prefix = min_inference_prefix,
+                threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
+                max_num_objects = CFG.feasibility_max_object_count,
+                use_torch_gpu = CFG.use_torch_gpu,
+                optimizer_name = CFG.feasibility_optim,
+                l1_penalty = CFG.feasibility_l1_penalty,
+                l2_penalty = CFG.feasibility_l2_penalty,
+            )
+            self._feasibility_classifier = neural_feasibility_classifier
+        else:
+            self._feasibility_classifier.min_inference_prefix = min_inference_prefix
+        self._feasibility_classifier.fit(
+            training_dataset = self._training_feasibility_dataset,
+            validation_dataset = self._validation_feasibility_dataset,
+            training_snapshot_directory = training_snapshot_directory,
+            delete_optimizer = not CFG.feasibility_keep_model_params,
         )
-        neural_feasibility_classifier.fit(self._train_feasibility_dataset, self._validation_feasibility_dataset, training_snapshot_directory)
-        self._feasibility_classifier = neural_feasibility_classifier

@@ -14,7 +14,7 @@ from matplotlib.lines import Line2D
 import matplotlib.patches as patches
 import matplotlib
 import matplotlib.pyplot as plt
-# matplotlib.use("tkagg")
+matplotlib.use("tkagg")
 
 from predicators.utils import abstract
 
@@ -35,10 +35,7 @@ class Statue(BaseEnv):
 
     # Settings
     ## Task generation settings
-    range_train_world_width: ClassVar[Tuple[int, int]] = (2, 4)
-    range_test_world_width: ClassVar[Tuple[int, int]] = (4, 4)#(7, 7)
-    range_train_world_height: ClassVar[Tuple[int, int]] = (2, 4)
-    range_test_world_height: ClassVar[Tuple[int, int]] = (4, 4)#(7, 7)
+    range_train_world_size: ClassVar[Tuple[int, int]] = (2, 4)
 
     ## World shape settings
     range_small_door_width = (0.4, 0.6)
@@ -314,8 +311,7 @@ class Statue(BaseEnv):
             self._train_tasks = self._generate_tasks(
                 rng = self._train_rng,
                 num_tasks = CFG.num_train_tasks,
-                range_world_width = self.range_train_world_width,
-                range_world_height = self.range_train_world_height,
+                range_world_size = self.range_train_world_size,
             )
         return self._train_tasks
 
@@ -324,8 +320,7 @@ class Statue(BaseEnv):
             self._test_tasks = self._generate_tasks(
                 rng = self._test_rng,
                 num_tasks = CFG.num_test_tasks,
-                range_world_width = self.range_test_world_width,
-                range_world_height = self.range_test_world_height,
+                range_world_size = (CFG.statue_test_world_size, CFG.statue_test_world_size),
             )
         return self._test_tasks
 
@@ -333,36 +328,33 @@ class Statue(BaseEnv):
         self,
         rng: np.random.Generator,
         num_tasks: int,
-        range_world_width: Tuple[int, int],
-        range_world_height: Tuple[int, int],
+        range_world_size: Tuple[int, int],
     ) -> List[EnvironmentTask]:
         return [
             self._generate_task(
                 rng,
-                range_world_width,
-                range_world_height,
+                range_world_size,
             ) for _ in range(num_tasks)
         ]
 
     def _generate_task(
         self,
         rng: np.random.Generator,
-        range_world_width: Tuple[int, int],
-        range_world_height: Tuple[int, int],
+        range_world_size: Tuple[int, int],
     ) -> EnvironmentTask:
-        world_width = rng.integers(*range_world_width, endpoint=True)
-        world_height = rng.integers(*range_world_height, endpoint=True)
-        rooms_x_offset = rng.integers(0, max(self.range_train_world_width + self.range_test_world_width) - world_width, endpoint=True)
-        rooms_y_offset = rng.integers(0, max(self.range_train_world_height + self.range_test_world_height) - world_height, endpoint=True)
+        world_width = rng.integers(*range_world_size, endpoint=True)
+        world_height = rng.integers(*range_world_size, endpoint=True)
+        rooms_x_offset = rng.integers(0, max(self.range_train_world_size[1], CFG.statue_test_world_size) - world_width, endpoint=True)
+        rooms_y_offset = rng.integers(0, max(self.range_train_world_size[1], CFG.statue_test_world_size) - world_height, endpoint=True)
 
         # Generating objects
-        rooms = [[Object(f"room({x},{y})", self._room_type) for x in range(world_width)] for y in range(world_height)]
+        rooms = [[Object(f"room_{x}_{y}", self._room_type) for x in range(world_width)] for y in range(world_height)]
 
         vert_ids = rng.permutation((world_width - 1) * world_height).reshape((world_width - 1, world_height))
-        vertical_doors = [[Object(f"doorvert_{vert_ids[x, y]}({x},{y})", self._door_type) for x in range(world_width - 1)] for y in range(world_height)]
+        vertical_doors = [[Object(f"doorvert_{vert_ids[x, y]}_{x}_{y}", self._door_type) for x in range(world_width - 1)] for y in range(world_height)]
 
         horiz_ids = rng.permutation(world_width * (world_height - 1)).reshape((world_width, world_height - 1))
-        horizontal_doors = [[Object(f"doorhoriz_{horiz_ids[x, y]}({x},{y})", self._door_type) for x in range(world_width)] for y in range(world_height - 1)]
+        horizontal_doors = [[Object(f"doorhoriz_{horiz_ids[x, y]}_{x}_{y}", self._door_type) for x in range(world_width)] for y in range(world_height - 1)]
 
         # Generating goal
         goal = {self._InRoom([self._statue, rooms[-1][-1]])}
@@ -477,8 +469,8 @@ class Statue(BaseEnv):
     @property
     def action_space(self) -> gym.spaces.Box:
         """(x, y, grasp, move, grab_place)"""
-        max_x = max(self.range_train_world_width[1], self.range_test_world_width[1]) * self.room_size - self.equality_margin
-        max_y = max(self.range_train_world_height[1], self.range_test_world_height[1]) * self.room_size - self.equality_margin
+        max_x = max(self.range_train_world_size[1], CFG.statue_test_world_size) * self.room_size - self.equality_margin
+        max_y = max(self.range_train_world_size[1], CFG.statue_test_world_size) * self.room_size - self.equality_margin
         lower_bound = np.array([-max_x, -max_y, 0.0, 0.0, -1.0], dtype=np.float32)
         upper_bound = np.array([max_x, max_y, 1.0, 1.0, 1.0], dtype=np.float32)
         return gym.spaces.Box(lower_bound, upper_bound)

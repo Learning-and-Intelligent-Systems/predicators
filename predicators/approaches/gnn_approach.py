@@ -21,8 +21,9 @@ from predicators import utils
 from predicators.approaches import BaseApproach
 from predicators.gnn.gnn import EncodeProcessDecode, setup_graph_net
 from predicators.gnn.gnn_utils import GraphDictDataset, compute_normalizers, \
-    get_single_model_prediction, graph_batch_collate, normalize_graph, \
+    get_single_model_prediction, get_graph_batch_collate_with_device, normalize_graph, \
     train_model
+from predicators.ml_models import _get_torch_device
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, ParameterizedOption, \
     Predicate, State, Task, Type
@@ -128,7 +129,8 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         example_dataset = GraphDictDataset([example_input], [example_target])
         self._gnn = setup_graph_net(example_dataset,
                                     num_steps=CFG.gnn_num_message_passing,
-                                    layer_size=CFG.gnn_layer_size)
+                                    layer_size=CFG.gnn_layer_size,
+                                    use_torch_gpu=CFG.use_torch_gpu)
         # Set up all the graphs, now using *all* the data.
         inputs = [(d[0], d[1], d[2]) for d in data]
         targets = [d[3] for d in data]
@@ -169,16 +171,17 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         ## Set up Adam optimizer and dataloaders.
         optimizer = torch.optim.Adam(self._gnn.parameters(),
                                      lr=CFG.gnn_learning_rate)
+        device = _get_torch_device(CFG.use_torch_gpu)
         train_dataloader = DataLoader(train_dataset,
                                       batch_size=CFG.gnn_batch_size,
                                       shuffle=False,
                                       num_workers=0,
-                                      collate_fn=graph_batch_collate)
+                                      collate_fn=get_graph_batch_collate_with_device(device))
         val_dataloader = DataLoader(val_dataset,
                                     batch_size=CFG.gnn_batch_size,
                                     shuffle=False,
                                     num_workers=0,
-                                    collate_fn=graph_batch_collate)
+                                    collate_fn=get_graph_batch_collate_with_device(device))
         dataloaders = {"train": train_dataloader, "val": val_dataloader}
         ## Launch training code.
         logging.info(f"Training GNN on {len(train_inputs)} examples")
@@ -187,8 +190,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
                                       optimizer=optimizer,
                                       criterion=self._criterion,
                                       global_criterion=self._global_criterion,
-                                      num_epochs=CFG.gnn_num_epochs,
-                                      do_validation=CFG.gnn_use_validation_set)
+                                      stop_condition=float(CFG.gnn_training_timeout) if CFG.gnn_use_timeout else int(CFG.gnn_num_epochs),
+                                      do_validation=CFG.gnn_use_validation_set,
+                                      device=device)
         self._gnn.load_state_dict(best_model_dict)
         info = {
             "exemplar": self._data_exemplar,
@@ -213,7 +217,8 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         dataset = GraphDictDataset([input_example], [target_example])
         self._gnn = setup_graph_net(dataset,
                                     num_steps=CFG.gnn_num_message_passing,
-                                    layer_size=CFG.gnn_layer_size)
+                                    layer_size=CFG.gnn_layer_size,
+                                    use_torch_gpu=CFG.use_torch_gpu)
         self._gnn.load_state_dict(info["state_dict"])
         self._nullary_predicates = info["nullary_predicates"]
         self._node_feature_to_index = info["node_feature_to_index"]
@@ -230,7 +235,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
             state, atoms, goal)
         if CFG.gnn_do_normalization:
             in_graph = normalize_graph(in_graph, self._input_normalizers)
-        out_graph = get_single_model_prediction(self._gnn, in_graph)
+        out_graph = get_single_model_prediction(self._gnn, in_graph, _get_torch_device(CFG.use_torch_gpu))
         if CFG.gnn_do_normalization:
             out_graph = normalize_graph(out_graph,
                                         self._target_normalizers,

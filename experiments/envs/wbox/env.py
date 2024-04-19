@@ -33,7 +33,6 @@ class SimulatorState():
     def copy(self) -> 'SimulatorState':
         return dataclasses.replace(self)
 
-
 class WBox(BaseEnv):
     """WBox environment"""
 
@@ -41,9 +40,8 @@ class WBox(BaseEnv):
     ## Task generation settings
     num_tries: ClassVar[int] = 100000
 
-    range_train_containers: ClassVar[Tuple[int, int]] = (1, 3)
-    range_test_containers: ClassVar[Tuple[int, int]] = (3, 3)
-    max_num_containers = max(*range_train_containers, *range_test_containers)
+    range_train_containers: ClassVar[Tuple[int, int]] = (2, 2)
+    max_num_containers = max(*range_train_containers, CFG.wbox_test_num_containers)
     object_placement_margin = 1.2
 
     ## World shape settings
@@ -68,12 +66,11 @@ class WBox(BaseEnv):
     # Types
     _robot_type = Type("robot", ["x", "y", "holding"])
     _object_type = Type("object", ["x", "y"])
-    _container_type = Type("container", ["x", "y"] + [f"id{idx}" for idx in range(max_num_containers)], _object_type)
+    _container_type = Type("container", ["x", "y"], _object_type)
     _block_type = Type("block", ["x", "y", "held", "type"], _object_type)
 
     # Predicates
     ## Inside predicate
-    @staticmethod
     def _Inside_holds(state: State, objects: Sequence[Object]) -> bool:
         container, block = objects
         return WBox._get_held_block(state) != block and \
@@ -82,21 +79,18 @@ class WBox(BaseEnv):
     _Inside: ClassVar[Predicate] = Predicate("Inside", [_container_type, _block_type], _Inside_holds)
 
     ## Outside predicate
-    @staticmethod
     def _Outside_holds(state: State, objects: Sequence[Object]) -> bool:
         return not WBox._Inside_holds(state, objects)
     _Outside: ClassVar[Predicate] = Predicate("Outside", [_container_type, _block_type], _Outside_holds)
 
     # NextTo predicate
-    @staticmethod
-    def _Nextto_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _NextTo_holds(state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
         return WBox._get_shape(state, obj1).distance(WBox._get_shape(state, obj2)) <= WBox.next_to_thresh
 
-    _NextToRobot: ClassVar[Predicate] = Predicate("NextToRobot", [_robot_type, _object_type], _Nextto_holds)
+    _NextToRobot: ClassVar[Predicate] = Predicate("NextToRobot", [_robot_type, _object_type], _NextTo_holds)
 
     # Held predicate
-    @staticmethod
     def _Held_holds(state: State, objects: Sequence[Object]) -> bool:
         _, block, = objects
         return WBox._get_held_block(state) == block
@@ -104,7 +98,6 @@ class WBox(BaseEnv):
     _Held: ClassVar[Predicate] = Predicate("Held", [_robot_type, _block_type], _Held_holds)
 
     # NotHeld predicate
-    @staticmethod
     def _NotHeld_holds(state: State, objects: Sequence[Object]) -> bool:
         return WBox._get_held_block(state) is None
 
@@ -173,7 +166,7 @@ class WBox(BaseEnv):
         selected_block, = selected_blocks
 
         # Check if the block is not too far away
-        if not WBox._Nextto_holds(state, [self._robot, selected_block]):
+        if not WBox._NextTo_holds(state, [self._robot, selected_block]):
             logging.info("ROBOT NOT NEXT TO THE BLOCK")
             return next_state
 
@@ -221,7 +214,7 @@ class WBox(BaseEnv):
             state, held_block, x, y
         )
         container_shapes = [poly for c in state.get_objects(self._container_type) for poly in [self._get_shape(state, c)] if poly.intersects(new_block_shape)]
-        if container_shapes is not None and container_shapes[0].boundary.intersects(new_block_shape):
+        if container_shapes and container_shapes[0].boundary.intersects(new_block_shape):
             logging.info("BLOCK INTERSECTS WITH A CONTAINER BOUNDARY")
             return next_state
 
@@ -237,7 +230,7 @@ class WBox(BaseEnv):
         self._set_held_block(next_state, None)
 
         # Check if the new placement isn't too far away
-        if not WBox._Nextto_holds(next_state, [self._robot, held_block]):
+        if not WBox._NextTo_holds(next_state, [self._robot, held_block]):
             logging.info("ROBOT NOT NEXT TO THE BLOCK")
             return state.copy()
 
@@ -257,7 +250,7 @@ class WBox(BaseEnv):
             self._test_tasks = self._generate_tasks(
                 rng = self._test_rng,
                 num_tasks = CFG.num_test_tasks,
-                range_blocks = self.range_test_containers,
+                range_blocks = (CFG.wbox_test_num_containers, CFG.wbox_test_num_containers),
             )
         return self._test_tasks
 
@@ -282,11 +275,10 @@ class WBox(BaseEnv):
         # Constructing subtasks
         num_containers = rng.integers(*range_containers, endpoint=True)
         block_hashes = rng.permutation(num_containers * 3).reshape(num_containers, -1) # so that the blocks cannot be sorted
-        container_indices = rng.choice(self.max_num_containers, num_containers, replace=False)
         allowed_area = box(self.world_range_x[0], self.world_range_y[0], self.world_range_x[1], self.world_range_y[1])
         for idx in range(num_containers):
             allowed_area = self._generate_subtask(
-                rng, idx, block_hashes[idx], container_indices[idx], goal,
+                rng, idx, block_hashes[idx], goal,
                 simulator_state, state, allowed_area
             )
 
@@ -296,7 +288,7 @@ class WBox(BaseEnv):
         for _ in range(self.num_tries):
             state.set(self._robot, "x", rng.uniform(*self.world_range_x))
             state.set(self._robot, "y", rng.uniform(*self.world_range_y))
-            if any(self._Nextto_holds(state, [self._robot, container]) for container in state.get_objects(self._container_type)):
+            if any(WBox._NextTo_holds(state, [self._robot, container]) for container in state.get_objects(self._container_type)):
                 break
         else:
             raise ValueError("Could not generate a task with the given settings")
@@ -310,7 +302,6 @@ class WBox(BaseEnv):
         rng: np.random.Generator,
         idx: int,
         block_hashes: npt.NDArray[np.int64],
-        container_onehot_idx: int,
         goal: Set[GroundAtom],
         simulator_state: SimulatorState,
         state: State,
@@ -354,9 +345,6 @@ class WBox(BaseEnv):
 
         # Inserting the goal
         goal.update(self._Inside([container, block]) for block, _, _ in blocks_data)
-
-        # Setting the container id
-        state.set(container, f"id{container_onehot_idx}", 1.0)
 
         # Inserting the desired poses
         blocks, _, is_d_block = zip(*sorted(blocks_data, key = lambda d: d[2]))

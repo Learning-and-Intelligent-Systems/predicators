@@ -339,7 +339,17 @@ class GlobalSettings:
     grid_row_num_cells = 100
 
     # shelvs2d env parameters
-    shelves2d_test_num_boxes = 10
+    shelves2d_test_num_boxes = 5
+
+    # donuts env parameters
+    donuts_test_num_toppings = 3
+    donuts_test_num_donuts = 1 # Should stay at 1
+
+    # statue env parameters
+    statue_test_world_size = 4
+
+    # wbox env parameters
+    wbox_test_num_containers = 1
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -353,10 +363,12 @@ class GlobalSettings:
     gnn_layer_size = 16
     gnn_learning_rate = 1e-3
     gnn_weight_decay = 0
-    gnn_num_epochs = 25000
     gnn_batch_size = 128
     gnn_do_normalization = False  # performs worse in Cover when True
     gnn_use_validation_set = True
+    gnn_use_timeout = False
+    gnn_num_epochs = 5000
+    gnn_training_timeout = 60
 
     # parameters for GNN option policy approach
     gnn_option_policy_solve_with_shooting = True
@@ -491,20 +503,22 @@ class GlobalSettings:
     cnn_regressor_linear_hid_sizes = [32, 8]
     cnn_regressor_clip_gradients = True
     cnn_regressor_gradient_clip_value = 5
-    neural_gaus_regressor_hid_sizes = [32, 32]
-    neural_gaus_regressor_max_itr = 1000
+    neural_gaus_regressor_hid_sizes = [512, 512]
+    neural_gaus_regressor_max_itr = 10000
     diffusion_regressor_hid_sizes = [512, 512]
     diffusion_regressor_max_itr = 10000
     diffusion_regressor_timesteps = 10
 
     feasibility_learning_strategy = 'backtracking'
+    feasibility_max_object_count = 20 #100 #20 #30
     feasibility_search_device = 'cpu'
-    feasibility_num_data_collection_threads = 12
-    feasibility_featurizer_sizes = [64, 64, 32]
-    # feasibility_featurizer_sizes = [128, 128, 64]
+    feasibility_keep_model_params = False
+    feasibility_num_data_collection_threads = 36
+    # feasibility_featurizer_sizes = [64, 64, 32]
+    feasibility_featurizer_sizes = [128, 128, 128]
     feasibility_embedding_size = feasibility_featurizer_sizes[-1]
     feasibility_embedding_concat = True
-    feasibility_embedding_max_idx = 40
+    feasibility_embedding_max_idx = 130
     feasibility_mark_failing_nsrt = True
     feasibility_token_size = feasibility_featurizer_sizes[-1] + (feasibility_embedding_size if feasibility_embedding_concat else 0)
     feasibility_num_heads = 8
@@ -514,7 +528,7 @@ class GlobalSettings:
     feasibility_general_lr = 0.0001
     feasibility_transformer_lr = 1e-5
     feasibility_cls_style = 'mean'
-    feasibility_batch_size = 2048
+    feasibility_batch_size = 4000
     feasibility_validation_fraction = 0.8
     feasibility_loss_output_file = ""
     feasibility_threshold_recalibration_percentile = 0.85

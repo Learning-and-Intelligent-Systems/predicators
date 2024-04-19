@@ -13,6 +13,7 @@ from torch import nn
 
 from predicators.gnn.gnn_utils import GraphDictDataset, concat_graphs, \
     replace_graph
+from predicators.ml_models import DeviceTrackingModule, _get_torch_device
 from predicators.structs import Array
 
 
@@ -67,11 +68,11 @@ def _aggregate_globals(graph: Dict, global_node_idxs: Array,
     return torch.cat([graph['globals'], nodes_agg, edges_agg], dim=1)
 
 
-class GraphModel(nn.Module, abc.ABC):
+class GraphModel(DeviceTrackingModule, abc.ABC):
     """General GNN architecture."""
 
-    def __init__(self, dims: List[int], **kwargs: List[int]) -> None:
-        super().__init__()  # type: ignore
+    def __init__(self, dims: List[int], use_torch_gpu: bool, **kwargs: List[int]) -> None:
+        super().__init__(_get_torch_device(use_torch_gpu))  # type: ignore
         node_dim = dims[0]
         edge_dim = dims[1]
         global_dim = dims[2]
@@ -105,6 +106,7 @@ class GraphModel(nn.Module, abc.ABC):
                          kwargs['edge_model_layers'][-1] + 2 * global_dim)
             self.global_model = MLP(kwargs['global_model_layers'], input_dim)
             self.params.append(self.global_model.parameters())
+        self.to_common_device()
 
     def edges(self, graph: Dict) -> Tuple[Dict, Array]:
         """Run marshalling function."""
@@ -129,9 +131,9 @@ class GraphModel(nn.Module, abc.ABC):
 class EncodeProcessDecode(GraphModel):
     """Encode-process-decode GNN architecture."""
 
-    def __init__(self, dims: List[int], num_steps: int,
+    def __init__(self, dims: List[int], num_steps: int, use_torch_gpu: bool,
                  **kwargs: List[int]) -> None:
-        super().__init__(dims, **kwargs)
+        super().__init__(dims, use_torch_gpu, **kwargs)
         if 'node_decoder_layers' in kwargs:
             self.node_decoder = MLP(kwargs['node_decoder_layers'],
                                     kwargs['node_model_layers'][-1])
@@ -142,6 +144,7 @@ class EncodeProcessDecode(GraphModel):
             self.global_decoder = MLP(kwargs['global_decoder_layers'],
                                       kwargs['global_model_layers'][-1])
         self.num_steps = num_steps
+        self.to_common_device()
 
     def forward(self, graph: Dict) -> List[Dict]:
         """Torch forward model."""
@@ -177,7 +180,10 @@ class EncodeProcessDecode(GraphModel):
 def MLP(layers: List[int], input_dim: int) -> nn.Sequential:
     """Create MLP."""
     LinearLayer = nn.Linear
-    mlp_layers: List[nn.Module] = [LinearLayer(input_dim, layers[0])]
+    if not input_dim:
+        mlp_layers: List[nn.Module] = [LinearLayer(input_dim, layers[0], bias=False), LinearLayer(layers[0], layers[0])]
+    else:
+        mlp_layers: List[nn.Module] = [LinearLayer(input_dim, layers[0])]
 
     for layer_num in range(0, len(layers) - 1):
         mlp_layers.append(nn.ReLU())
@@ -209,7 +215,7 @@ def _setup_dims(dataset: GraphDictDataset) -> List[int]:
 
 
 def setup_graph_net(graph_dataset: GraphDictDataset, num_steps: int,
-                    layer_size: int) -> EncodeProcessDecode:
+                    layer_size: int, use_torch_gpu: bool) -> EncodeProcessDecode:
     """Create an EncodeProcessDecode GNN using the dimensions found in the
     dataset."""
     dims = _setup_dims(graph_dataset)
@@ -250,6 +256,6 @@ def setup_graph_net(graph_dataset: GraphDictDataset, num_steps: int,
     if include_globals:
         layer_dict['global_decoder_layers'] = dec_layers['globals']
 
-    encprocdec = EncodeProcessDecode(dims, num_steps, **layer_dict)
+    encprocdec = EncodeProcessDecode(dims, num_steps, use_torch_gpu, **layer_dict)
 
     return encprocdec

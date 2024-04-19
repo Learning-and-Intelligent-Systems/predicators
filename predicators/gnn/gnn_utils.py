@@ -5,14 +5,15 @@ from __future__ import division
 import collections
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple
+import itertools
+from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Union, Generator
+import copy
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
 from predicators.structs import Array
-
 
 def train_model(
     model: Any,
@@ -21,12 +22,20 @@ def train_model(
     criterion: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]],
     global_criterion: Optional[Callable[[torch.Tensor, torch.Tensor],
                                         torch.Tensor]],
-    num_epochs: int,
+    stop_condition: Union[int, float],
     do_validation: bool,
     device: Optional[torch.device] = None,
 ) -> OrderedDict[str, torch.Tensor]:
     """Optimize the model and save checkpoints."""
     since = time.perf_counter()
+
+    # Figure out the variable things between different stop conditions
+    if isinstance(stop_condition, int):
+        epoch_iterator = reversed(range(stop_condition, 0, -1))
+        epoch_str = f'Epoch {{}}/{stop_condition}'
+    else:
+        epoch_iterator = itertools.takewhile(lambda idx: time.perf_counter() <= since + stop_condition, itertools.count(1))
+        epoch_str = f'Epoch {{}}'
 
     # Note: best_seen_model_weights is measured on validation (not train) loss.
     best_seen_model_weights: OrderedDict[
@@ -34,12 +43,12 @@ def train_model(
     best_seen_model_train_loss = np.inf
     best_seen_running_validation_loss = np.inf
 
-    for epoch in range(num_epochs):
-        if epoch % 100 == 0:
-            logging.info(f'Epoch {epoch}/{num_epochs - 1}')
+    for epoch in epoch_iterator:
+        if epoch % 20 == 0:
+            logging.info(epoch_str.format(epoch))
             logging.info('-' * 10)
         # Each epoch has a training and validation phase
-        if epoch % 100 == 0 and do_validation:
+        if epoch % 20 == 0 and do_validation:
             phases = ['train', 'val']
         else:
             phases = ['train']
@@ -86,7 +95,7 @@ def train_model(
                 # statistics
                 running_loss[phase] += loss.item()
 
-        if epoch % 100 == 0:
+        if epoch % 20 == 0:
             logging.info(f"running_loss: {running_loss}")
 
             if do_validation and \
@@ -378,27 +387,22 @@ def _create_super_graph(batches: List[Dict],
         num_nodes = np.vstack((num_nodes, b['n_node']))
         num_edges = np.vstack((num_edges, b['n_edge']))
 
-    super_graph = {
+    return {
         'n_node':
-        torch.from_numpy(num_nodes),
+        torch.from_numpy(num_nodes).to(device),
         'n_edge':
-        torch.from_numpy(num_edges),
+        torch.from_numpy(num_edges).to(device),
         'nodes':
-        torch.from_numpy(nodes).float().requires_grad_(),
+        torch.from_numpy(nodes).float().to(device).requires_grad_(),
         'edges':
-        torch.from_numpy(edges).float().requires_grad_(),
+        torch.from_numpy(edges).float().to(device).requires_grad_(),
         'receivers':
-        torch.LongTensor(list(map(int, receivers))),
+        torch.LongTensor(list(map(int, receivers))).to(device),
         'senders':
-        torch.LongTensor(list(map(int, senders))),
-        'globals': (torch.from_numpy(globals_).float().requires_grad_()
+        torch.LongTensor(list(map(int, senders))).to(device),
+        'globals': (torch.from_numpy(globals_).float().to(device).requires_grad_()
                     if globals_ is not None else None),
     }
-    # Convert Tensors to device
-    if device is not None:
-        for key, val in super_graph.items():
-            super_graph[key] = val.to(device) if val is not None else val
-    return super_graph
 
 
 def graph_batch_collate(batch: List[Dict],

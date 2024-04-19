@@ -1055,7 +1055,8 @@ def fd_plan_from_sas_file(
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]],
            Metrics]:  # pragma: no cover
     """Given a SAS file, runs search on it to generate a plan."""
-    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
+    plan_file = tempfile.NamedTemporaryFile(delete=False).name
+    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} --plan-file {plan_file} {sas_file}")
     output = subprocess.getoutput(cmd_str)
     cleanup_cmd_str = f"{exec_str} --cleanup"
     subprocess.getoutput(cleanup_cmd_str)

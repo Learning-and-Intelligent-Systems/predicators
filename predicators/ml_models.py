@@ -1597,7 +1597,7 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
                  learning_rate: float, use_torch_gpu: bool = False) -> None:
         torch.set_num_threads(8)
         DeviceTrackingModule.__init__(self, _get_torch_device(use_torch_gpu))
-        self._linears = nn.ModuleList()
+        self._model = None
         self._hid_sizes = hid_sizes
         self._max_train_iters = max_train_iters
         self._timesteps = timesteps
@@ -1632,9 +1632,7 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         t_embeddings = t[:, None] * t_embeddings[None, :]
         t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
         X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
-        for linear in self._linears[:-1]:
-            X = F.relu(linear(X))
-        X = self._linears[-1](X)
+        X = self._model(X)
         return X[:, :self._y_dim]
 
     def fit(self, X_cond: Array, Y_out: Array) -> None:
@@ -1754,9 +1752,12 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         return samples[idx]
 
     def _initialize_net(self):
-        if len(self._linears) == 0:
-            sizes = [self._x_dim] + self._hid_sizes + [self._y_dim]
-            self._linears.extend([nn.Linear(in_size, out_size) for in_size, out_size in zip(sizes[:-1], sizes[1:])])
+        if self._model is None:
+            sizes = [self._x_dim] + self._hid_sizes
+            self._model = nn.Sequential(*([
+                layer for in_size, out_size in zip(sizes[:-1], sizes[1:])
+                for layer in [nn.Linear(in_size, out_size), nn.ReLU()]
+            ] + [nn.Linear(self._hid_sizes[-1], self._y_dim)]))
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""

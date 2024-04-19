@@ -14,7 +14,7 @@ import gym
 import matplotlib.patches as patches
 import matplotlib
 import matplotlib.pyplot as plt
-# matplotlib.use("tkagg")
+matplotlib.use("tkagg")
 
 from predicators.utils import abstract
 
@@ -26,9 +26,7 @@ class Donuts(BaseEnv):
     # Settings
     ## Task generation settings
     range_train_toppings: ClassVar[Tuple[int, int]] = (1, 3)
-    range_test_toppings: ClassVar[Tuple[int, int]] = (3, 3)#(10, 10)
     range_train_donuts: ClassVar[Tuple[int, int]] = (1, 1)
-    range_test_donuts: ClassVar[Tuple[int, int]] = (1, 1)
 
     num_tries: ClassVar[int] = 10000
     world_intersection_margin = 1000
@@ -371,11 +369,12 @@ class Donuts(BaseEnv):
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         if not self._test_tasks:
+            assert CFG.donuts_test_num_toppings <= len(self.toppings)
             self._test_tasks = self._generate_tasks(
                 rng = self._test_rng,
                 num_tasks = CFG.num_test_tasks,
-                range_toppings = self.range_test_toppings,
-                range_donuts = self.range_test_donuts,
+                range_toppings = (CFG.donuts_test_num_toppings, CFG.donuts_test_num_toppings),
+                range_donuts = (CFG.donuts_test_num_donuts, CFG.donuts_test_num_donuts),
             )
         return self._test_tasks
 

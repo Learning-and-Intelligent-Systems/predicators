@@ -15,6 +15,7 @@ import torch
 import logging
 import sys
 import os
+import cProfile
 
 from predicators.structs import NSRT, _GroundNSRT, Object, State, Variable
 
@@ -86,6 +87,7 @@ class FeasibilityFeaturizer(DeviceTrackingModule):
 
         state -= self._min_state
         state /= torch.clamp(self._max_state - self._min_state, min=0.1)
+        state = (state - 1) * 2
 
         for layer in self._layers[:-1]:
             state = self._dropout(nn.functional.elu(layer(state)))
@@ -214,8 +216,8 @@ def sigmoid_focal_loss(
     inputs: Tensor,
     targets: Tensor,
     alpha: float = -1,
-    gamma_pos: float = 2.0,
-    gamma_neg: float = 2.0,
+    gamma_pos: float = 1.0,
+    gamma_neg: float = 1.0,
     reduction: str = "none",
 ) -> Tensor:
     """Adapted from torchvision.ops.focal_loss"""
@@ -294,8 +296,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         transformer_lr: float,
         min_inference_prefix: int,
         threshold_recalibration_percentile: float,
+        max_num_objects: int,
         optimizer_name: str = 'adam',
-        test_split: float = 0.10,
         dropout: int = 0.2,
         l1_penalty: float = 0.05,
         l2_penalty: float = 0.0,
@@ -310,11 +312,12 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         assert cls_style in {'learned', 'marked', 'mean'}
         self._cls_style = cls_style
 
-        self._min_inference_prefix = min_inference_prefix
+        self.min_inference_prefix = min_inference_prefix
         self._thresh = classification_threshold
+        self._max_num_objects = max_num_objects
+        self._fitted = False
 
         self._num_iters = max_train_iters
-        self._test_split = test_split
         self._general_lr = general_lr
         self._transformer_lr = transformer_lr
 
@@ -324,7 +327,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self._featurizers: Dict[SkeletonNSRT, FeasibilityFeaturizer] = {
             (nsrt, ran_flag): self.create_featurizer(
                 f"featurizer_{self._skeleton_nsrt_indices[(nsrt, ran_flag)]}_{nsrt.name}_{'ran' if ran_flag else 'not_ran'}",
-                nsrt, featurizer_sizes, 0.0,
+                nsrt, featurizer_sizes, dropout,
             ) for nsrt in nsrts for ran_flag in [True, False]
         }
 
@@ -375,23 +378,24 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         ])
         self._check_nans = check_nans
         self._threshold_recalibration_frac = threshold_recalibration_percentile
-        self._unsure_confidence = classification_threshold
+        self._unsure_confidence = 1.0
 
     def move_to_device(self, device: str) -> 'NeuralFeasibilityClassifier':
         return self.to(device).share_memory()
 
+    @torch.no_grad()
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
         """Classifies a single datapoint
         """
         if len(states) == len(skeleton) + 1: # Make sure there is at least one not-run nsrt
             return True, 1.0
-        if len(states) <= self._min_inference_prefix: # Make sure we don't have too big of a horizon to predict
+        if len(states) <= self.min_inference_prefix: # Make sure we don't have too big of a horizon to predict
             return True, self._unsure_confidence
-        if self._optimizer is not None: # Making sure the classifier is not used if not trained
+        if not self._fitted: # Making sure the classifier is not used if not trained
             return True, 1.0
 
         self.eval()
-        confidence, logits = self(FeasibilityDataset.transform_input(self._skeleton_nsrt_indices, skeleton, states))
+        confidence, logits = self(FeasibilityDataset.transform_input(self._skeleton_nsrt_indices, skeleton, states, self._max_num_objects))
         confidence = confidence.cpu()
         logits = logits.tolist()
         logging.info(f"Confidence {float(confidence)}; Logits {logits}")
@@ -399,127 +403,83 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
 
     def fit(
         self,
-        train_dataset: FeasibilityDataset,
+        training_dataset: FeasibilityDataset,
         validation_dataset: FeasibilityDataset,
         training_snapshot_directory: str = "",
+        delete_optimizer: bool = True
     ) -> None:
         if self._optimizer is None:
             raise RuntimeError("The classifier has been fitted")
 
-        if not train_dataset.num_positive_datapoints or not train_dataset.num_negative_datapoints:
+        if not training_dataset.num_positive_datapoints or not training_dataset.num_negative_datapoints:
             return
 
-        if train_dataset.num_positive_datapoints + train_dataset.num_negative_datapoints < 400:
+        if training_dataset.num_positive_datapoints + training_dataset.num_negative_datapoints < 100:
             return
 
         # Diagnostics
         logging.info("Training dataset statistics:")
-        logging.info(train_dataset.diagnostics)
+        logging.info(training_dataset.diagnostics)
 
         logging.info("Validation dataset statistics:")
         logging.info(validation_dataset.diagnostics)
 
         # Initializing per-nsrt featurizers if not initialized already
         logging.info("Rescaling state featurizers")
-        self.rescale_featurizers(train_dataset)
+        self.rescale_featurizers(training_dataset)
         self.rescale_featurizers(validation_dataset)
 
         # Creating loss functions
-        train_loss_fn = lambda inputs, logits, targets: (sigmoid_focal_loss(inputs, targets, reduction="sum")) / len(train_dataset)
-        test_loss_fn = lambda inputs, targets: sigmoid_focal_loss(inputs, targets, reduction="sum")
+        training_loss_fn = lambda inputs, targets: (sigmoid_focal_loss(inputs, targets, reduction="sum")) / len(training_dataset)
+        validation_loss_fn = lambda inputs, targets: sigmoid_focal_loss(inputs, targets, reduction="sum") / len(validation_dataset)
 
         # Training loop
         logging.info("Running training")
         best_params = self.state_dict()
         best_params["iter"] = -1
         best_loss = float('inf')
-        best_acceptance_rate = 0.0
-        with (torch.autograd.detect_anomaly(True) if self._check_nans else nullcontext()):
+        with cProfile.Profile() as prof, (torch.autograd.detect_anomaly(True) if self._check_nans else nullcontext()):
             for itr in reversed(range(self._num_iters, 0, -1)):
                 self.train()
-                for x_train_batch, y_train_batch in train_dataset:
-                    self._optimizer.zero_grad()
+                self._optimizer.zero_grad()
+                for x_train_batch, y_train_batch in training_dataset:
                     outputs, logits = self(x_train_batch)
-                    train_loss = train_loss_fn(outputs, logits, torch.from_numpy(y_train_batch).to(self.device))
+                    train_loss = training_loss_fn(outputs, torch.from_numpy(y_train_batch).to(self.device))
                     train_loss.backward()
 
-                    l1_loss = l1_regularization(self) * self._l1_penalty
-                    l1_loss.backward()
+                # l1_loss = l1_regularization(self) * self._l1_penalty
+                # l1_loss.backward()
 
-                    self._optimizer.step()
+                self._optimizer.step()
 
-                if itr % 50 == 0:
-                    # Reporting gradient statistics
+                if itr % 100 == 0:
                     for name, param in self.named_parameters():
-                        logging.info(f"-- PARAM NAME {(name + ' '*70)[:70]} gradient stats: {tensor_stats(param.grad)}")
+                        if param.grad is not None:
+                            logging.info(f"-- PARAM NAME {(name + ' '*70)[:70]} gradient stats: {tensor_stats(param.grad)} value stats: {tensor_stats(param)}")
 
-                    # Evaluating on a test dataset
-                    self.eval()
-                    y_pred_batches, y_true_batches = zip(*(
-                        (self(x_test_batch)[0], torch.from_numpy(y_test_batch).to(self.device))
-                        for x_test_batch, y_test_batch in validation_dataset
-                    ))
-                    y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
+                    if itr % 100 == 0:
+                        training_debug_str, _, _, _, _ = self.report_performance(training_dataset, training_loss_fn)
+                        validation_debug_str, validation_loss, validation_acc, _, _ = self.report_performance(validation_dataset, validation_loss_fn)
+                        logging.info(f"Iteration {itr}/{self._num_iters}")
+                        logging.info(f"\tTraining performance: {training_debug_str}")
+                        logging.info(f"\tValidation performance: {validation_debug_str}")
+                    else:
+                        validation_debug_str, validation_loss, validation_acc, _, _ = self.report_performance(validation_dataset, validation_loss_fn)
+                        logging.info(f"Iteration {itr}/{self._num_iters}")
+                        logging.info(f"\tValidation performance: {validation_debug_str}")
 
-                    for name, param in self.state_dict().items():
-                        logging.info(f"-- PARAM NAME {(name + ' '*70)[:70]} stats: {tensor_stats(param)}")
-
-                    # Calculating the loss and accuracy
-                    test_loss = test_loss_fn(y_pred, y_true).item() / len(validation_dataset)
-                    acc = torch.logical_or(
-                        torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred <= self._thresh),
-                        torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= self._thresh)
-                    ).mean().item()
-
-                    # Calculating additional metrics
-                    num_false_positives = torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred >= self._thresh).sum().item()
-                    num_false_negatives = torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred <= self._thresh).sum().item()
-                    num_positives = (torch.abs(y_true - 0.0) < 0.0001).sum().item()
-
-                    positive_confidence = float(torch.kthvalue(
-                        torch.cat([y_pred[torch.abs(y_true - 0.0) < 0.0001].flatten(), tensor([0], device=self.device)]).cpu(),
-                        int(num_positives * self._threshold_recalibration_frac) + 1
-                    ).values)
-
-                    acceptance_rate = (
-                        torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= positive_confidence).sum().item() /
-                        (torch.abs(y_true - 1.0) < 0.0001).sum().item()
-                    )
-
-                    # Updating the best parameters
-                    if best_loss > test_loss or (acceptance_rate >= best_acceptance_rate * 2):
+                    if best_loss > validation_loss:
                         del best_params
-                        best_loss = test_loss
-                        best_acceptance_rate = acceptance_rate
+                        best_loss = validation_loss
                         best_params = copy.deepcopy(self.state_dict())
                         best_params["iter"] = itr
 
-                    logging.info(f"Train Loss: {train_loss.item()}, Test Loss: {test_loss}, Acc: {acc:.1%}, "
-                                f"%False+: {num_false_positives/len(y_true):.1%}, %False-: {num_false_negatives/len(y_true):.1%}, "
-                                f"{self._threshold_recalibration_frac:.0%} Positive Thresh: {positive_confidence:.4}, Acceptance rate: {acceptance_rate:.1%}, "
-                                f"Training Iter {itr}/{self._num_iters}")
-
-                    # Calculating accuracy per plan length
-                    # per_length_matches = {}
-                    # for y, ((encoder_skeleton, decoder_skeleton, _1, _2), label) in zip(y_pred, test_dataset):
-                    #     n = len(encoder_skeleton) + len(decoder_skeleton)
-                    #     if n not in per_length_matches:
-                    #         per_length_matches[n] = ([], [])
-                    #     per_length_matches[n][0].append(float(y.cpu()))
-                    #     per_length_matches[n][1].append(label)
-                    # for n, (sub_y_pred, sub_y_true) in per_length_matches.items():
-                    #     sub_y_pred = np.array(sub_y_pred)
-                    #     sub_y_true = np.array(sub_y_true)
-                    #     sub_matches = np.logical_or(
-                    #         np.logical_and(np.abs(sub_y_true - 0.0) < 0.0001, sub_y_pred <= self._thresh),
-                    #         np.logical_and(np.abs(sub_y_true - 1.0) < 0.0001, sub_y_pred >= self._thresh)
-                    #     )
-                    #     sub_test_loss = test_loss_fn(torch.tensor(sub_y_pred), torch.tensor(sub_y_true)).item() / sub_y_pred.size
-                    #     logging.info(f"Plan length {n}: Test Loss {sub_test_loss}, Acc: {sub_matches.mean():.1%}")
                     if training_snapshot_directory:
                         torch.save(self, os.path.join(training_snapshot_directory, f"model-{itr}.pt"))
-                    if acc >= 0.95 and (itr - best_params["iter"]) >= 500:
+
+                    if validation_acc >= 0.98 and (itr - best_params["iter"]) >= 500:
                         break
+            prof.print_stats()
 
         # Loading the best params
         logging.info(f"Best params from iter {best_params['iter']}")
@@ -527,31 +487,18 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self.load_state_dict(best_params)
 
         # Threshold recalibration and final metrics
-        self.eval()
-        y_pred_batches, y_true_batches = zip(*(
-            (self(x_test_batch)[0], torch.from_numpy(y_test_batch).to(self.device))
-            for x_test_batch, y_test_batch in validation_dataset
-        ))
-        y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
+        info_str, _, _, false_confidence, _  = self.report_performance(validation_dataset, validation_loss_fn)
+        logging.info(f"Final Validation Performance: {info_str}")
 
-        test_loss = test_loss_fn(y_pred, y_true).item() / len(validation_dataset)
-        acc = torch.logical_or(
-            torch.logical_and(torch.abs(y_true - 0.0) < 0.0001, y_pred <= self._thresh),
-            torch.logical_and(torch.abs(y_true - 1.0) < 0.0001, y_pred >= self._thresh)
-        ).mean().item()
-
-        logging.info(f"Final metrics: Test Loss: {test_loss}, Acc: {acc:.1%}")
-
-        num_positives = (torch.abs(y_true - 0.0) < 0.0001).sum().item()
-        positive_confidence = torch.kthvalue(torch.cat(
-            [y_pred[torch.abs(y_true - 0.0) < 0.0001].flatten(), tensor([0], device=self.device)]
-        ).cpu(), int(num_positives * self._threshold_recalibration_frac) + 1).values.item()
-
-        self._unsure_confidence = max(self._thresh, positive_confidence)
+        self._unsure_confidence = max(self._thresh, false_confidence)
         logging.info(f"Unsure confidence set to {self._unsure_confidence}")
 
-        # Making sure we don't fit twice and turn on classification
-        self._optimizer = None
+        if delete_optimizer:
+            # Making sure we don't fit twice
+            self._optimizer = None
+
+        # Allow classification
+        self._fitted = True
 
     def forward(
         self,
@@ -617,7 +564,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         are passed to a given NSRT always have the same data layout and total length
         equal to the dimensionalities of their types.
         """
-        dim = sum(v.type.dim for v in nsrt.parameters) + len(nsrt.parameters) # Object vectors + object ids
+        dim = sum(v.type.dim for v in nsrt.parameters) + len(nsrt.parameters) * self._max_num_objects # Object vectors + object ids
         featurizer = FeasibilityFeaturizer(
             name = name,
             sizes = [dim] + featurizer_sizes,
@@ -632,3 +579,42 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         """
         for skeleton_nsrt, (min_state, max_state) in dataset.state_ranges.items():
             self._featurizers[skeleton_nsrt].update_range(min_state, max_state)
+
+    @torch.no_grad()
+    def report_performance(self, dataset: FeasibilityDataset, loss_fn: Callable[[Tensor, Tensor], Tensor]) -> Tuple[str, float, float, float, float]:
+        self.eval()
+        y_pred_batches, y_true_batches = zip(*(
+            (self(x_batch)[0], torch.from_numpy(y_batch).to(self.device))
+            for x_batch, y_batch in dataset
+        ))
+        y_pred, y_true = torch.concatenate(y_pred_batches), torch.concatenate(y_true_batches)
+        true_positives_mask, true_negatives_mask = torch.abs(y_true - 1.0) < 0.0001, torch.abs(y_true - 0.0) < 0.0001
+        pred_positives_mask, pred_negatives_mask = y_pred >= self._thresh, y_pred < self._thresh
+
+
+        num_true_positives = torch.logical_and(true_positives_mask, pred_positives_mask).sum().item()
+        num_true_negatives = torch.logical_and(true_negatives_mask, pred_negatives_mask).sum().item()
+
+        loss = loss_fn(y_pred, y_true).item()
+        acc = torch.logical_or(
+            torch.logical_and(true_positives_mask, pred_positives_mask),
+            torch.logical_and(true_negatives_mask, pred_negatives_mask)
+        ).float().mean().item()
+
+        false_confidence = torch.kthvalue(
+            torch.cat([y_pred[true_negatives_mask].flatten(), tensor([0], device=self.device)]).cpu(),
+            int(dataset.num_positive_datapoints * self._threshold_recalibration_frac) + 1
+        ).values.item()
+        acceptance_rate = (
+            torch.logical_and(true_positives_mask, y_pred >= false_confidence).sum().item() / dataset.num_positive_datapoints
+        )
+
+        return (
+            f"Loss: {loss:.6}, Acc: {acc:.1%}, "
+            f"%True+: {num_true_positives/len(dataset):.1%}, "
+            f"%True-: {num_true_negatives/len(dataset):.1%}, "
+            f"%False+: {(dataset.num_positive_datapoints-num_true_positives)/len(dataset):.1%}, "
+            f"%False-: {(dataset.num_negative_datapoints-num_true_negatives)/len(dataset):.1%}, "
+            f"{self._threshold_recalibration_frac:.0%} Positive Thresh: {false_confidence:.4}, Acceptance rate: {acceptance_rate:.1%}",
+            loss, acc, false_confidence, acceptance_rate
+        )
