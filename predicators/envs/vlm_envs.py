@@ -121,7 +121,8 @@ class IceTeaMakingEnv(VLMPredicateEnv):
 
         # Env-specific types.
         self._teabag_type = Type("teabag", [], self._object_type)
-        self._ice_type = Type("ice", [], self._object_type)
+        # self._ice_type = Type("ice", [], self._object_type)
+        self._spoon_type = Type("spoon", [], self._object_type)
         self._cup_type = Type("cup", [], self._object_type)
         self._plate_type = Type("plate", [], self._object_type)
         self._hand_type = Type("hand", [], self._object_type)
@@ -133,7 +134,7 @@ class IceTeaMakingEnv(VLMPredicateEnv):
     @property
     def types(self) -> Set[Type]:
         return super().types | {
-            self._teabag_type, self._ice_type, self._cup_type,
+            self._teabag_type, self._spoon_type, self._cup_type,
             self._plate_type, self._hand_type
         }
 
@@ -141,7 +142,8 @@ class IceTeaMakingEnv(VLMPredicateEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         dummy_goal_obj = Object("dummy_goal_obj", self._goal_object_type)
         teabag_obj = Object("teabag", self._teabag_type)
-        ice_obj = Object("ice", self._ice_type)
+        # ice_obj = Object("ice", self._ice_type)
+        spoon_obj = Object("spoon", self._spoon_type)
         cup_obj = Object("cup", self._cup_type)
         plate_obj = Object("plate", self._plate_type)
         hand_obj = Object("hand", self._hand_type)
@@ -149,7 +151,7 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             dummy_goal_obj: [0.0],
             teabag_obj: [],
             plate_obj: [],
-            ice_obj: [],
+            spoon_obj: [],
             cup_obj: [],
             hand_obj: []
         })

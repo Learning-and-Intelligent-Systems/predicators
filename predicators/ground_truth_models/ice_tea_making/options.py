@@ -27,7 +27,7 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         object_type = types["object"]
         teabag_type = types["teabag"]
-        ice_type = types["ice"]
+        # ice_type = types["ice"]
         cup_type = types["cup"]
         hand_type = types["hand"]
 

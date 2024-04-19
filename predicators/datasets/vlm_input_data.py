@@ -179,7 +179,7 @@ def _parse_unique_atom_proposals_from_list(
         assert len(atoms_proposal_for_traj) == 1
         curr_atoms_proposal = atoms_proposal_for_traj[0]
         # Regex pattern to match predicates
-        atom_match_pattern = r"\b[a-z]+\([a-z0-9, ]+\)" 
+        atom_match_pattern = r"\b[a-z_]+\([a-z0-9, ]+\)" 
         # Find all matches in the text
         matches = re.findall(atom_match_pattern, curr_atoms_proposal)
         for atom_proposal_txt in matches:
