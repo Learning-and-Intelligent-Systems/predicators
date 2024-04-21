@@ -11,8 +11,10 @@ import logging
 import os
 from typing import List, Optional
 
+import google
 import google.generativeai as genai
 import imagehash
+import time
 import openai
 import PIL.Image
 
@@ -147,7 +149,14 @@ class GoogleGeminiVLM(VisionLanguageModel):
         del seed  # unused
         generation_config = genai.types.GenerationConfig(
             candidate_count=num_completions, temperature=temperature)
-        response = self._model.generate_content(
-            [prompt] + imgs, generation_config=generation_config)
+        response = None
+        while response is None:
+            try:
+                response = self._model.generate_content(
+                    [prompt] + imgs, generation_config=generation_config)
+            except google.api_core.exceptions.ResourceExhausted:
+                # In this case, we've hit a rate limit. Simply wait 3s and try again.
+                logging.debug("Hit rate limit for Gemini queries; trying again in 3s!")
+                time.sleep(3.0)
         response.resolve()
         return [response.text]

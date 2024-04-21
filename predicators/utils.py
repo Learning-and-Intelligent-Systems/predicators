@@ -3709,7 +3709,7 @@ def parse_atoms_txt_into_structured_state(
     specific truth values, convert this into a structured dictionary suitable
     for later conversion into more structured GroundAtomTrajectories."""
     pattern_block_of_state = r"\{(.*?[^\d,\s].*?)\}"
-    pattern_predicate = r'(\w+)\(([^)]+)\): (\w+)'
+    pattern_predicate = r'(\w+)\(([^)]+)\): (\w+).'
     state_blocks_matches = re.findall(pattern_block_of_state, text, re.DOTALL)
     structured_state_output = []
     for state_block_match in state_blocks_matches:

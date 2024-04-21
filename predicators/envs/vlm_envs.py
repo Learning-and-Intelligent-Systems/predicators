@@ -68,6 +68,11 @@ class VLMPredicateEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         del num, rng  # unused
         return []
+    
+    @property
+    def get_vlm_debug_atom_strs(self) -> Set[str]:
+        """Return a set of atom strings that should be sufficient for a VLM to label demonstrations consistently to learn good operators."""
+        raise NotImplementedError("VLM debug atom strings not implemented for this environment.")
 
 
 class AppleCoringEnv(VLMPredicateEnv):
@@ -161,3 +166,11 @@ class IceTeaMakingEnv(VLMPredicateEnv):
                 set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
             for _ in range(num)
         ]
+    
+    def get_vlm_debug_atom_strs(self) -> Set[str]:
+        return set(["hand_grasping_spoon(hand, spoon)",
+                    "hand_grasping_teabag(hand, teabag)",
+                    "spoon_in_cup(spoon, cup)",
+                    "spoon_on_plate(spoon, plate)",
+                    "teabag_in_cup(teabag, cup)",
+                    "teabag_on_plate(teabag, plate)"])
