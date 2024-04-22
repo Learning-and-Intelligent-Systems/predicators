@@ -3763,6 +3763,50 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     option_to_segments[n] = [s]
             logging.info(f"STEP 1: generated {len(option_to_segments.values())} option-based clusters.")
 
+            ######
+            # Step 1.5
+            z_clusters = []
+            for j, pair in enumerate(option_to_segments.items()):
+                option, segments = pair
+                clusters = {}
+                for seg in segments:
+                    objs_in_add_effects = set()
+                    for ga in seg.add_effects:
+                        for obj in ga.objects:
+                            objs_in_add_effects.add(obj)
+                    # Now we want to count how many objects we have of each type.
+                    sorted_types = sorted(self._types, key=lambda x: x.name)
+                    type_counts = []
+                    for type in sorted_types:
+                        # Count how many objects we have of this type.
+                        type_count = 0
+                        for obj in objs_in_add_effects:
+                            if obj.type == type:
+                                type_count += 1
+                        type_counts.append((type, type_count))
+
+                    # Place it in a dictionary accordingly.
+                    hash_count = tuple(type_counts)
+                    if hash_count in clusters:
+                        clusters[hash_count].append(seg)
+                    else:
+                        clusters[hash_count] = [seg]
+
+                import pdb; pdb.set_trace()
+
+                # Now want to check effective clusters out of all these clusters.
+                for key, c in clusters.items():
+                    add_effects_per_segment = [s.add_effects for s in c]
+                    ungrounded_add_effects_per_segment = []
+                    for add_effects in add_effects_per_segment:
+                        ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                    ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
+                    add_effects_per_cluster.append(ungrounded_add_effects)
+
+                    
+
+            ######
+
             # Step 2:
             all_clusters = []
             for j, pair in enumerate(option_to_segments.items()):
@@ -3818,12 +3862,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     # for seg in segs:
                     #     objs = [ga.objects for ga in seg.add_effects]
 
-            # import pdb; pdb.set_trace()
-
                 effective_clusters = {}
 
-                if option == "RobotPressButton":
-                    import pdb; pdb.set_trace()
+                # if option == "StickPressButton":
+                #     import pdb; pdb.set_trace()
 
 
                 if True:
@@ -3873,6 +3915,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 print(f"Option {option}")
                 print(f"# type-based clusters before: {len(clusters)}, # type-based clusters after: {len(effective_clusters)}")
                 print()
+
+                for _, c in effective_clusters.items():
+                    all_clusters.append(c)
 
             import pdb; pdb.set_trace()
 
@@ -4027,6 +4072,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             ##########
             # final_clusters = list(option_to_segments.values())
+            final_clusters = all_clusters
             ##########
 
             # ###
@@ -4188,6 +4234,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 ".incons_preds"
             # Load inconsistent predicates.
             if CFG.load_atoms:
+            # if False:
                 print("Loading saved inconsistent predicates.")
                 with open(incons_dataset_fname, "rb") as f:
                     inconsistent_preds = pkl.load(f)
@@ -4237,6 +4284,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         inconsistent_preds.add(pred)
 
             if CFG.save_atoms and not CFG.load_atoms:
+            # if True:
                 # Save inconsistent predicates.
                 print("Saving inconsistent preds...")
                 with open(incons_dataset_fname, "wb") as f:
@@ -5625,21 +5673,21 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             pnads = self.learn_pnads()
             self._pnads = pnads
 
-            import pdb; pdb.set_trace()
-            from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
-            score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
-            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
-            segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
-            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
-            strips_ops = [pnad.op for pnad in pnads]
-            option_specs = [pnad.option_spec for pnad in pnads]
-            op_score = score_function.evaluate_with_operators(
-                predicates_we_kept,
-                low_level_trajs,
-                segmented_trajs,
-                strips_ops,
-                option_specs
-            )
+            # import pdb; pdb.set_trace()
+            # from predicators.predicate_search_score_functions import _ExpectedNodesScoreFunction
+            # score_function = _ExpectedNodesScoreFunction(initial_predicates, atom_dataset, candidates, self._train_tasks, "num_nodes_expanded")
+            # pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, predicates_we_kept | initial_predicates)
+            # segmented_trajs = [segment_trajectory(ll_traj, initial_predicates, atom_seq) for ll_traj, atom_seq in pruned_atom_data]
+            # low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+            # strips_ops = [pnad.op for pnad in pnads]
+            # option_specs = [pnad.option_spec for pnad in pnads]
+            # op_score = score_function.evaluate_with_operators(
+            #     predicates_we_kept,
+            #     low_level_trajs,
+            #     segmented_trajs,
+            #     strips_ops,
+            #     option_specs
+            # )
             import pdb; pdb.set_trace()
             print("jargon")
 
