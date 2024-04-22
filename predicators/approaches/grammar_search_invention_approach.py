@@ -3801,56 +3801,86 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # if len(types) == 1:
                             # import pdb; pdb.set_trace()
 
-                logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for for {j+1}th cluster from STEP 1 involving option {option}.")
-                for _, c in clusters.items():
-                    all_clusters.append(c)
+                logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for {j+1}th cluster from STEP 1 involving option {option}.")
+                # for _, c in clusters.items():
+                #     all_clusters.append(c)
 
-                if option == "RobotPressButton":
-                    print(option)
-                    keys = list(clusters.keys())
-                    for key in keys:
-                        print(key)
-                        for p in clusters[key][0].add_effects:
-                            print(p)
-                        print()
+                # if option == "RobotPressButton":
+                #     print(option)
+                #     keys = list(clusters.keys())
+                #     for key in keys:
+                #         print(key)
+                #         for p in clusters[key][0].add_effects:
+                #             print(p)
+                #         print()
 
                     # segs = clusters[keys[-1]]
                     # for seg in segs:
                     #     objs = [ga.objects for ga in seg.add_effects]
 
+            # import pdb; pdb.set_trace()
+
+                effective_clusters = {}
+
+                if option == "RobotPressButton":
                     import pdb; pdb.set_trace()
 
-                # if option == "RobotMoveToButton":
-                #     # get the unique add effects (predicates) -- but print the ground atoms -- in each cluster
-                #     # so, first compute that ones that are shared across all the clusters
-                #     add_effects_per_cluster = []
-                #     for key, c in clusters.items():
-                #         add_effects_per_segment = [s.add_effects for s in c]
-                #         ungrounded_add_effects_per_segment = []
-                #         for add_effects in add_effects_per_segment:
-                #             ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
-                #         ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
-                #         add_effects_per_cluster.append(ungrounded_add_effects)
-                #
-                #     # now go through and find the unique ones
-                #     shared = add_effects_per_cluster[0]
-                #     for adds in add_effects_per_cluster:
-                #         shared = shared.intersection(adds)
-                #
-                #     # now find the unique ones in each cluster
-                #     differences = {}
-                #     count = 0
-                #     for key, c in clusters.items():
-                #         adds = add_effects_per_cluster[count]
-                #         difference = adds - adds.intersection(shared)
-                #         differences[key] = difference
-                #         count += 1
-                #
-                #     # unexpected
-                #     # ((Type(name='button'), Type(name='robot'), Type(name='stick')), 0)
-                #     # ((Type(name='button'), Type(name='holder'), Type(name='robot'), Type(name='stick')), 0)
-                #     # ((Type(name='button'), Type(name='robot')), 0)
-                #     # ((Type(name='button'), Type(name='holder'), Type(name='robot')), 12)
+
+                if True:
+                    # get the unique add effects (predicates) -- but print the ground atoms -- in each cluster
+                    # so, first compute that ones that are shared across all the clusters
+                    add_effects_per_cluster = []
+                    for key, c in clusters.items():
+                        add_effects_per_segment = [s.add_effects for s in c]
+                        ungrounded_add_effects_per_segment = []
+                        for add_effects in add_effects_per_segment:
+                            ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                        ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
+                        add_effects_per_cluster.append(ungrounded_add_effects)
+
+                        # Get the effective types of this cluster by looking at the types of the predicates that are in the intersection.
+                        types_from_option = set(o.type for o in c[0].get_option().objects)
+                        all_types = [set(p.types) for p in ungrounded_add_effects]
+                        types_from_effects = set.union(*all_types)
+                        effective_types = tuple(sorted(list(types_from_option | types_from_effects)))
+                        if effective_types in effective_clusters:
+                            effective_clusters[effective_types].extend(c)
+                        else:
+                            effective_clusters[effective_types] = c
+
+                    # now go through and find the unique ones
+                    shared = add_effects_per_cluster[0]
+                    for adds in add_effects_per_cluster:
+                        shared = shared.intersection(adds)
+
+                    # now find the unique ones in each cluster
+                    differences = {}
+                    count = 0
+                    for key, c in clusters.items():
+                        adds = add_effects_per_cluster[count]
+                        difference = adds - adds.intersection(shared)
+                        differences[key] = difference
+                        count += 1
+
+                    print()
+                    print(f"Printing differences between type-based clusters for option {option}")
+                    for key in sorted(clusters.keys()):
+                        print(f"Unique add effects for cluster with types {key}")
+                        for p in sorted(list(differences[key])):
+                            print(p)
+                    print()
+
+                print(f"Option {option}")
+                print(f"# type-based clusters before: {len(clusters)}, # type-based clusters after: {len(effective_clusters)}")
+                print()
+
+            import pdb; pdb.set_trace()
+
+                    # unexpected
+                    # ((Type(name='button'), Type(name='robot'), Type(name='stick')), 0)
+                    # ((Type(name='button'), Type(name='holder'), Type(name='robot'), Type(name='stick')), 0)
+                    # ((Type(name='button'), Type(name='robot')), 0)
+                    # ((Type(name='button'), Type(name='holder'), Type(name='robot')), 12)
 
 
 
@@ -3868,15 +3898,19 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     # debugs = list(seg.add_effects)
                     # import pdb; pdb.set_trace()
 
-                    max_num_unique_objs = max(len(eff.objects) for eff in seg.add_effects)
+                    # max_num_unique_objs = max(len(eff.objects) for eff in seg.add_effects)
+                    max_temp = max(((len(eff.objects), eff.objects) for eff in seg.add_effects), key=lambda x: x[0])
+                    max_num_unique_objs = max_temp[0]
+                    max_unique_objs = max_temp[1]
                     if max_num_unique_objs in clusters:
                         clusters[max_num_unique_objs].append(seg)
                     else:
                         clusters[max_num_unique_objs] = [seg]
-                        print("New unique number: ", max_num_unique_objs)
+                        print("New unique number: ", max_num_unique_objs, "objects: ", max_unique_objs)
                 for c in clusters.values():
                     next_clusters.append(c)
                 logging.info(f"STEP 3: generated {len(clusters.values())} num-object-based clusters for the {j+1}th cluster from STEP 2 involving option {seg.get_option().name}.")
+                print()
             # final_clusters = next_clusters
             all_clusters = next_clusters
 
