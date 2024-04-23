@@ -231,6 +231,7 @@ def _parse_unique_atom_proposals_from_list(
                         break
             if atom_is_valid:
                 atoms_strs_set.add(atom)
+            logging.debug(f"Proposed atom: {atom} is valid: {atom_is_valid}")
     logging.info(f"VLM proposed a total of {num_atoms_considered} atoms.")
     logging.info(f"Of these, {len(atoms_strs_set)} were valid and unique.")
     return atoms_strs_set
@@ -461,6 +462,19 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
     return trajs
 
 
+def _pretty_print_atoms_trajs(ground_atoms_trajs: List[List[Set[GroundAtom]]]) -> None:
+    """Debug log the changes in atoms trajectories for easy human-checking."""
+    # Log trajectory information in a very easy to parse format for
+    # debugging.
+    for traj in ground_atoms_trajs:
+        logging.debug(f"Step 0 atoms: {sorted(traj[0])}")
+        for i in range(1, len(traj)):
+            logging.debug(f"Step {i} add effs: {sorted(traj[i] - traj[i-1])}")
+            logging.debug(f"Step {i} del effs: {sorted(traj[i-1] - traj[i])}")
+        logging.debug("\n")
+    # import ipdb; ipdb.set_trace()
+
+
 def create_ground_atom_data_from_img_trajs(
         env: BaseEnv, train_tasks: List[Task],
         known_options: Set[ParameterizedOption]) -> Dataset:
@@ -551,6 +565,10 @@ def create_ground_atom_data_from_img_trajs(
     else:
         assert isinstance(env, VLMPredicateEnv)
         atom_proposals_set = env.get_vlm_debug_atom_strs()
+
+    # HACK just for debugging.
+    atom_proposals_set |= env.get_vlm_debug_atom_strs()
+
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
@@ -583,6 +601,7 @@ def create_ground_atom_data_from_img_trajs(
     # structured states into a trajectory of GroundAtoms.
     ground_atoms_trajs = _parse_structured_state_into_ground_atoms(
         env, train_tasks, structured_state_trajs)
+    _pretty_print_atoms_trajs(ground_atoms_trajs)
     # Now, we just need to create a goal state for every train task where
     # the dummy goal predicate holds. This is just bookkeeping necessary
     # for NSRT learning and planning such that the goal doesn't hold
@@ -612,6 +631,7 @@ def create_ground_atom_data_from_labeled_txt(
     # parse it into ground atoms and ground options respectively.
     ground_atoms_trajs = _parse_structured_state_into_ground_atoms(
         env, train_tasks, structured_states)
+    _pretty_print_atoms_trajs(ground_atoms_trajs)
     option_trajs = _parse_structured_actions_into_ground_options(
         structured_actions, known_options, train_tasks)
     # We need to create the goal state for every train task, just

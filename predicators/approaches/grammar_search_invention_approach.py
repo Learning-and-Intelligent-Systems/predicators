@@ -983,6 +983,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             # The cost of this predicate is simply its arity.
                             candidates[ground_atom.predicate] = len(
                                 ground_atom.objects)
+            logging.debug(f"All candidate predicates: {candidates.keys()}")
 
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
@@ -1034,7 +1035,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Start the search with no candidates.
         init: FrozenSet[Predicate] = frozenset()
 
-        # import ipdb; ipdb.set_trace()
+        cand_preds = list(candidates)
+        print(score_function.evaluate(frozenset((cand_preds[1], cand_preds[5], cand_preds[6], cand_preds[8], cand_preds[13], cand_preds[15]))))
+        import ipdb; ipdb.set_trace()
 
         # Greedy local hill climbing search.
         if CFG.grammar_search_search_algorithm == "hill_climbing":
