@@ -419,7 +419,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
     def get_name(cls) -> str:
         return "rl_bridge_policy"
     
-
+    def is_learning_based(self) -> bool:
+        return False
     # TO DO create a Maple Q object whenever the following are first instantiated
     #self._bridge_policy = create_bridge_policy(CFG.bridge_policy, types,
     #predicates, options, nsrts)
