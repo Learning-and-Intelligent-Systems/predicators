@@ -27,7 +27,7 @@ from predicators.envs.pddl_procedural_generation import \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
     create_spanner_pddl_generator, create_detypedmiconic_pddl_generator, \
     create_detypeddelivery_pddl_generator, create_detypedforest_pddl_generator, \
-    create_logistics_pddl_generator
+    create_logistics_pddl_generator, create_detypedspanner_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, PDDLProblemGenerator, Predicate, State, \
@@ -783,6 +783,50 @@ class ProceduralTasksLogisticsPDDLEnv(_LogisticsPDDLEnv):
         min_objects = CFG.pddl_logistics_procedural_test_min_objects
         max_objects = CFG.pddl_logistics_procedural_test_max_objects
         return create_logistics_pddl_generator(min_airplanes, max_airplanes, min_cities, max_cities, min_locations_per_city, max_locations_per_city, min_objects, max_objects)
+
+class _DetypedSpannerPDDLEnv(_PDDLEnv):
+    """The detyped spanner domain."""
+
+    @classmethod
+    def get_domain_str(cls) -> str:
+        path = utils.get_env_asset_path("pddl/detypedspanner/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+class ProceduralTasksDetypedSpannerPDDLEnv(_DetypedSpannerPDDLEnv):
+    """The spanner domain detyped from the PG3 paper with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_detypedspanner_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_nuts = CFG.pddl_spanner_procedural_train_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_train_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_train_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_train_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_train_min_locs
+        max_locs = CFG.pddl_spanner_procedural_train_max_locs
+        return create_detypedspanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_nuts = CFG.pddl_spanner_procedural_test_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_test_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_test_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_test_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_test_min_locs
+        max_locs = CFG.pddl_spanner_procedural_test_max_locs
+        return create_detypedspanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
+
+
+
 
 ###############################################################################
 #                            Utility functions                                #
