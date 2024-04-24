@@ -41,7 +41,7 @@ from openai import OpenAI
 from predicators.approaches.prompt_gen import get_prompt
 import os
 
-DEBUG = True
+DEBUG = False
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class GPTObjectApproach(PG3AnalogyApproach):
@@ -225,7 +225,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
         for i in range(len(list_of_rules)):
             rule = list_of_rules[i]
             necessary_conditions = rule.nsrt.preconditions
-            for index, group in [(0, rule.pos_state_preconditions), (1, rule.neg_state_preconditions), (2, rule.goal_preconditions)]:
+            for index, group in [(0, rule.pos_state_preconditions), (1, rule.neg_state_preconditions), (2, rule.goal_preconditions), (3, [None])]:
                 for condition in group:
                     if index == 0 and condition in necessary_conditions:
                         continue
@@ -233,9 +233,11 @@ class GPTObjectApproach(PG3AnalogyApproach):
         
         current_score = self.get_pg3_scores([str(policy)])[0]
         current_list_of_rules = policy.rules.copy()
+        num_deleted_rules = 0
         print(f"DONE {current_score}")
         print(policy)
         for rule_index, inner_rule_index, condition in things_to_remove:
+            rule_index -= num_deleted_rules
             rule = current_list_of_rules[rule_index]
             new_pos_state_preconditions = rule.pos_state_preconditions.copy()
             new_neg_state_preconditions = rule.neg_state_preconditions.copy()
@@ -244,7 +246,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 new_pos_state_preconditions.remove(condition)
             elif inner_rule_index == 1:
                 new_neg_state_preconditions.remove(condition)
-            else:
+            elif inner_rule_index == 2:
                 new_goal_preconditions.remove(condition)
             new_rule = LDLRule("temp-rule", rule.parameters, new_pos_state_preconditions, new_neg_state_preconditions, new_goal_preconditions, rule.nsrt)
 
@@ -254,13 +256,21 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if j != rule_index:
                     new_rules.append(current_list_of_rules[j])
                 else:
-                    new_rules.append(new_rule)
+                    if inner_rule_index != 3:
+                        new_rules.append(new_rule)
                 
             input = [str(LiftedDecisionList(new_rules))]
             pg3_score = self.get_pg3_scores(input)[0]
             if pg3_score < current_score:
                 current_list_of_rules = new_rules
                 current_score = pg3_score
+                print("===========================")
+                print("DELETED", rule_index, inner_rule_index, condition)
+                print(pg3_score)
+                print(LiftedDecisionList(new_rules))
+            elif pg3_score <= current_score and inner_rule_index == 3:
+                current_list_of_rules = new_rules
+                num_deleted_rules += 1
                 print("===========================")
                 print("DELETED", rule_index, inner_rule_index, condition)
                 print(pg3_score)
@@ -619,6 +629,17 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 "carry": ["in"],
             }
 
+        # Gripper -> Detyped Spanner
+        if 'gripper' in self._base_env.get_name() and 'detypedspanner' in self._target_env.get_name():
+            predicate_input = {
+                "room": ["location"],
+                "ball": ["spanner"],
+                "gripper": ["man"],
+                "at-robby": ["at"],
+                "at": ["at"],
+                "carry": ["carrying"],
+            }
+
         target_env_name_to_predicate = {}
         for predicate in self._target_env.predicates:
             target_env_name_to_predicate[predicate.name] = predicate
@@ -667,6 +688,11 @@ class GPTObjectApproach(PG3AnalogyApproach):
             nsrt_input = { "move": ["drive-truck", "fly-airplane"],
                             "pick": ["load-truck", "load-airplane"],
                             "drop": ["unload-truck", "unload-airplane"]}
+
+        # Gripper -> Detyped Spanner
+        if 'gripper' in self._base_env.get_name() and 'detypedspanner' in self._target_env.get_name():
+            nsrt_input = { "move": ["walk"],
+                            "pick": ["pickupspanner"]}
 
         if rule.nsrt.name not in nsrt_input:
             return []
@@ -749,6 +775,13 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 ("unload-airplane", "drop") : {"?obj": "?obj", "?loc": "?room", "?airplane": "?gripper"},
                 ("load-truck", "pick") : {"?obj": "?obj", "?loc": "?room", "?truck": "?gripper"},
                 ("load-airplane", "pick") : {"?obj": "?obj", "?loc": "?room", "?airplane": "?gripper"},
+            }
+
+        # Gripper -> Detyped Spanner
+        if 'gripper' in self._base_env.get_name() and 'detypedspanner' in self._target_env.get_name():
+            variable_input = {
+                ("walk", "move") : {"?start": "?from", "?end": "?to"},
+                ("pickupspanner", "pick") : {"?s": "?obj", "?l": "?room", "?m": "?gripper"},
             }
 
         if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
