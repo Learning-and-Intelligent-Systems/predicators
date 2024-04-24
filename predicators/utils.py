@@ -2599,7 +2599,7 @@ def create_noisy_ground_atom_dataset(
     for traj in trajectories:
         atoms = [abstract_with_noise(s, predicates, noise_prob, rng) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
     return ground_atom_dataset
 
 
