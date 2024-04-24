@@ -3764,37 +3764,45 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             logging.info(f"STEP 1: generated {len(option_to_segments.values())} option-based clusters.")
 
             ######
+            def get_type_counts(seg, sorted_types, ground_atoms):
+                objs_in_add_effects = set()
+                for ga in ground_atoms:
+                    for obj in ga.objects:
+                        objs_in_add_effects.add(obj)
+                # Now we want to count how many objects we have of each type.
+                sorted_types = sorted(self._types, key=lambda x: x.name)
+                type_counts = []
+                for type in sorted_types:
+                    # Count how many objects we have of this type.
+                    type_count = 0
+                    for obj in objs_in_add_effects:
+                        if obj.type == type:
+                            type_count += 1
+                    type_counts.append((type, type_count))
+                return type_counts
+
+            sorted_types = sorted(self._types, key=lambda x: x.name)
+
             # Step 1.5
             z_clusters = []
             for j, pair in enumerate(option_to_segments.items()):
                 option, segments = pair
                 clusters = {}
                 for seg in segments:
-                    objs_in_add_effects = set()
-                    for ga in seg.add_effects:
-                        for obj in ga.objects:
-                            objs_in_add_effects.add(obj)
-                    # Now we want to count how many objects we have of each type.
-                    sorted_types = sorted(self._types, key=lambda x: x.name)
-                    type_counts = []
-                    for type in sorted_types:
-                        # Count how many objects we have of this type.
-                        type_count = 0
-                        for obj in objs_in_add_effects:
-                            if obj.type == type:
-                                type_count += 1
-                        type_counts.append((type, type_count))
+                    type_counts = get_type_counts(seg, sorted_types, seg.add_effects)
 
-                    # Place it in a dictionary accordingly.
                     hash_count = tuple(type_counts)
                     if hash_count in clusters:
                         clusters[hash_count].append(seg)
                     else:
                         clusters[hash_count] = [seg]
 
-                import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
+
+                effective_clusters = {}
 
                 # Now want to check effective clusters out of all these clusters.
+                add_effects_per_cluster = []
                 for key, c in clusters.items():
                     add_effects_per_segment = [s.add_effects for s in c]
                     ungrounded_add_effects_per_segment = []
@@ -3803,7 +3811,78 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
                     add_effects_per_cluster.append(ungrounded_add_effects)
 
-                    
+                    # Get the ground atoms that have a predicate in this intersection.
+                    for seg in c:
+                        type_counts = get_type_counts(seg, sorted_types, [ga for ga in seg.add_effects if ga.predicate in ungrounded_add_effects])
+
+                        hash_count = tuple(type_counts)
+                        if hash_count in effective_clusters:
+                            effective_clusters[hash_count].append(seg)
+                        else:
+                            effective_clusters[hash_count] = [seg]
+
+                # # now go through and find the unique ones
+                # # might want to do this for mappings of lifted atoms, as we do later in the actual operator learning
+                # shared = add_effects_per_cluster[0]
+                # for adds in add_effects_per_cluster:
+                #     shared = shared.intersection(adds)
+                #
+                # # now find the unique ones in each cluster
+                # differences = {}
+                # count = 0
+                # for key, c in clusters.items():
+                    # adds = add_effects_per_cluster[count]
+                    # difference = adds - adds.intersection(shared)
+                    # differences[key] = difference
+                    # count += 1
+                #
+                # print()
+                # print(f"Printing differences between type-based clusters for option {option}")
+                # for key in sorted(clusters.keys()):
+                #     print(f"Unique add effects for cluster with types {key}")
+                #     for p in sorted(list(differences[key])):
+                #         print(p)
+                # print()
+
+                # now find the unique ones in each effective cluster
+                add_effects_per_effective_cluster = []
+                for key, c in effective_clusters.items():
+                    add_effects_per_segment = [s.add_effects for s in c]
+                    ungrounded_add_effects_per_segment = []
+                    for add_effects in add_effects_per_segment:
+                        ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                    ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
+                    add_effects_per_effective_cluster.append(ungrounded_add_effects)
+
+                shared = add_effects_per_effective_cluster[0]
+                for adds in add_effects_per_effective_cluster:
+                    shared = shared.intersection(adds)
+
+                differences = {}
+                count = 0
+                for key, c in effective_clusters.items():
+                    adds = add_effects_per_effective_cluster[count]
+                    difference = adds - adds.intersection(shared)
+                    differences[key] = difference
+                    count += 1
+
+                print()
+                print(f"Printing differences between type/num-based effective clusters for option {option}")
+                for key in sorted(effective_clusters.keys()):
+                    print(f"Unique add effects for cluster with types {key}")
+                    for p in sorted(list(differences[key])):
+                        print(p)
+                print()
+
+                print(f"type/num clusters for option {option}:")
+                for k, v in effective_clusters.items():
+                    print(f"{k}, size of cluster: {len(v)}")
+                print()
+
+                if option == "PlaceStick":
+                    import pdb; pdb.set_trace()
+
+            import pdb; pdb.set_trace()
 
             ######
 
@@ -3845,91 +3924,65 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # if len(types) == 1:
                             # import pdb; pdb.set_trace()
 
+                if option == "PlaceStick":
+                    import pdb; pdb.set_trace()
+
                 logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for {j+1}th cluster from STEP 1 involving option {option}.")
-                # for _, c in clusters.items():
-                #     all_clusters.append(c)
-
-                # if option == "RobotPressButton":
-                #     print(option)
-                #     keys = list(clusters.keys())
-                #     for key in keys:
-                #         print(key)
-                #         for p in clusters[key][0].add_effects:
-                #             print(p)
-                #         print()
-
-                    # segs = clusters[keys[-1]]
-                    # for seg in segs:
-                    #     objs = [ga.objects for ga in seg.add_effects]
-
-                effective_clusters = {}
-
-                # if option == "StickPressButton":
-                #     import pdb; pdb.set_trace()
-
-
-                if True:
-                    # get the unique add effects (predicates) -- but print the ground atoms -- in each cluster
-                    # so, first compute that ones that are shared across all the clusters
-                    add_effects_per_cluster = []
-                    for key, c in clusters.items():
-                        add_effects_per_segment = [s.add_effects for s in c]
-                        ungrounded_add_effects_per_segment = []
-                        for add_effects in add_effects_per_segment:
-                            ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
-                        ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
-                        add_effects_per_cluster.append(ungrounded_add_effects)
-
-                        # Get the effective types of this cluster by looking at the types of the predicates that are in the intersection.
-                        types_from_option = set(o.type for o in c[0].get_option().objects)
-                        all_types = [set(p.types) for p in ungrounded_add_effects]
-                        types_from_effects = set.union(*all_types)
-                        effective_types = tuple(sorted(list(types_from_option | types_from_effects)))
-                        if effective_types in effective_clusters:
-                            effective_clusters[effective_types].extend(c)
-                        else:
-                            effective_clusters[effective_types] = c
-
-                    # now go through and find the unique ones
-                    shared = add_effects_per_cluster[0]
-                    for adds in add_effects_per_cluster:
-                        shared = shared.intersection(adds)
-
-                    # now find the unique ones in each cluster
-                    differences = {}
-                    count = 0
-                    for key, c in clusters.items():
-                        adds = add_effects_per_cluster[count]
-                        difference = adds - adds.intersection(shared)
-                        differences[key] = difference
-                        count += 1
-
-                    print()
-                    print(f"Printing differences between type-based clusters for option {option}")
-                    for key in sorted(clusters.keys()):
-                        print(f"Unique add effects for cluster with types {key}")
-                        for p in sorted(list(differences[key])):
-                            print(p)
-                    print()
-
-                print(f"Option {option}")
-                print(f"# type-based clusters before: {len(clusters)}, # type-based clusters after: {len(effective_clusters)}")
-                print()
-
-                for _, c in effective_clusters.items():
+                for _, c in clusters.items():
                     all_clusters.append(c)
 
-            import pdb; pdb.set_trace()
-
-                    # unexpected
-                    # ((Type(name='button'), Type(name='robot'), Type(name='stick')), 0)
-                    # ((Type(name='button'), Type(name='holder'), Type(name='robot'), Type(name='stick')), 0)
-                    # ((Type(name='button'), Type(name='robot')), 0)
-                    # ((Type(name='button'), Type(name='holder'), Type(name='robot')), 12)
-
-
-
-                    # import pdb; pdb.set_trace()
+                # effective_clusters = {}
+                #
+                # if True:
+                #     # get the unique add effects (predicates) -- but print the ground atoms -- in each cluster
+                #     # so, first compute that ones that are shared across all the clusters
+                #     add_effects_per_cluster = []
+                #     for key, c in clusters.items():
+                #         add_effects_per_segment = [s.add_effects for s in c]
+                #         ungrounded_add_effects_per_segment = []
+                #         for add_effects in add_effects_per_segment:
+                #             ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                #         ungrounded_add_effects = set.intersection(*ungrounded_add_effects_per_segment) # set of predicates
+                #         add_effects_per_cluster.append(ungrounded_add_effects)
+                #
+                #         # Get the effective types of this cluster by looking at the types of the predicates that are in the intersection.
+                #         types_from_option = set(o.type for o in c[0].get_option().objects)
+                #         all_types = [set(p.types) for p in ungrounded_add_effects]
+                #         types_from_effects = set.union(*all_types)
+                #         effective_types = tuple(sorted(list(types_from_option | types_from_effects)))
+                #         if effective_types in effective_clusters:
+                #             effective_clusters[effective_types].extend(c)
+                #         else:
+                #             effective_clusters[effective_types] = c
+                #
+                #     # now go through and find the unique ones
+                #     shared = add_effects_per_cluster[0]
+                #     for adds in add_effects_per_cluster:
+                #         shared = shared.intersection(adds)
+                #
+                #     # now find the unique ones in each cluster
+                #     differences = {}
+                #     count = 0
+                #     for key, c in clusters.items():
+                #         adds = add_effects_per_cluster[count]
+                #         difference = adds - adds.intersection(shared)
+                #         differences[key] = difference
+                #         count += 1
+                #
+                #     print()
+                #     print(f"Printing differences between type-based clusters for option {option}")
+                #     for key in sorted(clusters.keys()):
+                #         print(f"Unique add effects for cluster with types {key}")
+                #         for p in sorted(list(differences[key])):
+                #             print(p)
+                #     print()
+                #
+                # print(f"Option {option}")
+                # print(f"# type-based clusters before: {len(clusters)}, # type-based clusters after: {len(effective_clusters)}")
+                # print()
+                #
+                # for _, c in effective_clusters.items():
+                #     all_clusters.append(c)
 
             import pdb; pdb.set_trace()
             print("ron")
