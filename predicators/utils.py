@@ -2224,7 +2224,8 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
 
 def abstract_with_noise(state: State, preds: Collection[Predicate],
                         noise_prob: float,
-                        rng: np.random.Generator) -> Set[GroundAtom]:
+                        rng: np.random.Generator,
+                        noisy_predicates: Set[Predicate]) -> Set[GroundAtom]:
     """Same as the above abstract function, but is noisy.
 
     Specifically, with probability noise_prob, the incorrect truth value
@@ -2234,6 +2235,7 @@ def abstract_with_noise(state: State, preds: Collection[Predicate],
     atoms = set()
     num_total_preds = 0
     num_corruptions = 0
+    num_critical_corruptions = 0
     for pred in preds:
         for choice in get_object_combinations(list(state), pred.types):
             num_total_preds += 1
@@ -2244,8 +2246,11 @@ def abstract_with_noise(state: State, preds: Collection[Predicate],
                 atoms.add(GroundAtom(pred, choice))
             if should_corrupt:
                 num_corruptions += 1
+                # import pdb; pdb.set_trace()
+                if str(pred) in noisy_predicates:
+                    num_critical_corruptions += 1
     logging.debug(f"Corrupted {num_corruptions} out of {num_total_preds} ({num_corruptions}/{num_total_preds})")
-    return atoms
+    return atoms, num_total_preds, num_corruptions, num_critical_corruptions
 
 
 def all_ground_operators(
@@ -2588,18 +2593,31 @@ def create_noisy_ground_atom_dataset(
         trajectories: Sequence[LowLevelTrajectory],
         predicates: Set[Predicate],
         noise_prob: float,
-        rng: np.random.Generator) -> List[GroundAtomTrajectory]:
+        rng: np.random.Generator,
+        noisy_predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
     """Apply all predicates to all trajectories in the dataset.
-    
+
     Potentially add noise to the truth values of the predicates.
     By default, there is no noise, but the noise thresh can also
     be set higher.
     """
     ground_atom_dataset = []
-    for traj in trajectories:
-        atoms = [abstract_with_noise(s, predicates, noise_prob, rng) for s in traj.states]
+    temp = []
+    for i, traj in enumerate(trajectories):
+        num_critical_corruptions_per_abstracted_state = []
+        atoms = []
+        for s in traj.states:
+            abstracted_state, num_total_preds, num_corruptions, num_critical_corruptions = abstract_with_noise(s, predicates, noise_prob, rng, noisy_predicates)
+        # atoms = [abstract_with_noise(s, predicates, noise_prob, rng, noisy_predicates) for s in traj.states]
+            atoms.append(abstracted_state)
+            num_critical_corruptions_per_abstracted_state.append(
+                (num_critical_corruptions, num_corruptions, num_total_preds)
+            )
+        print(f"Corrupted atoms info for traj {i}: {num_critical_corruptions_per_abstracted_state}")
         ground_atom_dataset.append((traj, atoms))
+        temp.append(num_critical_corruptions_per_abstracted_state)
     # import ipdb; ipdb.set_trace()
+
     return ground_atom_dataset
 
 

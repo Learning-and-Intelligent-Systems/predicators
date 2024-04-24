@@ -956,11 +956,22 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset = utils.load_ground_atom_dataset(
                 dataset_fname, dataset.trajectories)
         else:
+            # predicates that OG selects in cover
+            noisy_predicates = [
+                "Forall[0:block].[NOT-Covers(0,1)]",
+                "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.487)(0)]",
+                "NOT-((0:block).grasp<=[idx 0]-0.487)",
+                "Forall[0:block].[((0:block).grasp<=[idx 0]-0.487)(0)]",
+                "Forall[1:target].[NOT-Covers(0,1)]"
+            ]
+
             atom_dataset = utils.create_noisy_ground_atom_dataset(
                 dataset.trajectories,
                 set(candidates) | self._initial_predicates,
                 CFG.grammar_search_predicate_labelling_noise_prob,
-                self._rng)
+                self._rng,
+                set(noisy_predicates))
+            import pdb; pdb.set_trace()
             # Save this atoms dataset if the save_atoms flag is set.
             if CFG.save_atoms:
                 utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
