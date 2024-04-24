@@ -1001,7 +1001,7 @@ def _generate_detypeddelivery_problem(num_locs: int, num_want_locs: int,
     goal_strs = set()
 
     # Create locations.
-    locs = [f"loc-{i}" for i in range(num_locs)]
+    locs = [f"loc{i}" for i in range(num_locs)]
     # Randomize the home location.
     home_loc = locs[rng.choice(num_locs)]
     possible_targets = [l for l in locs if l != home_loc]
@@ -1020,7 +1020,7 @@ def _generate_detypeddelivery_problem(num_locs: int, num_want_locs: int,
         init_strs.add(f"(loc {loc})")
 
     # Create papers.
-    papers = [f"paper-{i}" for i in range(num_newspapers)]
+    papers = [f"paper{i}" for i in range(num_newspapers)]
     # Add the initial state atoms about the papers.
     for paper in papers:
         init_strs.add(f"(unpacked {paper})")
