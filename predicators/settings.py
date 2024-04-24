@@ -465,6 +465,10 @@ class GlobalSettings:
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
     cluster_and_intersect_prederror_max_groundings = 10
+    # If a PNAD is learned by cluster and intersect such that
+    # its datastore has less than the below fraction of data of the overall
+    # dataset size for the PNADs option, then throw this PNAD out.
+    cluster_and_intersect_min_datastore_fraction = 0.0
     cluster_and_search_inner_search_max_expansions = 2500
     cluster_and_search_inner_search_timeout = 30
     cluster_and_search_score_func_max_groundings = 10000
@@ -640,6 +644,7 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
+    grammar_search_predicate_labelling_noise_prob = 0.0
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10

@@ -947,6 +947,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             f"_{CFG.grammar_search_grammar_includes_foralls}" + \
             f"_{CFG.grammar_search_grammar_use_diff_features}" + \
             f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
+            f"_{CFG.grammar_search_predicate_labelling_noise_prob}" + \
             dataset_fname[-5:]
 
         # Load pre-saved data if the CFG.load_atoms flag is set.
@@ -955,9 +956,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset = utils.load_ground_atom_dataset(
                 dataset_fname, dataset.trajectories)
         else:
-            atom_dataset = utils.create_ground_atom_dataset(
+            atom_dataset = utils.create_noisy_ground_atom_dataset(
                 dataset.trajectories,
-                set(candidates) | self._initial_predicates)
+                set(candidates) | self._initial_predicates,
+                CFG.grammar_search_predicate_labelling_noise_prob,
+                self._rng)
             # Save this atoms dataset if the save_atoms flag is set.
             if CFG.save_atoms:
                 utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
