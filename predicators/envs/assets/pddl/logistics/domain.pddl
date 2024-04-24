@@ -59,25 +59,25 @@
 (:action DRIVE-TRUCK
   :parameters
    (?truck
-    ?loc-from
-    ?loc-to
+    ?loc_from
+    ?loc_to
     ?city)
   :precondition
-   (and (TRUCK ?truck) (LOCATION ?loc-from) (LOCATION ?loc-to) (CITY ?city)
-   (at ?truck ?loc-from)
-   (in-city ?loc-from ?city)
-   (in-city ?loc-to ?city))
+   (and (TRUCK ?truck) (LOCATION ?loc_from) (LOCATION ?loc_to) (CITY ?city)
+   (at ?truck ?loc_from)
+   (in-city ?loc_from ?city)
+   (in-city ?loc_to ?city))
   :effect
-   (and (not (at ?truck ?loc-from)) (at ?truck ?loc-to)))
+   (and (not (at ?truck ?loc_from)) (at ?truck ?loc_to)))
 
 (:action FLY-AIRPLANE
   :parameters
    (?airplane
-    ?loc-from
-    ?loc-to)
+    ?loc_from
+    ?loc_to)
   :precondition
-   (and (AIRPLANE ?airplane) (AIRPORT ?loc-from) (AIRPORT ?loc-to)
-	(at ?airplane ?loc-from))
+   (and (AIRPLANE ?airplane) (AIRPORT ?loc_from) (AIRPORT ?loc_to)
+	(at ?airplane ?loc_from))
   :effect
-   (and (not (at ?airplane ?loc-from)) (at ?airplane ?loc-to)))
+   (and (not (at ?airplane ?loc_from)) (at ?airplane ?loc_to)))
 )
