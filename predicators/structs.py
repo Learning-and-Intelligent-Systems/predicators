@@ -1456,7 +1456,7 @@ class LDLRule:
         pos_pre = {atom.ground(sub) for atom in self.pos_state_preconditions}
         neg_pre = {atom.ground(sub) for atom in self.neg_state_preconditions}
         goal_pre = {atom.ground(sub) for atom in self.goal_preconditions}
-        nsrt_objects = [sub[v] for v in self.nsrt.parameters]
+        nsrt_objects = tuple([sub[v] for v in self.nsrt.parameters])
         ground_nsrt = self.nsrt.ground(nsrt_objects)
         return _GroundLDLRule(self, list(objects), pos_pre, neg_pre, goal_pre,
                               ground_nsrt)
