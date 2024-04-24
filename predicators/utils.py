@@ -2558,6 +2558,38 @@ def create_ground_atom_dataset(
     return ground_atom_dataset
 
 
+def noisy_abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
+    """Get the atomic representation of the given state (i.e., a set of ground
+    atoms), using the given set of predicates.
+
+    Duplicate arguments in predicates are allowed.
+    """
+    import random
+    c = 0.01
+    atoms = set()
+    for pred in preds:
+        for choice in get_object_combinations(list(state), pred.types):
+            r = random.uniform(0, 1)
+            if pred.holds(state, choice):
+                if r > c:
+                    atoms.add(GroundAtom(pred, choice))
+            else:
+                if r <= c:
+                    atoms.add(GroundAtom(pred, choice))
+    return atoms
+
+
+def create_noisy_ground_atom_dataset(
+        trajectories: Sequence[LowLevelTrajectory],
+        predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
+    """Apply all predicates to all trajectories in the dataset."""
+    ground_atom_dataset = []
+    for traj in trajectories:
+        atoms = [noisy_abstract(s, predicates) for s in traj.states]
+        ground_atom_dataset.append((traj, atoms))
+    return ground_atom_dataset
+
+
 def prune_ground_atom_dataset(
         ground_atom_dataset: List[GroundAtomTrajectory],
         kept_predicates: Collection[Predicate]) -> List[GroundAtomTrajectory]:

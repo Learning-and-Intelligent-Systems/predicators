@@ -955,7 +955,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset = utils.load_ground_atom_dataset(
                 dataset_fname, dataset.trajectories)
         else:
-            atom_dataset = utils.create_ground_atom_dataset(
+            # atom_dataset = utils.create_ground_atom_dataset(
+            #     dataset.trajectories,
+            #     set(candidates) | self._initial_predicates)
+            atom_dataset = utils.create_noisy_ground_atom_dataset(
                 dataset.trajectories,
                 set(candidates) | self._initial_predicates)
             # Save this atoms dataset if the save_atoms flag is set.
