@@ -60,6 +60,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         dataset_fname, _ = utils.create_dataset_filename_str(
             saving_ground_atoms=True,
             online_learning_cycle=online_learning_cycle)
+        dataset_fname = "saved_datasets/stick_button_move__demo+gt_operators__oracle__200____0__None__ground_atoms_1500_True_True_True_False.data"
         # If CFG.load_atoms is set, then try to create a GroundAtomTrajectory
         # by loading sets of GroundAtoms directly from a saved file.
         # By default, we don't create a full ground atom dataset, since

@@ -99,10 +99,10 @@ class BilevelPlanningApproach(BaseApproach):
 
             option_plan, nsrt_plan, metrics = self._run_sesame_plan(
                 task, nsrts, preds, timeout, seed)
-            print("Plan:")
-            for act in nsrt_plan:
-                print(act.parent.name, act.objects)
-            print("Plan done.")
+            # print("Plan:")
+            # for act in nsrt_plan:
+            #     print(act.parent.name, act.objects)
+            # print("Plan done.")
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
             policy = utils.option_plan_to_policy(option_plan)
