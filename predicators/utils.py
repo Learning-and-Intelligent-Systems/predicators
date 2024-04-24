@@ -2223,8 +2223,7 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
 
 
 def abstract_with_noise(state: State, preds: Collection[Predicate],
-                        noise_prob: float,
-                        rng: np.random.Generator,
+                        corrupt_critical_preds: bool,
                         noisy_predicates: Set[Predicate]) -> Set[GroundAtom]:
     """Same as the above abstract function, but is noisy.
 
@@ -2239,17 +2238,17 @@ def abstract_with_noise(state: State, preds: Collection[Predicate],
     for pred in preds:
         for choice in get_object_combinations(list(state), pred.types):
             num_total_preds += 1
-            should_corrupt = rng.uniform(0.0, 1.0) <= noise_prob
-            pred_holds = pred.holds(state, choice)
+            pred_is_critical = str(pred) in noisy_predicates
+            should_corrupt = pred_is_critical and corrupt_critical_preds
+            pred_holds = pred.holds(state, choice)            
             if ((not pred_holds) and should_corrupt) or (pred_holds and
                                                          (not should_corrupt)):
                 atoms.add(GroundAtom(pred, choice))
             if should_corrupt:
                 num_corruptions += 1
-                # import pdb; pdb.set_trace()
                 if str(pred) in noisy_predicates:
                     num_critical_corruptions += 1
-    logging.debug(f"Corrupted {num_corruptions} out of {num_total_preds} ({num_corruptions}/{num_total_preds})")
+    # logging.debug(f"Corrupted {num_corruptions} out of {num_total_preds} ({num_corruptions}/{num_total_preds})")
     return atoms, num_total_preds, num_corruptions, num_critical_corruptions
 
 
@@ -2603,21 +2602,28 @@ def create_noisy_ground_atom_dataset(
     """
     ground_atom_dataset = []
     temp = []
+
+    # Start by counting total number of states across all trajectories.
+    total_num_states = sum(len(traj.states) for traj in trajectories)
+    # Now, select indices for states at random from which to corrupt the
+    # critical atoms.
+    idxs_to_corrupt_critical_preds = set(rng.choice(range(total_num_states), max((1, int(noise_prob * total_num_states)))))
+    curr_state_idx = 0
     for i, traj in enumerate(trajectories):
         num_critical_corruptions_per_abstracted_state = []
         atoms = []
         for s in traj.states:
-            abstracted_state, num_total_preds, num_corruptions, num_critical_corruptions = abstract_with_noise(s, predicates, noise_prob, rng, noisy_predicates)
-        # atoms = [abstract_with_noise(s, predicates, noise_prob, rng, noisy_predicates) for s in traj.states]
+            abstracted_state, num_total_preds, num_corruptions, num_critical_corruptions = abstract_with_noise(s, predicates, curr_state_idx in idxs_to_corrupt_critical_preds, noisy_predicates)
             atoms.append(abstracted_state)
             num_critical_corruptions_per_abstracted_state.append(
                 (num_critical_corruptions, num_corruptions, num_total_preds)
             )
+            curr_state_idx += 1
         print(f"Corrupted atoms info for traj {i}: {num_critical_corruptions_per_abstracted_state}")
         ground_atom_dataset.append((traj, atoms))
         temp.append(num_critical_corruptions_per_abstracted_state)
-    # import ipdb; ipdb.set_trace()
-
+    print(idxs_to_corrupt_critical_preds)
+    import ipdb; ipdb.set_trace()
     return ground_atom_dataset
 
 

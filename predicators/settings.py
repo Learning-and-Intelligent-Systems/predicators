@@ -645,6 +645,7 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
     grammar_search_predicate_labelling_noise_prob = 0.0
+    grammar_search_corrupt_critical_preds_separately = False
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10

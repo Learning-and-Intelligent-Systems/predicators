@@ -971,7 +971,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 CFG.grammar_search_predicate_labelling_noise_prob,
                 self._rng,
                 set(noisy_predicates))
-            import pdb; pdb.set_trace()
+            # import ipdb; ipdb.set_trace()
             # Save this atoms dataset if the save_atoms flag is set.
             if CFG.save_atoms:
                 utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
