@@ -10,14 +10,14 @@ APPROACHES:
       disable_harmlessness_check: True
       cluster_and_intersect_min_datastore_fraction: 0.1
 ENVS:
-  cover:
-    NAME: "cover"
-  painting:
-    NAME: "painting"
-  # blocks:
-  #   NAME: "blocks"
-  # tools:
-  #   NAME: "tools"
+  # cover:
+  #   NAME: "cover"
+  # painting:
+  #   NAME: "painting"
+  blocks:
+    NAME: "blocks"
+  tools:
+    NAME: "tools"
 ARGS: []
 FLAGS:
   num_train_tasks: 200
