@@ -432,6 +432,7 @@ class GlobalSettings:
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
     video_dir = "videos"
+    images_dir = "images"
     video_fps = 2
     failure_video_mode = "longest_only"
 

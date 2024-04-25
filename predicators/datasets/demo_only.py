@@ -195,7 +195,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                                            caption, event_to_action)
                 termination_function = task.goal_holds
 
-            if CFG.make_demo_videos:
+            if CFG.make_demo_videos or CFG.make_demo_images:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
@@ -249,6 +249,13 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             video = monitor.get_video()
             outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
+        if CFG.make_demo_images:
+            assert monitor is not None
+            video = monitor.get_video()
+            width = len(str(len(train_tasks)))
+            task_number = str(idx).zfill(width)
+            outfile_prefix = f"{CFG.env}__{CFG.seed}__demo__task{task_number}"
+            utils.save_images(outfile_prefix, video)
     if annotate_with_gt_ops:
         dataset = Dataset(trajectories, annotations)
     else:
