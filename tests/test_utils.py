@@ -2503,7 +2503,7 @@ def test_save_images():
     """Tests for save_images()."""
     dirname = "_fake_tmp_images_dir"
     prefix = "image_prefix"
-    utils.reset_config({"images_dir": dirname})
+    utils.reset_config({"image_dir": dirname})
     rng = np.random.default_rng(123)
     video = [rng.integers(255, size=(3, 3), dtype=np.uint8) for _ in range(3)]
     utils.save_images(prefix, video)
