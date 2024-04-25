@@ -13,7 +13,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
-from predicators.utils import Rectangle, _Geom2D
+from predicators.utils import _Geom2D
 
 
 class StickButtonEnv(BaseEnv):
@@ -147,9 +147,9 @@ class StickButtonEnv(BaseEnv):
                 # Check for a collision with the stick holder. The reason that
                 # we only check for a collision here, as opposed to every
                 # timestep, is that we imagine the robot moving down in the z
-                # direction to pick up the stick, at which button it may
-                # collide with the stick holder. On other timesteps, the robot
-                # would be high enough above the holder to avoid collisions.
+                # direction to pick up the stick after it has reached it on the
+                # x-y plane. On other timesteps, the robot would be high enough
+                # above the holder to avoid collisions.
                 if robot_circ.intersects(holder_rect):
                     # No-op in case of collision.
                     return state.copy()
@@ -486,6 +486,14 @@ class StickButtonMovementEnv(StickButtonEnv):
     # is CCW angle in radians, consistent with utils.Rectangle. The tip
     # x and y correspond to the end of the stick.
     _stick_type = Type("stick", ["x", "y", "tip_x", "tip_y", "theta", "held"])
+    # We add an attribute for the open/closed status of the robot's gripper.
+    _robot_type = _robot_type = Type("robot", ["x", "y", "theta", "fingers"])
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds_diff_signature)
 
     def _get_tasks(self, num: int, num_button_lst: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -535,7 +543,13 @@ class StickButtonMovementEnv(StickButtonEnv):
                 theta = np.pi / 2
             else:
                 theta = rng.uniform(self.theta_lb, self.theta_ub)
-            state_dict[self._robot] = {"x": x, "y": y, "theta": theta}
+            # Initialize the robot with open fingers.
+            state_dict[self._robot] = {
+                "x": x,
+                "y": y,
+                "theta": theta,
+                "fingers": 1.0
+            }
             # Sample the stick, making sure that the origin is in the
             # reachable zone, and that the stick doesn't collide with anything.
             radius = self.robot_radius + self.init_padding
@@ -611,14 +625,106 @@ class StickButtonMovementEnv(StickButtonEnv):
             tasks.append(task)
         return tasks
 
+    @staticmethod
+    def _Grasped_holds(state: State, objects: Sequence[Object]) -> bool:
+        robot, stick = objects
+        stick_held = state.get(stick, "held") > 0.5
+        fingers_closed = state.get(robot, "fingers") <= 0.5
+        return stick_held and fingers_closed
+
+    @staticmethod
+    def _HandEmpty_holds_diff_signature(state: State,
+                                        objects: Sequence[Object]) -> bool:
+        robot, = objects
+        return state.get(robot, "fingers") > 0.5
+
+    @property
+    def action_space(self) -> Box:
+        # Normalized dx, dy, dtheta, press, pickplace.
+        return Box(low=-1., high=1., shape=(5, ), dtype=np.float32)
+
     def simulate(self, state: State, action: Action) -> State:
-        """Run simulation and update tip_x and tip_y."""
-        next_state = super().simulate(state, action)
-        stick_rect = self.object_to_geom(self._stick, next_state)
-        assert isinstance(stick_rect, Rectangle)
+        assert self.action_space.contains(action.arr)
+        norm_dx, norm_dy, norm_dtheta, press, pickplace = action.arr
+        # Actions are normalized to [-1, 1]. Denormalize them here.
+        dx = norm_dx * self.max_speed
+        dy = norm_dy * self.max_speed
+        if CFG.stick_button_disable_angles:
+            dtheta = 0.0
+        else:
+            dtheta = norm_dtheta * self.max_angular_speed
+        # Update the robot state.
+        rx = state.get(self._robot, "x")
+        ry = state.get(self._robot, "y")
+        rtheta = state.get(self._robot, "theta")
+        new_rx = rx + dx
+        new_ry = ry + dy
+        new_rtheta = rtheta + dtheta
+        # The robot cannot leave the reachable zone. If it tries to, noop.
+        rad = self.robot_radius
+        if not self.rz_x_lb + rad <= new_rx <= self.rz_x_ub - rad or \
+           not self.rz_y_lb + rad <= new_ry <= self.rz_y_ub - rad:
+            return state.copy()
+        next_state = state.copy()
+        next_state.set(self._robot, "x", new_rx)
+        next_state.set(self._robot, "y", new_ry)
+        next_state.set(self._robot, "theta", new_rtheta)
+        robot_circ = self.object_to_geom(self._robot, next_state)
+
+        # Check if the stick is held. If so, we need to move and rotate it.
+        stick_held = state.get(self._stick, "held") > 0.5
+        fingers_closed = state.get(self._robot, "fingers") <= 0.5
+        stick_rect = self.object_to_geom(self._stick, state)
+        assert isinstance(stick_rect, utils.Rectangle)
+        if stick_held and fingers_closed:
+            if not CFG.stick_button_disable_angles:
+                stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
+            stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
+                                         y=(stick_rect.y + dy),
+                                         width=stick_rect.width,
+                                         height=stick_rect.height,
+                                         theta=stick_rect.theta)
+            next_state.set(self._stick, "x", stick_rect.x)
+            next_state.set(self._stick, "y", stick_rect.y)
+            next_state.set(self._stick, "theta", stick_rect.theta)
+
+        if press > 0:
+            # Check if any button is now pressed.
+            tip_rect = self.stick_rect_to_tip_rect(stick_rect)
+            for button in state.get_objects(self._button_type):
+                circ = self.object_to_geom(button, state)
+                if (circ.intersects(tip_rect) and stick_held) or \
+                   (circ.intersects(robot_circ) and not stick_held):
+                    next_state.set(button, "pressed", 1.0)
+
+        if pickplace > 0:
+            # Check for placing the stick.
+            holder_rect = self.object_to_geom(self._holder, state)
+            if stick_held and fingers_closed and stick_rect.intersects(
+                    holder_rect):
+                # Place the stick back on the holder.
+                next_state.set(self._stick, "held", 0.0)
+                next_state.set(self._robot, "fingers", 1.0)
+
+            # Check if the stick is now held for the first time.
+            if not stick_held and stick_rect.intersects(robot_circ):
+                # Check for a collision with the stick holder. The reason that
+                # we only check for a collision here, as opposed to every
+                # timestep, is that we imagine the robot moving down in the z
+                # direction to pick up the stick after it has reached it on the
+                # x-y plane. On other timesteps, the robot would be high enough
+                # above the holder to avoid collisions.
+                if robot_circ.intersects(holder_rect):
+                    # No-op in case of collision.
+                    return state.copy()
+
+                next_state.set(self._stick, "held", 1.0)
+                next_state.set(self._robot, "fingers", 0.0)
+
         tip_rect = self.stick_rect_to_tip_rect(stick_rect)
         next_state.set(self._stick, "tip_x", tip_rect.x)
         next_state.set(self._stick, "tip_y", tip_rect.y)
+
         return next_state
 
     @classmethod
