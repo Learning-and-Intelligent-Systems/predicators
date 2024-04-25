@@ -235,7 +235,6 @@ class GPTObjectApproach(PG3AnalogyApproach):
         current_list_of_rules = policy.rules.copy()
         num_deleted_rules = 0
         print(f"DONE {current_score}")
-        print(policy)
         for rule_index, inner_rule_index, condition in things_to_remove:
             rule_index -= num_deleted_rules
             rule = current_list_of_rules[rule_index]
@@ -261,16 +260,22 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 
             input = [str(LiftedDecisionList(new_rules))]
             pg3_score = self.get_pg3_scores(input)[0]
-            if pg3_score < current_score:
+
+            # Early termination
+            if pg3_score == 0.0:
                 current_list_of_rules = new_rules
                 current_score = pg3_score
+                break
+            if pg3_score <= current_score and inner_rule_index == 3:
+                current_list_of_rules = new_rules
+                num_deleted_rules += 1
                 print("===========================")
                 print("DELETED", rule_index, inner_rule_index, condition)
                 print(pg3_score)
                 print(LiftedDecisionList(new_rules))
-            elif pg3_score <= current_score and inner_rule_index == 3:
+            elif pg3_score < current_score:
                 current_list_of_rules = new_rules
-                num_deleted_rules += 1
+                current_score = pg3_score
                 print("===========================")
                 print("DELETED", rule_index, inner_rule_index, condition)
                 print(pg3_score)
@@ -352,16 +357,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
  
     def _get_object_distribution_and_score(self, rule: LDLRule, target_nsrt: NSRT, existing_mapping: Dict[Variable, Variable], task_index: int, state_index: int):
         # Performs best-first search filling variables with objects, if possible
-        initial_variables = set([var for var in rule.parameters]) # - set(existing_mapping.values())
+        initial_variables = set([var for var in rule.parameters])  - set(existing_mapping.values())
 
         ground_target_nsrt = self._target_actions[task_index][state_index]
         constraints = {} # Base domain var to object
-        """
         for target_var, base_var in existing_mapping.items():
             index_of_object = target_nsrt.parameters.index(target_var)
             target_object = ground_target_nsrt.objects[index_of_object]
             constraints[base_var] = target_object
-        """
         
         distributions = self.find_distribution(rule, initial_variables, constraints, task_index, state_index)
 
@@ -408,8 +411,7 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 if available_variable in condition.variables:
                     goal_conditions.add(condition)
 
-            predicate_frequencies = {predicate: 0 for predicate in self._target_env.predicates}
-            matches_array = []
+            object_distribution = {obj: 1 for obj in self._target_states[task_index][state_index].data}
             for list_index, conditions in enumerate([pos_conditions, goal_conditions]):
                 for cond in conditions:
                     if list_index == 0: # If pos conditions, don't add WANT
@@ -429,17 +431,8 @@ class GPTObjectApproach(PG3AnalogyApproach):
                             for obj in pos_atom.objects:
                                 if obj in needed_objects or obj in constraints.values():
                                     continue
-                                matches_array.append((pos_atom.predicate.name, obj))
-                                if pos_atom.predicate.name in predicate_frequencies:
-                                    predicate_frequencies[pos_atom.predicate.name] += 1
-                                else:
-                                    predicate_frequencies[pos_atom.predicate.name] = 1
+                                object_distribution[obj] += 1
 
-            object_distribution = {obj: 1 for obj in self._target_states[task_index][state_index].data}
-            for predicate_name, obj in matches_array:
-                if obj not in object_distribution:
-                    import ipdb; ipdb.set_trace();
-                object_distribution[obj] += 1.0/predicate_frequencies[predicate_name]
             for tobj, object_score in object_distribution.items():
                 object_distribution[tobj] = object_score * object_score * object_score
 
@@ -640,6 +633,18 @@ class GPTObjectApproach(PG3AnalogyApproach):
                 "carry": ["carrying"],
             }
 
+        # Gripper -> Detyped Transport
+        if 'gripper' in self._base_env.get_name() and 'detypedtransport' in self._target_env.get_name():
+            predicate_input = {
+                "room": ["location"],
+                "ball": ["package"],
+                "gripper": ["vehicle"],
+                "at-robby": ["at"],
+                "at": ["at"],
+                "free": ["capacity"],
+                "carry": ["in"],
+            }
+
         target_env_name_to_predicate = {}
         for predicate in self._target_env.predicates:
             target_env_name_to_predicate[predicate.name] = predicate
@@ -693,6 +698,12 @@ class GPTObjectApproach(PG3AnalogyApproach):
         if 'gripper' in self._base_env.get_name() and 'detypedspanner' in self._target_env.get_name():
             nsrt_input = { "move": ["walk"],
                             "pick": ["pickupspanner"]}
+
+        # Gripper -> Detyped Transport
+        if 'gripper' in self._base_env.get_name() and 'detypedtransport' in self._target_env.get_name():
+            nsrt_input = { "move": ["drive"],
+                            "pick": ["pick-up"],
+                            "drop": ["drop"]}
 
         if rule.nsrt.name not in nsrt_input:
             return []
@@ -782,6 +793,14 @@ class GPTObjectApproach(PG3AnalogyApproach):
             variable_input = {
                 ("walk", "move") : {"?start": "?from", "?end": "?to"},
                 ("pickupspanner", "pick") : {"?s": "?obj", "?l": "?room", "?m": "?gripper"},
+            }
+
+        # Gripper -> Detyped Transport
+        if 'gripper' in self._base_env.get_name() and 'detypedtransport' in self._target_env.get_name():
+            variable_input = {
+                ("drive", "move") : {"?l1": "?from", "?l2": "?to"},
+                ("pick-up", "pick") : {"?p": "?obj", "?l": "?room", "?v": "?gripper"},
+                ("drop", "drop") : {"?p": "?obj", "?l": "?room", "?v": "?gripper"},
             }
 
         if nsrt_param.name in variable_input[(target_nsrt.name, rule.nsrt.name)]:
