@@ -6,7 +6,8 @@ import shutil
 import pytest
 
 from predicators import utils
-from predicators.llm_interface import LargeLanguageModel, OpenAILLM
+from predicators.pretrained_model_interface import LargeLanguageModel, \
+    OpenAILLM
 
 
 class _DummyLLM(LargeLanguageModel):
@@ -16,10 +17,12 @@ class _DummyLLM(LargeLanguageModel):
 
     def _sample_completions(self,
                             prompt,
+                            imgs,
                             temperature,
                             seed,
                             stop_token=None,
                             num_completions=1):
+        del imgs  # unused.
         completions = []
         for _ in range(num_completions):
             completion = (f"Prompt: {prompt}. Seed: {seed}. "
@@ -31,13 +34,14 @@ class _DummyLLM(LargeLanguageModel):
 def test_large_language_model():
     """Tests for LargeLanguageModel()."""
     cache_dir = "_fake_llm_cache_dir"
-    utils.reset_config({"llm_prompt_cache_dir": cache_dir})
+    utils.reset_config({"pretrained_model_prompt_cache_dir": cache_dir})
     # Remove the fake cache dir in case it's lying around from old tests.
     shutil.rmtree(cache_dir, ignore_errors=True)
     # Query a dummy LLM.
     llm = _DummyLLM()
     assert llm.get_id() == "dummy"
     completions = llm.sample_completions("Hello!",
+                                         None,
                                          0.5,
                                          123,
                                          stop_token="#stop",
@@ -46,13 +50,18 @@ def test_large_language_model():
     assert completions == [expected_completion] * 3
     # Query it again, covering the case where we load from disk.
     completions = llm.sample_completions("Hello!",
+                                         None,
                                          0.5,
                                          123,
                                          stop_token="#stop",
                                          num_completions=3)
     assert completions == [expected_completion] * 3
     # Query with temperature 0.
-    completions = llm.sample_completions("Hello!", 0.0, 123, num_completions=3)
+    completions = llm.sample_completions("Hello!",
+                                         None,
+                                         0.0,
+                                         123,
+                                         num_completions=3)
     expected_completion = "Prompt: Hello!. Seed: 123. Temp: 0.0. Stop: None."
     assert completions == [expected_completion] * 3
     # Clean up the cache dir.
@@ -61,6 +70,7 @@ def test_large_language_model():
     utils.update_config({"llm_use_cache_only": True})
     with pytest.raises(ValueError) as e:
         completions = llm.sample_completions("Hello!",
+                                             None,
                                              0.5,
                                              123,
                                              num_completions=3)
@@ -70,7 +80,7 @@ def test_large_language_model():
 def test_openai_llm():
     """Tests for OpenAILLM()."""
     cache_dir = "_fake_llm_cache_dir"
-    utils.reset_config({"llm_prompt_cache_dir": cache_dir})
+    utils.reset_config({"pretrained_model_prompt_cache_dir": cache_dir})
     if "OPENAI_API_KEY" not in os.environ:  # pragma: no cover
         os.environ["OPENAI_API_KEY"] = "dummy API key"
     # Create an OpenAILLM with the curie model.

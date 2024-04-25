@@ -1138,7 +1138,7 @@ class ImageOptionTrajectory:
             assert self._train_task_idx is not None
 
     @property
-    def imgs(self) -> List[State]:
+    def imgs(self) -> List[List[PIL.Image.Image]]:
         """States in the trajectory."""
         return self._state_imgs
 
@@ -1148,7 +1148,7 @@ class ImageOptionTrajectory:
         return self._objects
 
     @property
-    def actions(self) -> List[Action]:
+    def actions(self) -> List[_Option]:
         """Actions in the trajectory."""
         return self._actions
 

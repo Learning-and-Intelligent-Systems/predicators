@@ -13,7 +13,7 @@ from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
 from predicators.ground_truth_models import get_gt_options
 
 _ENV_MODULE_PATH = predicators.envs.blocks.__name__
-_LLM_MODULE_PATH = predicators.llm_interface.__name__
+_LLM_MODULE_PATH = predicators.pretrained_model_interface.__name__
 
 
 def test_blocks():

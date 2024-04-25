@@ -14,11 +14,12 @@ import PIL.Image
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.vlm_envs import VLMPredicateEnv
+from predicators.pretrained_model_interface import GoogleGeminiVLM, \
+    VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, GroundAtom, \
     ImageOptionTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
     Predicate, State, Task, _Option
-from predicators.vlm_interface import GoogleGeminiVLM, VisionLanguageModel
 
 
 def _generate_prompt_for_atom_proposals(
@@ -495,7 +496,6 @@ def _pretty_print_atoms_trajs(
             logging.debug(f"Step {i} add effs: {sorted(traj[i] - traj[i-1])}")
             logging.debug(f"Step {i} del effs: {sorted(traj[i-1] - traj[i])}")
         logging.debug("\n")
-    # import ipdb; ipdb.set_trace()
 
 
 def create_ground_atom_data_from_img_trajs(

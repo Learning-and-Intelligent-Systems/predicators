@@ -11,7 +11,7 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.llm_interface import OpenAILLM
+from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultEnvironmentTask, \
     EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
@@ -300,7 +300,8 @@ class BaseEnv(abc.ABC):
         responses = llm.sample_completions(prompt,
                                            temperature=0.0,
                                            seed=CFG.seed,
-                                           stop_token="#")
+                                           stop_token="#",
+                                           imgs=None)
         response = responses[0]
         # Currently assumes that the LLM is perfect. In the future, will need
         # to handle various errors and perhaps query the LLM for multiple

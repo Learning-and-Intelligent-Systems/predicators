@@ -356,7 +356,6 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                   max_skeletons,
                                   use_visited_state_set=False)
             try:
-                # import ipdb; ipdb.set_trace()
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):
                     assert goal.issubset(plan_atoms_sequence[-1])
