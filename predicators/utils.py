@@ -3715,7 +3715,7 @@ def parse_atoms_txt_into_structured_state(
     for state_block_match in state_blocks_matches:
         predicate_matches_within_state_block = re.findall(
             pattern_predicate, state_block_match)
-        current_predicate_data = {}
+        current_predicate_data: Dict[str, Dict[Tuple[str, ...], bool]] = {}
         for predicate_match in predicate_matches_within_state_block:
             classifier_name = predicate_match[0]
             objects = tuple(map(str.strip, predicate_match[1].split(',')))
