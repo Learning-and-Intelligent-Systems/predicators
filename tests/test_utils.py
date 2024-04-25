@@ -2358,7 +2358,7 @@ def test_create_pddl():
                                           "spanner")
     assert domain_str == """(define (domain spanner)
   (:requirements :typing)
-  (:types 
+  (:types
     man nut spanner - locatable
     monkey
     locatable location - object)
@@ -2496,6 +2496,20 @@ def test_save_video():
     video = [rng.integers(255, size=(3, 3), dtype=np.uint8) for _ in range(3)]
     utils.save_video(filename, video)
     os.remove(os.path.join(dirname, filename))
+    os.rmdir(dirname)
+
+
+def test_save_images():
+    """Tests for save_images()."""
+    dirname = "_fake_tmp_images_dir"
+    prefix = "image_prefix"
+    utils.reset_config({"images_dir": dirname})
+    rng = np.random.default_rng(123)
+    video = [rng.integers(255, size=(3, 3), dtype=np.uint8) for _ in range(3)]
+    utils.save_images(prefix, video)
+    os.remove(os.path.join(dirname, prefix + "_image_0.png"))
+    os.remove(os.path.join(dirname, prefix + "_image_1.png"))
+    os.remove(os.path.join(dirname, prefix + "_image_2.png"))
     os.rmdir(dirname)
 
 

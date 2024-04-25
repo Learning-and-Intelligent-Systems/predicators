@@ -3167,6 +3167,7 @@ def save_video(outfile: str, video: Video) -> None:
 
 
 def save_images(outfile_prefix: str, video: Video) -> None:
+    """Save the video as individual images to image_dir."""
     outdir = CFG.images_dir
     os.makedirs(outdir, exist_ok=True)
     width = len(str(len(video)))
