@@ -29,113 +29,135 @@ def _generate_prompt_for_atom_proposals(
     if CFG.grammar_search_vlm_atom_proposal_prompt_type == "naive_each_step":
         prompt = (
             "You are a robotic vision system whose job is to output a "
-            "structured set of predicates useful for running a task and motion "
-            "planning system from the following scene. Please provide predicates "
-            f"in terms of the following objects: {[str(obj.name) for obj in traj._objects if obj.name != 'dummy_goal_obj']}. "
+            "structured set of predicates useful for running a "
+            "task and motion "
+            "planning system from the following scene. Please provide "
+            "predicates in terms of the following objects: "
+            f"{[str(obj.name) for obj in traj.objects if obj.name != 'dummy_goal_obj']}. "  # pylint:disable=line-too-long
             "For each predicate, output it in the following format: "
             "predicate_name(obj1, obj2, obj3...) "
             "(for instance is_sliced(apple), is_not_sliced(apple), etc.). "
             "Also, for each predicate you list, list its negation. "
-            "List as many predicates as you can possibly think of, even if they're only "
-            "tangentially relevant to what you see in the scene and even if they're false, "
-            "given the following scene taken from a demonstration for the task."
-            "Do not list any other text other than the names and arguments of predicates. "
+            "List as many predicates as you can possibly think of, even if "
+            "they're only "
+            "tangentially relevant to what you see in the scene and even "
+            "if they're false, "
+            "given the following scene taken from a demonstration for the "
+            "task."
+            "Do not list any other text other than the names and arguments "
+            "of predicates. "
             "List each proposal as a bulleted list item on a separate line.")
         i = 0
-        while i < len(traj._state_imgs):
-            ret_list.append((prompt, traj._state_imgs[i]))
+        while i < len(traj.imgs):
+            ret_list.append((prompt, traj.imgs[i]))
             i += trajectory_subsample_freq
-    elif CFG.grammar_search_vlm_atom_proposal_prompt_type == "naive_whole_traj":
+    elif CFG.grammar_search_vlm_atom_proposal_prompt_type == \
+        "naive_whole_traj":
         prompt = (
             "You are a robotic vision system whose job is to output a "
-            "structured set of predicates useful for describing the important concepts from "
+            "structured set of predicates useful for describing the "
+            "important concepts from "
             "the following demonstration. Please provide predicates "
-            f"in terms of the objects: {[obj.name for obj in traj._objects if obj.name != 'dummy_goal_obj']}. "
+            "in terms of the objects: "
+            f"{[obj.name for obj in traj.objects if obj.name != 'dummy_goal_obj']}. "  # pylint:disable=line-too-long
             "For each predicate, output it in the following format: "
             "predicate_name(obj1, obj2, obj3...) "
             "(for instance is_sliced(apple), is_not_sliced(apple), etc.). "
             "Also, for each predicate you list, list its negation. "
-            "Generate as many predicates as you can possibly think of, even if they're only "
+            "Generate as many predicates as you can possibly think of, "
+            "even if they're only "
             "tangentially relevant to the task goal: 'make a cup of ice tea'"
-            "Do not list any other text other than the names and arguments of predicates. "
+            "Do not list any other text other than the names and arguments "
+            "of predicates. "
             "List each proposal as a bulleted list item on a separate line.")
-        # NOTE: we rip out just one img from each of the state images. This is fine/works
-        # for the case where we only have one camera view, but probably will need to be
-        # amended in the future!
+        # NOTE: we rip out just one img from each of the state images.
+        # This is fine/works for the case where we only have one
+        # camera view, but probably will need to be amended in the future!
         ret_list.append(
-            (prompt,
-             [traj._state_imgs[i][0] for i in range(len(traj._state_imgs))]))
-    elif CFG.grammar_search_vlm_atom_proposal_prompt_type == "options_labels_whole_traj":
+            (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
+    elif CFG.grammar_search_vlm_atom_proposal_prompt_type == \
+        "options_labels_whole_traj":
         prompt = (
-            "You are a robotic vision system whose job is to output a structured " 
-            "set of predicates useful for describing important concepts in the "
-            "following demonstration of a task. You will be provided with a list "
-            "of actions used during the task, as well as images of states before "
-            "and after every action execution. Please provide predicates in terms "
-            "of the following objects: [teabag, hand, plate, cup, ice]. For each "
+            "You are a robotic vision system whose job is to output a "
+            "structured "
+            "set of predicates useful for describing important concepts "
+            "in the "
+            "following demonstration of a task. You will be provided with "
+            "a list "
+            "of actions used during the task, as well as images of "
+            "states before "
+            "and after every action execution. Please provide predicates "
+            "in terms "
+            "of the following objects: [teabag, hand, plate, cup, ice]. "
+            "For each "
             "predicate, output it in the following format: "
-            "predicate_name(obj1, obj2, obj3...). Start by generating predicates that "
-            "change before and after each action. After this, generate any other "
-            "predicates that perhaps do not change but are still important to "
-            "describing the demonstration shown."
-
-            "\n\nActions executed as part of demonstration:\n"
-        )
-        prompt += f"\n".join(act.name + str(act.objects) for act in traj._actions)
-        # NOTE: we rip out just one img from each of the state images. This is fine/works
-        # for the case where we only have one camera view, but probably will need to be
-        # amended in the future!
+            "predicate_name(obj1, obj2, obj3...). Start by generating "
+            "predicates "
+            "that change before and after each action. After this, "
+            "generate any "
+            "other predicates that perhaps do not change but are still "
+            "important to describing the demonstration shown."
+            "\n\nActions executed as part of demonstration:\n")
+        prompt += "\n".join(act.name + str(act.objects)
+                            for act in traj.actions)
+        # NOTE: we rip out just one img from each of the state images.
+        # This is fine/works for the case where we only have one camera
+        # view, but probably will need to be amended in the future!
         ret_list.append(
-            (prompt,
-             [traj._state_imgs[i][0] for i in range(len(traj._state_imgs))]))
+            (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
     else:
-        raise ValueError(
-            f"Unknown VLM prompting option {CFG.grammar_search_vlm_atom_proposal_prompt_type}"
-        )
-    
+        raise ValueError("Unknown VLM prompting option " +
+                         f"{CFG.grammar_search_vlm_atom_proposal_prompt_type}")
+
     return ret_list
 
 
 def _generate_prompt_for_scene_labelling(
-        traj: ImageOptionTrajectory, atoms_list: List[str]
-) -> List[Tuple[str, List[PIL.Image.Image]]]:
+        traj: ImageOptionTrajectory,
+        atoms_list: List[str]) -> List[Tuple[str, List[PIL.Image.Image]]]:
     """Prompt for generating labels for truth values of atoms in a scene."""
     ret_list = []
     if "per_scene" in CFG.grammar_search_vlm_atom_label_prompt_type:
         if CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_naive":
-            prompt = ("You are a vision system for a robot. Your job is to output "
-                    "the values of the following predicates based on the provided "
-                    "visual scene. For each predicate, output True, False, or "
-                    "Unknown if the relevant objects are not in the scene or the "
-                    "value of the predicate simply cannot be determined. "
-                    "Output each predicate value as a bulleted list with each predicate"
-                    "and value on a different line. "
-                    "Use the format: <predicate>: <truth_value>. "
-                    "Ensure there is a period ('.') after every list item. "
-                    "Do not output any text except the names and truth values of predicates."
-                    "\nPredicates:")
+            prompt = (
+                "You are a vision system for a robot. Your job is to output "
+                "the values of the following predicates based on the provided "
+                "visual scene. For each predicate, output True, False, or "
+                "Unknown if the relevant objects are not in the scene or the "
+                "value of the predicate simply cannot be determined. "
+                "Output each predicate value as a bulleted list with each "
+                "predicate and value on a different line. "
+                "Use the format: <predicate>: <truth_value>. "
+                "Ensure there is a period ('.') after every list item. "
+                "Do not output any text except the names and truth values of "
+                "predicates."
+                "\nPredicates:")
         elif CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_cot":
-            prompt = ("You are a vision system for a robot. Your job is to output "
-                    "the values of the following predicates based on the provided "
-                    "visual scene. For each predicate, output True, False, or "
-                    "Unknown if the relevant objects are not in the scene or the "
-                    "value of the predicate simply cannot be determined. "
-                    "Output each predicate value as a bulleted list with each predicate"
-                    "and value on a different line. "
-                    "For each output value, provide an explanation as to why you labelled "
-                    "this predicate as having this particular value."
-                    "Use the format: <predicate>: <truth_value>. <explanation>."
-                    "\nPredicates:")
+            prompt = (
+                "You are a vision system for a robot. Your job is to output "
+                "the values of the following predicates based on the provided "
+                "visual scene. For each predicate, output True, False, or "
+                "Unknown if the relevant objects are not in the scene or the "
+                "value of the predicate simply cannot be determined. "
+                "Output each predicate value as a bulleted list with each "
+                "predicate and value on a different line. "
+                "For each output value, provide an explanation as to why you "
+                "labelled this predicate as having this particular value."
+                "Use the format: <predicate>: <truth_value>. <explanation>."
+                "\nPredicates:")
         else:
-            raise ValueError(f"Unknown option for grammar_search_vlm_atom_label_prompt_type {CFG.grammar_search_vlm_atom_label_prompt_type}")
+            raise ValueError(
+                "Unknown option for grammar_search_vlm_atom_label_prompt_type"
+                f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
-        for curr_state_imgs in traj._state_imgs:
-            # NOTE: we rip out just one img from each of the state images. This is fine/works
-            # for the case where we only have one camera view, but probably will need to be
+        for currimgs in traj.imgs:
+            # NOTE: we rip out just one img from each of the state
+            # images. This is fine/works for the case where we only
+            # have one camera view, but probably will need to be
             # amended in the future!
-            ret_list.append((prompt, [curr_state_imgs[0]]))
-    return ret_list    
+            ret_list.append((prompt, [currimgs[0]]))
+    return ret_list
 
 
 def _sample_init_atoms_from_trajectories(
@@ -160,9 +182,8 @@ def _sample_init_atoms_from_trajectories(
                                    CFG.seed,
                                    num_completions=1))
         curr_num_queries += 1
-        logging.info(
-            f"Completed ({curr_num_queries}/{total_num_queries}) init atoms queries to the VLM."
-        )
+        logging.info("Completed (%s/%s) init atoms queries to the VLM.",
+                     curr_num_queries, total_num_queries)
     return aggregated_vlm_output_strs
 
 
@@ -171,11 +192,12 @@ def _label_trajectories_with_atom_values(
         atoms_list: List[str]) -> List[List[str]]:
     """Given a list of atoms, label every state in ImageOptionTrajectories with
     the truth values of a set of atoms."""
-    total_scenes_to_label = sum(len(traj._state_imgs) for traj in trajectories)
+    total_scenes_to_label = sum(len(traj.imgs) for traj in trajectories)
     curr_scenes_labelled = 0
     output_labelled_atoms_txt_list = []
     for traj in trajectories:
-        prompts_for_traj = _generate_prompt_for_scene_labelling(traj, atoms_list)
+        prompts_for_traj = _generate_prompt_for_scene_labelling(
+            traj, atoms_list)
         curr_traj_txt_outputs = []
         for prompt in prompts_for_traj:
             # Sample VLM outputs with temperature 0 in an attempt to be
@@ -189,9 +211,8 @@ def _label_trajectories_with_atom_values(
             sanitized_output = curr_vlm_atom_labelling[0].replace('\\', '')
             curr_traj_txt_outputs.append(sanitized_output)
             curr_scenes_labelled += 1
-            logging.info(
-                f"Completed ({curr_scenes_labelled}/{total_scenes_to_label}) label queries to VLM!"
-            )
+            logging.info("Completed (%s/%s) label queries to VLM!",
+                         curr_scenes_labelled, total_scenes_to_label)
         output_labelled_atoms_txt_list.append(curr_traj_txt_outputs)
     return output_labelled_atoms_txt_list
 
@@ -213,7 +234,7 @@ def _parse_unique_atom_proposals_from_list(
         assert len(atoms_proposal_for_traj) == 1
         curr_atoms_proposal = atoms_proposal_for_traj[0]
         # Regex pattern to match predicates
-        atom_match_pattern = r"\b[a-z_]+\([a-z0-9, ]+\)" 
+        atom_match_pattern = r"\b[a-z_]+\([a-z0-9, ]+\)"
         # Find all matches in the text
         matches = re.findall(atom_match_pattern, curr_atoms_proposal)
         for atom_proposal_txt in matches:
@@ -270,9 +291,10 @@ def save_labelled_trajs_as_txt(
         final_state_str = "{" + final_atom_state_str + "}\n"
         save_str += final_state_str + "===\n"
     # Finally, save this constructed string as a txt file!
-    txt_filename = f"{env.get_name()}__demo+labeled_atoms__manual__{len(labelled_atoms_trajs)}.txt"
+    txt_filename = f"{env.get_name()}__demo+labeled_atoms__manual__" + \
+    f"{len(labelled_atoms_trajs)}.txt"
     filepath = os.path.join(CFG.data_dir, txt_filename)
-    with open(filepath, "w") as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(save_str)
     logging.info(f"Human-readable labelled trajectory saved to {filepath}!")
 
@@ -376,17 +398,17 @@ def _parse_structured_state_into_ground_atoms(
     return atoms_trajs
 
 
-def _parse_structured_actions_into_ground_options(
-        structured_actions_trajs: List[List[Tuple[str, Tuple[str, ...],
-                                                  List[float]]]],
+def _parse_structuredactions_into_ground_options(
+        structuredactions_trajs: List[List[Tuple[str, Tuple[str, ...],
+                                                 List[float]]]],
         known_options: Set[ParameterizedOption],
         train_tasks: List[Task]) -> List[List[_Option]]:
     """Convert structured actions trajectories into actual lists of ground
     options trajectories."""
-    assert len(structured_actions_trajs) == len(train_tasks)
+    assert len(structuredactions_trajs) == len(train_tasks)
     option_name_to_option = {o.name: o for o in known_options}
     option_trajs = []
-    for i, traj in enumerate(structured_actions_trajs):
+    for i, traj in enumerate(structuredactions_trajs):
         curr_obj_name_to_obj = {
             obj.name: obj
             for obj in set(train_tasks[i].init)
@@ -448,21 +470,22 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
     for traj_num in range(len(option_trajs)):
         traj_init_state = train_tasks[traj_num].init
         curr_traj_states = []
-        curr_traj_actions = []
+        curr_trajactions = []
         for idx_within_traj in range(len(option_trajs[traj_num])):
             curr_traj_states.append(traj_init_state)
-            curr_traj_actions.append(
+            curr_trajactions.append(
                 Action(np.zeros(0), option_trajs[traj_num][idx_within_traj]))
         # Now, we need to append the final state because there are 1 more
         # states than actions.
         curr_traj_states.append(dummy_goal_states[traj_num])
-        curr_traj = LowLevelTrajectory(curr_traj_states, curr_traj_actions,
+        curr_traj = LowLevelTrajectory(curr_traj_states, curr_trajactions,
                                        True, traj_num)
         trajs.append(curr_traj)
     return trajs
 
 
-def _pretty_print_atoms_trajs(ground_atoms_trajs: List[List[Set[GroundAtom]]]) -> None:
+def _pretty_print_atoms_trajs(
+        ground_atoms_trajs: List[List[Set[GroundAtom]]]) -> None:
     """Debug log the changes in atoms trajectories for easy human-checking."""
     # Log trajectory information in a very easy to parse format for
     # debugging.
@@ -495,22 +518,20 @@ def create_ground_atom_data_from_img_trajs(
     option_name_to_option = {opt.name: opt for opt in known_options}
     image_option_trajs = []
     all_task_objs = set()
-    # TODO: might want to make sure this loop actually accesses the
-    # trajectory folders in ascending order.
     for train_task_idx, path in enumerate(
-            Path(trajectories_folder_path).iterdir()):
+            sorted(Path(trajectories_folder_path).iterdir())):
         assert path.is_dir()
         state_folders = [f.path for f in os.scandir(path) if f.is_dir()]
         num_states_in_traj = len(state_folders)
         state_traj = []
         for state_num in range(num_states_in_traj):
-            curr_state_imgs = []
+            currimgs = []
             curr_state_path = path.joinpath(str(state_num))
             # NOTE: we assume all images are saved as jpg files.
             img_files = glob.glob(str(curr_state_path) + "/*.jpg")
             for img in img_files:
-                curr_state_imgs.append(PIL.Image.open(img))
-            state_traj.append(curr_state_imgs)
+                currimgs.append(PIL.Image.open(img))
+            state_traj.append(currimgs)
         # Get objects from train tasks to be used for future parsing.
         curr_train_task = train_tasks[train_task_idx]
         curr_task_objs = set(curr_train_task.init)
@@ -520,7 +541,7 @@ def create_ground_atom_data_from_img_trajs(
         options_traj_file_list = glob.glob(str(path) + "/*.txt")
         assert len(options_traj_file_list) == 1
         options_traj_file = options_traj_file_list[0]
-        with open(options_traj_file, "r") as f:
+        with open(options_traj_file, "r", encoding="utf-8") as f:
             options_file_str = f.read()
         option_names_list = re.findall(r'(\w+)\(', options_file_str)
         parsed_str_objects = re.findall(r'\((.*?)\)', options_file_str)
@@ -581,10 +602,10 @@ def create_ground_atom_data_from_img_trajs(
                                                        gemini_vlm,
                                                        unique_atoms_list)
     logging.info("Done querying VLM for scene labelling!")
-    
+
     # Save the output as a human-readable txt file.
     save_labelled_trajs_as_txt(
-        env, atom_labels, [io_traj._actions for io_traj in image_option_trajs])
+        env, atom_labels, [io_traj.actions for io_traj in image_option_trajs])
     # Now, parse this information into a Dataset!
     # Start by converting all the labelled atoms into a more structured
     # dict. This requires each set of labelled atoms text to be enclosed
@@ -611,7 +632,7 @@ def create_ground_atom_data_from_img_trajs(
         env, train_tasks)
     # Finally, we need to construct actual LowLevelTrajectories.
     low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
-        [traj._actions for traj in image_option_trajs],
+        [traj.actions for traj in image_option_trajs],
         goal_states_for_every_traj, train_tasks)
     return Dataset(low_level_trajs, ground_atoms_trajs)
 
@@ -624,16 +645,16 @@ def create_ground_atom_data_from_labeled_txt(
     pipeline."""
     dataset_fpath = os.path.join(CFG.data_dir, CFG.handmade_demo_filename)
     # First, parse this dataset into a structured form.
-    structured_states, structured_actions = utils.parse_vlmtraj_file_into_structured_trajs(
-        dataset_fpath)
-    assert len(structured_states) == len(structured_actions)
+    structured_states, structuredactions = utils.\
+        parse_vlmtraj_file_into_structured_trajs(dataset_fpath)
+    assert len(structured_states) == len(structuredactions)
     # Next, take this intermediate structured form and further
     # parse it into ground atoms and ground options respectively.
     ground_atoms_trajs = _parse_structured_state_into_ground_atoms(
         env, train_tasks, structured_states)
     _pretty_print_atoms_trajs(ground_atoms_trajs)
-    option_trajs = _parse_structured_actions_into_ground_options(
-        structured_actions, known_options, train_tasks)
+    option_trajs = _parse_structuredactions_into_ground_options(
+        structuredactions, known_options, train_tasks)
     # We need to create the goal state for every train task, just
     # as in the above function.
     goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(

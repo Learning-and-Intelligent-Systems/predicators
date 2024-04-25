@@ -1143,6 +1143,11 @@ class ImageOptionTrajectory:
         return self._state_imgs
 
     @property
+    def objects(self) -> List[Object]:
+        """Objects important to the trajectory."""
+        return self._objects
+
+    @property
     def actions(self) -> List[Action]:
         """Actions in the trajectory."""
         return self._actions

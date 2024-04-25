@@ -1,4 +1,8 @@
-"""A bunch of environments to help test VLM-based Predicate Invention."""
+"""A bunch of environments useful for testing VLM-based Predicate Invention.
+
+Will likely be updated and potentially split into separate files in the
+future.
+"""
 
 from typing import List, Optional, Sequence, Set
 
@@ -13,6 +17,11 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
 
 
 class VLMPredicateEnv(BaseEnv):
+    """Environments that use VLM Predicates.
+
+    Note that no simulate function or ground truth model is implemented
+    for these yet. These are forthcoming.
+    """
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -68,65 +77,23 @@ class VLMPredicateEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         del num, rng  # unused
         return []
-    
+
     @property
     def get_vlm_debug_atom_strs(self) -> Set[str]:
-        """Return a set of atom strings that should be sufficient for a VLM to label demonstrations consistently to learn good operators."""
-        raise NotImplementedError("VLM debug atom strings not implemented for this environment.")
-
-
-class AppleCoringEnv(VLMPredicateEnv):
-
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Env-specific types.
-        self._apple_type = Type("apple", [], self._object_type)
-        self._slicing_tool_type = Type("slicing_tool", [], self._object_type)
-        self._plate_type = Type("plate", [], self._object_type)
-        self._hand_type = Type("hand", [], self._object_type)
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "apple_coring"
-
-    @property
-    def types(self) -> Set[Type]:
-        return super().types | {
-            self._apple_type, self._slicing_tool_type, self._plate_type,
-            self._hand_type
-        }
-
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
-        dummy_goal_obj = Object("dummy_goal_obj", self._goal_object_type)
-        apple_obj = Object("apple", self._apple_type)
-        plate_obj = Object("plate", self._plate_type)
-        slicing_tool_obj = Object("slicing_tool", self._slicing_tool_type)
-        hand_obj = Object("hand", self._hand_type)
-        init_state = State({
-            dummy_goal_obj: [0.0],
-            apple_obj: [],
-            plate_obj: [],
-            slicing_tool_obj: [],
-            hand_obj: []
-        })
-        return [
-            EnvironmentTask(
-                init_state,
-                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
-            for _ in range(num)
-        ]
+        """Return a set of atom strings that should be sufficient for a VLM to
+        label demonstrations consistently to learn good operators."""
+        raise NotImplementedError(
+            "VLM debug atom strings not implemented for this environment.")
 
 
 class IceTeaMakingEnv(VLMPredicateEnv):
+    """An environment to test demonstrations involving making a cup of tea."""
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Env-specific types.
         self._teabag_type = Type("teabag", [], self._object_type)
-        # self._ice_type = Type("ice", [], self._object_type)
         self._spoon_type = Type("spoon", [], self._object_type)
         self._cup_type = Type("cup", [], self._object_type)
         self._plate_type = Type("plate", [], self._object_type)
@@ -166,11 +133,12 @@ class IceTeaMakingEnv(VLMPredicateEnv):
                 set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
             for _ in range(num)
         ]
-    
+
+    @property
     def get_vlm_debug_atom_strs(self) -> Set[str]:
-        return set(["hand_grasping_spoon(hand, spoon)",
-                    "hand_grasping_teabag(hand, teabag)",
-                    "spoon_in_cup(spoon, cup)",
-                    "spoon_on_plate(spoon, plate)",
-                    "teabag_in_cup(teabag, cup)",
-                    "teabag_on_plate(teabag, plate)"])
+        return set([
+            "hand_grasping_spoon(hand, spoon)",
+            "hand_grasping_teabag(hand, teabag)", "spoon_in_cup(spoon, cup)",
+            "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
+            "teabag_on_plate(teabag, plate)"
+        ])

@@ -1,13 +1,9 @@
 """Ground-truth NSRTs for the blocks environment."""
 
-from typing import Dict, Sequence, Set
-
-import numpy as np
+from typing import Dict, Set
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, Type, Variable
-from predicators.utils import null_sampler
+from predicators.structs import NSRT, ParameterizedOption, Predicate, Type
 
 
 class TeaMakingGroundTruthNSRTFactory(GroundTruthNSRTFactory):

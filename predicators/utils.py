@@ -3764,7 +3764,7 @@ def parse_vlmtraj_file_into_structured_trajs(
     This function outputs two lists of lists, where each element is the output
     of the above parse_handmade_vlmtraj_into_structured_traj function.
     """
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf8") as f:
         full_file_text = f.read()
     pattern = r"(?<====\n)(.*?)(?=\n===)"
     matches = re.findall(pattern, full_file_text, re.DOTALL)

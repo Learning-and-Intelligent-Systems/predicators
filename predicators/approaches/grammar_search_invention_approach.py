@@ -1036,8 +1036,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         init: FrozenSet[Predicate] = frozenset()
 
         cand_preds = list(candidates)
-        print(score_function.evaluate(frozenset((cand_preds[1], cand_preds[5], cand_preds[6], cand_preds[8], cand_preds[13], cand_preds[15]))))
-        import ipdb; ipdb.set_trace()
+        print(
+            score_function.evaluate(
+                frozenset((cand_preds[1], cand_preds[5], cand_preds[6],
+                           cand_preds[8], cand_preds[13], cand_preds[15]))))
 
         # Greedy local hill climbing search.
         if CFG.grammar_search_search_algorithm == "hill_climbing":

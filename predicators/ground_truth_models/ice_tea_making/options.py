@@ -1,8 +1,7 @@
 """Ground-truth options for the (non-pybullet) blocks environment."""
 
-from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple
+from typing import Dict, Sequence, Set
 
-import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
@@ -26,8 +25,6 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         del env_name, predicates  # unused.
 
         object_type = types["object"]
-        teabag_type = types["teabag"]
-        # ice_type = types["ice"]
         cup_type = types["cup"]
         hand_type = types["hand"]
 
@@ -37,13 +34,6 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
             "pick",
             cls._create_dummy_policy(action_space),
             types=[object_type, hand_type])
-
-        # PickIce = utils.SingletonParameterizedOption(
-        #     # variables: [ice to pick]
-        #     # params: []
-        #     "pick_ice",
-        #     cls._create_dummy_policy(action_space),
-        #     types=[ice_type, hand_type])
 
         PlaceInCup = utils.SingletonParameterizedOption(
             # variables: [object to place, thing to place in]
@@ -56,6 +46,7 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_dummy_policy(cls, action_space: Box) -> ParameterizedPolicy:
+        del action_space  # unused
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:

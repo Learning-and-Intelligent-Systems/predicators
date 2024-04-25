@@ -9,13 +9,12 @@ supported, but should be doable in the future.
 import abc
 import logging
 import os
+import time
 from typing import List, Optional
 
 import google
 import google.generativeai as genai
 import imagehash
-import time
-import openai
 import PIL.Image
 
 from predicators.settings import CFG
@@ -46,7 +45,6 @@ class VisionLanguageModel(abc.ABC):
                             imgs: List[PIL.Image.Image],
                             temperature: float,
                             seed: int,
-                            stop_token: Optional[str] = None,
                             num_completions: int = 1) -> List[str]:
         """This is the main method that subclasses must implement.
 
@@ -135,7 +133,7 @@ class GoogleGeminiVLM(VisionLanguageModel):
         self._model_name = model_name
         assert "GOOGLE_API_KEY" in os.environ
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        self._model = genai.GenerativeModel(self._model_name)
+        self._model = genai.GenerativeModel(self._model_name)  # pylint:disable=no-member
 
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
@@ -147,16 +145,19 @@ class GoogleGeminiVLM(VisionLanguageModel):
                             seed: int,
                             num_completions: int = 1) -> List[str]:
         del seed  # unused
-        generation_config = genai.types.GenerationConfig(
-            candidate_count=num_completions, temperature=temperature)
+        generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
+            candidate_count=num_completions,
+            temperature=temperature)
         response = None
         while response is None:
             try:
                 response = self._model.generate_content(
                     [prompt] + imgs, generation_config=generation_config)
             except google.api_core.exceptions.ResourceExhausted:
-                # In this case, we've hit a rate limit. Simply wait 3s and try again.
-                logging.debug("Hit rate limit for Gemini queries; trying again in 3s!")
+                # In this case, we've hit a rate limit. Simply wait 3s and
+                # try again.
+                logging.debug(
+                    "Hit rate limit for Gemini queries; trying again in 3s!")
                 time.sleep(3.0)
         response.resolve()
         return [response.text]

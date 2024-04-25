@@ -396,7 +396,7 @@ class GlobalSettings:
     llm_num_completions = 1
 
     # parameters for vision language models
-    vlm_model_name = "gemini-pro-vision" # "gemini-1.5-pro-latest"
+    vlm_model_name = "gemini-pro-vision"  # "gemini-1.5-pro-latest"
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
@@ -646,7 +646,6 @@ class GlobalSettings:
     grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
-
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
