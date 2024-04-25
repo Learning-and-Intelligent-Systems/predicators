@@ -1278,13 +1278,11 @@ def _generate_detypedspanner_problems(min_nuts: int, max_nuts: int,
         num_extra_span = rng.integers(min_extra_span, max_extra_span + 1)
         num_spanners = num_nuts + num_extra_span
         num_locs = rng.integers(min_locs, max_locs + 1)
-        problem = _generate_detypedspanner_problem(num_nuts, num_spanners, num_locs,
-                                            rng)
+        problem = _generate_detypedspanner_problem(num_nuts, num_spanners, num_locs, rng)
         problems.append(problem)
     return problems
 
-def _generate_detypedspanner_problem(num_nuts: int, num_spanners: int, num_locs: int,
-                              rng: np.random.Generator) -> str:
+def _generate_detypedspanner_problem(num_nuts: int, num_spanners: int, num_locs: int, rng: np.random.Generator) -> str:
     # Create objects.
     man = "bob"
     spanners = [f"spanner{i}" for i in range(num_spanners)]
@@ -1337,3 +1335,122 @@ def _generate_detypedspanner_problem(num_nuts: int, num_spanners: int, num_locs:
     )"""
 
     return problem_str
+
+################################## Detyped Transport ####################################
+
+def create_detypedtransport_pddl_generator(min_locs: int, max_locs: int,
+                                  min_packages: int, max_packages: int,
+                                  min_vehicles: int, max_vehicles: int,
+                                  min_capacity: int, max_capacity: int) -> PDDLProblemGenerator:
+    """Create a generator for detyped transport problems."""
+    return functools.partial(_generate_detypedtransport_problems, min_locs, max_locs, min_packages, max_packages, min_vehicles, max_vehicles, min_capacity, max_capacity)
+
+
+def _generate_detypedtransport_problems(
+                            min_locs: int,
+                            max_locs: int,
+                            min_packages: int,
+                            max_packages: int,
+                            min_vehicles: int,
+                            max_vehicles: int,
+                            min_capacity: int,
+                            max_capacity: int,
+                            num_problems: int,
+                            rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_locs = rng.integers(min_locs, max_locs + 1)
+        num_packages = rng.integers(min_packages, max_packages + 1)
+        num_vehicles = rng.integers(min_vehicles, max_vehicles + 1)
+        capacities = [rng.integers(min_capacity, max_capacity + 1) for _ in range(num_vehicles)]
+        problem = _generate_detypedtransport_problem(num_locs, num_packages, num_vehicles, capacities, rng)
+        problems.append(problem)
+    return problems
+
+def _generate_detypedtransport_problem(num_locs: int, num_packages: int, num_vehicles: int, capacities: List[int], rng: np.random.Generator) -> str:
+    # Create objects.
+    max_size = max(max(capacities), num_packages)
+    loc_ids = [f"l{i+1}" for i in range(num_locs)]
+    pkg_ids = [f"p{i+1}" for i in range(num_packages)]
+    veh_ids = [f"v{i+1}" for i in range(num_vehicles)]
+    sizes = ["s0"] + [f"s{i+1}" for i in range(max_size)]
+
+    # Create the initial state.
+    init_strs = set()
+    starting_locs = []
+    for loc in loc_ids:
+        init_strs.add(f"(location {loc})")
+    for pkg in pkg_ids:
+        init_strs.add(f"(package {pkg})")
+        starting_loc = rng.choice(loc_ids)
+        starting_locs.append(starting_loc)
+        init_strs.add(f"(at {pkg} {starting_loc})")
+    for i in range(len(veh_ids)):
+        vehicle_id = veh_ids[i]
+        init_strs.add(f"(vehicle {vehicle_id})")
+        init_strs.add(f"(at {vehicle_id} {rng.choice(loc_ids)})")
+        init_strs.add(f"(capacity {vehicle_id} s{capacities[i]})")
+    for i in range(1, max_size+1):
+        init_strs.add(f"(size s{i})")
+        init_strs.add(f"(size s{i-1})")
+        init_strs.add(f"(capacity-predecessor s{i-1} s{i})")
+    
+    for i in range(len(loc_ids)-1):
+        for j in range(i+1, len(loc_ids)):
+            init_strs.add(f"(road {loc_ids[i]} {loc_ids[j]})")
+            init_strs.add(f"(road {loc_ids[j]} {loc_ids[i]})")
+
+    # Create the goal.
+    goal_strs = set()
+    for pkg in pkg_ids:
+        goal_loc = rng.choice(loc_ids)
+        while goal_loc == starting_locs[pkg_ids.index(pkg)]:
+            goal_loc = rng.choice(loc_ids)
+        goal_strs.add(f"(at {pkg} {goal_loc})")
+
+    # Finalize PDDL problem str.
+    loc_str = "\n        ".join(loc_ids)
+    pkg_str = "\n        ".join(pkg_ids)
+    veh_str = "\n        ".join(veh_ids)
+    sizes_tr = "\n        ".join(sizes)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem transport-procgen)
+    (:domain detypedtransport)
+    (:objects
+        {loc_str}
+        {pkg_str}
+        {veh_str}
+        {sizes_tr}
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+    )"""
+
+    return problem_str
+
+def random_connected_graph(nodes: int, rng: np.random.Generator) -> Tuple[list, set]:
+    # 1. generate a random tree
+    inserted_nodes = []
+    remaining_nodes = [n for n in range(1, 1 + nodes)]
+    rng.shuffle(remaining_nodes)  # pick nodes in any order
+    inserted_nodes.append(remaining_nodes[0])  # add the first element
+    tree = set()
+    for node in remaining_nodes[1:]:
+        connect_to = rng.choice(inserted_nodes)
+        # It is an undirected graph
+        tree.add((node, connect_to))
+        tree.add((connect_to, node))
+        # Mark current node as inserted
+        inserted_nodes.append(node)
+
+    # 2. complete the graph until edge_density
+    edge_density = rng.integers(nodes - 1, nodes * (nodes - 1) // 2 + 1)
+    remaining_edges = [(i, j) for i in range(1, nodes+1) for j in range(i+1, 1+nodes) if (i, j) not in tree]
+    rng.shuffle(remaining_edges)
+    graph = list(tree)
+    for i in range(edge_density + 1 - nodes):
+        graph.append(remaining_edges[i])
+        graph.append((remaining_edges[i][1], remaining_edges[i][0]))
+
+    return graph, tree

@@ -27,7 +27,8 @@ from predicators.envs.pddl_procedural_generation import \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
     create_spanner_pddl_generator, create_detypedmiconic_pddl_generator, \
     create_detypeddelivery_pddl_generator, create_detypedforest_pddl_generator, \
-    create_logistics_pddl_generator, create_detypedspanner_pddl_generator
+    create_logistics_pddl_generator, create_detypedspanner_pddl_generator, \
+    create_detypedtransport_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, PDDLProblemGenerator, Predicate, State, \
@@ -826,6 +827,46 @@ class ProceduralTasksDetypedSpannerPDDLEnv(_DetypedSpannerPDDLEnv):
                                              min_locs, max_locs)
 
 
+class _DetypedTransportPDDLEnv(_PDDLEnv):
+    """The detyped transport domain."""
+
+    @classmethod
+    def get_domain_str(cls) -> str:
+        path = utils.get_env_asset_path("pddl/detypedtransport/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+class ProceduralTasksDetypedTransportPDDLEnv(_DetypedTransportPDDLEnv):
+    """The transport domain detyped with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_detypedtransport_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_locs = CFG.pddl_transport_procedural_train_min_num_locs
+        max_locs = CFG.pddl_transport_procedural_train_max_num_locs
+        min_packages = CFG.pddl_transport_procedural_train_min_num_packages
+        max_packages = CFG.pddl_transport_procedural_train_max_num_packages
+        min_vehicles = CFG.pddl_transport_procedural_train_min_num_vehicles
+        max_vehicles = CFG.pddl_transport_procedural_train_max_num_vehicles
+        min_capacity = CFG.pddl_transport_procedural_train_min_capacity
+        max_capacity = CFG.pddl_transport_procedural_train_max_capacity
+        return create_detypedtransport_pddl_generator(min_locs, max_locs, min_packages, max_packages, min_vehicles, max_vehicles, min_capacity, max_capacity)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_locs = CFG.pddl_transport_procedural_test_min_num_locs
+        max_locs = CFG.pddl_transport_procedural_test_max_num_locs
+        min_packages = CFG.pddl_transport_procedural_test_min_num_packages
+        max_packages = CFG.pddl_transport_procedural_test_max_num_packages
+        min_vehicles = CFG.pddl_transport_procedural_test_min_num_vehicles
+        max_vehicles = CFG.pddl_transport_procedural_test_max_num_vehicles
+        min_capacity = CFG.pddl_transport_procedural_test_min_capacity
+        max_capacity = CFG.pddl_transport_procedural_test_max_capacity
+        return create_detypedtransport_pddl_generator(min_locs, max_locs, min_packages, max_packages, min_vehicles, max_vehicles, min_capacity, max_capacity)
 
 
 ###############################################################################
