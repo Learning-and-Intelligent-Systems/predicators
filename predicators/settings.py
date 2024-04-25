@@ -220,8 +220,8 @@ class GlobalSettings:
     pddl_spanner_procedural_test_max_locs = 30
 
     # pddl forest env parameters
-    pddl_forest_procedural_train_min_size = 8
-    pddl_forest_procedural_train_max_size = 10
+    pddl_forest_procedural_train_min_size = 6
+    pddl_forest_procedural_train_max_size = 8
     pddl_forest_procedural_test_min_size = 10
     pddl_forest_procedural_test_max_size = 12
 
@@ -282,6 +282,26 @@ class GlobalSettings:
     pddl_logistics_procedural_test_max_locations_per_city = 15
     pddl_logistics_procedural_test_min_objects = 3
     pddl_logistics_procedural_test_max_objects = 9
+
+    # pddl transport env parameters
+    pddl_transport_procedural_train_min_num_locs = 2
+    pddl_transport_procedural_train_max_num_locs = 3
+    pddl_transport_procedural_train_min_num_packages = 1
+    pddl_transport_procedural_train_max_num_packages = 2
+    pddl_transport_procedural_train_min_num_vehicles = 1
+    pddl_transport_procedural_train_max_num_vehicles = 2
+    pddl_transport_procedural_train_min_capacity = 1
+    pddl_transport_procedural_train_max_capacity = 2
+    pddl_transport_procedural_test_min_num_locs = 7
+    pddl_transport_procedural_test_max_num_locs = 10
+    pddl_transport_procedural_test_min_num_packages = 3
+    pddl_transport_procedural_test_max_num_packages = 5
+    pddl_transport_procedural_test_min_num_vehicles = 3
+    pddl_transport_procedural_test_max_num_vehicles = 5
+    pddl_transport_procedural_test_min_capacity = 1
+    pddl_transport_procedural_test_max_capacity = 5
+
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
