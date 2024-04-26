@@ -83,7 +83,7 @@ class VLMPredicateEnv(BaseEnv):
             "VLM debug atom strings not implemented for this environment.")
 
     def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]: # pragma: no cover.
         del num, rng
         raise NotImplementedError("Override!")
 
