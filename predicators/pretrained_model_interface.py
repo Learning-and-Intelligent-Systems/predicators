@@ -236,7 +236,7 @@ class GoogleGeminiVLM(VisionLanguageModel):
         while response is None:
             try:
                 response = self._model.generate_content(
-                    [prompt] + imgs, generation_config=generation_config)
+                    [prompt] + imgs, generation_config=generation_config) # type: ignore
                 break
             except google.api_core.exceptions.ResourceExhausted:
                 # In this case, we've hit a rate limit. Simply wait 3s and
