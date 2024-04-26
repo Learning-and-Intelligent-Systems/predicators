@@ -134,7 +134,7 @@ class VisionLanguageModel(PretrainedLargeModel):
                            temperature: float,
                            seed: int,
                            stop_token: Optional[str] = None,
-                           num_completions: int = 1) -> List[str]:
+                           num_completions: int = 1) -> List[str]: # pragma: no cover
         assert imgs is not None
         return super().sample_completions(prompt, imgs, temperature, seed,
                                           stop_token, num_completions)
@@ -149,7 +149,7 @@ class LargeLanguageModel(PretrainedLargeModel):
                            temperature: float,
                            seed: int,
                            stop_token: Optional[str] = None,
-                           num_completions: int = 1) -> List[str]:
+                           num_completions: int = 1) -> List[str]: # pragma: no cover
         assert imgs is None
         return super().sample_completions(prompt, imgs, temperature, seed,
                                           stop_token, num_completions)
@@ -223,7 +223,7 @@ class GoogleGeminiVLM(VisionLanguageModel):
                             temperature: float,
                             seed: int,
                             stop_token: Optional[str] = None,
-                            num_completions: int = 1) -> List[str]:
+                            num_completions: int = 1) -> List[str]: # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is not None
         generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
