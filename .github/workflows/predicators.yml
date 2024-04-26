@@ -40,8 +40,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -e .
-        pip install -U git+https://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31
-      # Note: if mypy issue #5485 gets resolved, we can install from head again.
     - name: Mypy
       run: |
         mypy . --config-file mypy.ini
