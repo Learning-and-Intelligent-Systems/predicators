@@ -164,7 +164,7 @@ def _generate_prompt_for_scene_labelling(
 def _sample_init_atoms_from_trajectories(
         trajectories: List[ImageOptionTrajectory],
         vlm: VisionLanguageModel,
-        trajectory_subsample_freq=1) -> List[str]:
+        trajectory_subsample_freq: int = 1) -> List[List[str]]:
     """Given a list of ImageOptionTrajectories, query a VLM to generate a list
     of names of ground atoms from which we can extract predicates that might be
     relevant for planning to recreate these trajectories."""
@@ -475,7 +475,8 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
         for idx_within_traj in range(len(option_trajs[traj_num])):
             curr_traj_states.append(traj_init_state)
             curr_trajactions.append(
-                Action(np.zeros(0), option_trajs[traj_num][idx_within_traj]))
+                Action(np.zeros(0, dtype=float),
+                       option_trajs[traj_num][idx_within_traj]))
         # Now, we need to append the final state because there are 1 more
         # states than actions.
         curr_traj_states.append(dummy_goal_states[traj_num])
@@ -585,10 +586,7 @@ def create_ground_atom_data_from_img_trajs(
             atom_strs_proposals_list, all_task_objs)
     else:
         assert isinstance(env, VLMPredicateEnv)
-        atom_proposals_set = env.get_vlm_debug_atom_strs()
-
-    # HACK just for debugging.
-    atom_proposals_set |= env.get_vlm_debug_atom_strs()
+        atom_proposals_set = env.get_vlm_debug_atom_strs
 
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM

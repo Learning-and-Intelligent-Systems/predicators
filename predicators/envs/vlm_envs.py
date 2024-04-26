@@ -4,6 +4,7 @@ Will likely be updated and potentially split into separate files in the
 future.
 """
 
+import abc
 from typing import List, Optional, Sequence, Set
 
 import matplotlib
@@ -73,12 +74,8 @@ class VLMPredicateEnv(BaseEnv):
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise ValueError("shouldn't be trying to render env at any point!")
 
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
-        del num, rng  # unused
-        return []
-
     @property
+    @abc.abstractmethod
     def get_vlm_debug_atom_strs(self) -> Set[str]:
         """Return a set of atom strings that should be sufficient for a VLM to
         label demonstrations consistently to learn good operators."""
@@ -112,20 +109,20 @@ class IceTeaMakingEnv(VLMPredicateEnv):
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused.
         dummy_goal_obj = Object("dummy_goal_obj", self._goal_object_type)
         teabag_obj = Object("teabag", self._teabag_type)
-        # ice_obj = Object("ice", self._ice_type)
         spoon_obj = Object("spoon", self._spoon_type)
         cup_obj = Object("cup", self._cup_type)
         plate_obj = Object("plate", self._plate_type)
         hand_obj = Object("hand", self._hand_type)
         init_state = State({
-            dummy_goal_obj: [0.0],
-            teabag_obj: [],
-            plate_obj: [],
-            spoon_obj: [],
-            cup_obj: [],
-            hand_obj: []
+            dummy_goal_obj: np.array([0.0]),
+            teabag_obj: np.array([]),
+            plate_obj: np.array([]),
+            spoon_obj: np.array([]),
+            cup_obj: np.array([]),
+            hand_obj: np.array([])
         })
         return [
             EnvironmentTask(

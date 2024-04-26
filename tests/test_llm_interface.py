@@ -74,7 +74,7 @@ def test_large_language_model():
                                              0.5,
                                              123,
                                              num_completions=3)
-    assert "No cached response found for LLM prompt." in str(e)
+    assert "No cached response found for prompt." in str(e)
 
 
 def test_openai_llm():

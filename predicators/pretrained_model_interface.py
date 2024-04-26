@@ -75,19 +75,19 @@ class PretrainedLargeModel(abc.ABC):
         os.makedirs(CFG.pretrained_model_prompt_cache_dir, exist_ok=True)
         model_id = self.get_id()
         prompt_id = hash(prompt)
+        config_id = f"{temperature}_{seed}_{num_completions}_" + \
+                f"{stop_token}"
+        # If the temperature is 0, the seed does not matter.
+        if temperature == 0.0:
+            config_id = f"most_likely_{num_completions}_{stop_token}"
+        cache_foldername = f"{model_id}_{config_id}_{prompt_id}"
         if imgs is not None:
             # We also need to hash all the images in the prompt.
             img_hash_list: List[str] = []
             for img in imgs:
                 img_hash_list.append(str(imagehash.phash(img)))
             imgs_id = "".join(img_hash_list)
-            # If the temperature is 0, the seed does not matter.
-            if temperature == 0.0:
-                config_id = f"most_likely_{num_completions}_{stop_token}"
-            else:
-                config_id = f"{temperature}_{seed}_{num_completions}_" + \
-                f"{stop_token}"
-        cache_foldername = f"{model_id}_{config_id}_{prompt_id}_{imgs_id}"
+            cache_foldername += f"{imgs_id}"
         cache_folderpath = os.path.join(CFG.pretrained_model_prompt_cache_dir,
                                         cache_foldername)
         os.makedirs(cache_folderpath, exist_ok=True)
