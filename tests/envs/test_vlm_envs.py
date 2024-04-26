@@ -12,7 +12,7 @@ def test_ice_tea_making():
     """Tests for the Iced Tea Making environment."""
     utils.reset_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = IceTeaMakingEnv()
-    env.get_name() == "iced_tea_making"
+    assert env.get_name() == "iced_tea_making"
     assert len(env.types) == 7
     assert len(env.predicates) == 1
     assert len(env.goal_predicates) == 1

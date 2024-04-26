@@ -124,6 +124,47 @@ def test_predicate_grammar(segmenter):
     utils.update_config({"grammar_search_use_handcoded_debug_grammar": False})
 
 
+def test_labelled_atoms_invention():
+    """Tests for _PredicateGrammar class."""
+    utils.reset_config({
+        "env": "cover",
+        "offline_data_method": "demo+labeled_atoms"
+    })
+    env = CoverEnv()
+    train_task = env.get_train_tasks()[0].task
+    state = train_task.init
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    block = [o for o in state if o.name == "block0"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    state.set(block, "grasp", -1)
+    other_state.set(block, "grasp", 1)
+    preds = env.predicates
+    assert len(preds) == 5
+    ground_atoms = []
+    for s in [state, other_state]:
+        curr_state_atoms = utils.abstract(s, preds)
+        ground_atoms.append(curr_state_atoms)
+
+    ll_trajs = [
+        LowLevelTrajectory([state, other_state],
+                           [Action(np.zeros(1, dtype=np.float32))])
+    ]
+    dataset = Dataset(ll_trajs, [ground_atoms])
+
+    approach = GrammarSearchInventionApproach(env.predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              [train_task])
+
+    with pytest.raises(AssertionError):
+        # The below command should fail because even though it should be able
+        # to extract predicates from the dataset, the trajectories' actions
+        # don't have options that can be used.
+        approach.learn_from_offline_dataset(dataset)
+
+
 def test_euclidean_grammar():
     """Tests for the EuclideanGrammar."""
     utils.reset_config({"env": "stick_button_move"})

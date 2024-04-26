@@ -14,8 +14,10 @@ class TeaMakingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {"iced_tea_making"}
 
     @staticmethod
-    def get_nsrts(env_name: str, types: Dict[str, Type],
-                  predicates: Dict[str, Predicate],
-                  options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
+    def get_nsrts(
+        env_name: str, types: Dict[str, Type], predicates: Dict[str,
+                                                                Predicate],
+        options: Dict[str,
+                      ParameterizedOption]) -> Set[NSRT]:  # pragma: no cover
         # For now, there are just no NSRTs
         return set()

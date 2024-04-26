@@ -128,13 +128,14 @@ class PretrainedLargeModel(abc.ABC):
 class VisionLanguageModel(PretrainedLargeModel):
     """A class for all VLM's."""
 
-    def sample_completions(self,
-                           prompt: str,
-                           imgs: Optional[List[PIL.Image.Image]],
-                           temperature: float,
-                           seed: int,
-                           stop_token: Optional[str] = None,
-                           num_completions: int = 1) -> List[str]: # pragma: no cover
+    def sample_completions(
+            self,
+            prompt: str,
+            imgs: Optional[List[PIL.Image.Image]],
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
         assert imgs is not None
         return super().sample_completions(prompt, imgs, temperature, seed,
                                           stop_token, num_completions)
@@ -143,13 +144,14 @@ class VisionLanguageModel(PretrainedLargeModel):
 class LargeLanguageModel(PretrainedLargeModel):
     """A class for all LLM's."""
 
-    def sample_completions(self,
-                           prompt: str,
-                           imgs: Optional[List[PIL.Image.Image]],
-                           temperature: float,
-                           seed: int,
-                           stop_token: Optional[str] = None,
-                           num_completions: int = 1) -> List[str]: # pragma: no cover
+    def sample_completions(
+            self,
+            prompt: str,
+            imgs: Optional[List[PIL.Image.Image]],
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
         assert imgs is None
         return super().sample_completions(prompt, imgs, temperature, seed,
                                           stop_token, num_completions)
@@ -217,13 +219,14 @@ class GoogleGeminiVLM(VisionLanguageModel):
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
 
-    def _sample_completions(self,
-                            prompt: str,
-                            imgs: Optional[List[PIL.Image.Image]],
-                            temperature: float,
-                            seed: int,
-                            stop_token: Optional[str] = None,
-                            num_completions: int = 1) -> List[str]: # pragma: no cover
+    def _sample_completions(
+            self,
+            prompt: str,
+            imgs: Optional[List[PIL.Image.Image]],
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is not None
         generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member

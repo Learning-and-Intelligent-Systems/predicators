@@ -6,7 +6,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 import PIL.Image
@@ -118,46 +118,45 @@ def _generate_prompt_for_scene_labelling(
         atoms_list: List[str]) -> List[Tuple[str, List[PIL.Image.Image]]]:
     """Prompt for generating labels for truth values of atoms in a scene."""
     ret_list = []
-    if "per_scene" in CFG.grammar_search_vlm_atom_label_prompt_type:
-        if CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_naive":
-            prompt = (
-                "You are a vision system for a robot. Your job is to output "
-                "the values of the following predicates based on the provided "
-                "visual scene. For each predicate, output True, False, or "
-                "Unknown if the relevant objects are not in the scene or the "
-                "value of the predicate simply cannot be determined. "
-                "Output each predicate value as a bulleted list with each "
-                "predicate and value on a different line. "
-                "Use the format: <predicate>: <truth_value>. "
-                "Ensure there is a period ('.') after every list item. "
-                "Do not output any text except the names and truth values of "
-                "predicates."
-                "\nPredicates:")
-        elif CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_cot":
-            prompt = (
-                "You are a vision system for a robot. Your job is to output "
-                "the values of the following predicates based on the provided "
-                "visual scene. For each predicate, output True, False, or "
-                "Unknown if the relevant objects are not in the scene or the "
-                "value of the predicate simply cannot be determined. "
-                "Output each predicate value as a bulleted list with each "
-                "predicate and value on a different line. "
-                "For each output value, provide an explanation as to why you "
-                "labelled this predicate as having this particular value."
-                "Use the format: <predicate>: <truth_value>. <explanation>."
-                "\nPredicates:")
-        else:
-            raise ValueError(
-                "Unknown option for grammar_search_vlm_atom_label_prompt_type"
-                f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-        for atom_str in atoms_list:
-            prompt += f"\n{atom_str}"
-        for currimgs in traj.imgs:
-            # NOTE: we rip out just one img from each of the state
-            # images. This is fine/works for the case where we only
-            # have one camera view, but probably will need to be
-            # amended in the future!
-            ret_list.append((prompt, [currimgs[0]]))
+    if CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_naive":
+        prompt = (
+            "You are a vision system for a robot. Your job is to output "
+            "the values of the following predicates based on the provided "
+            "visual scene. For each predicate, output True, False, or "
+            "Unknown if the relevant objects are not in the scene or the "
+            "value of the predicate simply cannot be determined. "
+            "Output each predicate value as a bulleted list with each "
+            "predicate and value on a different line. "
+            "Use the format: <predicate>: <truth_value>. "
+            "Ensure there is a period ('.') after every list item. "
+            "Do not output any text except the names and truth values of "
+            "predicates."
+            "\nPredicates:")
+    elif CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_cot":
+        prompt = (
+            "You are a vision system for a robot. Your job is to output "
+            "the values of the following predicates based on the provided "
+            "visual scene. For each predicate, output True, False, or "
+            "Unknown if the relevant objects are not in the scene or the "
+            "value of the predicate simply cannot be determined. "
+            "Output each predicate value as a bulleted list with each "
+            "predicate and value on a different line. "
+            "For each output value, provide an explanation as to why you "
+            "labelled this predicate as having this particular value."
+            "Use the format: <predicate>: <truth_value>. <explanation>."
+            "\nPredicates:")
+    else:
+        raise ValueError(
+            "Unknown option for grammar_search_vlm_atom_label_prompt_type"
+            f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
+    for atom_str in atoms_list:
+        prompt += f"\n{atom_str}"
+    for currimgs in traj.imgs:
+        # NOTE: we rip out just one img from each of the state
+        # images. This is fine/works for the case where we only
+        # have one camera view, but probably will need to be
+        # amended in the future!
+        ret_list.append((prompt, [currimgs[0]]))
     return ret_list
 
 
@@ -237,7 +236,9 @@ def _parse_unique_atom_proposals_from_list(
         # Regex pattern to match predicates
         atom_match_pattern = r"\b[a-z_]+\([a-z0-9, ]+\)"
         # Find all matches in the text
-        matches = re.findall(atom_match_pattern, curr_atoms_proposal)
+        matches = re.findall(atom_match_pattern,
+                             curr_atoms_proposal,
+                             flags=re.IGNORECASE)
         for atom_proposal_txt in matches:
             num_atoms_considered += 1
             atom_is_valid = True
@@ -325,7 +326,9 @@ def _parse_structured_state_into_ground_atoms(
         assert obj_type.name == "object"
     assert obj_type is not None
 
-    def _stripped_classifier(state: State, objects: Sequence[Object]) -> bool:
+    def _stripped_classifier(
+            state: State,
+            objects: Sequence[Object]) -> bool:  # pragma: no cover.
         raise Exception("Stripped classifier should never be called!")
 
     pred_name_to_pred = {}
@@ -399,7 +402,7 @@ def _parse_structured_state_into_ground_atoms(
     return atoms_trajs
 
 
-def _parse_structuredactions_into_ground_options(
+def _parse_structured_actions_into_ground_options(
         structuredactions_trajs: List[List[Tuple[str, Tuple[str, ...],
                                                  List[float]]]],
         known_options: Set[ParameterizedOption],
@@ -500,8 +503,10 @@ def _pretty_print_atoms_trajs(
 
 
 def create_ground_atom_data_from_img_trajs(
-        env: BaseEnv, train_tasks: List[Task],
-        known_options: Set[ParameterizedOption]) -> Dataset:
+        env: BaseEnv,
+        train_tasks: List[Task],
+        known_options: Set[ParameterizedOption],
+        vlm: Optional[VisionLanguageModel] = None) -> Dataset:
     """Given a folder containing trajectories that have images of scenes for
     each state, as well as options that transition between these states, output
     a dataset."""
@@ -575,19 +580,20 @@ def create_ground_atom_data_from_img_trajs(
                                   ground_option_traj, True, train_task_idx))
     # Given trajectories, we can now query the VLM to get proposals for ground
     # atoms that might be relevant to decision-making.
-    gemini_vlm = GoogleGeminiVLM(CFG.vlm_model_name)
+    if vlm is None:
+        vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
+
     if not CFG.grammar_search_vlm_atom_proposal_use_debug:
         logging.info("Querying VLM for candidate atom proposals...")
         atom_strs_proposals_list = _sample_init_atoms_from_trajectories(
-            image_option_trajs, gemini_vlm, 1)
+            image_option_trajs, vlm, 1)
         logging.info("Done querying VLM for candidate atoms!")
         # We now parse and sanitize this set of atoms.
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
-    else:
+    else:  # pragma: no cover.
         assert isinstance(env, VLMPredicateEnv)
         atom_proposals_set = env.get_vlm_debug_atom_strs
-
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
@@ -596,11 +602,9 @@ def create_ground_atom_data_from_img_trajs(
     unique_atoms_list = sorted(atom_proposals_set)
     # Now, query the VLM!
     logging.info("Querying VLM to label every scene...")
-    atom_labels = _label_trajectories_with_atom_values(image_option_trajs,
-                                                       gemini_vlm,
+    atom_labels = _label_trajectories_with_atom_values(image_option_trajs, vlm,
                                                        unique_atoms_list)
     logging.info("Done querying VLM for scene labelling!")
-
     # Save the output as a human-readable txt file.
     save_labelled_trajs_as_txt(
         env, atom_labels, [io_traj.actions for io_traj in image_option_trajs])
@@ -651,7 +655,7 @@ def create_ground_atom_data_from_labeled_txt(
     ground_atoms_trajs = _parse_structured_state_into_ground_atoms(
         env, train_tasks, structured_states)
     _pretty_print_atoms_trajs(ground_atoms_trajs)
-    option_trajs = _parse_structuredactions_into_ground_options(
+    option_trajs = _parse_structured_actions_into_ground_options(
         structuredactions, known_options, train_tasks)
     # We need to create the goal state for every train task, just
     # as in the above function.

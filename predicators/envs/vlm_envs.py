@@ -82,6 +82,11 @@ class VLMPredicateEnv(BaseEnv):
         raise NotImplementedError(
             "VLM debug atom strings not implemented for this environment.")
 
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del num, rng
+        raise NotImplementedError("Override!")
+
 
 class IceTeaMakingEnv(VLMPredicateEnv):
     """An environment to test demonstrations involving making a cup of tea."""

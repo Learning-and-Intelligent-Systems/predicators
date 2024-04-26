@@ -1,0 +1,29 @@
+===
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+pick(teabag, hand)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+place_in(teabag, cup)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+pick(spoon, hand)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+place_in(spoon, cup)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.}
+===

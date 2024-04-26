@@ -18,9 +18,11 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {"iced_tea_making"}
 
     @classmethod
-    def get_options(cls, env_name: str, types: Dict[str, Type],
-                    predicates: Dict[str, Predicate],
-                    action_space: Box) -> Set[ParameterizedOption]:
+    def get_options(
+            cls, env_name: str, types: Dict[str,
+                                            Type], predicates: Dict[str,
+                                                                    Predicate],
+            action_space: Box) -> Set[ParameterizedOption]:  # pragma: no cover
 
         del env_name, predicates  # unused.
 
@@ -45,7 +47,8 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {Pick, PlaceInCup}
 
     @classmethod
-    def _create_dummy_policy(cls, action_space: Box) -> ParameterizedPolicy:
+    def _create_dummy_policy(
+            cls, action_space: Box) -> ParameterizedPolicy:  # pragma: no cover
         del action_space  # unused
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],

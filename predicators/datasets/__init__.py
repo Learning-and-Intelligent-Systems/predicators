@@ -43,7 +43,9 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         n = int(CFG.teacher_dataset_num_examples)
         assert n >= 1, "Must have at least 1 example of each predicate"
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
-    if CFG.offline_data_method == "img_demos":
+    if CFG.offline_data_method == "img_demos":  # pragma: no cover.
+        # NOTE: this below method is tested separately; it's just that testing
+        # it by calling the above function is painful...
         return create_ground_atom_data_from_img_trajs(env, train_tasks,
                                                       known_options)
     if CFG.offline_data_method == "demo+labeled_atoms":

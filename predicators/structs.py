@@ -1152,18 +1152,6 @@ class ImageOptionTrajectory:
         """Actions in the trajectory."""
         return self._actions
 
-    @property
-    def is_demo(self) -> bool:
-        """Whether this trajectory is a demonstration."""
-        return self._is_demo
-
-    @property
-    def train_task_idx(self) -> int:
-        """The index of the train task."""
-        assert self._train_task_idx is not None, \
-            "This trajectory doesn't contain a train task idx!"
-        return self._train_task_idx
-
 
 @dataclass(repr=False, eq=False)
 class Dataset:

@@ -4,11 +4,11 @@ import os
 import shutil
 
 import pytest
+from PIL import Image
 
 from predicators import utils
-from predicators.pretrained_model_interface import LargeLanguageModel, \
-    OpenAILLM, VisionLanguageModel, GoogleGeminiVLM
-from PIL import Image
+from predicators.pretrained_model_interface import GoogleGeminiVLM, \
+    LargeLanguageModel, OpenAILLM, VisionLanguageModel
 
 
 class _DummyLLM(LargeLanguageModel):
@@ -30,7 +30,8 @@ class _DummyLLM(LargeLanguageModel):
                           f"Temp: {temperature:.1f}. Stop: {stop_token}.")
             completions.append(completion)
         return completions
-    
+
+
 class _DummyVLM(VisionLanguageModel):
 
     def get_id(self):
@@ -108,8 +109,7 @@ def test_vision_language_model():
     vlm = _DummyVLM()
     assert vlm.get_id() == "dummy"
     dummy_img = Image.new('RGB', (100, 100))
-    completions = vlm.sample_completions("Hello!",
-                                         [dummy_img],
+    completions = vlm.sample_completions("Hello!", [dummy_img],
                                          0.5,
                                          123,
                                          stop_token="#stop",
@@ -136,6 +136,7 @@ def test_openai_llm():
     # completions2 = llm.sample_completions("Hi", 0.5, 123, num_completions=2)
     # assert completions == completions2
     # shutil.rmtree(cache_dir)
+
 
 def test_gemini_vlm():
     """Tests for GoogleGeminiVLM()."""
