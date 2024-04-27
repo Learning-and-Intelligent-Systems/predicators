@@ -98,6 +98,7 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         # Query the LLM.
         llm_predictions = self._llm.sample_completions(
             prompt=prompt,
+            imgs=None,
             temperature=CFG.llm_temperature,
             seed=CFG.seed,
             num_completions=CFG.llm_num_completions,

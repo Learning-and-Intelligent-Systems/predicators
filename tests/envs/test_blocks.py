@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 import predicators.envs.blocks
+import predicators.pretrained_model_interface
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
 from predicators.ground_truth_models import get_gt_options

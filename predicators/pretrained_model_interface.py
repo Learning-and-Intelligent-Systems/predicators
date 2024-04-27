@@ -63,12 +63,10 @@ class PretrainedLargeModel(abc.ABC):
         """Sample one or more completions from a prompt.
 
         Higher temperatures will increase the variance in the responses.
-
         The seed may not be used and the results may therefore not be
-        reproducible for models where we only have access through an API that
-        does not expose the ability to set a random seed.
-
-        Responses are saved to disk.
+        reproducible for models where we only have access through an API
+        that does not expose the ability to set a random seed. Responses
+        are saved to disk.
         """
         # Set up the cache file.
         assert _CACHE_SEP not in prompt

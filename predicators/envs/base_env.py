@@ -298,6 +298,7 @@ class BaseEnv(abc.ABC):
         prompt = prompt_prefix + f"\n# {language_goal}"
         llm = OpenAILLM(CFG.llm_model_name)
         responses = llm.sample_completions(prompt,
+                                           None,
                                            temperature=0.0,
                                            seed=CFG.seed,
                                            stop_token="#",
