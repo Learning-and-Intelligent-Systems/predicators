@@ -68,7 +68,7 @@ class BilevelPlanningApproach(BaseApproach):
             self._last_atoms_seq = atoms_seq
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
                                                       self._rng)
-            print(f"FOUND A PLAN OF LENGTH {len(nsrt_plan)}")
+            logging.info(f"FOUND A PLAN OF LENGTH {len(nsrt_plan)}")
             logging.debug("Current Task Plan:")
             for act in nsrt_plan:
                 logging.debug(act)
@@ -138,10 +138,10 @@ class BilevelPlanningApproach(BaseApproach):
                 max_horizon=float(CFG.horizon),
                 **kwargs)
         except PlanningFailure as e:
-            print(f"PLANNING FAILURE: {str(e)}")
+            logging.info(f"PLANNING FAILURE: {str(e)}")
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
-            print(f"PLANNING TIMEOUT: {str(e)}")
+            logging.info(f"PLANNING TIMEOUT: {str(e)}")
             raise ApproachTimeout(e.args[0], e.info)
 
         return plan, atoms_seq, metrics
