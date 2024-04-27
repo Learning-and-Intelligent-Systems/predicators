@@ -388,12 +388,15 @@ class GlobalSettings:
     nsrt_rl_valid_reward_steps_threshold = 10
 
     # parameters for large language models
-    llm_prompt_cache_dir = "llm_cache"
+    pretrained_model_prompt_cache_dir = "pretrained_model_cache"
     llm_openai_max_response_tokens = 700
     llm_use_cache_only = False
     llm_model_name = "text-curie-001"  # "text-davinci-002"
     llm_temperature = 0.5
     llm_num_completions = 1
+
+    # parameters for vision language models
+    vlm_model_name = "gemini-pro-vision"  # "gemini-1.5-pro-latest"
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"

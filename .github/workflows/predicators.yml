@@ -41,7 +41,6 @@ jobs:
       run: |
         pip install -e .
         pip install mypy==1.8.0
-      # Note: if mypy issue #5485 gets resolved, we can install from head again.
     - name: Mypy
       run: |
         mypy . --config-file mypy.ini
