@@ -84,6 +84,10 @@ class PretrainedLargeModel(abc.ABC):
             img_hash_list: List[str] = []
             for img in imgs:
                 img_hash_list.append(str(imagehash.phash(img)))
+            # NOTE: it's very possible that this string gets too long and this
+            # causes significant problems for us. We can fix this when it
+            # comes up by hashing this string to a shorter string, using e.g.
+            # https://stackoverflow.com/questions/57263436/hash-like-string-shortener-with-decoder  # pylint:disable=line-too-long
             imgs_id = "".join(img_hash_list)
             cache_foldername += f"{imgs_id}"
         cache_folderpath = os.path.join(CFG.pretrained_model_prompt_cache_dir,

@@ -166,9 +166,6 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         total_score = op_score + pred_penalty + op_penalty
         logging.info(f"\tTotal score: {total_score} computed in "
                      f"{time.perf_counter()-start_time:.3f} seconds")
-        for pnad in pnads:
-            print(pnad)
-        print()
         return total_score
 
     def evaluate_with_operators(self,
