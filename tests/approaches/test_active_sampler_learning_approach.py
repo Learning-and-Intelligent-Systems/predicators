@@ -80,6 +80,7 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
         "active_sampler_learning_object_specific_samplers":
         object_specific,
     })
+    utils.flush_cache()
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = get_gt_options(env.get_name())
