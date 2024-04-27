@@ -1034,6 +1034,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         # Start the search with no candidates.
         init: FrozenSet[Predicate] = frozenset()
+
         # Greedy local hill climbing search.
         if CFG.grammar_search_search_algorithm == "hill_climbing":
             path, _, heuristics = utils.run_hill_climbing(
