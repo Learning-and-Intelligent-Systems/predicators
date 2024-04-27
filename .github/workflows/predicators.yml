@@ -40,6 +40,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -e .
+        pip install mypy==1.8.0
     - name: Mypy
       run: |
         mypy . --config-file mypy.ini
