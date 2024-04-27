@@ -1351,7 +1351,6 @@ def nsrt_plan_to_greedy_option_policy(
     necessary_atoms_queue = list(necessary_atoms_seq)
 
     def _option_policy(state: State) -> _Option:
-        logging.info("[DEBUG] CALLING OPTION POLICY")
         nonlocal cur_nsrt
         if not nsrt_queue:
             raise OptionExecutionFailure("NSRT plan exhausted.")
@@ -1359,12 +1358,8 @@ def nsrt_plan_to_greedy_option_policy(
         if not all(a.holds(state) for a in expected_atoms):
             raise OptionExecutionFailure(
                 "Executing the NSRT failed to achieve the necessary atoms.")
-        logging.info("[DEBUG] Made it past exceptions...")
         cur_nsrt = nsrt_queue.pop(0)
-        logging.info("[DEBUG] Sampling an option...")
         cur_option = cur_nsrt.sample_option(state, goal, rng)
-        logging.info(f"[DEBUG] Using option {cur_option.name}{cur_option.objects} "
-                      "from NSRT plan.")
         logging.debug(f"Using option {cur_option.name}{cur_option.objects} "
                       "from NSRT plan.")
         return cur_option

@@ -740,7 +740,6 @@ def _wrap_object_specific_samplers(
     def _wrapped_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objects: Sequence[Object]) -> Array:
-        logging.info("[DEBUG] WAIT, WHAT???????")
         objects_tuple = tuple(objects)
         # If we haven't yet learned a object-specific sampler for these objects
         # then use the base sampler.
