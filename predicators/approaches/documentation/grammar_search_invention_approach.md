@@ -7,7 +7,7 @@ An example command for running the approach from that paper is:
 python predicators/main.py --env cover --approach grammar_search_invention --excluded_predicates all --num_train_tasks 50
 ```
 
-Last updated: 04/10/2024
+Last updated: 04/27/2024
 
 ## Inventing predicates by leveraging a VLM
 We can leverage a VLM to propose concepts that form the basis of the grammar used for predicate invention. This has two advantages: (1) invented predicates operate directly on images, (2) the names of predicates correspond to common-sense concepts.
@@ -75,6 +75,48 @@ Also, the code saves a human-readable txt file to the `saved_datasets` folder th
 
 where `apple_coring__demo+labeled_atoms__manual__1.txt` is the human-readable txt file.
 
+### Structure of human-readable txt files
+We assume the txt files have a particular structure that we leverage for parsing. To explain these components, consider this below example:
+
+```
+===
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+pick(teabag, hand)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+place_in(teabag, cup)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+pick(spoon, hand)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.} ->
+
+place_in(spoon, cup)[] -> 
+
+{*Holding(spoon): True.
+*Submerged(teabag): False.
+*Submerged(spoon): False.}
+===
+```
+
+**Components**
+- Separator: '===' is used to separate one trajectory from another (so a trajectory is sandwiched between two lines that have only '===' on them). In the above example, there is exactly one demonstration trajectory.
+- State: Each state is a bulleted list of atoms enclosed between set brackets {}. In the above example, there are 5 states. Note importantly that the format of every atom should be `*<predicate_name>(<ob1_name>, <obj2_name>, ...).`. The `*` at the start, and the period `.` at the end are very important.
+- Skill: Each skill is sandwiched between two states and takes the format: `<skill_name>(<ob1_name>, <obj2_name>, ...)[<continuous_param_vector>]`. In the above example, there are 4 skills. Note that after every state, there is a `->` character, followed by a newline, then a skill followed by another `->` character and newline. This is also critical to parsing. Note also that the above example doesn't feature any continuous parameters.
+
+
 ### Future features to be added
 * Enable pipeline to consider demonstrations that have low-level object-oriented state, as well as image observations.
+* Enable invented VLM predicates to actually be used and run at test-time.
 * Consider different VLM's

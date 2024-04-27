@@ -3759,8 +3759,10 @@ def parse_vlmtraj_file_into_structured_trajs(
     GroundAtomTrajectories suitable for predicate invention, operator learning,
     etc.
 
-    We assume the vlmtraj is saved in a txt file with the following encoding
-    scheme: (TODO)
+    We assume the vlmtraj is saved in a txt file with an encoding scheme
+    described in: 
+    `approaches/documentation/grammar_search_invention_approach.md`.
+
     This function outputs two lists of lists, where each element is the output
     of the above parse_handmade_vlmtraj_into_structured_traj function.
     """
