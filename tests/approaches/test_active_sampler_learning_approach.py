@@ -24,7 +24,7 @@ from predicators.teacher import Teacher
      ("myopic_classifier_ensemble", False, 1, "all", False),
      ("fitted_q", False, 0, "all", False), ("fitted_q", True, 0, "all", False),
      ("myopic_classifier_knn", False, 0, "oracle", False),
-     ("myopic_classifier_mlp", False, 0, "all", True)])
+     ("myopic_classifier_mlp", False, 1, "all", True)])
 def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
                                           feat_type, object_specific):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
