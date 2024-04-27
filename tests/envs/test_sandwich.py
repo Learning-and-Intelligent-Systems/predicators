@@ -7,14 +7,14 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-import predicators.llm_interface
+import predicators.pretrained_model_interface
 from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.sandwich import SandwichEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, GroundAtom
 
-_LLM_MODULE_PATH = predicators.llm_interface.__name__
+_LLM_MODULE_PATH = predicators.pretrained_model_interface.__name__
 
 
 def test_sandwich_properties():

@@ -10,7 +10,7 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.ground_truth_models import get_gt_options
-from predicators.llm_interface import LargeLanguageModel
+from predicators.pretrained_model_interface import LargeLanguageModel
 
 
 def test_llm_open_loop_approach():
@@ -19,7 +19,7 @@ def test_llm_open_loop_approach():
     cache_dir = "_fake_llm_cache_dir"
     utils.reset_config({
         "env": env_name,
-        "llm_prompt_cache_dir": cache_dir,
+        "pretrained_model_prompt_cache_dir": cache_dir,
         "approach": "llm_open_loop",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
@@ -51,11 +51,12 @@ def test_llm_open_loop_approach():
 
         def _sample_completions(self,
                                 prompt,
+                                imgs,
                                 temperature,
                                 seed,
                                 stop_token=None,
                                 num_completions=1):
-            del prompt, temperature, seed, stop_token, num_completions
+            del prompt, temperature, seed, stop_token, num_completions, imgs
             return [self.response]
 
     llm = _MockLLM()
