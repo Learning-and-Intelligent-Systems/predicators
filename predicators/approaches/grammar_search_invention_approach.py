@@ -924,7 +924,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def _generate_atom_dataset_via_grammar(
-            self, dataset: Dataset
+        self, dataset: Dataset
     ) -> Tuple[List[GroundAtomTrajectory], Dict[Predicate, float]]:
         """Generates predicates from a grammar, and applies them to the
         dataset."""
@@ -970,7 +970,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return (atom_dataset, candidates)
 
     def _parse_atom_dataset_from_annotated_dataset(
-            self, dataset: Dataset
+        self, dataset: Dataset
     ) -> Tuple[List[GroundAtomTrajectory], Dict[Predicate, float]]:
         """Uses a dataset with annotations to create a candidate predicate set
         and atoms trajectories."""
@@ -989,8 +989,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     assert isinstance(ground_atom, GroundAtom)
                     if ground_atom.predicate not in candidates:
                         # The cost of this predicate is simply its arity.
-                        candidates[ground_atom.predicate] = float(len(
-                            ground_atom.objects))
+                        candidates[ground_atom.predicate] = float(
+                            len(ground_atom.objects))
         logging.debug(f"All candidate predicates: {candidates.keys()}")
         return (atom_dataset, candidates)
 
