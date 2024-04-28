@@ -24,17 +24,19 @@ from predicators.structs import Action, Dataset, GroundAtom, \
 def _generate_prompt_for_atom_proposals(
         traj: ImageOptionTrajectory, trajectory_subsample_freq: int
 ) -> List[Tuple[str, List[PIL.Image.Image]]]:
-    """Prompt for generating proposals for atoms. Note that all our prompts
-    are saved as separate txt files under the 
-    'vlm_input_data_prompts/atom_proposals' folder."""
+    """Prompt for generating proposals for atoms.
+
+    Note that all our prompts are saved as separate txt files under the
+    'vlm_input_data_prompts/atom_proposals' folder.
+    """
     ret_list = []
     filepath_prefix = \
         "predicators/datasets/vlm_input_data_prompts/atom_proposal/"
     try:
         with open(filepath_prefix +
-                CFG.grammar_search_vlm_atom_proposal_prompt_type + ".txt",
-                "r",
-                encoding="utf-8") as f:
+                  CFG.grammar_search_vlm_atom_proposal_prompt_type + ".txt",
+                  "r",
+                  encoding="utf-8") as f:
             prompt = f.read()
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
@@ -71,17 +73,19 @@ def _generate_prompt_for_atom_proposals(
 def _generate_prompt_for_scene_labelling(
         traj: ImageOptionTrajectory,
         atoms_list: List[str]) -> List[Tuple[str, List[PIL.Image.Image]]]:
-    """Prompt for generating labels for some set of atoms. Note that all our 
-    prompts are saved as separate txt files under the 
-    'vlm_input_data_prompts/atom_labelling' folder."""
+    """Prompt for generating labels for some set of atoms.
+
+    Note that all our prompts are saved as separate txt files under the
+    'vlm_input_data_prompts/atom_labelling' folder.
+    """
     ret_list = []
     filepath_prefix = \
         "predicators/datasets/vlm_input_data_prompts/atom_labelling/"
     try:
         with open(filepath_prefix +
-                CFG.grammar_search_vlm_atom_label_prompt_type + ".txt",
-                "r",
-                encoding="utf-8") as f:
+                  CFG.grammar_search_vlm_atom_label_prompt_type + ".txt",
+                  "r",
+                  encoding="utf-8") as f:
             prompt = f.read()
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
