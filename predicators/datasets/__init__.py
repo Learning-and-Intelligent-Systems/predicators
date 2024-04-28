@@ -8,6 +8,7 @@ from predicators.datasets.demo_only import create_demo_data
 from predicators.datasets.demo_replay import create_demo_replay_data
 from predicators.datasets.ground_atom_data import create_ground_atom_data
 from predicators.datasets.vlm_input_data import \
+    create_ground_atom_data_from_img_trajs, \
     create_ground_atom_data_from_labeled_txt
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
@@ -45,6 +46,11 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
     if CFG.offline_data_method == "demo+labeled_atoms":
         return create_ground_atom_data_from_labeled_txt(
             env, train_tasks, known_options)
+    if CFG.offline_data_method == "img_demos":  # pragma: no cover.
+        # NOTE: this below method is tested separately; it's just that testing
+        # it by calling the above function is painful...
+        return create_ground_atom_data_from_img_trajs(env, train_tasks,
+                                                      known_options)
     if CFG.offline_data_method == "empty":
         return Dataset([])
     raise NotImplementedError("Unrecognized dataset method.")
