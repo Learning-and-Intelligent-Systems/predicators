@@ -140,6 +140,9 @@ class IceTeaMakingEnv(VLMPredicateEnv):
 
     @property
     def vlm_debug_atom_strs(self) -> Set[str]:
+        """A 'debug grammar' set of predicates that should be sufficient for
+        completing the task; useful for comparing different methods of VLM
+        truth-value labelling given the same set of atom proposals to label."""
         return set([
             "hand_grasping_spoon(hand, spoon)",
             "hand_grasping_teabag(hand, teabag)", "spoon_in_cup(spoon, cup)",
