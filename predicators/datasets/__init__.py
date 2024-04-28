@@ -7,6 +7,8 @@ from predicators import utils
 from predicators.datasets.demo_only import create_demo_data
 from predicators.datasets.demo_replay import create_demo_replay_data
 from predicators.datasets.ground_atom_data import create_ground_atom_data
+from predicators.datasets.vlm_input_data import \
+    create_ground_atom_data_from_labeled_txt
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Dataset, ParameterizedOption, Task
@@ -40,6 +42,9 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         n = int(CFG.teacher_dataset_num_examples)
         assert n >= 1, "Must have at least 1 example of each predicate"
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
+    if CFG.offline_data_method == "demo+labeled_atoms":
+        return create_ground_atom_data_from_labeled_txt(
+            env, train_tasks, known_options)
     if CFG.offline_data_method == "empty":
         return Dataset([])
     raise NotImplementedError("Unrecognized dataset method.")

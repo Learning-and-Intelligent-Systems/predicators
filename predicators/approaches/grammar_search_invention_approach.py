@@ -24,8 +24,8 @@ from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
-from predicators.structs import Dataset, GroundAtomTrajectory, Object, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type
+from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -923,7 +923,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def _generate_atom_dataset_via_grammar(
+        self, dataset: Dataset
+    ) -> Tuple[List[GroundAtomTrajectory], Dict[Predicate, float]]:
+        """Generates predicates from a grammar, and applies them to the
+        dataset."""
         # Generate a candidate set of predicates.
         logging.info("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
@@ -962,7 +966,42 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             if CFG.save_atoms:
                 utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
         logging.info("Done.")
+        assert atom_dataset is not None
+        return (atom_dataset, candidates)
 
+    def _parse_atom_dataset_from_annotated_dataset(
+        self, dataset: Dataset
+    ) -> Tuple[List[GroundAtomTrajectory], Dict[Predicate, float]]:
+        """Uses a dataset with annotations to create a candidate predicate set
+        and atoms trajectories."""
+        # We rely on the annotations as our ground atom datasets.
+        assert dataset.annotations is not None
+        # We now turn these into GroundAtomTrajectories.
+        atom_dataset = []
+        for traj, atoms in zip(dataset.trajectories, dataset.annotations):
+            atom_dataset.append((traj, atoms))
+        # Also generate the grammar by ripping out all the Predicates
+        # associated with each of the atoms in our sets.
+        candidates = {}
+        for ano_traj in dataset.annotations:
+            for ground_atom_state in ano_traj:
+                for ground_atom in ground_atom_state:
+                    assert isinstance(ground_atom, GroundAtom)
+                    if ground_atom.predicate not in candidates:
+                        # The cost of this predicate is simply its arity.
+                        candidates[ground_atom.predicate] = float(
+                            len(ground_atom.objects))
+        logging.debug(f"All candidate predicates: {candidates.keys()}")
+        return (atom_dataset, candidates)
+
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        if not CFG.offline_data_method == "demo+labeled_atoms":
+            atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
+                dataset)
+        else:
+            # In this case, we're inventing over already-labelled atoms.
+            atom_dataset, candidates = \
+                self._parse_atom_dataset_from_annotated_dataset(dataset)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
