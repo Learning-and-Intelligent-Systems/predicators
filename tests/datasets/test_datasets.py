@@ -10,6 +10,7 @@ from predicators.datasets import create_dataset
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
+from predicators.envs.vlm_envs import IceTeaMakingEnv
 from predicators.ground_truth_models import _get_predicates_by_names, \
     get_gt_options, parse_config_included_options
 from predicators.settings import CFG
@@ -465,3 +466,24 @@ def test_empty_dataset():
     assert len(dataset.trajectories) == 0
     with pytest.raises(AssertionError):
         _ = dataset.annotations
+
+
+def test_loading_txt_files():
+    """Test loading a dataset from a txt file."""
+    utils.reset_config({
+        "env":
+        "ice_tea_making",
+        "num_train_tasks":
+        1,
+        "offline_data_method":
+        "demo+labeled_atoms",
+        "data_dir":
+        "tests/datasets/mock_vlm_datasets",
+        "handmade_demo_filename":
+        "ice_tea_making__demo+labeled_atoms__manual__1.txt"
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    loaded_dataset = create_dataset(env, train_tasks,
+                                    get_gt_options(env.get_name()))
+    assert len(loaded_dataset.trajectories) == 1
