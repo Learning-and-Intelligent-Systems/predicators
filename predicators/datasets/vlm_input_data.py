@@ -2,11 +2,11 @@
 
 import logging
 import os
+import re
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, GroundAtom, \
@@ -116,16 +116,16 @@ def _parse_structured_state_into_ground_atoms(
 
 
 def _parse_structured_actions_into_ground_options(
-        structuredactions_trajs: List[List[Tuple[str, Tuple[str, ...],
-                                                 List[float]]]],
+        structured_actions_trajs: List[List[Tuple[str, Tuple[str, ...],
+                                                  List[float]]]],
         known_options: Set[ParameterizedOption],
         train_tasks: List[Task]) -> List[List[_Option]]:
     """Convert structured actions trajectories into actual lists of ground
     options trajectories."""
-    assert len(structuredactions_trajs) == len(train_tasks)
+    assert len(structured_actions_trajs) == len(train_tasks)
     option_name_to_option = {o.name: o for o in known_options}
     option_trajs = []
-    for i, traj in enumerate(structuredactions_trajs):
+    for i, traj in enumerate(structured_actions_trajs):
         curr_obj_name_to_obj = {
             obj.name: obj
             for obj in set(train_tasks[i].init)
@@ -150,8 +150,9 @@ def _create_dummy_goal_state_for_each_task(
         env: BaseEnv, train_tasks: List[Task]) -> List[State]:
     """Uses a lot of assumptions to generate a state in which a dummy goal
     predicate holds for each train task."""
-    # We assume there is only one goal predicate, and that it is
-    # a dummy goal predicate.
+    # FOR NOW, we assume there is only one goal predicate, and that it is
+    # a dummy goal predicate. In the future, we will implement and use
+    # proper goal predicates.
     assert len(env.goal_predicates) == 1
     goal_preds_list = list(env.goal_predicates)
     goal_predicate = goal_preds_list[0]
@@ -187,22 +188,22 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
     for traj_num in range(len(option_trajs)):
         traj_init_state = train_tasks[traj_num].init
         curr_traj_states = []
-        curr_trajactions = []
+        curr_traj_actions = []
         for idx_within_traj in range(len(option_trajs[traj_num])):
             curr_traj_states.append(traj_init_state)
-            curr_trajactions.append(
+            curr_traj_actions.append(
                 Action(np.zeros(0, dtype=float),
                        option_trajs[traj_num][idx_within_traj]))
         # Now, we need to append the final state because there are 1 more
         # states than actions.
         curr_traj_states.append(dummy_goal_states[traj_num])
-        curr_traj = LowLevelTrajectory(curr_traj_states, curr_trajactions,
+        curr_traj = LowLevelTrajectory(curr_traj_states, curr_traj_actions,
                                        True, traj_num)
         trajs.append(curr_traj)
     return trajs
 
 
-def _pretty_print_atoms_trajs(
+def _debug_log_atoms_trajs(
         ground_atoms_trajs: List[List[Set[GroundAtom]]]) -> None:
     """Debug log the changes in atoms trajectories for easy human-checking."""
     # Log trajectory information in a very easy to parse format for
@@ -215,6 +216,105 @@ def _pretty_print_atoms_trajs(
         logging.debug("\n")
 
 
+def _parse_options_txt_into_structured_actions(
+        text: str) -> List[Tuple[str, Tuple[str, ...], List[float]]]:
+    """Given text that contains a series of ground options convert this into a
+    structured set of tuples suitable for later conversion into more structured
+    GroundAtomTrajectories."""
+    structured_actions_output = []
+    pattern_option = r'(\w+)\(([^)]*)\)\[([\d.,\s]*)\] ->'
+    option_matches = re.findall(pattern_option, text)
+    for i in range(len(option_matches)):
+        current_option_with_objs = (option_matches[i][0],
+                                    tuple(
+                                        map(str.strip,
+                                            option_matches[i][1].split(','))))
+        continuous_params_floats = [
+            float(float_str.strip(' '))
+            for float_str in option_matches[i][2].split(',')
+            if len(float_str) > 0
+        ]
+        structured_actions_output.append(
+            (current_option_with_objs[0], current_option_with_objs[1],
+             continuous_params_floats))
+    return structured_actions_output
+
+
+def _parse_atoms_txt_into_structured_state(
+        text: str) -> List[Dict[str, Dict[Tuple[str, ...], bool]]]:
+    """Given text that contains a series of ground atoms labelled with their
+    specific truth values, convert this into a structured dictionary suitable
+    for later conversion into more structured GroundAtomTrajectories."""
+    pattern_block_of_state = r"\{(.*?[^\d,\s].*?)\}"
+    pattern_predicate = r'(\w+)\(([^)]+)\): (\w+).'
+    state_blocks_matches = re.findall(pattern_block_of_state, text, re.DOTALL)
+    structured_state_output = []
+    for state_block_match in state_blocks_matches:
+        predicate_matches_within_state_block = re.findall(
+            pattern_predicate, state_block_match)
+        current_predicate_data: Dict[str, Dict[Tuple[str, ...], bool]] = {}
+        for predicate_match in predicate_matches_within_state_block:
+            classifier_name = predicate_match[0]
+            objects = tuple(map(str.strip, predicate_match[1].split(',')))
+            truth_value = predicate_match[2] == 'True'
+            if classifier_name not in current_predicate_data:
+                current_predicate_data[classifier_name] = {}
+            current_predicate_data[classifier_name][objects] = truth_value
+        structured_state_output.append(current_predicate_data.copy())
+    return structured_state_output
+
+
+def _parse_vlmtraj_into_structured_traj(
+    text: str
+) -> Tuple[List[Dict[str, Dict[Tuple[str, ...], bool]]], List[Tuple[str, Tuple[
+        str, ...], List[float]]]]:
+    """Parse a handwritten trajectory saved as text into a structured
+    representation that can be used to convert these into a more structured
+    description suitable for later conversion into GroundAtomTrajectories.
+
+    This function outputs two lists. The first contains a dictionary
+    whose keys are names of predicates, and whose values are a dict
+    mapping a tuple of object names to a boolean value for the ground
+    predicate at this particular timestep. The second contains a tuple
+    whose first element is the current option name, and the second
+    element contains all the objects used by this option.
+    """
+    structured_state = _parse_atoms_txt_into_structured_state(text)
+    structured_actions = _parse_options_txt_into_structured_actions(text)
+    assert len(structured_state) == len(
+        structured_actions
+    ) + 1, "Manual data malformed; num states != 1 + num options."
+    return (structured_state, structured_actions)
+
+
+def _parse_vlmtraj_file_into_structured_trajs(
+    filename: str
+) -> Tuple[List[List[Dict[str, Dict[Tuple[str, ...], bool]]]], List[List[Tuple[
+        str, Tuple[str, ...], List[float]]]]]:
+    """Parse a txt file full of handwritten trajectories into a structured
+    representation that can be used to convert these into
+    GroundAtomTrajectories suitable for predicate invention, operator learning,
+    etc.
+
+    We assume the vlmtraj is saved in a txt file with an encoding scheme
+    described in:
+    `approaches/documentation/grammar_search_invention_approach.md`.
+    This function outputs two lists of lists, where each element is the output
+    of the above parse_handmade_vlmtraj_into_structured_traj function.
+    """
+    with open(filename, "r", encoding="utf8") as f:
+        full_file_text = f.read()
+    pattern = r"(?<====\n)(.*?)(?=\n===)"
+    matches = re.findall(pattern, full_file_text, re.DOTALL)
+    output_state_trajs, output_action_trajs = [], []
+    for match in matches:
+        curr_state_traj, curr_action_traj = _parse_vlmtraj_into_structured_traj(
+            match)
+        output_state_trajs.append(curr_state_traj)
+        output_action_trajs.append(curr_action_traj)
+    return (output_state_trajs, output_action_trajs)
+
+
 def create_ground_atom_data_from_labeled_txt(
         env: BaseEnv, train_tasks: List[Task],
         known_options: Set[ParameterizedOption]) -> Dataset:
@@ -223,18 +323,17 @@ def create_ground_atom_data_from_labeled_txt(
     pipeline."""
     dataset_fpath = os.path.join(CFG.data_dir, CFG.handmade_demo_filename)
     # First, parse this dataset into a structured form.
-    structured_states, structuredactions = utils.\
-        parse_vlmtraj_file_into_structured_trajs(dataset_fpath)
-    assert len(structured_states) == len(structuredactions)
+    structured_states, structured_actions = \
+        _parse_vlmtraj_file_into_structured_trajs(dataset_fpath)
+    assert len(structured_states) == len(structured_actions)
     # Next, take this intermediate structured form and further
     # parse it into ground atoms and ground options respectively.
     ground_atoms_trajs = _parse_structured_state_into_ground_atoms(
         env, train_tasks, structured_states)
-    _pretty_print_atoms_trajs(ground_atoms_trajs)
+    _debug_log_atoms_trajs(ground_atoms_trajs)
     option_trajs = _parse_structured_actions_into_ground_options(
-        structuredactions, known_options, train_tasks)
-    # We need to create the goal state for every train task, just
-    # as in the above function.
+        structured_actions, known_options, train_tasks)
+    # We also need to create the goal state for every train task.
     goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
         env, train_tasks)
     # Finally, we need to construct actual LowLevelTrajectories.

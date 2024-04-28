@@ -12,11 +12,10 @@ def test_ice_tea_making():
     """Tests for the Iced Tea Making environment."""
     utils.reset_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = IceTeaMakingEnv()
-    assert env.get_name() == "iced_tea_making"
+    assert env.get_name() == "ice_tea_making"
     assert len(env.types) == 7
     assert len(env.predicates) == 1
     assert len(env.goal_predicates) == 1
-    assert len(env.get_vlm_debug_atom_strs) == 6
     assert len(env.get_train_tasks()) == 5
     assert len(env.get_test_tasks()) == 5
     assert env.action_space.shape == (0, )

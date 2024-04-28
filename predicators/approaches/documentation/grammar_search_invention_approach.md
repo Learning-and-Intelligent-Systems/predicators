@@ -40,7 +40,7 @@ place_in(spoon, cup)[] ->
 
 **Components**
 - Separator: '===' is used to separate one trajectory from another (so a trajectory is sandwiched between two lines that have only '===' on them). In the above example, there is exactly one demonstration trajectory.
-- State: Each state is a bulleted list of atoms enclosed between set brackets {}. In the above example, there are 5 states. Note importantly that the format of every atom should be `*<predicate_name>(<ob1_name>, <obj2_name>, ...).`. The `*` at the start, and the period `.` at the end are very important.
+- State: Each state is a bulleted list of atoms enclosed between set brackets {}. In the above example, there are 5 states. Note importantly that the format of every atom should be `*<predicate_name>(<ob1_name>, <obj2_name>, ...).`. The period `.` at the end is very important.
 - Skill: Each skill is sandwiched between two states and takes the format: `<skill_name>(<ob1_name>, <obj2_name>, ...)[<continuous_param_vector>]`. In the above example, there are 4 skills. Note that after every state, there is a `->` character, followed by a newline, then a skill followed by another `->` character and newline. This is also critical to parsing. Note also that the above example doesn't feature any continuous parameters.
 
 

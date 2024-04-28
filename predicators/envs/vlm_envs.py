@@ -4,7 +4,6 @@ Will likely be updated and potentially split into separate files in the
 future.
 """
 
-import abc
 from typing import List, Optional, Sequence, Set
 
 import matplotlib
@@ -37,7 +36,7 @@ class VLMPredicateEnv(BaseEnv):
                                     self._Dummy_Goal_holds)
 
     def simulate(self, state: State, action: Action) -> State:
-        raise ValueError("simulate shouldn't be getting called!")
+        raise ValueError("Simulate shouldn't be getting called!")
 
     @property
     def types(self) -> Set[Type]:
@@ -56,11 +55,11 @@ class VLMPredicateEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return set([self._DummyGoal])
+        return {self._DummyGoal}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return set([self._DummyGoal])
+        return {self._DummyGoal}
 
     @property
     def action_space(self) -> Box:
@@ -74,14 +73,6 @@ class VLMPredicateEnv(BaseEnv):
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise ValueError("shouldn't be trying to render env at any point!")
 
-    @property
-    @abc.abstractmethod
-    def get_vlm_debug_atom_strs(self) -> Set[str]:
-        """Return a set of atom strings that should be sufficient for a VLM to
-        label demonstrations consistently to learn good operators."""
-        raise NotImplementedError(
-            "VLM debug atom strings not implemented for this environment.")
-
     def _get_tasks(
         self, num: int, rng: np.random.Generator
     ) -> List[EnvironmentTask]:  # pragma: no cover.
@@ -90,7 +81,8 @@ class VLMPredicateEnv(BaseEnv):
 
 
 class IceTeaMakingEnv(VLMPredicateEnv):
-    """An environment to test demonstrations involving making a cup of tea."""
+    """A (simplified) version of a tea-making task that's closer to pick-and-
+    place than real tea-making."""
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -104,7 +96,7 @@ class IceTeaMakingEnv(VLMPredicateEnv):
 
     @classmethod
     def get_name(cls) -> str:
-        return "iced_tea_making"
+        return "ice_tea_making"
 
     @property
     def types(self) -> Set[Type]:
@@ -136,12 +128,3 @@ class IceTeaMakingEnv(VLMPredicateEnv):
                 set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
             for _ in range(num)
         ]
-
-    @property
-    def get_vlm_debug_atom_strs(self) -> Set[str]:
-        return set([
-            "hand_grasping_spoon(hand, spoon)",
-            "hand_grasping_teabag(hand, teabag)", "spoon_in_cup(spoon, cup)",
-            "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
-            "teabag_on_plate(teabag, plate)"
-        ])

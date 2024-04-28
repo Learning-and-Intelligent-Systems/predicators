@@ -11,7 +11,7 @@ class TeaMakingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"iced_tea_making"}
+        return {"ice_tea_making"}
 
     @staticmethod
     def get_nsrts(

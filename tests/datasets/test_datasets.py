@@ -472,7 +472,7 @@ def test_loading_txt_files():
     """Test loading a dataset from a txt file."""
     utils.reset_config({
         "env":
-        "iced_tea_making",
+        "ice_tea_making",
         "num_train_tasks":
         1,
         "offline_data_method":
@@ -480,7 +480,7 @@ def test_loading_txt_files():
         "data_dir":
         "tests/datasets/mock_vlm_datasets",
         "handmade_demo_filename":
-        "iced_tea_making__demo+labeled_atoms__manual__1.txt"
+        "ice_tea_making__demo+labeled_atoms__manual__1.txt"
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
