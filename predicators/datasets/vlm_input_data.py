@@ -24,52 +24,32 @@ from predicators.structs import Action, Dataset, GroundAtom, \
 def _generate_prompt_for_atom_proposals(
         traj: ImageOptionTrajectory, trajectory_subsample_freq: int
 ) -> List[Tuple[str, List[PIL.Image.Image]]]:
-    """Prompt for generating proposals for atoms."""
+    """Prompt for generating proposals for atoms. Note that all our prompts
+    are saved as separate txt files under the 
+    'vlm_input_data_prompts/atom_proposals' folder."""
     ret_list = []
+    filepath_prefix = \
+        "predicators/datasets/vlm_input_data_prompts/atom_proposal/"
+    try:
+        with open(filepath_prefix +
+                CFG.grammar_search_vlm_atom_proposal_prompt_type + ".txt",
+                "r",
+                encoding="utf-8") as f:
+            prompt = f.read()
+    except FileNotFoundError:
+        raise ValueError("Unknown VLM prompting option " +
+                         f"{CFG.grammar_search_vlm_atom_proposal_prompt_type}")
+    prompt = prompt.format(objs=[
+        str(obj.name) for obj in traj.objects if obj.name != 'dummy_goal_obj'
+    ])
+
     if CFG.grammar_search_vlm_atom_proposal_prompt_type == "naive_each_step":
-        prompt = (
-            "You are a robotic vision system whose job is to output a "
-            "structured set of predicates useful for running a "
-            "task and motion "
-            "planning system from the following scene. Please provide "
-            "predicates in terms of the following objects: "
-            f"{[str(obj.name) for obj in traj.objects if obj.name != 'dummy_goal_obj']}. "  # pylint:disable=line-too-long
-            "For each predicate, output it in the following format: "
-            "predicate_name(obj1, obj2, obj3...) "
-            "(for instance is_sliced(apple), is_not_sliced(apple), etc.). "
-            "Also, for each predicate you list, list its negation. "
-            "List as many predicates as you can possibly think of, even if "
-            "they're only "
-            "tangentially relevant to what you see in the scene and even "
-            "if they're false, "
-            "given the following scene taken from a demonstration for the "
-            "task."
-            "Do not list any other text other than the names and arguments "
-            "of predicates. "
-            "List each proposal as a bulleted list item on a separate line.")
         i = 0
         while i < len(traj.imgs):
             ret_list.append((prompt, traj.imgs[i]))
             i += trajectory_subsample_freq
     elif CFG.grammar_search_vlm_atom_proposal_prompt_type == \
         "naive_whole_traj":
-        prompt = (
-            "You are a robotic vision system whose job is to output a "
-            "structured set of predicates useful for describing the "
-            "important concepts from "
-            "the following demonstration. Please provide predicates "
-            "in terms of the objects: "
-            f"{[obj.name for obj in traj.objects if obj.name != 'dummy_goal_obj']}. "  # pylint:disable=line-too-long
-            "For each predicate, output it in the following format: "
-            "predicate_name(obj1, obj2, obj3...) "
-            "(for instance is_sliced(apple), is_not_sliced(apple), etc.). "
-            "Also, for each predicate you list, list its negation. "
-            "Generate as many predicates as you can possibly think of, "
-            "even if they're only "
-            "tangentially relevant to the task goal: 'make a cup of ice tea'"
-            "Do not list any other text other than the names and arguments "
-            "of predicates. "
-            "List each proposal as a bulleted list item on a separate line.")
         # NOTE: we rip out just one img from each of the state images.
         # This is fine/works for the case where we only have one
         # camera view, but probably will need to be amended in the future!
@@ -77,27 +57,6 @@ def _generate_prompt_for_atom_proposals(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
     elif CFG.grammar_search_vlm_atom_proposal_prompt_type == \
         "options_labels_whole_traj":
-        prompt = (
-            "You are a robotic vision system whose job is to output a "
-            "structured "
-            "set of predicates useful for describing important concepts "
-            "in the "
-            "following demonstration of a task. You will be provided with "
-            "a list "
-            "of actions used during the task, as well as images of "
-            "states before "
-            "and after every action execution. Please provide predicates "
-            "in terms "
-            "of the following objects: [teabag, hand, plate, cup, ice]. "
-            "For each "
-            "predicate, output it in the following format: "
-            "predicate_name(obj1, obj2, obj3...). Start by generating "
-            "predicates "
-            "that change before and after each action. After this, "
-            "generate any "
-            "other predicates that perhaps do not change but are still "
-            "important to describing the demonstration shown."
-            "\n\nActions executed as part of demonstration:\n")
         prompt += "\n".join(act.name + str(act.objects)
                             for act in traj.actions)
         # NOTE: we rip out just one img from each of the state images.
@@ -105,9 +64,6 @@ def _generate_prompt_for_atom_proposals(
         # view, but probably will need to be amended in the future!
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
-    else:
-        raise ValueError("Unknown VLM prompting option " +
-                         f"{CFG.grammar_search_vlm_atom_proposal_prompt_type}")
 
     return ret_list
 
@@ -115,39 +71,21 @@ def _generate_prompt_for_atom_proposals(
 def _generate_prompt_for_scene_labelling(
         traj: ImageOptionTrajectory,
         atoms_list: List[str]) -> List[Tuple[str, List[PIL.Image.Image]]]:
-    """Prompt for generating labels for truth values of atoms in a scene."""
+    """Prompt for generating labels for some set of atoms. Note that all our 
+    prompts are saved as separate txt files under the 
+    'vlm_input_data_prompts/atom_labelling' folder."""
     ret_list = []
-    if CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_naive":
-        prompt = (
-            "You are a vision system for a robot. Your job is to output "
-            "the values of the following predicates based on the provided "
-            "visual scene. For each predicate, output True, False, or "
-            "Unknown if the relevant objects are not in the scene or the "
-            "value of the predicate simply cannot be determined. "
-            "Output each predicate value as a bulleted list with each "
-            "predicate and value on a different line. "
-            "Use the format: <predicate>: <truth_value>. "
-            "Ensure there is a period ('.') after every list item. "
-            "Do not output any text except the names and truth values of "
-            "predicates."
-            "\nPredicates:")
-    elif CFG.grammar_search_vlm_atom_label_prompt_type == "per_scene_cot":
-        prompt = (
-            "You are a vision system for a robot. Your job is to output "
-            "the values of the following predicates based on the provided "
-            "visual scene. For each predicate, output True, False, or "
-            "Unknown if the relevant objects are not in the scene or the "
-            "value of the predicate simply cannot be determined. "
-            "Output each predicate value as a bulleted list with each "
-            "predicate and value on a different line. "
-            "For each output value, provide an explanation as to why you "
-            "labelled this predicate as having this particular value."
-            "Use the format: <predicate>: <truth_value>. <explanation>."
-            "\nPredicates:")
-    else:
-        raise ValueError(
-            "Unknown option for grammar_search_vlm_atom_label_prompt_type"
-            f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
+    filepath_prefix = \
+        "predicators/datasets/vlm_input_data_prompts/atom_labelling/"
+    try:
+        with open(filepath_prefix +
+                CFG.grammar_search_vlm_atom_label_prompt_type + ".txt",
+                "r",
+                encoding="utf-8") as f:
+            prompt = f.read()
+    except FileNotFoundError:
+        raise ValueError("Unknown VLM prompting option " +
+                         f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
     for currimgs in traj.imgs:

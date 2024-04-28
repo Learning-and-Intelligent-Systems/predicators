@@ -526,7 +526,7 @@ def test_loading_img_demos(atom_proposal_prompt_type,
     """
     utils.reset_config({
         "env":
-        "iced_tea_making",
+        "ice_tea_making",
         "num_train_tasks":
         1,
         "offline_data_method":
@@ -536,7 +536,7 @@ def test_loading_img_demos(atom_proposal_prompt_type,
         "seed":
         456,
         "vlm_trajs_folder_name":
-        "iced_tea_making__vlm_demos__456__1",
+        "ice_tea_making__vlm_demos__456__1",
         "grammar_search_vlm_atom_proposal_prompt_type":
         atom_proposal_prompt_type,
         "grammar_search_vlm_atom_label_prompt_type":
@@ -565,12 +565,12 @@ def test_env_debug_grammar():
     """Test loading a dataset from img demo files when the debug grammar is
     turned on."""
     utils.reset_config({
-        "env": "iced_tea_making",
+        "env": "ice_tea_making",
         "num_train_tasks": 1,
         "offline_data_method": "img_demos",
         "data_dir": "tests/datasets/mock_vlm_datasets",
         "seed": 456,
-        "vlm_trajs_folder_name": "iced_tea_making__vlm_demos__456__1",
+        "vlm_trajs_folder_name": "ice_tea_making__vlm_demos__456__1",
         "grammar_search_vlm_atom_proposal_prompt_type":
         "options_labels_whole_traj",
         "grammar_search_vlm_atom_label_prompt_type": "per_scene_naive",
