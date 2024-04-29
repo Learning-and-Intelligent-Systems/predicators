@@ -19,6 +19,7 @@ logs
 saved_approaches
 saved_datasets
 scripts/results
+pretrained_model_cache
 llm_cache
 machines.txt
 *_vision_data
