@@ -302,9 +302,14 @@ class GridRowDoorEnv(GridRowEnv):
                 state.get(self._light, "level") + dlight, 0.0, 1.0)
             next_state.set(self._light, "level", new_light_level)
 
-        if door_open == 1.0 or (robbot_pos>door_pos and robbot_pos + dx>door_pos) or (robbot_pos<door_pos and robbot_pos + dx<door_pos):
+        if door_open == 1.0 or (robbot_pos>=door_pos and robbot_pos + dx>=door_pos) or (robbot_pos<=door_pos and robbot_pos + dx<=door_pos):
         # Apply dx to robot.
+            # print("moved robot")
             new_x = np.clip(
-                robbot_pos + dx, 0.0, len(self._cells))
+                state.get(self._robot, "x") + dx, 0.0, len(self._cells))
             next_state.set(self._robot, "x", new_x)
+
+        # print("state, action, next_state", state, action, next_state)
+        # print(dx)
+
         return next_state
