@@ -5,10 +5,11 @@ from gym.spaces import Box
 
 __all__ = ['IdentityGroundTruthOptionFactory']
 
+
 class IdentityGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"donuts", "statue", "bokksu", "jigsaw", "jigsawrelative", "wbox"}
+        return {"shelves2d", "donuts", "statue", "bokksu", "jigsaw", "jigsawrelative", "wbox"}
 
     @classmethod
     def get_options(
@@ -18,7 +19,7 @@ class IdentityGroundTruthOptionFactory(GroundTruthOptionFactory):
     ) -> Set[ParameterizedOption]:
         return {ParameterizedOption(
             "Act",
-            [], # From, To
+            [],  # From, To
             action_space,
             cls.act,
             cls.initiable,

@@ -135,10 +135,12 @@ class _NormalizingRegressor(Regressor):
         """Return a normalized prediction for the normalized input."""
         raise NotImplementedError("Override me!")
 
+
 class DeviceTrackingModule(nn.Module):
     def __init__(self, device: Optional[Union[int, str, torch.device]]):
         super().__init__()
-        self.register_buffer('_DeviceTrackingModule_tracking_buffer', torch.tensor(([]), device=device))
+        self.register_buffer(
+            '_DeviceTrackingModule_tracking_buffer', torch.tensor(([]), device=device))
 
     def _apply(self, *args, **kwargs):
         if "device" in self.__dict__:
@@ -147,11 +149,13 @@ class DeviceTrackingModule(nn.Module):
 
     @cached_property
     def device(self) -> torch.device:
-        device, = list({param.device for param in self.parameters()} | {buffer.device for buffer in self.buffers()})
+        device, = list({param.device for param in self.parameters()} | {
+                       buffer.device for buffer in self.buffers()})
         return device
 
     def to_common_device(self):
         self.to(self._DeviceTrackingModule_tracking_buffer.device)
+
 
 class PyTorchRegressor(_NormalizingRegressor, DeviceTrackingModule):
     """ABC for PyTorch regression models."""
@@ -1569,8 +1573,8 @@ class MapleQFunction(MLPRegressor):
         # Create all applicable ground NSRTs.
         state_objs = set(state)
         applicable_nsrts = [
-            o for o in self._ordered_ground_nsrts if \
-                set(o.objects).issubset(state_objs) and all(
+            o for o in self._ordered_ground_nsrts if
+            set(o.objects).issubset(state_objs) and all(
                 a.holds(state) for a in o.preconditions)
         ]
         # Randomize order of applicable NSRTs to assure that the output order
@@ -1590,6 +1594,7 @@ class MapleQFunction(MLPRegressor):
                 assert option.initiable(state)
                 sampled_options.append(option)
         return sampled_options
+
 
 class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
     def __init__(self, seed: int, hid_sizes: List[int],
@@ -1619,8 +1624,8 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         self._sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
         self._sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
 
-
-        self._posterior_variance = self._betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+        self._posterior_variance = self._betas * \
+            (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
 
         self._cache_num_samples = CFG.sesame_max_samples_per_step
         self._cache = {}
@@ -1628,9 +1633,11 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
     def forward(self, X_cond, Y_out, t):
         half_t_dim = self._t_dim // 2
         t_embeddings = np.log(10000) / (half_t_dim - 1)
-        t_embeddings = torch.exp(torch.arange(half_t_dim, device=self.device) * -t_embeddings)
+        t_embeddings = torch.exp(torch.arange(
+            half_t_dim, device=self.device) * -t_embeddings)
         t_embeddings = t[:, None] * t_embeddings[None, :]
-        t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
+        t_embeddings = torch.cat(
+            (t_embeddings.sin(), t_embeddings.cos()), dim=-1)
         X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
         X = self._model(X)
         return X[:, :self._y_dim]
@@ -1663,12 +1670,23 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         self.to_common_device()
         optimizer = self._create_optimizer()
 
-        tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self.device)
-        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
-        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
+        tensor_X_cond = torch.from_numpy(
+            np.array(X_cond, dtype=np.float32)).to(self.device)
+        tensor_Y_out = torch.from_numpy(
+            np.array(Y_out, dtype=np.float32)).to(self.device)
+        tensor_Y_out = torch.from_numpy(
+            np.array(Y_out, dtype=np.float32)).to(self.device)
 
-        data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
-        dataloader = torch.utils.data.DataLoader(data, batch_size=5000, shuffle=True)
+        train_datapoints = tensor_X_cond.shape[0] - \
+            int(tensor_X_cond.shape[0] * 0.2)
+        train_data = torch.utils.data.TensorDataset(
+            tensor_X_cond[:train_datapoints], tensor_Y_out[:train_datapoints])
+        test_data = torch.utils.data.TensorDataset(
+            tensor_X_cond[train_datapoints:], tensor_Y_out[train_datapoints:])
+        train_dataloader = torch.utils.data.DataLoader(
+            train_data, batch_size=5000, shuffle=True)
+        test_dataloader = torch.utils.data.DataLoader(
+            test_data, batch_size=5000, shuffle=True)
 
         assert isinstance(self._max_train_iters, int)
         self.train()
@@ -1677,22 +1695,34 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         best_params["iter"] = -1
         best_loss = float('inf')
 
-        for itr, (tensor_X, tensor_Y) in zip(reversed(range(self._max_train_iters, 0, -1)), itertools.cycle(dataloader)):
+        for itr, (tensor_X, tensor_Y) in zip(
+            reversed(range(self._max_train_iters, 0, -1)),
+            itertools.chain.from_iterable(itertools.repeat(train_dataloader))
+        ):
             optimizer.zero_grad()
-            t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)
+            t = torch.randint(0, self._timesteps,
+                              (tensor_X.shape[0],), device=self.device)
             loss = self._p_losses(tensor_X, tensor_Y, t) / tensor_X.shape[0]
             loss.backward()
             optimizer.step()
-            loss_value = loss.item()
-            if best_loss > loss_value:
-                best_loss = loss_value
-                best_params = deepcopy(self.state_dict())
-                best_params["iter"] = itr
+            train_loss_value = loss.item()
             if itr % 100 == 0:
-                logging.info(f"Loss: {loss_value:.5f} iter: {itr}/{self._max_train_iters}")
+                test_loss_value = sum(
+                    (self._p_losses(tensor_X, tensor_Y, t) /
+                     tensor_X.shape[0]).item()
+                    for tensor_X, tensor_Y in test_dataloader
+                    for t in [torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)]
+                )
+                logging.info(
+                    f"Train Loss: {train_loss_value:.5f} Test Loss: {test_loss_value:.5f} iter: {itr}/{self._max_train_iters}")
+                if best_loss > test_loss_value:
+                    best_loss = test_loss_value
+                    best_params = deepcopy(self.state_dict())
+                    best_params["iter"] = itr
                 # for name, param in self.named_parameters():
                 #     logging.info(f"Param {name} stats; {tensor_stats(param.grad)}")
-        logging.info(f"Using params from iter {best_params['iter']} with loss {best_loss:.5}")
+        logging.info(
+            f"Using params from iter {best_params['iter']} with test loss {best_loss:.5}")
         del best_params["iter"]
         self.load_state_dict(best_params)
 
@@ -1702,7 +1732,8 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         sqrt_one_minus_alphas_cumprod_t = self._extract(
             self._sqrt_one_minus_alphas_cumprod, t, y_out.shape
         )
-        sqrt_recip_alphas_t = self._extract(self._sqrt_recip_alphas, t, y_out.shape)
+        sqrt_recip_alphas_t = self._extract(
+            self._sqrt_recip_alphas, t, y_out.shape)
 
         # Equation 11 in the paper
         # Use our model (noise predictor) to predict the mean
@@ -1715,20 +1746,22 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         if t_index == 0:
             return model_mean
         else:
-            posterior_variance_t = self._extract(self._posterior_variance, t, y_out.shape)
+            posterior_variance_t = self._extract(
+                self._posterior_variance, t, y_out.shape)
             noise = torch.randn_like(y_out)
             # Algorithm 2 line 4:
             return model_mean + torch.sqrt(posterior_variance_t) * noise
 
-
     @torch.no_grad()
     def _p_sample_loop(self, x_cond):
         # start from pure noise (for each example in the batch)
-        y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self.device, requires_grad=True)
+        y_out = torch.randn(self._cache_num_samples, self._y_dim,
+                            device=self.device, requires_grad=True)
         y_outs = []
 
         for t in reversed(range(0, self._timesteps)):
-            y_out = self._p_sample(x_cond, y_out, torch.full((self._cache_num_samples,), t, device=self.device, dtype=torch.long), t)
+            y_out = self._p_sample(x_cond, y_out, torch.full(
+                (self._cache_num_samples,), t, device=self.device, dtype=torch.long), t)
             y_outs.append(y_out.detach().cpu().numpy())
         return y_outs
 
@@ -1736,10 +1769,13 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         self.eval()
         if x_cond.round(decimals=4).data.tobytes() not in self._cache:
             x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
-            x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self.device)
-            x_cond_tensor = x_cond_tensor.view(1, -1).expand(self._cache_num_samples, -1)
+            x_cond_tensor = torch.from_numpy(
+                np.array(x_cond, dtype=np.float32)).to(self.device)
+            x_cond_tensor = x_cond_tensor.view(
+                1, -1).expand(self._cache_num_samples, -1)
             samples = self._p_sample_loop(x_cond_tensor)[-1]
-            self._cache[x_cond.round(decimals=4).data.tobytes()] = (samples, 0)   # cache, idx
+            self._cache[x_cond.round(decimals=4).data.tobytes()] = (
+                samples, 0)   # cache, idx
         sample = self._next_sample_in_cache(x_cond.round(decimals=4))
         return ((sample + 1) / 2 * self._output_scale) + self._output_shift
 
@@ -1773,7 +1809,8 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         """
         steps = timesteps + 1
         x = torch.linspace(0, timesteps, steps)
-        alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * torch.pi * 0.5) ** 2
+        alphas_cumprod = torch.cos(
+            ((x / timesteps) + s) / (1 + s) * torch.pi * 0.5) ** 2
         alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
         betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
         return torch.clip(betas, 0.0001, 0.9999)
@@ -1787,7 +1824,8 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
     def _p_losses(self, X_cond, Y_start, t):
         noise = torch.randn_like(Y_start)
         Y_noisy = self._q_sample(Y_start, t, noise)
-        mask = torch.ones((X_cond.shape[0], 1), dtype=torch.long, device=X_cond.device)
+        mask = torch.ones((X_cond.shape[0], 1),
+                          dtype=torch.long, device=X_cond.device)
         X_cond = X_cond * mask
         predicted_noise_label = self(X_cond, Y_noisy, t)
         predicted_noise = predicted_noise_label
@@ -1796,7 +1834,8 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         return loss
 
     def _q_sample(self, Y_start, t, noise):
-        sqrt_alphas_cumprod_t = self._extract(self._sqrt_alphas_cumprod, t, Y_start.shape)
+        sqrt_alphas_cumprod_t = self._extract(
+            self._sqrt_alphas_cumprod, t, Y_start.shape)
         sqrt_one_minus_alphas_cumprod_t = self._extract(
             self._sqrt_one_minus_alphas_cumprod, t, Y_start.shape
         )

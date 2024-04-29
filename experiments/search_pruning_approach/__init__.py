@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 
 from experiments.envs.utils import plot_geometry
 
-# from experiments.envs.shelves2d.env import Shelves2DEnv
+from experiments.envs.shelves2d.env import Shelves2DEnv
 from experiments.envs.wbox.env import WBox
 from experiments.search_pruning_approach.dataset import FeasibilityDataset
 from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, NeuralFeasibilityClassifier
@@ -40,6 +40,7 @@ from predicators.structs import NSRT, _GroundNSRT, _Option, Dataset, GroundAtom,
 
 
 __all__ = ["SearchPruningApproach"]
+
 
 @dataclass(frozen=True)
 class InterleavedBacktrackingDatapoint():
@@ -62,16 +63,17 @@ class InterleavedBacktrackingDatapoint():
     def __iter__(self) -> Iterator[Any]:
         return iter((self.states, self.atoms_sequence, self.horizons, self.skeleton))
 
-# def get_placement_coords(state: State, current_nsrt: _GroundNSRT, top_coords: bool) -> Tuple[float, float]:
-#     assert current_nsrt.name == "InsertBox"
 
-#     box, _1, _2, _3 = current_nsrt.objects
-#     x, y, w, h = Shelves2DEnv.get_shape_data(state, box)
+def get_placement_coords(state: State, current_nsrt: _GroundNSRT, top_coords: bool) -> Tuple[float, float]:
+    assert current_nsrt.name == "InsertBox"
 
-#     if top_coords:
-#         return (x + w/2, y + h)
-#     else:
-#         return (x + w/2, y)
+    box, _1, _2, _3 = current_nsrt.objects
+    x, y, w, h = Shelves2DEnv.get_shape_data(state, box)
+
+    if top_coords:
+        return (x + w/2, y + h)
+    else:
+        return (x + w/2, y)
 
 # def visualize_shelves2d_datapoint(
 #     skeleton: List[_GroundNSRT],
@@ -179,6 +181,7 @@ class InterleavedBacktrackingDatapoint():
 #     f"negative datapoints per class: {num_negative_datapoints_per_class}") if negative_datapoints else "No negative datapoints collected"
 #     return positive_report + '\n' + negative_report
 
+
 def visualize_wbox_placement(
     skeleton: List[_GroundNSRT],
     previous_states: List[State],
@@ -200,8 +203,10 @@ def visualize_wbox_placement(
     datapoints: List[State] = []
 
     for _ in range(100):
-        option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
-        next_state, _ = option_model.get_next_state_and_num_actions(current_state, option)
+        option = nsrt.sample_option(
+            current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
+        next_state, _ = option_model.get_next_state_and_num_actions(
+            current_state, option)
         if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
             continue
 
@@ -210,18 +215,23 @@ def visualize_wbox_placement(
     fig1 = WBox.render_state_plt(current_state, None)
     ax1, = fig1.axes
     for next_state in datapoints:
-        feasible, _ = feasibility_classifier.classify(previous_states + [next_state], skeleton)
-        ax1.add_patch(WBox._get_obj_patch(next_state, obj, facecolor='none', edgecolor='darkgreen' if feasible else 'darkred', alpha=0.1))
+        feasible, _ = feasibility_classifier.classify(
+            previous_states + [next_state], skeleton)
+        ax1.add_patch(WBox._get_obj_patch(next_state, obj, facecolor='none',
+                      edgecolor='darkgreen' if feasible else 'darkred', alpha=0.1))
 
     fig2 = plt.figure()
     ax2 = fig2.add_subplot()
-    ax2.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(next_state, obj)[0] for next_state in datapoints])
+    ax2.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(
+        next_state, obj)[0] for next_state in datapoints])
 
     fig3 = plt.figure()
     ax3 = fig3.add_subplot()
-    ax3.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(next_state, obj)[1] for next_state in datapoints])
+    ax3.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(
+        next_state, obj)[1] for next_state in datapoints])
 
     return fig1, fig2, fig3
+
 
 def run_wbox_visualization_saving(
     search_datapoints: List[InterleavedBacktrackingDatapoint],
@@ -238,19 +248,21 @@ def run_wbox_visualization_saving(
 
         logging.getLogger().setLevel(logging.WARNING)
         fig1, fig2, fig3 = visualize_wbox_placement(
-            skeleton = skeleton,
-            previous_states = states[:prefix_length],
-            goal = atoms_sequence[-1],
-            option_model = option_model,
-            seed = seed,
-            atoms_sequence = atoms_sequence,
-            feasibility_classifier = feasibility_classifier,
+            skeleton=skeleton,
+            previous_states=states[:prefix_length],
+            goal=atoms_sequence[-1],
+            option_model=option_model,
+            seed=seed,
+            atoms_sequence=atoms_sequence,
+            feasibility_classifier=feasibility_classifier,
         )
         logging.getLogger().setLevel(logging_level)
 
         filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
-        filepath2 = os.path.join(visualization_directory, f"{idx}-scatter-x.pdf")
-        filepath3 = os.path.join(visualization_directory, f"{idx}-scatter-y.pdf")
+        filepath2 = os.path.join(
+            visualization_directory, f"{idx}-scatter-x.pdf")
+        filepath3 = os.path.join(
+            visualization_directory, f"{idx}-scatter-y.pdf")
         logging.info(f"Saving visualizations to files {filepath1}, {filepath2} and {filepath3} with "
                      f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
         fig1.savefig(filepath1)
@@ -259,6 +271,7 @@ def run_wbox_visualization_saving(
         plt.close(fig1)
         plt.close(fig2)
         plt.close(fig3)
+
 
 def run_wbox_ground_truth_saving(
     segmented_trajs: List[List[Segment]],
@@ -284,6 +297,7 @@ def run_wbox_ground_truth_saving(
     fig.savefig(filepath)
     plt.close(fig)
 
+
 class SearchPruningApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -293,7 +307,8 @@ class SearchPruningApproach(NSRTLearningApproach):
         self._validation_feasibility_dataset: Optional[FeasibilityDataset] = None
         self._feasibility_classifier = ConstFeasibilityClassifier()
         # self._test_tasks_ran = 0
-        assert CFG.feasibility_learning_strategy in {"backtracking", "load_data", "load_model"}
+        assert CFG.feasibility_learning_strategy in {
+            "backtracking", "load_data", "load_model"}
 
     @classmethod
     def get_name(cls) -> str:
@@ -307,7 +322,8 @@ class SearchPruningApproach(NSRTLearningApproach):
         super().learn_from_offline_dataset(dataset)
 
         # Make sure we have direct access to the regressors
-        assert all(type(nsrt.sampler) == _LearnedSampler for nsrt in self._nsrts)
+        assert all(type(nsrt.sampler) ==
+                   _LearnedSampler for nsrt in self._nsrts)
 
         # Make sure the trajectories are entirely covered by the learned NSRTs (we can easily generate skeletons)
         assert all(
@@ -317,19 +333,25 @@ class SearchPruningApproach(NSRTLearningApproach):
         )
 
         # Preparing data collection and training
-        self._training_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count)
-        self._validation_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count)
-        dataset_path = utils.create_dataset_filename_str(["feasibility_dataset"])[0]
+        self._training_feasibility_dataset = FeasibilityDataset(
+            self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count, CFG.feasibility_min_samples_per_failing_nsrt)
+        self._validation_feasibility_dataset = FeasibilityDataset(
+            self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count, 0)
+        dataset_path = utils.create_dataset_filename_str(
+            ["feasibility_dataset"])[0]
 
         # Running data collection and training
         seed = self._seed + 100000
         if CFG.feasibility_learning_strategy == "load_model":
             assert CFG.feasibility_load_path
-            self._feasibility_classifier = torch.load(CFG.feasibility_load_path)
+            self._feasibility_classifier = torch.load(
+                CFG.feasibility_load_path)
             self._feasibility_classifier._optimizer = None
         elif CFG.feasibility_learning_strategy == "load_data":
-            self._load_data(CFG.feasibility_load_path if CFG.feasibility_load_path else dataset_path, self._nsrts)
-            snapshot_dir = os.path.join(CFG.feasibility_debug_directory, 'loaded-data-training-snapshots')
+            self._load_data(
+                CFG.feasibility_load_path if CFG.feasibility_load_path else dataset_path, self._nsrts)
+            snapshot_dir = os.path.join(
+                CFG.feasibility_debug_directory, 'loaded-data-training-snapshots')
             os.makedirs(snapshot_dir, exist_ok=True)
             self._learn_neural_feasibility_classifier(1, snapshot_dir)
         else:
@@ -366,26 +388,39 @@ class SearchPruningApproach(NSRTLearningApproach):
         # Precomputing the datapoints for interleaved backtracking
         search_datapoints: List[InterleavedBacktrackingDatapoint] = [
             InterleavedBacktrackingDatapoint(
-                states = [segment.states[0] for segment in segmented_traj] + \
-                    [segmented_traj[-1].states[-1]],
-                atoms_sequence = [segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
-                horizons = CFG.horizon - np.cumsum([len(segment.actions) for segment in segmented_traj]),
-                skeleton = [self._seg_to_ground_nsrt[segment] for segment in segmented_traj]
+                states=[segment.states[0] for segment in segmented_traj] +
+                [segmented_traj[-1].states[-1]],
+                atoms_sequence=[
+                    segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
+                horizons=CFG.horizon -
+                np.cumsum([len(segment.actions)
+                          for segment in segmented_traj]),
+                skeleton=[self._seg_to_ground_nsrt[segment]
+                          for segment in segmented_traj]
             ) for segmented_traj in self._segmented_trajs
         ]
-        self._rng.shuffle(search_datapoints)
-        validation_cutoff = round(len(search_datapoints) * CFG.feasibility_validation_fraction)
-        training_search_datapoints = search_datapoints[:validation_cutoff]
-        validation_search_datapoints = search_datapoints[validation_cutoff:]
+        max_skeleton_length = max(map(len, self._segmented_trajs))
 
-        num_validation_datapoints_per_iter = round(CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
-        num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - num_validation_datapoints_per_iter
+        while True:
+            self._rng.shuffle(search_datapoints)
+            validation_cutoff = round(
+                len(search_datapoints) * CFG.feasibility_validation_fraction)
+            training_search_datapoints = search_datapoints[:validation_cutoff]
+            validation_search_datapoints = search_datapoints[validation_cutoff:]
+            if max(len(dp.skeleton) for dp in training_search_datapoints) == max(len(dp.skeleton) for dp in validation_search_datapoints) == max_skeleton_length:
+                break
 
-        run_wbox_ground_truth_saving(
-            self._segmented_trajs,
-            self._seg_to_ground_nsrt,
-            CFG.feasibility_debug_directory,
-        )
+        num_validation_datapoints_per_iter = round(
+            CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
+        num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - \
+            num_validation_datapoints_per_iter
+        datapoint_multiplier = CFG.feasibility_max_datapoint_multiplier
+
+        # run_wbox_ground_truth_saving(
+        #     self._segmented_trajs,
+        #     self._seg_to_ground_nsrt,
+        #     CFG.feasibility_debug_directory,
+        # )
         # run_wbox_visualization_saving(
         #     search_datapoints,self._option_model, seed,
         #     os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
@@ -394,12 +429,14 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':
-            nsrts_dicts: List[Dict[str, NSRT]] = [{str(nsrt): nsrt for nsrt in self._nsrts}]
+            nsrts_dicts: List[Dict[str, NSRT]] = [
+                {str(nsrt): nsrt for nsrt in self._nsrts}]
             for nsrt in self._nsrts:
                 nsrt.sampler.to('cpu').share_memory()
         else:
             nsrts_dicts: List[Dict[str, NSRT]] = [{str(nsrt): nsrt for nsrt in self._nsrts}] + \
-                [{str(nsrt): deepcopy(nsrt) for nsrt in self._nsrts} for _ in range(1, torch.cuda.device_count())]
+                [{str(nsrt): deepcopy(nsrt) for nsrt in self._nsrts}
+                 for _ in range(1, torch.cuda.device_count())]
             for id, nsrts_dict in enumerate(nsrts_dicts):
                 device_name = f'cuda:{id}'
                 for nsrt in nsrts_dict.values():
@@ -411,115 +448,133 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         torch.multiprocessing.set_start_method('forkserver')
         cfg = SimpleNamespace(
-            sesame_max_samples_per_step = CFG.sesame_max_samples_per_step,
-            sesame_propagate_failures = CFG.sesame_propagate_failures,
-            sesame_check_expected_atoms = True,
-            sesame_check_static_object_changes = CFG.sesame_check_static_object_changes,
-            sesame_static_object_change_tol = CFG.sesame_static_object_change_tol,
-            sampler_disable_classifier = CFG.sampler_disable_classifier,
-            max_num_steps_option_rollout = CFG.max_num_steps_option_rollout,
-            option_model_terminate_on_repeat = CFG.option_model_terminate_on_repeat,
-            feasibility_num_data_collection_threads = CFG.feasibility_num_data_collection_threads,
+            sesame_max_samples_per_step=CFG.sesame_max_samples_per_step,
+            sesame_propagate_failures=CFG.sesame_propagate_failures,
+            sesame_check_expected_atoms=True,
+            sesame_check_static_object_changes=CFG.sesame_check_static_object_changes,
+            sesame_static_object_change_tol=CFG.sesame_static_object_change_tol,
+            sampler_disable_classifier=CFG.sampler_disable_classifier,
+            max_num_steps_option_rollout=CFG.max_num_steps_option_rollout,
+            option_model_terminate_on_repeat=CFG.option_model_terminate_on_repeat,
+            feasibility_num_data_collection_threads=CFG.feasibility_num_data_collection_threads,
         )
 
-        max_skeleton_length = max(map(len, self._segmented_trajs))
         with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
             # for prefix_length in list(reversed(range(1, max_skeleton_length))) + [1]:
             for prefix_length in reversed(range(1, max_skeleton_length)):
-                logging.info(f"Collecting data for prefix length {prefix_length} ...")
+                logging.info(
+                    f"Collecting data for prefix length {prefix_length} ...")
 
                 # Creating a directory to store logs for the prefix
-                prefix_directory = os.path.join(CFG.feasibility_debug_directory, f"prefix-{prefix_length}")
+                prefix_directory = os.path.join(
+                    CFG.feasibility_debug_directory, f"prefix-{prefix_length}")
                 os.makedirs(prefix_directory, exist_ok=True)
 
                 # Moving the feasibility classifier to devices
                 if isinstance(self._feasibility_classifier, torch.nn.Module) and CFG.feasibility_search_device == 'cuda':
-                    feasibility_classifiers = [deepcopy(self._feasibility_classifier) for _ in range(torch.cuda.device_count())]
+                    feasibility_classifiers = [deepcopy(
+                        self._feasibility_classifier) for _ in range(torch.cuda.device_count())]
                     if len(feasibility_classifiers) == 1:
                         feasibility_classifiers[0].to('cuda')
                     else:
                         for id, feasibility_classifier in enumerate(feasibility_classifiers):
                             feasibility_classifier.to(f'cuda:{id}')
                 elif isinstance(self._feasibility_classifier, torch.nn.Module):
-                    feasibility_classifiers = [deepcopy(self._feasibility_classifier)]
+                    feasibility_classifiers = [
+                        deepcopy(self._feasibility_classifier)]
                     feasibility_classifiers[0].to('cpu')
                 else:
                     assert prefix_length == max_skeleton_length - 1
                     feasibility_classifiers = [self._feasibility_classifier]
 
                 # Creating the datapoints to search over and moving them to different devices
-                training_viable_datapoints = [d for d in training_search_datapoints if len(d.skeleton) > prefix_length]
+                training_viable_datapoints = [
+                    d for d in training_search_datapoints if len(d.skeleton) > prefix_length]
+                max_num_training_iterations = len(
+                    training_viable_datapoints) * datapoint_multiplier
                 training_indices = self._rng.choice(
-                    len(training_viable_datapoints),
-                    num_training_datapoints_per_iter,
-                    replace=True
-                )
+                    max_num_training_iterations,
+                    min(num_training_datapoints_per_iter,
+                        max_num_training_iterations),
+                    replace=False
+                ) % len(training_viable_datapoints)
                 chosen_training_search_datapoints = [
-                    training_viable_datapoints[idx].substitute_nsrts(nsrts_dict)
+                    training_viable_datapoints[idx].substitute_nsrts(
+                        nsrts_dict)
                     for idx, nsrts_dict in zip(training_indices, cycle(nsrts_dicts))
                 ]
 
-                validation_viable_datapoints = [d for d in validation_search_datapoints if len(d.skeleton) > prefix_length]
+                validation_viable_datapoints = [
+                    d for d in validation_search_datapoints if len(d.skeleton) > prefix_length]
+                max_num_validation_iterations = len(
+                    validation_viable_datapoints) * datapoint_multiplier
                 validation_indices = self._rng.choice(
-                    len(validation_viable_datapoints),
-                    num_validation_datapoints_per_iter,
-                    replace=True
-                )
+                    max_num_validation_iterations,
+                    min(num_validation_datapoints_per_iter,
+                        max_num_validation_iterations),
+                    replace=False
+                ) % len(validation_viable_datapoints)
                 chosen_validation_search_datapoints = [
-                    validation_viable_datapoints[idx].substitute_nsrts(nsrts_dict)
+                    validation_viable_datapoints[idx].substitute_nsrts(
+                        nsrts_dict)
                     for idx, nsrts_dict in zip(validation_indices, cycle(nsrts_dicts))
                 ]
 
                 # Collecting data samples
                 duration, train_positive_datapoints, train_negative_datapoints = \
                     SearchPruningApproach._backtracking_fill_dataset(
-                    self._training_feasibility_dataset, pool, prefix_length, self._option_model,
-                    feasibility_classifiers, seed, chosen_training_search_datapoints, cfg,
-                    os.path.join(prefix_directory, f'train-data-gathering'),
-                )
-                logging.info(f"Took {duration} seconds to gather training data")
+                        self._training_feasibility_dataset, pool, prefix_length, self._option_model,
+                        feasibility_classifiers, seed, chosen_training_search_datapoints, cfg,
+                        os.path.join(prefix_directory,
+                                     f'train-data-gathering'),
+                    )
+                logging.info(
+                    f"Took {duration} seconds to gather training data")
                 # logging.info("Statistics; " + analyze_datapoints(
                 #     train_positive_datapoints, train_negative_datapoints
                 # ))
 
                 duration, validation_positive_datapoints, validation_negative_datapoints = \
                     SearchPruningApproach._backtracking_fill_dataset(
-                    self._validation_feasibility_dataset, pool, prefix_length, self._option_model,
-                    feasibility_classifiers, seed + 50000, chosen_validation_search_datapoints, cfg,
-                    os.path.join(prefix_directory, f'validation-data-gathering'),
-                )
-                logging.info(f"Took {duration} seconds to gather validation data")
+                        self._validation_feasibility_dataset, pool, prefix_length, self._option_model,
+                        feasibility_classifiers, seed + 50000, chosen_validation_search_datapoints, cfg,
+                        os.path.join(prefix_directory,
+                                     f'validation-data-gathering'),
+                    )
+                logging.info(
+                    f"Took {duration} seconds to gather validation data")
                 # logging.info("Statistics; " + analyze_datapoints(
                 #     validation_positive_datapoints, validation_negative_datapoints
                 # ))
 
                 # if prefix_length > 1:
-                    # self._learn_neural_feasibility_classifier(prefix_length)
+                # self._learn_neural_feasibility_classifier(prefix_length)
                 self._learn_neural_feasibility_classifier(prefix_length)
                 # run_visualization_saving(
                 #     chosen_validation_search_datapoints, self._option_model, seed,
                 #     prefix_length, os.path.join(prefix_directory, f"visualization"),
                 #     self._feasibility_classifier
                 # )
-                run_wbox_visualization_saving(
-                    chosen_validation_search_datapoints, self._option_model, seed,
-                    prefix_length, os.path.join(prefix_directory, f"visualization"),
-                    self._feasibility_classifier
-                )
+                # run_wbox_visualization_saving(
+                #     chosen_validation_search_datapoints, self._option_model, seed,
+                #     prefix_length, os.path.join(prefix_directory, f"visualization"),
+                #     self._feasibility_classifier
+                # )
                 self._save_data(os.path.join(
                     prefix_directory,
                     f'feasibility-classifier-data-snapshot.data'
                 ))
                 torch.save(
                     self._feasibility_classifier,
-                    os.path.join(prefix_directory,f'feasibility-classifier-model.pt')
+                    os.path.join(prefix_directory,
+                                 f'feasibility-classifier-model.pt')
                 )
                 seed += max(CFG.feasibility_num_datapoints_per_iter, 100000)
 
         logging.info(
             "Generated interleaving-based feasibility dataset of "
-            f"{self._training_feasibility_dataset.num_positive_datapoints} positive and "
-            f"{self._training_feasibility_dataset.num_negative_datapoints} negative datapoints"
+            f"{self._training_feasibility_dataset.num_raw_positive_datapoints} positive and "
+            f"{self._training_feasibility_dataset.num_raw_negative_datapoints} negative datapoints"
         )
 
     @staticmethod
@@ -537,8 +592,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         os.makedirs(debug_dir, exist_ok=True)
         start = time.perf_counter()
         loop_data = zip(pool.map(
-            SearchPruningApproach._backtracking_iteration
-            , zip(
+            SearchPruningApproach._backtracking_iteration, zip(
                 repeat(prefix_length),
                 repeat(option_model),
                 cycle(feasibility_classifiers),
@@ -561,49 +615,55 @@ class SearchPruningApproach(NSRTLearningApproach):
 
     @staticmethod
     def _backtracking_iteration(
-        args: Tuple[int, _OptionModelBase, FeasibilityClassifier, int, InterleavedBacktrackingDatapoint, SimpleNamespace, str]
+        args: Tuple[int, _OptionModelBase, FeasibilityClassifier,
+                    int, InterleavedBacktrackingDatapoint, SimpleNamespace, str]
     ) -> Tuple[List[List[State]], List[List[State]], List[List[State]]]:
         """ Running data collection for a single suffix length and task
         """
         global CFG
         # Extracting args
-        prefix_length, option_model, feasibility_classifier, seed, (states, atoms_sequence, horizons, skeleton), cfg, debug_dir = args
+        prefix_length, option_model, feasibility_classifier, seed, (
+            states, atoms_sequence, horizons, skeleton), cfg, debug_dir = args
         assert len(skeleton) > prefix_length
         CFG.__dict__.update(cfg.__dict__)
         CFG.seed = seed
-        torch.set_num_threads(1) # Bug in pytorch with shared_memory being slow to use with more than one thread
+        # Bug in pytorch with shared_memory being slow to use with more than one thread
+        torch.set_num_threads(1)
         utils.set_global_seed(seed)
 
-        logging.basicConfig(filename=os.path.join(debug_dir, f"{seed}.log"), force=True, level=logging.DEBUG)
+        logging.basicConfig(filename=os.path.join(
+            debug_dir, f"{seed}.log"), force=True, level=logging.DEBUG)
         logging.info("Started negative data collection")
-        logging.info(f"Skeleton: {[f'{nsrt.name}({nsrt.objects})' for nsrt in skeleton]}")
+        logging.info(
+            f"Skeleton: {[f'{nsrt.name}({nsrt.objects})' for nsrt in skeleton]}")
         logging.info(f"Starting Depth {prefix_length}")
 
         # Running backtracking
         def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
             if current_depth < prefix_length:
                 if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful or \
-                    [mb_subtree for _, mb_subtree in tree.failed_tries if mb_subtree is not None]:
+                        [mb_subtree for _, mb_subtree in tree.failed_tries if mb_subtree is not None]:
                     logging.info(f"Finishing search on highest depth {current_depth}, {tree.num_tries} "
-                                f"tries, {CFG.sesame_max_samples_per_step} max samples")
+                                 f"tries, {CFG.sesame_max_samples_per_step} max samples")
                 return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful or \
-                    [mb_subtree for _, mb_subtree in tree.failed_tries if mb_subtree is not None]
+                    [mb_subtree for _,
+                        mb_subtree in tree.failed_tries if mb_subtree is not None]
             if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful:
                 logging.info(f"Finishing search on depth {current_depth}, {tree.num_tries} "
                              f"tries, {CFG.sesame_max_samples_per_step} max samples")
             return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful
         backtracking, _ = run_backtracking_for_data_generation(
-            previous_states = states[:prefix_length],
-            goal = atoms_sequence[-1],
-            option_model = option_model,
-            skeleton = skeleton,
-            feasibility_classifier = feasibility_classifier,
-            atoms_sequence = atoms_sequence,
-            search_stop_condition = search_stop_condition,
-            seed = seed,
-            timeout = float('inf'),
-            metrics = {},
-            max_horizon = horizons[prefix_length],
+            previous_states=states[:prefix_length],
+            goal=atoms_sequence[-1],
+            option_model=option_model,
+            skeleton=skeleton,
+            feasibility_classifier=feasibility_classifier,
+            atoms_sequence=atoms_sequence,
+            search_stop_condition=search_stop_condition,
+            seed=seed,
+            timeout=float('inf'),
+            metrics={},
+            max_horizon=horizons[prefix_length],
         )
         next_success_states = [
             subtree.state
@@ -624,13 +684,14 @@ class SearchPruningApproach(NSRTLearningApproach):
         negative_datapoints = [
             states[:prefix_length] + [next_state] for next_state in next_failed_states
         ]
-        if next_success_states + next_failed_states:
-            fig = WBox.render_state_plt((next_success_states + next_failed_states)[0], None)
-            fig.savefig(os.path.join(debug_dir, f"{seed}.pdf"))
-            plt.close()
+        # if next_success_states + next_failed_states:
+        #     fig = WBox.render_state_plt((next_success_states + next_failed_states)[0], None)
+        #     fig.savefig(os.path.join(debug_dir, f"{seed}.pdf"))
+        #     plt.close()
         # logging.info(f"Negative datapoint classification - {[shelves2d_ground_truth_classifier(path, skeleton) for path in negative_datapoints]}")
 
-        logging.info(f"Finished negative data collection - {next_failed_states} samples found")
+        logging.info(
+            f"Finished negative data collection - {next_failed_states} samples found")
         logging.info(f"Option params: {option_params}")
         return positive_datapoints, negative_datapoints
 
@@ -651,24 +712,25 @@ class SearchPruningApproach(NSRTLearningApproach):
         init_atoms = utils.abstract(task.init, preds)
         objects = set(task.init)
 
-        ground_nsrts, reachable_atoms = task_plan_grounding(init_atoms, objects, nsrts)
+        ground_nsrts, reachable_atoms = task_plan_grounding(
+            init_atoms, objects, nsrts)
         heuristic = utils.create_task_planning_heuristic(
-            heuristic_name = CFG.sesame_task_planning_heuristic,
-            init_atoms = init_atoms,
-            goal = task.goal,
-            ground_ops = ground_nsrts,
-            predicates = preds,
-            objects = objects,
+            heuristic_name=CFG.sesame_task_planning_heuristic,
+            init_atoms=init_atoms,
+            goal=task.goal,
+            ground_ops=ground_nsrts,
+            predicates=preds,
+            objects=objects,
         )
         generator = task_plan(
-            init_atoms = utils.abstract(task.init, preds),
-            goal = task.goal,
-            ground_nsrts = ground_nsrts,
-            reachable_atoms = reachable_atoms,
-            heuristic = heuristic,
-            seed = seed,
-            timeout = timeout,
-            max_skeletons_optimized = CFG.horizon,
+            init_atoms=utils.abstract(task.init, preds),
+            goal=task.goal,
+            ground_nsrts=ground_nsrts,
+            reachable_atoms=reachable_atoms,
+            heuristic=heuristic,
+            seed=seed,
+            timeout=timeout,
+            max_skeletons_optimized=CFG.horizon,
         )
         partial_refinements = []
         for _ in range(CFG.sesame_max_skeletons_optimized):
@@ -676,14 +738,14 @@ class SearchPruningApproach(NSRTLearningApproach):
             try:
                 skeleton, atoms_seq, metrics = next(generator)
                 backtracking, is_success = run_low_level_search(
-                    task = task,
-                    option_model =self._option_model,
-                    skeleton = skeleton,
-                    feasibility_classifier = self._feasibility_classifier,
-                    atoms_sequence = atoms_seq,
-                    seed = seed, timeout = end - time.perf_counter(),
-                    metrics = metrics,
-                    max_horizon = CFG.horizon
+                    task=task,
+                    option_model=self._option_model,
+                    skeleton=skeleton,
+                    feasibility_classifier=self._feasibility_classifier,
+                    atoms_sequence=atoms_seq,
+                    seed=seed, timeout=end - time.perf_counter(),
+                    metrics=metrics,
+                    max_horizon=CFG.horizon
                 )
                 # if not is_success:
                 #     traj, _ = backtracking.longest_failuire
@@ -709,7 +771,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             if timed_out:
                 raise ApproachTimeout(
                     "Planning timed out!",
-                    info = {"partial_refinements": partial_refinements}
+                    info={"partial_refinements": partial_refinements}
                 )
         raise ApproachFailure("Failed to find a successful backtracking")
 
@@ -726,34 +788,34 @@ class SearchPruningApproach(NSRTLearningApproach):
         """
         if not CFG.feasibility_keep_model_params or not isinstance(self._feasibility_classifier, torch.nn.Module):
             neural_feasibility_classifier = NeuralFeasibilityClassifier(
-                nsrts = self._nsrts,
-                featurizer_sizes = CFG.feasibility_featurizer_sizes,
-                positional_embedding_size = CFG.feasibility_embedding_size,
-                positional_embedding_concat = CFG.feasibility_embedding_concat,
-                mark_failing_nsrt = CFG.feasibility_mark_failing_nsrt,
-                token_size = CFG.feasibility_token_size,
-                transformer_num_heads = CFG.feasibility_num_heads,
-                transformer_num_layers = CFG.feasibility_num_layers,
-                transformer_ffn_hidden_size = CFG.feasibility_ffn_hid_size,
-                cls_style = CFG.feasibility_cls_style,
-                embedding_horizon = CFG.feasibility_embedding_max_idx,
-                max_train_iters = CFG.feasibility_max_itr,
-                general_lr = CFG.feasibility_general_lr,
-                transformer_lr = CFG.feasibility_transformer_lr,
-                min_inference_prefix = min_inference_prefix,
-                threshold_recalibration_percentile = CFG.feasibility_threshold_recalibration_percentile,
-                max_num_objects = CFG.feasibility_max_object_count,
-                use_torch_gpu = CFG.use_torch_gpu,
-                optimizer_name = CFG.feasibility_optim,
-                l1_penalty = CFG.feasibility_l1_penalty,
-                l2_penalty = CFG.feasibility_l2_penalty,
+                nsrts=self._nsrts,
+                featurizer_sizes=CFG.feasibility_featurizer_sizes,
+                positional_embedding_size=CFG.feasibility_embedding_size,
+                positional_embedding_concat=CFG.feasibility_embedding_concat,
+                mark_failing_nsrt=CFG.feasibility_mark_failing_nsrt,
+                token_size=CFG.feasibility_token_size,
+                transformer_num_heads=CFG.feasibility_num_heads,
+                transformer_num_layers=CFG.feasibility_num_layers,
+                transformer_ffn_hidden_size=CFG.feasibility_ffn_hid_size,
+                cls_style=CFG.feasibility_cls_style,
+                embedding_horizon=CFG.feasibility_embedding_max_idx,
+                max_train_iters=CFG.feasibility_max_itr,
+                general_lr=CFG.feasibility_general_lr,
+                transformer_lr=CFG.feasibility_transformer_lr,
+                min_inference_prefix=min_inference_prefix,
+                threshold_recalibration_percentile=CFG.feasibility_threshold_recalibration_percentile,
+                max_num_objects=CFG.feasibility_max_object_count,
+                use_torch_gpu=CFG.use_torch_gpu,
+                optimizer_name=CFG.feasibility_optim,
+                l1_penalty=CFG.feasibility_l1_penalty,
+                l2_penalty=CFG.feasibility_l2_penalty,
             )
             self._feasibility_classifier = neural_feasibility_classifier
         else:
             self._feasibility_classifier.min_inference_prefix = min_inference_prefix
         self._feasibility_classifier.fit(
-            training_dataset = self._training_feasibility_dataset,
-            validation_dataset = self._validation_feasibility_dataset,
-            training_snapshot_directory = training_snapshot_directory,
-            delete_optimizer = not CFG.feasibility_keep_model_params,
+            training_dataset=self._training_feasibility_dataset,
+            validation_dataset=self._validation_feasibility_dataset,
+            training_snapshot_directory=training_snapshot_directory,
+            delete_optimizer=not CFG.feasibility_keep_model_params,
         )

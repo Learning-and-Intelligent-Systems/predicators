@@ -62,11 +62,11 @@ matplotlib.use("Agg")
 
 # Unpickling CUDA models errs out if the device isn't recognized because of
 # an unusual name, including in supercloud, but we can set it manually
-if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
-    cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
-    if len(cuda_visible_devices) and cuda_visible_devices[0] != "0":
-        cuda_visible_devices[0] = "0"
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
+# if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
+#     cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
+#     if len(cuda_visible_devices) and cuda_visible_devices[0] != "0":
+#         cuda_visible_devices[0] = "0"
+#         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
 
 
 def count_positives_for_ops(
@@ -110,13 +110,13 @@ def count_positives_for_ops(
                     all_ground_operators_given_partial(op, objects,
                                                        option_var_to_obj)):
                 if max_groundings is not None and \
-                    grounding_idx > max_groundings:
+                        grounding_idx > max_groundings:
                     break
                 # Check the ground_op against the segment.
                 if not ground_op.preconditions.issubset(segment.init_atoms):
                     continue
                 if ground_op.add_effects == segment.add_effects and \
-                    ground_op.delete_effects == segment.delete_effects:
+                        ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
                     true_positive_idxs[op_idx].add(seg_idx)
                 else:
@@ -507,7 +507,7 @@ class Rectangle(_Geom2D):
                                    np.cos(self.theta)]])
         rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
         return 0 <= rx <= self.width and \
-               0 <= ry <= self.height
+            0 <= ry <= self.height
 
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
@@ -552,13 +552,13 @@ def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
     """
 
     def _subtract(a: Tuple[float, float], b: Tuple[float, float]) \
-        -> Tuple[float, float]:
+            -> Tuple[float, float]:
         x1, y1 = a
         x2, y2 = b
         return (x1 - x2), (y1 - y2)
 
     def _cross_product(a: Tuple[float, float], b: Tuple[float, float]) \
-        -> float:
+            -> float:
         x1, y1 = b
         x2, y2 = a
         return x1 * y2 - x2 * y1
@@ -654,7 +654,7 @@ def line_segment_intersects_rectangle(seg: LineSegment,
     """Checks if a line segment intersects a rectangle."""
     # Case 1: one of the end points of the segment is in the rectangle.
     if rect.contains_point(seg.x1, seg.y1) or \
-        rect.contains_point(seg.x2, seg.y2):
+            rect.contains_point(seg.x2, seg.y2):
         return True
     # Case 2: the segment intersects with one of the rectangle sides.
     return any(line_segments_intersect(s, seg) for s in rect.line_segments)
@@ -924,7 +924,7 @@ class SingletonParameterizedOption(ParameterizedOption):
         if params_space is None:
             params_space = Box(0, 1, (0, ))
         if initiable is None:
-            initiable = lambda _1, _2, _3, _4: True
+            def initiable(_1, _2, _3, _4): return True
 
         # Wrap the given initiable so that we can track whether the action
         # has been executed yet.
@@ -1068,7 +1068,7 @@ def run_policy(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                    type(e) in exceptions_to_break_on:
+                        type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -1130,7 +1130,7 @@ def run_policy_with_simulator(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                    type(e) in exceptions_to_break_on:
+                        type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -1208,13 +1208,13 @@ def option_policy_to_policy(
             last_option = cur_option
 
         if max_option_steps is not None and \
-            num_cur_option_steps >= max_option_steps:
+                num_cur_option_steps >= max_option_steps:
             raise OptionTimeoutFailure(
                 "Exceeded max option steps.",
                 info={"last_failed_option": last_option})
 
         if last_state is not None and \
-            raise_error_on_repeated_state and state.allclose(last_state):
+                raise_error_on_repeated_state and state.allclose(last_state):
             raise OptionTimeoutFailure(
                 "Encountered repeated state.",
                 info={"last_failed_option": last_option})
@@ -1697,7 +1697,7 @@ def run_gbfs(initial_state: _S,
              timeout: int = 10000000,
              lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search."""
-    get_priority = lambda n: heuristic(n.state)
+    def get_priority(n): return heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
                                  get_priority, max_expansions, max_evals,
                                  timeout, lazy_expansion)
@@ -1712,7 +1712,7 @@ def run_astar(initial_state: _S,
               timeout: int = 10000000,
               lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """A* search."""
-    get_priority = lambda n: heuristic(n.state) + n.cumulative_cost
+    def get_priority(n): return heuristic(n.state) + n.cumulative_cost
     return _run_heuristic_search(initial_state, check_goal, get_successors,
                                  get_priority, max_expansions, max_evals,
                                  timeout, lazy_expansion)
@@ -1754,7 +1754,7 @@ def run_hill_climbing(
 
         # Stops when heuristic reaches specified value.
         if early_termination_heuristic_thresh is not None \
-            and last_heuristic <= early_termination_heuristic_thresh:
+                and last_heuristic <= early_termination_heuristic_thresh:
             break
 
         if check_goal(cur_node.state):
@@ -1796,7 +1796,7 @@ def run_hill_climbing(
             if parallelize:
                 # Parallelize the expensive part (heuristic computation).
                 num_cpus = mp.cpu_count()
-                fn = lambda n: (heuristic(n.state), n)
+                def fn(n): return (heuristic(n.state), n)
                 with mp.Pool(processes=num_cpus) as p:
                     for child_heuristic, child_node in p.map(
                             fn, successors_at_depth):
@@ -2450,8 +2450,8 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
 
 
 def create_dataset_filename_str(suffix_data: Iterable[Any] = []) -> Tuple[str, str]:
-        # saving_ground_atoms: bool,
-        # online_learning_cycle: Optional[int] = None) -> Tuple[str, str]:
+    # saving_ground_atoms: bool,
+    # online_learning_cycle: Optional[int] = None) -> Tuple[str, str]:
     """Generate strings to be used for the filename for a dataset file that is
     about to be saved.
 
@@ -2475,11 +2475,13 @@ def create_dataset_filename_str(suffix_data: Iterable[Any] = []) -> Tuple[str, s
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
     return dataset_fname, dataset_fname_template
 
+
 def create_ground_atom_dataset_filename_str(online_learning_cycle: Optional[int] = None) -> str:
     if online_learning_cycle is None:
         dataset_fname, _ = create_dataset_filename_str(["ground_atoms"])
     else:
-        dataset_fname, _ = create_dataset_filename_str(["ground_atoms", online_learning_cycle])
+        dataset_fname, _ = create_dataset_filename_str(
+            ["ground_atoms", online_learning_cycle])
     return dataset_fname
 
 
@@ -2757,7 +2759,7 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         # Note: filtering out static atoms.
-        pyperplan_facts = _atoms_to_pyperplan_facts(set(atoms) \
+        pyperplan_facts = _atoms_to_pyperplan_facts(set(atoms)
                                                     - self._static_atoms)
         return self._evaluate(pyperplan_facts, self._pyperplan_goal,
                               self._pyperplan_heuristic)
@@ -3018,9 +3020,11 @@ def create_video_from_partial_refinements(
             try:
                 act = policy(state)
             except OptionExecutionFailure:
-                video.extend(env.render(caption=str([nsrt.name for nsrt in skeleton])))
+                video.extend(env.render(caption=str(
+                    [nsrt.name for nsrt in skeleton])))
                 break
-            video.extend(env.render(act, caption=str([nsrt.name for nsrt in skeleton])))
+            video.extend(env.render(act, caption=str(
+                [nsrt.name for nsrt in skeleton])))
             try:
                 state = env.step(act)
             except EnvironmentFailure:
@@ -3543,6 +3547,7 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"
     return state
+
 
 def set_global_seed(seed: int) -> None:
     np.random.seed(seed)

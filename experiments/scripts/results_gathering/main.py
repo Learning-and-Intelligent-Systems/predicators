@@ -4,14 +4,27 @@ import itertools
 import subprocess
 import inspect
 from typing import List
+from glob import glob
 
-sub_script = os.path.join(os.path.dirname(inspect.getabsfile(inspect.currentframe())), 'sub.sh')
+import resource
+_, hard_limit = resource.getrlimit(resource.RLIMIT_NPROC)
+resource.setrlimit(resource.RLIMIT_NPROC, (20000, hard_limit))
+
+sub_script = os.path.join(os.path.dirname(
+    inspect.getabsfile(inspect.currentframe())), 'sub.sh')
 max_num_objects_per_env = {
     'shelves2d': 24,
-    'statue': 80,
+    'statue': 30,
     'donuts': 15,
-    'wbox': 10,
+    'wbox': 25,
 }
+env_size_var = {
+    'shelves2d': '--shelves2d_test_num_boxes',
+    'donuts': '--donuts_test_num_toppings',
+    'statue': '--statue_test_world_size',
+    'wbox': '--wbox_test_num_containers',
+}
+
 
 def run_experiment(
     env: str,
@@ -19,27 +32,37 @@ def run_experiment(
     sampler_regressor_model: str,
     seed: int,
     num_train_tasks: int,
+    env_size: int,
     load_data: bool,
     results_dir: str = 'experiment-results',
 ) -> None:
     assert env in {'shelves2d', 'statue', 'donuts', 'wbox'}
-    assert approach in {'nsrt_learning', 'search_pruning', 'gnn_action_policy'}
+    assert approach in {'nsrt_learning',
+                        'search_pruning', 'gnn_action_policy', 'oracle'}
     assert sampler_regressor_model in {'neural_gaussian', 'diffusion'}
     assert seed >= 0
     assert num_train_tasks > 0
 
     results_prefix = os.path.join(results_dir,
-        f'{env}-{approach}-{sampler_regressor_model}-{seed}-{num_train_tasks}'
-    )
+                                  f'{env}-{approach}-{sampler_regressor_model}-{seed}-{num_train_tasks}-{env_size}'
+                                  )
     os.makedirs(results_prefix, exist_ok=True)
+    if glob(os.path.join(results_prefix, "*.pkl")):
+        print('='*20)
+        print(f"------ experiment {results_prefix} already ran ------")
+        return
 
     supercloud_args = [
         'LLsub',
         sub_script,
+        '-J', results_prefix,
         '-s', '20',
+        # '-T', '120',
         '-g', 'volta:1',
         # '-p', 'xeon-p8',
         # '-p', 'debug-gpu',
+        # '-p', 'debug-cpu',
+        # '-o', os.path.join(results_prefix, "log.out"),
         '--options', f'"--output={os.path.join(results_prefix, "log.out")}"',
         '--',
     ]
@@ -47,15 +70,14 @@ def run_experiment(
         '--env', env,
         '--approach', approach,
         '--sampler_learning_regressor_model', sampler_regressor_model,
-        '--sampler_disable_classifier', str(sampler_regressor_model == 'diffusion'),
+        '--sampler_disable_classifier', str(
+            sampler_regressor_model == 'diffusion'),
         '--seed', str(seed),
         '--num_train_tasks', str(num_train_tasks),
         '--feasibility_debug_directory', results_prefix,
+        '--feasibility_max_object_count', str(max_num_objects_per_env[env]),
         '--results_dir', results_prefix,
-        '--shelves2d_test_num_boxes', '1',
-        '--donuts_test_num_toppings', '3',
-        '--statue_test_world_size', '4',
-        '--wbox_test_num_containers', '2',
+        env_size_var[env], str(env_size),
     ] + (['--load_data'] if load_data else [])
     static_experiment_args = [
         # General parameters
@@ -65,60 +87,62 @@ def run_experiment(
         '--make_failure_videos',
         '--make_test_videos',
         '--video_fps', '4',
+        '--use_torch_gpu', 'true',
 
         # GNN Parameters
-        '--horizon', '1000',
-        '--gnn_use_timeout', 'true',
-        '--gnn_training_timeout', '2400',
-        '--gnn_num_epochs', '2400',
-        '--gnn_num_message_passing', '4',
-        '--gnn_layer_size', '256',
+        '--horizon', '100',
+        '--gnn_use_timeout', 'false',
+        '--gnn_training_timeout', '7200',
+        '--gnn_num_epochs', '1600',
+        '--gnn_num_message_passing', '3',
+        '--gnn_layer_size', '512',
         '--gnn_learning_rate', '1e-4',
         '--gnn_do_normalization', 'true',
 
         # NSRT Parameters
         '--strips_learner', 'oracle',
         '--option_learner', 'no_learning',
-        '--sesame_max_samples_per_step', '30',
-        '--use_torch_gpu', 'true',
-        '--timeout', '90',
+        '--sesame_max_samples_per_step', '40',
+        '--timeout', '120',
         '--sesame_max_skeletons_optimized', '1',
         '--disable_harmlessness_check', 'true',
 
         # Diffusion Parameters
         '--learning_rate', '0.0001',
         '--diffusion_regressor_timesteps', '100',
-        '--diffusion_regressor_hid_sizes', '[128,128]',
+        '--diffusion_regressor_hid_sizes', '[512,512]',
         '--diffusion_regressor_max_itr', '10000',
 
         # Feasibility Parameters
         '--feasibility_learning_strategy', 'backtracking',
         '--feasibility_load_path', '/dev/null',
-        '--feasibility_num_datapoints_per_iter', '2000',
-        '--feasibility_max_object_count', str(max_num_objects_per_env[env]),
-        '--feasibility_featurizer_sizes', '[128,128,128]',
+        '--feasibility_num_datapoints_per_iter', '4000',
+        '--feasibility_featurizer_sizes', '[256,256,256]',
         '--feasibility_embedding_max_idx', '130',
-        '--feasibility_embedding_size', '128',
+        '--feasibility_embedding_size', '256',
         '--feasibility_num_layers', '4',
-        '--feasibility_num_heads', '8',
-        '--feasibility_ffn_hid_size', '512',
-        '--feasibility_token_size', '128',
-        '--feasibility_max_itr', '5000',
+        '--feasibility_num_heads', '16',
+        '--feasibility_ffn_hid_size', '1024',
+        '--feasibility_token_size', '256',
+        '--feasibility_max_itr', '4000',
         '--feasibility_batch_size', '4000',
         '--feasibility_general_lr', '1e-4',
         '--feasibility_transformer_lr', '1e-5',
         '--feasibility_l1_penalty', '0',
         '--feasibility_l2_penalty', '0',
         '--feasibility_threshold_recalibration_percentile', '0.0',
+        '--feasibility_num_data_collection_threads', '30',
         '--feasibility_keep_model_params', 'true',
     ]
-    print(" ".join(variable_experiment_args + static_experiment_args))
-    # result = subprocess.run(supercloud_args + variable_experiment_args + static_experiment_args, capture_output=True)
-    # b = result.stdout.startswith(b'Submitted batch job') and not result.stderr
-    # if not b:
-    #     print(result.stdout.decode('utf-8'))
-    #     print(result.stderr.decode('utf-8'))
-    # assert b
+    result = subprocess.run(supercloud_args + variable_experiment_args +
+                            static_experiment_args, capture_output=True)
+    b = result.stdout.startswith(b'Submitted batch job') and not result.stderr
+    print('='*20)
+    print(result.stdout.decode('utf-8'))
+    print(result.stderr.decode('utf-8'))
+    assert b
+    print(f"++++++ experiment {results_prefix} launched ++++++")
+
 
 if len(sys.argv) == 1:
     load_data = False
@@ -127,10 +151,28 @@ else:
     assert flag == '--load_data'
     load_data = True
 
-for env, (approach, sampler_regressor_model), seed, num_train_tasks in itertools.product(
-    ['wbox'],#['shelves2d', 'statue', 'donuts', 'wbox'],
-    [('search_pruning', 'diffusion')],#[('nsrt_learning', 'diffusion'), ('search_pruning', 'diffusion')],
-    range(1),
-    [2000],
+
+def iterate_with_env_size(env: str, size_min: int, size_max: int):
+    return zip(itertools.repeat(env), range(size_min, size_max + 1))
+
+
+x = 0
+
+for (env, env_size), (approach, sampler_regressor_model), seed, num_train_tasks in itertools.product(
+    itertools.chain(
+        iterate_with_env_size('wbox', 3, 3),
+        iterate_with_env_size('shelves2d', 5, 5),
+        iterate_with_env_size('donuts', 3, 3),
+        iterate_with_env_size('statue', 4, 4),
+        # iterate_with_env_size('shelves2d', 5, 10),
+        # iterate_with_env_size('statue', 4, 8),
+        # iterate_with_env_size('donuts', 3, 6),
+        # iterate_with_env_size('wbox', 2, 4),
+    ),  # ['shelves2d', 'statue', 'donuts', 'wbox'],
+    # [('search_pruning', 'diffusion'), ('nsrt_learning', 'diffusion')],#[('gnn_action_policy', 'diffusion'), ('nsrt_learning', 'diffusion'), ('search_pruning', 'diffusion')],
+    [('search_pruning', 'diffusion'), ('nsrt_learning', 'diffusion')],
+    range(8),
+    [2000],  # [400, 800, 1200, 1600, 2000],
 ):
-    run_experiment(env, approach, sampler_regressor_model, seed, num_train_tasks, load_data)
+    run_experiment(env, approach, sampler_regressor_model,
+                   seed, num_train_tasks, env_size, load_data)

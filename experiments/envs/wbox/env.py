@@ -25,7 +25,8 @@ matplotlib.use("tkagg")
 @dataclasses.dataclass(eq=False)
 class SimulatorState():
     polys: Dict[Object, Polygon] = dataclasses.field(default_factory=dict)
-    desired_poses: Dict[Object, Tuple[float, float]] = dataclasses.field(default_factory=dict)
+    desired_poses: Dict[Object, Tuple[float, float]
+                        ] = dataclasses.field(default_factory=dict)
     held_block: Optional[Object] = None
     dx: float = 0.0
     dy: float = 0.0
@@ -33,20 +34,22 @@ class SimulatorState():
     def copy(self) -> 'SimulatorState':
         return dataclasses.replace(self)
 
+
 class WBox(BaseEnv):
     """WBox environment"""
 
     # Settings
-    ## Task generation settings
+    # Task generation settings
     num_tries: ClassVar[int] = 100000
 
     range_train_containers: ClassVar[Tuple[int, int]] = (2, 2)
-    max_num_containers = max(*range_train_containers, CFG.wbox_test_num_containers)
+    max_num_containers = max(*range_train_containers,
+                             CFG.wbox_test_num_containers)
     object_placement_margin = 1.2
 
-    ## World shape settings
-    world_range_x: ClassVar[Tuple[float, float]] = (0, 20)
-    world_range_y: ClassVar[Tuple[float, float]] = (0, 20)
+    # World shape settings
+    world_range_x: ClassVar[Tuple[float, float]] = (0, 25)
+    world_range_y: ClassVar[Tuple[float, float]] = (0, 25)
     visualization_margin: ClassVar[float] = 3.0
     robot_point = Point(0, 0)
 
@@ -58,7 +61,7 @@ class WBox(BaseEnv):
     sub_cell_size: ClassVar[float] = 1.0
     sub_cell_margin: ClassVar[float] = 0.2
 
-    ## Predicate thresholds
+    # Predicate thresholds
     sub_block_present_thresh: ClassVar[float] = 0.5
     next_to_thresh: ClassVar[float] = 0.5
     holding_thresh: ClassVar[float] = 0.5
@@ -70,38 +73,44 @@ class WBox(BaseEnv):
     _block_type = Type("block", ["x", "y", "held", "type"], _object_type)
 
     # Predicates
-    ## Inside predicate
+    # Inside predicate
     def _Inside_holds(state: State, objects: Sequence[Object]) -> bool:
         container, block = objects
         return WBox._get_held_block(state) != block and \
-            WBox._get_shape(state, container).contains(WBox._get_shape(state, block))
+            WBox._get_shape(state, container).contains(
+                WBox._get_shape(state, block))
 
-    _Inside: ClassVar[Predicate] = Predicate("Inside", [_container_type, _block_type], _Inside_holds)
+    _Inside: ClassVar[Predicate] = Predicate(
+        "Inside", [_container_type, _block_type], _Inside_holds)
 
-    ## Outside predicate
+    # Outside predicate
     def _Outside_holds(state: State, objects: Sequence[Object]) -> bool:
         return not WBox._Inside_holds(state, objects)
-    _Outside: ClassVar[Predicate] = Predicate("Outside", [_container_type, _block_type], _Outside_holds)
+    _Outside: ClassVar[Predicate] = Predicate(
+        "Outside", [_container_type, _block_type], _Outside_holds)
 
     # NextTo predicate
     def _NextTo_holds(state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
         return WBox._get_shape(state, obj1).distance(WBox._get_shape(state, obj2)) <= WBox.next_to_thresh
 
-    _NextToRobot: ClassVar[Predicate] = Predicate("NextToRobot", [_robot_type, _object_type], _NextTo_holds)
+    _NextToRobot: ClassVar[Predicate] = Predicate(
+        "NextToRobot", [_robot_type, _object_type], _NextTo_holds)
 
     # Held predicate
     def _Held_holds(state: State, objects: Sequence[Object]) -> bool:
         _, block, = objects
         return WBox._get_held_block(state) == block
 
-    _Held: ClassVar[Predicate] = Predicate("Held", [_robot_type, _block_type], _Held_holds)
+    _Held: ClassVar[Predicate] = Predicate(
+        "Held", [_robot_type, _block_type], _Held_holds)
 
     # NotHeld predicate
     def _NotHeld_holds(state: State, objects: Sequence[Object]) -> bool:
         return WBox._get_held_block(state) is None
 
-    _NotHeld: ClassVar[Predicate] = Predicate("NotHeld", [_robot_type], _NotHeld_holds)
+    _NotHeld: ClassVar[Predicate] = Predicate(
+        "NotHeld", [_robot_type], _NotHeld_holds)
 
     # Common Objects
     _robot = Object("robot", _robot_type)
@@ -143,7 +152,7 @@ class WBox(BaseEnv):
             (move, self._transition_move),
             (place, self._transition_place),
         ]
-        _, transition_fn = max(affinities, key = lambda t: t[0])
+        _, transition_fn = max(affinities, key=lambda t: t[0])
         next_state = transition_fn(state, action)
         return next_state
 
@@ -159,7 +168,8 @@ class WBox(BaseEnv):
             return next_state
 
         # Check which block was selected
-        selected_blocks = [block for block in state.get_objects(self._block_type) if self._get_shape(state, block).contains_properly(finger)]
+        selected_blocks = [block for block in state.get_objects(
+            self._block_type) if self._get_shape(state, block).contains_properly(finger)]
         if not selected_blocks:
             logging.info("NO BLOCK SELECTED")
             return next_state
@@ -172,8 +182,10 @@ class WBox(BaseEnv):
 
         # Changing the state
         center = self._get_shape(state, selected_block).boundary.centroid
-        next_state.set(selected_block, "x", next_state.get(selected_block, "x") - center.x)
-        next_state.set(selected_block, "y", next_state.get(selected_block, "y") - center.y)
+        next_state.set(selected_block, "x", next_state.get(
+            selected_block, "x") - center.x)
+        next_state.set(selected_block, "y", next_state.get(
+            selected_block, "y") - center.y)
         self._set_held_block(next_state, selected_block)
         return next_state
 
@@ -190,8 +202,10 @@ class WBox(BaseEnv):
         held_block = self._get_held_block(state)
         if held_block is not None:
             center = self._get_shape(state, held_block).boundary.centroid
-            next_state.set(held_block, "x", x + next_state.get(held_block, "x") - center.x)
-            next_state.set(held_block, "y", y + next_state.get(held_block, "y") - center.y)
+            next_state.set(held_block, "x", x +
+                           next_state.get(held_block, "x") - center.x)
+            next_state.set(held_block, "y", y +
+                           next_state.get(held_block, "y") - center.y)
 
         # Renormalize objects
         self._renormalize_state(next_state)
@@ -213,7 +227,8 @@ class WBox(BaseEnv):
         new_block_shape = self._get_shape(
             state, held_block, x, y
         )
-        container_shapes = [poly for c in state.get_objects(self._container_type) for poly in [self._get_shape(state, c)] if poly.intersects(new_block_shape)]
+        container_shapes = [poly for c in state.get_objects(self._container_type) for poly in [
+            self._get_shape(state, c)] if poly.intersects(new_block_shape)]
         if container_shapes and container_shapes[0].boundary.intersects(new_block_shape):
             logging.info("BLOCK INTERSECTS WITH A CONTAINER BOUNDARY")
             return next_state
@@ -239,18 +254,19 @@ class WBox(BaseEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         if not self._train_tasks:
             self._train_tasks = self._generate_tasks(
-                rng = self._train_rng,
-                num_tasks = CFG.num_train_tasks,
-                range_blocks = self.range_train_containers,
+                rng=self._train_rng,
+                num_tasks=CFG.num_train_tasks,
+                range_blocks=self.range_train_containers,
             )
         return self._train_tasks
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         if not self._test_tasks:
             self._test_tasks = self._generate_tasks(
-                rng = self._test_rng,
-                num_tasks = CFG.num_test_tasks,
-                range_blocks = (CFG.wbox_test_num_containers, CFG.wbox_test_num_containers),
+                rng=self._test_rng,
+                num_tasks=CFG.num_test_tasks,
+                range_blocks=(CFG.wbox_test_num_containers,
+                              CFG.wbox_test_num_containers),
             )
         return self._test_tasks
 
@@ -274,8 +290,11 @@ class WBox(BaseEnv):
 
         # Constructing subtasks
         num_containers = rng.integers(*range_containers, endpoint=True)
-        block_hashes = rng.permutation(num_containers * 3).reshape(num_containers, -1) # so that the blocks cannot be sorted
-        allowed_area = box(self.world_range_x[0], self.world_range_y[0], self.world_range_x[1], self.world_range_y[1])
+        # so that the blocks cannot be sorted
+        block_hashes = rng.permutation(
+            num_containers * 3).reshape(num_containers, -1)
+        allowed_area = box(
+            self.world_range_x[0], self.world_range_y[0], self.world_range_x[1], self.world_range_y[1])
         for idx in range(num_containers):
             allowed_area = self._generate_subtask(
                 rng, idx, block_hashes[idx], goal,
@@ -291,7 +310,8 @@ class WBox(BaseEnv):
             if any(WBox._NextTo_holds(state, [self._robot, container]) for container in state.get_objects(self._container_type)):
                 break
         else:
-            raise ValueError("Could not generate a task with the given settings")
+            raise ValueError(
+                "Could not generate a task with the given settings")
 
         # Normalizing the state
         self._renormalize_state(state)
@@ -317,16 +337,20 @@ class WBox(BaseEnv):
                 continue
             break
         else:
-            raise ValueError("Could not generate a task with the given settings")
-        allowed_area = allowed_area.difference(self._get_shape(state, container).buffer(self.object_placement_margin))
+            raise ValueError(
+                "Could not generate a task with the given settings")
+        allowed_area = allowed_area.difference(self._get_shape(
+            state, container).buffer(self.object_placement_margin))
 
         # Finding the block positions
         num_d_blocks = rng.integers(4)
         blocks_data = [
-            (Object(f"{block_hashes[block_idx + num_d_blocks]}_{idx}_i_block_{block_idx}", self._block_type), self.i_block_poly, False)
+            (Object(f"{block_hashes[block_idx + num_d_blocks]}_{idx}_i_block_{block_idx}",
+             self._block_type), self.i_block_poly, False)
             for block_idx in range(3 - num_d_blocks)
         ] + [
-            (Object(f"{block_hashes[block_idx]}_{idx}_d_block_{block_idx}", self._block_type), self.d_block_poly, True)
+            (Object(f"{block_hashes[block_idx]}_{idx}_d_block_{block_idx}",
+             self._block_type), self.d_block_poly, True)
             for block_idx in range(num_d_blocks)
         ]
         for block, poly, is_d_block in blocks_data:
@@ -340,16 +364,20 @@ class WBox(BaseEnv):
                     continue
                 break
             else:
-                raise ValueError("Could not generate a task with the given settings")
-            allowed_area = allowed_area.difference(self._get_shape(state, block).buffer(self.object_placement_margin))
+                raise ValueError(
+                    "Could not generate a task with the given settings")
+            allowed_area = allowed_area.difference(self._get_shape(
+                state, block).buffer(self.object_placement_margin))
 
         # Inserting the goal
-        goal.update(self._Inside([container, block]) for block, _, _ in blocks_data)
+        goal.update(self._Inside([container, block])
+                    for block, _, _ in blocks_data)
 
         # Inserting the desired poses
-        blocks, _, is_d_block = zip(*sorted(blocks_data, key = lambda d: d[2]))
+        blocks, _, is_d_block = zip(*sorted(blocks_data, key=lambda d: d[2]))
         for block, (dx, dy) in zip(
-            blocks, self.num_d_blocks_offsets[sum(is_d_block)] + [state.get(container, "x"), state.get(container, "y")]
+            blocks, self.num_d_blocks_offsets[sum(
+                is_d_block)] + [state.get(container, "x"), state.get(container, "y")]
         ):
             simulator_state.desired_poses[block] = (dx, dy)
 
@@ -401,8 +429,10 @@ class WBox(BaseEnv):
     @classmethod
     def _get_held_block(cls, state: State) -> Optional[Object]:
         held_block = cast(SimulatorState, state.simulator_state).held_block
-        assert (state.get(cls._robot, "holding") >= cls.holding_thresh) ^ (held_block is None)
-        assert held_block is None or state.get(held_block, "held") >= cls.holding_thresh
+        assert (state.get(cls._robot, "holding") >=
+                cls.holding_thresh) ^ (held_block is None)
+        assert held_block is None or state.get(
+            held_block, "held") >= cls.holding_thresh
         return held_block
 
     @classmethod
@@ -429,8 +459,10 @@ class WBox(BaseEnv):
         """(grab_action, move_action, place_action, x, y)"""
         move_range_x = self.world_range_x[1] - self.world_range_x[0]
         move_range_y = self.world_range_y[1] - self.world_range_y[0]
-        lower_bound = np.array([0.0, 0.0, 0.0, -move_range_x, -move_range_y], dtype=np.float32)
-        upper_bound = np.array([1.0, 1.0, 1.0, move_range_x, move_range_y], dtype=np.float32)
+        lower_bound = np.array(
+            [0.0, 0.0, 0.0, -move_range_x, -move_range_y], dtype=np.float32)
+        upper_bound = np.array(
+            [1.0, 1.0, 1.0, move_range_x, move_range_y], dtype=np.float32)
         return gym.spaces.Box(lower_bound, upper_bound)
 
     @classmethod
@@ -445,7 +477,7 @@ class WBox(BaseEnv):
         task: EnvironmentTask,
         action: Optional[Action] = None,
         caption: Optional[str] = None
-    ) -> matplotlib.figure.Figure: # type: ignore
+    ) -> matplotlib.figure.Figure:  # type: ignore
         fig = plt.figure()
         ax = fig.add_subplot()
         if caption:
@@ -453,7 +485,8 @@ class WBox(BaseEnv):
 
         # Drawing the containers
         for container in state.get_objects(cls._container_type):
-            ax.add_patch(cls._get_obj_patch(state, container, color='pink', linestyle='--', fill=False))
+            ax.add_patch(cls._get_obj_patch(state, container,
+                         color='pink', linestyle='--', fill=False))
 
         # Drawing the blocks
         held_block = cls._get_held_block(state)
@@ -461,15 +494,19 @@ class WBox(BaseEnv):
             if block == held_block:
                 continue
             x, y = cls._get_unnormalized_coordinates(state, block)
-            ax.add_patch(cls._get_obj_patch(state, block, facecolor='green', edgecolor='darkgreen'))
+            ax.add_patch(cls._get_obj_patch(
+                state, block, facecolor='green', edgecolor='darkgreen'))
 
         # Drawing the held block
         if held_block is not None:
-            ax.add_patch(cls._get_obj_patch(state, held_block, edgecolor='darkgreen', linestyle=':', fill=False))
+            ax.add_patch(cls._get_obj_patch(state, held_block,
+                         edgecolor='darkgreen', linestyle=':', fill=False))
 
         # Drawing the robot
         ax.add_patch(cls._get_obj_patch(state, cls._robot, color='red'))
 
-        ax.set_xlim(cls.world_range_x[0] - cls.visualization_margin, cls.world_range_x[1] + cls.visualization_margin)
-        ax.set_ylim(cls.world_range_y[0] - cls.visualization_margin, cls.world_range_y[1] + cls.visualization_margin)
+        ax.set_xlim(cls.world_range_x[0] - cls.visualization_margin,
+                    cls.world_range_x[1] + cls.visualization_margin)
+        ax.set_ylim(cls.world_range_y[0] - cls.visualization_margin,
+                    cls.world_range_y[1] + cls.visualization_margin)
         return fig

@@ -7,5 +7,5 @@ from experiments.envs.bokksu import *
 from experiments.envs.donuts import *
 from experiments.envs.statue import *
 from experiments.envs.wbox import *
+from experiments.envs.pybullet_packing import *
 from experiments.envs.identity_options import *
-from experiments.search_pruning_approach import *

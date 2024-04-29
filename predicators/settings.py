@@ -343,7 +343,7 @@ class GlobalSettings:
 
     # donuts env parameters
     donuts_test_num_toppings = 3
-    donuts_test_num_donuts = 1 # Should stay at 1
+    donuts_test_num_donuts = 1  # Should stay at 1
 
     # statue env parameters
     statue_test_world_size = 4
@@ -510,7 +510,7 @@ class GlobalSettings:
     diffusion_regressor_timesteps = 10
 
     feasibility_learning_strategy = 'backtracking'
-    feasibility_max_object_count = 20 #100 #20 #30
+    feasibility_max_object_count = 20  # 100 #20 #30
     feasibility_search_device = 'cpu'
     feasibility_keep_model_params = False
     feasibility_num_data_collection_threads = 36
@@ -520,7 +520,8 @@ class GlobalSettings:
     feasibility_embedding_concat = True
     feasibility_embedding_max_idx = 130
     feasibility_mark_failing_nsrt = True
-    feasibility_token_size = feasibility_featurizer_sizes[-1] + (feasibility_embedding_size if feasibility_embedding_concat else 0)
+    feasibility_token_size = feasibility_featurizer_sizes[-1] + (
+        feasibility_embedding_size if feasibility_embedding_concat else 0)
     feasibility_num_heads = 8
     feasibility_num_layers = 1
     feasibility_ffn_hid_size = feasibility_token_size * 4
@@ -533,6 +534,8 @@ class GlobalSettings:
     feasibility_loss_output_file = ""
     feasibility_threshold_recalibration_percentile = 0.85
     feasibility_num_datapoints_per_iter = 3000
+    feasibility_max_datapoint_multiplier = 10000
+    feasibility_min_samples_per_failing_nsrt = 200
     feasibility_optim = 'adam'
     feasibility_l1_penalty = 0
     feasibility_l2_penalty = 0
