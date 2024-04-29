@@ -9,8 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
-from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Sequence, \
-    Set, Tuple
+from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -24,8 +24,8 @@ from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
-from predicators.structs import Dataset, GroundAtomTrajectory, Object, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type
+from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -42,6 +42,13 @@ def _create_grammar(dataset: Dataset,
         diff_grammar = _FeatureDiffInequalitiesPredicateGrammar(dataset)
         grammar = _ChainPredicateGrammar([grammar, diff_grammar],
                                          alternate=True)
+    if CFG.grammar_search_grammar_use_euclidean_dist:
+        for (t1_f1, t1_f2, t2_f1,
+             t2_f2) in CFG.grammar_search_euclidean_feature_names:
+            euclidean_dist_grammar = _EuclideanDistancePredicateGrammar(
+                dataset, t1_f1, t2_f1, t1_f2, t2_f2)
+            grammar = _ChainPredicateGrammar([grammar, euclidean_dist_grammar],
+                                             alternate=True)
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
@@ -64,7 +71,10 @@ def _create_grammar(dataset: Dataset,
     # because if any predicates are equivalent to the given predicates,
     # we would not want to generate them. Don't do this if we're using
     # DebugGrammar, because we don't want to prune things that are in there.
-    if not CFG.grammar_search_use_handcoded_debug_grammar:
+    # Also don't do this if we explicitly don't want to prune such
+    # predicates.
+    if not CFG.grammar_search_use_handcoded_debug_grammar and \
+        CFG.grammar_search_prune_redundant_preds:
         grammar = _PrunedGrammar(dataset, grammar)
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
@@ -209,6 +219,57 @@ class _AttributeDiffCompareClassifier(_BinaryClassifier):
                     f"{name2}:{self.object2_type.name}")
         body_str = (f"(|{name1}.{self.attribute1_name} - "
                     f"{name2}.{self.attribute2_name}| "
+                    f"{self.compare_str} {self.constant:.3})")
+        return vars_str, body_str
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _EuclideanAttributeDiffCompareClassifier(_BinaryClassifier):
+    """Compare the euclidean distance between two feature values with a
+    constant value."""
+    object1_index: int
+    object1_type: Type
+    obj1_attr1_name: str
+    obj1_attr2_name: str
+    object2_index: int
+    object2_type: Type
+    obj2_attr1_name: str
+    obj2_attr2_name: str
+    constant: float
+    constant_idx: int
+    compare: Callable[[float, float], bool]
+    compare_str: str
+
+    def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
+        assert obj1.type == self.object1_type
+        assert obj2.type == self.object2_type
+        return self.compare((s.get(obj1, self.obj1_attr1_name) -
+                             s.get(obj2, self.obj2_attr1_name))**2 +
+                            (s.get(obj1, self.obj1_attr2_name) -
+                             s.get(obj2, self.obj2_attr2_name))**2,
+                            self.constant)
+
+    def __str__(self) -> str:
+        return (f"((({self.object1_index}:{self.object1_type.name})."
+                f"{self.obj1_attr1_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.obj2_attr1_name})^2"
+                f" + (({self.object1_index}:{self.object1_type.name})."
+                f"{self.obj1_attr2_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.obj2_attr2_name})^2)"
+                f"{self.compare_str}[idx {self.constant_idx}]"
+                f"{self.constant:.3})")
+
+    def pretty_str(self) -> Tuple[str, str]:
+        name1 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object1_index]
+        name2 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object2_index]
+        vars_str = (f"{name1}:{self.object1_type.name}, "
+                    f"{name2}:{self.object2_type.name}")
+        body_str = (f"(({name1}.{self.obj1_attr1_name} - "
+                    f"{name2}.{self.obj2_attr1_name})^2 "
+                    f" + (({name1}.{self.obj1_attr2_name} - "
+                    f"{name2}.{self.obj2_attr2_name})^2 "
                     f"{self.compare_str} {self.constant:.3})")
         return vars_str, body_str
 
@@ -385,6 +446,21 @@ _DEBUG_PREDICATE_PREFIXES = {
     "repeated_nextto_single_option": [
         "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
     ],
+    "stick_button_move": [
+        # NOTE: changing the demonstration data slightly causes
+        # the value of the constant to change. Need to uncomment these
+        # as necessary.
+        # StickAboveButton
+        "(((0:button).x - (1:stick).tip_x)^2 + ((0:button).y - " + \
+            "(1:stick).tip_y)^2)<=[idx 0]0.18)",
+        # RobotAboveButton
+        "(((0:button).x - (1:robot).x)^2 + ((0:button).y - " + \
+            "(1:robot).y)^2)<=[idx 0]0.194)",
+        "((0:stick).held<=[idx 0]0.5)",  # Handempty
+        "NOT-((0:stick).held<=[idx 0]0.5)",  # Grasped
+        "((0:button).y<=[idx 0]3.01)",  # ButtonReachableByRobot
+        "NOT-((0:button).y<=[idx 0]3.01)",  # ButtonNotReachableByRobot
+    ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
@@ -513,56 +589,150 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Generates features of the form "|0.feature - 1.feature| <= c"."""
 
+    def _yield_pred_given_const(
+            self, feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]],
+            constant_idx: int, constant: float,
+            cost: float) -> Iterator[Tuple[Predicate, float]]:
+        for (t1, t2) in itertools.combinations_with_replacement(
+                sorted(self.types), 2):
+            for f1 in t1.feature_names:
+                for f2 in t2.feature_names:
+                    # To create our classifier, we need to leverage the
+                    # upper and lower bounds of its features.
+                    # First, we extract these and move on if these
+                    # bounds are relatively close together.
+                    lb1, ub1 = feature_ranges[t1][f1]
+                    if abs(lb1 - ub1) < 1e-6:
+                        continue
+                    lb2, ub2 = feature_ranges[t2][f2]
+                    if abs(lb2 - ub2) < 1e-6:
+                        continue
+                    lb, ub = utils.compute_abs_range_given_two_ranges(
+                        lb1, ub1, lb2, ub2)
+                    # Scale the constant by the correct range.
+                    k = constant * (ub - lb) + lb
+                    # Create classifier.
+                    comp, comp_str = le, "<="
+                    diff_classifier = _AttributeDiffCompareClassifier(
+                        0, t1, f1, 1, t2, f2, k, constant_idx, comp, comp_str)
+                    name = str(diff_classifier)
+                    types = [t1, t2]
+                    pred = Predicate(name, types, diff_classifier)
+                    assert pred.arity == 2
+                    yield (pred, cost)
+
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # Edge case: if there are no features at all, return immediately.
         if not any(r for r in feature_ranges.values()):
             return
+        # Start by generating predicates such that the two features are
+        # very close together. The reason we can't just set the constant
+        # to 1e-6 is because objects have some amount of "size", and so even
+        # when they're touching, it's not like their centers overlap.
+        # E.g. in stick button, when the robot touches the button, the center
+        # of the robot and the object might still be offset by a bit.
+        for ret_val in self._yield_pred_given_const(
+                feature_ranges, 0,
+                CFG.grammar_search_diff_features_const_multiplier, 4.0):
+            yield ret_val
+        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        constant_generator = _halving_constant_generator(0.0, 1.0)
+        for constant_idx, (constant, cost) in enumerate(constant_generator):
+            for ret_val in self._yield_pred_given_const(
+                    feature_ranges, constant_idx, constant, cost):
+                yield ret_val
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _EuclideanDistancePredicateGrammar(
+        _SingleFeatureInequalitiesPredicateGrammar):
+    """Generates predicates of the form "|0.x - 1.x|^2 + |0.y - 1.y|^2 <= c^2".
+    Importantly, this only operates over types that have features
+    named f1_name and f2_name.
+    """
+    t1_f1_name: str
+    t2_f1_name: str
+    t1_f2_name: str
+    t2_f2_name: str
+
+    def _compute_xy_bounds(self, feature_ranges: Dict[Type,
+                                                      Dict[str, Tuple[float,
+                                                                      float]]],
+                           t1: Type, t2: Type) -> Tuple[float, float]:
+        # To create our classifier, we need to leverage the
+        # upper and lower bounds of its x, y features.
+        lbx1, ubx1 = feature_ranges[t1][self.t1_f1_name]
+        lbx2, ubx2 = feature_ranges[t2][self.t2_f1_name]
+        lby1, uby1 = feature_ranges[t1][self.t1_f2_name]
+        lby2, uby2 = feature_ranges[t2][self.t2_f2_name]
+        # Compute the upper and lower bounds of each feature range.
+        lbx, ubx = utils.compute_abs_range_given_two_ranges(
+            lbx1, ubx1, lbx2, ubx2)
+        lby, uby = utils.compute_abs_range_given_two_ranges(
+            lby1, uby1, lby2, uby2)
+        # Now, use these to compute the upper and lower bounds of
+        # the squared expression of interest.
+        lb = lbx**2 + lby**2
+        ub = ubx**2 + uby**2
+        return (lb, ub)
+
+    def _generate_pred_given_constant(self, constant_idx: int, constant: float,
+                                      t1: Type, t2: Type, t1_f1_name: str,
+                                      t1_f2_name: str, t2_f1_name: str,
+                                      t2_f2_name: str) -> Predicate:
+        # Create classifier.
+        comp, comp_str = le, "<="
+        diff_classifier = _EuclideanAttributeDiffCompareClassifier(
+            0, t1, t1_f1_name, t1_f2_name, 1, t2, t2_f1_name, t2_f2_name,
+            constant, constant_idx, comp, comp_str)
+        name = str(diff_classifier)
+        types = [t1, t2]
+        pred = Predicate(name, types, diff_classifier)
+        return pred
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # Edge case: if there are no features at all, return immediately.
+        if not any(r for r in feature_ranges.values()):
+            return
+
+        # Start by generating predicates with a very small constant,
+        # to indicate that the objects are touching/overlapped.
+        for (t1, t2) in itertools.combinations_with_replacement(
+                sorted(self.types), 2):
+            if (self.t1_f1_name in t1.feature_names
+                    and self.t2_f1_name in t2.feature_names
+                    and self.t1_f2_name in t1.feature_names
+                    and self.t2_f2_name in t2.feature_names):
+                lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
+                constant = ((ub - lb) *
+                            CFG.grammar_search_euclidean_const_multiplier) + lb
+                pred = self._generate_pred_given_constant(
+                    0, constant, t1, t2, self.t1_f1_name, self.t1_f2_name,
+                    self.t2_f1_name, self.t2_f2_name)
+                assert pred.arity == 2
+                yield (pred, 3.0)  # cost = arity + cost from constant
+
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
             for (t1, t2) in itertools.combinations_with_replacement(
                     sorted(self.types), 2):
-                for f1 in t1.feature_names:
-                    for f2 in t2.feature_names:
-                        # To create our classifier, we need to leverage the
-                        # upper and lower bounds of its features.
-                        # First, we extract these and move on if these
-                        # bounds are relatively close together.
-                        lb1, ub1 = feature_ranges[t1][f1]
-                        if abs(lb1 - ub1) < 1e-6:
-                            continue
-                        lb2, ub2 = feature_ranges[t2][f2]
-                        if abs(lb2 - ub2) < 1e-6:
-                            continue
-                        # Now, we must compute the upper and lower bounds of
-                        # the expression |t1.f1 - t2.f2|. If the intervals
-                        # [lb1, ub1] and [lb2, ub2] overlap, then the lower
-                        # bound of the expression is just 0. Otherwise, if
-                        # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
-                        # ub2 < lb1, the lower bound is |lb1 - ub2|.
-                        if utils.f_range_intersection(lb1, ub1, lb2, ub2):
-                            lb = 0.0
-                        else:
-                            lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
-                        # The upper bound for the expression can be
-                        # computed in a similar fashion.
-                        ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
-
-                        # Scale the constant by the correct range.
-                        k = constant * (ub - lb) + lb
-                        # Create classifier.
-                        comp, comp_str = le, "<="
-                        diff_classifier = _AttributeDiffCompareClassifier(
-                            0, t1, f1, 1, t2, f2, k, constant_idx, comp,
-                            comp_str)
-                        name = str(diff_classifier)
-                        types = [t1, t2]
-                        pred = Predicate(name, types, diff_classifier)
-                        assert pred.arity == 2
-                        yield (pred, 2 + cost
-                               )  # cost = arity + cost from constant
+                if (self.t1_f1_name in t1.feature_names
+                        and self.t2_f1_name in t2.feature_names
+                        and self.t1_f2_name in t1.feature_names
+                        and self.t2_f2_name in t2.feature_names):
+                    lb, ub = self._compute_xy_bounds(feature_ranges, t1, t2)
+                    # Scale the constant by the correct range.
+                    k = constant * (ub - lb) + lb
+                    pred = self._generate_pred_given_constant(
+                        constant_idx + 1, k, t1, t2, self.t1_f1_name,
+                        self.t1_f2_name, self.t2_f1_name, self.t2_f2_name)
+                    assert pred.arity == 2
+                    yield (pred, 2 + cost)  # cost = arity + cost from constant
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -753,21 +923,85 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def _generate_atom_dataset_via_grammar(
+        self, dataset: Dataset
+    ) -> Tuple[List[GroundAtomTrajectory], Dict[Predicate, float]]:
+        """Generates predicates from a grammar, and applies them to the
+        dataset."""
         # Generate a candidate set of predicates.
         logging.info("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
         logging.info(f"Done: created {len(candidates)} candidates:")
+        self._metrics["grammar_size"] = len(candidates)
         for predicate, cost in candidates.items():
             logging.info(f"{predicate} {cost}")
         # Apply the candidate predicates to the data.
         logging.info("Applying predicates to data...")
-        atom_dataset = utils.create_ground_atom_dataset(
-            dataset.trajectories,
-            set(candidates) | self._initial_predicates)
+
+        # Get the template str for the dataset filename for saving
+        # a ground atom dataset.
+        dataset_fname, _ = utils.create_dataset_filename_str(True)
+        # Add a bunch of things relevant to grammar search to the
+        # dataset filename string.
+        dataset_fname = dataset_fname[:-5] + \
+            f"_{CFG.grammar_search_max_predicates}" + \
+            f"_{CFG.grammar_search_grammar_includes_givens}" + \
+            f"_{CFG.grammar_search_grammar_includes_foralls}" + \
+            f"_{CFG.grammar_search_grammar_use_diff_features}" + \
+            f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
+            dataset_fname[-5:]
+
+        # Load pre-saved data if the CFG.load_atoms flag is set.
+        atom_dataset: Optional[List[GroundAtomTrajectory]] = None
+        if CFG.load_atoms:
+            atom_dataset = utils.load_ground_atom_dataset(
+                dataset_fname, dataset.trajectories)
+        else:
+            atom_dataset = utils.create_ground_atom_dataset(
+                dataset.trajectories,
+                set(candidates) | self._initial_predicates)
+            # Save this atoms dataset if the save_atoms flag is set.
+            if CFG.save_atoms:
+                utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
         logging.info("Done.")
+        assert atom_dataset is not None
+        return (atom_dataset, candidates)
+
+    def _parse_atom_dataset_from_annotated_dataset(
+        self, dataset: Dataset
+    ) -> Tuple[List[GroundAtomTrajectory], Dict[Predicate, float]]:
+        """Uses a dataset with annotations to create a candidate predicate set
+        and atoms trajectories."""
+        # We rely on the annotations as our ground atom datasets.
+        assert dataset.annotations is not None
+        # We now turn these into GroundAtomTrajectories.
+        atom_dataset = []
+        for traj, atoms in zip(dataset.trajectories, dataset.annotations):
+            atom_dataset.append((traj, atoms))
+        # Also generate the grammar by ripping out all the Predicates
+        # associated with each of the atoms in our sets.
+        candidates = {}
+        for ano_traj in dataset.annotations:
+            for ground_atom_state in ano_traj:
+                for ground_atom in ground_atom_state:
+                    assert isinstance(ground_atom, GroundAtom)
+                    if ground_atom.predicate not in candidates:
+                        # The cost of this predicate is simply its arity.
+                        candidates[ground_atom.predicate] = float(
+                            len(ground_atom.objects))
+        logging.debug(f"All candidate predicates: {candidates.keys()}")
+        return (atom_dataset, candidates)
+
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        if not CFG.offline_data_method == "demo+labelled_atoms":
+            atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
+                dataset)
+        else:
+            # In this case, we're inventing over already-labelled atoms.
+            atom_dataset, candidates = \
+                self._parse_atom_dataset_from_annotated_dataset(dataset)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":

@@ -19,7 +19,7 @@ logs
 saved_approaches
 saved_datasets
 scripts/results
-llm_cache
+pretrained_model_cache
 machines.txt
 *_vision_data
 tests/_fake_trajs

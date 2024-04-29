@@ -36,6 +36,7 @@ try:  # pragma: no cover
 except ModuleNotFoundError:  # pragma: no cover
     _TTS_AVAILABLE = False
 
+import dill as pkl
 import imageio
 import matplotlib
 import matplotlib.pyplot as plt
@@ -2694,6 +2695,59 @@ def prune_ground_atom_dataset(
     return new_ground_atom_dataset
 
 
+def load_ground_atom_dataset(
+        dataset_fname: str,
+        trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
+    """Load a previously-saved ground atom dataset.
+
+    Note importantly that we only save atoms themselves, we don't save
+    the low-level trajectory information that's necessary to make
+    GroundAtomTrajectories given series of ground atoms (that info can
+    be saved separately, in case one wants to just load trajectories and
+    not also load ground atoms). Thus, this function needs to take these
+    trajectories as input.
+    """
+    os.makedirs(CFG.data_dir, exist_ok=True)
+    # Check that the dataset file was previously saved.
+    ground_atom_dataset_atoms: Optional[List[List[Set[GroundAtom]]]] = []
+    if os.path.exists(dataset_fname):
+        # Load the ground atoms dataset.
+        with open(dataset_fname, "rb") as f:
+            ground_atom_dataset_atoms = pkl.load(f)
+        assert ground_atom_dataset_atoms is not None
+        assert len(trajectories) == len(ground_atom_dataset_atoms)
+        logging.info("\n\nLOADED GROUND ATOM DATASET")
+
+        # The saved ground atom dataset consists only of sequences
+        # of sets of GroundAtoms, we need to recombine this with
+        # the LowLevelTrajectories to create a GroundAtomTrajectory.
+        ground_atom_dataset = []
+        for i, traj in enumerate(trajectories):
+            ground_atom_seq = ground_atom_dataset_atoms[i]
+            ground_atom_dataset.append(
+                (traj, [set(atoms) for atoms in ground_atom_seq]))
+    else:
+        raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
+    return ground_atom_dataset
+
+
+def save_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
+                             dataset_fname: str) -> None:
+    """Saves a given ground atom dataset so it can be loaded in the future."""
+    # Save ground atoms dataset to file. Note that a
+    # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
+    # list of sets of GroundAtoms, so we only save the list of
+    # GroundAtoms (the LowLevelTrajectories are saved separately).
+    ground_atom_dataset_to_pkl = []
+    for gt_traj in ground_atom_dataset:
+        trajectory = []
+        for ground_atom_set in gt_traj[1]:
+            trajectory.append(ground_atom_set)
+        ground_atom_dataset_to_pkl.append(trajectory)
+    with open(dataset_fname, "wb") as f:
+        pkl.dump(ground_atom_dataset_to_pkl, f)
+
+
 def extract_preds_and_types(
     ops: Collection[NSRTOrSTRIPSOperator]
 ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:
@@ -3258,10 +3312,20 @@ def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
 
 def get_third_party_path() -> str:
     """Return the absolute path to the third party directory."""
-    module_path = Path(__file__)
-    predicators_dir = module_path.parent
-    third_party_dir_path = os.path.join(predicators_dir, "third_party")
+    third_party_dir_path = os.path.join(get_path_to_predicators_root(),
+                                        "predicators/third_party")
     return third_party_dir_path
+
+
+def get_path_to_predicators_root() -> str:
+    """Return the absolute path to the predicators root directory.
+
+    Specifically, this returns something that looks like:
+    '<installation-path>/predicators'. Note there is no '/' at the end.
+    """
+    module_path = Path(__file__)
+    predicators_dir = module_path.parent.parent
+    return str(predicators_dir)
 
 
 def import_submodules(path: List[str], name: str) -> None:
@@ -3605,11 +3669,32 @@ def find_all_balanced_expressions(s: str) -> List[str]:
     return exprs
 
 
-def f_range_intersection(lb1: float, ub1: float, lb2: float,
-                         ub2: float) -> bool:
-    """Given upper and lower bounds for two feature ranges, returns True iff
-    the ranges intersect."""
+def range_intersection(lb1: float, ub1: float, lb2: float, ub2: float) -> bool:
+    """Given upper and lower bounds for two ranges, returns True iff the ranges
+    intersect."""
     return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
+
+
+def compute_abs_range_given_two_ranges(lb1: float, ub1: float, lb2: float,
+                                       ub2: float) -> Tuple[float, float]:
+    """Given upper and lower bounds of two feature ranges, returns the upper.
+
+    and lower bound of |f1 - f2|.
+    """
+    # Now, we must compute the upper and lower bounds of
+    # the expression |t1.f1 - t2.f2|. If the intervals
+    # [lb1, ub1] and [lb2, ub2] overlap, then the lower
+    # bound of the expression is just 0. Otherwise, if
+    # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
+    # ub2 < lb1, the lower bound is |lb1 - ub2|.
+    if range_intersection(lb1, ub1, lb2, ub2):
+        lb = 0.0
+    else:
+        lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+    # The upper bound for the expression can be
+    # computed in a similar fashion.
+    ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+    return (lb, ub)
 
 
 def roundrobin(iterables: Sequence[Iterator]) -> Iterator:

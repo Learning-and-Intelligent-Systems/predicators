@@ -33,7 +33,8 @@ from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.sandwich import SandwichEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
-from predicators.envs.stick_button import StickButtonEnv
+from predicators.envs.stick_button import StickButtonEnv, \
+    StickButtonMovementEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
     TouchPointEnvParam
@@ -46,43 +47,32 @@ from predicators.structs import NSRT, Action, ParameterizedOption, Task, \
 _PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 
 ENV_NAME_AND_CLS = [
-    ("cover", CoverEnv),
-    ("cover_typed_options", CoverEnvTypedOptions),
+    ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
     ("cover_place_hard", CoverEnvPlaceHard),
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
-    ("cover_regrasp", CoverEnvRegrasp),
-    ("bumpy_cover", BumpyCoverEnv),
+    ("cover_regrasp", CoverEnvRegrasp), ("bumpy_cover", BumpyCoverEnv),
     ("cover_multistep_options", CoverMultistepOptions),
     ("regional_bumpy_cover", RegionalBumpyCoverEnv),
     ("cluttered_table", ClutteredTableEnv),
-    ("cluttered_table_place", ClutteredTablePlaceEnv),
-    ("blocks", BlocksEnv),
-    ("exit_garage", ExitGarageEnv),
-    ("narrow_passage", NarrowPassageEnv),
-    ("painting", PaintingEnv),
-    ("sandwich", SandwichEnv),
-    ("tools", ToolsEnv),
-    ("playroom", PlayroomEnv),
-    ("repeated_nextto", RepeatedNextToEnv),
+    ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
+    ("exit_garage", ExitGarageEnv), ("narrow_passage", NarrowPassageEnv),
+    ("painting", PaintingEnv), ("sandwich", SandwichEnv), ("tools", ToolsEnv),
+    ("playroom", PlayroomEnv), ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
     ("repeated_nextto_simple", RepeatedNextToSimple),
-    ("satellites", SatellitesEnv),
-    ("satellites_simple", SatellitesSimpleEnv),
+    ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
     ("screws", ScrewsEnv),
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),
     ("pddl_blocks_procedural_tasks", ProceduralTasksBlocksPDDLEnv),
     ("pddl_delivery_procedural_tasks", ProceduralTasksDeliveryPDDLEnv),
     ("pddl_easy_delivery_procedural_tasks",
-     ProceduralTasksEasyDeliveryPDDLEnv),
-    ("touch_point", TouchPointEnv),
-    ("touch_point_param", TouchPointEnvParam),
-    ("touch_open", TouchOpenEnv),
+     ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
+    ("touch_point_param", TouchPointEnvParam), ("touch_open", TouchOpenEnv),
     ("stick_button", StickButtonEnv),
-    ("doors", DoorsEnv),
-    ("coffee", CoffeeEnv),
-    ("pybullet_blocks", PyBulletBlocksEnv),
+    ("stick_button_move", StickButtonMovementEnv), ("doors", DoorsEnv),
+    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
