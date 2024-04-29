@@ -18,7 +18,7 @@ To do this, we need to supply demonstrations in the form of a sequence of images
 Demonstrations should be saved as a subfolder in the `saved_datasets` folder. The folder should be named `<env_name>__vlm_demos__<seed>_<num_demos>`. For instance, `apple_coring__vlm_demos__456__1`.
 Within the folder, there should be 1 subfolder for every demonstration trajectory. So in the above example, there should be exactly 1 subfolder. Name each of these subfolders `traj_<demonstration_number>` with 0-indexing (e.g., `traj_0` for the first demo).
 Within each traj subfolder, there should be two things:
-1. a subfolder corresponding to each timestep for the demonstration.
+1. a subfolder corresponding to each timestep for the demonstration. This will contain all the images (potentially from multiple camera views) that correspond to the observation at the current timestep. 
 2. an `options_traj.txt` file that lists out the series of options executed between each of the states.
 
 The `options_traj.txt` file should contain strings corresponding to the options executed as part of the trajectory. The format for each option should be `<option_name>(<objects>, [<continuous_params>])`.
@@ -40,7 +40,7 @@ apple_coring__vlm_demos__456__2
     | 2
         | 2.jpg
     | 3
-        | 3.jpb
+        | 3.jpg
     | 4
         | 4.jpg
     | 5
@@ -54,7 +54,7 @@ apple_coring__vlm_demos__456__2
     | 2
         | 2.jpg
     | 3
-        | 3.jpb
+        | 3.jpg
     | 4
         | 4.jpg
     | 5
@@ -68,12 +68,12 @@ Example command: `python predicators/main.py --env apple_coring --seed 456 --app
 
 The important flags here are the `--offline_data_method img_demos` and the `--vlm_trajs_folder_name apple_coring__vlm_demos__456__1`. The latter should point to the folder housing the demonstration set of interest!
 
-Note that VLM responses are always cached, so if you run the command on a demonstration set and then rerun it, it should be much faster since it's using cached responses!.
+Note that VLM responses are always cached, so if you run the command on a demonstration set and then rerun it, it should be much faster since it's using cached responses!
 
 Also, the code saves a human-readable txt file to the `saved_datasets` folder that contains a text representation of the GroundAtomTrajectories. You can manually inspect and even edit this file, and then rerun the rest of the predicate invention pipeline starting from this file alone (and not the original demos) as input. Here's an example command that does that:
-`python predicators/main.py --env apple_coring --seed 456 --approach grammar_search_invention --excluded_predicates all --num_train_tasks 1 --offline_data_method demo+labeled_atoms --handmade_demo_filename apple_coring__demo+labeled_atoms__manual__1.txt`
+`python predicators/main.py --env apple_coring --seed 456 --approach grammar_search_invention --excluded_predicates all --num_train_tasks 1 --offline_data_method demo+labelled_atoms --handmade_demo_filename apple_coring__demo+labelled_atoms__manual__1.txt`
 
-where `apple_coring__demo+labeled_atoms__manual__1.txt` is the human-readable txt file.
+where `apple_coring__demo+labelled_atoms__manual__1.txt` is the human-readable txt file.
 
 ### Structure of human-readable txt files
 We assume the txt files have a particular structure that we leverage for parsing. To explain these components, consider this below example:

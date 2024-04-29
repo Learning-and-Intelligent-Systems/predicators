@@ -16,6 +16,8 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
 
+DUMMY_GOAL_OBJ_NAME = "dummy_goal_obj"  # used in VLM parsing as well.
+
 
 class VLMPredicateEnv(BaseEnv):
     """Environments that use VLM Predicates.
@@ -117,7 +119,7 @@ class IceTeaMakingEnv(VLMPredicateEnv):
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         del rng  # unused.
-        dummy_goal_obj = Object("dummy_goal_obj", self._goal_object_type)
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
         teabag_obj = Object("teabag", self._teabag_type)
         spoon_obj = Object("spoon", self._spoon_type)
         cup_obj = Object("cup", self._cup_type)

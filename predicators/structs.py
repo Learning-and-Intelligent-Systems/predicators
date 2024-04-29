@@ -1125,7 +1125,7 @@ class ImageOptionTrajectory:
     train task idx. Invariant 2: The length of the state images sequence
     is always one greater than the length of the action sequence.
     """
-    _objects: List[Object]
+    _objects: Collection[Object]
     _state_imgs: List[List[PIL.Image.Image]]
     _actions: List[_Option]
     _is_demo: bool = field(default=False)
@@ -1142,7 +1142,7 @@ class ImageOptionTrajectory:
         return self._state_imgs
 
     @property
-    def objects(self) -> List[Object]:
+    def objects(self) -> Collection[Object]:
         """Objects important to the trajectory."""
         return self._objects
 

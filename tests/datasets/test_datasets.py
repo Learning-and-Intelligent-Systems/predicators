@@ -7,7 +7,7 @@ import pytest
 
 from predicators import utils
 from predicators.datasets import create_dataset
-from predicators.datasets.vlm_input_data import \
+from predicators.datasets.generate_atom_trajs_with_vlm import \
     create_ground_atom_data_from_img_trajs
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
@@ -510,20 +510,15 @@ def test_empty_dataset():
 
 
 @pytest.mark.parametrize(
-    "atom_proposal_prompt_type, atom_labeling_prompt_type",
+    "atom_proposal_prompt_type, atom_labelling_prompt_type",
     [("naive_each_step", "per_scene_naive"),
      ("options_labels_whole_traj", "per_scene_naive"),
      ("naive_whole_traj", "per_scene_cot"),
      ("not_a_real_prompt_type", "per_scene_cot"),
      ("naive_whole_traj", "not_a_real_prompt_type")])
 def test_loading_img_demos(atom_proposal_prompt_type,
-                           atom_labeling_prompt_type):
-    """Test loading a dataset from img demo files.
-
-    NOTE: if you're having issues with this test locally, delete the
-    pretrained_model_cache just to make sure previous incorrect results
-    aren't being cached.
-    """
+                           atom_labelling_prompt_type):
+    """Test loading a dataset from img demo files."""
     utils.reset_config({
         "env":
         "ice_tea_making",
@@ -540,13 +535,15 @@ def test_loading_img_demos(atom_proposal_prompt_type,
         "grammar_search_vlm_atom_proposal_prompt_type":
         atom_proposal_prompt_type,
         "grammar_search_vlm_atom_label_prompt_type":
-        atom_labeling_prompt_type
+        atom_labelling_prompt_type,
+        "pretrained_model_prompt_cache_dir":
+        "tests/datasets/mock_vlm_datasets/cache"
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
     vlm = _DummyVLM()
     if atom_proposal_prompt_type != "not_a_real_prompt_type" and \
-        atom_labeling_prompt_type != "not_a_real_prompt_type":
+        atom_labelling_prompt_type != "not_a_real_prompt_type":
         loaded_dataset = create_ground_atom_data_from_img_trajs(
             env, train_tasks, get_gt_options(env.get_name()), vlm)
         assert len(loaded_dataset.trajectories) == 1
@@ -559,6 +556,11 @@ def test_loading_img_demos(atom_proposal_prompt_type,
             loaded_dataset = create_ground_atom_data_from_img_trajs(
                 env, train_tasks, get_gt_options(env.get_name()), vlm)
         assert "Unknown" in str(e)
+    for dirpath, _, filenames in os.walk(
+            CFG.pretrained_model_prompt_cache_dir):
+        # Remove regular files, ignore directories
+        for filename in filenames:
+            os.unlink(os.path.join(dirpath, filename))
 
 
 def test_env_debug_grammar():
@@ -596,11 +598,11 @@ def test_loading_txt_files():
         "num_train_tasks":
         1,
         "offline_data_method":
-        "demo+labeled_atoms",
+        "demo+labelled_atoms",
         "data_dir":
         "tests/datasets/mock_vlm_datasets",
         "handmade_demo_filename":
-        "ice_tea_making__demo+labeled_atoms__manual__1.txt"
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()

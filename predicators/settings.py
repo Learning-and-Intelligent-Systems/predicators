@@ -651,7 +651,7 @@ class GlobalSettings:
     grammar_search_clustering_gmm_num_components = 10
 
     # filepath to be used if offline_data_method is set to
-    # demo+labeled_atoms
+    # demo+labelled_atoms
     handmade_demo_filename = ""
     # filepath to be used if offline_data_method is set to
     # img_demos
