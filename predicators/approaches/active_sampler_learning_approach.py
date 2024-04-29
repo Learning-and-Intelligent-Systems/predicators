@@ -737,13 +737,13 @@ def _wrap_object_specific_samplers(
     base_sampler: NSRTSampler,
 ) -> NSRTSampler:
 
-    def _wrapped_sampler(state: State, goal: Set[GroundAtom],
-                         rng: np.random.Generator,
-                         objects: Sequence[Object]) -> Array:
+    def _wrapped_sampler(
+            state: State, goal: Set[GroundAtom], rng: np.random.Generator,
+            objects: Sequence[Object]) -> Array:  # pragma: no cover
         objects_tuple = tuple(objects)
         # If we haven't yet learned a object-specific sampler for these objects
         # then use the base sampler.
-        if objects_tuple not in object_specific_samplers:  # pragma: no cover
+        if objects_tuple not in object_specific_samplers:
             return base_sampler(state, goal, rng, objects)
         sampler = object_specific_samplers[objects_tuple]
         return sampler(state, goal, rng, objects)
