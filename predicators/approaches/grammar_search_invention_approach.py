@@ -995,7 +995,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return (atom_dataset, candidates)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        if not CFG.offline_data_method == "demo+labeled_atoms":
+        if not CFG.offline_data_method == "demo+labelled_atoms":
             atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
                 dataset)
         else:

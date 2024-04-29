@@ -3178,10 +3178,20 @@ def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
 
 def get_third_party_path() -> str:
     """Return the absolute path to the third party directory."""
-    module_path = Path(__file__)
-    predicators_dir = module_path.parent
-    third_party_dir_path = os.path.join(predicators_dir, "third_party")
+    third_party_dir_path = os.path.join(get_path_to_predicators_root(),
+                                        "predicators/third_party")
     return third_party_dir_path
+
+
+def get_path_to_predicators_root() -> str:
+    """Return the absolute path to the predicators root directory.
+
+    Specifically, this returns something that looks like:
+    '<installation-path>/predicators'. Note there is no '/' at the end.
+    """
+    module_path = Path(__file__)
+    predicators_dir = module_path.parent.parent
+    return str(predicators_dir)
 
 
 def import_submodules(path: List[str], name: str) -> None:

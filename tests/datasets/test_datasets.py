@@ -7,14 +7,55 @@ import pytest
 
 from predicators import utils
 from predicators.datasets import create_dataset
+from predicators.datasets.generate_atom_trajs_with_vlm import \
+    create_ground_atom_data_from_img_trajs
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.envs.vlm_envs import IceTeaMakingEnv
 from predicators.ground_truth_models import _get_predicates_by_names, \
     get_gt_options, parse_config_included_options
+from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, Task
+
+
+class _DummyVLM(VisionLanguageModel):
+
+    def get_id(self):
+        return "dummy"
+
+    def _sample_completions(self,
+                            prompt,
+                            imgs,
+                            temperature,
+                            seed,
+                            stop_token=None,
+                            num_completions=1):
+        del imgs  # unused.
+        completions = []
+        for _ in range(num_completions):
+            # If the query is asking for atom proposals.
+            if "Please provide predicates" in prompt:
+                completion = "*Holding(spoon)\n*Fizz(buzz)\n" + \
+                    "Submerged(teabag)\nSubmerged(spoon)"
+            # Else, if the query is asking for particular values.
+            elif "values of the following predicates" in prompt:
+                # Completion for default predicates.
+                if "Submerged" in prompt:
+                    completion = "*Holding(spoon): True.\n" + \
+                        "*Submerged(teabag): False.\n*Submerged(spoon): False."
+                # Completion for debug predicates
+                else:
+                    completion = ("hand_grasping_spoon(hand, spoon): True.\n"
+                                  "hand_grasping_teabag(hand, teabag): True.\n"
+                                  "spoon_in_cup(spoon, cup): True.\n"
+                                  "spoon_on_plate(spoon, plate): True.\n"
+                                  "teabag_in_cup(teabag, cup): True.\n"
+                                  "teabag_on_plate(teabag, plate): True.")
+
+            completions.append(completion)
+        return completions
 
 
 def test_demo_dataset():
@@ -468,6 +509,87 @@ def test_empty_dataset():
         _ = dataset.annotations
 
 
+@pytest.mark.parametrize(
+    "atom_proposal_prompt_type, atom_labelling_prompt_type",
+    [("naive_each_step", "per_scene_naive"),
+     ("options_labels_whole_traj", "per_scene_naive"),
+     ("naive_whole_traj", "per_scene_cot"),
+     ("not_a_real_prompt_type", "per_scene_cot"),
+     ("naive_whole_traj", "not_a_real_prompt_type")])
+def test_loading_img_demos(atom_proposal_prompt_type,
+                           atom_labelling_prompt_type):
+    """Test loading a dataset from img demo files."""
+    utils.reset_config({
+        "env":
+        "ice_tea_making",
+        "num_train_tasks":
+        1,
+        "offline_data_method":
+        "img_demos",
+        "data_dir":
+        "tests/datasets/mock_vlm_datasets",
+        "seed":
+        456,
+        "vlm_trajs_folder_name":
+        "ice_tea_making__vlm_demos__456__1",
+        "grammar_search_vlm_atom_proposal_prompt_type":
+        atom_proposal_prompt_type,
+        "grammar_search_vlm_atom_label_prompt_type":
+        atom_labelling_prompt_type,
+        "pretrained_model_prompt_cache_dir":
+        "tests/datasets/mock_vlm_datasets/cache"
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    vlm = _DummyVLM()
+    if atom_proposal_prompt_type != "not_a_real_prompt_type" and \
+        atom_labelling_prompt_type != "not_a_real_prompt_type":
+        loaded_dataset = create_ground_atom_data_from_img_trajs(
+            env, train_tasks, get_gt_options(env.get_name()), vlm)
+        assert len(loaded_dataset.trajectories) == 1
+        assert len(loaded_dataset.annotations) == 1
+        assert len(loaded_dataset.annotations[0][0]) == 1
+        assert "Holding(spoon:spoon)" in str(loaded_dataset.annotations[0][0])
+        assert "DummyGoal" in str(loaded_dataset.annotations[0][-1])
+    else:
+        with pytest.raises(ValueError) as e:
+            loaded_dataset = create_ground_atom_data_from_img_trajs(
+                env, train_tasks, get_gt_options(env.get_name()), vlm)
+        assert "Unknown" in str(e)
+    for dirpath, _, filenames in os.walk(
+            CFG.pretrained_model_prompt_cache_dir):
+        # Remove regular files, ignore directories
+        for filename in filenames:
+            os.unlink(os.path.join(dirpath, filename))
+
+
+def test_env_debug_grammar():
+    """Test loading a dataset from img demo files when the debug grammar is
+    turned on."""
+    utils.reset_config({
+        "env": "ice_tea_making",
+        "num_train_tasks": 1,
+        "offline_data_method": "img_demos",
+        "data_dir": "tests/datasets/mock_vlm_datasets",
+        "seed": 456,
+        "vlm_trajs_folder_name": "ice_tea_making__vlm_demos__456__1",
+        "grammar_search_vlm_atom_proposal_prompt_type":
+        "options_labels_whole_traj",
+        "grammar_search_vlm_atom_label_prompt_type": "per_scene_naive",
+        "grammar_search_vlm_atom_proposal_use_debug": True
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    vlm = _DummyVLM()
+    loaded_dataset = create_ground_atom_data_from_img_trajs(
+        env, train_tasks, get_gt_options(env.get_name()), vlm)
+    assert len(loaded_dataset.trajectories) == 1
+    assert len(loaded_dataset.annotations) == 1
+    assert len(loaded_dataset.annotations[0][0]) == 6
+    assert "hand_grasping_spoon" in str(loaded_dataset.annotations[0][0])
+    assert "DummyGoal" in str(loaded_dataset.annotations[0][-1])
+
+
 def test_loading_txt_files():
     """Test loading a dataset from a txt file."""
     utils.reset_config({
@@ -476,11 +598,11 @@ def test_loading_txt_files():
         "num_train_tasks":
         1,
         "offline_data_method":
-        "demo+labeled_atoms",
+        "demo+labelled_atoms",
         "data_dir":
         "tests/datasets/mock_vlm_datasets",
         "handmade_demo_filename":
-        "ice_tea_making__demo+labeled_atoms__manual__1.txt"
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
