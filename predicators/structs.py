@@ -10,6 +10,7 @@ from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
+import PIL.Image
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
@@ -1109,6 +1110,46 @@ class LowLevelTrajectory:
         assert self._train_task_idx is not None, \
             "This trajectory doesn't contain a train task idx!"
         return self._train_task_idx
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class ImageOptionTrajectory:
+    """A structure similar to a LowLevelTrajectory where instead of low-level
+    states and actions, we record images at every state (i.e., observations),
+    as well as the option that was executed to get between observation images.
+
+    Invariant 1: If this trajectory is a demonstration, it must contain
+    a train task idx and achieve the goal in the respective train task.
+    This invariant is checked upon creation of the trajectory (in
+    datasets) because the trajectory does not have a goal, it only has a
+    train task idx. Invariant 2: The length of the state images sequence
+    is always one greater than the length of the action sequence.
+    """
+    _objects: Collection[Object]
+    _state_imgs: List[List[PIL.Image.Image]]
+    _actions: List[_Option]
+    _is_demo: bool = field(default=False)
+    _train_task_idx: Optional[int] = field(default=None)
+
+    def __post_init__(self) -> None:
+        assert len(self._state_imgs) == len(self._actions) + 1
+        if self._is_demo:
+            assert self._train_task_idx is not None
+
+    @property
+    def imgs(self) -> List[List[PIL.Image.Image]]:
+        """States in the trajectory."""
+        return self._state_imgs
+
+    @property
+    def objects(self) -> Collection[Object]:
+        """Objects important to the trajectory."""
+        return self._objects
+
+    @property
+    def actions(self) -> List[_Option]:
+        """Actions in the trajectory."""
+        return self._actions
 
 
 @dataclass(repr=False, eq=False)

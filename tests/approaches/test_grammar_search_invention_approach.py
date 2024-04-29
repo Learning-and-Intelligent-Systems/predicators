@@ -128,7 +128,7 @@ def test_labelled_atoms_invention():
     """Tests for _PredicateGrammar class."""
     utils.reset_config({
         "env": "cover",
-        "offline_data_method": "demo+labeled_atoms"
+        "offline_data_method": "demo+labelled_atoms"
     })
     env = CoverEnv()
     train_task = env.get_train_tasks()[0].task
