@@ -155,10 +155,13 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             logging.info(
                 "Warning: Operator Learning timed out! Skipping evaluation.")
             return float('inf')
-        
-        logging.debug(f"Learned {len(pnads)} operators for this predicate set.")
+
+        logging.debug(
+            f"Learned {len(pnads)} operators for this predicate set.")
         for pnad in pnads:
-            logging.debug(f"Operator {pnad.op.name} has {len(pnad.datastore)} datapoints.")
+            logging.debug(
+                f"Operator {pnad.op.name} has {len(pnad.datastore)} datapoints."
+            )
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,

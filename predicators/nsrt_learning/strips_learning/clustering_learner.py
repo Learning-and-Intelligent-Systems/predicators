@@ -3,14 +3,14 @@
 import abc
 import functools
 import logging
-from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 from collections import defaultdict
+from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, \
-    Predicate, STRIPSOperator, VarToObjSub
+    ParameterizedOption, Predicate, STRIPSOperator, VarToObjSub
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
@@ -130,17 +130,19 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
 
     def _postprocessing_learn_ignore_effects(self,
                                              pnads: List[PNAD]) -> List[PNAD]:
-        """Prune PNADs whose datastores are too small. Specifically, keep PNADs
-        that have at least CFG.cluster_and_intersect_min_datastore_fraction
-        fraction of the segments produced by the option in their NSRT."""
+        """Prune PNADs whose datastores are too small.
+
+        Specifically, keep PNADs that have at least
+        CFG.cluster_and_intersect_min_datastore_fraction fraction of the
+        segments produced by the option in their NSRT.
+        """
         if not CFG.cluster_and_intersect_prune_low_data_pnads:
             return pnads
-
-        option_to_dataset_size = defaultdict(int)
+        option_to_dataset_size: Dict[ParameterizedOption,
+                                     int] = defaultdict(int)
         for pnad in pnads:
             option = pnad.option_spec[0]
             option_to_dataset_size[option] += len(pnad.datastore)
-
         ret_pnads: List[PNAD] = []
         for pnad in pnads:
             option = pnad.option_spec[0]

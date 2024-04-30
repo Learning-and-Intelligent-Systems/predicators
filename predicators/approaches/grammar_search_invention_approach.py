@@ -951,7 +951,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             f"_{CFG.grammar_search_grammar_includes_foralls}" + \
             f"_{CFG.grammar_search_grammar_use_diff_features}" + \
             f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
-            f"_{CFG.grammar_search_predicate_labelling_noise_prob}" + \
             dataset_fname[-5:]
 
         # Load pre-saved data if the CFG.load_atoms flag is set.
