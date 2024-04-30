@@ -648,12 +648,15 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 <<<<<<< HEAD
+<<<<<<< HEAD
     grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
 =======
     grammar_search_predicate_labelling_noise_prob = 0.0
 >>>>>>> lots of changes with noise-based learning!
+=======
+>>>>>>> Just keep low-datastore operator pruning in cluster and intersect.
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10

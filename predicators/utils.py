@@ -2222,32 +2222,6 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     return atoms
 
 
-def abstract_with_noise(state: State, preds: Collection[Predicate],
-                        noise_prob: float,
-                        rng: np.random.Generator) -> Set[GroundAtom]:
-    """Same as the above abstract function, but is noisy.
-
-    Specifically, with probability noise_prob, the incorrect truth value
-    for a particular atom will be set. Intended to simulate a real-world
-    situation where sensors are noisy
-    """
-    atoms = set()
-    num_total_preds = 0
-    num_corruptions = 0
-    for pred in preds:
-        for choice in get_object_combinations(list(state), pred.types):
-            num_total_preds += 1
-            should_corrupt = rng.uniform(0.0, 1.0) <= noise_prob
-            pred_holds = pred.holds(state, choice)
-            if ((not pred_holds) and should_corrupt) or (pred_holds and
-                                                         (not should_corrupt)):
-                atoms.add(GroundAtom(pred, choice))
-            if should_corrupt:
-                num_corruptions += 1
-    logging.debug(f"Corrupted {num_corruptions} out of {num_total_preds} ({num_corruptions}/{num_total_preds})")
-    return atoms
-
-
 def all_ground_operators(
         operator: STRIPSOperator,
         objects: Collection[Object]) -> Iterator[_GroundSTRIPSOperator]:
@@ -2581,25 +2555,6 @@ def create_ground_atom_dataset(
     for traj in trajectories:
         atoms = [abstract(s, predicates) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
-    return ground_atom_dataset
-
-
-def create_noisy_ground_atom_dataset(
-        trajectories: Sequence[LowLevelTrajectory],
-        predicates: Set[Predicate],
-        noise_prob: float,
-        rng: np.random.Generator) -> List[GroundAtomTrajectory]:
-    """Apply all predicates to all trajectories in the dataset.
-    
-    Potentially add noise to the truth values of the predicates.
-    By default, there is no noise, but the noise thresh can also
-    be set higher.
-    """
-    ground_atom_dataset = []
-    for traj in trajectories:
-        atoms = [abstract_with_noise(s, predicates, noise_prob, rng) for s in traj.states]
-        ground_atom_dataset.append((traj, atoms))
-    import ipdb; ipdb.set_trace()
     return ground_atom_dataset
 
 
