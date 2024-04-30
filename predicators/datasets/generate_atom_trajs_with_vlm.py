@@ -427,6 +427,10 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
             curr_traj_actions.append(
                 Action(np.zeros(0, dtype=float),
                        option_trajs[traj_num][idx_within_traj]))
+        # TODO: modify to append one extra state here so that there's one extra
+        # 'dummy' action beyond the options list.
+
+
         # Now, we need to append the final state because there are 1 more
         # states than actions.
         curr_traj_states.append(dummy_goal_states[traj_num])
