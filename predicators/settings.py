@@ -468,17 +468,17 @@ class GlobalSettings:
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
     cluster_and_intersect_prederror_max_groundings = 10
+    cluster_and_search_inner_search_max_expansions = 2500
+    cluster_and_search_inner_search_timeout = 30
+    cluster_and_search_score_func_max_groundings = 10000
+    cluster_and_search_var_count_weight = 0.1
+    cluster_and_search_precon_size_weight = 0.01
     cluster_and_intersect_prune_low_data_pnads = False
     # If cluster_and_intersect_prune_low_data_pnads is set to True, PNADs must
     # have at least this fraction of the segments produced by the option that is
     # associated with their PNAD in order to not be pruned during operator
     # learning.
     cluster_and_intersect_min_datastore_fraction = 0.0
-    cluster_and_search_inner_search_max_expansions = 2500
-    cluster_and_search_inner_search_timeout = 30
-    cluster_and_search_score_func_max_groundings = 10000
-    cluster_and_search_var_count_weight = 0.1
-    cluster_and_search_precon_size_weight = 0.01
 
     # torch GPU usage setting
     use_torch_gpu = False
@@ -649,16 +649,9 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
-<<<<<<< HEAD
-<<<<<<< HEAD
     grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
-=======
-    grammar_search_predicate_labelling_noise_prob = 0.0
->>>>>>> lots of changes with noise-based learning!
-=======
->>>>>>> Just keep low-datastore operator pruning in cluster and intersect.
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
