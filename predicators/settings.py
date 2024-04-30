@@ -248,16 +248,16 @@ class GlobalSettings:
     # pddl miconic env parameters
     pddl_miconic_procedural_train_min_buildings = 1
     pddl_miconic_procedural_train_max_buildings = 2
-    pddl_miconic_procedural_train_min_floors = 3
-    pddl_miconic_procedural_train_max_floors = 5
+    pddl_miconic_procedural_train_min_floors = 6
+    pddl_miconic_procedural_train_max_floors = 8
     pddl_miconic_procedural_train_min_passengers = 1
     pddl_miconic_procedural_train_max_passengers = 2
     pddl_miconic_procedural_test_min_buildings = 1
     pddl_miconic_procedural_test_max_buildings = 2
-    pddl_miconic_procedural_test_min_floors = 3
-    pddl_miconic_procedural_test_max_floors = 5
-    pddl_miconic_procedural_test_min_passengers = 1
-    pddl_miconic_procedural_test_max_passengers = 2
+    pddl_miconic_procedural_test_min_floors = 8
+    pddl_miconic_procedural_test_max_floors = 10
+    pddl_miconic_procedural_test_min_passengers = 2
+    pddl_miconic_procedural_test_max_passengers = 3
 
     """
     1 - 3 airplanes
