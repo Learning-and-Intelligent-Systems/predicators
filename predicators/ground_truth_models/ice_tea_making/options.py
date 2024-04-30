@@ -8,7 +8,7 @@ from predicators import utils
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
-
+from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_TYPE_NAME
 
 class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the tea making environment."""
@@ -29,7 +29,7 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         object_type = types["object"]
         cup_type = types["cup"]
         hand_type = types["hand"]
-        goal_obj_type = types["goal_object"]
+        goal_obj_type = types[DUMMY_GOAL_OBJ_TYPE_NAME]
 
         Pick = utils.SingletonParameterizedOption(
             # variables: [teabag to pick]

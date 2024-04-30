@@ -17,6 +17,7 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
 
 DUMMY_GOAL_OBJ_NAME = "dummy_goal_obj"  # used in VLM parsing as well.
+DUMMY_GOAL_OBJ_TYPE_NAME = "goal_object"
 
 
 class VLMPredicateEnv(BaseEnv):
@@ -31,7 +32,7 @@ class VLMPredicateEnv(BaseEnv):
 
         # Types
         self._object_type = Type("object", [])
-        self._goal_object_type = Type("goal_object", ["goal_true"],
+        self._goal_object_type = Type(DUMMY_GOAL_OBJ_TYPE_NAME, ["goal_true"],
                                       self._object_type)
 
         # Predicates
