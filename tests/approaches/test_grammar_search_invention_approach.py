@@ -15,14 +15,14 @@ from predicators.approaches.grammar_search_invention_approach import \
     _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
     _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
+from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
 from predicators.envs.stick_button import StickButtonMovementEnv
+from predicators.envs.vlm_envs import IceTeaMakingEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, Object, \
     Predicate, State, Type
-from predicators.envs.vlm_envs import IceTeaMakingEnv
-from predicators.datasets import create_dataset
 
 
 @pytest.mark.parametrize("segmenter", ["atom_changes", "contacts"])
@@ -192,7 +192,7 @@ def test_invention_from_txt_file():
                                               env.types, env.action_space,
                                               train_tasks)
     approach.learn_from_offline_dataset(loaded_dataset)
-    assert len(approach._get_current_predicates()) == 1
+    assert len(approach._get_current_predicates()) == 1  # pylint:disable=protected-access
 
 
 def test_euclidean_grammar():
