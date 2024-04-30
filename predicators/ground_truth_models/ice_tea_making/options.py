@@ -5,10 +5,11 @@ from typing import Dict, Sequence, Set
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_TYPE_NAME
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
-from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_TYPE_NAME
+
 
 class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the tea making environment."""
@@ -44,7 +45,7 @@ class TeaMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
             "place_in",
             cls._create_dummy_policy(action_space),
             types=[object_type, cup_type])
-        
+
         DummyGoalOption = utils.SingletonParameterizedOption(
             # variables: [goal_obj]
             # params: []

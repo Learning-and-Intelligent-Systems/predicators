@@ -13,7 +13,8 @@ import PIL.Image
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME, VLMPredicateEnv, DUMMY_GOAL_OBJ_TYPE_NAME
+from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME, \
+    DUMMY_GOAL_OBJ_TYPE_NAME, VLMPredicateEnv
 from predicators.pretrained_model_interface import GoogleGeminiVLM, \
     VisionLanguageModel
 from predicators.settings import CFG
@@ -254,9 +255,9 @@ def _parse_structured_state_into_ground_atoms(
 ) -> List[List[Set[GroundAtom]]]:
     """Convert structured state trajectories into actual trajectories of ground
     atoms.
-    
-    Note that we also append on an extra final state that achieves the dummy
-    goal predicate.
+
+    Note that we also append on an extra final state that achieves the
+    dummy goal predicate.
     """
     # We check a number of important properties before starting.
     # Firstly, the number of train tasks must equal the number of structured
@@ -420,7 +421,8 @@ def _create_dummy_goal_state_for_each_task(
 
 def _convert_ground_option_trajs_into_lowleveltrajs(
         option_trajs: List[List[_Option]], dummy_goal_states: List[State],
-        train_tasks: List[Task], known_options: Set[ParameterizedOption]) -> List[LowLevelTrajectory]:
+        train_tasks: List[Task],
+        known_options: Set[ParameterizedOption]) -> List[LowLevelTrajectory]:
     """Convert option trajectories into LowLevelTrajectories to be used in
     constructing a Dataset."""
     assert len(option_trajs) == len(dummy_goal_states) == len(train_tasks)
@@ -456,11 +458,13 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
             if obj.name == DUMMY_GOAL_OBJ_NAME:
                 dummy_goal_obj = obj
         assert dummy_goal_obj is not None
-        ground_dummy_goal_option = dummy_goal_option.ground([dummy_goal_obj], np.array([], dtype=float))
+        ground_dummy_goal_option = dummy_goal_option.ground([dummy_goal_obj],
+                                                            np.array(
+                                                                [],
+                                                                dtype=float))
         assert ground_dummy_goal_option.initiable(traj_init_state)
         curr_traj_actions.append(
-                Action(np.zeros(0, dtype=float),
-                       ground_dummy_goal_option))
+            Action(np.zeros(0, dtype=float), ground_dummy_goal_option))
         # Now, we need to append the final state because there are 1 more
         # states than actions.
         curr_traj_states.append(dummy_goal_states[traj_num])
@@ -606,7 +610,6 @@ def create_ground_atom_data_from_labelled_txt(
     # Finally, we need to construct actual LowLevelTrajectories.
     low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
         option_trajs, goal_states_for_every_traj, train_tasks, known_options)
-    import ipdb; ipdb.set_trace()
     return Dataset(low_level_trajs, ground_atoms_trajs)
 
 

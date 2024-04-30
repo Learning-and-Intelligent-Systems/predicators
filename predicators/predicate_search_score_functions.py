@@ -353,9 +353,11 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                   max_skeletons,
                                   use_visited_state_set=False)
             try:
-                for idx, (_, plan_atoms_sequence,
+                for idx, (nsrts, plan_atoms_sequence,
                           metrics) in enumerate(generator):
                     assert goal.issubset(plan_atoms_sequence[-1])
+                    # print([n.option for n in nsrts])
+                    # print()
                     # Estimate the probability that this skeleton is refinable.
                     refinement_prob = self._get_refinement_prob(
                         demo_atoms_sequence, plan_atoms_sequence)
