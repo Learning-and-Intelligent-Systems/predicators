@@ -181,7 +181,8 @@ def MLP(layers: List[int], input_dim: int) -> nn.Sequential:
     """Create MLP."""
     LinearLayer = nn.Linear
     if not input_dim:
-        mlp_layers: List[nn.Module] = [LinearLayer(input_dim, layers[0], bias=False), LinearLayer(layers[0], layers[0])]
+        mlp_layers: List[nn.Module] = [LinearLayer(
+            input_dim, layers[0], bias=False), LinearLayer(layers[0], layers[0])]
     else:
         mlp_layers: List[nn.Module] = [LinearLayer(input_dim, layers[0])]
 
@@ -223,20 +224,21 @@ def setup_graph_net(graph_dataset: GraphDictDataset, num_steps: int,
 
     enc_dims = [layer_size, layer_size]
     enc_layers = {
-        'nodes': [layer_size, enc_dims[0]],
-        'edges': [layer_size, enc_dims[1]]
+        'nodes': [layer_size, layer_size, enc_dims[0]],
+        'edges': [layer_size, layer_size, enc_dims[1]]
     }
     if include_globals:
         enc_layers['globals'] = [layer_size, enc_dims[1]]
 
     in_layers = {
-        'nodes': [layer_size, layer_size],
-        'edges': [layer_size, layer_size]
+        'nodes': [layer_size, layer_size, layer_size],
+        'edges': [layer_size, layer_size, layer_size]
     }
     if include_globals:
         in_layers['globals'] = [layer_size, layer_size]
 
-    dec_layers = {'nodes': [dims[3]], 'edges': [dims[4]]}
+    dec_layers = {'nodes': [layer_size, layer_size, dims[3]], 'edges': [
+        layer_size, layer_size, dims[4]]}
     if include_globals:
         dec_layers['globals'] = [dims[-1]]
     layer_dict = {}
@@ -256,6 +258,7 @@ def setup_graph_net(graph_dataset: GraphDictDataset, num_steps: int,
     if include_globals:
         layer_dict['global_decoder_layers'] = dec_layers['globals']
 
-    encprocdec = EncodeProcessDecode(dims, num_steps, use_torch_gpu, **layer_dict)
+    encprocdec = EncodeProcessDecode(
+        dims, num_steps, use_torch_gpu, **layer_dict)
 
     return encprocdec
