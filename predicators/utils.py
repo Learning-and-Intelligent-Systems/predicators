@@ -3166,6 +3166,19 @@ def save_video(outfile: str, video: Video) -> None:
     logging.info(f"Wrote out to {outpath}")
 
 
+def save_images(outfile_prefix: str, video: Video) -> None:
+    """Save the video as individual images to image_dir."""
+    outdir = CFG.image_dir
+    os.makedirs(outdir, exist_ok=True)
+    width = len(str(len(video)))
+    for i, image in enumerate(video):
+        image_number = str(i).zfill(width)
+        outfile = outfile_prefix + f"_image_{image_number}.png"
+        outpath = os.path.join(outdir, outfile)
+        imageio.imwrite(outpath, image)
+        logging.info(f"Wrote out to {outpath}")
+
+
 def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
     """Return the absolute path to env asset."""
     dir_path = os.path.dirname(os.path.realpath(__file__))
