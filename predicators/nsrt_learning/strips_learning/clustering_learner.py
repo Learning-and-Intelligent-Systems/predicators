@@ -127,21 +127,26 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
     @classmethod
     def get_name(cls) -> str:
         return "cluster_and_intersect"
-    
+
     def _postprocessing_learn_ignore_effects(self,
                                              pnads: List[PNAD]) -> List[PNAD]:
-        """Return PNADs whose datastores have below a certain size."""
-        option_to_pnad = defaultdict(list)
-        for pnad in pnads:
-            option_to_pnad[pnad.option_spec[0]].append(pnad)
+        """Prune PNADs whose datastores are too small. Specifically, keep PNADs
+        that have at least CFG.cluster_and_intersect_min_datastore_fraction
+        fraction of the segments produced by the option in their NSRT."""
+        if not CFG.cluster_and_intersect_prune_low_data_pnads:
+            return pnads
+
         option_to_dataset_size = defaultdict(int)
-        for option, pnads_list in option_to_pnad.items():
-            option_to_dataset_size[option] += sum(len(p.datastore) for p in pnads_list)
+        for pnad in pnads:
+            option = pnad.option_spec[0]
+            option_to_dataset_size[option] += len(pnad.datastore)
+
         ret_pnads: List[PNAD] = []
-        for option, pnad_list in option_to_pnad.items():
-            for pnad in pnad_list:
-                if  (len(pnad.datastore) / option_to_dataset_size[pnad.option_spec[0]]) > CFG.cluster_and_intersect_min_datastore_fraction:
-                    ret_pnads.append(pnad)
+        for pnad in pnads:
+            option = pnad.option_spec[0]
+            fraction = len(pnad.datastore) / option_to_dataset_size[option]
+            if fraction >= CFG.cluster_and_intersect_min_datastore_fraction:
+                ret_pnads.append(pnad)
         return ret_pnads
 
 
