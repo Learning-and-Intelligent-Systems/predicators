@@ -597,13 +597,18 @@ def create_ground_atom_data_from_img_trajs(
     assert folder_name_components[1] == "vlm_demos"
     assert int(folder_name_components[2]) == CFG.seed
     assert int(folder_name_components[3]) == CFG.num_train_tasks
-    num_trajs = len(os.listdir(trajectories_folder_path))
+    unfiltered_files = os.listdir(trajectories_folder_path)
+    traj_folders = [f for f in unfiltered_files if f[0:4] == "traj"]
+    num_trajs = len(traj_folders)
     assert num_trajs == CFG.num_train_tasks
     option_name_to_option = {opt.name: opt for opt in known_options}
     image_option_trajs = []
     all_task_objs = set()
-    for train_task_idx, path in enumerate(
-            sorted(Path(trajectories_folder_path).iterdir())):
+    unfiltered_paths = sorted(Path(trajectories_folder_path).iterdir())
+    filtered_paths = [f for f in unfiltered_paths if "traj" in f.parts[-1]]
+    # for train_task_idx, path in enumerate(
+    #         sorted(Path(trajectories_folder_path).iterdir())):
+    for train_task_idx, path in enumerate(filtered_paths):
         assert path.is_dir()
         state_folders = [f.path for f in os.scandir(path) if f.is_dir()]
         num_states_in_traj = len(state_folders)
@@ -639,6 +644,7 @@ def create_ground_atom_data_from_img_trajs(
         ]
         ground_option_traj: List[_Option] = []
         # Now actually create ground options.
+        import pdb; pdb.set_trace()
         for option_name, option_objs_strs_list, option_params in zip(
                 option_names_list, object_args_list, parameters):
             objects = [
