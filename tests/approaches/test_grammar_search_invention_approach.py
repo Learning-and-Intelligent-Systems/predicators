@@ -21,6 +21,8 @@ from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, Object, \
     Predicate, State, Type
+from predicators.envs.vlm_envs import IceTeaMakingEnv
+from predicators.datasets import create_dataset
 
 
 @pytest.mark.parametrize("segmenter", ["atom_changes", "contacts"])
@@ -163,6 +165,34 @@ def test_labelled_atoms_invention():
         # to extract predicates from the dataset, the trajectories' actions
         # don't have options that can be used.
         approach.learn_from_offline_dataset(dataset)
+
+
+def test_invention_from_txt_file():
+    """Test loading a dataset from a txt file."""
+    utils.reset_config({
+        "env":
+        "ice_tea_making",
+        "num_train_tasks":
+        1,
+        "num_test_tasks":
+        0,
+        "offline_data_method":
+        "demo+labelled_atoms",
+        "data_dir":
+        "tests/datasets/mock_vlm_datasets",
+        "handmade_demo_filename":
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    loaded_dataset = create_dataset(env, train_tasks,
+                                    get_gt_options(env.get_name()))
+    approach = GrammarSearchInventionApproach(env.goal_predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              train_tasks)
+    approach.learn_from_offline_dataset(loaded_dataset)
+    assert len(approach._get_current_predicates()) == 1
 
 
 def test_euclidean_grammar():
