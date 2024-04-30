@@ -473,6 +473,12 @@ class GlobalSettings:
     cluster_and_search_score_func_max_groundings = 10000
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
+    cluster_and_intersect_prune_low_data_pnads = False
+    # If cluster_and_intersect_prune_low_data_pnads is set to True, PNADs must
+    # have at least this fraction of the segments produced by the option that is
+    # associated with their PNAD in order to not be pruned during operator
+    # learning.
+    cluster_and_intersect_min_datastore_fraction = 0.0
 
     # torch GPU usage setting
     use_torch_gpu = False
