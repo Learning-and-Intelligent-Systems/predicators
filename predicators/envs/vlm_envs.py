@@ -151,3 +151,53 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
             "teabag_on_plate(teabag, plate)"
         ])
+
+
+class BagelMaking(VLMPredicateEnv):
+    """A (simplified) version of a bagel-making task that's close-ish to a
+    pick-place task."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._bagel_type = Type("bagel", [], self._object_type)
+        self._robot_gripper_type = Type("robot_gripper", [], self._object_type)
+        self._oven_type = Type("oven", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "bagel_making"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {
+            self._bagel_type, self._robot_gripper_type, self._oven_type
+        }
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused.
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
+        bagel = Object("bagel", self._bagel_type)
+        robot_gripper = Object("robot_gripper", self._robot_gripper_type)
+        oven = Object("oven", self._oven_type)
+        init_state = State({
+            dummy_goal_obj: np.array([0.0]),
+            bagel: np.array([]),
+            robot_gripper: np.array([]),
+            oven: np.array([]),
+        })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
+
+    @property
+    def vlm_debug_atom_strs(self) -> Set[str]:
+        """A 'debug grammar' set of predicates that should be sufficient for
+        completing the task; useful for comparing different methods of VLM
+        truth-value labelling given the same set of atom proposals to label."""
+        raise NotImplementedError
