@@ -126,7 +126,7 @@ class PG3Approach(NSRTLearningApproach):
         initial_ldls = self._get_policy_search_initial_ldls()
         initial_ldl_strs = [str(ldl) for ldl in initial_ldls]
 
-        learned_ldl_str = learn_policy(
+        learned_ldl_str, num_pg3_calls = learn_policy(
             domain_str,
             problem_strs,
             horizon=CFG.horizon,
@@ -146,6 +146,8 @@ class PG3Approach(NSRTLearningApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.ldl", "wb") as f:
             pkl.dump(self._current_ldl, f)
+        with open(f"{save_path}_{online_learning_cycle}_num_calls.pkl", "wb") as f:
+            pkl.dump(num_pg3_calls, f)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, learn NSRTs.
