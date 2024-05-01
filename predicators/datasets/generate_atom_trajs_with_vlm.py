@@ -65,6 +65,9 @@ def _generate_prompt_for_atom_proposals(
         "options_labels_whole_traj":
         prompt += "\n".join(act.name + str(act.objects)
                             for act in traj.actions)
+        # print("PROMPT:")
+        # print(prompt)
+        # import pdb; pdb.set_trace()
         # NOTE: exact same issue as described in the above note for
         # naive_whole_traj.
         ret_list.append(
@@ -99,6 +102,7 @@ def _generate_prompt_for_scene_labelling(
         # The prompt ends with a section for 'Predicates', so list these.
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
+        import pdb; pdb.set_trace()
         prompt += f"\n\nSkills executed thus far:"
         # For the 0th timestep, the skilss executed is just None.
         curr_prompt = prompt + "\nNone"
@@ -119,6 +123,7 @@ def _generate_prompt_for_scene_labelling(
             ]
             curr_query_imgs = imgs_upto_current + [curr_imgs[0]]
             ret_list.append((curr_prompt, curr_query_imgs))
+        import pdb; pdb.set_trace()
     else:
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
@@ -615,13 +620,19 @@ def create_ground_atom_data_from_img_trajs(
     assert folder_name_components[1] == "vlm_demos"
     assert int(folder_name_components[2]) == CFG.seed
     assert int(folder_name_components[3]) == CFG.num_train_tasks
-    num_trajs = len(os.listdir(trajectories_folder_path))
+    # num_trajs = len(os.listdir(trajectories_folder_path))
+    unfiltered_files = os.listdir(trajectories_folder_path)
+    traj_folders = [f for f in unfiltered_files if f[0:4] == "traj"]
+    num_trajs = len(traj_folders)
     assert num_trajs == CFG.num_train_tasks
     option_name_to_option = {opt.name: opt for opt in known_options}
     image_option_trajs = []
     all_task_objs = set()
-    for train_task_idx, path in enumerate(
-            sorted(Path(trajectories_folder_path).iterdir())):
+    unfiltered_paths = sorted(Path(trajectories_folder_path).iterdir())
+    filtered_paths = [f for f in unfiltered_paths if "traj" in f.parts[-1]]
+    # for train_task_idx, path in enumerate(
+    #         sorted(Path(trajectories_folder_path).iterdir())):
+    for train_task_idx, path in enumerate(filtered_paths):
         assert path.is_dir()
         state_folders = [f.path for f in os.scandir(path) if f.is_dir()]
         num_states_in_traj = len(state_folders)

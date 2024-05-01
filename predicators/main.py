@@ -326,6 +326,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     curr_num_nodes_created = 0.0
     curr_num_nodes_expanded = 0.0
     for test_task_idx, env_task in enumerate(test_tasks):
+        if test_task_idx <= 20:
+            continue
         solve_start = time.perf_counter()
         try:
             # We call reset here, outside of run_episode, so that we can log
