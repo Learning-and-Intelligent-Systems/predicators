@@ -197,7 +197,7 @@ def test_invention_from_txt_file():
     # invention to not select any of the predicates (only select the goal)
     # predicates.
     assert len(approach._get_current_predicates()) == 1  # pylint:disable=protected-access
-    assert approach._get_current_predicates() == env.goal_predicates
+    assert approach._get_current_predicates() == env.goal_predicates  # pylint:disable=protected-access
 
 
 def test_euclidean_grammar():
