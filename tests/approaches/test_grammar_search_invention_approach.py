@@ -192,7 +192,12 @@ def test_invention_from_txt_file():
                                               env.types, env.action_space,
                                               train_tasks)
     approach.learn_from_offline_dataset(loaded_dataset)
+    # The ice_tea_making__demo+labelled_atoms__manual__1.txt happens to
+    # set all atoms to True at all timesteps, and so we expect predicate
+    # invention to not select any of the predicates (only select the goal)
+    # predicates.
     assert len(approach._get_current_predicates()) == 1  # pylint:disable=protected-access
+    assert approach._get_current_predicates() == env.goal_predicates
 
 
 def test_euclidean_grammar():
