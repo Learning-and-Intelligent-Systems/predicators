@@ -69,6 +69,7 @@ def _generate_prompt_for_atom_proposals(
         # naive_whole_traj.
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
+        import ipdb; ipdb.set_trace()
 
     return ret_list
 
