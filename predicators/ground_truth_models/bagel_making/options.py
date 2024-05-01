@@ -28,28 +28,29 @@ class BagelMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # object_type = types["object"]
         gripper_type = types["robot_gripper"]
-        oven_type = types["oven"]
+        toaster_oven_type = types["toaster_oven"]
+        tray_type = types["tray"]
         bagel_type = types["bagel"]
 
         OpenDoor = utils.SingletonParameterizedOption(
             "open_door",
             cls._create_dummy_policy(action_space),
-            types=[oven_type, gripper_type])
+            types=[toaster_oven_type, gripper_type])
         
         CloseDoor = utils.SingletonParameterizedOption(
             "close_door",
             cls._create_dummy_policy(action_space),
-            types=[oven_type, gripper_type])
+            types=[toaster_oven_type, gripper_type])
         
         PullTrayOutside = utils.SingletonParameterizedOption(
             "pull_tray_outside",
             cls._create_dummy_policy(action_space),
-            types=[oven_type, gripper_type])
+            types=[toaster_oven_type, tray_type, gripper_type])
         
         PushTrayInside = utils.SingletonParameterizedOption(
             "push_tray_inside",
             cls._create_dummy_policy(action_space),
-            types=[oven_type, gripper_type])
+            types=[toaster_oven_type, tray_type, gripper_type])
 
         Pick = utils.SingletonParameterizedOption(
             "pick",
@@ -59,7 +60,7 @@ class BagelMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         PlaceInTray = utils.SingletonParameterizedOption(
             "place_in_tray",
             cls._create_dummy_policy(action_space),
-            types=[bagel_type, oven_type, gripper_type])
+            types=[bagel_type, toaster_oven_type, gripper_type])
 
         return {OpenDoor, CloseDoor, PullTrayOutside, PushTrayInside, Pick, PlaceInTray}
 

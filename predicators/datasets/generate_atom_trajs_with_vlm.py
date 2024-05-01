@@ -63,13 +63,13 @@ def _generate_prompt_for_atom_proposals(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
     elif CFG.grammar_search_vlm_atom_proposal_prompt_type == \
         "options_labels_whole_traj":
+        prompt += "\nSkills executed in trajectory:\n"
         prompt += "\n".join(act.name + str(act.objects)
                             for act in traj.actions)
         # NOTE: exact same issue as described in the above note for
         # naive_whole_traj.
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
-        import ipdb; ipdb.set_trace()
 
     return ret_list
 
@@ -203,7 +203,7 @@ def _parse_unique_atom_proposals_from_list(
         assert len(atoms_proposal_for_traj) == 1
         curr_atoms_proposal = atoms_proposal_for_traj[0]
         # Regex pattern to match predicates
-        atom_match_pattern = r"\b[a-z_]+\([a-z0-9, ]+\)"
+        atom_match_pattern = r"\b[a-z_]+\([a-z0-9_, ]+\)"
         # Find all matches in the text
         matches = re.findall(atom_match_pattern,
                              curr_atoms_proposal,

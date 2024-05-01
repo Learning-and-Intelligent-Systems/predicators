@@ -163,7 +163,9 @@ class BagelMaking(VLMPredicateEnv):
         # Env-specific types.
         self._bagel_type = Type("bagel", [], self._object_type)
         self._robot_gripper_type = Type("robot_gripper", [], self._object_type)
-        self._oven_type = Type("oven", [], self._object_type)
+        self._toaster_oven_type = Type("toaster_oven", [], self._object_type)
+        self._tray_type = Type("tray", [], self._object_type)
+
 
     @classmethod
     def get_name(cls) -> str:
@@ -172,7 +174,7 @@ class BagelMaking(VLMPredicateEnv):
     @property
     def types(self) -> Set[Type]:
         return super().types | {
-            self._bagel_type, self._robot_gripper_type, self._oven_type
+            self._bagel_type, self._robot_gripper_type, self._toaster_oven_type, self._tray_type
         }
 
     def _get_tasks(self, num: int,
@@ -181,12 +183,14 @@ class BagelMaking(VLMPredicateEnv):
         dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
         bagel = Object("bagel", self._bagel_type)
         robot_gripper = Object("robot_gripper", self._robot_gripper_type)
-        oven = Object("oven", self._oven_type)
+        toaster_oven = Object("toaster_oven", self._toaster_oven_type)
+        tray = Object("tray", self._tray_type)
         init_state = State({
             dummy_goal_obj: np.array([0.0]),
             bagel: np.array([]),
             robot_gripper: np.array([]),
-            oven: np.array([]),
+            toaster_oven: np.array([]),
+            tray: np.array([]),
         })
         return [
             EnvironmentTask(
