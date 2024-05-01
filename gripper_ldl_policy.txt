@@ -1,0 +1,71 @@
+(define (policy gpolicy)
+
+(:rule (rule1)
+:parameters (?obj - object ?gripper - object ?room - object)
+:preconditions (and
+    (ball ?obj)
+    (gripper ?gripper)
+    (room ?room)
+    (not (at ?obj ?room))
+    (at-robby ?room)
+    (carry ?obj ?gripper)
+)
+:goals (and
+    (at ?obj ?room)
+)
+:action (drop ?obj ?room ?gripper)
+)
+
+(:rule (rule2)
+:parameters (?obj - object ?gripper - object ?room - object ?goalloc - object)
+:preconditions (and
+    (ball ?obj)
+    (gripper ?gripper)
+    (room ?room)
+    (room ?goalloc)
+    (at ?obj ?room)
+    (not (at ?obj ?goalloc))
+    (at-robby ?room)
+    (free ?gripper)
+)
+:goals (and
+    (at ?obj ?goalloc)
+)
+:action (pick ?obj ?room ?gripper)
+)
+
+(:rule (rule3)
+:parameters (?obj - object ?gripper - object ?from - object ?to - object)
+:preconditions (and
+    (ball ?obj)
+    (gripper ?gripper)
+    (room ?from)
+    (room ?to)
+    (not (at ?obj ?to))
+    (carry ?obj ?gripper)
+    (at-robby ?from)
+)
+:goals (and
+    (at ?obj ?to)
+)
+:action (move ?from ?to)
+)
+
+(:rule (rule4)
+:parameters (?obj - object ?from - object ?to - object ?goalloc - object)
+:preconditions (and
+    (ball ?obj)
+    (room ?from)
+    (room ?to)
+    (room ?goalloc)
+    (at ?obj ?to)
+    (not (at ?obj ?goalloc))
+    (at-robby ?from)
+)
+:goals (and
+    (at ?obj ?goalloc)
+)
+:action (move ?from ?to)
+)
+
+)
