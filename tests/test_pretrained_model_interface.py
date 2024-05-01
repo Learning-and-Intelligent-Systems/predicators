@@ -8,7 +8,7 @@ from PIL import Image
 
 from predicators import utils
 from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    LargeLanguageModel, OpenAILLM, VisionLanguageModel
+    LargeLanguageModel, OpenAILLM, VisionLanguageModel, OpenAIVLM
 
 
 class _DummyLLM(LargeLanguageModel):
@@ -147,3 +147,14 @@ def test_gemini_vlm():
     # Create an OpenAILLM with the curie model.
     vlm = GoogleGeminiVLM("gemini-pro-vision")
     assert vlm.get_id() == "Google-gemini-pro-vision"
+
+
+def test_openai_vlm():
+    """Tests for GoogleGeminiVLM()."""
+    cache_dir = "_fake_llm_cache_dir"
+    utils.reset_config({"pretrained_model_prompt_cache_dir": cache_dir})
+    if "OPENAI_API_KEY" not in os.environ:  # pragma: no cover
+        os.environ["OPENAI_API_KEY"] = "dummy API key"
+    # Create an OpenAILLM with the curie model.
+    vlm = OpenAIVLM("gpt-4-turbo")
+    assert vlm.get_id() == "OpenAI-gpt-4-turbo"
