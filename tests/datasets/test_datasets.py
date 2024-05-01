@@ -179,28 +179,34 @@ def test_demo_dataset():
     })
     with pytest.raises(ValueError):
         create_dataset(env, train_tasks, get_gt_options(env.get_name()))
-    # Test demo video generation.
+    # Test demo video and image generation.
     video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
+    image_dir = os.path.join(os.path.dirname(__file__), "_fake_images")
     utils.reset_config({
         "env": "cover",
         "offline_data_method": "demo",
         "num_train_tasks": 1,
         "make_demo_videos": True,
+        "make_demo_images": True,
         "cover_num_blocks": 1,
         "cover_num_targets": 1,
         "cover_block_widths": [0.1],
         "cover_target_widths": [0.05],
         "cover_initial_holding_prob": 1.0,
         "video_dir": video_dir,
+        "image_dir": image_dir
     })
     video_file = os.path.join(video_dir, "cover__123__demo__task0.mp4")
+    image_file = os.path.join(image_dir, "cover__123__demo__task0_image_0.png")
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories) == 1
     assert os.path.exists(video_file)
+    assert os.path.exists(image_file)
     shutil.rmtree(video_dir)
+    shutil.rmtree(image_dir)
     # Test demo collection with bilevel_plan_without_sim.
     utils.reset_config({
         "env": "cover",
