@@ -34,15 +34,9 @@ from predicators.structs import Dataset, GroundAtom, \
     LiftedDecisionList, Object, Predicate, _GroundNSRT
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.envs import create_new_env
-
 from predicators import utils
-from predicators.llm_interface import OpenAILLM
-from openai import OpenAI
-from predicators.approaches.prompt_gen import get_prompt
-import os
 
 DEBUG = False
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class GPTObjectApproach(PG3AnalogyApproach):
     """Use GPT for cross-domain policy learning in PG3."""
