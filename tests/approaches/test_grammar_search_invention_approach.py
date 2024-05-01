@@ -15,8 +15,10 @@ from predicators.approaches.grammar_search_invention_approach import \
     _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
     _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
+from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
 from predicators.envs.stick_button import StickButtonMovementEnv
+from predicators.envs.vlm_envs import IceTeaMakingEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, Object, \
@@ -163,6 +165,39 @@ def test_labelled_atoms_invention():
         # to extract predicates from the dataset, the trajectories' actions
         # don't have options that can be used.
         approach.learn_from_offline_dataset(dataset)
+
+
+def test_invention_from_txt_file():
+    """Test loading a dataset from a txt file."""
+    utils.reset_config({
+        "env":
+        "ice_tea_making",
+        "num_train_tasks":
+        1,
+        "num_test_tasks":
+        0,
+        "offline_data_method":
+        "demo+labelled_atoms",
+        "data_dir":
+        "tests/datasets/mock_vlm_datasets",
+        "handmade_demo_filename":
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    loaded_dataset = create_dataset(env, train_tasks,
+                                    get_gt_options(env.get_name()))
+    approach = GrammarSearchInventionApproach(env.goal_predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              train_tasks)
+    approach.learn_from_offline_dataset(loaded_dataset)
+    # The ice_tea_making__demo+labelled_atoms__manual__1.txt happens to
+    # set all atoms to True at all timesteps, and so we expect predicate
+    # invention to not select any of the predicates (only select the goal)
+    # predicates.
+    assert len(approach._get_current_predicates()) == 1  # pylint:disable=protected-access
+    assert approach._get_current_predicates() == env.goal_predicates  # pylint:disable=protected-access
 
 
 def test_euclidean_grammar():
