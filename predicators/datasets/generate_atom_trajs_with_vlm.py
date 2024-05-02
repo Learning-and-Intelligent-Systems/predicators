@@ -120,6 +120,21 @@ def _generate_prompt_for_scene_labelling(
             ]
             curr_query_imgs = imgs_upto_current + [curr_imgs[0]]
             ret_list.append((curr_prompt, curr_query_imgs))
+    elif CFG.grammar_search_vlm_atom_label_prompt_type == "full_img_option_traj":
+        # The prompt ends with a section for 'Predicates', so list these.
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        prompt += f"\n\nSkills executed in trajectory:\n"
+        prompt += "\n".join(act.name + str(act.objects)
+                                     for act in traj.actions)
+        prompt += f"\n\nImage timestep to label with predicate values: "
+        # NOTE: same problem with ripping out images as in the above note.
+        all_imgs = [
+            imgs_timestep[0] for imgs_timestep in traj.imgs
+        ]
+        for i in range(len(all_imgs)):
+            curr_prompt = prompt + str(i)
+            ret_list.append((curr_prompt, all_imgs))
     else:
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
@@ -153,6 +168,8 @@ def _sample_vlm_atom_proposals_from_trajectories(
         curr_num_queries += 1
         logging.info("Completed (%s/%s) init atoms queries to the VLM.",
                      curr_num_queries, total_num_queries)
+        print(aggregated_vlm_output_strs[-1][0])
+        import ipdb; ipdb.set_trace()
     return aggregated_vlm_output_strs
 
 
@@ -182,6 +199,8 @@ def _label_trajectories_with_vlm_atom_values(
             curr_scenes_labelled += 1
             logging.info("Completed (%s/%s) label queries to VLM!",
                          curr_scenes_labelled, total_scenes_to_label)
+            print(curr_vlm_atom_labelling)
+            import ipdb; ipdb.set_trace()
         output_labelled_atoms_txt_list.append(curr_traj_txt_outputs)
     return output_labelled_atoms_txt_list
 
