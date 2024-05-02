@@ -151,3 +151,62 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
             "teabag_on_plate(teabag, plate)"
         ])
+
+
+class TeaMakingWithFlipEnv(VLMPredicateEnv):
+    """A slightly more complex version of the above tea-making task."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._teabag_type = Type("teabag", [], self._object_type)
+        self._spoon_type = Type("spoon", [], self._object_type)
+        self._cup_type = Type("cup", [], self._object_type)
+        self._plate_type = Type("plate", [], self._object_type)
+        self._hand_type = Type("hand", [], self._object_type)
+        self._milk_carton_type = Type("milk_carton", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "tea_making_with_flip"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {
+            self._teabag_type, self._spoon_type, self._cup_type,
+            self._plate_type, self._hand_type, self._milk_carton_type
+        }
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused.
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
+        teabag_obj = Object("teabag", self._teabag_type)
+        spoon_obj = Object("spoon", self._spoon_type)
+        cup_obj = Object("cup", self._cup_type)
+        plate_obj = Object("plate", self._plate_type)
+        hand_obj = Object("hand", self._hand_type)
+        milk_carton_obj = Object("milk_carton", self._milk_carton_type)
+        init_state = State({
+            dummy_goal_obj: np.array([0.0]),
+            teabag_obj: np.array([]),
+            plate_obj: np.array([]),
+            spoon_obj: np.array([]),
+            cup_obj: np.array([]),
+            milk_carton_obj: np.array([]),
+            hand_obj: np.array([])
+        })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
+
+    @property
+    def vlm_debug_atom_strs(self) -> Set[str]:
+        """A 'debug grammar' set of predicates that should be sufficient for
+        completing the task; useful for comparing different methods of VLM
+        truth-value labelling given the same set of atom proposals to label."""
+        raise NotImplementedError

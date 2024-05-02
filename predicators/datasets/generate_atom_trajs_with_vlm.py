@@ -189,7 +189,7 @@ def _parse_unique_atom_proposals_from_list(
         for atom_proposal_txt in matches:
             num_atoms_considered += 1
             atom_is_valid = True
-            atom = re.sub(r"[^\w\s\(\),]", "", atom_proposal_txt).strip(' ')
+            atom = re.sub(r"[^\w\s\(\),]", "", atom_proposal_txt).strip(' ').replace(", False", "").replace(", True", "")
             obj_names = re.findall(r'\((.*?)\)', atom)
             if obj_names:
                 obj_names_list = [
@@ -326,7 +326,10 @@ def _parse_structured_state_into_ground_atoms(
                             if num_args == 0:
                                 num_args = len(obj_args)
                             else:
-                                assert num_args == len(obj_args)
+                                try:
+                                    assert num_args == len(obj_args)
+                                except AssertionError:
+                                    import ipdb; ipdb.set_trace()
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
                         pred_name_to_pred[pred_name] = Predicate(
