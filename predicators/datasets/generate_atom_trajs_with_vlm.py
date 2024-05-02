@@ -96,14 +96,36 @@ def _generate_prompt_for_scene_labelling(
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-    for atom_str in atoms_list:
-        prompt += f"\n{atom_str}"
-    for curr_imgs in traj.imgs:
+    if CFG.grammar_search_vlm_atom_label_prompt_type == "img_option_history":
+        # The prompt ends with a section for 'Predicates', so list these.
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        prompt += f"\n\nSkills executed thus far:"
+        # For the 0th timestep, the skilss executed is just None.
+        curr_prompt = prompt + "\nNone"
         # NOTE: we rip out just one img from each of the state
         # images. This is fine/works for the case where we only
         # have one camera view, but probably will need to be
         # amended in the future!
-        ret_list.append((prompt, [curr_imgs[0]]))
+        ret_list.append((curr_prompt, [traj.imgs[0][0]]))
+        for i, curr_imgs in enumerate(traj.imgs[1:]):
+            curr_prompt = prompt + "\n"
+            # For the ith timestep, the skills executed are from all the
+            # previous timesteps.
+            curr_prompt += "\n".join(act.name + str(act.objects)
+                                     for act in traj.actions[:i + 1])
+            # NOTE: same problem with ripping out images as in the above note.
+            imgs_upto_current = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[:i + 1]
+            ]
+            curr_query_imgs = imgs_upto_current + [curr_imgs[0]]
+            ret_list.append((curr_prompt, curr_query_imgs))
+    else:
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        for curr_imgs in traj.imgs:
+            # NOTE: same problem with ripping out images as in the above note.
+            ret_list.append((prompt, [curr_imgs[0]]))
     return ret_list
 
 
