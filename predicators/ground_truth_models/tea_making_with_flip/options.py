@@ -27,7 +27,7 @@ class TeaMakingWithFlipGroundTruthOptionFactory(GroundTruthOptionFactory):
         del env_name, predicates  # unused.
 
         object_type = types["object"]
-        cup_type = types["cup"]
+        mug_type = types["mug"]
         hand_type = types["hand"]
         milk_carton_type = types["milk_carton"]
 
@@ -39,17 +39,17 @@ class TeaMakingWithFlipGroundTruthOptionFactory(GroundTruthOptionFactory):
         PlaceInCup = utils.SingletonParameterizedOption(
             "place_in",
             cls._create_dummy_policy(action_space),
-            types=[object_type, cup_type])
-        
+            types=[object_type, mug_type])
+
         FlipUpright = utils.SingletonParameterizedOption(
-            "flip_upright",
+            "flip",
             cls._create_dummy_policy(action_space),
-            types=[cup_type, hand_type])
-        
+            types=[mug_type, hand_type])
+
         PourInMilk = utils.SingletonParameterizedOption(
-            "pour_in_milk",
+            "pour",
             cls._create_dummy_policy(action_space),
-            types=[cup_type, milk_carton_type, hand_type])
+            types=[mug_type, milk_carton_type, hand_type])
 
         return {Pick, PlaceInCup, FlipUpright, PourInMilk}
 

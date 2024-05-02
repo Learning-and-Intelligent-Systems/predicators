@@ -136,6 +136,7 @@ def _sample_vlm_atom_proposals_from_trajectories(
     """Given a list of ImageOptionTrajectories, query a VLM to generate a list
     of names of ground atoms from which we can extract predicates that might be
     relevant for planning to recreate these trajectories."""
+    import pdb; pdb.set_trace()
     aggregated_vlm_output_strs = []
     all_vlm_queries_list = []
     for traj in trajectories:
@@ -609,23 +610,31 @@ def create_ground_atom_data_from_img_trajs(
     """Given a folder containing trajectories that have images of scenes for
     each state, as well as options that transition between these states, output
     a dataset."""
+    CFG.vlm_trajs_folder_name = CFG.vlm_trajs_folder_name[:-1] + "1"
     trajectories_folder_path = os.path.join(
         utils.get_path_to_predicators_root(), CFG.data_dir,
         CFG.vlm_trajs_folder_name)
     # First, run some checks on the folder name to make sure
     # we're not accidentally loading the wrong one.
     folder_name_components = CFG.vlm_trajs_folder_name.split('__')
+    # import pdb; pdb.set_trace()
     assert folder_name_components[0] == CFG.env
     assert folder_name_components[1] == "vlm_demos"
     assert int(folder_name_components[2]) == CFG.seed
     assert int(folder_name_components[3]) == CFG.num_train_tasks
     num_trajs = len(os.listdir(trajectories_folder_path))
+    num_trajs = 1
     assert num_trajs == CFG.num_train_tasks
     option_name_to_option = {opt.name: opt for opt in known_options}
     image_option_trajs = []
     all_task_objs = set()
+    count = 0
     for train_task_idx, path in enumerate(
             sorted(Path(trajectories_folder_path).iterdir())):
+        if "traj" not in path.parts[-1]:
+            continue
+        count += 1
+        train_task_idx = count - 1
         assert path.is_dir()
         state_folders = [f.path for f in os.scandir(path) if f.is_dir()]
         num_states_in_traj = len(state_folders)
@@ -685,6 +694,7 @@ def create_ground_atom_data_from_img_trajs(
 
     if not CFG.grammar_search_vlm_atom_proposal_use_debug:
         logging.info("Querying VLM for candidate atom proposals...")
+        import pdb; pdb.set_trace()
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
             image_option_trajs, vlm, 1)
         logging.info("Done querying VLM for candidate atoms!")

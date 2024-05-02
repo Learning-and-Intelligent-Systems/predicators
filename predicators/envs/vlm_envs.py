@@ -162,7 +162,7 @@ class TeaMakingWithFlipEnv(VLMPredicateEnv):
         # Env-specific types.
         self._teabag_type = Type("teabag", [], self._object_type)
         self._spoon_type = Type("spoon", [], self._object_type)
-        self._cup_type = Type("cup", [], self._object_type)
+        self._mug_type = Type("mug", [], self._object_type)
         self._plate_type = Type("plate", [], self._object_type)
         self._hand_type = Type("hand", [], self._object_type)
         self._milk_carton_type = Type("milk_carton", [], self._object_type)
@@ -174,7 +174,7 @@ class TeaMakingWithFlipEnv(VLMPredicateEnv):
     @property
     def types(self) -> Set[Type]:
         return super().types | {
-            self._teabag_type, self._spoon_type, self._cup_type,
+            self._teabag_type, self._spoon_type, self._mug_type,
             self._plate_type, self._hand_type, self._milk_carton_type
         }
 
@@ -184,7 +184,7 @@ class TeaMakingWithFlipEnv(VLMPredicateEnv):
         dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
         teabag_obj = Object("teabag", self._teabag_type)
         spoon_obj = Object("spoon", self._spoon_type)
-        cup_obj = Object("cup", self._cup_type)
+        mug_obj = Object("mug", self._mug_type)
         plate_obj = Object("plate", self._plate_type)
         hand_obj = Object("hand", self._hand_type)
         milk_carton_obj = Object("milk_carton", self._milk_carton_type)
@@ -193,7 +193,7 @@ class TeaMakingWithFlipEnv(VLMPredicateEnv):
             teabag_obj: np.array([]),
             plate_obj: np.array([]),
             spoon_obj: np.array([]),
-            cup_obj: np.array([]),
+            mug_obj: np.array([]),
             milk_carton_obj: np.array([]),
             hand_obj: np.array([])
         })
