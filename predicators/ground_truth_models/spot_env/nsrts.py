@@ -167,6 +167,20 @@ def _prepare_sweeping_sampler(state: State, goal: Set[GroundAtom],
     return np.array([-0.8, -0.4, home_pose.angle])
 
 
+_OPERATOR_NAME_TO_SAMPLER: Dict[str, NSRTSampler] = {
+    "MoveToHandViewObject": _move_to_hand_view_object_sampler,
+    "MoveToBodyViewObject": _move_to_body_view_object_sampler,
+    "MoveToReachObject": _move_to_reach_object_sampler,
+    "PickObjectFromTop": _pick_object_from_top_sampler,
+    "PlaceObjectOnTop": _place_object_on_top_sampler,
+    "DropObjectInside": _drop_object_inside_sampler,
+    "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
+    "DragToUnblockObject": _drag_to_unblock_object_sampler,
+    "SweepIntoContainer": _sweep_into_container_sampler,
+    "PrepareContainerForSweeping": _prepare_sweeping_sampler,
+}
+
+
 class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Spot Env."""
 
@@ -192,21 +206,8 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         nsrts = set()
 
-        operator_name_to_sampler: Dict[str, NSRTSampler] = {
-            "MoveToHandViewObject": _move_to_hand_view_object_sampler,
-            "MoveToBodyViewObject": _move_to_body_view_object_sampler,
-            "MoveToReachObject": _move_to_reach_object_sampler,
-            "PickObjectFromTop": _pick_object_from_top_sampler,
-            "PlaceObjectOnTop": _place_object_on_top_sampler,
-            "DropObjectInside": _drop_object_inside_sampler,
-            "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
-            "DragToUnblockObject": _drag_to_unblock_object_sampler,
-            "SweepIntoContainer": _sweep_into_container_sampler,
-            "PrepareContainerForSweeping": _prepare_sweeping_sampler,
-        }
-
         for strips_op in env.strips_operators:
-            sampler = operator_name_to_sampler[strips_op.name]
+            sampler = _OPERATOR_NAME_TO_SAMPLER[strips_op.name]
             option = options[strips_op.name]
             nsrt = strips_op.make_nsrt(
                 option=option,
