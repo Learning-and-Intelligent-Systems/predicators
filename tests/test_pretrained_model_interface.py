@@ -8,7 +8,7 @@ from PIL import Image
 
 from predicators import utils
 from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    LargeLanguageModel, OpenAILLM, VisionLanguageModel, OpenAIVLM
+    LargeLanguageModel, OpenAILLM, OpenAIVLM, VisionLanguageModel
 
 
 class _DummyLLM(LargeLanguageModel):
