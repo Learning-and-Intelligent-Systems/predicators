@@ -135,6 +135,26 @@ def _generate_prompt_for_scene_labelling(
         for i in range(len(all_imgs)):
             curr_prompt = prompt + str(i)
             ret_list.append((curr_prompt, all_imgs))
+    elif CFG.grammar_search_vlm_atom_label_prompt_type == "img_option_diffs":
+        # The prompt ends with a section for 'Predicates', so list these.
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        for i in range(len(traj.imgs) - 1):
+            # NOTE: same problem with ripping out images as in the above note.
+            curr_prompt_imgs = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[i:i+2]
+            ]
+            curr_prompt = prompt.format(initial_or_final = "initial")
+            curr_prompt += f"\n\nSkill executed between states: "
+            curr_prompt += traj.actions[i].name + str(traj.actions[i].objects)
+            ret_list.append((curr_prompt, curr_prompt_imgs))
+        final_prompt_imgs = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[-2:]
+            ]
+        final_prompt = prompt.format(initial_or_final = "final")
+        final_prompt += f"\n\nSkill executed between states:\n"
+        final_prompt += "\n".join(traj.actions[-1].name + str(traj.actions[-1].objects))
+        ret_list.append((final_prompt, final_prompt_imgs))        
     else:
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
@@ -168,8 +188,8 @@ def _sample_vlm_atom_proposals_from_trajectories(
         curr_num_queries += 1
         logging.info("Completed (%s/%s) init atoms queries to the VLM.",
                      curr_num_queries, total_num_queries)
-        print(aggregated_vlm_output_strs[-1][0])
-        import ipdb; ipdb.set_trace()
+        # print(aggregated_vlm_output_strs[-1][0])
+        # import ipdb; ipdb.set_trace()
     return aggregated_vlm_output_strs
 
 
@@ -199,8 +219,8 @@ def _label_trajectories_with_vlm_atom_values(
             curr_scenes_labelled += 1
             logging.info("Completed (%s/%s) label queries to VLM!",
                          curr_scenes_labelled, total_scenes_to_label)
-            print(curr_vlm_atom_labelling)
-            import ipdb; ipdb.set_trace()
+            # print(curr_vlm_atom_labelling[0])
+            # import ipdb; ipdb.set_trace()
         output_labelled_atoms_txt_list.append(curr_traj_txt_outputs)
     return output_labelled_atoms_txt_list
 
