@@ -151,3 +151,53 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
             "teabag_on_plate(teabag, plate)"
         ])
+
+
+class RavenBlocksEnv(VLMPredicateEnv):
+    """Testing."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._block_type = Type("block", [], self._object_type)
+        self._bowl_type = Type("bowl", [], self._object_type)
+        self._robot_gripper_type = Type("robot_gripper", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "raven_blocks"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {
+            self._block_type, self._robot_gripper_type, self._bowl_type
+        }
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused.
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
+        green_block_obj = Object("green_block", self._block_type)
+        blue_block_obj = Object("blue_block", self._block_type)
+        yellow_block_obj = Object("yellow_block", self._block_type)
+        green_bowl_obj = Object("green_bowl", self._block_type)
+        robot_obj = Object("robot_gripper", self._robot_gripper_type)
+        init_state = State({
+            dummy_goal_obj: np.array([0.0]),
+            green_block_obj: np.array([]),
+            blue_block_obj: np.array([]),
+            yellow_block_obj: np.array([]),
+            green_bowl_obj: np.array([]),
+            robot_obj: np.array([])
+        })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
+
+    @property
+    def vlm_debug_atom_strs(self) -> Set[str]:
+        raise NotImplementedError

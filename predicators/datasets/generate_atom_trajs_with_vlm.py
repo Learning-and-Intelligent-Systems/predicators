@@ -634,7 +634,12 @@ def create_ground_atom_data_from_img_trajs(
         object_args_list = [obj.split(', ') for obj in parsed_str_objects]
         # Remove empty square brackets from the object_args_list.
         for object_arg_sublist in object_args_list:
-            object_arg_sublist.remove('[]')
+            elem_to_remove = None
+            for arg in object_arg_sublist:
+                if '[' in arg and ']' in arg:
+                    elem_to_remove = arg
+            assert elem_to_remove is not None
+            object_arg_sublist.remove(elem_to_remove)
         parameters = [
             ast.literal_eval(obj) if obj else []
             for obj in re.findall(r'\[(.*?)\]', options_file_str)
@@ -648,6 +653,8 @@ def create_ground_atom_data_from_img_trajs(
                 for opt_arg in option_objs_strs_list
             ]
             option = option_name_to_option[option_name]
+            if isinstance(option_params, float):
+                option_params = [option_params]
             ground_option = option.ground(objects, np.array(option_params))
             # NOTE: we assert the option was initiable in the env's initial
             # state because during learning, we will assert that the option's
