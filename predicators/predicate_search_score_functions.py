@@ -314,11 +314,6 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
         seen_demos = 0
         assert len(low_level_trajs) == len(segmented_trajs)
 
-        # if "upright" in str(candidate_predicates):
-        #     for op in strips_ops:
-        #         print(op)
-        #     import ipdb; ipdb.set_trace()
-
         for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
             if seen_demos >= CFG.grammar_search_max_demos:
                 break
