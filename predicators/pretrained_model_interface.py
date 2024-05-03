@@ -10,7 +10,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 import google
 import google.generativeai as genai
