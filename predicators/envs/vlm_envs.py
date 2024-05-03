@@ -151,3 +151,59 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
             "teabag_on_plate(teabag, plate)"
         ])
+
+class BurgerMakingEnv(VLMPredicateEnv):
+    """A simple 2D gridworld environment for burger making."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types
+        self._robot_type = Type("robot", [], self._object_type)
+        self._cutting_board_type = Type("cutting_board", [], self._object_type)
+        self._grill_type = Type("grill", [], self._object_type)
+        self._tomato_type = Type("tomato", [], self._object_type)
+        self._cheese_type = Type("cheese", [], self._object_type)
+        self._patty_type = Type("patty", [], self._object_type)
+        self._bottom_bun_type = Type("bottom_bun", [], self._object_type)
+        self._top_bun_type = Type("top_bun", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "burger_making"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {
+            self._robot_type, self._cutting_board_type, self._grill_type, self._tomato_type,
+            self._cheese_type, self._patty_type, self._bottom_bun_type, self._top_bun_type}
+
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
+        robot_obj = Object("robot", self._robot_type)
+        cutting_board_obj = Object("cutting_board", self._cutting_board_type)
+        grill_obj = Object("grill", self._grill_type)
+        tomato_obj = Object("tomato", self._tomato_type)
+        cheese_obj = Object("cheese", self._cheese_type)
+        patty_obj = Object("patty", self._patty_type)
+        bottom_bun_obj = Object("bottom_bun", self._bottom_bun_type)
+        top_bun_obj = Object("top_bun", self._top_bun_type)
+
+        init_state = State({
+            dummy_goal_obj: np.array([0.0]),
+            robot_obj: np.array([]),
+            cutting_board_obj: np.array([]),
+            grill_obj: np.array([]),
+            tomato_obj: np.array([]),
+            cheese_obj: np.array([]),
+            patty_obj: np.array([]),
+            bottom_bun_obj: np.array([]),
+            top_bun_obj: np.array([])
+        })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
