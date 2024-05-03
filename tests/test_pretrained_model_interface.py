@@ -172,9 +172,9 @@ def test_openai_vlm_image_example():
         Blocking(object1, object2)
         On(object, surface)
         """
-    images = [Image.open("../tests/datasets/test_vlm_predicate_img.jpg")]
 
     # NOTE: Uncomment for actual test
+    # images = [Image.open("../tests/datasets/test_vlm_predicate_img.jpg")]
     # print("Start requesting...")
     # completions = vlm.sample_completions(prompt=prompt,
     #                                      imgs=images,
