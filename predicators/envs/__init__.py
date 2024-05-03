@@ -5,6 +5,8 @@ import logging
 from predicators import utils
 from predicators.envs.base_env import BaseEnv
 
+from predicators.envs.vlm_envs import BurgerMakingEnv
+
 __all__ = ["BaseEnv"]
 _MOST_RECENT_ENV_INSTANCE = {}
 

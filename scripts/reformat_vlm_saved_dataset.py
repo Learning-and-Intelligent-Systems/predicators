@@ -25,7 +25,7 @@ def main() -> None:
     traj_folders = [f for f in os.listdir(demo_dir) if 'traj_' in f[0:5]]
     for traj_folder in traj_folders:
         image_dir = os.path.join(demo_dir, traj_folder)
-        import pdb; pdb.set_trace()
+
         # Count the number of images we have.
         # Assume for now that we only have 1 image per option execution.
         files = [f for f in os.listdir(image_dir) if f.endswith('.png') or f.endswith('.jpg')]

@@ -29,12 +29,12 @@ class BurgerMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         object_type = types["object"]
         robot_type = types["robot"]
         cutting_board_type = types["cutting_board"]
-        grill_type = types["grill_type"]
-        tomato_type = types["tomato_type"]
-        cheese_type = types["cheese_type"]
-        patty_type = types["patty_type"]
-        bottom_bun_type = types["bottom_bun_type"]
-        top_bun_type = types["top_bun_type"]
+        grill_type = types["grill"]
+        tomato_type = types["tomato"]
+        cheese_type = types["cheese"]
+        patty_type = types["patty"]
+        bottom_bun_type = types["bottom_bun"]
+        top_bun_type = types["top_bun"]
 
         Pick = utils.SingletonParameterizedOption(
             "pick",
@@ -57,7 +57,7 @@ class BurgerMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
         Slice = utils.SingletonParameterizedOption(
             "slice",
             cls._create_dummy_policy(action_space),
-            types = [object_type, cutting_board, robot_type]
+            types = [object_type, cutting_board_type, robot_type]
         )
 
         return {Pick, Place, Cook, Slice}
