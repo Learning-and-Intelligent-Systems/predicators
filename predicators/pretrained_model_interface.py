@@ -318,7 +318,7 @@ class OpenAIVLM(VisionLanguageModel):
                         seed: Optional[int] = None,
                         max_tokens: int = 32,
                         temperature: float = 0.2,
-                        verbose: bool = False):
+                        verbose: bool = False) -> str:
         """Make an API call to OpenAI."""
         client = openai.OpenAI()
         completion = client.chat.completions.create(
@@ -348,6 +348,8 @@ class OpenAIVLM(VisionLanguageModel):
         max_tokens=512,
     ) -> List[str]:
         """Query the model and get responses."""
+        if imgs is None:
+            raise ValueError("images cannot be None")
         messages = self.prepare_vision_messages(prefix=prompt,
                                                 images=imgs,
                                                 detail="auto")
