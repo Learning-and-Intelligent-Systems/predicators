@@ -12,7 +12,6 @@ import time
 from io import BytesIO
 from typing import List, Optional
 
-import cv2
 import google
 import google.generativeai as genai
 import imagehash
