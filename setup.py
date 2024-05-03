@@ -25,7 +25,7 @@ setup(
         "pybullet>=3.2.0",
         "scikit-learn==1.1.2",
         "graphlib-backport",
-        "openai==0.28.1",
+        "openai==1.19.0",
         "pyyaml==6.0",
         "pylint==2.14.5",
         "types-PyYAML",
