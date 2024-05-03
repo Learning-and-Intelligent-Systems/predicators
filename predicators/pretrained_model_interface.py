@@ -10,7 +10,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import google
 import google.generativeai as genai
@@ -263,7 +263,7 @@ class OpenAIVLM(VisionLanguageModel):
         self.model_name = model_name
         self.set_openai_key()
 
-    def set_openai_key(self, key: Optional[str] = None):
+    def set_openai_key(self, key: Optional[str] = None) -> None:
         """Set the OpenAI API key."""
         if key is None:
             assert "OPENAI_API_KEY" in os.environ
@@ -275,7 +275,7 @@ class OpenAIVLM(VisionLanguageModel):
                                 prefix: Optional[str] = None,
                                 suffix: Optional[str] = None,
                                 image_size: Optional[int] = 512,
-                                detail: str = "auto"):
+                                detail: str = "auto") -> List[Dict[str, str]]:
         """Prepare text and image messages for the OpenAI API."""
         content = []
 
