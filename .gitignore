@@ -19,3 +19,6 @@ saved_approaches
 saved_datasets
 scripts/results
 tmp_behavior_states
+eval_trajectories
+pretrained_model_cache/
+tests/_fake_trajs
