@@ -168,6 +168,12 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
 
+        # NOTE: if the below assertion is somehow failing when running an 
+        # interactive learning approach, the reason is likely that 
+        # interactive_num_requests_per_cycle isn't the same as 
+        # online_nsrt_learning_requests_per_cycle. Ensure these are set to the
+        # same thing!
+
         goal_offset = CFG.max_initial_demos
         assert len(self._segmented_trajs) == goal_offset + \
             len(self._interaction_goals)
@@ -191,6 +197,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # Save the goals for each interaction request so we can later associate
         # states, actions, and goals.
         requests = super().get_interaction_requests()
+        # import ipdb; ipdb.set_trace()
         for request in requests:
             goal = self._train_tasks[request.train_task_idx].goal
             self._interaction_goals.append(goal)
