@@ -151,3 +151,55 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
             "teabag_on_plate(teabag, plate)"
         ])
+
+
+class CoffeeBrewingTestEnv(VLMPredicateEnv):
+    """Test."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._mug_type = Type("mug", [], self._object_type)
+        self._coffee_pot_type = Type("coffee_pot", [], self._object_type)
+        self._hot_plate_type = Type("hot_plate", [], self._object_type)
+        self._robot_gripper_type = Type("robot_gripper", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "coffee_brewing"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {
+            self._mug_type,
+            self._coffee_pot_type,
+            self._hot_plate_type,
+            self._robot_gripper_type
+        }
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused.
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
+        coffee_pot_obj = Object("coffee_pot", self._coffee_pot_type)
+        mug_obj = Object("mug", self._mug_type)
+        hot_plate_obj = Object("hot_plate", self._hot_plate_type)
+        robot_gripper_obj = Object("robot_gripper", self._robot_gripper_type)
+        init_state = State({
+            dummy_goal_obj: np.array([0.0]),
+            coffee_pot_obj: np.array([]),
+            mug_obj: np.array([]),
+            hot_plate_obj: np.array([]),
+            robot_gripper_obj: np.array([]),
+        })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
+
+    @property
+    def vlm_debug_atom_strs(self) -> Set[str]:
+        raise NotImplementedError
