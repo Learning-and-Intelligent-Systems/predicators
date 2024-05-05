@@ -265,18 +265,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                                 physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
-        import ipdb
-        ipdb.set_trace()
-        # # The orientation is fixed in this environment.
-        # qx, qy, qz, qw = self.get_robot_ee_home_orn()
-        # f = self.fingers_state_to_joint(self._pybullet_robot,
-        #                                 state.get(self._robot, "fingers"))
-        # return np.array([
-        #     state.get(self._robot, "pose_x"),
-        #     state.get(self._robot, "pose_y"),
-        #     state.get(self._robot, "pose_z"), qx, qy, qz, qw, f
-        # ],
-        #                 dtype=np.float32)
+        qx, qy, qz, qw = self._state_to_gripper_orn(state)
+        f = state.get(self._robot, "fingers")
+        x = state.get(self._robot, "x")
+        y = state.get(self._robot, "y")
+        z = state.get(self._robot, "z")
+        return np.array([x, y, z, qx, qy, qz, qw, f], dtype=np.float32)
 
     @classmethod
     def get_name(cls) -> str:
@@ -299,13 +293,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             raise ValueError("Could not reconstruct state.")
 
     def _get_state(self) -> State:
-        """Create a State based on the current PyBullet state.
-
-        Note that in addition to the state inside PyBullet itself, this
-        uses self._block_id_to_block and self._held_obj_id. As long as
-        the PyBullet internal state is only modified through reset() and
-        step(), these all should remain in sync.
-        """
+        """Create a State based on the current PyBullet state."""
         state_dict = {}
 
         # Get robot state.
@@ -340,10 +328,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         ipdb.set_trace()
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        if CFG.pybullet_robot == "panda":
-            # gripper rotated 90deg so parallel to x-axis
-            normal = np.array([1., 0., 0.], dtype=np.float32)
-        elif CFG.pybullet_robot == "fetch":
+        if CFG.pybullet_robot == "fetch":
             # gripper parallel to y-axis
             normal = np.array([0., 1., 0.], dtype=np.float32)
         else:  # pragma: no cover
@@ -354,3 +339,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._pybullet_robot.left_finger_id: normal,
             self._pybullet_robot.right_finger_id: -1 * normal,
         }
+
+    def _state_to_gripper_orn(self, state: State) -> Quaternion:
+        wrist = state.get(self._robot, "wrist")
+        tilt = state.get(self._robot, "tilt")
+        if abs(tilt - self.robot_init_tilt) > self.pour_angle_tol:
+            return p.getQuaternionFromEuler(
+                [0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
+        return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
