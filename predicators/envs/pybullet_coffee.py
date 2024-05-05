@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple
+from typing import Any, ClassVar, Dict, List, Tuple, Set
 
 import numpy as np
 import pybullet as p
@@ -86,8 +86,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
 
         # Create the cups lazily because they can change size and color.
-        self._cup_id_to_cup = {}
-        self._cup_capacities = []
+        self._cup_capacities: List[float] = []
+        self._cup_id_to_cup: Dict[int, Object] = {}
+        self._liquid_ids: Set[int] = set()
 
     def initialize_pybullet(
             self, using_gui: bool
@@ -327,12 +328,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 self._cup_id_to_cup[cup_id] = cup_obj
                 self._cup_capacities.append(cup_height)
 
-        # TODO remove
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
-            import time
-            time.sleep(0.01)
-
         # Create liquid in cups.
         for liquid_id in self._liquid_ids:
             p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
@@ -364,7 +359,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 physicsClientId=self._physics_client_id)
 
             pose = (cx, cy, cz)
-            orientation = self._default_obj_orn
+            orientation = self._default_orn
             liquid_id = p.createMultiBody(
                 baseMass=0,
                 baseCollisionShapeIndex=collision_id,
@@ -373,6 +368,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 baseOrientation=orientation,
                 physicsClientId=self._physics_client_id)
             self._liquid_ids.add(liquid_id)
+
+        # TODO remove
+        while True:
+            p.stepSimulation(physicsClientId=self._physics_client_id)
+            import time
+            time.sleep(0.01)
 
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
