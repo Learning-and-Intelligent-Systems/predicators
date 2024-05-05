@@ -429,6 +429,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         }
         joint_positions = self._pybullet_robot.get_joints()
 
+        # TODO this was never implemented because before we were only rendering
+        # which just required state->pybullet, not pybullet->state.
         import ipdb
         ipdb.set_trace()
 
