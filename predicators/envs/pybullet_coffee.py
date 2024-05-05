@@ -273,7 +273,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _extract_robot_state(self, state: State) -> Array:
         qx, qy, qz, qw = self._state_to_gripper_orn(state)
         f = state.get(self._robot, "fingers")
-        f = self._fingers_state_to_joint(self._pybullet_robot)[f]
+        f = self._fingers_state_to_joint(self._pybullet_robot, f)
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         z = state.get(self._robot, "z")
@@ -382,12 +382,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 self._jug_id, [jx, jy, jz],
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
+            
+        # Update the button color.
+        if self._MachineOn_holds(state, [self._machine]) and \
+            self._JugInMachine_holds(state, [self._jug, self._machine]):
+            button_color = (0.2, 0.5, 0.2, 1.0)
+            plate_color = (0.9, 0.3, 0.0, 0.7)
+        else:
+            button_color = (0.5, 0.2, 0.2, 1.0)
+            plate_color = (0.6, 0.6, 0.6, 0.5)
+        p.changeVisualShape(self._button_id, -1, rgbaColor=button_color,
+            physicsClientId=self._physics_client_id)
+        p.changeVisualShape(self._dispense_area_id, -1, rgbaColor=plate_color,
+            physicsClientId=self._physics_client_id)
 
         # TODO remove
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
-            import time
-            time.sleep(0.01)
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
+        #     import time
+        #     time.sleep(0.01)
 
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
@@ -403,16 +416,24 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         state_dict = {}
 
         # Get robot state.
-        rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
-        fingers = self._fingers_joint_to_state(rf)
-        state_dict[self._robot] = np.array([rx, ry, rz, fingers],
-                                           dtype=np.float32)
+        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
+        tilt, wrist = self._gripper_orn_to_tilt_wrist((qx, qy, qz, qw))
+        fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
+        state_dict[self._robot] = {
+             "x": rx,
+             "y": ry,
+             "z": rz,
+             "tilt": tilt,
+             "wrist": wrist,
+             "fingers": fingers
+        }
         joint_positions = self._pybullet_robot.get_joints()
 
         import ipdb
         ipdb.set_trace()
 
-        state = utils.PyBulletState(state_dict,
+        state = utils.create_state_from_dict(state_dict)
+        state = utils.PyBulletState(state.data,
                                     simulator_state=joint_positions)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
@@ -453,18 +474,33 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             return p.getQuaternionFromEuler(
                 [0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
         return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
+    
+    def _gripper_orn_to_tilt_wrist(self, orn: Quaternion) -> Tuple[float, float]:
+        _, offset_tilt, offset_wrist = p.getEulerFromQuaternion(orn)
+        tilt = offset_tilt - np.pi / 2
+        wrist = offset_wrist - np.pi
+        return (tilt, wrist)
 
     @classmethod
     def _fingers_state_to_joint(
-            cls, pybullet_robot: SingleArmPyBulletRobot) -> Dict[float, float]:
+            cls, pybullet_robot: SingleArmPyBulletRobot,
+            finger_state: float) -> float:
         """Map the fingers in the given State to joint values for PyBullet."""
-        return {
+        subs = {
             cls.open_fingers: pybullet_robot.open_fingers,
             cls.closed_fingers: pybullet_robot.closed_fingers,
         }
+        match = min(subs, key=lambda k: abs(k-finger_state))
+        return subs[match]
 
     @classmethod
     def _fingers_joint_to_state(
-            cls, pybullet_robot: SingleArmPyBulletRobot) -> Dict[float, float]:
+            cls, pybullet_robot: SingleArmPyBulletRobot,
+            finger_joint: float) -> float:
         """Inverse of _fingers_state_to_joint()."""
-        return {v: k for k, v in cls._fingers_state_to_joint(pybullet_robot)}
+        subs = {
+            pybullet_robot.open_fingers: cls.open_fingers,
+            pybullet_robot.closed_fingers: cls.closed_fingers,
+        }
+        match = min(subs, key=lambda k: abs(k-finger_joint))
+        return subs[match]
