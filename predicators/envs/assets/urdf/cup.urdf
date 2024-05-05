@@ -1,0 +1,24 @@
+<robot name="cup_model">
+  <link name="cup">
+    <inertial>
+      <mass value="0.2" />
+      <!-- center of mass (com) is defined w.r.t. link local coordinate system -->
+      <origin xyz="0 0 0.06" /> 
+      <inertia  ixx="0.1" ixy="0.0"  ixz="0.0"  iyy="0.1"  iyz="0.0"  izz="0.1" />
+    </inertial>
+    <visual>
+      <!-- visual origin is defined w.r.t. link local coordinate system -->
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/cup.dae" scale=".1 .1 .1" />
+      </geometry>
+    </visual>
+    <collision>
+      <!-- collision origin is defined w.r.t. link local coordinate system -->
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/cup.dae" scale=".1 .1 .1" />
+      </geometry>
+    </collision>
+  </link>
+</robot>

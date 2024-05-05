@@ -22,7 +22,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"coffee"}
+        return {"coffee", "pybullet_coffee"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
