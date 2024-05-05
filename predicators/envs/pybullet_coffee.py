@@ -369,6 +369,20 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 physicsClientId=self._physics_client_id)
             self._liquid_ids.add(liquid_id)
 
+        # NOTE: if the jug is held, the parent class should take care of it.
+        if not self._Holding_holds(state, [self._robot, self._jug]):
+            assert self._held_obj_to_base_link is None
+            jx = state.get(self._jug, "x")
+            jy = state.get(self._jug, "y")
+            jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
+            rot = state.get(self._jug, "rot")
+            jug_orientation = p.getQuaternionFromEuler(
+                [0.0, 0.0, rot + np.pi])
+            p.resetBasePositionAndOrientation(
+                self._jug_id, [jx, jy, jz],
+                jug_orientation,
+                physicsClientId=self._physics_client_id)
+
         # TODO remove
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
