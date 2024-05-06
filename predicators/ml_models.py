@@ -35,7 +35,7 @@ from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
     State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
-torch.set_num_threads(1)  # fixes libglomp error on supercloud
+torch.set_num_threads(8)  # fixes libglomp error on supercloud
 
 ################################ Base Classes #################################
 
@@ -475,7 +475,11 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, DeviceTrackingModule
             self.device)
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(
             self.device)
-        batch_generator = _single_batch_generator(tensor_X, tensor_y)
+        num_train_datapoints = tensor_X.shape[0] - int(0.2 * tensor_X.shape[0])
+        tensor_train_X, tensor_train_y = tensor_X[:num_train_datapoints], tensor_y[:num_train_datapoints]
+        tensor_test_X, tensor_test_y = tensor_X[num_train_datapoints:], tensor_y[num_train_datapoints:]
+
+        train_batch_generator = _single_batch_generator(tensor_train_X, tensor_train_y)
         # Run training.
         for _ in range(self._n_reinitialize_tries):
             # (Re-)initialize weights.
@@ -487,7 +491,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, DeviceTrackingModule
                 self,
                 loss_fn,
                 optimizer,
-                batch_generator,
+                train_batch_generator=train_batch_generator,
+                test_data=(tensor_test_X, tensor_test_y),
                 device=self.device,
                 print_every=self._train_print_every,
                 max_train_iters=self._max_train_iters,
@@ -1271,10 +1276,11 @@ def _single_batch_generator(
 def _train_pytorch_model(model: nn.Module,
                          loss_fn: Callable[[Tensor, Tensor], Tensor],
                          optimizer: optim.Optimizer,
-                         batch_generator: Iterator[Tuple[Tensor, Tensor]],
+                         train_batch_generator: Iterator[Tuple[Tensor, Tensor]],
                          max_train_iters: MaxTrainIters,
                          dataset_size: int,
                          device: torch.device,
+                         test_data: Optional[Tuple[Tensor, Tensor]] = None,
                          print_every: int = 1000,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
@@ -1284,6 +1290,8 @@ def _train_pytorch_model(model: nn.Module,
     In the future, with very large datasets, we would want to switch to
     minibatches. Returns the best loss seen during training.
     """
+    if test_data is None:
+        test_data = next(train_batch_generator)
     model.train()
     itr = 0
     best_loss = float("inf")
@@ -1294,25 +1302,26 @@ def _train_pytorch_model(model: nn.Module,
     else:  # assume that it's a function from dataset size to max iters
         max_iters = max_train_iters(dataset_size)
     assert isinstance(max_iters, int)
-    for tensor_X, tensor_Y in batch_generator:
+    for tensor_X, tensor_Y in train_batch_generator:
         Y_hat = model(tensor_X)
-        loss = loss_fn(Y_hat, tensor_Y)
-        if loss.item() < best_loss:
-            best_loss = loss.item()
-            best_itr = itr
-            # Save this best model.
-            torch.save(model.state_dict(), model_name)
+        train_loss = loss_fn(Y_hat, tensor_Y)
         if itr % print_every == 0:
-            logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
+            test_loss = loss_fn(model(test_data[0]), test_data[1]).item()
+            if test_loss < best_loss:
+                best_loss = test_loss
+                best_itr = itr
+                # Save this best model.
+                torch.save(model.state_dict(), model_name)
+            logging.info(f"Train Loss: {train_loss.item():.5f}, Test Loss: {test_loss:.5f}, iter: {itr}/{max_iters}")
         optimizer.zero_grad()
-        loss.backward()  # type: ignore
+        train_loss.backward()  # type: ignore
         if clip_gradients:
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
         optimizer.step()
-        if itr - best_itr > n_iter_no_change:
-            logging.info(f"Loss did not improve after {n_iter_no_change} "
-                         f"itrs, terminating at itr {itr}.")
-            break
+        # if itr - best_itr > n_iter_no_change:
+        #     logging.info(f"Loss did not improve after {n_iter_no_change} "
+        #                  f"itrs, terminating at itr {itr}.")
+        #     break
         if itr == max_iters:
             break
         itr += 1
@@ -1670,23 +1679,15 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
         self.to_common_device()
         optimizer = self._create_optimizer()
 
-        tensor_X_cond = torch.from_numpy(
-            np.array(X_cond, dtype=np.float32)).to(self.device)
-        tensor_Y_out = torch.from_numpy(
-            np.array(Y_out, dtype=np.float32)).to(self.device)
-        tensor_Y_out = torch.from_numpy(
-            np.array(Y_out, dtype=np.float32)).to(self.device)
+        tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self.device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self.device)
 
-        train_datapoints = tensor_X_cond.shape[0] - \
-            int(tensor_X_cond.shape[0] * 0.2)
-        train_data = torch.utils.data.TensorDataset(
-            tensor_X_cond[:train_datapoints], tensor_Y_out[:train_datapoints])
-        test_data = torch.utils.data.TensorDataset(
-            tensor_X_cond[train_datapoints:], tensor_Y_out[train_datapoints:])
-        train_dataloader = torch.utils.data.DataLoader(
-            train_data, batch_size=5000, shuffle=True)
-        test_dataloader = torch.utils.data.DataLoader(
-            test_data, batch_size=5000, shuffle=True)
+        train_datapoints = tensor_X_cond.shape[0] - int(tensor_X_cond.shape[0] * 0.2)
+        train_data = torch.utils.data.TensorDataset(tensor_X_cond[:train_datapoints], tensor_Y_out[:train_datapoints])
+        test_data = torch.utils.data.TensorDataset(tensor_X_cond[train_datapoints:], tensor_Y_out[train_datapoints:])
+        train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=5000, shuffle=True)
+        test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=5000, shuffle=True)
 
         assert isinstance(self._max_train_iters, int)
         self.train()
@@ -1708,21 +1709,18 @@ class DiffusionRegressor(DeviceTrackingModule, DistributionRegressor):
             train_loss_value = loss.item()
             if itr % 100 == 0:
                 test_loss_value = sum(
-                    (self._p_losses(tensor_X, tensor_Y, t) /
-                     tensor_X.shape[0]).item()
+                    (self._p_losses(tensor_X, tensor_Y, t) / tensor_X.shape[0]).item()
                     for tensor_X, tensor_Y in test_dataloader
                     for t in [torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self.device)]
                 )
-                logging.info(
-                    f"Train Loss: {train_loss_value:.5f} Test Loss: {test_loss_value:.5f} iter: {itr}/{self._max_train_iters}")
+                logging.info(f"Train Loss: {train_loss_value:.5f} Test Loss: {test_loss_value:.5f} iter: {itr}/{self._max_train_iters}")
                 if best_loss > test_loss_value:
                     best_loss = test_loss_value
                     best_params = deepcopy(self.state_dict())
                     best_params["iter"] = itr
                 # for name, param in self.named_parameters():
                 #     logging.info(f"Param {name} stats; {tensor_stats(param.grad)}")
-        logging.info(
-            f"Using params from iter {best_params['iter']} with test loss {best_loss:.5}")
+        logging.info(f"Using params from iter {best_params['iter']} with test loss {best_loss:.5}")
         del best_params["iter"]
         self.load_state_dict(best_params)
 

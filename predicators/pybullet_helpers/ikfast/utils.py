@@ -277,7 +277,7 @@ def ikfast_inverse_kinematics(
                     np.linalg.norm(difference, ord=norm) <= max_distance):
                 yield joint_positions
 
-
+ikfast_rng = None
 def ikfast_closest_inverse_kinematics(
         robot: SingleArmPyBulletRobot,
         world_from_target: Pose) -> List[JointPositions]:
@@ -294,6 +294,10 @@ def ikfast_closest_inverse_kinematics(
     A list of joint states that satisfy the given arguments.
     If no solutions are found, an empty list is returned.
     """
+    global ikfast_rng
+    if ikfast_rng is None:
+        ikfast_rng = np.random.default_rng(CFG.seed)
+
     # Check settings that we won't go into infinite loop
     if not (CFG.ikfast_max_time < np.inf or CFG.ikfast_max_attempts < np.inf
             or CFG.ikfast_max_candidates < np.inf):
@@ -313,7 +317,7 @@ def ikfast_closest_inverse_kinematics(
                                           max_distance=CFG.ikfast_max_distance,
                                           max_attempts=CFG.ikfast_max_attempts,
                                           norm=CFG.ikfast_norm,
-                                          rng=np.random.default_rng(CFG.seed))
+                                          rng=ikfast_rng)
 
     # Only use up to the max candidates specified
     if CFG.ikfast_max_candidates < np.inf:  # pragma: no cover

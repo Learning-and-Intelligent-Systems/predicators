@@ -24,7 +24,7 @@ def install_ikfast_module(ikfast_dir: str) -> None:
         # Go to the subdirectory with the setup.py file.
         f"cd {ikfast_dir}",
         # Run the setup.py file.
-        "python setup.py",
+        "python3 setup.py",
     ]
     # Execute the command.
     cmd = "; ".join(cmds)

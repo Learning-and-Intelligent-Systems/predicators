@@ -45,7 +45,7 @@ class PyBulletEnv(BaseEnv):
         (0.05, 0.95, 0.95, 1.),
     ]
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
-    _default_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
+    _default_orn: ClassVar[Quaternion] = (0.0, 0.0, 0.0, 1.0)
 
     # Camera parameters.
     _camera_distance: ClassVar[float] = 0.8
@@ -327,7 +327,7 @@ class PyBulletEnv(BaseEnv):
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
                     score = expected_normal.dot(contact_normal)
-                    assert -1.0 <= score <= 1.0
+                    assert -1.00001 <= score <= 1.00001
 
                     # Take absolute as object/gripper could be rotated 180
                     # degrees in the given axis.

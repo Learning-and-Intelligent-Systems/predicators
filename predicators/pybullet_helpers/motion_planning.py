@@ -8,6 +8,7 @@ import pybullet as p
 from numpy.typing import NDArray
 
 from predicators import utils
+from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
@@ -82,11 +83,14 @@ def run_motion_planning(
         return False
 
     def _distance_fn(from_pt: JointPositions, to_pt: JointPositions) -> float:
-        # NOTE: only using positions to calculate distance. Should use
-        # orientations as well in the near future.
-        from_ee = robot.forward_kinematics(from_pt).position
-        to_ee = robot.forward_kinematics(to_pt).position
-        return sum(np.subtract(from_ee, to_ee)**2)
+        from_ee = robot.forward_kinematics(from_pt)
+        to_ee = robot.forward_kinematics(to_pt)
+
+        quat_diff = Pose((0, 0, 0), from_ee.orientation).multiply(Pose((0, 0, 0), to_ee.orientation).invert()).orientation
+        angle = p.getAxisAngleFromQuaternion(quat_diff)[1]
+
+
+        return np.sqrt((np.subtract(from_ee.position, to_ee.position)**2).mean()) + min(np.pi * 2 - angle, angle)
 
     birrt = utils.BiRRT(_sample_fn,
                         _extend_fn,

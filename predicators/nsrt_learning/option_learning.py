@@ -96,6 +96,10 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
+        # The options might have runtime-specific state (e.g. like in the case of PyBullet)
+        # and so we need to instantiate fresh options
+        env_options = {o.name: o for o in get_gt_options(CFG.env)}
+
         # Since we're not actually doing option learning, the data already
         # contains the options. So, we just extract option specs from the data.
         option_specs = []
@@ -121,7 +125,10 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
                     assert option_args == option_a.objects
             assert param_option is not None and option_vars is not None, \
                 "No data in this datastore?"
-            option_specs.append((param_option, option_vars))
+            # This is where we substitute the option if possible, making sure it's consistent with the discovered one
+            env_option = env_options[param_option.name]
+            assert env_option.types == param_option.types
+            option_specs.append((env_option, option_vars))
         return option_specs
 
     def update_segment_from_option_spec(self, segment: Segment,
@@ -129,7 +136,6 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
         # If we're not doing option learning, the segments will already have
         # the options, so there is nothing to do here.
         pass
-
 
 class _OracleOptionLearner(_OptionLearnerBase):
     """The option learner that just cheats by looking up ground truth options

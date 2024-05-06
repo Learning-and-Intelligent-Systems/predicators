@@ -333,12 +333,9 @@ class SearchPruningApproach(NSRTLearningApproach):
         )
 
         # Preparing data collection and training
-        self._training_feasibility_dataset = FeasibilityDataset(
-            self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count, CFG.feasibility_min_samples_per_failing_nsrt)
-        self._validation_feasibility_dataset = FeasibilityDataset(
-            self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count, 0)
-        dataset_path = utils.create_dataset_filename_str(
-            ["feasibility_dataset"])[0]
+        self._training_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count, CFG.feasibility_min_samples_per_failing_nsrt)
+        self._validation_feasibility_dataset = FeasibilityDataset(self._nsrts, CFG.feasibility_batch_size, CFG.feasibility_max_object_count, 0)
+        dataset_path = utils.create_dataset_filename_str(["feasibility_dataset"])[0]
 
         # Running data collection and training
         seed = self._seed + 100000
@@ -403,17 +400,14 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         while True:
             self._rng.shuffle(search_datapoints)
-            validation_cutoff = round(
-                len(search_datapoints) * CFG.feasibility_validation_fraction)
+            validation_cutoff = round(len(search_datapoints) * CFG.feasibility_validation_fraction)
             training_search_datapoints = search_datapoints[:validation_cutoff]
             validation_search_datapoints = search_datapoints[validation_cutoff:]
             if max(len(dp.skeleton) for dp in training_search_datapoints) == max(len(dp.skeleton) for dp in validation_search_datapoints) == max_skeleton_length:
                 break
 
-        num_validation_datapoints_per_iter = round(
-            CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
-        num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - \
-            num_validation_datapoints_per_iter
+        num_validation_datapoints_per_iter = round(CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
+        num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - num_validation_datapoints_per_iter
         datapoint_multiplier = CFG.feasibility_max_datapoint_multiplier
 
         # run_wbox_ground_truth_saving(
@@ -457,6 +451,9 @@ class SearchPruningApproach(NSRTLearningApproach):
             max_num_steps_option_rollout=CFG.max_num_steps_option_rollout,
             option_model_terminate_on_repeat=CFG.option_model_terminate_on_repeat,
             feasibility_num_data_collection_threads=CFG.feasibility_num_data_collection_threads,
+            pybullet_control_mode=CFG.pybullet_control_mode,
+            pybullet_max_vel_norm=CFG.pybullet_max_vel_norm,
+            feasibility_max_object_count=CFG.feasibility_max_object_count,
         )
 
         with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
@@ -488,14 +485,11 @@ class SearchPruningApproach(NSRTLearningApproach):
                     feasibility_classifiers = [self._feasibility_classifier]
 
                 # Creating the datapoints to search over and moving them to different devices
-                training_viable_datapoints = [
-                    d for d in training_search_datapoints if len(d.skeleton) > prefix_length]
-                max_num_training_iterations = len(
-                    training_viable_datapoints) * datapoint_multiplier
+                training_viable_datapoints = [d for d in training_search_datapoints if len(d.skeleton) > prefix_length]
+                max_num_training_iterations = len(training_viable_datapoints) * datapoint_multiplier
                 training_indices = self._rng.choice(
                     max_num_training_iterations,
-                    min(num_training_datapoints_per_iter,
-                        max_num_training_iterations),
+                    min(num_training_datapoints_per_iter, max_num_training_iterations),
                     replace=False
                 ) % len(training_viable_datapoints)
                 chosen_training_search_datapoints = [
@@ -504,14 +498,11 @@ class SearchPruningApproach(NSRTLearningApproach):
                     for idx, nsrts_dict in zip(training_indices, cycle(nsrts_dicts))
                 ]
 
-                validation_viable_datapoints = [
-                    d for d in validation_search_datapoints if len(d.skeleton) > prefix_length]
-                max_num_validation_iterations = len(
-                    validation_viable_datapoints) * datapoint_multiplier
+                validation_viable_datapoints = [d for d in validation_search_datapoints if len(d.skeleton) > prefix_length]
+                max_num_validation_iterations = len(validation_viable_datapoints) * datapoint_multiplier
                 validation_indices = self._rng.choice(
                     max_num_validation_iterations,
-                    min(num_validation_datapoints_per_iter,
-                        max_num_validation_iterations),
+                    min(num_validation_datapoints_per_iter, max_num_validation_iterations),
                     replace=False
                 ) % len(validation_viable_datapoints)
                 chosen_validation_search_datapoints = [
@@ -737,6 +728,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             skeleton, backtracking, timed_out = None, None, False
             try:
                 skeleton, atoms_seq, metrics = next(generator)
+                logging.info(f"Attempting to refine a skeleton {[nsrt.name for nsrt in skeleton]}")
                 backtracking, is_success = run_low_level_search(
                     task=task,
                     option_model=self._option_model,

@@ -351,6 +351,9 @@ class GlobalSettings:
     # wbox env parameters
     wbox_test_num_containers = 1
 
+    # pybullet_packing env parameters
+    pybullet_packing_test_num_box_cols = 4
+
     # parameters for random options approach
     random_options_max_tries = 100
 

@@ -9,7 +9,7 @@ __all__ = ['IdentityGroundTruthOptionFactory']
 class IdentityGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"shelves2d", "donuts", "statue", "bokksu", "jigsaw", "jigsawrelative", "wbox"}
+        return {"shelves2d", "donuts", "statue", "wbox"}
 
     @classmethod
     def get_options(

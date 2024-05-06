@@ -541,11 +541,9 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self.load_state_dict(best_params)
 
         # Threshold recalibration and final metrics
-        info_str, _, _, _, _ = self.report_performance(
-            validation_dataset, validation_loss_fn)
+        info_str, _, _, _, _ = self.report_performance(training_dataset, training_loss_fn)
         logging.info(f"Final Training Performance: {info_str}")
-        info_str, _, _, false_confidence, _ = self.report_performance(
-            validation_dataset, validation_loss_fn)
+        info_str, _, _, false_confidence, _ = self.report_performance(validation_dataset, validation_loss_fn)
         logging.info(f"Final Validation Performance: {info_str}")
 
         self._unsure_confidence = max(self._thresh, false_confidence)
