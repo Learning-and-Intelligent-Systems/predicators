@@ -210,8 +210,8 @@ class GlobalSettings:
     pddl_spanner_procedural_train_max_nuts = 2
     pddl_spanner_procedural_train_min_extra_spanners = 0
     pddl_spanner_procedural_train_max_extra_spanners = 1
-    pddl_spanner_procedural_train_min_locs = 1
-    pddl_spanner_procedural_train_max_locs = 2
+    pddl_spanner_procedural_train_min_locs = 2
+    pddl_spanner_procedural_train_max_locs = 3
     pddl_spanner_procedural_test_min_nuts = 10
     pddl_spanner_procedural_test_max_nuts = 20
     pddl_spanner_procedural_test_min_extra_spanners = 0
