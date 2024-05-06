@@ -86,9 +86,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
 
         # Create the cups lazily because they can change size and color.
-        self._cup_capacities: List[float] = []
         self._cup_id_to_cup: Dict[int, Object] = {}
-        self._liquid_ids: Set[int] = set()
+        self._cup_to_liquid_id: Dict[Object, int] = {}
 
     def initialize_pybullet(
             self, using_gui: bool
@@ -289,56 +288,51 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Reset cups based on the state.
         cup_objs = state.get_objects(self._cup_type)
-        cup_caps = sorted(state.get(c, "capacity_liquid") for c in cup_objs)
 
-        # Remake the cups.
-        if sorted(self._cup_capacities) != cup_caps:
-            # Remove the old cups.
-            for old_cup_id in self._cup_id_to_cup:
-                p.removeBody(old_cup_id,
-                             physicsClientId=self._physics_client_id)
-            # Make new cups.
-            self._cup_id_to_cup = {}
-            self._cup_capacities = []
-            for cup_idx, cup_obj in enumerate(cup_objs):
-                cup_height = state.get(cup_obj, "capacity_liquid")
-                cx = state.get(cup_obj, "x")
-                cy = state.get(cup_obj, "y")
-                cz = self.z_lb + cup_height / 2
+        # Remove the old cups.
+        for old_cup_id in self._cup_id_to_cup:
+            p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
+        # Make new cups.
+        self._cup_id_to_cup = {}
+        for cup_idx, cup_obj in enumerate(cup_objs):
+            cup_cap = state.get(cup_obj, "capacity_liquid")
+            cup_height = cup_cap
+            cx = state.get(cup_obj, "x")
+            cy = state.get(cup_obj, "y")
+            cz = self.z_lb + cup_height / 2
+            cup_pybullet_height = self._cup_capacity_to_height(cup_cap)
 
-                cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
-                                    useFixedBase=True,
-                                    globalScaling=0.5 *
-                                    (cup_height / self.cup_capacity_ub),
-                                    physicsClientId=self._physics_client_id)
-                # Rotate so handles face robot.
-                cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
-                p.resetBasePositionAndOrientation(
-                    cup_id, (cx, cy, cz),
-                    cup_orn,
-                    physicsClientId=self._physics_client_id)
+            cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
+                                useFixedBase=True,
+                                globalScaling=0.5 * cup_pybullet_height,
+                                physicsClientId=self._physics_client_id)
+            # Rotate so handles face robot.
+            cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
+            p.resetBasePositionAndOrientation(
+                cup_id, (cx, cy, cz),
+                cup_orn,
+                physicsClientId=self._physics_client_id)
 
-                # Create the visual_shape.
-                color = self.cup_colors[cup_idx % len(self.cup_colors)]
-                p.changeVisualShape(cup_id,
-                                    -1,
-                                    rgbaColor=color,
-                                    physicsClientId=self._physics_client_id)
+            # Create the visual_shape.
+            color = self.cup_colors[cup_idx % len(self.cup_colors)]
+            p.changeVisualShape(cup_id,
+                                -1,
+                                rgbaColor=color,
+                                physicsClientId=self._physics_client_id)
 
-                self._cup_id_to_cup[cup_id] = cup_obj
-                self._cup_capacities.append(cup_height)
+            self._cup_id_to_cup[cup_id] = cup_obj
 
         # Create liquid in cups.
-        for liquid_id in self._liquid_ids:
+        for liquid_id in self._cup_to_liquid_id.values():
             p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
-        self._liquid_ids.clear()
+        self._cup_to_liquid_id.clear()
 
         for cup in state.get_objects(self._cup_type):
             current_liquid = state.get(cup, "current_liquid")
-            scale = 1.5 * np.sqrt(
-                state.get(cup, "capacity_liquid") / self.cup_capacity_ub)
-            liquid_height = current_liquid * scale
-            liquid_radius = self.cup_radius * scale
+            cup_cap = state.get(cup_obj, "capacity_liquid")
+            liquid_height = self._cup_liquid_to_liquid_height(
+                current_liquid, cup_cap)
+            liquid_radius = self._cup_to_liquid_radius(cup_cap)
             if current_liquid == 0:
                 continue
             cx = state.get(cup, "x")
@@ -367,7 +361,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 basePosition=pose,
                 baseOrientation=orientation,
                 physicsClientId=self._physics_client_id)
-            self._liquid_ids.add(liquid_id)
+            self._cup_to_liquid_id[cup] = liquid_id
 
         # NOTE: if the jug is held, the parent class should take care of it.
         if not self._Holding_holds(state, [self._robot, self._jug]):
@@ -376,13 +370,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             jy = state.get(self._jug, "y")
             jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
             rot = state.get(self._jug, "rot")
-            jug_orientation = p.getQuaternionFromEuler(
-                [0.0, 0.0, rot + np.pi])
+            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot + np.pi])
             p.resetBasePositionAndOrientation(
                 self._jug_id, [jx, jy, jz],
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
-            
+
         # Update the button color.
         if self._MachineOn_holds(state, [self._machine]) and \
             self._JugInMachine_holds(state, [self._jug, self._machine]):
@@ -391,10 +384,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         else:
             button_color = (0.5, 0.2, 0.2, 1.0)
             plate_color = (0.6, 0.6, 0.6, 0.5)
-        p.changeVisualShape(self._button_id, -1, rgbaColor=button_color,
-            physicsClientId=self._physics_client_id)
-        p.changeVisualShape(self._dispense_area_id, -1, rgbaColor=plate_color,
-            physicsClientId=self._physics_client_id)
+        p.changeVisualShape(self._button_id,
+                            -1,
+                            rgbaColor=button_color,
+                            physicsClientId=self._physics_client_id)
+        p.changeVisualShape(self._dispense_area_id,
+                            -1,
+                            rgbaColor=plate_color,
+                            physicsClientId=self._physics_client_id)
 
         # TODO remove
         # while True:
@@ -420,14 +417,52 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         tilt, wrist = self._gripper_orn_to_tilt_wrist((qx, qy, qz, qw))
         fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
         state_dict[self._robot] = {
-             "x": rx,
-             "y": ry,
-             "z": rz,
-             "tilt": tilt,
-             "wrist": wrist,
-             "fingers": fingers
+            "x": rx,
+            "y": ry,
+            "z": rz,
+            "tilt": tilt,
+            "wrist": wrist,
+            "fingers": fingers
         }
         joint_positions = self._pybullet_robot.get_joints()
+
+        # Get cup states.
+        for cup_id, cup in self._cup_id_to_cup.items():
+
+            (x, y, _), _ = p.getBasePositionAndOrientation(
+                cup_id, physicsClientId=self._physics_client_id)
+
+            cup_height = p.getVisualShapeData(
+                cup_id,
+                physicsClientId=self._physics_client_id,
+            )[0][3][2]
+
+            capacity = self._cup_height_to_capacity(cup_height)
+            target_liquid = capacity * self.cup_target_frac
+
+            # No liquid object is created if the current liquid is 0.
+            if cup in self._cup_to_liquid_id:
+                liquid_id = self._cup_to_liquid_id[cup]
+                liquid_height = p.getVisualShapeData(
+                    liquid_id,
+                    physicsClientId=self._physics_client_id,
+                )[0][3][2]
+                current_liquid = self._cup_liquid_height_to_liquid(
+                    liquid_height)
+            else:
+                current_liquid = 0.0
+
+            state_dict[cup] = {
+                "x": x,
+                "y": y,
+                "capacity_liquid": capacity,
+                "target_liquid": target_liquid,
+                "current_liquid": current_liquid,
+            }
+
+        # Get jug state.
+
+        # Get machine state.
 
         # TODO this was never implemented because before we were only rendering
         # which just required state->pybullet, not pybullet->state.
@@ -476,33 +511,51 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             return p.getQuaternionFromEuler(
                 [0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
         return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
-    
-    def _gripper_orn_to_tilt_wrist(self, orn: Quaternion) -> Tuple[float, float]:
+
+    def _gripper_orn_to_tilt_wrist(self,
+                                   orn: Quaternion) -> Tuple[float, float]:
         _, offset_tilt, offset_wrist = p.getEulerFromQuaternion(orn)
         tilt = offset_tilt - np.pi / 2
         wrist = offset_wrist - np.pi
         return (tilt, wrist)
 
     @classmethod
-    def _fingers_state_to_joint(
-            cls, pybullet_robot: SingleArmPyBulletRobot,
-            finger_state: float) -> float:
+    def _fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
+                                finger_state: float) -> float:
         """Map the fingers in the given State to joint values for PyBullet."""
         subs = {
             cls.open_fingers: pybullet_robot.open_fingers,
             cls.closed_fingers: pybullet_robot.closed_fingers,
         }
-        match = min(subs, key=lambda k: abs(k-finger_state))
+        match = min(subs, key=lambda k: abs(k - finger_state))
         return subs[match]
 
     @classmethod
-    def _fingers_joint_to_state(
-            cls, pybullet_robot: SingleArmPyBulletRobot,
-            finger_joint: float) -> float:
+    def _fingers_joint_to_state(cls, pybullet_robot: SingleArmPyBulletRobot,
+                                finger_joint: float) -> float:
         """Inverse of _fingers_state_to_joint()."""
         subs = {
             pybullet_robot.open_fingers: cls.open_fingers,
             pybullet_robot.closed_fingers: cls.closed_fingers,
         }
-        match = min(subs, key=lambda k: abs(k-finger_joint))
+        match = min(subs, key=lambda k: abs(k - finger_joint))
         return subs[match]
+
+    def _cup_capacity_to_height(self, capacity: float) -> float:
+        return (capacity / self.cup_capacity_ub)
+
+    def _cup_height_to_capacity(self, height: float) -> float:
+        return height * self.cup_capacity_ub
+
+    def _cup_liquid_to_liquid_height(self, liquid: float,
+                                     capacity: float) -> float:
+        scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
+        return liquid * scale
+
+    def _cup_to_liquid_radius(self, capacity: float) -> float:
+        scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
+        return self.cup_radius * scale
+
+    def _cup_liquid_height_to_liquid(self, height: float) -> float:
+        import ipdb
+        ipdb.set_trace()
