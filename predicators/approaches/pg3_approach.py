@@ -137,7 +137,6 @@ class PG3Approach(NSRTLearningApproach):
             hc_enforced_depth=CFG.pg3_hc_enforced_depth,
             allow_new_vars=CFG.pg3_add_condition_allow_new_vars,
             initial_policy_strs=initial_ldl_strs)
-
         learned_ldl = utils.parse_ldl_from_str(learned_ldl_str, types,
                                                predicates, nsrts)
 
@@ -148,6 +147,7 @@ class PG3Approach(NSRTLearningApproach):
             pkl.dump(self._current_ldl, f)
         with open(f"{save_path}_{online_learning_cycle}_num_calls.pkl", "wb") as f:
             pkl.dump(num_pg3_calls, f)
+        self._metrics['pg3_num_calls'] = num_pg3_calls
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, learn NSRTs.
