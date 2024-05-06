@@ -43,6 +43,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     button_y: ClassVar[float] = machine_y + machine_y_len / 2
     button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_y_len
+    button_color_on: ClassVar[Tuple[float, float, float,
+                                    float]] = (0.2, 0.5, 0.2, 1.0)
+    plate_color_on: ClassVar[Tuple[float, float, float,
+                                   float]] = (0.9, 0.3, 0.0, 0.7)
+    button_color_off: ClassVar[Tuple[float, float, float,
+                                     float]] = (0.5, 0.2, 0.2, 1.0)
+    plate_color_off: ClassVar[Tuple[float, float, float,
+                                    float]] = (0.6, 0.6, 0.6, 0.5)
     # Jug settings.
     pick_jug_x_padding: ClassVar[float] = 0.05
     jug_radius: ClassVar[float] = (0.8 * machine_y_len) / 2.0
@@ -379,11 +387,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Update the button color.
         if self._MachineOn_holds(state, [self._machine]) and \
             self._JugInMachine_holds(state, [self._jug, self._machine]):
-            button_color = (0.2, 0.5, 0.2, 1.0)
-            plate_color = (0.9, 0.3, 0.0, 0.7)
+            button_color = self.button_color_on
+            plate_color = self.plate_color_on
         else:
-            button_color = (0.5, 0.2, 0.2, 1.0)
-            plate_color = (0.6, 0.6, 0.6, 0.5)
+            button_color = self.button_color_off
+            plate_color = self.plate_color_off
         p.changeVisualShape(self._button_id,
                             -1,
                             rgbaColor=button_color,
@@ -463,23 +471,28 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Get jug state.
         (x, y, _), quat = p.getBasePositionAndOrientation(
             self._jug_id, physicsClientId=self._physics_client_id)
-        rot = p.getEulerFromQuaternion(quat) - np.pi
+        rot = p.getEulerFromQuaternion(quat)[2] - np.pi
         held = (self._jug_id == self._held_obj_id)
         filled = 0.0  # TODO!! need to change color or something when 'full'
         state_dict[self._jug] = {
             "x": x,
             "y": y,
             "rot": rot,
-            "held": held,
-            "filled": filled,
+            "is_held": held,
+            "is_filled": filled,
         }
 
         # Get machine state.
-
-        # TODO this was never implemented because before we were only rendering
-        # which just required state->pybullet, not pybullet->state.
-        import ipdb
-        ipdb.set_trace()
+        button_color = p.getVisualShapeData(
+            self._button_id, physicsClientId=self._physics_client_id)[0][-2]
+        button_color_on_dist = sum(
+            np.subtract(button_color, self.button_color_on)**2)
+        button_color_off_dist = sum(
+            np.subtract(button_color, self.button_color_off)**2)
+        machine_on = float(button_color_on_dist < button_color_off_dist)
+        state_dict[self._machine] = {
+            "is_on": machine_on,
+        }
 
         state = utils.create_state_from_dict(state_dict)
         state = utils.PyBulletState(state.data,
@@ -487,6 +500,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
+
+        import ipdb
+        ipdb.set_trace()
 
         return state
 
