@@ -15,7 +15,7 @@ class KitchenTestMakingGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"ice_tea_making"}
+        return {"kitchen_test"}
 
     @classmethod
     def get_options(

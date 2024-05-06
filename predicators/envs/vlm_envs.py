@@ -175,7 +175,7 @@ class KitchenTestEnv(VLMPredicateEnv):
     @property
     def types(self) -> Set[Type]:
         return super().types | {
-            self._microwave_type, self._kettle_type, self._light_switch_type, self._stove_burner_type, self._sliding_door_type
+            self._microwave_type, self._kettle_type, self._light_switch_type, self._stove_burner_type, self._sliding_door_type, self._robot_gripper_type
         }
 
     def _get_tasks(self, num: int,
