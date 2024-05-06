@@ -111,8 +111,7 @@ class FeasibilityDataset:
         labels: npt.NDArray[np.float32]  # (num_datapoints,)
 
         trainable_failing_nsrts: Set[NSRT]
-        skeleton_nsrt_cache: Dict[SkeletonNSRT,
-                                  'FeasibilityDataset.DatasetSkeletonNSRTCache']
+        skeleton_nsrt_cache: Dict[SkeletonNSRT, 'FeasibilityDataset.DatasetSkeletonNSRTCache']
 
     def __init__(
         self,
@@ -127,19 +126,15 @@ class FeasibilityDataset:
         self._batch_size = batch_size
         self._max_num_objects = max_num_objects
         self._min_samples_per_failing_nsrt = min_samples_per_failing_nsrt
-        self._skeleton_nsrts = [(nsrt, ran_flag)
-                                for nsrt in nsrts for ran_flag in [True, False]]
+        self._skeleton_nsrts = [(nsrt, ran_flag) for nsrt in nsrts for ran_flag in [True, False]]
 
         self._positive_datapoints: List[FeasibilityDataset.Datapoint] = []
         self._negative_datapoints: List[FeasibilityDataset.Datapoint] = []
 
     @property
     def diagnostics(self) -> str:
-        num_datapoints = len(self._positive_datapoints) + \
-            len(self._negative_datapoints)
-
-        def construct_failing_nsrt_dict(dps): return Counter(
-            map(lambda dp: dp.failing_nsrt, dps))
+        num_datapoints = len(self._positive_datapoints) + len(self._negative_datapoints)
+        construct_failing_nsrt_dict = lambda dps: Counter(map(lambda dp: dp.failing_nsrt, dps))
         return f"""------------
 Positive datapoints: {len(self._positive_datapoints)}/{num_datapoints}
 Negative datapoints: {len(self._negative_datapoints)}/{num_datapoints}
@@ -176,14 +171,12 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
     def add_positive_datapoint(self, skeleton: Sequence[_GroundNSRT], states: Sequence[State]) -> None:
         assert 2 <= len(states) <= len(skeleton)
         self._invalidate_cache()
-        self._positive_datapoints.append(self._create_datapoint(
-            skeleton, states, self._max_num_objects))
+        self._positive_datapoints.append(self._create_datapoint(skeleton, states, self._max_num_objects))
 
     def add_negative_datapoint(self, skeleton: Sequence[_GroundNSRT], states: Sequence[State]) -> None:
         assert 2 <= len(states) <= len(skeleton)
         self._invalidate_cache()
-        self._negative_datapoints.append(self._create_datapoint(
-            skeleton, states, self._max_num_objects))
+        self._negative_datapoints.append(self._create_datapoint(skeleton, states, self._max_num_objects))
 
     def _invalidate_cache(self) -> None:
         if "state_ranges" in self.__dict__:
@@ -265,10 +258,10 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
             nsrt_datapoint.seq_indices.append(idx)
 
         return cls.Datapoint(
-            total_length=len(skeleton),
-            num_objects=len(object_indices),
-            failing_nsrt=skeleton[len(states) - 2].parent,
-            inputs=inputs,
+            total_length = len(skeleton),
+            num_objects = len(object_indices),
+            failing_nsrt = skeleton[len(states) - 2].parent,
+            inputs = inputs,
         )
 
     def __iter__(self) -> Iterator[Tuple[FeasibilityInputBatch, npt.NDArray]]:
@@ -350,18 +343,14 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
         positive_datapoints = self._positive_datapoints
         negative_datapoints = self._negative_datapoints
         if self._equalize_categories:
-            positive_datapoints = [datapoint for datapoint, _ in zip(
-                cycle(positive_datapoints), negative_datapoints)]
-            negative_datapoints = [datapoint for _, datapoint in zip(
-                positive_datapoints, cycle(negative_datapoints))]
+            positive_datapoints = [datapoint for datapoint, _ in zip(cycle(positive_datapoints), negative_datapoints)]
+            negative_datapoints = [datapoint for _, datapoint in zip(positive_datapoints, cycle(negative_datapoints))]
 
         # This bit is to avoid overfitting, especially negative overfitting
-        exists_positive_datapoint: Dict[NSRT,
-                                        bool] = defaultdict(lambda: False)
+        exists_positive_datapoint: Dict[NSRT, bool] = defaultdict(lambda: False)
         for datapoint in positive_datapoints:
             exists_positive_datapoint[datapoint.failing_nsrt] = True
-        num_datapoints_per_failing_nsrt: Dict[NSRT, int] = defaultdict(
-            lambda: 0)
+        num_datapoints_per_failing_nsrt: Dict[NSRT, int] = defaultdict(lambda: 0)
         for datapoint in positive_datapoints + negative_datapoints:
             num_datapoints_per_failing_nsrt[datapoint.failing_nsrt] += 1
         trainable_failing_nsrts = {
@@ -370,10 +359,8 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
         }
 
         # Filtering the trainable datapoints
-        trainable_positive_datapoints = [
-            dp for dp in positive_datapoints if dp.failing_nsrt in trainable_failing_nsrts]
-        trainable_negative_datapoints = [
-            dp for dp in negative_datapoints if dp.failing_nsrt in trainable_failing_nsrts]
+        trainable_positive_datapoints = [dp for dp in positive_datapoints if dp.failing_nsrt in trainable_failing_nsrts]
+        trainable_negative_datapoints = [dp for dp in negative_datapoints if dp.failing_nsrt in trainable_failing_nsrts]
         all_main_datapoints = trainable_positive_datapoints + trainable_negative_datapoints
 
         # Constructing the cache
@@ -381,13 +368,11 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
         return self.DatasetCache(
             num_datapoints=len(all_main_datapoints),
 
-            skeleton_lengths=np.hstack([np.empty(
-                (0,), dtype=np.int64)] + [datapoint.total_length for datapoint in all_main_datapoints]),
-            labels=np.hstack([np.ones(len(trainable_positive_datapoints), dtype=np.float32), np.zeros(
-                len(trainable_negative_datapoints), dtype=np.float32)]),
+            skeleton_lengths = np.hstack([np.empty((0,), dtype=np.int64)] + [datapoint.total_length for datapoint in all_main_datapoints]),
+            labels = np.hstack([np.ones(len(trainable_positive_datapoints), dtype=np.float32), np.zeros(len(trainable_negative_datapoints), dtype=np.float32)]),
 
-            trainable_failing_nsrts=trainable_failing_nsrts,
-            skeleton_nsrt_cache={
+            trainable_failing_nsrts = trainable_failing_nsrts,
+            skeleton_nsrt_cache = {
                 skeleton_nsrt: self.DatasetSkeletonNSRTCache(
                     num_objects=num_objects,
                     state_counts=state_counts,
