@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple, Set
+from typing import Any, ClassVar, Dict, List, Set, Tuple
 
 import numpy as np
 import pybullet as p
