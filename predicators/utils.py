@@ -771,6 +771,11 @@ def geom2ds_intersect(geom1: _Geom2D, geom2: _Geom2D) -> bool:
                               f"{geom1} and {geom2}")
 
 
+def wrap_angle(angle: float) -> float:
+    """Wrap an angle in radians to [-pi, pi]."""
+    return np.arctan2(np.sin(angle), np.cos(angle))
+
+
 @functools.lru_cache(maxsize=None)
 def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
           atoms2: FrozenSet[LiftedOrGroundAtom]) -> Tuple[bool, EntToEntSub]:

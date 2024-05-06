@@ -96,6 +96,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
         self._cup_to_liquid_id: Dict[Object, int] = {}
+        self._cup_to_capacity: Dict[Object, float] = {}
 
     def initialize_pybullet(
             self, using_gui: bool
@@ -302,17 +303,19 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
         # Make new cups.
         self._cup_id_to_cup = {}
+        self._cup_to_capacity = {}
         for cup_idx, cup_obj in enumerate(cup_objs):
             cup_cap = state.get(cup_obj, "capacity_liquid")
             cup_height = cup_cap
             cx = state.get(cup_obj, "x")
             cy = state.get(cup_obj, "y")
             cz = self.z_lb + cup_height / 2
-            cup_pybullet_height = self._cup_capacity_to_height(cup_cap)
+            global_scale = 0.5 * cup_cap / self.cup_capacity_ub
+            self._cup_to_capacity[cup_obj] = cup_cap
 
             cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
                                 useFixedBase=True,
-                                globalScaling=0.5 * cup_pybullet_height,
+                                globalScaling=global_scale,
                                 physicsClientId=self._physics_client_id)
             # Rotate so handles face robot.
             cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
@@ -440,12 +443,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             (x, y, _), _ = p.getBasePositionAndOrientation(
                 cup_id, physicsClientId=self._physics_client_id)
 
-            cup_height = p.getVisualShapeData(
-                cup_id,
-                physicsClientId=self._physics_client_id,
-            )[0][3][2]
-
-            capacity = self._cup_height_to_capacity(cup_height)
+            capacity = self._cup_to_capacity[cup]
             target_liquid = capacity * self.cup_target_frac
 
             # No liquid object is created if the current liquid is 0.
@@ -501,9 +499,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
 
-        import ipdb
-        ipdb.set_trace()
-
         return state
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
@@ -543,8 +538,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _gripper_orn_to_tilt_wrist(self,
                                    orn: Quaternion) -> Tuple[float, float]:
         _, offset_tilt, offset_wrist = p.getEulerFromQuaternion(orn)
-        tilt = offset_tilt - np.pi / 2
-        wrist = offset_wrist - np.pi
+        tilt = utils.wrap_angle(offset_tilt - np.pi / 2)
+        wrist = utils.wrap_angle(offset_wrist - np.pi)
         return (tilt, wrist)
 
     @classmethod
@@ -568,12 +563,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         }
         match = min(subs, key=lambda k: abs(k - finger_joint))
         return subs[match]
-
-    def _cup_capacity_to_height(self, capacity: float) -> float:
-        return (capacity / self.cup_capacity_ub)
-
-    def _cup_height_to_capacity(self, height: float) -> float:
-        return height * self.cup_capacity_ub
 
     def _cup_liquid_to_liquid_height(self, liquid: float,
                                      capacity: float) -> float:
