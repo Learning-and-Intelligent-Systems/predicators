@@ -151,3 +151,65 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
             "teabag_on_plate(teabag, plate)"
         ])
+
+
+class KitchenTestEnv(VLMPredicateEnv):
+    """Test."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._microwave_type = Type("microwave", [], self._object_type)
+        self._kettle_type = Type("kettle", [], self._object_type)
+        self._light_switch_type = Type("light_switch", [], self._object_type)
+        self._robot_gripper_type = Type("robot_gripper", [], self._object_type)
+        self._stove_burner_type = Type("stove_burner", [], self._object_type)
+        self._sliding_door_type = Type("sliding_door", [], self._object_type)
+
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "kitchen_test"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {
+            self._microwave_type, self._kettle_type, self._light_switch_type, self._stove_burner_type, self._sliding_door_type
+        }
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused.
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
+        microwave_obj = Object("microwave", self._microwave_type)
+        kettle_obj = Object("kettle", self._kettle_type)
+        light_switch_obj = Object("light_switch", self._light_switch_type)
+        robot_gripper_obj = Object("robot_gripper", self._robot_gripper_type)
+        bottom_left_stove_burner_obj = Object("bottom_left_stove_burner", self._stove_burner_type)
+        bottom_right_stove_burner_obj = Object("bottom_right_stove_burner", self._stove_burner_type)
+        top_left_stove_burner_obj = Object("top_left_stove_burner", self._stove_burner_type)
+        top_right_stove_burner_obj = Object("top_right_stove_burner", self._stove_burner_type)
+        sliding_cabinet_door_obj = Object("sliding_cabinet_door", self._sliding_door_type)
+        init_state = State({
+            dummy_goal_obj: np.array([0.0]),
+            microwave_obj: np.array([]),
+            kettle_obj: np.array([]),
+            light_switch_obj: np.array([]),
+            robot_gripper_obj: np.array([]),
+            bottom_left_stove_burner_obj: np.array([]),
+            bottom_right_stove_burner_obj: np.array([]),
+            top_left_stove_burner_obj: np.array([]),
+            top_right_stove_burner_obj: np.array([]),
+            sliding_cabinet_door_obj: np.array([]),
+        })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
+
+    @property
+    def vlm_debug_atom_strs(self) -> Set[str]:
+        raise NotImplementedError

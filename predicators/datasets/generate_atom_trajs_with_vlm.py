@@ -166,7 +166,8 @@ def _label_trajectories_with_vlm_atom_values(
 
 def _parse_unique_atom_proposals_from_list(
         atom_strs_proposals_list: List[List[str]],
-        relevant_objects_across_demos: Set[Object]) -> Set[str]:
+        relevant_objects_across_demos: Set[Object],
+        known_options: Set[ParameterizedOption]) -> Set[str]:
     """Given a list of atom proposals that a VLM has constructed for each
     demonstration, parse these to a unique set of proposals.
 
@@ -177,6 +178,7 @@ def _parse_unique_atom_proposals_from_list(
     atoms_strs_set = set()
     obj_names_set = set(obj.name for obj in relevant_objects_across_demos)
     num_atoms_considered = 0
+    options_names_set = set(opt.name for opt in known_options)
     for atoms_proposal_for_traj in atom_strs_proposals_list:
         assert len(atoms_proposal_for_traj) == 1
         curr_atoms_proposal = atoms_proposal_for_traj[0]
@@ -190,6 +192,14 @@ def _parse_unique_atom_proposals_from_list(
             num_atoms_considered += 1
             atom_is_valid = True
             atom = re.sub(r"[^\w\s\(\),]", "", atom_proposal_txt).strip(' ')
+            # If the atom is named the same as one of our options, this is
+            # just an issue of this above regex having incorrectly
+            # parsed out options in addition to atoms/the VLM has just parroted
+            # back options to us.
+            for opt_name in options_names_set:
+                if opt_name in atom:
+                    atom_is_valid = False
+                    break
             obj_names = re.findall(r'\((.*?)\)', atom)
             if obj_names:
                 obj_names_list = [
@@ -670,7 +680,7 @@ def create_ground_atom_data_from_img_trajs(
         logging.info("Done querying VLM for candidate atoms!")
         # We now parse and sanitize this set of atoms.
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
-            atom_strs_proposals_list, all_task_objs)
+            atom_strs_proposals_list, all_task_objs, known_options)
     else:  # pragma: no cover.
         assert isinstance(env, VLMPredicateEnv)
         atom_proposals_set = env.vlm_debug_atom_strs
