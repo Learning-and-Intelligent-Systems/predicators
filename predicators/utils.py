@@ -32,6 +32,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
+import pddlgym
 from gym.spaces import Box
 from matplotlib import patches
 from pyperplan.heuristics.heuristic_base import \
@@ -2195,7 +2196,8 @@ def all_ground_ldl_rules(
     rule: LDLRule,
     objects: Collection[Object],
     static_predicates: Optional[Collection[Predicate]] = None,
-    init_atoms: Optional[Collection[GroundAtom]] = None
+    atoms: Optional[Collection[GroundAtom]] = None,
+    goal_atoms: Optional[Collection[GroundAtom]] = None,
 ) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects.
 
@@ -2205,71 +2207,123 @@ def all_ground_ldl_rules(
     """
     if static_predicates is None:
         static_predicates = set()
-    if init_atoms is None:
-        init_atoms = set()
+    if atoms is None:
+        atoms = set()
     return _cached_all_ground_ldl_rules(rule, frozenset(objects),
                                         frozenset(static_predicates),
-                                        frozenset(init_atoms))
+                                        frozenset(atoms),
+                                        frozenset(goal_atoms))
 
 
 @functools.lru_cache(maxsize=None)
 def _cached_all_ground_ldl_rules(
         rule: LDLRule, objects: FrozenSet[Object],
         static_predicates: FrozenSet[Predicate],
-        init_atoms: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
+        atoms: FrozenSet[GroundAtom],
+        goal_atoms: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
     """Helper for all_ground_ldl_rules() that caches the outputs."""
     ground_rules = []
-    # Use static preconds to reduce the map of parameters to possible objects.
-    # For example, if IsBall(?x) is a positive state precondition, then only
-    # the objects that appear in init_atoms with IsBall could bind to ?x.
-    # For now, we just check unary static predicates, since that covers the
-    # common case where such predicates are used in place of types.
-    # Create map from each param to unary static predicates.
-    param_to_pos_preds: Dict[Variable, Set[Predicate]] = {
-        p: set()
-        for p in rule.parameters
-    }
-    param_to_neg_preds: Dict[Variable, Set[Predicate]] = {
-        p: set()
-        for p in rule.parameters
-    }
-    for (preconditions, param_to_preds) in [
-        (rule.pos_state_preconditions, param_to_pos_preds),
-        (rule.neg_state_preconditions, param_to_neg_preds),
-    ]:
-        for atom in preconditions:
-            pred = atom.predicate
-            if pred in static_predicates and pred.arity == 1:
-                param = atom.variables[0]
-                param_to_preds[param].add(pred)
-    # Create the param choices, filtering based on the unary static atoms.
-    param_choices = []  # list of lists of possible objects for each param
-    # Preprocess the atom sets for faster lookups.
-    init_atom_tups = {(a.predicate, tuple(a.objects)) for a in init_atoms}
-    for param in rule.parameters:
-        choices = []
-        for obj in objects:
-            # Types must match, as usual.
-            if obj.type != param.type:
-                continue
-            # Check the static conditions.
-            binding_valid = True
-            for pred in param_to_pos_preds[param]:
-                if (pred, (obj, )) not in init_atom_tups:
-                    binding_valid = False
-                    break
-            for pred in param_to_neg_preds[param]:
-                if (pred, (obj, )) in init_atom_tups:
-                    binding_valid = False
-                    break
-            if binding_valid:
-                choices.append(obj)
-        # Must be sorted for consistency with other grounding code.
-        param_choices.append(sorted(choices))
-    for choice in itertools.product(*param_choices):
-        ground_rule = rule.ground(choice)
+
+    # Transform predicates to pddlgym predicates
+    predicators_to_pddlgym_predicates = {}
+    for atom in atoms:
+        if atom.predicate not in predicators_to_pddlgym_predicates:
+            predicators_to_pddlgym_predicates[atom.predicate] = pddlgym.structs.Predicate(atom.predicate.name, len(atom.predicate.types), [pddlgym.structs.Type("object") for _ in range(len(atom.predicate.types))], False, False) 
+    for goalatom in goal_atoms:
+        if goalatom.predicate not in predicators_to_pddlgym_predicates:
+            predicators_to_pddlgym_predicates[goalatom.predicate] = pddlgym.structs.Predicate(goalatom.predicate.name, len(goalatom.predicate.types), [pddlgym.structs.Type("object") for _ in range(len(goalatom.predicate.types))], False, False)
+    for condition in rule.pos_state_preconditions:
+        if condition.predicate not in predicators_to_pddlgym_predicates:
+            predicators_to_pddlgym_predicates[condition.predicate] = pddlgym.structs.Predicate(condition.predicate.name, len(condition.predicate.types), [pddlgym.structs.Type("object") for _ in range(len(condition.predicate.types))], False, False) 
+    for condition in rule.neg_state_preconditions:
+        if condition.predicate not in predicators_to_pddlgym_predicates:
+            predicators_to_pddlgym_predicates[condition.predicate] = pddlgym.structs.Predicate(condition.predicate.name, len(condition.predicate.types), [pddlgym.structs.Type("object") for _ in range(len(condition.predicate.types))], False, False) 
+
+    # Transform variables to pddlgym typedentities
+    variables_to_pddlgym_typedentities = {}
+    variable_name_to_variable = {}
+    for condition in rule.pos_state_preconditions:
+        for var in condition.variables:
+            if var not in variables_to_pddlgym_typedentities:
+                variables_to_pddlgym_typedentities[var] = pddlgym.structs.TypedEntity(var.name, pddlgym.structs.Type(var.type.name))
+                variable_name_to_variable[str(var)] = var
+    for condition in rule.neg_state_preconditions:
+        for var in condition.variables:
+            if var not in variables_to_pddlgym_typedentities:
+                variables_to_pddlgym_typedentities[var] = pddlgym.structs.TypedEntity(var.name, pddlgym.structs.Type(var.type.name))
+                variable_name_to_variable[str(var)] = var
+    for condition in rule.goal_preconditions:
+        for var in condition.variables:
+            if var not in variables_to_pddlgym_typedentities:
+                variables_to_pddlgym_typedentities[var] = pddlgym.structs.TypedEntity(var.name, pddlgym.structs.Type(var.type.name))
+                variable_name_to_variable[str(var)] = var
+    
+    # Transform objects to pddlgym typedentities
+    objects_to_pddlgym_typedentities = {}
+    object_name_to_object = {}
+    for atom in atoms:
+        for obj in atom.objects:
+            if obj not in objects_to_pddlgym_typedentities:
+                objects_to_pddlgym_typedentities[obj] = pddlgym.structs.TypedEntity(obj.name, pddlgym.structs.Type(obj.type.name))
+                object_name_to_object[str(obj)] = obj
+    
+    # Transform rule conditions to pddlgym conditions
+    rule_literals = []
+    for precondition in rule.pos_state_preconditions:
+        largs = [variables_to_pddlgym_typedentities[arg] for arg in precondition.variables]
+        pred = predicators_to_pddlgym_predicates[precondition.predicate]
+        rule_literals.append(pddlgym.structs.Literal(pred, largs))
+    
+    for negcondition in rule.neg_state_preconditions:
+        largs = [variables_to_pddlgym_typedentities[arg] for arg in negcondition.variables]
+        negpred = predicators_to_pddlgym_predicates[negcondition.predicate].negative
+        rule_literals.append(pddlgym.structs.Literal(negpred, largs))
+    
+    for goalcondition in rule.goal_preconditions:
+        largs = [variables_to_pddlgym_typedentities[arg] for arg in goalcondition.variables]
+        if goalcondition.predicate not in predicators_to_pddlgym_predicates:
+            import ipdb; ipdb.set_trace();
+        else:
+            pred = predicators_to_pddlgym_predicates[goalcondition.predicate]
+        want_pred = pddlgym.structs.Predicate("WANT-" + pred.name, pred.arity, pred.var_types, pred.is_negative, pred.is_anti)
+        rule_literals.append(pddlgym.structs.Literal(want_pred, largs))
+    
+    # Transform atoms to pddlgym literals
+    state_literals = []
+    for atom in atoms:
+        largs = [objects_to_pddlgym_typedentities[arg] for arg in atom.objects]
+        pred = predicators_to_pddlgym_predicates[atom.predicate]
+        state_literals.append(pddlgym.structs.Literal(pred, largs))
+    
+    for goalatom in goal_atoms:
+        largs = [objects_to_pddlgym_typedentities[arg] for arg in goalatom.objects]
+        if goalatom.predicate not in predicators_to_pddlgym_predicates:
+            import ipdb; ipdb.set_trace();
+        pred = predicators_to_pddlgym_predicates[goalatom.predicate]
+        want_pred = pddlgym.structs.Predicate("WANT-" + pred.name, pred.arity, pred.var_types, pred.is_negative, pred.is_anti)
+        state_literals.append(pddlgym.structs.Literal(want_pred, largs))
+
+    # Try to find assignments
+    ret = pddlgym.inference.find_satisfying_assignments(state_literals, rule_literals, max_assignment_count = 1)
+    if len(ret) > 0:
+        pddlgym_assignment = ret[0]
+        final_matching = {}
+        for pddlgym_var, pddlgym_obj in pddlgym_assignment.items():
+            var = variable_name_to_variable[str(pddlgym_var)]
+            obj = object_name_to_object[str(pddlgym_obj)]
+            final_matching[var] = obj
+        
+        if len(pddlgym_assignment) != len(rule.parameters):
+            for var in rule.parameters:
+                if var not in final_matching:
+                    final_matching[var] = np.random.choice(sorted(objects))
+        
+        # Create the ground rule
+        ground_rule_params = [final_matching[var] for var in rule.parameters]
+        ground_rule = rule.ground(tuple(ground_rule_params))
         ground_rules.append(ground_rule)
     return ground_rules
+ 
 
 
 def parse_ldl_from_str(ldl_str: str, types: Collection[Type],
@@ -3296,7 +3350,8 @@ def query_ldl(
                 rule,
                 objects,
                 static_predicates=static_predicates,
-                init_atoms=init_atoms):
+                atoms=atoms,
+                goal_atoms=goal):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
                     not ground_rule.neg_state_preconditions & atoms and \
                     ground_rule.goal_preconditions.issubset(goal):
