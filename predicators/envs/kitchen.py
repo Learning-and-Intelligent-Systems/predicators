@@ -102,7 +102,9 @@ class KitchenEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
-Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
+Install from https://github.com/SiddarGu/Gymnasium-Robotics.git. \
+BE SURE TO INSTALL FROM GITHUB SOURCE THOUGH! Use: \
+pip install gymnasium-robotics@git+https://github.com/delaschwein/Gymnasium-Robotics.git"                                                                                           # pylint:disable=line-too-long
 
         if use_gui:
             assert not CFG.make_test_videos or CFG.make_failure_videos, \
@@ -112,7 +114,8 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
         render_mode = "human" if self._using_gui else "rgb_array"
         self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
-                                                render_mode=render_mode)
+                                                render_mode=render_mode,
+                                                ik_controller=True)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
@@ -244,8 +247,9 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return self._copy_observation(self._current_observation)
 
     def simulate(self, state: State, action: Action) -> State:
-        raise NotImplementedError("Simulate not implemented for gym envs. " +
-                                  "Try using --bilevel_plan_without_sim True")
+        raise NotImplementedError(
+            "Simulate not implemented for kitchen env. " +
+            "Try using --bilevel_plan_without_sim True")
 
     def step(self, action: Action) -> Observation:
         self._gym_env.step(action.arr)
