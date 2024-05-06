@@ -511,8 +511,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return self._add_pybullet_state_to_tasks([task])[0]
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        import ipdb
-        ipdb.set_trace()
+        return {self._jug_id}
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
         if CFG.pybullet_robot == "fetch":
