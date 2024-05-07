@@ -136,6 +136,24 @@ def create_move_end_effector_to_pose_option(
                                terminal=_terminal)
 
 
+def get_change_fingers_action(robot: SingleArmPyBulletRobot,
+                              current_joint_positions: JointPositions,
+                              current_val: float, target_val: float,
+                              max_vel_norm: float) -> Action:
+    f_delta = target_val - current_val
+    f_delta = np.clip(f_delta, -max_vel_norm, max_vel_norm)
+    f_action = current_val + f_delta
+    # Don't change the rest of the joints.
+    target = np.array(current_joint_positions, dtype=np.float32)
+    target[robot.left_finger_joint_idx] = f_action
+    target[robot.right_finger_joint_idx] = f_action
+    # This clipping is needed sometimes for the joint limits.
+    target = np.clip(target, robot.action_space.low,
+                        robot.action_space.high)
+    assert robot.action_space.contains(target)
+    return Action(target)
+
+
 def create_change_fingers_option(
     robot: SingleArmPyBulletRobot,
     name: str,
@@ -159,19 +177,8 @@ def create_change_fingers_option(
         del memory  # unused
         current_val, target_val = get_current_and_target_val(
             state, objects, params)
-        f_delta = target_val - current_val
-        f_delta = np.clip(f_delta, -max_vel_norm, max_vel_norm)
-        f_action = current_val + f_delta
-        # Don't change the rest of the joints.
-        state = cast(utils.PyBulletState, state)
-        target = np.array(state.joint_positions, dtype=np.float32)
-        target[robot.left_finger_joint_idx] = f_action
-        target[robot.right_finger_joint_idx] = f_action
-        # This clipping is needed sometimes for the joint limits.
-        target = np.clip(target, robot.action_space.low,
-                         robot.action_space.high)
-        assert robot.action_space.contains(target)
-        return Action(target)
+        return get_change_fingers_action(robot, current_val, target_val,
+                                         max_vel_norm)
 
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:

@@ -71,7 +71,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
-    jug_handle_offset: ClassVar[float] = 0.8 * jug_radius
+    jug_handle_offset: ClassVar[float] = 3 * jug_radius
     jug_handle_height: ClassVar[float] = z_lb + jug_height
     jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
     # TODO
@@ -385,7 +385,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _extract_robot_state(self, state: State) -> Array:
         qx, qy, qz, qw = self._state_to_gripper_orn(state)
         f = state.get(self._robot, "fingers")
-        f = self._fingers_state_to_joint(self._pybullet_robot, f)
+        f = self.fingers_state_to_joint(self._pybullet_robot, f)
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         z = state.get(self._robot, "z")
@@ -653,7 +653,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return (tilt, wrist)
 
     @classmethod
-    def _fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
+    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
                                 finger_state: float) -> float:
         """Map the fingers in the given State to joint values for PyBullet."""
         subs = {

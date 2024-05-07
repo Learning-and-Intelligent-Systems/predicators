@@ -9,7 +9,7 @@ from gym.spaces import Box
 
 from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
-from predicators.pybullet_helpers.controllers import get_move_end_effector_to_pose_action
+from predicators.pybullet_helpers.controllers import get_move_end_effector_to_pose_action, get_change_fingers_action
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
@@ -232,7 +232,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # If close enough, pick.
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
             if sq_dist_to_handle < cls.pick_policy_tol:
-                return cls._get_pick_action()
+                return cls._get_pick_action(state)
             target_x, target_y, target_z = handle_pos
             # Distance to the handle in the x/z plane.
             xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
@@ -401,7 +401,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                 np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
     
     @classmethod
-    def _get_pick_action(cls) -> Action:
+    def _get_pick_action(cls, state: State) -> Action:
+        del state  # used by PyBullet subclass
         return Action(
                     np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
                              dtype=np.float32))
@@ -502,8 +503,25 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         import ipdb; ipdb.set_trace()
     
     @classmethod
-    def _get_pick_action(cls) -> Action:
-        import ipdb; ipdb.set_trace()
+    def _get_pick_action(cls, state: State) -> Action:
+        pybullet_robot = _get_pybullet_robot()
+        robots = [r for r in state if r.type.name == "robot"]
+        assert len(robots) == 1
+        robot = robots[0]
+        current_finger_state = state.get(robot, "fingers")
+        current_finger_joint = PyBulletCoffeeEnv.fingers_state_to_joint(
+            pybullet_robot, current_finger_state
+        )
+        assert isinstance(state, utils.PyBulletState)
+        current_joint_positions = state.joint_positions
+
+        return get_change_fingers_action(
+            pybullet_robot,
+            current_joint_positions,
+            current_finger_joint,
+            pybullet_robot.closed_fingers,
+            CFG.pybullet_max_vel_norm,
+        )
 
     @classmethod
     def _get_place_action(cls) -> Action:
