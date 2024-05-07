@@ -460,7 +460,9 @@ class CoffeeEnv(BaseEnv):
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
             num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
-            goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
+            # TODO change back
+            # goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
+            goal = {GroundAtom(self._Holding, [self._robot, self._jug])}
             # Sample initial positions for cups, making sure to keep them
             # far enough apart from one another.
             radius = self.cup_radius + self.init_padding

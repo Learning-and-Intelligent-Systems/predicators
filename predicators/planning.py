@@ -404,6 +404,11 @@ def _skeleton_generator(
         #     logging.info(f"{act.name} {act.objects}")
         # logging.info("")
         if task.goal.issubset(node.atoms):
+
+            # TODO remove
+            for a in node.skeleton:
+                print(a.short_str)
+
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
             yield node.skeleton, node.atoms_sequence
