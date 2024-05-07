@@ -435,7 +435,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 @lru_cache
 def _get_pybullet_robot() -> SingleArmPyBulletRobot:
     _, pybullet_robot, _ = \
-        PyBulletCoffeeEnv.initialize_pybullet(using_gui=True)  # TODO turn off
+        PyBulletCoffeeEnv.initialize_pybullet(using_gui=False)  # TODO turn off
     return pybullet_robot
 
 
@@ -443,6 +443,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_coffee environment."""
 
     env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletCoffeeEnv
+    twist_policy_tol: ClassVar[float] = 1e-3
+    pick_policy_tol: ClassVar[float] = 1e-3
+    pour_policy_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
     @classmethod
@@ -470,19 +473,24 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         target_quat = PyBulletCoffeeEnv.tilt_wrist_to_gripper_orn(
             current_tilt + dtilt, current_wrist + dwrist
         )
+        assert dtilt == 0.0 # temp
+        assert dwrist == 0.0  # temp
         current_pose = Pose(robot_pos, current_quat)
         target_pose = Pose(target_pos, target_quat)
         finger_status = "open"  # TODO
         assert isinstance(state, utils.PyBulletState)
         current_joint_positions = state.joint_positions
 
-        import pybullet as p
-        p.addUserDebugText("+", robot_pos,
-                               [0.0, 1.0, 0.0],
-                               physicsClientId=pybullet_robot.physics_client_id)
-        p.addUserDebugText("*", target_pos,
-                               [1.0, 0.0, 0.0],
-                               physicsClientId=pybullet_robot.physics_client_id)
+        # import pybullet as p
+        # p.addUserDebugText("+", robot_pos,
+        #                        [0.0, 1.0, 0.0],
+        #                        physicsClientId=pybullet_robot.physics_client_id)
+        # p.addUserDebugText("*", target_pos,
+        #                        [1.0, 0.0, 0.0],
+        #                        physicsClientId=pybullet_robot.physics_client_id)
+        
+        # import time
+        # time.sleep(1.0)
 
         return get_move_end_effector_to_pose_action(pybullet_robot, current_joint_positions, current_pose, target_pose,
                                                     finger_status,

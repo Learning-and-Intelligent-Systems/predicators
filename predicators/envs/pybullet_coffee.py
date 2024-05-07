@@ -31,10 +31,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     pick_jug_y_padding: ClassVar[float] = 0.05
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-2
-    twist_policy_tol: ClassVar[float] = 1e-3
-    pick_policy_tol: ClassVar[float] = 1e-3
     place_jug_in_machine_tol: ClassVar[float] = 1e-3
-    pour_policy_tol: ClassVar[float] = 1e-3
     jug_twist_offset: ClassVar[float] = 0.025
     init_padding: ClassVar[float] = 0.05
     x_lb: ClassVar[float] = 0.4
@@ -67,18 +64,19 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     plate_color_off: ClassVar[Tuple[float, float, float,
                                     float]] = (0.6, 0.6, 0.6, 0.5)
     # Jug settings.
-    jug_radius: ClassVar[float] = (0.8 * machine_y_len) / 2.0
+    jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
     jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len / 2 + init_padding
     jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len / 2 - init_padding
     jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
-    jug_handle_offset: ClassVar[float] = 1.75 * jug_radius
-    jug_handle_height: ClassVar[float] = jug_height / 2
+    jug_handle_offset: ClassVar[float] = 0.8 * jug_radius
+    jug_handle_height: ClassVar[float] = z_lb + jug_height
     jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
-    jug_init_rot_lb: ClassVar[float] = - 2 * np.pi / 3
-    jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
+    # TODO
+    jug_init_rot_lb: ClassVar[float] = -1e-5
+    jug_init_rot_ub: ClassVar[float] = 1e-5
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
     dispense_area_y: ClassVar[float] = machine_y - 3.5 * jug_radius
@@ -102,7 +100,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
     # Camera parameters.
     _camera_distance: ClassVar[float] = 0.8
-    _camera_yaw: ClassVar[float] = 180.0
+    _camera_yaw: ClassVar[float] = 100.0
     _camera_pitch: ClassVar[float] = -24
     _camera_target: ClassVar[Pose3D] = (0.75, 1.65, 0.42)
 
@@ -644,14 +642,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         """Public for oracle options."""
         if abs(tilt - cls.robot_init_tilt) > cls.pour_angle_tol:
             return p.getQuaternionFromEuler(
-                [0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
-        return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
+                [0.0, np.pi / 2 + tilt, -np.pi / 2])
+        return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist - np.pi / 2])
 
     def _gripper_orn_to_tilt_wrist(self,
                                    orn: Quaternion) -> Tuple[float, float]:
         _, offset_tilt, offset_wrist = p.getEulerFromQuaternion(orn)
         tilt = utils.wrap_angle(offset_tilt - np.pi / 2)
-        wrist = utils.wrap_angle(offset_wrist - np.pi)
+        wrist = utils.wrap_angle(offset_wrist + np.pi / 2)
         return (tilt, wrist)
 
     @classmethod

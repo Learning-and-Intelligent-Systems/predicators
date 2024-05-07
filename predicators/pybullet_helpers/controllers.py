@@ -55,7 +55,7 @@ def get_move_end_effector_to_pose_action(
         # a solution from the previous call. The fetch robot does not
         # use IKFast, and in fact gets screwed up if we set joints here.
         joint_positions = robot.inverse_kinematics(ee_action,
-                                                    validate=False,
+                                                    validate=True,  # TODO turn back to false? or make fetch-specific
                                                     set_joints=True)
     except InverseKinematicsError:
         raise utils.OptionExecutionFailure("Inverse kinematics failed.")
