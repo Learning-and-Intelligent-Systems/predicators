@@ -30,6 +30,8 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         self._curr_plan_timestep += 1
         # If the expected atoms are a subset of the current atoms, then
         # we don't have to replan.
+        # TODO: replace with something that's smarter and batches VLM predicate
+        # calls!
         unsat_atoms = {a for a in next_expected_atoms if not a.holds(state)}
         if not unsat_atoms:
             return False

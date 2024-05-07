@@ -220,7 +220,7 @@ README of that repo suggests!"
             VLMPredicate(
                 "KettleOnTopStove", [cls.kettle_type],
                 lambda s, o: NotImplementedError("shouldn't be calling this!"),
-                "kettle_ontop_stove")
+                lambda o: "kettle_ontop_stove()")
         }
 
         return {p.name: p for p in preds}

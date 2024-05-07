@@ -311,27 +311,10 @@ class VLMPredicate(Predicate):
     classifier (i.e., one that returns simply raises some kind of error instead
     of actually outputting a value of any kind).
     """
-    _vlm_query_str: str  # NOTE: this is often an f-string of some kind!
+    get_vlm_query_str: Callable[[Sequence[Object]], str]
 
     def __hash__(self) -> int:
         return self._hash
-
-    def get_vlm_query_str(self, objects: Sequence[Object]) -> str:
-        """Get the string necessary to query a VLM to get the truth value of
-        this predicate."""
-        # The VLM query string can fall into 1 of 3 categories:
-        # (1) it isn't an f-string that needs substitution in any way.
-        if "{" not in self._vlm_query_str:
-            return self._vlm_query_str
-        # (2) it is an f-string, and has a single argument called 'objs'
-        elif "{objs}" in self._vlm_query_str:
-            return self._vlm_query_str.format(
-                objs=[obj.name for obj in objects])
-        # (3) it is an f-strong and has one argument for every single object in
-        # 'objects', In this case, pass in these objects one by one.
-        else:
-            assert self._vlm_query_str.count("{") == len(objects)
-            return self._vlm_query_str.format(obj.name for obj in objects)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
