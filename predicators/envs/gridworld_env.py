@@ -1,4 +1,7 @@
-"""A simple gridworld environment inspired by https://github.com/portal-cornell/robotouille."""
+"""A simple gridworld environment inspired by https://github.com/portal-cornell/robotouille.
+
+The environment also uses a lot of assets from robotouille.
+"""
 
 import logging
 from typing import List, Optional, Sequence, Set, Callable, Tuple
@@ -14,7 +17,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type
+    Predicate, State, Type, Observation
 
 # - Want to be able to run this as a VLM env, or a normal env
 # - Want to give oracle's predicates access to full state, but not non-oracle's (maybe can use a different perceiver -- the perceiver we use with non-oracle actually throws out info that is there)
@@ -182,22 +185,32 @@ class GridWorld(BaseEnv):
         for object in state:
             if object.is_instance(self._item_type):
                 items.append(object)
-        print("items: ", items)
         for item in items:
             item_col, item_row = self._get_position(item, state)
             if self._is_adjacent(item_col, item_row, new_col, new_row):
-                print("Adjacent holds")
                 if interact > 0.5:
-                    print("got here")
                     self._hidden_state[item]["is_cooked"] = 1.0
 
-        print("Action that was taken: ", action)
-        print("Hidden state: ", self._hidden_state)
-        print("New state: ", next_state)
+        # print("Action that was taken: ", action)
+        # print("Hidden state: ", self._hidden_state)
+        # print("New state: ", next_state)
         return next_state
 
-    # def reset(self, train_or_test: str, task_idx: int) -> Observation:
-    #     pass
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
+        """Resets the current state to the train or test task initial state."""
+        # Reset the hidden state.
+        for k, v in self._hidden_state.items():
+            if k.is_instance(self._patty_type):
+                self._hidden_state[k]["is_cooked"] = 0.0
+
+        self._current_task = self.get_task(train_or_test, task_idx)
+        self._current_observation = self._current_task.init_obs
+        # Copy to prevent external changes to the environment's state.
+        # This default implementation of reset assumes that observations are
+        # states. Subclasses with different states should override.
+        assert isinstance(self._current_observation, State)
+        return self._current_observation.copy()
+
     #
     # def step(self, action: Action) -> Observation:
     #     pass
@@ -228,20 +241,34 @@ class GridWorld(BaseEnv):
         patty_color = dark_brown if self._IsCooked_holds(state, [patty]) else light_brown
         patty_col = state.get(patty, "col")
         patty_row = state.get(patty, "row")
-        ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
+        raw_patty_img = mpimg.imread("patty.png")
+        cooked_patty_img = mpimg.imread("cookedpatty.png")
+        patty_img = cooked_patty_img if self._IsCooked_holds(state, [patty]) else raw_patty_img
+        ax.imshow(patty_img, extent=[patty_col, patty_col+1, patty_row, patty_row+1])
+        # ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
 
         # Draw robot as a red circle.
         robot_col = state.get(self._robot, "col")
         robot_row = state.get(self._robot, "row")
-        ax.plot(robot_col + 0.5, robot_row + 0.5, 'rs', markersize=20)
+        # ax.plot(robot_col + 0.5, robot_row + 0.5, 'rs', markersize=20)
 
         # # Try drawing the robot as an image.
-        # robot_img = mpimg.imread("robot.png")
-        # x, y = robot_col, robot_row
-        # image_size = (0.8, 0.8)
-        # # ax.imshow(robot_img, extent=[robot_col, robot_col + 1, robot_row, robot_row + 1])
-        # ax.imshow(robot_img, extent=[x + (1 - image_size[0]) / 2, x + (1 + image_size[0]) / 2,
-        #                               y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2])
+        robot_img = mpimg.imread("robot.png")
+        x, y = robot_col, robot_row
+        image_size = (0.8, 0.8)
+        # ax.imshow(robot_img, extent=[robot_col, robot_col + 1, robot_row, robot_row + 1])
+        ax.imshow(robot_img, extent=[x + (1 - image_size[0]) / 2, x + (1 + image_size[0]) / 2,
+                                      y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2])
+
+        # Draw background
+        floor_img = mpimg.imread("floorwood.png")
+        for i in range(self.num_rows):
+            for j in range(self.num_cols):
+                x, y = j, i
+                extent = [
+                    x, x+1, y, y+1
+                ]
+                ax.imshow(floor_img, extent=extent, zorder=-1)
 
         ax.set_xlim(0, self.num_cols)
         ax.set_ylim(0, self.num_rows)
