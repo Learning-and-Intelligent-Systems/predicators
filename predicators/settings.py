@@ -339,6 +339,10 @@ class GlobalSettings:
     # grid row env parameters
     grid_row_num_cells = 100
 
+    # gridworld env parameters
+    gridworld_num_rows = 3
+    gridworld_num_cols = 3
+
     # parameters for random options approach
     random_options_max_tries = 100
 
