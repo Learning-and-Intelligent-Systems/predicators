@@ -22,6 +22,20 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
     # Need to override a number of settings to conform to the actual dimensions
     # of the robots, table, etc.
+    grasp_finger_tol: ClassVar[float] = 1e-2
+    grasp_position_tol: ClassVar[float] = 1e-2
+    dispense_tol: ClassVar[float] = 1e-2
+    pour_angle_tol: ClassVar[float] = 1e-1
+    pour_pos_tol: ClassVar[float] = 1e-2
+    init_padding: ClassVar[float] = 0.05
+    pick_jug_x_padding: ClassVar[float] = 0.05
+    pick_jug_rot_tol: ClassVar[float] = np.pi / 3
+    safe_z_tol: ClassVar[float] = 1e-2
+    twist_policy_tol: ClassVar[float] = 1e-3
+    pick_policy_tol: ClassVar[float] = 1e-3
+    place_jug_in_machine_tol: ClassVar[float] = 1e-3
+    pour_policy_tol: ClassVar[float] = 1e-3
+    jug_twist_offset: ClassVar[float] = 0.025
     init_padding: ClassVar[float] = 0.05
     x_lb: ClassVar[float] = 1.1
     x_ub: ClassVar[float] = 1.6
