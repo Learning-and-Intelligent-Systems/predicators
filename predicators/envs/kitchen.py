@@ -104,7 +104,7 @@ class KitchenEnv(BaseEnv):
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
 Install from https://github.com/SiddarGu/Gymnasium-Robotics.git. \
 BE SURE TO INSTALL FROM GITHUB SOURCE THOUGH! Use: \
-pip install gymnasium-robotics@git+https://github.com/delaschwein/Gymnasium-Robotics.git"                                                                                           # pylint:disable=line-too-long
+pip install gymnasium-robotics@git+https://github.com/delaschwein/Gymnasium-Robotics.git"                                                                                                                                                                                    # pylint:disable=line-too-long
 
         if use_gui:
             assert not CFG.make_test_videos or CFG.make_failure_videos, \
