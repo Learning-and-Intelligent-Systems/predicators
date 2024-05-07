@@ -44,7 +44,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub - 0.1
     robot_base_pos: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
-    robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
+    robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0.0, 0.0, np.pi / 2])
     # Machine settings.
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.15 * (y_ub - y_lb)
@@ -66,20 +67,21 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Jug settings.
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
-    jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len / 2 + init_padding
-    jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len / 2 - init_padding
+    jug_init_x_lb: ClassVar[
+        float] = machine_x - machine_x_len / 2 + init_padding
+    jug_init_x_ub: ClassVar[
+        float] = machine_x + machine_x_len / 2 - init_padding
     jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
-    jug_handle_height: ClassVar[float] = z_lb + jug_height
-    jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
+    jug_handle_height: ClassVar[float] = jug_height
     # TODO
     jug_init_rot_lb: ClassVar[float] = -1e-5
     jug_init_rot_ub: ClassVar[float] = 1e-5
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
-    dispense_area_y: ClassVar[float] = machine_y - 3.5 * jug_radius
+    dispense_area_y: ClassVar[float] = machine_y - 4 * jug_radius
     # Cup settings.
     cup_radius: ClassVar[float] = 0.6 * jug_radius
     cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
@@ -97,12 +99,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     ]
     # Table settings.
     table_pose: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
-    table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
+    table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0.0, 0.0, np.pi / 2])
     # Camera parameters.
     _camera_distance: ClassVar[float] = 0.8
-    _camera_yaw: ClassVar[float] = 100.0
+    _camera_yaw: ClassVar[float] = 70
     _camera_pitch: ClassVar[float] = -24
-    _camera_target: ClassVar[Pose3D] = (0.75, 1.65, 0.42)
+    _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -123,88 +126,78 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Draw the workspace on the table for clarity.
         for z in [cls.z_lb, cls.z_ub]:
             p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
-                                [cls.x_ub, cls.y_lb, z],
-                                [1.0, 0.0, 0.0],
-                                lineWidth=5.0,
-                                physicsClientId=physics_client_id)
+                               [cls.x_ub, cls.y_lb, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
             p.addUserDebugLine([cls.x_lb, cls.y_ub, z],
-                                [cls.x_ub, cls.y_ub, z],
-                                [1.0, 0.0, 0.0],
-                                lineWidth=5.0,
-                                physicsClientId=physics_client_id)
+                               [cls.x_ub, cls.y_ub, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
             p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
-                                [cls.x_lb, cls.y_ub, z],
-                                [1.0, 0.0, 0.0],
-                                lineWidth=5.0,
-                                physicsClientId=physics_client_id)
+                               [cls.x_lb, cls.y_ub, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
             p.addUserDebugLine([cls.x_ub, cls.y_lb, z],
-                                [cls.x_ub, cls.y_ub, z],
-                                [1.0, 0.0, 0.0],
-                                lineWidth=5.0,
-                                physicsClientId=physics_client_id)
+                               [cls.x_ub, cls.y_ub, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
         # Draw different sampling regions for reference.
         p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
-                            [cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           [cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
-                            [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
-                            [cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           [cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugLine([cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
-                            [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
-                            [cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           [cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
-                            [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
-                            [cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           [cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugLine([cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
-                            [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
-                            [0.0, 0.0, 1.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)        
+                           [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         # Draw coordinate frame labels for reference.
-        p.addUserDebugLine([0, 0, 0],
-                            [0.25, 0, 0],
-                            [1.0, 0.0, 0.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([0, 0, 0], [0.25, 0, 0], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
-                            physicsClientId=physics_client_id)
-        p.addUserDebugLine([0, 0, 0],
-                            [0.0, 0.25, 0],
-                            [1.0, 0.0, 0.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([0, 0, 0], [0.0, 0.25, 0], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
-                            physicsClientId=physics_client_id)
-        p.addUserDebugLine([0, 0, 0],
-                            [0.0, 0, 0.25],
-                            [1.0, 0.0, 0.0],
-                            lineWidth=5.0,
-                            physicsClientId=physics_client_id)
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([0, 0, 0], [0.0, 0, 0.25], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
         p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
-                            physicsClientId=physics_client_id)
+                           physicsClientId=physics_client_id)
 
         # Load table.
         table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
@@ -215,7 +208,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                           cls.table_orientation,
                                           physicsClientId=physics_client_id)
         bodies["table_id"] = table_id
-
 
         ## Load coffee machine.
 
@@ -485,7 +477,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             jy = state.get(self._jug, "y")
             jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
             rot = state.get(self._jug, "rot")
-            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
+            jug_orientation = p.getQuaternionFromEuler(
+                [0.0, 0.0, rot - np.pi / 2])
             p.resetBasePositionAndOrientation(
                 self._jug_id, [jx, jy, jz],
                 jug_orientation,
@@ -507,7 +500,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             -1,
                             rgbaColor=plate_color,
                             physicsClientId=self._physics_client_id)
-        
+
         # TODO remove
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -633,12 +626,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _state_to_gripper_orn(self, state: State) -> Quaternion:
         wrist = state.get(self._robot, "wrist")
         tilt = state.get(self._robot, "tilt")
-        return self.tilt_wrist_to_gripper_orn(
-            tilt, wrist
-        )
-    
+        return self.tilt_wrist_to_gripper_orn(tilt, wrist)
+
     @classmethod
-    def tilt_wrist_to_gripper_orn(cls, tilt: float, wrist: float) -> Quaternion:
+    def tilt_wrist_to_gripper_orn(cls, tilt: float,
+                                  wrist: float) -> Quaternion:
         """Public for oracle options."""
         if abs(tilt - cls.robot_init_tilt) > cls.pour_angle_tol:
             return p.getQuaternionFromEuler(
@@ -654,7 +646,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
     @classmethod
     def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
-                                finger_state: float) -> float:
+                               finger_state: float) -> float:
         """Map the fingers in the given State to joint values for PyBullet."""
         subs = {
             cls.open_fingers: pybullet_robot.open_fingers,

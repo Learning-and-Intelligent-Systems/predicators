@@ -27,7 +27,7 @@ def get_move_end_effector_to_pose_action(
     finger_action_nudge_magnitude: float,
 ) -> Action:
     """Get an action for moving the end effector to a target pose.
-    
+
     See create_move_end_effector_to_pose_option() for more info.
     """
     # Sync the joints.
@@ -54,9 +54,10 @@ def get_move_end_effector_to_pose_action(
         # find good solutions on subsequent calls if we are already near
         # a solution from the previous call. The fetch robot does not
         # use IKFast, and in fact gets screwed up if we set joints here.
-        joint_positions = robot.inverse_kinematics(ee_action,
-                                                    validate=True,  # TODO turn back to false? or make fetch-specific
-                                                    set_joints=True)
+        joint_positions = robot.inverse_kinematics(
+            ee_action,
+            validate=True,  # TODO turn back to false? or make fetch-specific
+            set_joints=True)
     except InverseKinematicsError:
         raise utils.OptionExecutionFailure("Inverse kinematics failed.")
     # Handle the fingers. Fingers drift if left alone.
@@ -78,7 +79,7 @@ def get_move_end_effector_to_pose_action(
     action_arr = np.array(joint_positions, dtype=np.float32)
     # This clipping is needed sometimes for the joint limits.
     action_arr = np.clip(action_arr, robot.action_space.low,
-                            robot.action_space.high)
+                         robot.action_space.high)
     assert robot.action_space.contains(action_arr)
     return Action(action_arr)
 
@@ -107,12 +108,18 @@ def create_move_end_effector_to_pose_option(
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del memory  # unused
-        current_pose, target_pose, finger_status = get_current_and_target_pose_and_finger_status(state, objects, params)
+        current_pose, target_pose, finger_status = get_current_and_target_pose_and_finger_status(
+            state, objects, params)
         assert isinstance(state, utils.PyBulletState)
         current_joint_positions = state.joint_positions
         return get_move_end_effector_to_pose_action(
-            robot, current_joint_positions, current_pose, target_pose, finger_status,
-            max_vel_norm, finger_action_nudge_magnitude,
+            robot,
+            current_joint_positions,
+            current_pose,
+            target_pose,
+            finger_status,
+            max_vel_norm,
+            finger_action_nudge_magnitude,
         )
 
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],
@@ -148,8 +155,7 @@ def get_change_fingers_action(robot: SingleArmPyBulletRobot,
     target[robot.left_finger_joint_idx] = f_action
     target[robot.right_finger_joint_idx] = f_action
     # This clipping is needed sometimes for the joint limits.
-    target = np.clip(target, robot.action_space.low,
-                        robot.action_space.high)
+    target = np.clip(target, robot.action_space.low, robot.action_space.high)
     assert robot.action_space.contains(target)
     return Action(target)
 

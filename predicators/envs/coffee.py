@@ -643,7 +643,7 @@ class CoffeeEnv(BaseEnv):
         rot = state.get(jug, "rot") - np.pi / 2
         target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
         target_y = state.get(jug, "y") + np.sin(rot) * cls.jug_handle_offset
-        target_z = cls.jug_handle_height
+        target_z = cls.z_lb + cls.jug_handle_height
         return (target_x, target_y, target_z)
 
     def _get_pour_position(self, state: State,
