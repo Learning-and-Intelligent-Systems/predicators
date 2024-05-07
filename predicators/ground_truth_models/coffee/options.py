@@ -22,7 +22,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"coffee", "pybullet_coffee"}
+        return {"coffee"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
@@ -404,3 +404,154 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         target_y = state.get(cup, "y") + CoffeeEnv.pour_y_offset
         target_z = CoffeeEnv.pour_z_offset
         return (target_x, target_y, target_z)
+
+
+class PyBulletCoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the pybullet_coffee environment."""
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"pybullet_coffee"}
+
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
+
+        # The options are the same as in the regular coffee environment, except
+        # for the policies.
+        coffee_options = CoffeeGroundTruthOptionFactory.get_options(
+            "coffee", types, predicates, action_space)
+        coffee_option_name_to_option = {o.name: o for o in coffee_options}
+
+        # MoveToTwistJug
+        coffee_MoveToTwistJug = coffee_option_name_to_option["MoveToTwistJug"]
+        MoveToTwistJug = ParameterizedOption(
+            coffee_MoveToTwistJug.name,
+            types=coffee_MoveToTwistJug.types,
+            params_space=coffee_MoveToTwistJug.params_space,
+            policy=cls._create_move_to_twist_policy(),
+            initiable=coffee_MoveToTwistJug.initiable,
+            terminal=coffee_MoveToTwistJug.terminal)
+
+        # TwistJug
+        coffee_TwistJug = coffee_option_name_to_option["TwistJug"]
+        TwistJug = ParameterizedOption(
+            coffee_TwistJug.name,
+            types=coffee_TwistJug.types,
+            params_space=coffee_TwistJug.params_space,
+            policy=cls._create_twist_jug_policy(),
+            initiable=coffee_TwistJug.initiable,
+            terminal=coffee_TwistJug.terminal,
+        )
+
+        # PickJug
+        coffee_PickJug = coffee_option_name_to_option["PickJug"]
+        PickJug = ParameterizedOption(
+            coffee_PickJug.name,
+            types=coffee_PickJug.types,
+            params_space=coffee_PickJug.params_space,
+            policy=cls._create_pick_jug_policy(),
+            initiable=coffee_PickJug.initiable,
+            terminal=coffee_PickJug.terminal,
+        )
+
+        # PlaceJugInMachine
+        coffee_PlaceJugInMachine = \
+            coffee_option_name_to_option["PlaceJugInMachine"]
+        PlaceJugInMachine = ParameterizedOption(
+            coffee_PlaceJugInMachine.name,
+            types=coffee_PlaceJugInMachine.types,
+            params_space=coffee_PlaceJugInMachine.params_space,
+            policy=cls._create_place_jug_in_machine_policy(),
+            initiable=coffee_PlaceJugInMachine.initiable,
+            terminal=coffee_PlaceJugInMachine.terminal,
+        )
+
+        # TurnMachineOn
+        coffee_TurnMachineOn = coffee_option_name_to_option["TurnMachineOn"]
+        TurnMachineOn = ParameterizedOption(
+            coffee_TurnMachineOn.name,
+            types=coffee_TurnMachineOn.types,
+            params_space=coffee_TurnMachineOn.params_space,
+            policy=cls._create_turn_machine_on_policy(),
+            initiable=coffee_TurnMachineOn.initiable,
+            terminal=coffee_TurnMachineOn.terminal,
+        )
+
+        # Pour
+        coffee_Pour = coffee_option_name_to_option["Pour"]
+        Pour = ParameterizedOption(
+            coffee_Pour.name,
+            types=coffee_Pour.types,
+            params_space=coffee_Pour.params_space,
+            policy=cls._create_pour_policy(),
+            initiable=coffee_Pour.initiable,
+            terminal=coffee_Pour.terminal,
+        )
+
+        return {
+            TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, Pour,
+            MoveToTwistJug
+        }
+
+    @classmethod
+    def _create_move_to_twist_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            import ipdb
+            ipdb.set_trace()
+
+        return policy
+
+    @classmethod
+    def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+
+            import ipdb
+            ipdb.set_trace()
+
+        return policy
+
+    @classmethod
+    def _create_pick_jug_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            import ipdb
+            ipdb.set_trace()
+
+        return policy
+
+    @classmethod
+    def _create_place_jug_in_machine_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            import ipdb
+            ipdb.set_trace()
+
+        return policy
+
+    @classmethod
+    def _create_turn_machine_on_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            import ipdb
+            ipdb.set_trace()
+
+        return policy
+
+    @classmethod
+    def _create_pour_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            import ipdb
+            ipdb.set_trace()
+
+        return policy
