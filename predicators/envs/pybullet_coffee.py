@@ -28,7 +28,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1e-2
     init_padding: ClassVar[float] = 0.05
-    pick_jug_x_padding: ClassVar[float] = 0.05
+    pick_jug_y_padding: ClassVar[float] = 0.05
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-2
     twist_policy_tol: ClassVar[float] = 1e-3
@@ -37,24 +37,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     pour_policy_tol: ClassVar[float] = 1e-3
     jug_twist_offset: ClassVar[float] = 0.025
     init_padding: ClassVar[float] = 0.05
-    x_lb: ClassVar[float] = 1.1
-    x_ub: ClassVar[float] = 1.6
-    y_lb: ClassVar[float] = 0.4
-    y_ub: ClassVar[float] = 1.1
+    x_lb: ClassVar[float] = 0.4
+    x_ub: ClassVar[float] = 1.1
+    y_lb: ClassVar[float] = 1.1
+    y_ub: ClassVar[float] = 1.6
     z_lb: ClassVar[float] = 0.2
     z_ub: ClassVar[float] = 0.75
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub - 0.1
+    robot_base_pos: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
+    robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
     # Machine settings.
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
-    machine_y_len: ClassVar[float] = 0.1 * (y_ub - y_lb)
+    machine_y_len: ClassVar[float] = 0.15 * (y_ub - y_lb)
     machine_z_len: ClassVar[float] = 0.5 * (z_ub - z_lb)
-    machine_x: ClassVar[float] = x_ub - machine_x_len - 0.01
-    machine_y: ClassVar[float] = y_lb + machine_y_len + init_padding
-    machine_y_pad: ClassVar[float] = 0.05
+    machine_x: ClassVar[float] = x_ub - machine_x_len / 2 - init_padding
+    machine_y: ClassVar[float] = y_ub - machine_y_len / 2 - init_padding
     button_x: ClassVar[float] = machine_x
-    button_y: ClassVar[float] = machine_y + machine_y_len / 2
+    button_y: ClassVar[float] = machine_y - machine_y_len / 2
     button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_y_len
     button_color_on: ClassVar[Tuple[float, float, float,
@@ -68,27 +69,26 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Jug settings.
     jug_radius: ClassVar[float] = (0.8 * machine_y_len) / 2.0
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
-    jug_init_y_lb: ClassVar[float] = machine_y - machine_y_len + init_padding
-    jug_init_y_ub: ClassVar[float] = machine_y + machine_y_len - init_padding
-    jug_init_x_lb: ClassVar[float] = x_lb + jug_radius + pick_jug_x_padding + \
-                                     init_padding
-    jug_init_x_ub: ClassVar[
-        float] = machine_x - machine_x_len - jug_radius - init_padding
+    jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len / 2 + init_padding
+    jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len / 2 - init_padding
+    jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
+    jug_init_y_ub: ClassVar[
+        float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 1.75 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height / 2
     jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
-    jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
+    jug_init_rot_lb: ClassVar[float] = - 2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # Dispense area settings.
-    dispense_area_x: ClassVar[float] = machine_x - 2.4 * jug_radius
-    dispense_area_y: ClassVar[float] = machine_y + machine_y_len / 2
+    dispense_area_x: ClassVar[float] = machine_x
+    dispense_area_y: ClassVar[float] = machine_y - 3.5 * jug_radius
     # Cup settings.
     cup_radius: ClassVar[float] = 0.6 * jug_radius
-    cup_init_x_lb: ClassVar[float] = jug_init_x_lb
-    cup_init_x_ub: ClassVar[float] = jug_init_x_ub
-    cup_init_y_lb: ClassVar[
-        float] = machine_y + cup_radius + init_padding + jug_radius
-    cup_init_y_ub: ClassVar[float] = y_ub - cup_radius - init_padding
+    cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
+    cup_init_x_ub: ClassVar[
+        float] = machine_x - machine_x_len / 2 - cup_radius - init_padding
+    cup_init_y_lb: ClassVar[float] = jug_init_y_lb
+    cup_init_y_ub: ClassVar[float] = jug_init_y_ub
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
@@ -98,8 +98,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         (35 / 255, 100 / 255, 54 / 255, 1.),
     ]
     # Table settings.
-    table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
+    table_pose: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
+    table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
+    # Camera parameters.
+    _camera_distance: ClassVar[float] = 0.8
+    _camera_yaw: ClassVar[float] = 180.0
+    _camera_pitch: ClassVar[float] = -24
+    _camera_target: ClassVar[Pose3D] = (0.75, 1.65, 0.42)
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -118,26 +123,68 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         ).initialize_pybullet(using_gui)
 
         # Draw the workspace on the table for clarity.
-        p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.z_lb],
-                            [cls.x_ub, cls.y_lb, cls.z_lb],
-                            [1.0, 0.0, 0.0],
+        for z in [cls.z_lb, cls.z_ub]:
+            p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
+                                [cls.x_ub, cls.y_lb, z],
+                                [1.0, 0.0, 0.0],
+                                lineWidth=5.0,
+                                physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_lb, cls.y_ub, z],
+                                [cls.x_ub, cls.y_ub, z],
+                                [1.0, 0.0, 0.0],
+                                lineWidth=5.0,
+                                physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
+                                [cls.x_lb, cls.y_ub, z],
+                                [1.0, 0.0, 0.0],
+                                lineWidth=5.0,
+                                physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_ub, cls.y_lb, z],
+                                [cls.x_ub, cls.y_ub, z],
+                                [1.0, 0.0, 0.0],
+                                lineWidth=5.0,
+                                physicsClientId=physics_client_id)
+        # Draw different sampling regions for reference.
+        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
+                            [cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
+                            [0.0, 0.0, 1.0],
                             lineWidth=5.0,
                             physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.x_lb, cls.y_ub, cls.z_lb],
-                            [cls.x_ub, cls.y_ub, cls.z_lb],
-                            [1.0, 0.0, 0.0],
+        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
+                            [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
+                            [0.0, 0.0, 1.0],
                             lineWidth=5.0,
                             physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.z_lb],
-                            [cls.x_lb, cls.y_ub, cls.z_lb],
-                            [1.0, 0.0, 0.0],
+        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
+                            [cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
+                            [0.0, 0.0, 1.0],
                             lineWidth=5.0,
                             physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.x_ub, cls.y_lb, cls.z_lb],
-                            [cls.x_ub, cls.y_ub, cls.z_lb],
-                            [1.0, 0.0, 0.0],
+        p.addUserDebugLine([cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
+                            [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
+                            [0.0, 0.0, 1.0],
                             lineWidth=5.0,
                             physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
+                            [cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
+                            [0.0, 0.0, 1.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
+                            [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
+                            [0.0, 0.0, 1.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
+                            [cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
+                            [0.0, 0.0, 1.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
+                            [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
+                            [0.0, 0.0, 1.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)        
         # Draw coordinate frame labels for reference.
         p.addUserDebugLine([0, 0, 0],
                             [0.25, 0, 0],
@@ -171,33 +218,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                           physicsClientId=physics_client_id)
         bodies["table_id"] = table_id
 
-        # Load coffee jug.
-
-        # Create the body.
-        # This pose doesn't matter because it gets overwritten in reset.
-        jug_pose = ((cls.jug_init_x_lb + cls.jug_init_x_ub) / 2,
-                    (cls.jug_init_y_lb + cls.jug_init_y_ub) / 2,
-                    cls.z_lb + cls.jug_height / 2)
-        # The jug orientation updates based on the rotation of the state.
-        rot = (cls.jug_init_rot_lb + cls.jug_init_rot_ub) / 2
-        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot + np.pi])
-
-        jug_id = p.loadURDF(utils.get_env_asset_path("urdf/kettle.urdf"),
-                            useFixedBase=True,
-                            globalScaling=0.075,
-                            physicsClientId=physics_client_id)
-        p.resetBasePositionAndOrientation(jug_id,
-                                          jug_pose,
-                                          jug_orientation,
-                                          physicsClientId=physics_client_id)
-        bodies["jug_id"] = jug_id
 
         ## Load coffee machine.
 
         # Create the collision shape.
         half_extents = (
             cls.machine_x_len / 2,
-            (cls.machine_y_len + cls.machine_y_pad) / 2,
+            cls.machine_y_len / 2,
             cls.machine_z_len / 2,
         )
         collision_id = p.createCollisionShape(
@@ -213,8 +240,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create the body.
         pose = (
-            cls.machine_x + cls.machine_x_len / 2,
-            cls.machine_y + cls.machine_y_len / 2,
+            cls.machine_x,
+            cls.machine_y,
             cls.z_lb + cls.machine_z_len / 2,
         )
         orientation = cls._default_orn
@@ -306,7 +333,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         )
 
         # Facing outward.
-        orientation = p.getQuaternionFromEuler([0.0, np.pi / 2, 0.0])
+        orientation = p.getQuaternionFromEuler([0.0, np.pi / 2, np.pi / 2])
         button_id = p.createMultiBody(baseMass=0,
                                       baseCollisionShapeIndex=collision_id,
                                       baseVisualShapeIndex=visual_id,
@@ -315,6 +342,27 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                       physicsClientId=physics_client_id)
 
         bodies["button_id"] = button_id
+
+        # Load coffee jug.
+
+        # Create the body.
+        # This pose doesn't matter because it gets overwritten in reset.
+        jug_pose = ((cls.jug_init_x_lb + cls.jug_init_x_ub) / 2,
+                    (cls.jug_init_y_lb + cls.jug_init_y_ub) / 2,
+                    cls.z_lb + cls.jug_height / 2)
+        # The jug orientation updates based on the rotation of the state.
+        rot = (cls.jug_init_rot_lb + cls.jug_init_rot_ub) / 2
+        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
+
+        jug_id = p.loadURDF(utils.get_env_asset_path("urdf/kettle.urdf"),
+                            useFixedBase=True,
+                            globalScaling=0.075,
+                            physicsClientId=physics_client_id)
+        p.resetBasePositionAndOrientation(jug_id,
+                                          jug_pose,
+                                          jug_orientation,
+                                          physicsClientId=physics_client_id)
+        bodies["jug_id"] = jug_id
 
         return physics_client_id, pybullet_robot, bodies
 
@@ -331,8 +379,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         robot_ee_orn = cls.get_robot_ee_home_orn()
         ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
                        robot_ee_orn)
+        base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, ee_home)
+                                                physics_client_id, ee_home,
+                                                base_pose)
 
     def _extract_robot_state(self, state: State) -> Array:
         qx, qy, qz, qw = self._state_to_gripper_orn(state)
@@ -437,7 +487,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             jy = state.get(self._jug, "y")
             jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
             rot = state.get(self._jug, "rot")
-            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot + np.pi])
+            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
             p.resetBasePositionAndOrientation(
                 self._jug_id, [jx, jy, jz],
                 jug_orientation,
@@ -459,7 +509,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             -1,
                             rgbaColor=plate_color,
                             physicsClientId=self._physics_client_id)
-
+        
         # TODO remove
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)

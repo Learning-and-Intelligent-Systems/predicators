@@ -65,6 +65,8 @@ class CoffeeEnv(BaseEnv):
                                      init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - jug_radius - init_padding
+    jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
+    jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
     jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
@@ -143,9 +145,6 @@ class CoffeeEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._jug = Object("juggy", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
-        # Settings from CFG.
-        self.jug_init_rot_lb = -CFG.coffee_jug_init_rot_amt
-        self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
 
     @classmethod
     def get_name(cls) -> str:
