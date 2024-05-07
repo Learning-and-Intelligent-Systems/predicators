@@ -575,7 +575,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Get jug state.
         (x, y, _), quat = p.getBasePositionAndOrientation(
             self._jug_id, physicsClientId=self._physics_client_id)
-        rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] - np.pi)
+        rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
         held = (self._jug_id == self._held_obj_id)
         filled = 0.0  # TODO!! need to change color or something when 'full'
         state_dict[self._jug] = {
