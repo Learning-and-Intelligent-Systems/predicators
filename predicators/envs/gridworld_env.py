@@ -19,11 +19,19 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type, Observation
 
+# - Start with only VLM predicates
+# - Then do KNOWN predicates + VLM predicates
+# - Then do predicates generated from the grammar + VLM predicates
+# - Towards this, look into where the ground atom dataset is created, after that it's just the normal grammar search approach
+
 # - Want to be able to run this as a VLM env, or a normal env
 # - Want to give oracle's predicates access to full state, but not non-oracle's (maybe can use a different perceiver -- the perceiver we use with non-oracle actually throws out info that is there)
 # - Need to keep track of certain state outside of the actual state (e.g. is_cooked for patty)
 # - Make subclass of state that has the observation that produced it as a field
 # - There should be a texture-based rendering (using pygame) and a non-texture-based rendering, using matplotlib?
+
+# Options
+# -
 
 class GridWorld(BaseEnv):
     """TODO"""
@@ -32,9 +40,16 @@ class GridWorld(BaseEnv):
 
     # Types
     _item_type = Type("item", [])
+    _station_type = Type("station", [])
+
     _robot_type = Type("robot", ["row", "col"])
     _cell_type = Type("cell", ["row", "col"])
+
     _patty_type = Type("patty", ["row", "col"], _item_type)
+    _table_type = Type("table", ["row", "col"])
+    _grill_type = Type("grill", ["row", "col"], _station_type)
+    _cutting_board_type = Type("cutting_board", ["row", "col"], _station_type)
+
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
