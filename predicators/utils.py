@@ -33,6 +33,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
+import PIL.Image
 from gym.spaces import Box
 from matplotlib import patches
 from numpy.typing import NDArray
@@ -42,6 +43,7 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
+from predicators.pretrained_model_interface import GoogleGeminiVLM
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -50,8 +52,8 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option, _TypedEntity
+    Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -2208,17 +2210,64 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
     return Task(task.init, stripped_goal)
 
 
+def query_vlm_for_atom_vals(vlm_atoms: List[GroundAtom],
+                            imgs: List[Image]) -> Set[GroundAtom]:
+    """Given a set of ground atoms, queries a VLM and gets the subset of these
+    atoms that are true."""
+    true_atoms: Set[GroundAtom] = set()
+    atom_queries_str = "\n*".join(atom.get_vlm_query_str()
+                                  for atom in vlm_atoms)
+    vlm_query_str = """You are a vision system for a robot. Your job is to output truth values for the following predicate queries based on the provided images corresponding to a visual scene. For each query, output True, False, or Unknown if the relevant objects are not in the scene or the value of the predicate simply cannot be determined. Output each predicate query value as a bulleted list with each predicate query and value on a different line. Use the format: <query>: <truth_value>. Ensure there is a period ('.') after every list item. Do not output any text except the names and truth values of predicate queries.
+Predicate Queries:\n*"""
+    vlm_query_str += atom_queries_str
+    vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
+    vlm_output = vlm.sample_completions(
+        vlm_query_str, [PIL.Image.fromarray(img_arr) for img_arr in imgs],
+        0.0,
+        seed=CFG.seed,
+        num_completions=1)
+    assert len(vlm_output) == 1
+    vlm_output_str = vlm_output[0]
+    all_atom_queries = atom_queries_str.split("\n")
+    all_vlm_responses = vlm_output_str.split("\n")
+    assert len(all_atom_queries) == len(all_vlm_responses)
+    for i, (atom_query, curr_vlm_output_line) in enumerate(
+            zip(all_atom_queries, all_vlm_responses)):
+        assert atom_query + ":" in curr_vlm_output_line
+        assert "." in curr_vlm_output_line
+        period_idx = curr_vlm_output_line.find(".")
+        if curr_vlm_output_line[len(atom_query + ":"):period_idx] == "True":
+            true_atoms.add(vlm_atoms[i])
+    return true_atoms
+
+
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
     Duplicate arguments in predicates are allowed.
     """
+    # Start by pulling out all VLM predicates.
+    vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+    # Next, classify all non-VLM predicates.
     atoms = set()
     for pred in preds:
-        for choice in get_object_combinations(list(state), pred.types):
-            if pred.holds(state, choice):
-                atoms.add(GroundAtom(pred, choice))
+        if pred not in vlm_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                if pred.holds(state, choice):
+                    atoms.add(GroundAtom(pred, choice))
+    if len(vlm_preds) > 0:
+        # First, check that the state.simulator_state is some list of images.
+        assert state.simulator_state is not None
+        assert isinstance(state.simulator_state, List)
+        # Now, aggregate all the VLM predicates and make a single call to a
+        # VLM to get their values.
+        vlm_atoms = set()
+        for pred in vlm_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                vlm_atoms.add(GroundAtom(pred, choice))
+        atoms |= query_vlm_for_atom_vals(sorted(vlm_atoms),
+                                         state.simulator_state)
     return atoms
 
 
