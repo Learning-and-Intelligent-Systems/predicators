@@ -78,7 +78,7 @@ class PG3Approach(NSRTLearningApproach):
             self._get_current_nsrts(), self._get_current_predicates())
         start_time = time.perf_counter()
 
-        while not task.goal.issubset(atoms):
+        while not task.goal.issubset(atoms) and len(skeleton) < CFG.horizon:
             if (time.perf_counter() - start_time) >= timeout:
                 raise ApproachFailure("Timeout exceeded")
             ground_nsrt = self._predict_ground_nsrt(atoms, current_objects,
