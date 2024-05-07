@@ -66,7 +66,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     plate_color_off: ClassVar[Tuple[float, float, float,
                                     float]] = (0.6, 0.6, 0.6, 0.5)
     # Jug settings.
-    pick_jug_x_padding: ClassVar[float] = 0.05
     jug_radius: ClassVar[float] = (0.8 * machine_y_len) / 2.0
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
     jug_init_y_lb: ClassVar[float] = machine_y - machine_y_len + init_padding
@@ -78,6 +77,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_handle_offset: ClassVar[float] = 1.75 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height / 2
     jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
+    jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
+    jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x - 2.4 * jug_radius
     dispense_area_y: ClassVar[float] = machine_y + machine_y_len / 2
@@ -103,29 +104,70 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Settings from CFG.
-        self.jug_init_rot_lb = -CFG.coffee_jug_init_rot_amt
-        self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
-
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
         self._cup_to_liquid_id: Dict[Object, int] = {}
         self._cup_to_capacity: Dict[Object, float] = {}
 
+    @classmethod
     def initialize_pybullet(
-            self, using_gui: bool
+            cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle coffee-specific initialization."""
         physics_client_id, pybullet_robot, bodies = super(
         ).initialize_pybullet(using_gui)
+
+        # Draw the workspace on the table for clarity.
+        p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.z_lb],
+                            [cls.x_ub, cls.y_lb, cls.z_lb],
+                            [1.0, 0.0, 0.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.x_lb, cls.y_ub, cls.z_lb],
+                            [cls.x_ub, cls.y_ub, cls.z_lb],
+                            [1.0, 0.0, 0.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.z_lb],
+                            [cls.x_lb, cls.y_ub, cls.z_lb],
+                            [1.0, 0.0, 0.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.x_ub, cls.y_lb, cls.z_lb],
+                            [cls.x_ub, cls.y_ub, cls.z_lb],
+                            [1.0, 0.0, 0.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        # Draw coordinate frame labels for reference.
+        p.addUserDebugLine([0, 0, 0],
+                            [0.25, 0, 0],
+                            [1.0, 0.0, 0.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([0, 0, 0],
+                            [0.0, 0.25, 0],
+                            [1.0, 0.0, 0.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
+                            physicsClientId=physics_client_id)
+        p.addUserDebugLine([0, 0, 0],
+                            [0.0, 0, 0.25],
+                            [1.0, 0.0, 0.0],
+                            lineWidth=5.0,
+                            physicsClientId=physics_client_id)
+        p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
+                            physicsClientId=physics_client_id)
 
         # Load table.
         table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
                               useFixedBase=True,
                               physicsClientId=physics_client_id)
         p.resetBasePositionAndOrientation(table_id,
-                                          self.table_pose,
-                                          self.table_orientation,
+                                          cls.table_pose,
+                                          cls.table_orientation,
                                           physicsClientId=physics_client_id)
         bodies["table_id"] = table_id
 
@@ -133,11 +175,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create the body.
         # This pose doesn't matter because it gets overwritten in reset.
-        jug_pose = ((self.jug_init_x_lb + self.jug_init_x_ub) / 2,
-                    (self.jug_init_y_lb + self.jug_init_y_ub) / 2,
-                    self.z_lb + self.jug_height / 2)
+        jug_pose = ((cls.jug_init_x_lb + cls.jug_init_x_ub) / 2,
+                    (cls.jug_init_y_lb + cls.jug_init_y_ub) / 2,
+                    cls.z_lb + cls.jug_height / 2)
         # The jug orientation updates based on the rotation of the state.
-        rot = (self.jug_init_rot_lb + self.jug_init_rot_ub) / 2
+        rot = (cls.jug_init_rot_lb + cls.jug_init_rot_ub) / 2
         jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot + np.pi])
 
         jug_id = p.loadURDF(utils.get_env_asset_path("urdf/kettle.urdf"),
@@ -154,9 +196,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create the collision shape.
         half_extents = (
-            self.machine_x_len / 2,
-            (self.machine_y_len + self.machine_y_pad) / 2,
-            self.machine_z_len / 2,
+            cls.machine_x_len / 2,
+            (cls.machine_y_len + cls.machine_y_pad) / 2,
+            cls.machine_z_len / 2,
         )
         collision_id = p.createCollisionShape(
             p.GEOM_BOX,
@@ -171,11 +213,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create the body.
         pose = (
-            self.machine_x + self.machine_x_len / 2,
-            self.machine_y + self.machine_y_len / 2,
-            self.z_lb + self.machine_z_len / 2,
+            cls.machine_x + cls.machine_x_len / 2,
+            cls.machine_y + cls.machine_y_len / 2,
+            cls.z_lb + cls.machine_z_len / 2,
         )
-        orientation = self._default_orn
+        orientation = cls._default_orn
         machine_id = p.createMultiBody(baseMass=0,
                                        baseCollisionShapeIndex=collision_id,
                                        baseVisualShapeIndex=visual_id,
@@ -186,11 +228,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         bodies["machine_id"] = machine_id
 
         ## Create the dispense area.
-        dispense_radius = 2 * self.jug_radius
+        dispense_radius = 2 * cls.jug_radius
         dispense_height = 0.005
-        pose = (self.dispense_area_x, self.dispense_area_y,
-                self.z_lb + dispense_height)
-        orientation = self._default_orn
+        pose = (cls.dispense_area_x, cls.dispense_area_y,
+                cls.z_lb + dispense_height)
+        orientation = cls._default_orn
         half_extents = [
             1.1 * dispense_radius, 1.1 * dispense_radius, dispense_height
         ]
@@ -242,25 +284,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Add a button. Could do this as a link on the machine, but since
         # both never move, it doesn't matter.
-        button_height = self.button_radius / 2
+        button_height = cls.button_radius / 2
         collision_id = p.createCollisionShape(
             p.GEOM_CYLINDER,
-            radius=self.button_radius,
+            radius=cls.button_radius,
             height=button_height,
             physicsClientId=physics_client_id)
 
         # Create the visual_shape.
         visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                        radius=self.button_radius,
+                                        radius=cls.button_radius,
                                         length=button_height,
                                         rgbaColor=(0.5, 0.2, 0.2, 1.0),
                                         physicsClientId=physics_client_id)
 
         # Create the body.
         pose = (
-            self.button_x,
-            self.button_y,
-            self.button_z,
+            cls.button_x,
+            cls.button_y,
+            cls.button_z,
         )
 
         # Facing outward.
@@ -543,7 +585,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _state_to_gripper_orn(self, state: State) -> Quaternion:
         wrist = state.get(self._robot, "wrist")
         tilt = state.get(self._robot, "tilt")
-        if abs(tilt - self.robot_init_tilt) > self.pour_angle_tol:
+        return self.tilt_wrist_to_gripper_orn(
+            tilt, wrist
+        )
+    
+    @classmethod
+    def tilt_wrist_to_gripper_orn(cls, tilt: float, wrist: float) -> Quaternion:
+        """Public for oracle options."""
+        if abs(tilt - cls.robot_init_tilt) > cls.pour_angle_tol:
             return p.getQuaternionFromEuler(
                 [0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
         return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
