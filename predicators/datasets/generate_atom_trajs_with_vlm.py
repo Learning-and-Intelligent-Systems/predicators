@@ -96,14 +96,71 @@ def _generate_prompt_for_scene_labelling(
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-    for atom_str in atoms_list:
-        prompt += f"\n{atom_str}"
-    for curr_imgs in traj.imgs:
+    if CFG.grammar_search_vlm_atom_label_prompt_type == "img_option_history":
+        # The prompt ends with a section for 'Predicates', so list these.
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        prompt += f"\n\nSkills executed thus far:"
+        # For the 0th timestep, the skilss executed is just None.
+        curr_prompt = prompt + "\nNone"
         # NOTE: we rip out just one img from each of the state
         # images. This is fine/works for the case where we only
         # have one camera view, but probably will need to be
         # amended in the future!
-        ret_list.append((prompt, [curr_imgs[0]]))
+        ret_list.append((curr_prompt, [traj.imgs[0][0]]))
+        for i, curr_imgs in enumerate(traj.imgs[1:]):
+            curr_prompt = prompt + "\n"
+            # For the ith timestep, the skills executed are from all the
+            # previous timesteps.
+            curr_prompt += "\n".join(act.name + str(act.objects)
+                                     for act in traj.actions[:i + 1])
+            # NOTE: same problem with ripping out images as in the above note.
+            imgs_upto_current = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[:i + 1]
+            ]
+            curr_query_imgs = imgs_upto_current + [curr_imgs[0]]
+            ret_list.append((curr_prompt, curr_query_imgs))
+    elif CFG.grammar_search_vlm_atom_label_prompt_type == "full_img_option_traj":
+        # The prompt ends with a section for 'Predicates', so list these.
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        prompt += f"\n\nSkills executed in trajectory:\n"
+        prompt += "\n".join(act.name + str(act.objects)
+                                     for act in traj.actions)
+        prompt += f"\n\nImage timestep to label with predicate values: "
+        # NOTE: same problem with ripping out images as in the above note.
+        all_imgs = [
+            imgs_timestep[0] for imgs_timestep in traj.imgs
+        ]
+        for i in range(len(all_imgs)):
+            curr_prompt = prompt + str(i)
+            ret_list.append((curr_prompt, all_imgs))
+    elif CFG.grammar_search_vlm_atom_label_prompt_type == "img_option_diffs":
+        # The prompt ends with a section for 'Predicates', so list these.
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        for i in range(len(traj.imgs) - 1):
+            # NOTE: same problem with ripping out images as in the above note.
+            curr_prompt_imgs = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[i:i+2]
+            ]
+            curr_prompt = prompt.format(initial_or_final = "initial")
+            curr_prompt += f"\n\nSkill executed between states: "
+            curr_prompt += traj.actions[i].name + str(traj.actions[i].objects)
+            ret_list.append((curr_prompt, curr_prompt_imgs))
+        final_prompt_imgs = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[-2:]
+            ]
+        final_prompt = prompt.format(initial_or_final = "final")
+        final_prompt += f"\n\nSkill executed between states:\n"
+        final_prompt += "\n".join(traj.actions[-1].name + str(traj.actions[-1].objects))
+        ret_list.append((final_prompt, final_prompt_imgs))        
+    else:
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        for curr_imgs in traj.imgs:
+            # NOTE: same problem with ripping out images as in the above note.
+            ret_list.append((prompt, [curr_imgs[0]]))
     return ret_list
 
 
@@ -131,6 +188,8 @@ def _sample_vlm_atom_proposals_from_trajectories(
         curr_num_queries += 1
         logging.info("Completed (%s/%s) init atoms queries to the VLM.",
                      curr_num_queries, total_num_queries)
+        # print(aggregated_vlm_output_strs[-1][0])
+        # import ipdb; ipdb.set_trace()
     return aggregated_vlm_output_strs
 
 
@@ -160,6 +219,8 @@ def _label_trajectories_with_vlm_atom_values(
             curr_scenes_labelled += 1
             logging.info("Completed (%s/%s) label queries to VLM!",
                          curr_scenes_labelled, total_scenes_to_label)
+            # print(curr_vlm_atom_labelling[0])
+            # import ipdb; ipdb.set_trace()
         output_labelled_atoms_txt_list.append(curr_traj_txt_outputs)
     return output_labelled_atoms_txt_list
 
@@ -336,7 +397,10 @@ def _parse_structured_state_into_ground_atoms(
                             if num_args == 0:
                                 num_args = len(obj_args)
                             else:
-                                assert num_args == len(obj_args)
+                                try:
+                                    assert num_args == len(obj_args)
+                                except AssertionError:
+                                    import ipdb; ipdb.set_trace()
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
                         pred_name_to_pred[pred_name] = Predicate(

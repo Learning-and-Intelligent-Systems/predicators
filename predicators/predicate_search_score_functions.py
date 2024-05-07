@@ -313,6 +313,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
         score = 0.0
         seen_demos = 0
         assert len(low_level_trajs) == len(segmented_trajs)
+
         for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
             if seen_demos >= CFG.grammar_search_max_demos:
                 break
