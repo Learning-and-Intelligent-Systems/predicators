@@ -244,7 +244,7 @@ class PyBulletEnv(BaseEnv):
         # TODO remove
         print("Taking action:", action)
         import time
-        time.sleep(0.5)
+        time.sleep(0.05)
 
         # Send the action to the robot.
         target_joint_positions = action.arr.tolist()

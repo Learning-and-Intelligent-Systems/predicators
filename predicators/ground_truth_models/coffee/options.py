@@ -278,18 +278,22 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Use the jug position as the origin.
             x = state.get(jug, "x")
             y = state.get(jug, "y")
-            z = state.get(robot, "z") - cls.env_cls.jug_handle_height
+            # TODO this z doesn't make sense...
+            z = cls.env_cls.z_lb + 2 * cls.env_cls.jug_handle_height
             jug_pos = (x, y, z)
             place_pos = (cls.env_cls.dispense_area_x, cls.env_cls.dispense_area_y,
                          cls.env_cls.z_lb)
             # If close enough, place.
             sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
             if sq_dist_to_place < cls.env_cls.place_jug_in_machine_tol:
+                print("CLOSE ENOUGH, PLACING!")
                 return cls._get_place_action()
             # If already above the table, move directly toward the place pos.
             if z > cls.env_cls.z_lb:
+                print("MOVING DIRECTLY TO PLACE POSITION!")
                 return cls._get_move_action(state, place_pos, jug_pos)
             # Move up.
+            print("MOVING UP TO PREPARE TO PLACE!")
             return cls._get_move_action(state, (x, y, z + cls.env_cls.max_position_vel),
                                         jug_pos)
 
