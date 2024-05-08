@@ -46,7 +46,8 @@ class GridWorld(BaseEnv):
     _cell_type = Type("cell", ["row", "col"])
 
     _patty_type = Type("patty", ["row", "col"], _item_type)
-    _table_type = Type("table", ["row", "col"])
+    _tomato_type = Type("tomato", ["row", "col"], _item_type)
+
     _grill_type = Type("grill", ["row", "col"], _station_type)
     _cutting_board_type = Type("cutting_board", ["row", "col"], _station_type)
 
@@ -62,9 +63,12 @@ class GridWorld(BaseEnv):
         self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
         self._Adjacent = Predicate("AdjacentTo", [self._robot_type, self._item_type], self._Adjacent_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
+        self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robby", self._robot_type)
+        self._grill = Object("grill", self._grill_type)
+        self._cutting_board = Object("cutting_board", self._cutting_board_type)
         self._cells = [
             Object(f"cell{i}", self._cell_type) for i in range(self.num_cells)
         ]
@@ -81,12 +85,14 @@ class GridWorld(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
-        state_dict = {
-            self._robot: {
-                "row": 0,
-                "col": 0
-            }
-        }
+
+        # Add robot, grill, and cutting board
+        state_dict = {}
+        state_dict[self._robot] = {"row": 0, "col": 0}
+        state_dict[self._grill] = {"row": 2, "col": 3}
+        state_dict[self._cutting_board] = {"row": 1, "col": 3}
+
+        # Add cells
         counter = 0
         for i in range(self.num_rows):
             for j in range(self.num_cols):
@@ -98,7 +104,7 @@ class GridWorld(BaseEnv):
                 }
                 counter += 1
 
-        # Add items, stations, etc.
+        # Add patty
         patty = Object("patty", self._patty_type)
         state_dict[patty] = {
             "row": 1,
@@ -106,6 +112,16 @@ class GridWorld(BaseEnv):
         }
         self._hidden_state[patty] = {
             "is_cooked": 0.0
+        }
+
+        # Add tomato
+        tomato = Object("tomato", self._tomato_type)
+        state_dict[tomato] = {
+            "row": 2,
+            "col": 0
+        }
+        self._hidden_state[tomato] = {
+            "is_sliced": 0.0
         }
 
         # Get the top right cell and make the goal for the agent to go there.
@@ -142,6 +158,12 @@ class GridWorld(BaseEnv):
             return True
         return False
 
+    def _IsSliced_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        tomato, = objects
+        if self._hidden_state[tomato]["is_sliced"] > 0.5:
+            return True
+        return False
+
     @staticmethod
     def _get_position(object: Object, state: State) -> Tuple[int, int]:
         col = state.get(object, "col")
@@ -158,7 +180,7 @@ class GridWorld(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._RobotInCell, self._Adjacent}
+        return {self._RobotInCell, self._Adjacent, self._IsCooked, self._IsSliced}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -176,8 +198,7 @@ class GridWorld(BaseEnv):
         next_state = state.copy()
         dcol, drow, interact = action.arr
 
-        robot_col = state.get(self._robot, "col")
-        robot_row = state.get(self._robot, "row")
+        robot_col, robot_row = self._get_position(self._robot, state)
         new_col = np.clip(robot_col + dcol, 0, self.num_cols - 1)
         new_row = np.clip(robot_row + drow, 0, self.num_rows - 1)
 
@@ -187,8 +208,7 @@ class GridWorld(BaseEnv):
             if not object.is_instance(self._robot_type) and not object.is_instance(self._cell_type):
                 other_objects.append(object)
         for obj in other_objects:
-            obj_col = state.get(obj, "col")
-            obj_row = state.get(obj, "row")
+            obj_col, obj_row = self._get_position(obj, state)
             if abs(new_col - obj_col) < 1e-3 and abs(new_row - obj_row) < 1e-3:
                 return next_state
 
@@ -204,7 +224,10 @@ class GridWorld(BaseEnv):
             item_col, item_row = self._get_position(item, state)
             if self._is_adjacent(item_col, item_row, new_col, new_row):
                 if interact > 0.5:
-                    self._hidden_state[item]["is_cooked"] = 1.0
+                    if item.is_instance(self._patty_type):
+                        self._hidden_state[item]["is_cooked"] = 1.0
+                    elif item.is_instance(self._tomato_type):
+                        self._hidden_state[item]["is_sliced"] = 1.0
 
         # print("Action that was taken: ", action)
         # print("Hidden state: ", self._hidden_state)
@@ -216,7 +239,9 @@ class GridWorld(BaseEnv):
         # Reset the hidden state.
         for k, v in self._hidden_state.items():
             if k.is_instance(self._patty_type):
-                self._hidden_state[k]["is_cooked"] = 0.0
+                v["is_cooked"] = 0.0
+            elif k.is_instance(self._tomato_type):
+                v["is_sliced"] = 0.0
 
         self._current_task = self.get_task(train_or_test, task_idx)
         self._current_observation = self._current_task.init_obs
@@ -249,34 +274,53 @@ class GridWorld(BaseEnv):
         for i in range(self.num_rows + 1):
             ax.axhline(y=i, color="k", linestyle="-")
 
-        # Draw patty as a brown circle.
-        light_brown = (0.72, 0.52, 0.04)
-        dark_brown = (0.39, 0.26, 0.13)
-        patty = [object for object in state if object.is_instance(self._patty_type)][0]
-        patty_color = dark_brown if self._IsCooked_holds(state, [patty]) else light_brown
-        patty_col = state.get(patty, "col")
-        patty_row = state.get(patty, "row")
-        raw_patty_img = mpimg.imread("patty.png")
-        cooked_patty_img = mpimg.imread("cookedpatty.png")
-        patty_img = cooked_patty_img if self._IsCooked_holds(state, [patty]) else raw_patty_img
-        ax.imshow(patty_img, extent=[patty_col, patty_col+1, patty_row, patty_row+1])
-        # ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
-
-        # Draw robot as a red circle.
+        # Draw robot
         robot_col = state.get(self._robot, "col")
         robot_row = state.get(self._robot, "row")
         # ax.plot(robot_col + 0.5, robot_row + 0.5, 'rs', markersize=20)
-
-        # # Try drawing the robot as an image.
-        robot_img = mpimg.imread("robot.png")
+        robot_img = mpimg.imread("predicators/envs/assets/imgs/robot.png")
         x, y = robot_col, robot_row
         image_size = (0.8, 0.8)
         # ax.imshow(robot_img, extent=[robot_col, robot_col + 1, robot_row, robot_row + 1])
         ax.imshow(robot_img, extent=[x + (1 - image_size[0]) / 2, x + (1 + image_size[0]) / 2,
                                       y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2])
 
+        # Draw grill
+        grill_img = mpimg.imread("predicators/envs/assets/imgs/grill.png")
+        grill_col, grill_row = self._get_position(self._grill, state)
+        x, y = grill_col, grill_row
+        ax.imshow(grill_img, extent=[x, x+1, y, y+1])
+
+        # Draw cutting board
+        cutting_board_img = mpimg.imread("predicators/envs/assets/imgs/cutting_board.png")
+        cutting_board_col, cutting_board_row = self._get_position(self._cutting_board, state)
+        x, y = cutting_board_col, cutting_board_row
+        ax.imshow(cutting_board_img, extent=[x, x+1, y, y+1])
+
+        # Draw patty
+        light_brown = (0.72, 0.52, 0.04)
+        dark_brown = (0.39, 0.26, 0.13)
+        patty = [object for object in state if object.is_instance(self._patty_type)][0]
+        patty_color = dark_brown if self._IsCooked_holds(state, [patty]) else light_brown
+        patty_col = state.get(patty, "col")
+        patty_row = state.get(patty, "row")
+        raw_patty_img = mpimg.imread("predicators/envs/assets/imgs/raw_patty.png")
+        cooked_patty_img = mpimg.imread("predicators/envs/assets/imgs/cooked_patty.png")
+        patty_img = cooked_patty_img if self._IsCooked_holds(state, [patty]) else raw_patty_img
+        ax.imshow(patty_img, extent=[patty_col, patty_col+1, patty_row, patty_row+1])
+        # ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
+
+        # Draw tomato
+        tomato = [obj for obj in state if obj.is_instance(self._tomato_type)][0]
+        whole_tomato_img = mpimg.imread("predicators/envs/assets/imgs/whole_tomato.png")
+        sliced_tomato_img = mpimg.imread("predicators/envs/assets/imgs/sliced_tomato.png")
+        tomato_img = sliced_tomato_img if self._IsSliced_holds(state, [tomato]) else whole_tomato_img
+        tomato_col, tomato_row = self._get_position(tomato, state)
+        x, y = tomato_col, tomato_row
+        ax.imshow(tomato_img, extent=[x, x+1, y, y+1])
+
         # Draw background
-        floor_img = mpimg.imread("floorwood.png")
+        floor_img = mpimg.imread("predicators/envs/assets/imgs/floorwood.png")
         for i in range(self.num_rows):
             for j in range(self.num_cols):
                 x, y = j, i
