@@ -455,48 +455,15 @@ class GridWorld(BaseEnv):
             x, y = self._get_position(item, state)
             if is_held:
                 extent = [x + (1 - held_img_size[0]) * (1/2), x + (1 + held_img_size[0]) * (1/2), y + offset, y + held_img_size[1] + offset]
+            elif zorder > 0:
+                offset = 0.1 * zorder
+                image_size = (0.7, 0.7)
+                extent = [x + (1 - image_size[0]) * (1/2), x + (1 + image_size[0]) * (1/2), y + (1 - image_size[1]) / 2 + offset, y + (1 + image_size[1]) / 2 + offset]
             else:
-                extent = [x, x+1, y, y+1]
+                # extent = [x, x+1, y, y+1]
+                image_size = (0.7, 0.7)
+                extent = [x + (1 - image_size[0]) * (1/2), x + (1 + image_size[0]) * (1/2), y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2]
             ax.imshow(img, extent=extent, zorder=zorder)
-
-        # # Draw patty
-        # light_brown = (0.72, 0.52, 0.04)
-        # dark_brown = (0.39, 0.26, 0.13)
-        # patty = [object for object in state if object.is_instance(self._patty_type)][0]
-        # patty_color = dark_brown if self._IsCooked_holds(state, [patty]) else light_brown
-        # patty_col = state.get(patty, "col")
-        # patty_row = state.get(patty, "row")
-        # raw_patty_img = mpimg.imread("predicators/envs/assets/imgs/raw_patty.png")
-        # cooked_patty_img = mpimg.imread("predicators/envs/assets/imgs/cooked_patty.png")
-        # patty_img = cooked_patty_img if self._IsCooked_holds(state, [patty]) else raw_patty_img
-        # zorder = state.get(patty, "z")
-        # is_held = self._hidden_state[patty]["is_held"] > 0.5
-        # x, y = patty_col, patty_row
-        # offset = held_img_size[1] * (1/3)
-        # if is_held:
-        #     # extent = [x + (1 - held_img_size[0]) / 2, x + (1 + held_img_size[0]) / 2, y + (1 - held_img_size[1]) / 2, y + (1 + held_img_size[1]) / 2]
-        #     extent = [x + (1 - held_img_size[0]) * (1/2), x + (1 + held_img_size[0]) * (1/2), y + offset, y + held_img_size[1] + offset]
-        # else:
-        #     extent = [x, x+1, y, y+1]
-        # ax.imshow(patty_img, extent=extent, zorder=zorder)
-        # # ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
-        #
-        # # Draw tomato
-        # tomato = [obj for obj in state if obj.is_instance(self._tomato_type)][0]
-        # whole_tomato_img = mpimg.imread("predicators/envs/assets/imgs/whole_tomato.png")
-        # sliced_tomato_img = mpimg.imread("predicators/envs/assets/imgs/sliced_tomato.png")
-        # tomato_img = sliced_tomato_img if self._IsSliced_holds(state, [tomato]) else whole_tomato_img
-        # tomato_col, tomato_row = self._get_position(tomato, state)
-        #
-        # zorder = state.get(tomato, "z")
-        # is_held = self._hidden_state[tomato]["is_held"] > 0.5
-        # x, y = tomato_col, tomato_row
-        # offset = held_img_size[1] * (1/3)
-        # if is_held:
-        #     extent = [x + (1 - held_img_size[0]) * (1/2), x + (1 + held_img_size[0]) * (1/2), y + offset, y + held_img_size[1] + offset]
-        # else:
-        #     extent = [x, x+1, y, y+1]
-        # ax.imshow(tomato_img, extent=extent, zorder=zorder)
 
         # Draw background
         floor_img = mpimg.imread("predicators/envs/assets/imgs/floorwood.png")
