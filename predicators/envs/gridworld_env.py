@@ -48,6 +48,9 @@ class GridWorld(BaseEnv):
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
     _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
+    _cheese_type = Type("cheese", ["row", "col", "z"], _item_type)
+    _bottom_bun_type = Type("bottom_bun", ["row", "col", "z"], _item_type)
+    _top_bun_type = Type("top_bun", ["row", "col", "z"], _item_type)
 
     _grill_type = Type("grill", ["row", "col", "z"], _station_type)
     _cutting_board_type = Type("cutting_board", ["row", "col", "z"], _station_type)
@@ -91,7 +94,7 @@ class GridWorld(BaseEnv):
 
         # Add robot, grill, and cutting board
         state_dict = {}
-        state_dict[self._robot] = {"row": 0, "col": 0, "fingers": 0.0}
+        state_dict[self._robot] = {"row": 2, "col": 2, "fingers": 0.0}
         self._hidden_state[self._robot] = {"dir": "down"}
         state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
         state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
@@ -110,13 +113,28 @@ class GridWorld(BaseEnv):
 
         # Add patty
         patty = Object("patty", self._patty_type)
-        state_dict[patty] = {"row": 1, "col": 0, "z": 0}
+        state_dict[patty] = {"row": 0, "col": 0, "z": 0}
         self._hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
 
         # Add tomato
         tomato = Object("tomato", self._tomato_type)
-        state_dict[tomato] = {"row": 2, "col": 0, "z": 0}
+        state_dict[tomato] = {"row": 0, "col": 1, "z": 0}
         self._hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
+
+        # Add cheese
+        cheese = Object("cheese", self._cheese_type)
+        state_dict[cheese] = {"row": 3, "col": 0, "z": 0}
+        self._hidden_state[cheese] = {"is_held": 0.0}
+
+        # Add top bun
+        top_bun = Object("top_bun", self._top_bun_type)
+        state_dict[top_bun] = {"row": 3, "col": 1, "z": 0}
+        self._hidden_state[top_bun] = {"is_held": 0.0}
+
+        # Add bottom bun
+        bottom_bun = Object("bottom_bun", self._bottom_bun_type)
+        state_dict[bottom_bun] = {"row": 0, "col": 2, "z": 0}
+        self._hidden_state[bottom_bun] = {"is_held": 0.0}
 
         # Get the top right cell and make the goal for the agent to go there.
         top_right_cell = self._cells[-1]
@@ -204,7 +222,7 @@ class GridWorld(BaseEnv):
         # dx (column), dy (row), cutcook, pickplace
         # We expect dx and dy to be one of -1, 0, or 1.
         # We expect interact to be either 0 or 1.
-        return Box(low=np.array([-1.0, -1.0, 0.0, 0.0]), high=np.array([1.0, 1.0, 1.0, 1.0]), dtype=np.float32)
+        return Box(low=np.array([-1.0, -1.0, -1.0, 0.0, 0.0]), high=np.array([1.0, 1.0, 3.0, 1.0, 1.0]), dtype=np.float32)
 
     @staticmethod
     def _get_robot_direction(dx: float, dy: float) -> str:
@@ -233,8 +251,17 @@ class GridWorld(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
-        dcol, drow, interact, pickplace = action.arr
-        print("action: ", dcol, drow, interact, pickplace)
+        dcol, drow, turn, interact, pickplace = action.arr
+        print("action: ", dcol, drow, turn, interact, pickplace)
+
+        if turn == 0:
+            self._hidden_state[self._robot]["dir"] = "up"
+        elif turn == 1:
+            self._hidden_state[self._robot]["dir"] = "left"
+        elif turn == 2:
+            self._hidden_state[self._robot]["dir"] = "down"
+        elif turn == 3:
+            self._hidden_state[self._robot]["dir"] = "right"
 
         robot_col, robot_row = self._get_position(self._robot, state)
         new_col = np.clip(robot_col + dcol, 0, self.num_cols - 1)
@@ -360,6 +387,8 @@ class GridWorld(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
 
+        print(state)
+
         figsize = (self.num_cols * 2, self.num_rows * 2)
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         plt.suptitle(caption, wrap=True)
@@ -381,8 +410,7 @@ class GridWorld(BaseEnv):
         x, y = robot_col, robot_row
         image_size = (0.8, 0.8)
         # ax.imshow(robot_img, extent=[robot_col, robot_col + 1, robot_row, robot_row + 1])
-        ax.imshow(robot_img, extent=[x + (1 - image_size[0]) / 2, x + (1 + image_size[0]) / 2,
-                                      y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2])
+        ax.imshow(robot_img, extent=[x + (1 - image_size[0]) / 2, x + (1 + image_size[0]) / 2, y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2])
 
         # Draw grill
         grill_img = mpimg.imread("predicators/envs/assets/imgs/grill.png")
@@ -396,29 +424,79 @@ class GridWorld(BaseEnv):
         x, y = cutting_board_col, cutting_board_row
         ax.imshow(cutting_board_img, extent=[x, x+1, y, y+1])
 
-        # Draw patty
-        light_brown = (0.72, 0.52, 0.04)
-        dark_brown = (0.39, 0.26, 0.13)
+        # Draw items
+        type_to_img = {
+            self._cheese_type: mpimg.imread("predicators/envs/assets/imgs/cheese.png"),
+            self._top_bun_type: mpimg.imread("predicators/envs/assets/imgs/top_bun.png"),
+            self._bottom_bun_type: mpimg.imread("predicators/envs/assets/imgs/bottom_bun.png")
+        }
+        held_img_size = (0.3, 0.3)
+        offset = held_img_size[1] * (1/3)
         patty = [object for object in state if object.is_instance(self._patty_type)][0]
-        patty_color = dark_brown if self._IsCooked_holds(state, [patty]) else light_brown
-        patty_col = state.get(patty, "col")
-        patty_row = state.get(patty, "row")
-        raw_patty_img = mpimg.imread("predicators/envs/assets/imgs/raw_patty.png")
-        cooked_patty_img = mpimg.imread("predicators/envs/assets/imgs/cooked_patty.png")
-        patty_img = cooked_patty_img if self._IsCooked_holds(state, [patty]) else raw_patty_img
-        zorder = state.get(patty, "z")
-        ax.imshow(patty_img, extent=[patty_col, patty_col+1, patty_row, patty_row+1], zorder=zorder)
-        # ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
-
-        # Draw tomato
         tomato = [obj for obj in state if obj.is_instance(self._tomato_type)][0]
-        whole_tomato_img = mpimg.imread("predicators/envs/assets/imgs/whole_tomato.png")
-        sliced_tomato_img = mpimg.imread("predicators/envs/assets/imgs/sliced_tomato.png")
-        tomato_img = sliced_tomato_img if self._IsSliced_holds(state, [tomato]) else whole_tomato_img
-        tomato_col, tomato_row = self._get_position(tomato, state)
-        x, y = tomato_col, tomato_row
-        zorder = state.get(tomato, "z")
-        ax.imshow(tomato_img, extent=[x, x+1, y, y+1], zorder=zorder)
+        cheese = [obj for obj in state if obj.is_instance(self._cheese_type)][0]
+        top_bun = [obj for obj in state if obj.is_instance(self._top_bun_type)][0]
+        bottom_bun = [obj for obj in state if obj.is_instance(self._bottom_bun_type)][0]
+        items = [patty, tomato, cheese, top_bun, bottom_bun]
+        for item in items:
+            img = None
+            if "is_cooked" in self._hidden_state[item]:
+                raw_patty_img = mpimg.imread("predicators/envs/assets/imgs/raw_patty.png")
+                cooked_patty_img = mpimg.imread("predicators/envs/assets/imgs/cooked_patty.png")
+                img = cooked_patty_img if self._IsCooked_holds(state, [item]) else raw_patty_img
+            elif "is_sliced" in self._hidden_state[item]:
+                whole_tomato_img = mpimg.imread("predicators/envs/assets/imgs/whole_tomato.png")
+                sliced_tomato_img = mpimg.imread("predicators/envs/assets/imgs/sliced_tomato.png")
+                img = sliced_tomato_img if self._IsSliced_holds(state, [tomato]) else whole_tomato_img
+            else:
+                img = type_to_img[item.type]
+            zorder = state.get(item, "z")
+            is_held = self._hidden_state[item]["is_held"] > 0.5
+            x, y = self._get_position(item, state)
+            if is_held:
+                extent = [x + (1 - held_img_size[0]) * (1/2), x + (1 + held_img_size[0]) * (1/2), y + offset, y + held_img_size[1] + offset]
+            else:
+                extent = [x, x+1, y, y+1]
+            ax.imshow(img, extent=extent, zorder=zorder)
+
+        # # Draw patty
+        # light_brown = (0.72, 0.52, 0.04)
+        # dark_brown = (0.39, 0.26, 0.13)
+        # patty = [object for object in state if object.is_instance(self._patty_type)][0]
+        # patty_color = dark_brown if self._IsCooked_holds(state, [patty]) else light_brown
+        # patty_col = state.get(patty, "col")
+        # patty_row = state.get(patty, "row")
+        # raw_patty_img = mpimg.imread("predicators/envs/assets/imgs/raw_patty.png")
+        # cooked_patty_img = mpimg.imread("predicators/envs/assets/imgs/cooked_patty.png")
+        # patty_img = cooked_patty_img if self._IsCooked_holds(state, [patty]) else raw_patty_img
+        # zorder = state.get(patty, "z")
+        # is_held = self._hidden_state[patty]["is_held"] > 0.5
+        # x, y = patty_col, patty_row
+        # offset = held_img_size[1] * (1/3)
+        # if is_held:
+        #     # extent = [x + (1 - held_img_size[0]) / 2, x + (1 + held_img_size[0]) / 2, y + (1 - held_img_size[1]) / 2, y + (1 + held_img_size[1]) / 2]
+        #     extent = [x + (1 - held_img_size[0]) * (1/2), x + (1 + held_img_size[0]) * (1/2), y + offset, y + held_img_size[1] + offset]
+        # else:
+        #     extent = [x, x+1, y, y+1]
+        # ax.imshow(patty_img, extent=extent, zorder=zorder)
+        # # ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
+        #
+        # # Draw tomato
+        # tomato = [obj for obj in state if obj.is_instance(self._tomato_type)][0]
+        # whole_tomato_img = mpimg.imread("predicators/envs/assets/imgs/whole_tomato.png")
+        # sliced_tomato_img = mpimg.imread("predicators/envs/assets/imgs/sliced_tomato.png")
+        # tomato_img = sliced_tomato_img if self._IsSliced_holds(state, [tomato]) else whole_tomato_img
+        # tomato_col, tomato_row = self._get_position(tomato, state)
+        #
+        # zorder = state.get(tomato, "z")
+        # is_held = self._hidden_state[tomato]["is_held"] > 0.5
+        # x, y = tomato_col, tomato_row
+        # offset = held_img_size[1] * (1/3)
+        # if is_held:
+        #     extent = [x + (1 - held_img_size[0]) * (1/2), x + (1 + held_img_size[0]) * (1/2), y + offset, y + held_img_size[1] + offset]
+        # else:
+        #     extent = [x, x+1, y, y+1]
+        # ax.imshow(tomato_img, extent=extent, zorder=zorder)
 
         # Draw background
         floor_img = mpimg.imread("predicators/envs/assets/imgs/floorwood.png")
@@ -442,24 +520,32 @@ class GridWorld(BaseEnv):
         def _event_to_action(state: State,
                              event: matplotlib.backend_bases.Event) -> Action:
             logging.info("Controls: arrow keys to move, (e) to interact, (f) to pickplace")
-            dcol, drow, interact, pickplace = 0, 0, 0, 0
-            if event.key in ["left", "a"]:
+            dcol, drow, turn, interact, pickplace = 0, 0, -1, 0, 0
+            if event.key == "w":
+                turn = 0
+            elif event.key == "a":
+                turn = 1
+            elif event.key == "s":
+                turn = 2
+            elif event.key == "d":
+                turn = 3
+            elif event.key == "left":
                 drow = 0
                 dcol = -1
-            elif event.key in ["right", "d"]:
+            elif event.key == "right":
                 drow = 0
                 dcol = 1
-            elif event.key in ["down", "s"]:
+            elif event.key == "down":
                 drow = -1
                 dcol = 0
-            elif event.key in ["up", "w"]:
+            elif event.key == "up":
                 drow = 1
                 dcol = 0
             elif event.key == "e":
                 interact = 1
             elif event.key == "f":
                 pickplace = 1
-            action = Action(np.array([dcol, drow, interact, pickplace], dtype=np.float32))
+            action = Action(np.array([dcol, drow, turn, interact, pickplace], dtype=np.float32))
             return action
 
         return _event_to_action
