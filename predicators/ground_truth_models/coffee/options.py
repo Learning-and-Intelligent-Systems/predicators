@@ -361,33 +361,45 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             jug_z = cls._get_jug_z(state, robot, jug)
             jug_pos = (jug_x, jug_y, jug_z)
             pour_x, pour_y, _ = pour_pos = cls._get_pour_position(state, cup)
+            dx, dy, dz = np.subtract(pour_pos, jug_pos)
+            # Get the target robot position.
+            robot_pour_pos = (robot_x + dx, robot_y + dy, robot_z + dz)
             # If we're close enough to the pour position, pour.
             sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
             if sq_dist_to_pour < cls.pour_policy_tol:
                 dtilt = pour_tilt - tilt
+                print("POURING!")
                 return cls._get_move_action(state,
-                                            jug_pos,
-                                            jug_pos,
-                                            dtilt=dtilt)
+                                            robot_pos,
+                                            robot_pos,
+                                            dtilt=dtilt,
+                                            finger_status="closed")
             dtilt = move_tilt - tilt
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
             if xy_pour_sq_dist < cls.env_cls.safe_z_tol:
+                print("MOVING DOWN TO POUR")
                 return cls._get_move_action(state,
-                                            pour_pos,
-                                            jug_pos,
-                                            dtilt=dtilt)
+                                            robot_pour_pos,
+                                            robot_pos,
+                                            dtilt=dtilt,
+                                            finger_status="closed")
             # If we're at a safe height, move toward above the pour position.
             if (robot_z -
                     cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
-                return cls._get_move_action(state, (pour_x, pour_y, jug_z),
-                                            jug_pos,
-                                            dtilt=dtilt)
-            # Move to a safe moving height.
+                print("MOVING TOWARD THE POUR POSITION")
+                return cls._get_move_action(
+                    state, (robot_pour_pos[0], robot_pour_pos[1], robot_z),
+                    robot_pos,
+                    dtilt=dtilt,
+                    finger_status="closed")
+            # Move backward and to a safe moving height.
+            print("POUR: MOVING BACKWARD TO A SAFE HEIGHT")
             return cls._get_move_action(
-                state, (robot_x, robot_y, cls.env_cls.robot_init_z),
+                state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,
-                dtilt=dtilt)
+                dtilt=dtilt,
+                finger_status="closed")
 
         return policy
 
@@ -457,7 +469,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                            cup: Object) -> Tuple[float, float, float]:
         target_x = state.get(cup, "x") + cls.env_cls.pour_x_offset
         target_y = state.get(cup, "y") + cls.env_cls.pour_y_offset
-        target_z = cls.env_cls.pour_z_offset
+        target_z = cls.env_cls.z_lb + cls.env_cls.pour_z_offset
         return (target_x, target_y, target_z)
 
 

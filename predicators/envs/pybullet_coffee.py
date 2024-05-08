@@ -14,7 +14,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, EnvironmentTask, Object, State, Action
+from predicators.structs import Action, Array, EnvironmentTask, Object, State
 
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
@@ -98,6 +98,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         (121 / 255, 37 / 255, 117 / 255, 1.),
         (35 / 255, 100 / 255, 54 / 255, 1.),
     ]
+    pour_x_offset: ClassVar[float] = cup_radius
+    pour_y_offset: ClassVar[float] = -3 * (cup_radius + jug_radius)
+    pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
+                                            jug_handle_height)
+    pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     # Table settings.
     table_pose: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
     table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
@@ -115,6 +120,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._cup_id_to_cup: Dict[int, Object] = {}
         self._cup_to_liquid_id: Dict[Object, int] = {}
         self._cup_to_capacity: Dict[Object, float] = {}
+        # The status of the jug is not modeled inside PyBullet.
+        self._jug_filled = False
 
     @classmethod
     def initialize_pybullet(
@@ -391,6 +398,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle coffee-specific resetting."""
         super()._reset_state(state)
+        self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
 
         # Reset cups based on the state.
         cup_objs = state.get_objects(self._cup_type)
@@ -569,7 +577,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._jug_id, physicsClientId=self._physics_client_id)
         rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
         held = (self._jug_id == self._held_obj_id)
-        filled = 0.0  # TODO!! need to change color or something when 'full'
+        filled = float(self._jug_filled)
         state_dict[self._jug] = {
             "x": x,
             "y": y,
@@ -604,18 +612,17 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
         if self._PressingButton_holds(state, [self._robot, self._machine]):
-
-            p.changeVisualShape(self._button_id, -1, rgbaColor=self.button_color_on,
-                physicsClientId=self._physics_client_id)
-            p.changeVisualShape(self._dispense_area_id, -1, rgbaColor=self.plate_color_on,
-                physicsClientId=self._physics_client_id)
-
+            p.changeVisualShape(self._button_id,
+                                -1,
+                                rgbaColor=self.button_color_on,
+                                physicsClientId=self._physics_client_id)
+            p.changeVisualShape(self._dispense_area_id,
+                                -1,
+                                rgbaColor=self.plate_color_on,
+                                physicsClientId=self._physics_client_id)
+            self._jug_filled = True
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
-
-            # TODO update filled
-            import ipdb; ipdb.set_trace()
-
         return state
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
