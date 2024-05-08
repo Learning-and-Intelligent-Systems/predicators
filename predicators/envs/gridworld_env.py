@@ -43,7 +43,7 @@ class GridWorld(BaseEnv):
     _item_type = Type("item", [], _object_type)
     _station_type = Type("station", [], _object_type)
 
-    _robot_type = Type("robot", ["row", "col"])
+    _robot_type = Type("robot", ["row", "col", "fingers"])
     _cell_type = Type("cell", ["row", "col"])
 
     _patty_type = Type("patty", ["row", "col"], _item_type)
@@ -66,6 +66,7 @@ class GridWorld(BaseEnv):
         self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self._Facing_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type], self._HandEmpty_holds)
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robby", self._robot_type)
@@ -90,7 +91,7 @@ class GridWorld(BaseEnv):
 
         # Add robot, grill, and cutting board
         state_dict = {}
-        state_dict[self._robot] = {"row": 0, "col": 0}
+        state_dict[self._robot] = {"row": 0, "col": 0, "fingers": 0.0}
         self._hidden_state[self._robot] = {"dir": "down"}
         state_dict[self._grill] = {"row": 2, "col": 3}
         state_dict[self._cutting_board] = {"row": 1, "col": 3}
@@ -180,6 +181,12 @@ class GridWorld(BaseEnv):
             return True
         return False
 
+    def _HandEmpty_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        robot, = objects
+        if state.get(robot, "fingers") < 0.5:
+            return True
+        return False
+
     @staticmethod
     def _get_position(object: Object, state: State) -> Tuple[int, int]:
         col = state.get(object, "col")
@@ -221,10 +228,23 @@ class GridWorld(BaseEnv):
             return "up"
         return "no_change"
 
+    @staticmethod
+    def _get_cell_in_direction(row, col, direction) -> Tuple[int, int]:
+        if direction == "left":
+            return (row, col - 1)
+        elif direction == "right":
+            return (row, col + 1)
+        elif direction == "up":
+            return (row + 1, col)
+        elif direction == "down":
+            return (row - 1, col)
+        return (row, col)
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dcol, drow, interact, pickplace = action.arr
+        print("action: ", dcol, drow, interact, pickplace)
 
         robot_col, robot_row = self._get_position(self._robot, state)
         new_col = np.clip(robot_col + dcol, 0, self.num_cols - 1)
@@ -235,12 +255,21 @@ class GridWorld(BaseEnv):
         if direction != "no_change":
             self._hidden_state[self._robot]["dir"] = direction
 
+        # get the objects we can interact with
+        items = []
+        for object in state:
+            if object.is_instance(self._item_type):
+                items.append(object)
+
         # check for collision
         other_objects = []
         for object in state:
             if not object.is_instance(self._robot_type) and not object.is_instance(self._cell_type):
                 other_objects.append(object)
         for obj in other_objects:
+            if obj in items:
+                if self._hidden_state[obj]["is_held"] > 0.5:
+                    continue
             obj_col, obj_row = self._get_position(obj, state)
             if abs(new_col - obj_col) < 1e-3 and abs(new_row - obj_row) < 1e-3:
                 return next_state
@@ -248,15 +277,14 @@ class GridWorld(BaseEnv):
         next_state.set(self._robot, "col", new_col)
         next_state.set(self._robot, "row", new_row)
 
-        # get the objects we can ineract with
-        items = []
-        for object in state:
-            if object.is_instance(self._item_type):
-                items.append(object)
+        # also move held object, if there is one
+        for item in items:
+            if self._hidden_state[item]["is_held"] > 0.5:
+                next_state.set(item, "col", new_col)
+                next_state.set(item, "row", new_row)
 
         # handle interaction
         for item in items:
-            item_col, item_row = self._get_position(item, state)
             if self._Facing_holds(state, [self._robot, item]):
                 if interact > 0.5:
                     if item.is_instance(self._patty_type):
@@ -264,21 +292,29 @@ class GridWorld(BaseEnv):
                     elif item.is_instance(self._tomato_type):
                         self._hidden_state[item]["is_sliced"] = 1.0
 
-        # # handle pickplace
-        # for item in items:
-        #     item_col, item_row = self._get_position(item, state)
-        #     if self._is_adjacent(item_col, item_row, new_col, new_row):
-        #         is_held = self._hidden_state[item]["is_held"]
-        #         # pick
-        #         if pickplace > 0.5 and not is_held:
-        #             self._hidden_state[item]["is_held"] = 1.0
-        #             next_state[item]["col"] = new_col
-        #             next_state[item]["row"] = new_row
-        #         # place
-        #         elif pickplace > 0.5 and is_held:
-        #             self._hidden_state[item]["is_held"] = 0.0
+        # handle pickplace
+        for item in items:
+            is_held = self._hidden_state[item]["is_held"] > 0.5
+            print("is held: ", is_held, item)
+            if pickplace > 0.5 and self._Facing_holds(state, [self._robot, item]) and self._HandEmpty_holds(state, [self._robot]):
+                # pick
+                if pickplace > 0.5 and not is_held:
+                    self._hidden_state[item]["is_held"] = 1.0
+                    next_state.set(item, "col", robot_col)
+                    next_state.set(item, "row", robot_row)
+                    next_state.set(self._robot, "fingers", 1.0)
 
-
+            # place
+            elif pickplace > 0.5 and is_held:
+                place_row, place_col = self._get_cell_in_direction(robot_row, robot_col, self._hidden_state[self._robot]["dir"])
+                print("placing")
+                print("place row, place col:", place_row, place_col)
+                print("robot_row, robot_col:", robot_row, robot_col)
+                if 0 <= place_row <= self.num_rows and 0 <= place_col <= self.num_cols:
+                    self._hidden_state[item]["is_held"] = 0.0
+                    next_state.set(item, "col", place_col)
+                    next_state.set(item, "row", place_row)
+                    next_state.set(self._robot, "fingers", 0.0)
 
         # print("Action that was taken: ", action)
         # print("Hidden state: ", self._hidden_state)
