@@ -301,11 +301,14 @@ class GridWorld(BaseEnv):
 
         # handle interaction
         for item in items:
+            item_x, item_y = self._get_position(item, state)
+            board_x, board_y = self._get_position(self._cutting_board, state)
+            grill_x, grill_y = self._get_position(self._grill, state)
             if self._Facing_holds(state, [self._robot, item]):
                 if interact > 0.5:
-                    if item.is_instance(self._patty_type):
+                    if item.is_instance(self._patty_type) and grill_x==item_x and grill_y==item_y:
                         self._hidden_state[item]["is_cooked"] = 1.0
-                    elif item.is_instance(self._tomato_type):
+                    elif item.is_instance(self._tomato_type) and board_x==item_x and board_y==item_y:
                         self._hidden_state[item]["is_sliced"] = 1.0
 
         # handle pick
