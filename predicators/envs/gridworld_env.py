@@ -39,8 +39,9 @@ class GridWorld(BaseEnv):
     ASSETS_DIRECTORY = ""
 
     # Types
-    _item_type = Type("item", [])
-    _station_type = Type("station", [])
+    _object_type = Type("object", [])
+    _item_type = Type("item", [], _object_type)
+    _station_type = Type("station", [], _object_type)
 
     _robot_type = Type("robot", ["row", "col"])
     _cell_type = Type("cell", ["row", "col"])
@@ -61,7 +62,8 @@ class GridWorld(BaseEnv):
 
         # Predicates
         self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
-        self._Adjacent = Predicate("AdjacentTo", [self._robot_type, self._item_type], self._Adjacent_holds)
+        self._Adjacent = Predicate("Adjacent", [self._robot_type, self._item_type], self._Adjacent_holds)
+        self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self._Facing_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
 
@@ -89,6 +91,7 @@ class GridWorld(BaseEnv):
         # Add robot, grill, and cutting board
         state_dict = {}
         state_dict[self._robot] = {"row": 0, "col": 0}
+        self._hidden_state[self._robot] = {"dir": "down"}
         state_dict[self._grill] = {"row": 2, "col": 3}
         state_dict[self._cutting_board] = {"row": 1, "col": 3}
 
@@ -152,6 +155,19 @@ class GridWorld(BaseEnv):
         item_col, item_row = self._get_position(item, state)
         return self._is_adjacent(item_col, item_row, robot_col, robot_row)
 
+    def _Facing_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        robot, obj = objects
+        robot_col, robot_row = self._get_position(self._robot, state)
+        robot_dir = self._hidden_state[self._robot]["dir"]
+        obj_col, obj_row = self._get_position(obj, state)
+        facing_left = robot_row == obj_row and robot_col - obj_col == 1 and robot_dir == "left"
+        facing_right = robot_row == obj_row and robot_col - obj_col == -1 and robot_dir == "right"
+        facing_down = robot_row - obj_row == 1 and robot_col == obj_col and robot_dir == "down"
+        facing_up = robot_row - obj_row == -1 and robot_col == obj_col and robot_dir == "up"
+        if facing_left or facing_right or facing_down or facing_up:
+            return True
+        return False
+
     def _IsCooked_holds(self, state: State, objects: Sequence[Object]) -> bool:
         patty, = objects
         if self._hidden_state[patty]["is_cooked"] > 0.5:
@@ -188,19 +204,36 @@ class GridWorld(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # dx (column), dy (row), interact
+        # dx (column), dy (row), cutcook, pickplace
         # We expect dx and dy to be one of -1, 0, or 1.
         # We expect interact to be either 0 or 1.
-        return Box(low=np.array([-1.0, -1.0, 0.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float32)
+        return Box(low=np.array([-1.0, -1.0, 0.0, 0.0]), high=np.array([1.0, 1.0, 1.0, 1.0]), dtype=np.float32)
+
+    @staticmethod
+    def _get_robot_direction(dx: float, dy: float) -> str:
+        if dx < 0:
+            return "left"
+        elif dx > 0:
+            return "right"
+        elif dy < 0:
+            return "down"
+        elif dy > 0:
+            return "up"
+        return "no_change"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
-        dcol, drow, interact = action.arr
+        dcol, drow, interact, pickplace = action.arr
 
         robot_col, robot_row = self._get_position(self._robot, state)
         new_col = np.clip(robot_col + dcol, 0, self.num_cols - 1)
         new_row = np.clip(robot_row + drow, 0, self.num_rows - 1)
+
+        # compute robot direction
+        direction = self._get_robot_direction(dcol, drow)
+        if direction != "no_change":
+            self._hidden_state[self._robot]["dir"] = direction
 
         # check for collision
         other_objects = []
@@ -215,19 +248,37 @@ class GridWorld(BaseEnv):
         next_state.set(self._robot, "col", new_col)
         next_state.set(self._robot, "row", new_row)
 
-        # handle interaction
+        # get the objects we can ineract with
         items = []
         for object in state:
             if object.is_instance(self._item_type):
                 items.append(object)
+
+        # handle interaction
         for item in items:
             item_col, item_row = self._get_position(item, state)
-            if self._is_adjacent(item_col, item_row, new_col, new_row):
+            if self._Facing_holds(state, [self._robot, item]):
                 if interact > 0.5:
                     if item.is_instance(self._patty_type):
                         self._hidden_state[item]["is_cooked"] = 1.0
                     elif item.is_instance(self._tomato_type):
                         self._hidden_state[item]["is_sliced"] = 1.0
+
+        # # handle pickplace
+        # for item in items:
+        #     item_col, item_row = self._get_position(item, state)
+        #     if self._is_adjacent(item_col, item_row, new_col, new_row):
+        #         is_held = self._hidden_state[item]["is_held"]
+        #         # pick
+        #         if pickplace > 0.5 and not is_held:
+        #             self._hidden_state[item]["is_held"] = 1.0
+        #             next_state[item]["col"] = new_col
+        #             next_state[item]["row"] = new_row
+        #         # place
+        #         elif pickplace > 0.5 and is_held:
+        #             self._hidden_state[item]["is_held"] = 0.0
+
+
 
         # print("Action that was taken: ", action)
         # print("Hidden state: ", self._hidden_state)
@@ -238,6 +289,7 @@ class GridWorld(BaseEnv):
         """Resets the current state to the train or test task initial state."""
         # Reset the hidden state.
         for k, v in self._hidden_state.items():
+            v["is_held"] = 0.0
             if k.is_instance(self._patty_type):
                 v["is_cooked"] = 0.0
             elif k.is_instance(self._tomato_type):
@@ -278,7 +330,8 @@ class GridWorld(BaseEnv):
         robot_col = state.get(self._robot, "col")
         robot_row = state.get(self._robot, "row")
         # ax.plot(robot_col + 0.5, robot_row + 0.5, 'rs', markersize=20)
-        robot_img = mpimg.imread("predicators/envs/assets/imgs/robot.png")
+        robot_direction = self._hidden_state[self._robot]["dir"]
+        robot_img = mpimg.imread(f"predicators/envs/assets/imgs/robot_{robot_direction}.png")
         x, y = robot_col, robot_row
         image_size = (0.8, 0.8)
         # ax.imshow(robot_img, extent=[robot_col, robot_col + 1, robot_row, robot_row + 1])
@@ -340,8 +393,8 @@ class GridWorld(BaseEnv):
 
         def _event_to_action(state: State,
                              event: matplotlib.backend_bases.Event) -> Action:
-            logging.info("Controls: arrow keys to move, (e) to interact")
-            dcol, drow, interact = 0, 0, 0
+            logging.info("Controls: arrow keys to move, (e) to interact, (f) to pickplace")
+            dcol, drow, interact, pickplace = 0, 0, 0, 0
             if event.key in ["left", "a"]:
                 drow = 0
                 dcol = -1
@@ -356,7 +409,9 @@ class GridWorld(BaseEnv):
                 dcol = 0
             elif event.key == "e":
                 interact = 1
-            action = Action(np.array([dcol, drow, interact], dtype=np.float32))
+            elif event.key == "f":
+                pickplace = 1
+            action = Action(np.array([dcol, drow, interact, pickplace], dtype=np.float32))
             return action
 
         return _event_to_action
