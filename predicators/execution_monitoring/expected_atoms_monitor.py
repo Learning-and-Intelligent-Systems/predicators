@@ -42,8 +42,7 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         vlm_unsat_atoms = set()
         if len(next_expected_vlm_atoms) > 0:
             vlm_unsat_atoms = utils.query_vlm_for_atom_vals(
-                sorted(list(next_expected_vlm_atoms)),
-                state)  # pragma: no cover.
+                next_expected_vlm_atoms, state)  # pragma: no cover
         unsat_atoms = non_vlm_unsat_atoms | vlm_unsat_atoms
         if not unsat_atoms:
             return False

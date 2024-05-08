@@ -2211,8 +2211,22 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
     return Task(task.init, stripped_goal)
 
 
+def create_vlm_predicate(
+        name: str, types: Sequence[Type],
+        get_vlm_query_str: Callable[[Sequence[Object]], str]) -> VLMPredicate:
+    """Simple function that creates VLMPredicates with dummy classifiers, which
+    is the most-common way these need to be created."""
+
+    def _stripped_classifier(
+            state: State,
+            objects: Sequence[Object]) -> bool:  # pragma: no cover.
+        raise Exception("VLM predicate classifier should never be called!")
+
+    return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
+
+
 def query_vlm_for_atom_vals(
-        vlm_atoms: List[GroundAtom],
+        vlm_atoms: Collection[GroundAtom],
         state: State,
         vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
     """Given a set of ground atoms, queries a VLM and gets the subset of these
@@ -2223,6 +2237,7 @@ def query_vlm_for_atom_vals(
     assert state.simulator_state is not None
     assert isinstance(state.simulator_state, List)
     imgs = state.simulator_state
+    vlm_atoms = sorted(vlm_atoms)
     atom_queries_str = "\n*".join(atom.get_vlm_query_str()
                                   for atom in vlm_atoms)
     filepath_to_vlm_prompt = get_path_to_predicators_root() + \
@@ -2282,7 +2297,7 @@ def abstract(state: State,
         for pred in vlm_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
-        atoms |= query_vlm_for_atom_vals(sorted(vlm_atoms), state, vlm)
+        atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
     return atoms
 
 

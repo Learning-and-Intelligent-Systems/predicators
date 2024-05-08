@@ -305,7 +305,7 @@ class Predicate:
         return str(self) < str(other)
 
 
-@dataclass(frozen=True, order=False, repr=False)
+@dataclass(frozen=True, order=False, repr=False, eq=False)
 class VLMPredicate(Predicate):
     """Struct defining a predicate that calls a VLM as part of returning its
     truth value.
@@ -315,9 +315,6 @@ class VLMPredicate(Predicate):
     of actually outputting a value of any kind).
     """
     get_vlm_query_str: Callable[[Sequence[Object]], str]
-
-    def __hash__(self) -> int:
-        return self._hash
 
 
 @dataclass(frozen=True, repr=False, eq=False)
