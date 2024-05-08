@@ -56,6 +56,7 @@ class CoffeeEnv(BaseEnv):
     button_y: ClassVar[float] = machine_y
     button_z: ClassVar[float] = 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_x_len
+    button_press_threshold: ClassVar[float] = button_radius
     # Jug settings.
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
@@ -617,7 +618,7 @@ class CoffeeEnv(BaseEnv):
         y = state.get(robot, "y")
         z = state.get(robot, "z")
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
-        return sq_dist_to_button < self.button_radius
+        return sq_dist_to_button < self.button_press_threshold
 
     @staticmethod
     def _NotSameCup_holds(state: State, objects: Sequence[Object]) -> bool:

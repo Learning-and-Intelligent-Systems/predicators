@@ -14,7 +14,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, EnvironmentTask, Object, State
+from predicators.structs import Array, EnvironmentTask, Object, State, Action
 
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
@@ -56,6 +56,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     button_y: ClassVar[float] = machine_y - machine_y_len / 2
     button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_y_len
+    button_press_threshold: ClassVar[float] = 1e-3
     button_color_on: ClassVar[Tuple[float, float, float,
                                     float]] = (0.2, 0.5, 0.2, 1.0)
     plate_color_on: ClassVar[Tuple[float, float, float,
@@ -579,7 +580,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Get machine state.
         button_color = p.getVisualShapeData(
-            self._button_id, physicsClientId=self._physics_client_id)[0][-2]
+            self._button_id, physicsClientId=self._physics_client_id)[0][-1]
         button_color_on_dist = sum(
             np.subtract(button_color, self.button_color_on)**2)
         button_color_off_dist = sum(
@@ -595,6 +596,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
+
+        return state
+
+    def step(self, action: Action) -> State:
+        state = super().step(action)
+        # If the robot is sufficiently close to the button, turn on the machine
+        # and update the status of the jug.
+        if self._PressingButton_holds(state, [self._robot, self._machine]):
+
+            p.changeVisualShape(self._button_id, -1, rgbaColor=self.button_color_on,
+                physicsClientId=self._physics_client_id)
+            p.changeVisualShape(self._dispense_area_id, -1, rgbaColor=self.plate_color_on,
+                physicsClientId=self._physics_client_id)
+
+            self._current_observation = self._get_state()
+            state = self._current_observation.copy()
+
+            # TODO update filled
+            import ipdb; ipdb.set_trace()
 
         return state
 

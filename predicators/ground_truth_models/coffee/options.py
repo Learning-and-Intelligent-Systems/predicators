@@ -330,6 +330,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                           cls.env_cls.button_z)
             if (cls.env_cls.button_z - z)**2 < cls.env_cls.button_radius**2:
                 # Move directly toward the button.
+                print("MOVING DIRECTLY TOWARD BUTTON")
                 return cls._get_move_action(state, button_pos, robot_pos)
             # Move only in the z direction.
             return cls._get_move_action(state, (x, y, cls.env_cls.button_z),
