@@ -46,11 +46,11 @@ class GridWorld(BaseEnv):
     _robot_type = Type("robot", ["row", "col", "fingers"])
     _cell_type = Type("cell", ["row", "col"])
 
-    _patty_type = Type("patty", ["row", "col"], _item_type)
-    _tomato_type = Type("tomato", ["row", "col"], _item_type)
+    _patty_type = Type("patty", ["row", "col", "z"], _item_type)
+    _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
 
-    _grill_type = Type("grill", ["row", "col"], _station_type)
-    _cutting_board_type = Type("cutting_board", ["row", "col"], _station_type)
+    _grill_type = Type("grill", ["row", "col", "z"], _station_type)
+    _cutting_board_type = Type("cutting_board", ["row", "col", "z"], _station_type)
 
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -93,8 +93,8 @@ class GridWorld(BaseEnv):
         state_dict = {}
         state_dict[self._robot] = {"row": 0, "col": 0, "fingers": 0.0}
         self._hidden_state[self._robot] = {"dir": "down"}
-        state_dict[self._grill] = {"row": 2, "col": 3}
-        state_dict[self._cutting_board] = {"row": 1, "col": 3}
+        state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
+        state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
 
         # Add cells
         counter = 0
@@ -110,23 +110,13 @@ class GridWorld(BaseEnv):
 
         # Add patty
         patty = Object("patty", self._patty_type)
-        state_dict[patty] = {
-            "row": 1,
-            "col": 0
-        }
-        self._hidden_state[patty] = {
-            "is_cooked": 0.0
-        }
+        state_dict[patty] = {"row": 1, "col": 0, "z": 0}
+        self._hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
 
         # Add tomato
         tomato = Object("tomato", self._tomato_type)
-        state_dict[tomato] = {
-            "row": 2,
-            "col": 0
-        }
-        self._hidden_state[tomato] = {
-            "is_sliced": 0.0
-        }
+        state_dict[tomato] = {"row": 2, "col": 0, "z": 0}
+        self._hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
 
         # Get the top right cell and make the goal for the agent to go there.
         top_right_cell = self._cells[-1]
@@ -253,13 +243,12 @@ class GridWorld(BaseEnv):
         # compute robot direction
         direction = self._get_robot_direction(dcol, drow)
         if direction != "no_change":
+            # We'll need to be facing an object to pick it up or interact with
+            # it.
             self._hidden_state[self._robot]["dir"] = direction
 
         # get the objects we can interact with
-        items = []
-        for object in state:
-            if object.is_instance(self._item_type):
-                items.append(object)
+        items = [obj for obj in state if obj.is_instance(self._item_type)]
 
         # check for collision
         other_objects = []
@@ -292,29 +281,50 @@ class GridWorld(BaseEnv):
                     elif item.is_instance(self._tomato_type):
                         self._hidden_state[item]["is_sliced"] = 1.0
 
-        # handle pickplace
-        for item in items:
-            is_held = self._hidden_state[item]["is_held"] > 0.5
-            print("is held: ", is_held, item)
-            if pickplace > 0.5 and self._Facing_holds(state, [self._robot, item]) and self._HandEmpty_holds(state, [self._robot]):
-                # pick
-                if pickplace > 0.5 and not is_held:
-                    self._hidden_state[item]["is_held"] = 1.0
-                    next_state.set(item, "col", robot_col)
-                    next_state.set(item, "row", robot_row)
-                    next_state.set(self._robot, "fingers", 1.0)
+        # handle pick
+        if pickplace > 0.5 and self._HandEmpty_holds(state, [self._robot]):
+            # get all items we are facing
+            facing_items = []
+            for item in items:
+                if self._Facing_holds(state, [self._robot, item]):
+                    item_z = state.get(item, "z")
+                    facing_items.append((item, item_z))
+            if len(facing_items) > 0:
+                # We'll pick up the item that is "on top".
+                on_top = max(facing_items, key=lambda x: x[1])[0]
+                print("on top: ", on_top)
+                self._hidden_state[on_top]["is_held"] = 1.0
+                next_state.set(on_top, "col", robot_col)
+                next_state.set(on_top, "row", robot_row)
+                next_state.set(on_top, "z", 0)
+                next_state.set(self._robot, "fingers", 1.0)
 
-            # place
-            elif pickplace > 0.5 and is_held:
-                place_row, place_col = self._get_cell_in_direction(robot_row, robot_col, self._hidden_state[self._robot]["dir"])
-                print("placing")
-                print("place row, place col:", place_row, place_col)
-                print("robot_row, robot_col:", robot_row, robot_col)
-                if 0 <= place_row <= self.num_rows and 0 <= place_col <= self.num_cols:
-                    self._hidden_state[item]["is_held"] = 0.0
-                    next_state.set(item, "col", place_col)
-                    next_state.set(item, "row", place_row)
-                    next_state.set(self._robot, "fingers", 0.0)
+        # handle place
+        if pickplace > 0.5 and not self._HandEmpty_holds(state, [self._robot]):
+            held_item = [item for item in items if self._hidden_state[item]["is_held"] > 0.5][0]
+            place_row, place_col = self._get_cell_in_direction(robot_row, robot_col, self._hidden_state[self._robot]["dir"])
+            print("placing")
+            print("place row, place col:", place_row, place_col)
+            print("robot_row, robot_col:", robot_row, robot_col)
+            if 0 <= place_row <= self.num_rows and 0 <= place_col <= self.num_cols:
+                next_state.set(self._robot, "fingers", 0.0)
+                self._hidden_state[held_item]["is_held"] = 0.0
+                next_state.set(held_item, "col", place_col)
+                next_state.set(held_item, "row", place_row)
+                # If any other objects are at this location, then this must go
+                # on top of them.
+                # get objects at this location
+                objects_at_loc = []
+                for obj in state:
+                    if obj.is_instance(self._item_type) or obj.is_instance(self._station_type):
+                        x, y = self._get_position(obj, state)
+                        if x == place_col and y == place_row:
+                            objects_at_loc.append((obj, state.get(obj, "z")))
+                if len(objects_at_loc) > 0:
+                    new_z = max(objects_at_loc, key=lambda x: x[1])[1] + 1
+                else:
+                    new_z = 0
+                next_state.set(held_item, "z", new_z)
 
         # print("Action that was taken: ", action)
         # print("Hidden state: ", self._hidden_state)
@@ -396,7 +406,8 @@ class GridWorld(BaseEnv):
         raw_patty_img = mpimg.imread("predicators/envs/assets/imgs/raw_patty.png")
         cooked_patty_img = mpimg.imread("predicators/envs/assets/imgs/cooked_patty.png")
         patty_img = cooked_patty_img if self._IsCooked_holds(state, [patty]) else raw_patty_img
-        ax.imshow(patty_img, extent=[patty_col, patty_col+1, patty_row, patty_row+1])
+        zorder = state.get(patty, "z")
+        ax.imshow(patty_img, extent=[patty_col, patty_col+1, patty_row, patty_row+1], zorder=zorder)
         # ax.plot(patty_col + 0.5, patty_row + 0.5, 'o', color=patty_color, markersize=20)
 
         # Draw tomato
@@ -406,7 +417,8 @@ class GridWorld(BaseEnv):
         tomato_img = sliced_tomato_img if self._IsSliced_holds(state, [tomato]) else whole_tomato_img
         tomato_col, tomato_row = self._get_position(tomato, state)
         x, y = tomato_col, tomato_row
-        ax.imshow(tomato_img, extent=[x, x+1, y, y+1])
+        zorder = state.get(tomato, "z")
+        ax.imshow(tomato_img, extent=[x, x+1, y, y+1], zorder=zorder)
 
         # Draw background
         floor_img = mpimg.imread("predicators/envs/assets/imgs/floorwood.png")
