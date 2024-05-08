@@ -43,7 +43,8 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
-from predicators.pretrained_model_interface import GoogleGeminiVLM
+from predicators.pretrained_model_interface import GoogleGeminiVLM, \
+    VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -2210,38 +2211,56 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
     return Task(task.init, stripped_goal)
 
 
-def query_vlm_for_atom_vals(vlm_atoms: List[GroundAtom],
-                            imgs: List[Image]) -> Set[GroundAtom]:
+def query_vlm_for_atom_vals(
+        vlm_atoms: List[GroundAtom],
+        state: State,
+        vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
     """Given a set of ground atoms, queries a VLM and gets the subset of these
     atoms that are true."""
     true_atoms: Set[GroundAtom] = set()
+    # This only works if state.simulator_state is some list of images that the
+    # vlm can be called on.
+    assert state.simulator_state is not None
+    assert isinstance(state.simulator_state, List)
+    imgs = state.simulator_state
     atom_queries_str = "\n*".join(atom.get_vlm_query_str()
                                   for atom in vlm_atoms)
-    vlm_query_str = """You are a vision system for a robot. Your job is to output truth values for the following predicate queries based on the provided images corresponding to a visual scene. For each query, output True, False, or Unknown if the relevant objects are not in the scene or the value of the predicate simply cannot be determined. Output each predicate query value as a bulleted list with each predicate query and value on a different line. Use the format: <query>: <truth_value>. Ensure there is a period ('.') after every list item. Do not output any text except the names and truth values of predicate queries.
-Predicate Queries:\n*"""
+    filepath_to_vlm_prompt = get_path_to_predicators_root() + \
+        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
+        "per_scene_naive.txt"
+    with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
+        vlm_query_str = f.read()
     vlm_query_str += atom_queries_str
-    vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
-    vlm_output = vlm.sample_completions(
-        vlm_query_str, [PIL.Image.fromarray(img_arr) for img_arr in imgs],
-        0.0,
-        seed=CFG.seed,
-        num_completions=1)
+    if vlm is None:
+        vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
+    vlm_input_imgs = \
+        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
+    vlm_output = vlm.sample_completions(vlm_query_str,
+                                        vlm_input_imgs,
+                                        0.0,
+                                        seed=CFG.seed,
+                                        num_completions=1)
     assert len(vlm_output) == 1
     vlm_output_str = vlm_output[0]
     all_atom_queries = atom_queries_str.split("\n")
     all_vlm_responses = vlm_output_str.split("\n")
+    # NOTE: this assumption is likely too brittle; if this is breaking, feel
+    # free to remove/adjust this and change the below parsing loop accordingly!
     assert len(all_atom_queries) == len(all_vlm_responses)
     for i, (atom_query, curr_vlm_output_line) in enumerate(
             zip(all_atom_queries, all_vlm_responses)):
         assert atom_query + ":" in curr_vlm_output_line
         assert "." in curr_vlm_output_line
         period_idx = curr_vlm_output_line.find(".")
-        if curr_vlm_output_line[len(atom_query + ":"):period_idx] == "True":
+        if curr_vlm_output_line[len(atom_query +
+                                    ":"):period_idx].lower().strip() == "true":
             true_atoms.add(vlm_atoms[i])
     return true_atoms
 
 
-def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
+def abstract(state: State,
+             preds: Collection[Predicate],
+             vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
@@ -2257,17 +2276,13 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
                 if pred.holds(state, choice):
                     atoms.add(GroundAtom(pred, choice))
     if len(vlm_preds) > 0:
-        # First, check that the state.simulator_state is some list of images.
-        assert state.simulator_state is not None
-        assert isinstance(state.simulator_state, List)
         # Now, aggregate all the VLM predicates and make a single call to a
         # VLM to get their values.
         vlm_atoms = set()
         for pred in vlm_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
-        atoms |= query_vlm_for_atom_vals(sorted(vlm_atoms),
-                                         state.simulator_state)
+        atoms |= query_vlm_for_atom_vals(sorted(vlm_atoms), state, vlm)
     return atoms
 
 

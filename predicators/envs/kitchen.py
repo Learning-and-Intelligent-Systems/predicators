@@ -19,7 +19,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Image, Object, \
-    Observation, Predicate, State, Type, Video, VLMPredicate
+    Observation, Predicate, State, Type, Video
 
 _TRACKED_SITES = [
     "hinge_site1", "hinge_site2", "kettle_site", "microhandle_site",
@@ -217,10 +217,6 @@ README of that repo suggests!"
             Predicate("TurnedOff", [cls.on_off_type], cls.Off_holds),
             Predicate("Open", [cls.on_off_type], cls.Open_holds),
             Predicate("Closed", [cls.on_off_type], cls.Closed_holds),
-            VLMPredicate(
-                "KettleOnTopStove", [cls.kettle_type],
-                lambda s, o: NotImplementedError("shouldn't be calling this!"),
-                lambda o: "kettle_ontop_stove()")
         }
 
         return {p.name: p for p in preds}

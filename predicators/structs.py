@@ -209,7 +209,7 @@ class State:
 DefaultState = State({})
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=True, order=False, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states)."""
     name: str
@@ -301,8 +301,11 @@ class Predicate:
         # Separate this into a named function for pickling reasons.
         return not self._classifier(state, objects)
 
+    def __lt__(self, other: Predicate) -> bool:
+        return str(self) < str(other)
 
-@dataclass(frozen=True, order=True, repr=False)
+
+@dataclass(frozen=True, order=False, repr=False)
 class VLMPredicate(Predicate):
     """Struct defining a predicate that calls a VLM as part of returning its
     truth value.
@@ -427,7 +430,7 @@ class GroundAtom(_Atom):
         """If this GroundAtom is associated with a VLMPredicate, then get the
         string that will be used to query the VLM."""
         assert isinstance(self.predicate, VLMPredicate)
-        return self.predicate.get_vlm_query_str(self.objects)
+        return self.predicate.get_vlm_query_str(self.objects)  # pylint:disable=no-member
 
 
 @dataclass(frozen=True, eq=False)

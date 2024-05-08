@@ -5,6 +5,7 @@ import glob
 import logging
 import os
 import re
+from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
@@ -19,7 +20,7 @@ from predicators.pretrained_model_interface import GoogleGeminiVLM, \
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, GroundAtom, \
     ImageOptionTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
-    Predicate, State, Task, _Option
+    State, Task, VLMPredicate, _Option
 
 
 def _generate_prompt_for_atom_proposals(
@@ -278,6 +279,10 @@ def _parse_structured_state_into_ground_atoms(
             objects: Sequence[Object]) -> bool:  # pragma: no cover.
         raise Exception("Stripped classifier should never be called!")
 
+    def _vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
+        return pred_name + "(" + ", ".join(
+            str(obj.name) for obj in objects) + ")"  # pragma: no cover
+
     pred_name_to_pred = {}
     atoms_trajs = []
     # Loop through all trajectories in the structured_state_trajs and convert
@@ -312,8 +317,9 @@ def _parse_structured_state_into_ground_atoms(
                             for obj_name in obj_args:
                                 curr_obj = curr_obj_name_to_obj[obj_name]
                                 pred_types.append(curr_obj.type)
-                            pred_name_to_pred[pred_name] = Predicate(
-                                pred_name, pred_types, _stripped_classifier)
+                            pred_name_to_pred[pred_name] = VLMPredicate(
+                                pred_name, pred_types, _stripped_classifier,
+                                partial(_vlm_query_str, pred_name))
                     else:
                         # In this case, we need to make a predicate that
                         # takes in the generic 'object' type such that
@@ -329,9 +335,10 @@ def _parse_structured_state_into_ground_atoms(
                                 assert num_args == len(obj_args)
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
-                        pred_name_to_pred[pred_name] = Predicate(
+                        pred_name_to_pred[pred_name] = VLMPredicate(
                             pred_name, [obj_type for _ in range(num_args)],
-                            _stripped_classifier)
+                            _stripped_classifier,
+                            partial(_vlm_query_str, pred_name))
 
                 # Given that we've now built up predicates and object
                 # dictionaries. We can now convert the current state into
