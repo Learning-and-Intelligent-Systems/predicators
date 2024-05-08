@@ -241,10 +241,6 @@ class PyBulletEnv(BaseEnv):
         return [rgb_array]
 
     def step(self, action: Action) -> Observation:
-        # TODO remove
-        print("Taking action:", action)
-        import time
-        time.sleep(0.1)
 
         # Send the action to the robot.
         target_joint_positions = action.arr.tolist()

@@ -43,7 +43,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub - 0.1
-    robot_base_pos: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
+    robot_base_pos: ClassVar[Pose3D] = (0.75, 0.72, 0.0)
     robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
     robot_init_tilt: ClassVar[float] = np.pi / 2
