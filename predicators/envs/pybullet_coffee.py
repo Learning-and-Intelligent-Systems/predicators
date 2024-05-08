@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Set, Tuple, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -81,7 +81,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height
-    # TODO
+    # NOTE: twisting not implemented.
     jug_init_rot_lb: ClassVar[float] = -1e-5
     jug_init_rot_ub: ClassVar[float] = 1e-5
     # Dispense area settings.
@@ -482,12 +482,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             rgbaColor=plate_color,
                             physicsClientId=self._physics_client_id)
 
-        # TODO remove
-        # while True:
-        #     p.stepSimulation(physicsClientId=self._physics_client_id)
-        #     import time
-        #     time.sleep(0.01)
-
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
         if not reconstructed_state.allclose(state):
@@ -596,7 +590,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
         # If the robot is pouring into a cup, raise the liquid in it.
-        if abs(state.get(self._robot, "tilt") - self.tilt_ub) < self.pour_angle_tol:
+        if abs(state.get(self._robot, "tilt") -
+               self.tilt_ub) < self.pour_angle_tol:
             # Find the cup to pour into, if any.
             cup = self._get_cup_to_pour(state)
             # If pouring into nothing, noop.
@@ -605,13 +600,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             # Increase the liquid in the cup.
             current_liquid = state.get(cup, "current_liquid")
             new_liquid = current_liquid + self.pour_velocity
-            print("current_liquid:", current_liquid)
-            print("new liquid:", new_liquid)
             state.set(cup, "current_liquid", new_liquid)
             old_liquid_id = self._cup_to_liquid_id[cup]
             if old_liquid_id is not None:
-                p.removeBody(old_liquid_id, physicsClientId=self._physics_client_id)
-            self._cup_to_liquid_id[cup] = self._create_pybullet_liquid_for_cup(cup, state)
+                p.removeBody(old_liquid_id,
+                             physicsClientId=self._physics_client_id)
+            self._cup_to_liquid_id[cup] = self._create_pybullet_liquid_for_cup(
+                cup, state)
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
         return state
@@ -683,8 +678,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                      capacity: float) -> float:
         scale = 0.5 * np.sqrt(capacity / self.cup_capacity_ub)
         return liquid * scale
-    
-    def _cup_liquid_height_to_liquid(self, height: float, capacity: float) -> float:
+
+    def _cup_liquid_height_to_liquid(self, height: float,
+                                     capacity: float) -> float:
         scale = 0.5 * np.sqrt(capacity / self.cup_capacity_ub)
         return height / scale
 
@@ -692,7 +688,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
         return self.cup_radius * scale
 
-    def _create_pybullet_liquid_for_cup(self, cup: Object, state: State) -> Optional[int]:
+    def _create_pybullet_liquid_for_cup(self, cup: Object,
+                                        state: State) -> Optional[int]:
         current_liquid = state.get(cup, "current_liquid")
         cup_cap = state.get(cup, "capacity_liquid")
         liquid_height = self._cup_liquid_to_liquid_height(
@@ -719,11 +716,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         pose = (cx, cy, cz)
         orientation = self._default_orn
-        return p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=pose,
-            baseOrientation=orientation,
-            physicsClientId=self._physics_client_id)
-    
+        return p.createMultiBody(baseMass=0,
+                                 baseCollisionShapeIndex=collision_id,
+                                 baseVisualShapeIndex=visual_id,
+                                 basePosition=pose,
+                                 baseOrientation=orientation,
+                                 physicsClientId=self._physics_client_id)
