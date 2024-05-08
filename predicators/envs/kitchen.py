@@ -218,6 +218,7 @@ README of that repo suggests!"
             Predicate("Open", [cls.on_off_type], cls.Open_holds),
             Predicate("Closed", [cls.on_off_type], cls.Closed_holds),
         }
+
         return {p.name: p for p in preds}
 
     @property
@@ -256,7 +257,8 @@ README of that repo suggests!"
         if self._using_gui:
             self._gym_env.render()
         self._current_observation = {
-            "state_info": self.get_object_centric_state_info()
+            "state_info": self.get_object_centric_state_info(),
+            "obs_images": [self._gym_env.render()]
         }
         return self._copy_observation(self._current_observation)
 
@@ -348,7 +350,10 @@ README of that repo suggests!"
 
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
         self._gym_env.reset(seed=seed)
-        return {"state_info": self.get_object_centric_state_info()}
+        return {
+            "state_info": self.get_object_centric_state_info(),
+            "obs_images": [self._gym_env.render()]
+        }
 
     @classmethod
     def _AtPreTurn_holds(cls, state: State, objects: Sequence[Object],
