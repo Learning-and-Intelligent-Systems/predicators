@@ -114,7 +114,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Camera parameters.
     _camera_distance: ClassVar[float] = 0.8
     _camera_yaw: ClassVar[float] = 70
-    _camera_pitch: ClassVar[float] = -24
+    _camera_pitch: ClassVar[float] = -48
     _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -681,11 +681,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
     def _cup_liquid_to_liquid_height(self, liquid: float,
                                      capacity: float) -> float:
-        scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
+        scale = 0.5 * np.sqrt(capacity / self.cup_capacity_ub)
         return liquid * scale
     
     def _cup_liquid_height_to_liquid(self, height: float, capacity: float) -> float:
-        scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
+        scale = 0.5 * np.sqrt(capacity / self.cup_capacity_ub)
         return height / scale
 
     def _cup_to_liquid_radius(self, capacity: float) -> float:
