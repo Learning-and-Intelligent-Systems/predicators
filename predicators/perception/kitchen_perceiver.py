@@ -48,7 +48,9 @@ class KitchenPerceiver(BasePerceiver):
         return self._observation_to_state(observation)
 
     def _observation_to_state(self, obs: Observation) -> State:
-        return KitchenEnv.state_info_to_state(obs["state_info"])
+        state = KitchenEnv.state_info_to_state(obs["state_info"])
+        state.simulator_state = obs["obs_images"]
+        return state
 
     def render_mental_images(self, observation: Observation,
                              env_task: EnvironmentTask) -> Video:
