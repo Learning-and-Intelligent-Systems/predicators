@@ -382,7 +382,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return cls._get_move_action(state,
                                             robot_pour_pos,
                                             robot_pos,
-                                            dtilt=dtilt,
+                                            dtilt=0.0,
                                             finger_status="closed")
             # If we're at a safe height, move toward above the pour position.
             if (robot_z -
@@ -391,14 +391,14 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return cls._get_move_action(
                     state, (robot_pour_pos[0], robot_pour_pos[1], robot_z),
                     robot_pos,
-                    dtilt=dtilt,
+                    dtilt=0.0,
                     finger_status="closed")
             # Move backward and to a safe moving height.
             print("POUR: MOVING BACKWARD TO A SAFE HEIGHT")
             return cls._get_move_action(
                 state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,
-                dtilt=dtilt,
+                dtilt=0.0,
                 finger_status="closed")
 
         return policy
@@ -513,7 +513,6 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             current_tilt, current_wrist)
         target_quat = PyBulletCoffeeEnv.tilt_wrist_to_gripper_orn(
             current_tilt + dtilt, current_wrist + dwrist)
-        assert dtilt == 0.0  # temp
         assert dwrist == 0.0  # temp
         current_pose = Pose(robot_pos, current_quat)
         target_pose = Pose(target_pos, target_quat)

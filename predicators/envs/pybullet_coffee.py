@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Set, Tuple, Optional
 
 import numpy as np
 import pybullet as p
@@ -26,7 +26,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     grasp_position_tol: ClassVar[float] = 1e-2
     dispense_tol: ClassVar[float] = 1e-2
     pour_angle_tol: ClassVar[float] = 1e-1
-    pour_pos_tol: ClassVar[float] = 1e-2
+    pour_pos_tol: ClassVar[float] = 1.0
     init_padding: ClassVar[float] = 0.05
     pick_jug_y_padding: ClassVar[float] = 0.05
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
@@ -46,6 +46,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     robot_base_pos: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
     robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
+    robot_init_tilt: ClassVar[float] = np.pi / 2
+    robot_init_wrist: ClassVar[float] = -np.pi / 2
+    tilt_lb: ClassVar[float] = robot_init_tilt
+    tilt_ub: ClassVar[float] = tilt_lb - np.pi / 4
     # Machine settings.
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.15 * (y_ub - y_lb)
@@ -100,7 +104,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     ]
     pour_x_offset: ClassVar[float] = cup_radius
     pour_y_offset: ClassVar[float] = -3 * (cup_radius + jug_radius)
-    pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
+    pour_z_offset: ClassVar[float] = 2.5 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     # Table settings.
@@ -444,39 +448,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._cup_to_liquid_id.clear()
 
         for cup in state.get_objects(self._cup_type):
-            current_liquid = state.get(cup, "current_liquid")
-            cup_cap = state.get(cup_obj, "capacity_liquid")
-            liquid_height = self._cup_liquid_to_liquid_height(
-                current_liquid, cup_cap)
-            liquid_radius = self._cup_to_liquid_radius(cup_cap)
-            if current_liquid == 0:
-                continue
-            cx = state.get(cup, "x")
-            cy = state.get(cup, "y")
-            cz = self.z_lb + current_liquid / 2 + 0.025
-
-            collision_id = p.createCollisionShape(
-                p.GEOM_CYLINDER,
-                radius=liquid_radius,
-                height=liquid_height,
-                physicsClientId=self._physics_client_id)
-
-            visual_id = p.createVisualShape(
-                p.GEOM_CYLINDER,
-                radius=liquid_radius,
-                length=liquid_height,
-                rgbaColor=(0.35, 0.1, 0.0, 1.0),
-                physicsClientId=self._physics_client_id)
-
-            pose = (cx, cy, cz)
-            orientation = self._default_orn
-            liquid_id = p.createMultiBody(
-                baseMass=0,
-                baseCollisionShapeIndex=collision_id,
-                baseVisualShapeIndex=visual_id,
-                basePosition=pose,
-                baseOrientation=orientation,
-                physicsClientId=self._physics_client_id)
+            liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
             self._cup_to_liquid_id[cup] = liquid_id
 
         # NOTE: if the jug is held, the parent class should take care of it.
@@ -553,14 +525,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             target_liquid = capacity * self.cup_target_frac
 
             # No liquid object is created if the current liquid is 0.
-            if cup in self._cup_to_liquid_id:
+            if self._cup_to_liquid_id.get(cup, None) is not None:
                 liquid_id = self._cup_to_liquid_id[cup]
                 liquid_height = p.getVisualShapeData(
                     liquid_id,
                     physicsClientId=self._physics_client_id,
-                )[0][3][2]
+                )[0][3][0]
                 current_liquid = self._cup_liquid_height_to_liquid(
-                    liquid_height)
+                    liquid_height, capacity)
             else:
                 current_liquid = 0.0
 
@@ -623,6 +595,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._jug_filled = True
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
+        # If the robot is pouring into a cup, raise the liquid in it.
+        if abs(state.get(self._robot, "tilt") - self.tilt_ub) < self.pour_angle_tol:
+            # Find the cup to pour into, if any.
+            cup = self._get_cup_to_pour(state)
+            # If pouring into nothing, noop.
+            if cup is None:
+                return state
+            # Increase the liquid in the cup.
+            current_liquid = state.get(cup, "current_liquid")
+            new_liquid = current_liquid + self.pour_velocity
+            print("current_liquid:", current_liquid)
+            print("new liquid:", new_liquid)
+            state.set(cup, "current_liquid", new_liquid)
+            old_liquid_id = self._cup_to_liquid_id[cup]
+            if old_liquid_id is not None:
+                p.removeBody(old_liquid_id, physicsClientId=self._physics_client_id)
+            self._cup_to_liquid_id[cup] = self._create_pybullet_liquid_for_cup(cup, state)
+            self._current_observation = self._get_state()
+            state = self._current_observation.copy()
         return state
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
@@ -659,16 +650,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def tilt_wrist_to_gripper_orn(cls, tilt: float,
                                   wrist: float) -> Quaternion:
         """Public for oracle options."""
-        if abs(tilt - cls.robot_init_tilt) > cls.pour_angle_tol:
-            return p.getQuaternionFromEuler(
-                [0.0, np.pi / 2 + tilt, -np.pi / 2])
-        return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist - np.pi / 2])
+        return p.getQuaternionFromEuler([0.0, tilt, wrist])
 
     def _gripper_orn_to_tilt_wrist(self,
                                    orn: Quaternion) -> Tuple[float, float]:
-        _, offset_tilt, offset_wrist = p.getEulerFromQuaternion(orn)
-        tilt = utils.wrap_angle(offset_tilt - np.pi / 2)
-        wrist = utils.wrap_angle(offset_wrist + np.pi / 2)
+        _, tilt, wrist = p.getEulerFromQuaternion(orn)
         return (tilt, wrist)
 
     @classmethod
@@ -697,11 +683,47 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                      capacity: float) -> float:
         scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
         return liquid * scale
+    
+    def _cup_liquid_height_to_liquid(self, height: float, capacity: float) -> float:
+        scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
+        return height / scale
 
     def _cup_to_liquid_radius(self, capacity: float) -> float:
         scale = 1.5 * np.sqrt(capacity / self.cup_capacity_ub)
         return self.cup_radius * scale
 
-    def _cup_liquid_height_to_liquid(self, height: float) -> float:
-        import ipdb
-        ipdb.set_trace()
+    def _create_pybullet_liquid_for_cup(self, cup: Object, state: State) -> Optional[int]:
+        current_liquid = state.get(cup, "current_liquid")
+        cup_cap = state.get(cup, "capacity_liquid")
+        liquid_height = self._cup_liquid_to_liquid_height(
+            current_liquid, cup_cap)
+        liquid_radius = self._cup_to_liquid_radius(cup_cap)
+        if current_liquid == 0:
+            return None
+        cx = state.get(cup, "x")
+        cy = state.get(cup, "y")
+        cz = self.z_lb + current_liquid / 2 + 0.025
+
+        collision_id = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=liquid_radius,
+            height=liquid_height,
+            physicsClientId=self._physics_client_id)
+
+        visual_id = p.createVisualShape(
+            p.GEOM_CYLINDER,
+            radius=liquid_radius,
+            length=liquid_height,
+            rgbaColor=(0.35, 0.1, 0.0, 1.0),
+            physicsClientId=self._physics_client_id)
+
+        pose = (cx, cy, cz)
+        orientation = self._default_orn
+        return p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)
+    

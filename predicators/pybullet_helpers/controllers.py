@@ -33,9 +33,7 @@ def get_move_end_effector_to_pose_action(
     # Sync the joints.
     robot.set_joints(current_joint_positions)
     # First handle the main arm joints.
-    # Currently assumes a fixed end effector orientation. (TODO fix)
-    assert np.allclose(current_pose.orientation, target_pose.orientation)
-    orn = current_pose.orientation
+    orn = target_pose.orientation
     current = current_pose.position
     target = target_pose.position
     # Run IK to determine the target joint positions.
