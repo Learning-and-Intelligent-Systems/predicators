@@ -9,16 +9,20 @@ whether to re-query the approach at each time step based on the states.
 The name "CogMan" is due to Leslie Kaelbling.
 """
 import logging
-from typing import Callable, List, Optional, Sequence, Set
+import time
+from collections import defaultdict
+from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import Type as TypingType
 
 from predicators import utils
 from predicators.approaches import BaseApproach
+from predicators.envs import BaseEnv
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, EnvironmentTask, GroundAtom, \
     InteractionRequest, InteractionResult, LowLevelTrajectory, Metrics, \
-    Observation, State, Task, Video
+    Observation, State, Task, Video, _Option
 
 
 class CogMan:
@@ -170,3 +174,113 @@ class CogMan:
         else:
             self._current_policy = self._approach.solve(task,
                                                         timeout=CFG.timeout)
+
+
+def run_episode_and_get_observations(
+    cogman: CogMan,
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    terminate_on_goal_reached: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[utils.LoggingMonitor] = None
+) -> Tuple[Tuple[List[Observation], List[Action]], bool, Metrics]:
+    """Execute cogman starting from the initial state of a train or test task
+    in the environment.
+
+    Note that the environment and cogman internal states are updated.
+    Terminates when any of these conditions hold: (1) cogman.step
+    returns None, indicating termination (2) max_num_steps is reached
+    (3) cogman or env raise an exception of type in
+    exceptions_to_break_on (4) terminate_on_goal_reached is True and the
+    env goal is reached. Note that in the case where the exception is
+    raised in step, we exclude the last action from the returned
+    trajectory to maintain the invariant that the trajectory states are
+    of length one greater than the actions. Ideally, this method would
+    live in utils.py, but that results in import errors with this file.
+    So we keep it here for now. It might be moved in the future.
+    """
+    if do_env_reset:
+        env.reset(train_or_test, task_idx)
+        if monitor is not None:
+            monitor.reset(train_or_test, task_idx)
+    obs = env.get_observation()
+    observations = [obs]
+    actions: List[Action] = []
+    curr_option: Optional[_Option] = None
+    metrics: Metrics = defaultdict(float)
+    metrics["policy_call_time"] = 0.0
+    metrics["num_options_executed"] = 0.0
+    exception_raised_in_step = False
+    if not (terminate_on_goal_reached and env.goal_reached()):
+        for _ in range(max_num_steps):
+            monitor_observed = False
+            exception_raised_in_step = False
+            try:
+                start_time = time.perf_counter()
+                act = cogman.step(obs)
+                metrics["policy_call_time"] += time.perf_counter() - start_time
+                if act is None:
+                    break
+                if act.has_option() and act.get_option() != curr_option:
+                    curr_option = act.get_option()
+                    metrics["num_options_executed"] += 1
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may, for example, call
+                # env.render(), which outputs images of the current env
+                # state. If we instead called env.step() first, we would
+                # mistakenly record images of the next time step instead of
+                # the current one.
+                if monitor is not None:
+                    monitor.observe(obs, act)
+                    monitor_observed = True
+                obs = env.step(act)
+                actions.append(act)
+                observations.append(obs)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   any(issubclass(type(e), c) for c in exceptions_to_break_on):
+                    if monitor_observed:
+                        exception_raised_in_step = True
+                    break
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(obs, None)
+                raise e
+            if terminate_on_goal_reached and env.goal_reached():
+                break
+    if monitor is not None and not exception_raised_in_step:
+        monitor.observe(obs, None)
+    cogman.finish_episode(obs)
+    traj = (observations, actions)
+    solved = env.goal_reached()
+    return traj, solved, metrics
+
+
+def run_episode_and_get_states(
+    cogman: CogMan,
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    terminate_on_goal_reached: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[utils.LoggingMonitor] = None
+) -> Tuple[LowLevelTrajectory, bool, Metrics]:
+    """Execute cogman starting from the initial state of a train or test task
+    in the environment.
+
+    Return a trajectory involving States (which come from running a
+    perceiver on observations). Having states instead of observations is
+    useful for downstream learning (e.g. predicates, operators,
+    samplers, etc.) Note that the only difference between this and the
+    above run_episode_and_get_observations is that this method returns a
+    trajectory of states instead of one of observations.
+    """
+    _, solved, metrics = run_episode_and_get_observations(
+        cogman, env, train_or_test, task_idx, max_num_steps, do_env_reset,
+        terminate_on_goal_reached, exceptions_to_break_on, monitor)
+    ll_traj = cogman.get_current_history()
+    return ll_traj, solved, metrics

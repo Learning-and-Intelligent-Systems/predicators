@@ -10,12 +10,15 @@ import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from cogman import CogMan, run_episode_and_get_states
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
@@ -132,6 +135,9 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
     """Use the demonstrator to generate demonstrations, one per training task
     starting from train_tasks_start_idx."""
     if CFG.demonstrator == "oracle":
+        # Instantiate CogMan with the oracle approach (to be used as the
+        # demonstrator). This requires creating a perceiver and
+        # execution monitor according to settings from CFG.
         options = get_gt_options(env.get_name())
         oracle_approach = OracleApproach(
             env.predicates,
@@ -142,6 +148,9 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
             max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized,
             bilevel_plan_without_sim=CFG.offline_data_bilevel_plan_without_sim)
+        perceiver = create_perceiver(CFG.perceiver)
+        execution_monitor = create_execution_monitor(CFG.execution_monitor)
+        cogman = CogMan(oracle_approach, perceiver, execution_monitor)
     else:  # pragma: no cover
         # Disable all built-in keyboard shortcuts.
         keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
@@ -154,14 +163,19 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
     if annotate_with_gt_ops:
         annotations = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
-    rng = np.random.default_rng(CFG.seed)
-    if CFG.offline_data_bilevel_plan_without_sim is None:
-        bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
-    else:
-        bilevel_plan_without_sim = CFG.offline_data_bilevel_plan_without_sim
+    # rng = np.random.default_rng(CFG.seed)
+    # if CFG.offline_data_bilevel_plan_without_sim is None:
+    #     bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
+    # else:
+    #     bilevel_plan_without_sim = CFG.offline_data_bilevel_plan_without_sim
     for idx, task in enumerate(train_tasks):
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
+        if CFG.make_demo_videos or CFG.make_demo_images:
+            video_monitor = utils.VideoMonitor(env.render)
+        else:
+            video_monitor = None
+
         # Note: we assume in main.py that demonstrations are only generated
         # for train tasks whose index is less than CFG.max_initial_demos. If
         # you modify code around here, make sure that this invariant holds.
@@ -169,48 +183,41 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             break
         try:
             if CFG.demonstrator == "oracle":
-                timeout = CFG.offline_data_planning_timeout
-                if timeout == -1:
-                    timeout = CFG.timeout
-                oracle_approach.solve(task, timeout=timeout)
-                # Since we're running the oracle approach, we know that
-                # the policy is actually a plan under the hood, and we
-                # can retrieve it with get_last_plan(). We do this
-                # because we want to run the full plan.
-                if bilevel_plan_without_sim:
-                    last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
-                    policy = utils.nsrt_plan_to_greedy_policy(
-                        last_nsrt_plan, task.goal, rng)
-                else:
-                    last_plan = oracle_approach.get_last_plan()
-                    policy = utils.option_plan_to_policy(last_plan)
-                # We will stop run_policy() when OptionExecutionFailure()
-                # is hit, which should only happen when the goal has been
-                # reached, as verified by the assertion later.
-                termination_function = lambda s: False
+                # In this case, we use the instantiated cogman to generate
+                # demonstrations. Importantly, we want to access state-action
+                # trajectories, not observation-action ones.
+                env_task = env.get_train_tasks()[idx]
+                cogman.reset(env_task)
+                traj, _, _ = run_episode_and_get_states(
+                    cogman,
+                    env,
+                    "train",
+                    idx,
+                    max_num_steps=CFG.horizon,
+                    exceptions_to_break_on={
+                        utils.OptionExecutionFailure,
+                        utils.HumanDemonstrationFailure,
+                    },
+                    monitor=video_monitor)
             else:  # pragma: no cover
+                # Otherwise, we get human input demos.
                 caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "
                            f"achieving the goal:\n{task.goal}")
                 policy = functools.partial(human_demonstrator_policy, env,
                                            caption, event_to_action)
                 termination_function = task.goal_holds
-
-            if CFG.make_demo_videos or CFG.make_demo_images:
-                monitor = utils.VideoMonitor(env.render)
-            else:
-                monitor = None
-            traj, _ = utils.run_policy(
-                policy,
-                env,
-                "train",
-                idx,
-                termination_function=termination_function,
-                max_num_steps=CFG.horizon,
-                exceptions_to_break_on={
-                    utils.OptionExecutionFailure,
-                    utils.HumanDemonstrationFailure,
-                },
-                monitor=monitor)
+                traj, _ = utils.run_policy(
+                    policy,
+                    env,
+                    "train",
+                    idx,
+                    termination_function=termination_function,
+                    max_num_steps=CFG.horizon,
+                    exceptions_to_break_on={
+                        utils.OptionExecutionFailure,
+                        utils.HumanDemonstrationFailure,
+                    },
+                    monitor=video_monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
@@ -245,13 +252,13 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
             annotations.append(list(last_nsrt_plan))
         if CFG.make_demo_videos:
-            assert monitor is not None
-            video = monitor.get_video()
+            assert video_monitor is not None
+            video = video_monitor.get_video()
             outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
         if CFG.make_demo_images:
-            assert monitor is not None
-            video = monitor.get_video()
+            assert video_monitor is not None
+            video = video_monitor.get_video()
             width = len(str(len(train_tasks)))
             task_number = str(idx).zfill(width)
             outfile_prefix = f"{CFG.env}__{CFG.seed}__demo__task{task_number}"
