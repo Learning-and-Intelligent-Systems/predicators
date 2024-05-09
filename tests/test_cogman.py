@@ -79,7 +79,7 @@ def test_cogman_with_expected_atoms_monitor():
     assert not np.allclose(act.arr, next_act.arr)
 
 
-def testrun_episode_and_get_observations():
+def test_run_episode_and_get_observations():
     """Tests for run_episode_and_get_observations()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()

@@ -162,11 +162,6 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
     if annotate_with_gt_ops:
         annotations = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
-    # rng = np.random.default_rng(CFG.seed)
-    # if CFG.offline_data_bilevel_plan_without_sim is None:
-    #     bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
-    # else:
-    #     bilevel_plan_without_sim = CFG.offline_data_bilevel_plan_without_sim
     for idx, task in enumerate(train_tasks):
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
