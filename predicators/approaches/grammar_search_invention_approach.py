@@ -915,6 +915,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                          action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
+        self._initial_predicates = set()
 
     @classmethod
     def get_name(cls) -> str:

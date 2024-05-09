@@ -322,7 +322,16 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 seg_traj)
             seen_demos += 1
             init_atoms = demo_atoms_sequence[0]
-            goal = self._train_tasks[ll_traj.train_task_idx].goal
+
+            ####################################################################
+            # goal = self._train_tasks[ll_traj.train_task_idx].goal
+            # We no longer want to describe our goal in terms of goal predicates.
+            # We will instead describe the goal as the set o ground atoms that
+            # are true in the last state of the demonstration in terms of the
+            # predicates we are evaluating at this time step during hill climbing.
+            goal = seg_traj[-1].final_atoms
+            ####################################################################
+
             # Ground everything once per demo.
             objects = set(ll_traj.states[0])
             dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
