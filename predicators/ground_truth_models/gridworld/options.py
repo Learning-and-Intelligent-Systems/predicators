@@ -1,10 +1,9 @@
-"""Ground-truth options for the sokoban environment."""
+"""Ground-truth options for the gridworld environment."""
 
 from typing import Dict, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
-from gym_sokoban.envs.sokoban_env import ACTION_LOOKUP as SOKOBAN_ACTION_LOOKUP
 
 from predicators import utils
 from predicators.ground_truth_models import GroundTruthOptionFactory
@@ -12,38 +11,54 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
 
 
-class SokobanGroundTruthOptionFactory(GroundTruthOptionFactory):
-    """Ground-truth options for the sokoban environment."""
+class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the gridworld environment."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"sokoban"}
+        return {"gridworld"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
-        # Reformat names for consistency with other option naming.
-        def _format_name(name: str) -> str:
-            return "".join([n.capitalize() for n in name.split(" ")])
+        # Types
+        bottom_bun_type = types["bottom_bun"]
+        top_bun_type = types["top_bun"]
+        patty = types["patty"]
+        cheese_type = types["cheese"]
+        tomato_type = types["tomato"]
+        grill_type = types["grill"]
+        cutting_board_type = types["cutting_board"]
+        robot_type = types["robot"]
+        item_type = types["item"]
+        station_type = types["station"]
 
-        options: Set[ParameterizedOption] = {
-            utils.SingletonParameterizedOption(
-                _format_name(name), cls._create_policy(discrete_action=i))
-            for i, name in SOKOBAN_ACTION_LOOKUP.items()
-        }
+        # Predicates
+        Facing = predicates["Facing"]
+        IsCooked = predicates["IsCooked"]
+        IsSliced = predicates["IsSliced"]
+        HandEmpty = predicates["HandEmpty"]
+        Holding = predicates["Holding"]
+        On = predicates["On"]
+        # GoalHack = predicates["GoalHack"]
 
-        return options
+        # Pick
+        def _Pick_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            del memory, params  # unused
+            robot, item = objects
+            return Holding.holds(state, [robot, item])
 
-    @classmethod
-    def _create_policy(cls, discrete_action: int) -> ParameterizedPolicy:
+        @classmethod
+        def _create_pick_policy(cls) -> ParameterizedPolicy:
+            
 
-        def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
-            del state, memory, objects, params  # unused.
-            arr = np.zeros(9, dtype=np.float32)
-            arr[discrete_action] = 1
-            return Action(arr)
 
-        return policy
+
+
+
+
+
+
+
