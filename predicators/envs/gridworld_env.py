@@ -70,6 +70,10 @@ class GridWorld(BaseEnv):
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type], self._HandEmpty_holds)
+        # self._OnGrill = Predicate("On", [self._item_type, self._grill_type], self._OnGrill_holds])
+        # self._OnCuttingBoard = Predicate("On", [self._item_type, self._cutting_board_type], self._OnCuttingBoard_holds])
+        self._On = Predicate("On", [self._object_type, self._object_type], self._On_holds)
+        self._GoalHack = Predicate("GoalHack", [self._bottom_bun_type, self._patty_type, self._cheese_type, self._tomato_type, self._top_bun_type], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robby", self._robot_type)
@@ -194,6 +198,29 @@ class GridWorld(BaseEnv):
         if state.get(robot, "fingers") < 0.5:
             return True
         return False
+
+    def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        a, b = objects
+        a_x, a_y = self._get_position(a, state)
+        b_x, b_y = self._get_position(b, state)
+        a_z = state.get(a, "z")
+        b_z = state.get(b, "z")
+
+        if a_x==b_x and a_y==b_y and a_z - 1 == b_z:
+            return True
+        return False
+
+    def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        bottom, patty, cheese, tomato, top = objects
+        atoms = [
+            self._On_holds(state, [patty, bottom]),
+            self._On_holds(state, [cheese, patty]),
+            self._On_holds(state, [tomato, cheese]),
+            self._On_holds(state, [top, tomato]),
+            self._IsCooked_holds(state, [patty]),
+            self._IsSliced_holds(state, [tomato])
+        ]
+        return all(atoms)
 
     @staticmethod
     def _get_position(object: Object, state: State) -> Tuple[int, int]:
