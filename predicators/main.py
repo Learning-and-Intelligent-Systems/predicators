@@ -40,8 +40,7 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Sequence, Set, Tuple
-from typing import Type as TypingType
+from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
 
@@ -56,8 +55,8 @@ from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
-from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Observation, Response, Task, Video, _Option
+from predicators.structs import Dataset, InteractionRequest, \
+    InteractionResult, Metrics, Response, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \

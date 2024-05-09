@@ -1,8 +1,5 @@
 """Tests for cogman.py."""
 
-import numpy as np
-import pytest
-
 import time
 from typing import Any, List
 
@@ -10,16 +7,14 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.envs.cover import CoverEnv
-from predicators.structs import Action, DefaultState
-
-from predicators import utils
 from predicators.approaches import create_approach
 from predicators.cogman import CogMan, run_episode_and_get_observations
 from predicators.envs import get_or_create_env
+from predicators.envs.cover import CoverEnv
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.perception import create_perceiver
+from predicators.structs import Action, DefaultState
 
 
 @pytest.mark.parametrize("exec_monitor_name", ["trivial", "mpc"])
@@ -97,11 +92,8 @@ def testrun_episode_and_get_observations():
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
     cogman.reset(task)
-    (states, actions), solved, metrics = run_episode_and_get_observations(cogman,
-                                                      env,
-                                                      "test",
-                                                      0,
-                                                      max_num_steps=5)
+    (states, actions), solved, metrics = run_episode_and_get_observations(
+        cogman, env, "test", 0, max_num_steps=5)
     assert not solved
     assert len(states) == 6
     assert len(actions) == 5
@@ -143,17 +135,22 @@ def testrun_episode_and_get_observations():
     cogman.reset(task)
 
     with pytest.raises(ValueError) as e:
-        _, _, _ = run_episode_and_get_observations(cogman, env, "test", 0, max_num_steps=5)
+        _, _, _ = run_episode_and_get_observations(cogman,
+                                                   env,
+                                                   "test",
+                                                   0,
+                                                   max_num_steps=5)
     assert "mock error" in str(e)
 
     monitor = _CountingMonitor()
-    (states, _), _, _ = run_episode_and_get_observations(cogman,
-                                     env,
-                                     "test",
-                                     0,
-                                     max_num_steps=5,
-                                     exceptions_to_break_on={ValueError},
-                                     monitor=monitor)
+    (states, _), _, _ = run_episode_and_get_observations(
+        cogman,
+        env,
+        "test",
+        0,
+        max_num_steps=5,
+        exceptions_to_break_on={ValueError},
+        monitor=monitor)
 
     assert len(states) == 1
     assert monitor.num_observations == 1
@@ -207,7 +204,11 @@ def testrun_episode_and_get_observations():
     cogman = CogMan(approach, perceiver, exec_monitor)
     cogman.reset(task)
 
-    _, _, metrics = run_episode_and_get_observations(cogman, env, "test", 0, max_num_steps=3)
+    _, _, metrics = run_episode_and_get_observations(cogman,
+                                                     env,
+                                                     "test",
+                                                     0,
+                                                     max_num_steps=3)
     assert metrics["policy_call_time"] >= 3 * 0.1
     assert metrics["num_options_executed"] == 0
 
@@ -223,11 +224,11 @@ def testrun_episode_and_get_observations():
 
     try:
         run_episode_and_get_observations(cogman,
-                     mock_env,
-                     "test",
-                     0,
-                     max_num_steps=3,
-                     monitor=monitor)
+                                         mock_env,
+                                         "test",
+                                         0,
+                                         max_num_steps=3,
+                                         monitor=monitor)
     except ValueError:
         pass
     assert monitor.num_observations == 1

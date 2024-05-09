@@ -3,10 +3,8 @@ import os
 import shutil
 import sys
 import tempfile
-import time
-from typing import Any, Callable, List
+from typing import Callable
 
-import numpy as np
 import pytest
 
 import predicators.ground_truth_models
@@ -19,7 +17,7 @@ from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _run_testing, main
 from predicators.perception import create_perceiver
-from predicators.structs import Action, DefaultState, State, Task
+from predicators.structs import Action, State, Task
 
 _GROUND_TRUTH_MODULE_PATH = predicators.ground_truth_models.__name__
 
@@ -284,4 +282,3 @@ def test_env_failure():
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
     _run_testing(env, cogman)
-

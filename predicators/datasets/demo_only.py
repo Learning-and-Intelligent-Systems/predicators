@@ -9,12 +9,11 @@ from typing import Callable, List, Set
 import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
-from cogman import CogMan, run_episode_and_get_states
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
+from predicators.cogman import CogMan, run_episode_and_get_states
 from predicators.envs import BaseEnv
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
