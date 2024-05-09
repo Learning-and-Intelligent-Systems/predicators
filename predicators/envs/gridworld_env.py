@@ -191,19 +191,19 @@ class GridWorld(BaseEnv):
         facing_right = robot_row == obj_row and robot_col - obj_col == -1 and robot_dir == "right"
         facing_down = robot_row - obj_row == 1 and robot_col == obj_col and robot_dir == "down"
         facing_up = robot_row - obj_row == -1 and robot_col == obj_col and robot_dir == "up"
-        return facing_left or facing_right or facing_down or facing_up:
+        return facing_left or facing_right or facing_down or facing_up
 
     def _IsCooked_holds(self, state: State, objects: Sequence[Object]) -> bool:
         patty, = objects
-        return self._hidden_state[patty]["is_cooked"] > 0.5:
+        return self._hidden_state[patty]["is_cooked"] > 0.5
 
     def _IsSliced_holds(self, state: State, objects: Sequence[Object]) -> bool:
         tomato, = objects
-        return self._hidden_state[tomato]["is_sliced"] > 0.5:
+        return self._hidden_state[tomato]["is_sliced"] > 0.5
 
     def _HandEmpty_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(robot, "fingers") < 0.5:
+        return state.get(robot, "fingers") < 0.5
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, item = objects
@@ -216,7 +216,7 @@ class GridWorld(BaseEnv):
         a_z = state.get(a, "z")
         b_z = state.get(b, "z")
 
-        return a_x==b_x and a_y==b_y and a_z - 1 == b_z:
+        return a_x==b_x and a_y==b_y and a_z - 1 == b_z
 
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
         bottom, patty, cheese, tomato, top = objects
@@ -240,7 +240,7 @@ class GridWorld(BaseEnv):
     def _is_adjacent(col_1, row_1, col_2, row_2):
         adjacent_vertical = col_1 == col_2 and abs(row_1 - row_2) == 1
         adjacent_horizontal = row_1 == row_2 and abs(col_1 - col_2) == 1
-        return adjacent_vertical or adjacent_horizontal:
+        return adjacent_vertical or adjacent_horizontal
 
     @property
     def predicates(self) -> Set[Predicate]:
