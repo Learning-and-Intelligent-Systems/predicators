@@ -36,7 +36,7 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
 # - Cook(robot, item, grill)
 # - Cut(robot, item, cutting board)
 
-class GridWorld(BaseEnv):
+class GridWorldEnv(BaseEnv):
     """TODO"""
 
     ASSETS_DIRECTORY = ""
@@ -46,7 +46,7 @@ class GridWorld(BaseEnv):
     _item_type = Type("item", [], _object_type)
     _station_type = Type("station", [], _object_type)
 
-    _robot_type = Type("robot", ["row", "col", "fingers"])
+    _robot_type = Type("robot", ["row", "col", "fingers", "dir"])
     _cell_type = Type("cell", ["row", "col"])
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
@@ -58,6 +58,8 @@ class GridWorld(BaseEnv):
     _grill_type = Type("grill", ["row", "col", "z"], _station_type)
     _cutting_board_type = Type("cutting_board", ["row", "col", "z"], _station_type)
 
+    dir_to_int = {"up": 0, "left": 1, "down": 2, "right": 3}
+
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -68,7 +70,7 @@ class GridWorld(BaseEnv):
 
         # Predicates
         # self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
-        # self._Adjacent = Predicate("Adjacent", [self._robot_type, self._item_type], self._Adjacent_holds)
+        self._Adjacent = Predicate("Adjacent", [self._robot_type, self._item_type], self._Adjacent_holds)
         self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self._Facing_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
@@ -93,14 +95,27 @@ class GridWorld(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._robot_type, self._cell_type}
+        return {
+            self._object_type,
+            self._item_type,
+            self._station_type,
+            self._robot_type,
+            self._cell_type,
+            self._patty_type,
+            self._tomato_type,
+            self._cheese_type,
+            self._bottom_bun_type,
+            self._top_bun_type,
+            self._grill_type,
+            self._cutting_board_type
+        }
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
 
         # Add robot, grill, and cutting board
         state_dict = {}
-        state_dict[self._robot] = {"row": 2, "col": 2, "fingers": 0.0}
+        state_dict[self._robot] = {"row": 2, "col": 2, "fingers": 0.0, "dir": "down"}
         self._hidden_state[self._robot] = {"dir": "down"}
         state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
         state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
@@ -150,12 +165,15 @@ class GridWorld(BaseEnv):
             #     self._GoalHack,
             #     [bottom_bun, patty, cheese, tomato, top_bun]
             # )
-            GroundAtom(self._On, [patty, bottom_bun]),
-            GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._On, [tomato, cheese]),
-            GroundAtom(self._On, [top_bun, tomato]),
-            GroundAtom(self._IsCooked, [patty]),
-            GroundAtom(self._IsSliced, [tomato])
+
+            # GroundAtom(self._On, [patty, bottom_bun]),
+            # GroundAtom(self._On, [cheese, patty]),
+            # GroundAtom(self._On, [tomato, cheese]),
+            # GroundAtom(self._On, [top_bun, tomato]),
+            # GroundAtom(self._IsCooked, [patty]),
+            # GroundAtom(self._IsSliced, [tomato])
+
+            GroundAtom(self._Holding, [self._robot, tomato])
         }
 
         state = utils.create_state_from_dict(state_dict)
@@ -176,21 +194,24 @@ class GridWorld(BaseEnv):
         cell_row, cell_col = state.get(cell, "row"), state.get(cell, "col")
         return robot_row == cell_row and robot_col == cell_col
 
-    def _Adjacent_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @classmethod
+    def _Adjacent_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         robot, item = objects
-        robot_col, robot_row = self._get_position(robot, state)
-        item_col, item_row = self._get_position(item, state)
+        robot_col, robot_row = cls._get_position(robot, state)
+        item_col, item_row = cls._get_position(item, state)
         return self._is_adjacent(item_col, item_row, robot_col, robot_row)
 
-    def _Facing_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @classmethod
+    def _Facing_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects
-        robot_col, robot_row = self._get_position(self._robot, state)
-        robot_dir = self._hidden_state[self._robot]["dir"]
-        obj_col, obj_row = self._get_position(obj, state)
-        facing_left = robot_row == obj_row and robot_col - obj_col == 1 and robot_dir == "left"
-        facing_right = robot_row == obj_row and robot_col - obj_col == -1 and robot_dir == "right"
-        facing_down = robot_row - obj_row == 1 and robot_col == obj_col and robot_dir == "down"
-        facing_up = robot_row - obj_row == -1 and robot_col == obj_col and robot_dir == "up"
+        robot_col, robot_row = cls._get_position(self._robot, state)
+        # robot_dir = self._hidden_state[self._robot]["dir"]
+        robot_dir = state.get(robot, "dir")
+        obj_col, obj_row = cls._get_position(obj, state)
+        facing_left = robot_row == obj_row and robot_col - obj_col == 1 and robot_dir == 1
+        facing_right = robot_row == obj_row and robot_col - obj_col == -1 and robot_dir == 3
+        facing_down = robot_row - obj_row == 1 and robot_col == obj_col and robot_dir == 2
+        facing_up = robot_row - obj_row == -1 and robot_col == obj_col and robot_dir == 0
         return facing_left or facing_right or facing_down or facing_up
 
     def _IsCooked_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -203,7 +224,9 @@ class GridWorld(BaseEnv):
 
     def _HandEmpty_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(robot, "fingers") < 0.5
+        fingers = state.get(robot, "fingers")
+        import pdb; pdb.set_trace()
+        return fingers < 0.5
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, item = objects
@@ -244,11 +267,12 @@ class GridWorld(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
+        return {self._Adjacent, self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._IsCooked, self._IsSliced, self._On, self._GoalHack}
+        # return {self._IsCooked, self._IsSliced, self._On, self._GoalHack}
+        return {self._Holding}
 
     @property
     def action_space(self) -> Box:
@@ -305,6 +329,7 @@ class GridWorld(BaseEnv):
             # We'll need to be facing an object to pick it up or interact with
             # it.
             self._hidden_state[self._robot]["dir"] = direction
+            next_state.set(self._robot, "dir", self.dir_to_int[direction])
 
         # get the objects we can interact with
         items = [obj for obj in state if obj.is_instance(self._item_type)]

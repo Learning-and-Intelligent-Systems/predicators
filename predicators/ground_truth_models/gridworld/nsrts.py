@@ -41,9 +41,10 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         cutting_board = Variable("?cutting_board", cutting_board_type)
         robot = Variable("?robot", robot_type)
         item = Variable("?item", item_type)
-        station = Variable(?"station", station_type)
+        station = Variable("?station", station_type)
 
         # Predicates
+        Adjacent = predicates["Adjacent"]
         Facing = predicates["Facing"]
         IsCooked = predicates["IsCooked"]
         IsSliced = predicates["IsSliced"]
@@ -54,18 +55,18 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         Pick = options["Pick"]
-        Place = options["Place"]
-        Cook = options["Cook"]
-        Slice = options["Slice"]
+        # Place = options["Place"]
+        # Cook = options["Cook"]
+        # Slice = options["Slice"]
 
         nsrts = set()
 
         # Pick
         parameters = [robot, item]
         option_vars = [robot, item]
+        option = Pick
         preconditions = {
             LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(Facing, [robot, item])
         }
         add_effects = {
             LiftedAtom(Holding, [robot, item])
