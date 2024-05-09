@@ -1109,7 +1109,9 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
 
-    NOTE: this may be deprecated in the future in favor of run_episode.
+    NOTE: this may be deprecated in the future in favor of run_episode defined
+    in cogman.py. Ideally, we should consolidate both run_policy and
+    run_policy_with_simulator below into run_episode.
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
