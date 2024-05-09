@@ -30,8 +30,11 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
 # - Make subclass of state that has the observation that produced it as a field
 # - There should be a texture-based rendering (using pygame) and a non-texture-based rendering, using matplotlib?
 
-# Options
-# -
+# Operators
+# - Pick(robot, item)
+# - Place(robot, item)
+# - Cook(robot, item, grill)
+# - Cut(robot, item, cutting board)
 
 class GridWorld(BaseEnv):
     """TODO"""
@@ -64,14 +67,13 @@ class GridWorld(BaseEnv):
         self.num_cells = self.num_rows * self.num_cols
 
         # Predicates
-        self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
-        self._Adjacent = Predicate("Adjacent", [self._robot_type, self._item_type], self._Adjacent_holds)
+        # self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
+        # self._Adjacent = Predicate("Adjacent", [self._robot_type, self._item_type], self._Adjacent_holds)
         self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self._Facing_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type], self._HandEmpty_holds)
-        # self._OnGrill = Predicate("On", [self._item_type, self._grill_type], self._OnGrill_holds])
-        # self._OnCuttingBoard = Predicate("On", [self._item_type, self._cutting_board_type], self._OnCuttingBoard_holds])
+        self._Holding = Predicate("Holding", [self._robot_type, self._item_type], self._Holding_holds)
         self._On = Predicate("On", [self._object_type, self._object_type], self._On_holds)
         self._GoalHack = Predicate("GoalHack", [self._bottom_bun_type, self._patty_type, self._cheese_type, self._tomato_type, self._top_bun_type], self._GoalHack_holds)
 
@@ -140,9 +142,21 @@ class GridWorld(BaseEnv):
         state_dict[bottom_bun] = {"row": 0, "col": 2, "z": 0}
         self._hidden_state[bottom_bun] = {"is_held": 0.0}
 
-        # Get the top right cell and make the goal for the agent to go there.
-        top_right_cell = self._cells[-1]
-        goal = {GroundAtom(self._RobotInCell, [self._robot, top_right_cell])}
+        # # Get the top right cell and make the goal for the agent to go there.
+        # top_right_cell = self._cells[-1]
+        # goal = {GroundAtom(self._RobotInCell, [self._robot, top_right_cell])}
+        goal = {
+            # GroundAtom(
+            #     self._GoalHack,
+            #     [bottom_bun, patty, cheese, tomato, top_bun]
+            # )
+            GroundAtom(self._On, [patty, bottom_bun]),
+            GroundAtom(self._On, [cheese, patty]),
+            GroundAtom(self._On, [tomato, cheese]),
+            GroundAtom(self._On, [top_bun, tomato]),
+            GroundAtom(self._IsCooked, [patty]),
+            GroundAtom(self._IsSliced, [tomato])
+        }
 
         state = utils.create_state_from_dict(state_dict)
         for i in range(num):
@@ -177,27 +191,23 @@ class GridWorld(BaseEnv):
         facing_right = robot_row == obj_row and robot_col - obj_col == -1 and robot_dir == "right"
         facing_down = robot_row - obj_row == 1 and robot_col == obj_col and robot_dir == "down"
         facing_up = robot_row - obj_row == -1 and robot_col == obj_col and robot_dir == "up"
-        if facing_left or facing_right or facing_down or facing_up:
-            return True
-        return False
+        return facing_left or facing_right or facing_down or facing_up:
 
     def _IsCooked_holds(self, state: State, objects: Sequence[Object]) -> bool:
         patty, = objects
-        if self._hidden_state[patty]["is_cooked"] > 0.5:
-            return True
-        return False
+        return self._hidden_state[patty]["is_cooked"] > 0.5:
 
     def _IsSliced_holds(self, state: State, objects: Sequence[Object]) -> bool:
         tomato, = objects
-        if self._hidden_state[tomato]["is_sliced"] > 0.5:
-            return True
-        return False
+        return self._hidden_state[tomato]["is_sliced"] > 0.5:
 
     def _HandEmpty_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        if state.get(robot, "fingers") < 0.5:
-            return True
-        return False
+        return state.get(robot, "fingers") < 0.5:
+
+    def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        robot, item = objects
+        return not self._HandEmpty_holds(state, [robot]) and self._hidden_state[item]["is_held"] > 0.5
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         a, b = objects
@@ -206,9 +216,7 @@ class GridWorld(BaseEnv):
         a_z = state.get(a, "z")
         b_z = state.get(b, "z")
 
-        if a_x==b_x and a_y==b_y and a_z - 1 == b_z:
-            return True
-        return False
+        return a_x==b_x and a_y==b_y and a_z - 1 == b_z:
 
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
         bottom, patty, cheese, tomato, top = objects
@@ -232,17 +240,15 @@ class GridWorld(BaseEnv):
     def _is_adjacent(col_1, row_1, col_2, row_2):
         adjacent_vertical = col_1 == col_2 and abs(row_1 - row_2) == 1
         adjacent_horizontal = row_1 == row_2 and abs(col_1 - col_2) == 1
-        if adjacent_vertical or adjacent_horizontal:
-            return True
-        return False
+        return adjacent_vertical or adjacent_horizontal:
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._RobotInCell, self._Adjacent, self._IsCooked, self._IsSliced}
+        return {self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._RobotInCell}
+        return {self._IsCooked, self._IsSliced, self._On, self._GoalHack}
 
     @property
     def action_space(self) -> Box:
@@ -279,7 +285,6 @@ class GridWorld(BaseEnv):
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dcol, drow, turn, interact, pickplace = action.arr
-        print("action: ", dcol, drow, turn, interact, pickplace)
 
         if turn == 0:
             self._hidden_state[self._robot]["dir"] = "up"
@@ -349,7 +354,6 @@ class GridWorld(BaseEnv):
             if len(facing_items) > 0:
                 # We'll pick up the item that is "on top".
                 on_top = max(facing_items, key=lambda x: x[1])[0]
-                print("on top: ", on_top)
                 self._hidden_state[on_top]["is_held"] = 1.0
                 next_state.set(on_top, "col", robot_col)
                 next_state.set(on_top, "row", robot_row)
@@ -360,9 +364,6 @@ class GridWorld(BaseEnv):
         if pickplace > 0.5 and not self._HandEmpty_holds(state, [self._robot]):
             held_item = [item for item in items if self._hidden_state[item]["is_held"] > 0.5][0]
             place_row, place_col = self._get_cell_in_direction(robot_row, robot_col, self._hidden_state[self._robot]["dir"])
-            print("placing")
-            print("place row, place col:", place_row, place_col)
-            print("robot_row, robot_col:", robot_row, robot_col)
             if 0 <= place_row <= self.num_rows and 0 <= place_col <= self.num_cols:
                 next_state.set(self._robot, "fingers", 0.0)
                 self._hidden_state[held_item]["is_held"] = 0.0
@@ -416,9 +417,6 @@ class GridWorld(BaseEnv):
             task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-
-        print(state)
-
         figsize = (self.num_cols * 2, self.num_rows * 2)
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         plt.suptitle(caption, wrap=True)
