@@ -175,7 +175,6 @@ def _sesame_plan_with_astar(
                         skeleton, atoms_sequence, task.goal)
                 else:
                     atoms_seq = atoms_sequence
-                print("Skeleton: ", skeleton)
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), metrics,
@@ -561,7 +560,6 @@ def run_low_level_search(
         metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
-        import pdb; pdb.set_trace()
         if option.initiable(state):
             try:
                 next_state, num_actions = \

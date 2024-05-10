@@ -181,6 +181,15 @@ class GridWorldEnv(BaseEnv):
             state.simulator_state = hidden_state
             # Note: this takes in Observation, GoalDescription, whose types is Any
             tasks.append(EnvironmentTask(state, goal))
+
+            # import copy
+            # new_state_dict = copy.deepcopy(state_dict)
+            # new_hidden_state = copy.deepcopy(hidden_state)
+            # state = utils.create_state_from_dict(new_state_dict)
+            # state.simulator_state = new_hidden_state
+            # # Note: this takes in Observation, GoalDescription, whose types is Any
+            # tasks.append(EnvironmentTask(state, goal))
+
         return tasks
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -232,7 +241,7 @@ class GridWorldEnv(BaseEnv):
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, item = objects
-        return not self._HandEmpty_holds(state, [robot]) and self._hidden_state[item]["is_held"] > 0.5
+        return not self._HandEmpty_holds(state, [robot]) and state.simulator_state[item]["is_held"] > 0.5
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         a, b = objects
@@ -403,23 +412,10 @@ class GridWorldEnv(BaseEnv):
                     new_z = 0
                 next_state.set(held_item, "z", new_z)
 
-        # print("Action that was taken: ", action)
-        # print("Hidden state: ", self._hidden_state)
-        # print("New state: ", next_state)
         return next_state
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
-        # import pdb; pdb.set_trace()
-        # # Reset the hidden state.
-        # for k, v in self._hidden_state.items():
-        #     if k.is_instance(self._patty_type):
-        #         v["is_cooked"] = 0.0
-        #         v["is_held"] = 0.0
-        #     elif k.is_instance(self._tomato_type):
-        #         v["is_sliced"] = 0.0
-        #         v["is_held"] = 0.0
-
         self._current_task = self.get_task(train_or_test, task_idx)
         self._current_observation = self._current_task.init_obs
         # Copy to prevent external changes to the environment's state.

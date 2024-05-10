@@ -68,7 +68,6 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                params: Array) -> Action:
-            import pdb; pdb.set_trace()
             robot, item = objects
             rx = state.get(robot, "col")
             ry = state.get(robot, "row")
@@ -76,24 +75,26 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             iy = state.get(item, "row")
 
             if GridWorldEnv.Facing_holds(state, [robot, item]):
-                return Action[np.array([0, 0, -1, 1, 0], dtype=np.float32)]
+                action = Action(np.array([0, 0, -1, 0, 1], dtype=np.float32))
 
             elif GridWorldEnv.Adjacent_holds(state, [robot, item]):
                 if rx == ix:
                     if ry > iy:
-                        return Action(np.array([0, 0, 2, 0, 0], dtype=np.float32))
+                        action = Action(np.array([0, 0, 2, 0, 0], dtype=np.float32))
                     elif ry < iy:
-                        return Action(np.array([0, 0, 0, 0, 0], dtype=np.float32))
+                        action = Action(np.array([0, 0, 0, 0, 0], dtype=np.float32))
                 elif ry == iy:
                     if rx > ix:
-                        return Action(np.array([0, 0, 1, 0, 0], dtype=np.float32))
+                        action = Action(np.array([0, 0, 1, 0, 0], dtype=np.float32))
                     elif rx < ix:
-                        return Action(np.array([0, 0, 3, 0, 0], dtype=np.float32))
+                        action = Action(np.array([0, 0, 3, 0, 0], dtype=np.float32))
+            else:
+                # Move until we are adjacent
+                dx = np.clip(ix - rx, -1, 1)
+                dy = np.clip(iy - ry, -1, 1)
+                action = Action(np.array([dx, dy, -1, 0, 0], dtype=np.float32))
 
-            # Move until we are adjacent
-            dx = np.clip(ix - rx, -1, 1)
-            dy = np.clip(iy - ry, -1, 1)
-            return Action(np.array([dx, dy, -1, 0, 0], dtype=np.float32))
+            return action
 
         return policy
 
