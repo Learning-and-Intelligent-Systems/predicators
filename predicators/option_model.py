@@ -78,6 +78,7 @@ class _OracleOptionModel(_OptionModelBase):
         # options during data collection when we are learning options. In this
         # case, we make a copy of the option itself, rather than reconstructing
         # it from the ground truth options.
+        import pdb; pdb.set_trace()
         param_opt = option.parent
         if param_opt.name not in self._name_to_parameterized_option:
             assert "Learned" in param_opt.name

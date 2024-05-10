@@ -68,6 +68,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                params: Array) -> Action:
+            import pdb; pdb.set_trace()
             robot, item = objects
             rx = state.get(robot, "col")
             ry = state.get(robot, "row")
