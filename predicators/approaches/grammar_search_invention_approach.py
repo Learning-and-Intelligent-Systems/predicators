@@ -915,7 +915,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                          action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
-        self._initial_predicates = set()
 
     @classmethod
     def get_name(cls) -> str:
@@ -1004,6 +1003,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset, candidates = \
                 self._parse_atom_dataset_from_annotated_dataset(dataset)
         # Select a subset of the candidates to keep.
+        for p in self._initial_predicates:
+            candidates[p] = 1.0
+        self._initial_predicates = set()
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
             # Create the score function that will be used to guide search.
