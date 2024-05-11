@@ -258,25 +258,26 @@ def _save_img_option_trajs_in_folder(
     base_folder_name = CFG.env + "__vlm_demos___" + str(CFG.seed) + "__" + str(
         len(img_option_trajs))
     base_folder_path = Path(data_dir_path, base_folder_name)
-    os.makedirs(base_folder_path, exist_ok=False)
-    for i, img_option_traj in enumerate(img_option_trajs):
-        curr_traj_folder = Path(base_folder_path, "traj_" + str(i))
-        os.makedirs(curr_traj_folder, exist_ok=False)
-        for j, img_list in enumerate(img_option_traj.imgs):
-            curr_traj_timestep_folder = Path(curr_traj_folder, str(j))
-            os.makedirs(curr_traj_timestep_folder, exist_ok=False)
-            for k, img in enumerate(img_list):
-                img.save(
-                    Path(curr_traj_timestep_folder,
-                         str(j) + "_" + str(k) + ".jpg"))
-        options_txt_file_path = Path(curr_traj_folder, "options_traj.txt")
-        options_txt_file_contents = ""
-        for opt in img_option_traj.actions:
-            options_txt_file_contents += opt.name + "(" + ", ".join(
-                obj.name for obj in opt.objects) + ", [" + ", ".join(
-                    str(param) for param in opt.params.tolist()) + "])\n"
-        with open(options_txt_file_path, "w", encoding="utf-8") as f:
-            f.write(options_txt_file_contents)
+    if not os.path.exists(base_folder_path):
+        os.makedirs(base_folder_path, exist_ok=False)
+        for i, img_option_traj in enumerate(img_option_trajs):
+            curr_traj_folder = Path(base_folder_path, "traj_" + str(i))
+            os.makedirs(curr_traj_folder, exist_ok=False)
+            for j, img_list in enumerate(img_option_traj.imgs):
+                curr_traj_timestep_folder = Path(curr_traj_folder, str(j))
+                os.makedirs(curr_traj_timestep_folder, exist_ok=False)
+                for k, img in enumerate(img_list):
+                    img.save(
+                        Path(curr_traj_timestep_folder,
+                             str(j) + "_" + str(k) + ".jpg"))
+            options_txt_file_path = Path(curr_traj_folder, "options_traj.txt")
+            options_txt_file_contents = ""
+            for opt in img_option_traj.actions:
+                options_txt_file_contents += opt.name + "(" + ", ".join(
+                    obj.name for obj in opt.objects) + ", [" + ", ".join(
+                        str(param) for param in opt.params.tolist()) + "])\n"
+            with open(options_txt_file_path, "w", encoding="utf-8") as f:
+                f.write(options_txt_file_contents)
 
 
 def _parse_structured_state_into_ground_atoms(
@@ -290,12 +291,19 @@ def _parse_structured_state_into_ground_atoms(
     # Firstly, the number of train tasks must equal the number of structured
     # state demos we have.
     assert len(train_tasks) == len(structured_state_trajs)
-    # Secondly, we assume there is only one goal predicate, and that it is
-    # a dummy goal predicate.
-    assert len(env.goal_predicates) == 1
-    goal_preds_list = list(env.goal_predicates)
-    goal_predicate = goal_preds_list[0]
-    assert goal_predicate.name == "DummyGoal"
+    # Next, we check whether the task goal is a 'DummyGoal'. In this case, we
+    # must be using an environment that hasn't been fully implemented (with
+    # proper goal predicates, options, etc.).
+    use_dummy_goal = False
+    if "DummyGoal" in str(train_tasks[0].goal):
+        # In this case, we assume there is only one goal predicate, and that it
+        # is a dummy goal predicate.
+        assert len(env.goal_predicates) == 1
+        goal_preds_list = list(env.goal_predicates)
+        goal_predicate = goal_preds_list[0]
+        assert goal_predicate.name == "DummyGoal"
+        use_dummy_goal = True
+
     # We also assume that there is precisely one "object" type that is
     # a superset of all other object types.
     obj_type = None
@@ -316,12 +324,14 @@ def _parse_structured_state_into_ground_atoms(
         curr_atoms_traj = []
         objs_for_task = set(train_tasks[i].init)
         curr_obj_name_to_obj = {obj.name: obj for obj in objs_for_task}
-        # NOTE: We assume that there is precisely one dummy object that is
-        # used to track whether the dummy goal has been reached or not.
-        assert DUMMY_GOAL_OBJ_NAME in curr_obj_name_to_obj
-        # Create a goal atom for this demonstration using the goal predicate.
-        goal_atom = GroundAtom(goal_predicate,
-                               [curr_obj_name_to_obj[DUMMY_GOAL_OBJ_NAME]])
+        goal_atoms = train_tasks[i].goal
+
+        if use_dummy_goal:
+            # NOTE: In this case, we assume that there is precisely one dummy
+            # object that is used to track whether the dummy goal has been
+            # reached or not.
+            assert DUMMY_GOAL_OBJ_NAME in curr_obj_name_to_obj
+
         for structured_state in traj:
             curr_ground_atoms_state = set()
             for pred_name, objs_and_val_dict in structured_state.items():
@@ -377,7 +387,7 @@ def _parse_structured_state_into_ground_atoms(
                                 [curr_obj_name_to_obj[o] for o in obj_args]))
             curr_atoms_traj.append(curr_ground_atoms_state)
         # Add the goal atom at the end of the trajectory.
-        curr_atoms_traj[-1].add(goal_atom)
+        curr_atoms_traj[-1] |= goal_atoms
         atoms_trajs.append(curr_atoms_traj)
     return atoms_trajs
 
@@ -639,11 +649,25 @@ def create_ground_atom_data_from_generated_demos(
         train_tasks: List[Task],
         vlm: Optional[VisionLanguageModel] = None) -> Dataset:
     """Given an input dataset that's been generated from one of our
-    environments, run the VLM on the images associated with the dataset."""
+    environments, run the VLM on the images associated with the dataset. Return
+    a potentially *smaller* dataset that is annotated with VLM atom values.
+
+    Why are we returning a potentially-smaller dataset here? For many of
+    our environments, option executions result in multiple actions (not
+    just one). However, we only want to call the VLM to label the
+    state(s) before and after option execution. Thus, we first segment
+    the dataset.trajectories via option. We pick out the states before
+    and after each option execution to call the VLM on. We also replace
+    the trajectory actions with dummy zero actions that have the right
+    option. Thus, the dataset returned by this function is not suitable
+    for option learning (it's really intended for a setting where
+    options are known).
+    """
     # We start by converting trajectories into ImageOptionTrajectories
     # that we can feed to a VLM.
     img_option_trajs: List[ImageOptionTrajectory] = []
     all_task_objs: Set[Object] = set()
+    option_segmented_trajs: List[LowLevelTrajectory] = []
     for traj in dataset.trajectories:
         # We segment using option changes, which implicitly assumes that
         # each action in the trajectory is linked to an option that isn't
@@ -651,17 +675,17 @@ def create_ground_atom_data_from_generated_demos(
         traj_states_idx = 0
         segments = _segment_with_option_changes(traj, set(), None)
         curr_traj_states_for_vlm: List[State] = []
-        curr_traj_options_for_vlm: List[_Option] = []
+        curr_traj_actions_for_vlm: List[Action] = []
         for segment in segments:
             curr_traj_states_for_vlm.append(segment.states[0])
             traj_states_idx += len(segment.states) - 1
-            curr_traj_options_for_vlm.append(segment.actions[0].get_option())
+            curr_traj_actions_for_vlm.append(segment.actions[0])
         # Segmentation returns segments for everything except the last option!
-        # So we manually add the final two states (initial state and terminal state
-        # of the final option).
+        # So we manually add the final two states (initial state and terminal
+        # state of the final option).
         curr_traj_states_for_vlm.append(traj.states[traj_states_idx + 1])
         curr_traj_states_for_vlm.append(traj.states[-1])
-        curr_traj_options_for_vlm.append(traj.actions[-1].get_option())
+        curr_traj_actions_for_vlm.append(traj.actions[-1])
         # Pull out the images within the states we've saved for the trajectory.
         # We assume that images are saved in the state's simulator_state
         # field.
@@ -674,10 +698,19 @@ def create_ground_atom_data_from_generated_demos(
                 for img_arr in state.simulator_state
             ])
         img_option_trajs.append(
-            ImageOptionTrajectory(set(traj.states[0]), state_imgs,
-                                  curr_traj_options_for_vlm, True,
-                                  traj.train_task_idx))
+            ImageOptionTrajectory(
+                set(traj.states[0]), state_imgs,
+                [act.get_option() for act in curr_traj_actions_for_vlm], True,
+                traj.train_task_idx))
+        option_segmented_trajs.append(
+            LowLevelTrajectory(curr_traj_states_for_vlm, [
+                Action(np.zeros(act.arr.shape), act.get_option())
+                for act in curr_traj_actions_for_vlm
+            ], True, traj.train_task_idx))
         all_task_objs |= set(traj.states[0])
+        # We assume that all the input trajectories are such that the train task
+        # goal is achieved. Verify this before proceeding.
+        assert train_tasks[traj.train_task_idx].goal_holds(traj.states[-1])
     # Save the trajectories in a folder so they can be loaded and re-labelled
     # later.
     _save_img_option_trajs_in_folder(env, img_option_trajs)
@@ -686,8 +719,7 @@ def create_ground_atom_data_from_generated_demos(
         vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
     ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
         img_option_trajs, env, train_tasks, all_task_objs, vlm)
-    import ipdb
-    ipdb.set_trace()
+    return Dataset(option_segmented_trajs, ground_atoms_trajs)
 
 
 def create_ground_atom_data_from_labelled_txt(

@@ -45,6 +45,11 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         assert n >= 1, "Must have at least 1 example of each predicate"
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
     if CFG.offline_data_method == "demo_with_vlm_imgs":
+        # NOTE: this data generation method is currently not compatible with
+        # option learning because it will modify dataset trajectories to
+        # remove a number of intermediate states when an option was being
+        # executed. Thus, we assert this before doing anything further.
+        assert CFG.option_learner == "no_learning", "offline data method demo_with_vlm_imgs only compatible with the 'no_learning' option learner."
         # First, we call create_demo_data to create a dataset.
         demo_data = create_demo_data(env,
                                      train_tasks,
