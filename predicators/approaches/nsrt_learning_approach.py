@@ -74,7 +74,9 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             ground_atom_dataset = utils.create_ground_atom_dataset(
                 trajectories, self._get_current_predicates())
             utils.save_ground_atom_dataset(ground_atom_dataset, dataset_fname)
-        elif CFG.offline_data_method in ["demo+labelled_atoms", "img_demos"]:
+        elif CFG.offline_data_method in [
+                "demo+labelled_atoms", "saved_vlm_img_demos_folder"
+        ]:
             # In this case, the annotations are basically ground atoms!
             # We can use these to make GroundAtomTrajectories.
             assert annotations is not None
