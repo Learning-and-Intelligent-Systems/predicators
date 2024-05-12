@@ -44,12 +44,18 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         n = int(CFG.teacher_dataset_num_examples)
         assert n >= 1, "Must have at least 1 example of each predicate"
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
-    if CFG.offline_data_method == "demo_with_vlm_imgs":
+    if CFG.offline_data_method == "demo_with_vlm_imgs":  # pragma: no cover  # pylint:disable=line-too-long
+        # NOTE: this below method is tested separately; it's just that testing
+        # it by calling the above function is painful because a VLM is
+        # instantiated and called from inside this method, but when testing,
+        # we want to instantiate our own 'dummy' VLM.
         # NOTE: this data generation method is currently not compatible with
         # option learning because it will modify dataset trajectories to
         # remove a number of intermediate states when an option was being
         # executed. Thus, we assert this before doing anything further.
-        assert CFG.option_learner == "no_learning", "offline data method demo_with_vlm_imgs only compatible with the 'no_learning' option learner."
+        assert CFG.option_learner == "no_learning", \
+            ("offline data method demo_with_vlm_imgs only compatible with the"
+            "'no_learning' option learner.")
         # First, we call create_demo_data to create a dataset.
         demo_data = create_demo_data(env,
                                      train_tasks,
@@ -62,7 +68,7 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
     if CFG.offline_data_method == "demo+labelled_atoms":
         return create_ground_atom_data_from_labelled_txt(
             env, train_tasks, known_options)
-    if CFG.offline_data_method == "saved_vlm_img_demos_folder":  # pragma: no cover.
+    if CFG.offline_data_method == "saved_vlm_img_demos_folder":  # pragma: no cover  # pylint:disable=line-too-long
         # NOTE: this below method is tested separately; it's just that testing
         # it by calling the above function is painful because a VLM is
         # instantiated and called from inside this method, but when testing,

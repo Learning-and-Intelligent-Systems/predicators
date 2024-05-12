@@ -19,7 +19,7 @@ from predicators.nsrt_learning.segmentation import _segment_with_option_changes
 from predicators.pretrained_model_interface import GoogleGeminiVLM, \
     VisionLanguageModel
 from predicators.settings import CFG
-from predicators.structs import Action, Dataset, GroundAtom, Image, \
+from predicators.structs import Action, Dataset, GroundAtom, \
     ImageOptionTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
     State, Task, _Option
 
@@ -251,7 +251,7 @@ def _save_labelled_trajs_as_txt(
 
 
 def _save_img_option_trajs_in_folder(
-        env: BaseEnv, img_option_trajs: List[ImageOptionTrajectory]) -> None:
+        img_option_trajs: List[ImageOptionTrajectory]) -> None:
     """Save a set of image option trajectories as a folder."""
     data_dir_path = os.path.join(utils.get_path_to_predicators_root(),
                                  CFG.data_dir)
@@ -304,13 +304,14 @@ def _parse_structured_state_into_ground_atoms(
         assert goal_predicate.name == "DummyGoal"
         use_dummy_goal = True
 
-    # We also assume that there is precisely one "object" type that is
+    # We also check whether there is precisely one "object" type that is
     # a superset of all other object types.
     obj_type = None
     for t in env.types:
         obj_type = t.oldest_ancestor
-        assert obj_type.name == "object"
-    assert obj_type is not None
+        if obj_type.name != "object":
+            obj_type = None
+            break
 
     def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
         return pred_name + "(" + ", ".join(
@@ -371,6 +372,7 @@ def _parse_structured_state_into_ground_atoms(
                                 assert num_args == len(obj_args)
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
+                        assert obj_type is not None, "VLM atom parsing failure; please add an 'object' type to your environment that is a supertype of all other types."
                         pred_name_to_pred[
                             pred_name] = utils.create_vlm_predicate(
                                 pred_name, [obj_type for _ in range(num_args)],
@@ -672,20 +674,15 @@ def create_ground_atom_data_from_generated_demos(
         # We segment using option changes, which implicitly assumes that
         # each action in the trajectory is linked to an option that isn't
         # None.
-        traj_states_idx = 0
         segments = _segment_with_option_changes(traj, set(), None)
         curr_traj_states_for_vlm: List[State] = []
         curr_traj_actions_for_vlm: List[Action] = []
         for segment in segments:
             curr_traj_states_for_vlm.append(segment.states[0])
-            traj_states_idx += len(segment.states) - 1
             curr_traj_actions_for_vlm.append(segment.actions[0])
-        # Segmentation returns segments for everything except the last option!
-        # So we manually add the final two states (initial state and terminal
+        # We manually add the final two states (initial state and terminal
         # state of the final option).
-        curr_traj_states_for_vlm.append(traj.states[traj_states_idx + 1])
         curr_traj_states_for_vlm.append(traj.states[-1])
-        curr_traj_actions_for_vlm.append(traj.actions[-1])
         # Pull out the images within the states we've saved for the trajectory.
         # We assume that images are saved in the state's simulator_state
         # field.
@@ -694,7 +691,7 @@ def create_ground_atom_data_from_generated_demos(
             assert isinstance(state.simulator_state, List)
             assert len(state.simulator_state) > 0
             state_imgs.append([
-                PIL.Image.fromarray(img_arr)
+                PIL.Image.fromarray(img_arr)  # type: ignore
                 for img_arr in state.simulator_state
             ])
         img_option_trajs.append(
@@ -704,7 +701,7 @@ def create_ground_atom_data_from_generated_demos(
                 traj.train_task_idx))
         option_segmented_trajs.append(
             LowLevelTrajectory(curr_traj_states_for_vlm, [
-                Action(np.zeros(act.arr.shape), act.get_option())
+                Action(np.zeros(act.arr.shape, dtype=float), act.get_option())
                 for act in curr_traj_actions_for_vlm
             ], True, traj.train_task_idx))
         all_task_objs |= set(traj.states[0])
@@ -713,7 +710,7 @@ def create_ground_atom_data_from_generated_demos(
         assert train_tasks[traj.train_task_idx].goal_holds(traj.states[-1])
     # Save the trajectories in a folder so they can be loaded and re-labelled
     # later.
-    _save_img_option_trajs_in_folder(env, img_option_trajs)
+    _save_img_option_trajs_in_folder(img_option_trajs)
     # Now, given these trajectories, we can query the VLM.
     if vlm is None:
         vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.

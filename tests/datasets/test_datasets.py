@@ -3,11 +3,13 @@ import os
 import shutil
 from contextlib import nullcontext as does_not_raise
 
+import numpy as np
 import pytest
 
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.datasets.generate_atom_trajs_with_vlm import \
+    create_ground_atom_data_from_generated_demos, \
     create_ground_atom_data_from_saved_img_trajs
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
@@ -38,13 +40,15 @@ class _DummyVLM(VisionLanguageModel):
             # If the query is asking for atom proposals.
             if "Please provide predicates" in prompt:
                 completion = "*Holding(spoon)\n*Fizz(buzz)\n" + \
-                    "Submerged(teabag)\nSubmerged(spoon)"
+                    "*Submerged(teabag)\n*Submerged(spoon)\n*IsRobot(robby)"
             # Else, if the query is asking for particular values.
             elif "values of the following predicates" in prompt:
                 # Completion for default predicates.
                 if "Submerged" in prompt:
                     completion = "*Holding(spoon): True.\n" + \
                         "*Submerged(teabag): False.\n*Submerged(spoon): False."
+                elif "IsRobot" in prompt:
+                    completion = "*IsRobot(robby): True\n"
                 # Completion for debug predicates
                 else:
                     completion = ("hand_grasping_spoon(hand, spoon): True.\n"
@@ -615,3 +619,27 @@ def test_loading_txt_files():
     loaded_dataset = create_dataset(env, train_tasks,
                                     get_gt_options(env.get_name()))
     assert len(loaded_dataset.trajectories) == 1
+
+
+def test_create_ground_atom_data_from_generated_demos():
+    """Tests for the create_ground_atom_data_from_generated_demos method."""
+    utils.reset_config({
+        "env": "cover",
+        "approach": "oracle",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": 1,
+        "included_options": "PickPlace"
+    })
+    env = CoverEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    options = parse_config_included_options(env)
+    dataset = create_dataset(env, train_tasks, options)
+    assert len(dataset.trajectories) == 1
+    for state in dataset.trajectories[0].states:
+        state.simulator_state = [np.zeros((32, 32), dtype=np.uint8)]
+    vlm = _DummyVLM()
+    vlm_dataset = create_ground_atom_data_from_generated_demos(
+        dataset, env, train_tasks, vlm)
+    assert len(vlm_dataset.annotations) == 1

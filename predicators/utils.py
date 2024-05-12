@@ -2242,7 +2242,7 @@ def query_vlm_for_atom_vals(
     vlm_atoms = sorted(vlm_atoms)
     atom_queries_str = "\n* "
     atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
-                                  for atom in vlm_atoms)
+                                    for atom in vlm_atoms)
     filepath_to_vlm_prompt = get_path_to_predicators_root() + \
         "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
         "per_scene_naive.txt"

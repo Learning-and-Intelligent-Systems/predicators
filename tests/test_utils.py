@@ -41,7 +41,7 @@ class _DummyVLM(VisionLanguageModel):
         del prompt, imgs, temperature, seed, stop_token  # unused.
         completions = []
         for _ in range(num_completions):
-            completion = "is_fishy: True."
+            completion = "* is_fishy: True."
             completions.append(completion)
         return completions
 
