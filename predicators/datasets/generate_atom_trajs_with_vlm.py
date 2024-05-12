@@ -372,7 +372,11 @@ def _parse_structured_state_into_ground_atoms(
                                 assert num_args == len(obj_args)
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
-                        assert obj_type is not None, "VLM atom parsing failure; please add an 'object' type to your environment that is a supertype of all other types."
+                        assert obj_type is not None, (
+                            "VLM atom parsing "
+                            "failure; please add an 'object' type to your "
+                            "environment that is a supertype of all other "
+                            "types.")
                         pred_name_to_pred[
                             pred_name] = utils.create_vlm_predicate(
                                 pred_name, [obj_type for _ in range(num_args)],
