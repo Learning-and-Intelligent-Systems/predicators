@@ -152,7 +152,7 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
             np.array([0.5, PyBulletPackingEnv.values_range[1], PyBulletPackingEnv.values_range[1]])
         )
         grab_option, put_option = (
-            cls._create_movement_options if CFG.option_model_terminate_on_repeat else cls._create_movement_options
+            cls._create_movement_options #if CFG.option_model_terminate_on_repeat else cls._create_movement_options
         )(
             pybullet_robot, robot_type, option_types, params_space, option_helper
         )
@@ -195,9 +195,14 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
             params: Array
         ) -> bool:
             assert isinstance(state, PyBulletPackingState)
-            _, target_pose, _ = option_helper.grab_block_guide(state, objects, params)
-            memory["motion_plan"] = PyBulletPackingEnv.run_motion_planning(state, target_pose)
             memory["finger_nudge"] = cls.finger_action_nudge_magnitude
+            _, target_pose, _ = option_helper.grab_block_guide(state, objects, params)
+            try:
+                target_joint_positions = pybullet_robot.inverse_kinematics(target_pose, True)
+            except InverseKinematicsError:
+                memory["motion_plan"] = None
+            else:
+                memory["motion_plan"] = PyBulletPackingEnv.run_motion_planning(state, target_joint_positions)
             return True
 
         def put_initiable(
@@ -206,9 +211,14 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
             params: Array
         ) -> bool:
             assert isinstance(state, PyBulletPackingState)
-            _, target_pose, _ = option_helper.put_block_guide(state, objects, params)
-            memory["motion_plan"] = PyBulletPackingEnv.run_motion_planning(state, target_pose)
             memory["finger_nudge"] = -cls.finger_action_nudge_magnitude
+            _, target_pose, _ = option_helper.put_block_guide(state, objects, params)
+            try:
+                target_joint_positions = pybullet_robot.inverse_kinematics(target_pose, True)
+            except InverseKinematicsError:
+                memory["motion_plan"] = None
+            else:
+                memory["motion_plan"] = PyBulletPackingEnv.run_motion_planning(state, target_joint_positions)
             return True
 
         def motion_plan_policy(

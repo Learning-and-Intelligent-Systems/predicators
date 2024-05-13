@@ -446,14 +446,10 @@ class PyBulletPackingEnv(PyBulletEnv):
         return next_state
 
     @classmethod
-    def run_motion_planning(cls, state: State, target_pose: Pose) -> Optional[Sequence[JointPositions]]:
+    def run_motion_planning(cls, state: State, target_joint_positions: JointPositions) -> Optional[Sequence[JointPositions]]:
         assert isinstance(state, PyBulletPackingState)
         physics_client_id, robot, bodies = cls.initialize_pybullet(False)
 
-        try:
-            target_joint_positions = robot.inverse_kinematics(target_pose, True)
-        except InverseKinematicsError:
-            return None
         target_joint_positions[robot.left_finger_joint_idx] = state.joint_positions[robot.left_finger_joint_idx]
         target_joint_positions[robot.right_finger_joint_idx] = state.joint_positions[robot.right_finger_joint_idx]
 
