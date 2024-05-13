@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 from copy import deepcopy
+import hashlib
 import itertools
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
@@ -37,7 +38,7 @@ class Type:
         return Object(name, self)
 
     def __hash__(self) -> int:
-        return hash((self.name, tuple(self.feature_names)))
+        return hashlib.sha1((self.name, tuple(self.feature_names)))
 
 
 @dataclass(frozen=True, order=True, repr=False)
@@ -56,7 +57,7 @@ class _TypedEntity:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __str__(self) -> str:
         return self._str
@@ -235,7 +236,7 @@ class Predicate:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __hash__(self) -> int:
         return self._hash
@@ -325,7 +326,7 @@ class _Atom:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __str__(self) -> str:
         return self._str
@@ -493,7 +494,7 @@ class ParameterizedOption:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, ParameterizedOption)
@@ -624,7 +625,7 @@ class STRIPSOperator:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __str__(self) -> str:
         return self._str
@@ -752,7 +753,7 @@ class _GroundSTRIPSOperator:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     @property
     def name(self) -> str:
@@ -820,7 +821,7 @@ class NSRT:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     @property
     def op(self) -> STRIPSOperator:
@@ -940,7 +941,7 @@ class _GroundNSRT:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     @property
     def name(self) -> str:
@@ -1506,7 +1507,7 @@ class LDLRule:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __str__(self) -> str:
         return self._str
@@ -1555,7 +1556,7 @@ class _GroundLDLRule:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     @property
     def name(self) -> str:
@@ -1595,7 +1596,7 @@ class LiftedDecisionList:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(tuple(self.rules))
+        return hashlib.sha1(tuple(self.rules))
 
     def __hash__(self) -> int:
         return self._hash
@@ -1662,7 +1663,7 @@ class Macro:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __str__(self) -> str:
         return self._str
@@ -1761,7 +1762,7 @@ class GroundMacro:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        return hashlib.sha1(str(self))
 
     def __str__(self) -> str:
         return self._str
