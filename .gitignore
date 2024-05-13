@@ -2,7 +2,9 @@ __pycache__
 *.pyc
 .DS_Store
 *.egg-info
-*.pkl
+# *.pkl
+*.pdf
+*.log
 *~
 *.python-version
 *.csv
@@ -28,3 +30,7 @@ sas_plan
 
 # Jetbrains IDEs
 .idea/
+
+
+*.data
+*.pt
