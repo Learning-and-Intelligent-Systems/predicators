@@ -446,9 +446,9 @@ class PyBulletPackingEnv(PyBulletEnv):
         return next_state
 
     @classmethod
-    def run_motion_planning(cls, state: State, target_joint_positions: JointPositions) -> Optional[Sequence[JointPositions]]:
+    def run_motion_planning(cls, state: State, target_joint_positions: JointPositions, use_gui: bool=False) -> Optional[Sequence[JointPositions]]:
         assert isinstance(state, PyBulletPackingState)
-        physics_client_id, robot, bodies = cls.initialize_pybullet(False)
+        physics_client_id, robot, bodies = cls.initialize_pybullet(use_gui)
 
         target_joint_positions[robot.left_finger_joint_idx] = state.joint_positions[robot.left_finger_joint_idx]
         target_joint_positions[robot.right_finger_joint_idx] = state.joint_positions[robot.right_finger_joint_idx]
