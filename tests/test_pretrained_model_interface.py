@@ -127,13 +127,21 @@ def test_openai_llm():
     if "OPENAI_API_KEY" not in os.environ:  # pragma: no cover
         os.environ["OPENAI_API_KEY"] = "dummy API key"
     # Create an OpenAILLM with the curie model.
-    llm = OpenAILLM("text-curie-001")
-    assert llm.get_id() == "openai-text-curie-001"
+    llm = OpenAILLM("gpt-4o")
+    assert llm.get_id() == "openai-gpt-4o"
     # Uncomment this to test manually, but do NOT uncomment in master, because
     # each query costs money.
-    # completions = llm.sample_completions("Hi", 0.5, 123, num_completions=2)
+    # completions = llm.sample_completions("Hi",
+    #                                      None,
+    #                                      0.5,
+    #                                      123,
+    #                                      num_completions=2)
     # assert len(completions) == 2
-    # completions2 = llm.sample_completions("Hi", 0.5, 123, num_completions=2)
+    # completions2 = llm.sample_completions("Hi",
+    #                                       None,
+    #                                       0.5,
+    #                                       123,
+    #                                       num_completions=2)
     # assert completions == completions2
     # shutil.rmtree(cache_dir)
 
