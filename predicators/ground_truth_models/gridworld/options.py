@@ -50,6 +50,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _Pick_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             robot, item = objects
+            print("Pick terminal: ", Holding.holds(state, [robot, item]))
             return Holding.holds(state, [robot, item])
 
         Pick = ParameterizedOption(
@@ -61,7 +62,22 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_Pick_terminal
         )
 
-        return {Pick}
+        # Place
+        def _Place_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            del memory, params  # unused
+            robot, item, station = objects
+            return HandEmpty.holds(state, [robot]) and On.holds(state, [item, station])
+
+        Place = ParameterizedOption(
+            "Place",
+            types = [robot_type, item_type, station_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_place_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Place_terminal
+        )
+
+        return {Pick, Place}
 
     @classmethod
     def _create_pick_policy(cls) -> ParameterizedPolicy:
@@ -90,6 +106,43 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                         action = Action(np.array([0, 0, 3, 0, 0], dtype=np.float32))
             else:
                 # Move until we are adjacent
+                empty_cells = GridWorldEnv.get_empty_cells(state)
+                
+                dx = np.clip(ix - rx, -1, 1)
+                dy = np.clip(iy - ry, -1, 1)
+                action = Action(np.array([dx, dy, -1, 0, 0], dtype=np.float32))
+
+            return action
+
+        return policy
+
+    @classmethod
+    def _create_place_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+               params: Array) -> Action:
+            robot, item, station = objects
+            rx, ry = GridWorldEnv.get_position(robot, state)
+            ix, iy = GridWorldEnv.get_position(item, state)
+            sx, sy = GridWorldEnv.get_position(station, state)
+            import pdb; pdb.set_trace()
+
+            if Holding.holds(state, [robot, item]) and GridWorldEnv.Facing_holds(state, [robot, station]):
+                action = Action(np.array([0, 0, -1, 0, 1], dtype=np.float32))
+
+            elif GridWorldEnv.Adjacent_holds(state, [robot, item]):
+                if rx == ix:
+                    if ry > iy:
+                        action = Action(np.array([0, 0, 2, 0, 0], dtype=np.float32))
+                    elif ry < iy:
+                        action = Action(np.array([0, 0, 0, 0, 0], dtype=np.float32))
+                elif ry == iy:
+                    if rx > ix:
+                        action = Action(np.array([0, 0, 1, 0, 0], dtype=np.float32))
+                    elif rx < ix:
+                        action = Action(np.array([0, 0, 3, 0, 0], dtype=np.float32))
+            else:
+                # Move until we are adjacent assuming no obstacles exist
                 dx = np.clip(ix - rx, -1, 1)
                 dy = np.clip(iy - ry, -1, 1)
                 action = Action(np.array([dx, dy, -1, 0, 0], dtype=np.float32))

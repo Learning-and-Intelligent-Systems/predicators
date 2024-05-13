@@ -72,7 +72,7 @@ class GridWorldEnv(BaseEnv):
 
         # Predicates
         # self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
-        self._Adjacent = Predicate("Adjacent", [self._robot_type, self._item_type], self.Adjacent_holds)
+        self._Adjacent = Predicate("Adjacent", [self._robot_type, self._object_type], self.Adjacent_holds)
         self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self.Facing_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
@@ -120,17 +120,17 @@ class GridWorldEnv(BaseEnv):
         state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
         state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
 
-        # # Add cells
-        # counter = 0
-        # for i in range(self.num_rows):
-        #     for j in range(self.num_cols):
-        #         # get the next cell
-        #         cell = self._cells[counter]
-        #         state_dict[cell] = {
-        #             "row": i,
-        #             "col": j
-        #         }
-        #         counter += 1
+        # Add cells
+        counter = 0
+        for i in range(self.num_rows):
+            for j in range(self.num_cols):
+                # get the next cell
+                cell = self._cells[counter]
+                state_dict[cell] = {
+                    "row": i,
+                    "col": j
+                }
+                counter += 1
 
         # Add patty
         patty = Object("patty", self._patty_type)
@@ -173,7 +173,8 @@ class GridWorldEnv(BaseEnv):
             # GroundAtom(self._IsCooked, [patty]),
             # GroundAtom(self._IsSliced, [tomato])
 
-            GroundAtom(self._Holding, [self._robot, tomato])
+            # GroundAtom(self._Holding, [self._robot, tomato])
+            GroundAtom(self._On, [patty, self._grill])
         }
 
         for i in range(num):
@@ -206,20 +207,16 @@ class GridWorldEnv(BaseEnv):
 
     @classmethod
     def Adjacent_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        robot, item = objects
+        robot, obj = objects
         robot_col, robot_row = cls.get_position(robot, state)
-        item_col, item_row = cls.get_position(item, state)
-        return cls.is_adjacent(item_col, item_row, robot_col, robot_row)
+        obj_col, obj_row = cls.get_position(obj, state)
+        return cls.is_adjacent(obj_col, obj_row, robot_col, robot_row)
 
     @classmethod
     def Facing_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects
         robot_col, robot_row = cls.get_position(robot, state)
-        # robot_dir = self._hidden_state[self._robot]["dir"]
-        try:
-            robot_dir = state.get(robot, "dir")
-        except:
-            import pdb; pdb.set_trace()
+        robot_dir = state.get(robot, "dir")
         obj_col, obj_row = cls.get_position(obj, state)
         facing_left = robot_row == obj_row and robot_col - obj_col == 1 and robot_dir == 1
         facing_right = robot_row == obj_row and robot_col - obj_col == -1 and robot_dir == 3
@@ -283,7 +280,7 @@ class GridWorldEnv(BaseEnv):
     @property
     def goal_predicates(self) -> Set[Predicate]:
         # return {self._IsCooked, self._IsSliced, self._On, self._GoalHack}
-        return {self._Holding}
+        return {self._On}
 
     @property
     def action_space(self) -> Box:
@@ -316,7 +313,27 @@ class GridWorldEnv(BaseEnv):
             return (row - 1, col)
         return (row, col)
 
+    @classmethod
+    def get_empty_cells(cls, state: State) -> Set[Tuple[int, int]]:
+        max_x, max_y = -1, -1
+        cells = []
+        for obj in state:
+            if obj.is_instance(cls._cell_type):
+                x, y = cls.get_position(obj, state)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+                cells.append((x, y))
+
+        for obj in state:
+            if not obj.is_instance(cls._cell_type) and not obj.is_instance(cls._robot_type):
+                x, y = cls.get_position(obj, state)
+                cells.remove((x, y))
+
+        return set(cells)
+
+
     def simulate(self, state: State, action: Action) -> State:
+
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dcol, drow, turn, interact, pickplace = action.arr
@@ -411,6 +428,11 @@ class GridWorldEnv(BaseEnv):
                 else:
                     new_z = 0
                 next_state.set(held_item, "z", new_z)
+
+        print("state: ", state)
+        print("action: ", action)
+        print("next state: ", next_state)
+        print()
 
         return next_state
 
