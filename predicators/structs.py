@@ -38,7 +38,7 @@ class Type:
         return Object(name, self)
 
     def __hash__(self) -> int:
-        return hashlib.sha1(str((self.name, tuple(self.feature_names))).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str((self.name, tuple(self.feature_names))).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
 
 @dataclass(frozen=True, order=True, repr=False)
@@ -57,7 +57,7 @@ class _TypedEntity:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __str__(self) -> str:
         return self._str
@@ -236,7 +236,7 @@ class Predicate:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __hash__(self) -> int:
         return self._hash
@@ -326,7 +326,7 @@ class _Atom:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __str__(self) -> str:
         return self._str
@@ -494,7 +494,7 @@ class ParameterizedOption:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, ParameterizedOption)
@@ -625,7 +625,7 @@ class STRIPSOperator:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __str__(self) -> str:
         return self._str
@@ -753,7 +753,7 @@ class _GroundSTRIPSOperator:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     @property
     def name(self) -> str:
@@ -821,7 +821,7 @@ class NSRT:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     @property
     def op(self) -> STRIPSOperator:
@@ -941,7 +941,7 @@ class _GroundNSRT:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     @property
     def name(self) -> str:
@@ -1507,7 +1507,7 @@ class LDLRule:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __str__(self) -> str:
         return self._str
@@ -1556,7 +1556,7 @@ class _GroundLDLRule:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     @property
     def name(self) -> str:
@@ -1663,7 +1663,7 @@ class Macro:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __str__(self) -> str:
         return self._str
@@ -1762,7 +1762,7 @@ class GroundMacro:
 
     @cached_property
     def _hash(self) -> int:
-        return hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False)
+        return int(hashlib.sha1(str(self).encode('utf-8'), usedforsecurity=False).hexdigest(), 16)
 
     def __str__(self) -> str:
         return self._str
