@@ -247,7 +247,7 @@ def _create_sampler_data(
             goal = segment.get_goal()
         else:
             goal = None
-        # We except VLMPredicates from this below check because its too
+        # We omit VLMPredicates from this below check because it's too
         # expensive to have to evaluate these as well.
         assert all(
             pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
