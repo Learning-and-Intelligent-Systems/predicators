@@ -158,28 +158,26 @@ def test_openai_vlm():
     # Create an OpenAILLM with the curie model.
     vlm = OpenAIVLM("gpt-4-turbo")
     assert vlm.get_id() == "OpenAI-gpt-4-turbo"
-
-
-def test_openai_vlm_image_example():
-    # Make sure the OPENAI_API_KEY is set
-    model_name = "gpt-4-turbo"
-    vlm = OpenAIVLM(model_name)
-
-    prompt = """
-        Describe the object relationships between the objects and containers.
-        You can use following predicate-style descriptions:
-        Inside(object1, container)
-        Blocking(object1, object2)
-        On(object, surface)
-        """
-
-    # NOTE: Uncomment for actual test
-    # images = [Image.open("../tests/datasets/test_vlm_predicate_img.jpg")]
-    # print("Start requesting...")
+    dummy_img = Image.new('RGB', (100, 100))
+    vision_messages = vlm.prepare_vision_messages([dummy_img], "wakanda",
+                                                  "forever")
+    assert len(vision_messages) == 1
+    assert vision_messages[0]['content'][1]['type'] == 'image_url'
+    # NOTE: Uncomment below lines for actual test.
+    # images = [Image.open("tests/datasets/test_vlm_predicate_img.jpg")]
+    # prompt = """
+    #     Describe the object relationships between the objects and containers.
+    #     You can use following predicate-style descriptions:
+    #     Inside(object1, container)
+    #     Blocking(object1, object2)
+    #     On(object, surface)
+    #     """
     # completions = vlm.sample_completions(prompt=prompt,
     #                                      imgs=images,
     #                                      temperature=0.5,
     #                                      num_completions=3,
     #                                      seed=0)
-    # for i, completion in enumerate(completions):
-    #     print(f"Completion {i + 1}: \n{completion}\n")
+    # assert len(completions) == 3
+    # for completion in completions:
+    #     assert "Inside" in completion
+    # shutil.rmtree(cache_dir)

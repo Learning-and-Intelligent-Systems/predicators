@@ -8,11 +8,9 @@ import abc
 import base64
 import logging
 import os
-import time
 from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Collection, Dict, List, Optional, Union
 
-import google
 import google.generativeai as genai
 import imagehash
 import openai
@@ -162,23 +160,56 @@ class LargeLanguageModel(PretrainedLargeModel):
                                           stop_token, num_completions)
 
 
-class OpenAILLM(LargeLanguageModel):
-    """Interface to openAI LLMs (GPT-3).
+class OpenAIModel():
+    """Common interface with methods for all OpenAI-based models."""
+
+    def set_openai_key(self, key: Optional[str] = None) -> None:
+        """Set the OpenAI API key."""
+        if key is None:
+            assert "OPENAI_API_KEY" in os.environ
+            key = os.environ["OPENAI_API_KEY"]
+
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(10))
+    def call_openai_api(self,
+                        messages: list,
+                        model: str = "gpt-4",
+                        seed: Optional[int] = None,
+                        max_tokens: int = 32,
+                        temperature: float = 0.2,
+                        verbose: bool = False) -> str:  # pragma: no cover
+        """Make an API call to OpenAI."""
+        client = openai.OpenAI()
+        completion = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            seed=seed,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        if verbose:
+            logging.debug(f"OpenAI API response: {completion}")
+        assert len(completion.choices) == 1
+        assert completion.choices[0].message.content is not None
+        return completion.choices[0].message.content
+
+
+class OpenAILLM(LargeLanguageModel, OpenAIModel):
+    """Interface to openAI LLMs.
 
     Assumes that an environment variable OPENAI_API_KEY is set to a
     private API key for beta.openai.com.
     """
 
     def __init__(self, model_name: str) -> None:
-        """See https://beta.openai.com/docs/models/gpt-3 for the list of
+        """See https://platform.openai.com/docs/models for the list of
         available model names."""
         self._model_name = model_name
         # Note that max_tokens is the maximum response length (not prompt).
         # From OpenAI docs: "The token count of your prompt plus max_tokens
         # cannot exceed the model's context length."
         self._max_tokens = CFG.llm_openai_max_response_tokens
-        assert "OPENAI_API_KEY" in os.environ
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        self.set_openai_key()
 
     def get_id(self) -> str:
         return f"openai-{self._model_name}"
@@ -191,19 +222,15 @@ class OpenAILLM(LargeLanguageModel):
             seed: int,
             stop_token: Optional[str] = None,
             num_completions: int = 1) -> List[str]:  # pragma: no cover
-        del imgs, seed  # unused
-        response = openai.Completion.create(
-            model=self._model_name,  # type: ignore
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=self._max_tokens,
-            stop=stop_token,
-            n=num_completions)
-        assert len(response["choices"]) == num_completions
-        text_responses = [
-            response["choices"][i]["text"] for i in range(num_completions)
+        del imgs, seed, stop_token  # unused
+        messages = [{"text": prompt, "type": "text"}]
+        responses = [
+            self.call_openai_api(messages,
+                                 model=self._model_name,
+                                 temperature=temperature)
+            for _ in range(num_completions)
         ]
-        return text_responses
+        return responses
 
 
 class GoogleGeminiVLM(VisionLanguageModel):
@@ -224,6 +251,8 @@ class GoogleGeminiVLM(VisionLanguageModel):
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
 
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(10))
     def _sample_completions(
             self,
             prompt: str,
@@ -237,51 +266,39 @@ class GoogleGeminiVLM(VisionLanguageModel):
         generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
             candidate_count=num_completions,
             temperature=temperature)
-        response = None
-        while response is None:
-            try:
-                response = self._model.generate_content(
-                    [prompt] + imgs,
-                    generation_config=generation_config)  # type: ignore
-                break
-            except google.api_core.exceptions.ResourceExhausted:
-                # In this case, we've hit a rate limit. Simply wait 3s and
-                # try again.
-                logging.debug(
-                    "Hit rate limit for Gemini queries; trying again in 3s!")
-                time.sleep(3.0)
+        response = self._model.generate_content(
+            [prompt] + imgs,
+            generation_config=generation_config)  # type: ignore
         response.resolve()
         return [response.text]
 
 
-class OpenAIVLM(VisionLanguageModel):
+class OpenAIVLM(VisionLanguageModel, OpenAIModel):
     """Interface for OpenAI's VLMs, including GPT-4 Turbo (and preview
     versions)."""
 
     def __init__(self, model_name: str):
         """Initialize with a specific model name."""
         self.model_name = model_name
+        # Note that max_tokens is the maximum response length (not prompt).
+        # From OpenAI docs: "The token count of your prompt plus max_tokens
+        # cannot exceed the model's context length."
+        self._max_tokens = CFG.llm_openai_max_response_tokens
         self.set_openai_key()
 
-    def set_openai_key(self, key: Optional[str] = None) -> None:
-        """Set the OpenAI API key."""
-        if key is None:
-            assert "OPENAI_API_KEY" in os.environ
-            key = os.environ["OPENAI_API_KEY"]
-        openai.api_key = key
-
-    def prepare_vision_messages(self,
-                                images: List[PIL.Image.Image],
-                                prefix: Optional[str] = None,
-                                suffix: Optional[str] = None,
-                                image_size: Optional[int] = 512,
-                                detail: str = "auto") -> List[Dict[str, str]]:
+    def prepare_vision_messages(
+        self,
+        images: List[PIL.Image.Image],
+        prefix: Optional[str] = None,
+        suffix: Optional[str] = None,
+        image_size: Optional[int] = 512,
+        detail: str = "auto"
+    ) -> List[Dict[str, Union[str, List[Dict[str, str]], List[Dict[
+            str, Collection[str]]]]]]:
         """Prepare text and image messages for the OpenAI API."""
-        content = []
-
+        content: List[Dict[str, Union[str, Collection[str]]]] = []
         if prefix:
             content.append({"text": prefix, "type": "text"})
-
         assert images
         assert detail in ["auto", "low", "high"]
         for img in images:
@@ -290,48 +307,22 @@ class OpenAIVLM(VisionLanguageModel):
                 factor = image_size / max(img.size)
                 img_resized = img.resize(
                     (int(img.size[0] * factor), int(img.size[1] * factor)))
-
             # Convert the image to PNG format and encode it in base64
             buffer = BytesIO()
             img_resized.save(buffer, format="PNG")
-            buffer = buffer.getvalue()
-            frame = base64.b64encode(buffer).decode("utf-8")
-
-            content.append({
+            buf = buffer.getvalue()
+            frame = base64.b64encode(buf).decode("utf-8")
+            content_str = {
                 "image_url": {
                     "url": f"data:image/png;base64,{frame}",
                     "detail": "auto"
                 },
                 "type": "image_url"
-            })
-
+            }
+            content.append(content_str)
         if suffix:
             content.append({"text": suffix, "type": "text"})
-
         return [{"role": "user", "content": content}]
-
-    @retry(wait=wait_random_exponential(min=1, max=60),
-           stop=stop_after_attempt(6))
-    def call_openai_api(self,
-                        messages: list,
-                        model: str = "gpt-4",
-                        seed: Optional[int] = None,
-                        max_tokens: int = 32,
-                        temperature: float = 0.2,
-                        verbose: bool = False) -> str:
-        """Make an API call to OpenAI."""
-        client = openai.OpenAI()
-        completion = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            seed=seed,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-        if verbose:
-            print(f"OpenAI API response: {completion}")
-        assert len(completion.choices) == 1
-        return completion.choices[0].message.content
 
     def get_id(self) -> str:
         """Get an identifier for the model."""
@@ -345,9 +336,9 @@ class OpenAIVLM(VisionLanguageModel):
         seed: int,
         stop_token: Optional[str] = None,
         num_completions: int = 1,
-        max_tokens=512,
-    ) -> List[str]:
+    ) -> List[str]:  # pragma: no cover
         """Query the model and get responses."""
+        del seed, stop_token  # unused.
         if imgs is None:
             raise ValueError("images cannot be None")
         messages = self.prepare_vision_messages(prefix=prompt,
@@ -356,7 +347,7 @@ class OpenAIVLM(VisionLanguageModel):
         responses = [
             self.call_openai_api(messages,
                                  model=self.model_name,
-                                 max_tokens=max_tokens,
+                                 max_tokens=self._max_tokens,
                                  temperature=temperature)
             for _ in range(num_completions)
         ]
