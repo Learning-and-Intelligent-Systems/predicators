@@ -551,6 +551,7 @@ def run_low_level_search(
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
+        logging.info(num_tries)
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
@@ -587,12 +588,15 @@ def run_low_level_search(
                             static_obj_changed = True
                             break
                 if static_obj_changed:
+                    logging.info("PLANNING: STATIC OBJECT CHANGED")
                     can_continue_on = False
                 # Check if we have exceeded the horizon.
                 elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                    logging.info("MAX HORIZON EXCEEDED")
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:
+                    logging.info("NO ACTIONS")
                     can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.
@@ -613,6 +617,7 @@ def run_low_level_search(
                         if cur_idx == len(skeleton):
                             plan_found = True
                     else:
+                        logging.info("EXPECTED ATOMS DON'T MATCH")
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -622,9 +627,11 @@ def run_low_level_search(
                         if task.goal_holds(traj[cur_idx]):
                             plan_found = True
                         else:
+                            logging.info("GOAL DOESN'T MATCH")
                             can_continue_on = False
         else:
             # The option is not initiable.
+            logging.info("OPTION NOT INITIABLE")
             can_continue_on = False
         if refinement_time is not None:
             try_end_time = time.perf_counter()

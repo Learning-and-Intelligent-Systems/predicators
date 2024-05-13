@@ -318,6 +318,13 @@ class SearchPruningApproach(NSRTLearningApproach):
         # Setting up the logger properly
         logging.getLogger().setLevel(logging.DEBUG)
 
+        # Loading the model early
+        if CFG.feasibility_learning_strategy == "load_model":
+            assert CFG.feasibility_load_path
+            self._feasibility_classifier = torch.load(
+                CFG.feasibility_load_path)
+            self._feasibility_classifier._optimizer = None
+
         # Generate the base NSRTs
         super().learn_from_offline_dataset(dataset)
 
@@ -339,19 +346,14 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         # Running data collection and training
         seed = self._seed + 100000
-        if CFG.feasibility_learning_strategy == "load_model":
-            assert CFG.feasibility_load_path
-            self._feasibility_classifier = torch.load(
-                CFG.feasibility_load_path)
-            self._feasibility_classifier._optimizer = None
-        elif CFG.feasibility_learning_strategy == "load_data":
+        if CFG.feasibility_learning_strategy == "load_data":
             self._load_data(
                 CFG.feasibility_load_path if CFG.feasibility_load_path else dataset_path, self._nsrts)
             snapshot_dir = os.path.join(
                 CFG.feasibility_debug_directory, 'loaded-data-training-snapshots')
             os.makedirs(snapshot_dir, exist_ok=True)
             self._learn_neural_feasibility_classifier(1, snapshot_dir)
-        else:
+        elif CFG.feasibility_learning_strategy == "backtracking":
             self._collect_data_interleaved_backtracking(seed)
             self._save_data(dataset_path)
 

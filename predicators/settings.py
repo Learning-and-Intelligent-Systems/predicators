@@ -137,10 +137,10 @@ class GlobalSettings:
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
     pybullet_robot = "fetch"
-    pybullet_birrt_num_attempts = 10
-    pybullet_birrt_num_iters = 100
-    pybullet_birrt_smooth_amt = 50
-    pybullet_birrt_extend_num_interp = 10
+    pybullet_birrt_num_attempts = 40
+    pybullet_birrt_num_iters = 1000
+    pybullet_birrt_smooth_amt = 100
+    pybullet_birrt_extend_num_interp = 100
     pybullet_control_mode = "position"
     pybullet_max_vel_norm = 0.05
     # env -> robot -> quaternion
@@ -352,6 +352,7 @@ class GlobalSettings:
     wbox_test_num_containers = 1
 
     # pybullet_packing env parameters
+    pybullet_packing_task_info = ''
     pybullet_packing_test_num_box_cols = 4
 
     # parameters for random options approach

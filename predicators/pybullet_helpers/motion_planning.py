@@ -73,6 +73,8 @@ def run_motion_planning(
         _set_state(pt)
         p.performCollisionDetection(physicsClientId=physics_client_id)
         for body in collision_bodies:
+            if held_object == body:
+                continue
             if p.getContactPoints(robot.robot_id,
                                   body,
                                   physicsClientId=physics_client_id):
@@ -83,14 +85,14 @@ def run_motion_planning(
         return False
 
     def _distance_fn(from_pt: JointPositions, to_pt: JointPositions) -> float:
-        from_ee = robot.forward_kinematics(from_pt)
-        to_ee = robot.forward_kinematics(to_pt)
+        return np.abs(np.subtract(from_pt, to_pt)).sum()
+        # from_ee = robot.forward_kinematics(from_pt)
+        # to_ee = robot.forward_kinematics(to_pt)
 
-        quat_diff = Pose((0, 0, 0), from_ee.orientation).multiply(Pose((0, 0, 0), to_ee.orientation).invert()).orientation
-        angle = p.getAxisAngleFromQuaternion(quat_diff)[1]
+        # quat_diff = Pose((0, 0, 0), from_ee.orientation).multiply(Pose((0, 0, 0), to_ee.orientation).invert()).orientation
+        # angle = p.getAxisAngleFromQuaternion(quat_diff)[1]
 
-
-        return np.sqrt((np.subtract(from_ee.position, to_ee.position)**2).mean()) + min(np.pi * 2 - angle, angle)
+        # return np.sqrt((np.subtract(from_ee.position, to_ee.position)**2).mean()) + (min(np.pi * 2 - angle, angle))/np.pi
 
     birrt = utils.BiRRT(_sample_fn,
                         _extend_fn,

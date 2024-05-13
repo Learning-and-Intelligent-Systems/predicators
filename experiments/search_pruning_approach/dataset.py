@@ -4,7 +4,7 @@ from itertools import cycle, repeat, groupby, chain
 from collections import defaultdict, Counter
 import logging
 import pickle
-from typing import Dict, Iterable, Iterator, List, Sequence, Set, Tuple
+from typing import Dict, Iterable, Iterator, List, Sequence, Set, Tuple, Optional
 
 import numpy as np
 from predicators.structs import NSRT, _GroundNSRT, Object, State
@@ -127,6 +127,7 @@ class FeasibilityDataset:
         self._max_num_objects = max_num_objects
         self._min_samples_per_failing_nsrt = min_samples_per_failing_nsrt
         self._skeleton_nsrts = [(nsrt, ran_flag) for nsrt in nsrts for ran_flag in [True, False]]
+        self._forced_trainable_failing_nsrts: Optional[Set[NSRT]] = None
 
         self._positive_datapoints: List[FeasibilityDataset.Datapoint] = []
         self._negative_datapoints: List[FeasibilityDataset.Datapoint] = []
@@ -164,6 +165,10 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
     @property
     def trainable_failing_nsrts(self) -> Set[NSRT]:
         return self._dataset.trainable_failing_nsrts
+
+    def force_trainable_failing_nsrts(self, trainable_failing_nsrts: Optional[Set[NSRT]] = None) -> None:
+        self._invalidate_cache()
+        self._forced_trainable_failing_nsrts = trainable_failing_nsrts
 
     def __len__(self) -> int:
         return self._dataset.num_datapoints
@@ -347,16 +352,19 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
             negative_datapoints = [datapoint for _, datapoint in zip(positive_datapoints, cycle(negative_datapoints))]
 
         # This bit is to avoid overfitting, especially negative overfitting
-        exists_positive_datapoint: Dict[NSRT, bool] = defaultdict(lambda: False)
-        for datapoint in positive_datapoints:
-            exists_positive_datapoint[datapoint.failing_nsrt] = True
-        num_datapoints_per_failing_nsrt: Dict[NSRT, int] = defaultdict(lambda: 0)
-        for datapoint in positive_datapoints + negative_datapoints:
-            num_datapoints_per_failing_nsrt[datapoint.failing_nsrt] += 1
-        trainable_failing_nsrts = {
-            nsrt for nsrt in exists_positive_datapoint
-            if exists_positive_datapoint[nsrt] and num_datapoints_per_failing_nsrt[nsrt] >= self._min_samples_per_failing_nsrt
-        }
+        if self._forced_trainable_failing_nsrts is None:
+            exists_positive_datapoint: Dict[NSRT, bool] = defaultdict(lambda: False)
+            for datapoint in positive_datapoints:
+                exists_positive_datapoint[datapoint.failing_nsrt] = True
+            num_datapoints_per_failing_nsrt: Dict[NSRT, int] = defaultdict(lambda: 0)
+            for datapoint in positive_datapoints + negative_datapoints:
+                num_datapoints_per_failing_nsrt[datapoint.failing_nsrt] += 1
+            trainable_failing_nsrts = {
+                nsrt for nsrt in exists_positive_datapoint
+                if exists_positive_datapoint[nsrt] and num_datapoints_per_failing_nsrt[nsrt] >= self._min_samples_per_failing_nsrt
+            }
+        else:
+            trainable_failing_nsrts = self._forced_trainable_failing_nsrts
 
         # Filtering the trainable datapoints
         trainable_positive_datapoints = [dp for dp in positive_datapoints if dp.failing_nsrt in trainable_failing_nsrts]
@@ -420,10 +428,8 @@ Trainable Failing NSRTs: {[nsrt.name for nsrt in self._dataset.trainable_failing
 
         pickled_positive_datapoints, pickled_negative_datapoints = pickle.loads(
             data)
-        self._positive_datapoints = list(
-            map(unpickle_datapoint, pickled_positive_datapoints))
-        self._negative_datapoints = list(
-            map(unpickle_datapoint, pickled_negative_datapoints))
+        self._positive_datapoints = list(map(unpickle_datapoint, pickled_positive_datapoints))
+        self._negative_datapoints = list(map(unpickle_datapoint, pickled_negative_datapoints))
 
     @classmethod
     def _unpickle_datapoint(cls, datapoint: PicklableDatapoint, nsrt_map: Dict[str, NSRT], max_num_objects: int) -> Datapoint:

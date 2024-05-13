@@ -7,6 +7,7 @@ option in the environment.
 from __future__ import annotations
 
 import abc
+import logging
 from typing import Callable, Set, Tuple
 
 import numpy as np
@@ -120,7 +121,8 @@ class _OracleOptionModel(_OptionModelBase):
                 state,
                 _terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
-        except utils.OptionExecutionFailure:
+        except utils.OptionExecutionFailure as e:
+            logging.info(e.args)
             # If there is a failure during the execution of the option, treat
             # this as a noop.
             return state, 0

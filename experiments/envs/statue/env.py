@@ -14,7 +14,7 @@ from matplotlib.lines import Line2D
 import matplotlib.patches as patches
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("tkagg")
+# matplotlib.use("tkagg")
 
 from predicators.utils import abstract
 
@@ -36,6 +36,7 @@ class Statue(BaseEnv):
     # Settings
     ## Task generation settings
     range_train_world_size: ClassVar[Tuple[int, int]] = (2, 4)
+    max_world_size = 8
 
     ## World shape settings
     range_small_door_width = (0.4, 0.6)
@@ -342,10 +343,11 @@ class Statue(BaseEnv):
         rng: np.random.Generator,
         range_world_size: Tuple[int, int],
     ) -> EnvironmentTask:
+        assert range_world_size[1] <= self.max_world_size
         world_width = rng.integers(*range_world_size, endpoint=True)
         world_height = rng.integers(*range_world_size, endpoint=True)
-        rooms_x_offset = rng.integers(0, max(self.range_train_world_size[1], CFG.statue_test_world_size) - world_width, endpoint=True)
-        rooms_y_offset = rng.integers(0, max(self.range_train_world_size[1], CFG.statue_test_world_size) - world_height, endpoint=True)
+        rooms_x_offset = rng.integers(0, self.max_world_size - world_width, endpoint=True)
+        rooms_y_offset = rng.integers(0, self.max_world_size - world_height, endpoint=True)
 
         # Generating objects
         rooms = [[Object(f"room_{x}_{y}", self._room_type) for x in range(world_width)] for y in range(world_height)]
@@ -469,8 +471,8 @@ class Statue(BaseEnv):
     @property
     def action_space(self) -> gym.spaces.Box:
         """(x, y, grasp, move, grab_place)"""
-        max_x = max(self.range_train_world_size[1], CFG.statue_test_world_size) * self.room_size - self.equality_margin
-        max_y = max(self.range_train_world_size[1], CFG.statue_test_world_size) * self.room_size - self.equality_margin
+        max_x = self.max_world_size * self.room_size - self.equality_margin
+        max_y = self.max_world_size * self.room_size - self.equality_margin
         lower_bound = np.array([-max_x, -max_y, 0.0, 0.0, -1.0], dtype=np.float32)
         upper_bound = np.array([max_x, max_y, 1.0, 1.0, 1.0], dtype=np.float32)
         return gym.spaces.Box(lower_bound, upper_bound)

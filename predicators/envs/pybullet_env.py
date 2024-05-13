@@ -4,6 +4,7 @@ Contains useful common code.
 """
 
 import abc
+import logging
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import matplotlib
@@ -283,12 +284,14 @@ class PyBulletEnv(BaseEnv):
         if self._held_constraint_id is None and self._fingers_closing(action):
             # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
+            logging.info("FINGERS CLOSING")
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
             self._fingers_opening(action):
+            logging.info("FINGERS OPENING")
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
@@ -307,6 +310,7 @@ class PyBulletEnv(BaseEnv):
         closest_held_obj = None
         closest_held_obj_dist = float("inf")
         for obj_id in self._get_object_ids_for_held_check():
+            total_contact_distance = 0.0
             for finger_id, expected_normal in expected_finger_normals.items():
                 assert abs(np.linalg.norm(expected_normal) - 1.0) < 1e-5
                 # Find points on the object that are within grasp_tol distance
@@ -320,6 +324,7 @@ class PyBulletEnv(BaseEnv):
                     distance=self.grasp_tol,
                     linkIndexA=finger_id,
                     physicsClientId=self._physics_client_id)
+                min_contact_distance = float("inf")
                 for point in closest_points:
                     # If the contact normal is substantially different from
                     # the expected contact normal, this is probably an object
@@ -329,18 +334,20 @@ class PyBulletEnv(BaseEnv):
                     score = expected_normal.dot(contact_normal)
                     assert -1.00001 <= score <= 1.00001
 
-                    # Take absolute as object/gripper could be rotated 180
-                    # degrees in the given axis.
-                    if np.abs(score) < 0.9:
+                    if score < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
                     # by taking the closest one. This should be rare, but it
                     # can happen when two objects are stacked and the robot is
                     # unstacking the top one.
                     contact_distance = point[8]
-                    if contact_distance < closest_held_obj_dist:
-                        closest_held_obj = obj_id
-                        closest_held_obj_dist = contact_distance
+                    min_contact_distance = min(contact_distance, min_contact_distance)
+                total_contact_distance += min_contact_distance
+
+            # This is to handle the case when the robot is accidentally close to another block
+            if total_contact_distance < closest_held_obj_dist:
+                closest_held_obj = obj_id
+                closest_held_obj_dist = total_contact_distance
         return closest_held_obj
 
     def _create_grasp_constraint(self) -> None:

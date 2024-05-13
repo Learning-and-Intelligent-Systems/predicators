@@ -456,6 +456,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         if not training_dataset.trainable_failing_nsrts:
             return
         self._trained_failing_nsrts = training_dataset.trainable_failing_nsrts
+        validation_dataset.force_trainable_failing_nsrts(training_dataset.trainable_failing_nsrts)
 
         # Diagnostics
         logging.info("Training dataset statistics:")
@@ -470,10 +471,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self.rescale_featurizers(validation_dataset)
 
         # Creating loss functions
-        def training_loss_fn(inputs, targets): return sigmoid_focal_loss(
-            inputs, targets, reduction="sum") / len(training_dataset)
-        def validation_loss_fn(inputs, targets): return sigmoid_focal_loss(
-            inputs, targets, reduction="sum") / len(validation_dataset)
+        training_loss_fn = lambda inputs, targets: sigmoid_focal_loss(inputs, targets, reduction="sum") / len(training_dataset)
+        validation_loss_fn = lambda inputs, targets: sigmoid_focal_loss(inputs, targets, reduction="sum") / len(validation_dataset)
 
         # Training loop
         logging.info("Running training")
@@ -483,10 +482,9 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         with (torch.autograd.detect_anomaly(True) if self._check_nans else nullcontext()):
             for itr, (x_train_batch, y_train_batch) in zip(
                 reversed(range(self._num_iters, -1, -1)),
-                itertools.chain.from_iterable(
-                    itertools.repeat(training_dataset))
+                itertools.chain.from_iterable(itertools.repeat(training_dataset))
             ):
-                if itr:  # To make sure we're better than the original network
+                if itr: # To make sure we're better than the original network
                     self.train()
                     self._optimizer.zero_grad()
                     outputs, logits = self(x_train_batch)
@@ -502,14 +500,11 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                 if itr % 100 == 0:
                     for name, param in self.named_parameters():
                         if param.grad is not None:
-                            logging.info(
-                                f"-- PARAM NAME {(name + ' '*70)[:70]} gradient stats: {tensor_stats(param.grad)} value stats: {tensor_stats(param)}")
+                            logging.info(f"-- PARAM NAME {(name + ' '*70)[:70]} gradient stats: {tensor_stats(param.grad)} value stats: {tensor_stats(param)}")
 
                     if itr % self._num_iters == 0:
-                        training_debug_str, _, training_acc, _, _ = self.report_performance(
-                            training_dataset, training_loss_fn)
-                        validation_debug_str, validation_loss, validation_acc, _, _ = self.report_performance(
-                            validation_dataset, validation_loss_fn)
+                        training_debug_str, _, training_acc, _, _ = self.report_performance(training_dataset, training_loss_fn)
+                        validation_debug_str, validation_loss, validation_acc, _, _ = self.report_performance(validation_dataset, validation_loss_fn)
                         logging.info(f"Iteration {itr}/{self._num_iters}")
                         logging.info(
                             f"\tTraining performance: {training_debug_str}")
@@ -532,8 +527,8 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                         torch.save(self, os.path.join(
                             training_snapshot_directory, f"model-{itr}.pt"))
 
-                    # if training_acc >= 0.9999: #validation_acc >= 0.95 and (itr - best_params["iter"]) >= 2000:
-                    #     break
+                    if training_acc >= 0.9999: #validation_acc >= 0.95 and (itr - best_params["iter"]) >= 2000:
+                        break
 
         # Loading the best params
         logging.info(f"Best params from iter {best_params['iter']}")

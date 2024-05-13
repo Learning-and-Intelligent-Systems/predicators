@@ -1,6 +1,7 @@
 """Abstract class for single armed manipulators with PyBullet helper
 functions."""
 import abc
+from copy import copy
 from functools import cached_property
 from typing import List, Optional
 
@@ -51,6 +52,10 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         # Robot initially at home pose.
         self.go_home()
+
+    @property
+    def base_pose(self) -> Pose:
+        return copy(self._base_pose)
 
     @classmethod
     @abc.abstractmethod

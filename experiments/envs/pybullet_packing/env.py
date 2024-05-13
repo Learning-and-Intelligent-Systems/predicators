@@ -2,17 +2,21 @@ from dataclasses import dataclass, field
 import functools
 import itertools
 import logging
+import pickle
 from typing import Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Set, Tuple, cast
 
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion, matrix_from_quat, multiply_poses
+from predicators.pybullet_helpers.inverse_kinematics import InverseKinematicsError
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.pybullet_helpers.link import get_link_state
+from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import create_single_arm_pybullet_robot
 from predicators.pybullet_helpers.robots.panda import PandaPyBulletRobot
 from predicators.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, Predicate, State, Type
+from pybullet_utils.transformations import quaternion_from_euler
 
 import numpy as np
 import numpy.typing as npt
@@ -29,6 +33,13 @@ def get_asset_path(filename: str) -> str:
     path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'assets', filename)
     assert os.path.exists(path), f"Asset {path} does not exist"
     return path
+
+def get_tagged_block_sizes() -> List[Tuple[float, float, float]]:
+    tags_path = get_asset_path('tags')
+    return [
+        tuple(pickle.load(open(os.path.join(tags_path, block_info_fname), 'rb'))['dimensions'])
+        for block_info_fname in os.listdir(tags_path)
+    ]
 
 @dataclass
 class PyBulletPackingState(PyBulletState):
@@ -47,16 +58,13 @@ class PyBulletPackingState(PyBulletState):
         )
 
 class PyBulletPackingEnv(PyBulletEnv):
-    # Multiprocessing stuff
-
-
     # Settings
     ## Task Generation
     range_train_box_cols: ClassVar[Tuple[int, int]] = (2, 4)
     num_box_rows: ClassVar[int] = 2
     box_front_margin = 0.20
-    block_side_margin = 0.08
-    block_vert_offset = 0.0001
+    block_side_margin = 0.1
+    block_vert_offset = 0.001
 
     num_tries: ClassVar[int] = 100000
 
@@ -69,17 +77,17 @@ class PyBulletPackingEnv(PyBulletEnv):
         [0.07, 0.06, 0.05],
         [0.07, 0.06, 0.05],
         [0.13, 0.14, 0.15]
-    ))
+    ))# + get_tagged_block_sizes()
     box_color: ClassVar[Tuple[float, float, float, float]] = (0.1, 0.1, 0.1, 0.7)
     box_height: ClassVar[float] = 0.4
     box_col_margins: ClassVar[float] = 0.05
     box_row_margins: ClassVar[float] = 0.03
-    gripper_width: ClassVar[float] = 0.19
+    gripper_width: ClassVar[float] = 0.21
     max_finger_width: ClassVar[float] = 0.14
 
     robot_base_pos: ClassVar[Pose3D] = (-0.0716, .0, .0)
     robot_ee_init_pose: ClassVar[Pose] = Pose((0.3, .0, 0.3), (.0, 1.0, .0, .0))
-    robot_finger_normals: ClassVar[Tuple[Pose3D, Pose3D]] = ((0, -1, 0), (0, 1, 0))
+    robot_finger_normals: ClassVar[Tuple[Pose3D, Pose3D]] = ((0, 1, 0), (0, -1, 0))
 
     debug_space_height: ClassVar[float] = 1.21
     debug_space_width: ClassVar[float] = 1.4
@@ -109,7 +117,7 @@ class PyBulletPackingEnv(PyBulletEnv):
     ## OnTable
     def _OnTable_holds(state: State, objects: Sequence[Object]) -> bool: # type: ignore
         block, = objects
-        return not PyBulletPackingEnv._InBox_holds(state, [block, PyBulletPackingEnv._box])
+        return not PyBulletPackingEnv._InBox_holds(state, [block, PyBulletPackingEnv._box]) # type: ignore
 
     _OnTable: ClassVar[Predicate] = Predicate("OnTable", [_block_type], _OnTable_holds)
 
@@ -131,6 +139,9 @@ class PyBulletPackingEnv(PyBulletEnv):
             end_effector_pose=self.robot_ee_init_pose,
             validate=True, set_joints=False
         )
+
+        if self._real_blocks:
+            self._test_tasks = [self._generate_real_task()]
 
     @classmethod
     def get_name(cls) -> str:
@@ -165,6 +176,66 @@ class PyBulletPackingEnv(PyBulletEnv):
                 range_box_cols=(CFG.pybullet_packing_test_num_box_cols, CFG.pybullet_packing_test_num_box_cols),
             )
         return self._test_tasks
+
+    def _generate_real_task(
+        self,
+    ) -> EnvironmentTask:
+        num_box_cols = CFG.pybullet_packing_test_num_box_cols
+        assert len(self._real_blocks) == num_box_cols * self.num_box_rows
+
+        # Creating objects
+        block_to_block_id = {
+            Object(f"block{block_id}", self._block_type): block_id
+            for block_id, _, _ in self._real_blocks
+        }
+        block_id_to_block = {block_id: block for block, block_id in block_to_block_id.items()}
+        box_id = self._box_ids[CFG.pybullet_packing_test_num_box_cols]
+
+        # Setting up placement offsets
+        box_d, box_w, box_h = self._box_id_to_dims[box_id]
+
+        placement_indices = np.arange(num_box_cols * self.num_box_rows).reshape(self.num_box_rows, num_box_cols)
+        for row in range(self.num_box_rows):
+            self._test_rng.shuffle(placement_indices[row])
+        placement_indices = placement_indices.flatten()
+
+        placement_coords = -np.vstack([
+            placement_indices // num_box_cols - (self.num_box_rows - 1) / 2,
+            placement_indices % num_box_cols - (num_box_cols - 1) / 2
+        ]).T
+
+        y_sep, _, x_sep, _ = self._box_creation_params()
+        placement_offsets = list(map(tuple, placement_coords * [x_sep, y_sep]))
+
+        # Creating the state and goal
+        data: Dict[Object, npt.NDArray] = {}
+        state = PyBulletPackingState(data, None, block_to_block_id, block_id_to_block, box_id, placement_offsets)
+        goal = {self._InBox([block, self._box]) for block in block_to_block_id.keys()}
+
+        # Setting up the robot and joint positions
+        data[self._robot] = np.array(list(itertools.chain(
+            self.robot_ee_init_pose.position,
+            self.robot_ee_init_pose.orientation,
+            [1.0]
+        )))
+        state.simulator_state = self._robot_initial_joints
+
+        # Setting up the box
+        _, _, box_x_max, _ = self.box_poses.bounds
+        data[self._box] = np.array(list(itertools.chain(
+            (box_x_max - box_d/2 - 0.0001, 0, self.box_height / 2), [box_d, box_w, box_h],
+        )))
+
+        # Setting up the blocks
+        for block_id, dimensions, pose in self._real_blocks:
+            pose = Pose((0, 0, self.block_vert_offset)).multiply(pose)
+            data[block_id_to_block[block_id]] = np.array(list(itertools.chain(
+                pose.position,
+                dimensions,
+                pose.orientation,
+                [0],
+            )))
+        return EnvironmentTask(state, goal)
 
     def _generate_tasks(
         self,
@@ -223,6 +294,7 @@ class PyBulletPackingEnv(PyBulletEnv):
             [1.0]
         )))
         state.simulator_state = self._robot_initial_joints
+
         # Setting up the box
         box_poly = box(-box_d/2, -box_w/2, box_d/2, box_w/2)
         box_x_min, box_y_min, box_x_max, box_y_max = self.box_poses.bounds
@@ -246,9 +318,6 @@ class PyBulletPackingEnv(PyBulletEnv):
         )
 
         # Setting up the blocks
-        collision_poly = collision_poly.buffer(self.block_side_margin/2, join_style='mitre')
-        block_poses = self.block_poses.buffer(-self.block_side_margin/2, join_style='mitre')
-
         block_x_min, block_y_min, block_x_max, block_y_max = self.block_poses.bounds
         for block, block_id in block_to_block_id.items():
             block_d, block_w, block_h = self._block_id_to_dims[block_id]
@@ -261,19 +330,20 @@ class PyBulletPackingEnv(PyBulletEnv):
                 )
 
                 block_w_2d = block_w if block_x_vertical else block_d
-                block_poly = translate(rotate(
-                    box(-block_h/2, -block_w_2d/2 - self.block_side_margin/2, block_h/2, block_w_2d/2 + self.block_side_margin/2),
+                block_poly_margins = translate(rotate(
+                    box(-block_h/2, -block_w_2d/2 - self.block_side_margin, block_h/2, block_w_2d/2 + self.block_side_margin),
                 block_rot, use_radians=True), block_x, block_y)
-                if block_poses.contains(block_poly) and not collision_poly.intersects(block_poly):
+                if self.block_poses.contains(block_poly_margins) and not collision_poly.intersects(block_poly_margins) >= self.block_side_margin and block_x > -0.0:
                     break
             else:
+                print([self._block_id_to_dims[block_id] for block_id in block_id_to_block])
                 raise ValueError('Could not generate a task with given settings')
 
             block_quat = multiply_poses(
-                Pose((0, 0, 0), p.getQuaternionFromEuler([0, 0, block_rot])),
-                Pose((0, 0, 0), p.getQuaternionFromEuler([0 if block_axis_up else np.pi, 0, 0])),
-                Pose((0, 0, 0), p.getQuaternionFromEuler([0 if block_x_vertical else np.pi/2, 0, 0])),
-                Pose((0, 0, 0), p.getQuaternionFromEuler([0, np.pi/2, 0]))
+                Pose((0, 0, 0), quaternion_from_euler(0, 0, block_rot)), # type: ignore
+                Pose((0, 0, 0), quaternion_from_euler(0 if block_axis_up else np.pi, 0, 0)), # type: ignore
+                Pose((0, 0, 0), quaternion_from_euler(0 if block_x_vertical else np.pi/2, 0, 0)), # type: ignore
+                Pose((0, 0, 0), quaternion_from_euler(0, np.pi/2, 0)), # type: ignore
             ).orientation
             block_up_size = block_d if block_x_vertical else block_w
             data[block] = np.array(list(itertools.chain(
@@ -283,7 +353,9 @@ class PyBulletPackingEnv(PyBulletEnv):
                 block_quat,
                 [0],
             )))
-            collision_poly = collision_poly.union(block_poly)
+            collision_poly = collision_poly.union(translate(rotate(
+                box(-block_h/2, -block_w_2d/2, block_h/2, block_w_2d/2),
+            block_rot, use_radians=True), block_x, block_y))
         return EnvironmentTask(state, goal)
 
     @classmethod
@@ -292,8 +364,9 @@ class PyBulletPackingEnv(PyBulletEnv):
             cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle packing-specific initialization."""
-        logging.info(f"INITIALIZE PYBULLET FOR PID {os.getpid()}")
-        physics_client_id, pybullet_robot, bodies = super(
+        if not using_gui:
+            return cls.initialize_pybullet(True)
+        physics_client_id, pybullet_robot, bodies =  super(
         ).initialize_pybullet(using_gui)
 
         if CFG.pybullet_draw_debug:  # pragma: no cover
@@ -310,7 +383,20 @@ class PyBulletPackingEnv(PyBulletEnv):
         bodies["boxes"] = [(-10000, (0, 0, 0))] + [cls._create_box(width, physics_client_id) for width in reversed(range(max_box_cols, 0, -1))]
 
         assert max_box_cols * cls.num_box_rows <= len(cls.block_sizes)
-        bodies["blocks"] = dict(cls._create_block(idx, physics_client_id) for idx in range(len(cls.block_sizes)))
+        bodies["blocks"] = {
+            cls._create_block(dimensions, color, physics_client_id): dimensions
+            for dimensions, color in zip(cls.block_sizes, np.linspace([1, 0, 0, 1], [0, 0, 1, 1], len(cls.block_sizes)))
+        }
+
+        if CFG.pybullet_packing_task_info:
+            real_block_info = pickle.load(open(CFG.pybullet_packing_task_info, 'rb'))
+            bodies["real blocks"] = [
+                (cls._create_block(dimensions, color, physics_client_id), dimensions, pose)
+                for color, (pose, dimensions) in zip(np.linspace([1, 1, 0, 1], [0, 1, 1, 1], len(real_block_info)), real_block_info)
+            ]
+            bodies["blocks"].update({block_id: dimensions for block_id, dimensions, _ in bodies["real blocks"]})
+        else:
+            bodies["real blocks"] = {}
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
@@ -318,6 +404,7 @@ class PyBulletPackingEnv(PyBulletEnv):
         self._box_ids: List[int] = list(map(lambda kv: kv[0], pybullet_bodies["boxes"]))
         self._box_id_to_dims: Dict[int, Tuple[float, float, float]] = dict(pybullet_bodies["boxes"])
         self._block_id_to_dims: Dict[int, Tuple[float, float, float]] = pybullet_bodies["blocks"]
+        self._real_blocks: List[Tuple[int, Tuple[float, float, float], Pose]] = pybullet_bodies["real blocks"]
 
     @classmethod
     def _create_pybullet_robot(cls, physics_client_id: int) -> SingleArmPyBulletRobot:
@@ -347,6 +434,10 @@ class PyBulletPackingEnv(PyBulletEnv):
         self._current_observation = state
         self._reset_state(state)
         next_state = self.step(action)
+        if self._held_constraint_id is not None:
+            p.removeConstraint(self._held_constraint_id,
+                            physicsClientId=self._physics_client_id)
+            self._held_constraint_id = None
         if CFG.pybullet_control_mode == "reset" and self.check_collisions(itertools.chain(
             (obj_id for obj in state.get_objects(self._block_type) for obj_id in [self._block_to_block_id[obj]]),
             [self._bounds_id, self._box_id]
@@ -354,10 +445,89 @@ class PyBulletPackingEnv(PyBulletEnv):
             return state
         return next_state
 
+    @classmethod
+    def run_motion_planning(cls, state: State, target_pose: Pose) -> Optional[Sequence[JointPositions]]:
+        assert isinstance(state, PyBulletPackingState)
+        physics_client_id, robot, bodies = cls.initialize_pybullet(False)
+
+        try:
+            target_joint_positions = robot.inverse_kinematics(target_pose, True)
+        except InverseKinematicsError:
+            return None
+        target_joint_positions[robot.left_finger_joint_idx] = state.joint_positions[robot.left_finger_joint_idx]
+        target_joint_positions[robot.right_finger_joint_idx] = state.joint_positions[robot.right_finger_joint_idx]
+
+        for block_id in bodies["blocks"].keys():
+            block = state._block_id_to_block.get(block_id, None)
+            if block is None:
+                position = cls.hiding_pose.position
+                orientation = cls.hiding_pose.orientation
+            else:
+                position = state[block][:3]
+                orientation = state[block][6:10]
+            p.resetBasePositionAndOrientation(
+                block_id,
+                position, orientation,
+                physicsClientId=physics_client_id,
+            )
+
+        for box_id, _ in bodies["boxes"]:
+            if box_id != state._box_id:
+                position = cls.hiding_pose.position
+                orientation = cls.hiding_pose.orientation
+            else:
+                position = state[cls._box][:3]
+                orientation = cls._default_orn
+            p.resetBasePositionAndOrientation(
+                box_id,
+                position, orientation,
+                physicsClientId=physics_client_id,
+            )
+
+        held_blocks = [block for block in state.get_objects(cls._block_type) if state.get(block, "held") >= cls.held_thresh] + [None]
+        held_block = held_blocks[0]
+
+        if held_block is not None:
+            bx, by, bz = state[held_block][:3]
+            bqx, bqy, bqz, bqw = state[held_block][6:10]
+            rx, ry, rz, rqx, rqy, rqz, rqw = state[cls._robot][:7]
+            base_link_to_held_obj = Pose((rx, ry, rz), (rqx, rqy, rqz, rqw)).invert().multiply(Pose((bx, by, bz), (bqx, bqy, bqz, bqw)))
+        else:
+            base_link_to_held_obj = None
+
+        logging.info([
+            (str(obj), state._block_to_block_id[obj]) for obj in state.get_objects(cls._block_type)
+        ] + [("bounds", bodies["bounds"]), ("box", state._box_id)])
+
+        return run_motion_planning(
+            robot = robot,
+            initial_positions = state.joint_positions,
+            target_positions = target_joint_positions,
+            collision_bodies = list(itertools.chain(
+                (state._block_to_block_id[obj] for obj in state.get_objects(cls._block_type)),
+                [bodies["bounds"], state._box_id]
+            )),
+            seed = CFG.seed,
+            physics_client_id = physics_client_id,
+            held_object = state._block_to_block_id[held_block] if held_block is not None else None,
+            base_link_to_held_obj = base_link_to_held_obj, # type: ignore
+        )
+
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle packing-specific resetting."""
         state = cast(PyBulletPackingState, state)
-        super()._reset_state(state)
+
+        # Remove old held constraint
+        if self._held_constraint_id is not None:
+            p.removeConstraint(self._held_constraint_id,
+                               physicsClientId=self._physics_client_id)
+            self._held_constraint_id = None
+        self._held_obj_id = None
+
+        # Reset robot.
+        self._pybullet_robot.set_joints(state.joint_positions)
+
+        # Set the state information
         self._block_id_to_block = state._block_id_to_block
         self._block_to_block_id = state._block_to_block_id
         self._box_id = state._box_id
@@ -462,9 +632,6 @@ class PyBulletPackingEnv(PyBulletEnv):
         # The block should already be held. Otherwise, the position of the
         # block was wrong in the state.
         held_obj_id = self._detect_held_object()
-        logging.info((block_id, held_obj_id))
-        if block_id != held_obj_id:
-            time.sleep(3000)
         assert block_id == held_obj_id
         # Create the grasp constraint.
         self._held_obj_id = block_id
@@ -472,7 +639,7 @@ class PyBulletPackingEnv(PyBulletEnv):
 
     def _get_finger_rot_matrix(self, finger_id: int) -> npt.NDArray[np.float32]:
         finger_state = get_link_state(self._pybullet_robot.robot_id, finger_id, self._physics_client_id)
-        return np.array(p.getMatrixFromQuaternion(finger_state.linkWorldOrientation)).reshape(3, 3)
+        return matrix_from_quat(finger_state.linkWorldOrientation)
 
     def check_collisions(self, obj_ids_iter: Iterator[int]) -> bool:
         p.performCollisionDetection(physicsClientId=self._physics_client_id)
@@ -570,21 +737,22 @@ class PyBulletPackingEnv(PyBulletEnv):
         p.resetBasePositionAndOrientation(object_id, self.hiding_pose.position, self.hiding_pose.orientation, physicsClientId=self._physics_client_id)
 
     @classmethod
-    def _create_block(cls, idx: int, physics_client_id: int) -> Tuple[int, Tuple[float, float, float]]:
-        color = cls._obj_colors[idx % len(cls._obj_colors)]
-        half_extents = (
-            cls.block_sizes[idx][0] / 2,
-            cls.block_sizes[idx][1] / 2,
-            cls.block_sizes[idx][2] / 2,
-        )
+    def _create_block(
+        cls,
+        dimensions: Tuple[float, float, float],
+        color: Tuple[float, float, float, float],
+        physics_client_id: int
+    ) -> int:
+        d, w, h = dimensions
+        half_extents = (d/2, w/2, h/2)
         return create_pybullet_block(
             color = color,
             half_extents = half_extents,
-            mass = np.prod(cls.block_sizes[idx], dtype=float) * cls._obj_mass,
+            mass = cls._obj_mass,
             friction = cls._obj_friction,
             orientation = cls._default_orn,
             physics_client_id = physics_client_id
-        ), cls.block_sizes[idx]
+        )
 
     @classmethod
     def _box_creation_params(cls) -> Tuple[float, float, float, float]:
