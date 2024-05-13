@@ -1,4 +1,4 @@
-"""Ground-truth options for the (non-pybullet) blocks environment."""
+"""Ground-truth options for the ice tea making environment."""
 
 from typing import Dict, Sequence, Set
 

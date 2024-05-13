@@ -661,7 +661,7 @@ class GlobalSettings:
     # demo+labelled_atoms
     handmade_demo_filename = ""
     # filepath to be used if offline_data_method is set to
-    # img_demos
+    # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
 
     @classmethod

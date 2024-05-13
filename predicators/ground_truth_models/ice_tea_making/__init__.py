@@ -1,4 +1,4 @@
-"""Ground-truth models for blocks environment and variants."""
+"""Ground-truth models for ice tea making environment."""
 
 from .nsrts import TeaMakingGroundTruthNSRTFactory
 from .options import TeaMakingGroundTruthOptionFactory
