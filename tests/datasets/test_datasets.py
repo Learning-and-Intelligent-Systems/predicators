@@ -3,12 +3,14 @@ import os
 import shutil
 from contextlib import nullcontext as does_not_raise
 
+import numpy as np
 import pytest
 
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.datasets.generate_atom_trajs_with_vlm import \
-    create_ground_atom_data_from_img_trajs
+    create_ground_atom_data_from_generated_demos, \
+    create_ground_atom_data_from_saved_img_trajs
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
@@ -38,13 +40,15 @@ class _DummyVLM(VisionLanguageModel):
             # If the query is asking for atom proposals.
             if "Please provide predicates" in prompt:
                 completion = "*Holding(spoon)\n*Fizz(buzz)\n" + \
-                    "Submerged(teabag)\nSubmerged(spoon)"
+                    "*Submerged(teabag)\n*Submerged(spoon)\n*IsRobot(robby)"
             # Else, if the query is asking for particular values.
             elif "values of the following predicates" in prompt:
                 # Completion for default predicates.
                 if "Submerged" in prompt:
                     completion = "*Holding(spoon): True.\n" + \
                         "*Submerged(teabag): False.\n*Submerged(spoon): False."
+                elif "IsRobot" in prompt:
+                    completion = "*IsRobot(robby): True\n"
                 # Completion for debug predicates
                 else:
                     completion = ("hand_grasping_spoon(hand, spoon): True.\n"
@@ -522,8 +526,8 @@ def test_empty_dataset():
      ("naive_whole_traj", "per_scene_cot"),
      ("not_a_real_prompt_type", "per_scene_cot"),
      ("naive_whole_traj", "not_a_real_prompt_type")])
-def test_loading_img_demos(atom_proposal_prompt_type,
-                           atom_labelling_prompt_type):
+def test_loading_saved_vlm_img_demos_folder(atom_proposal_prompt_type,
+                                            atom_labelling_prompt_type):
     """Test loading a dataset from img demo files."""
     utils.reset_config({
         "env":
@@ -531,7 +535,7 @@ def test_loading_img_demos(atom_proposal_prompt_type,
         "num_train_tasks":
         1,
         "offline_data_method":
-        "img_demos",
+        "saved_vlm_img_demos_folder",
         "data_dir":
         "tests/datasets/mock_vlm_datasets",
         "seed":
@@ -550,7 +554,7 @@ def test_loading_img_demos(atom_proposal_prompt_type,
     vlm = _DummyVLM()
     if atom_proposal_prompt_type != "not_a_real_prompt_type" and \
         atom_labelling_prompt_type != "not_a_real_prompt_type":
-        loaded_dataset = create_ground_atom_data_from_img_trajs(
+        loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
             env, train_tasks, get_gt_options(env.get_name()), vlm)
         assert len(loaded_dataset.trajectories) == 1
         assert len(loaded_dataset.annotations) == 1
@@ -559,7 +563,7 @@ def test_loading_img_demos(atom_proposal_prompt_type,
         assert "DummyGoal" in str(loaded_dataset.annotations[0][-1])
     else:
         with pytest.raises(ValueError) as e:
-            loaded_dataset = create_ground_atom_data_from_img_trajs(
+            loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
                 env, train_tasks, get_gt_options(env.get_name()), vlm)
         assert "Unknown" in str(e)
     for dirpath, _, filenames in os.walk(
@@ -575,7 +579,7 @@ def test_env_debug_grammar():
     utils.reset_config({
         "env": "ice_tea_making",
         "num_train_tasks": 1,
-        "offline_data_method": "img_demos",
+        "offline_data_method": "saved_vlm_img_demos_folder",
         "data_dir": "tests/datasets/mock_vlm_datasets",
         "seed": 456,
         "vlm_trajs_folder_name": "ice_tea_making__vlm_demos__456__1",
@@ -587,7 +591,7 @@ def test_env_debug_grammar():
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
     vlm = _DummyVLM()
-    loaded_dataset = create_ground_atom_data_from_img_trajs(
+    loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
         env, train_tasks, get_gt_options(env.get_name()), vlm)
     assert len(loaded_dataset.trajectories) == 1
     assert len(loaded_dataset.annotations) == 1
@@ -615,3 +619,27 @@ def test_loading_txt_files():
     loaded_dataset = create_dataset(env, train_tasks,
                                     get_gt_options(env.get_name()))
     assert len(loaded_dataset.trajectories) == 1
+
+
+def test_create_ground_atom_data_from_generated_demos():
+    """Tests for the create_ground_atom_data_from_generated_demos method."""
+    utils.reset_config({
+        "env": "cover",
+        "approach": "oracle",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": 1,
+        "included_options": "PickPlace"
+    })
+    env = CoverEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    options = parse_config_included_options(env)
+    dataset = create_dataset(env, train_tasks, options)
+    assert len(dataset.trajectories) == 1
+    for state in dataset.trajectories[0].states:
+        state.simulator_state = [np.zeros((32, 32), dtype=np.uint8)]
+    vlm = _DummyVLM()
+    vlm_dataset = create_ground_atom_data_from_generated_demos(
+        dataset, env, train_tasks, vlm)
+    assert len(vlm_dataset.annotations) == 1
