@@ -2240,8 +2240,9 @@ def query_vlm_for_atom_vals(
     assert isinstance(state.simulator_state, List)
     imgs = state.simulator_state
     vlm_atoms = sorted(vlm_atoms)
-    atom_queries_str = "\n*".join(atom.get_vlm_query_str()
-                                  for atom in vlm_atoms)
+    atom_queries_str = "\n* "
+    atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
+                                    for atom in vlm_atoms)
     filepath_to_vlm_prompt = get_path_to_predicators_root() + \
         "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
         "per_scene_naive.txt"
@@ -2259,8 +2260,9 @@ def query_vlm_for_atom_vals(
                                         num_completions=1)
     assert len(vlm_output) == 1
     vlm_output_str = vlm_output[0]
-    all_atom_queries = atom_queries_str.split("\n")
-    all_vlm_responses = vlm_output_str.split("\n")
+    all_atom_queries = atom_queries_str.strip().split("\n")
+    all_vlm_responses = vlm_output_str.strip().split("\n")
+
     # NOTE: this assumption is likely too brittle; if this is breaking, feel
     # free to remove/adjust this and change the below parsing loop accordingly!
     assert len(all_atom_queries) == len(all_vlm_responses)

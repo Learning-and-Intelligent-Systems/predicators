@@ -43,8 +43,9 @@ _TRACKED_BODIES = ["Burner 1", "Burner 2", "Burner 3", "Burner 4"]
 class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
 
-    gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     object_type = Type("object", ["x", "y", "z"])
+    gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"],
+                        parent=object_type)
     on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
     hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
                            parent=on_off_type)
