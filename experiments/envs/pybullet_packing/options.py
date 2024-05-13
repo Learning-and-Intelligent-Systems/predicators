@@ -152,7 +152,7 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
             np.array([0.5, PyBulletPackingEnv.values_range[1], PyBulletPackingEnv.values_range[1]])
         )
         grab_option, put_option = (
-            cls._create_movement_options #if CFG.option_model_terminate_on_repeat else cls._create_movement_options
+            cls._create_jumping_options #if CFG.option_model_terminate_on_repeat else cls._create_movement_options
         )(
             pybullet_robot, robot_type, option_types, params_space, option_helper
         )
