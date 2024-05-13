@@ -61,6 +61,11 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
                                      train_tasks,
                                      known_options,
                                      annotate_with_gt_ops=False)
+        assert len(demo_data.trajectories) == len(train_tasks), (
+            "Cannot run "
+            "VLM-based predicate invention if we don't have one demo per "
+            "training task; ensure there are no failures in demonstration "
+            "generation.")
         # Second, we add annotations to these trajectories by leveraging
         # a VLM.
         return create_ground_atom_data_from_generated_demos(
