@@ -396,7 +396,8 @@ class GlobalSettings:
     llm_num_completions = 1
 
     # parameters for vision language models
-    vlm_model_name = "gemini-pro-vision"  # "gemini-1.5-pro-latest"
+    # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
+    vlm_model_name = "gemini-pro-vision"
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
