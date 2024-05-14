@@ -137,7 +137,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-
             return np.allclose((gx, gy, gz),
                                memory["waypoints"][-1][0],
                                atol=cls.moveto_tol)
