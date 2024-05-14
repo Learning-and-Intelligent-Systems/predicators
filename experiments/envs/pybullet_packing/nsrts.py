@@ -48,7 +48,7 @@ class PyBulletPackingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             _, _, block = objects
             block_h = state.get(block, "h")
-            grasp_h = rng.uniform(-0.2, 0.4)
+            grasp_h = rng.uniform(-0.45, 0.45)
             offset_x, offset_y = state._placement_offsets[-len(skeleton)]
             dx, dy = rng.uniform(-offset_perturbation, offset_perturbation)
 

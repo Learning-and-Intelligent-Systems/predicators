@@ -146,10 +146,13 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
         option_helper = OptionHelper(pybullet_robot, robot_type)
 
         # Option funcs
+        box_depths, box_widths, _ = zip(*(PyBulletPackingEnv._get_box_dims(box_id) for box_id in PyBulletPackingEnv.box_col_counts))
+        box_max_depth, box_max_width = max(box_depths), max(box_widths)
+
         option_types = [robot_type, box_type, block_type]
         params_space = Box(
-            np.array([-0.5, PyBulletPackingEnv.values_range[0], PyBulletPackingEnv.values_range[0]]),
-            np.array([0.5, PyBulletPackingEnv.values_range[1], PyBulletPackingEnv.values_range[1]])
+            np.array([-0.5, -box_max_depth/2, -box_max_width/2]),
+            np.array([0.5, box_max_depth/2, box_max_width/2])
         )
         grab_option, put_option = (
             cls._create_jumping_options #if CFG.option_model_terminate_on_repeat else cls._create_movement_options

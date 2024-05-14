@@ -638,6 +638,7 @@ def run_low_level_search(
             refinement_time[cur_idx - 1] += try_end_time - try_start_time
 
         if plan_found:
+            logging.info("FOUND LOW LEVEL PLAN")
             return plan, True  # success!
 
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
