@@ -218,6 +218,10 @@ README of that repo suggests!"
             Predicate("TurnedOff", [cls.on_off_type], cls.Off_holds),
             Predicate("Open", [cls.on_off_type], cls.Open_holds),
             Predicate("Closed", [cls.on_off_type], cls.Closed_holds),
+            Predicate("BurnerAhead", [cls.surface_type, cls.surface_type],
+                      cls._BurnerAhead_holds),
+            Predicate("BurnerBehind", [cls.surface_type, cls.surface_type],
+                      cls._BurnerBehind_holds),
         }
 
         return {p.name: p for p in preds}
@@ -508,6 +512,26 @@ README of that repo suggests!"
                     obj, "x") >= cls.microhandle_open_thresh + thresh_pad
             return state.get(obj, "x") <= cls.cabinet_open_thresh - thresh_pad
         return False
+
+    @classmethod
+    def _BurnerAhead_holds(cls, state: State,
+                           objects: Sequence[Object]) -> bool:
+        """Static predicate useful for deciding between pushing or pulling the
+        kettle."""
+        burner1, burner2 = objects
+        if burner1 == burner2:
+            return False
+        return state.get(burner1, "y") > state.get(burner2, "y")
+
+    @classmethod
+    def _BurnerBehind_holds(cls, state: State,
+                            objects: Sequence[Object]) -> bool:
+        """Static predicate useful for deciding between pushing or pulling the
+        kettle."""
+        burner1, burner2 = objects
+        if burner1 == burner2:
+            return False
+        return not cls._BurnerAhead_holds(state, objects)
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
