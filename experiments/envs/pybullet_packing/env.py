@@ -451,7 +451,7 @@ class PyBulletPackingEnv(PyBulletEnv):
             target_positions = target_joint_positions,
             collision_bodies = list(itertools.chain(
                 (bodies.block_id_to_obj_id[block_id] for block_id in state._block_id_to_block),
-                [bodies["bounds"], state._box_id]
+                [bodies.bounds_obj_id, bodies.box_id_to_obj_id[state._box_id]]
             )),
             seed = CFG.seed,
             physics_client_id = physics_client_id,
