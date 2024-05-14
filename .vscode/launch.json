@@ -1,0 +1,20 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--env", "shelves2d", "--approach", "nsrt_learning", "--seed", "0", "--sesame_task_planner", "astar", "--horizon", "1000", "--option_model_terminate_on_repeat", "false", "--make_failure_videos", "--make_test_videos", "--video_fps", "4", "--strips_learner", "oracle", "--option_learner", "no_learning", "--sesame_max_samples_per_step", "6", "--timeout", "3000", "--num_test_tasks", "1", "--num_train_tasks", "2000", "--sesame_max_skeletons_optimized", "1", "--learning_rate", "0.0001", "--sampler_disable_classifier", "true", "--sampler_learning_regressor_model", "diffusion", "--diffusion_regressor_hid_sizes", "[512,512,512]", "--diffusion_regressor_max_itr", "5000", "--diffusion_regressor_timesteps", "100", "--spread_mapreduce_output_file", "out.png", "--load_data"],
+            "env": {
+                "CUBLAS_WORKSPACE_CONFIG": ":4096:8"
+            }
+        }
+    ]
+}
