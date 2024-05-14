@@ -174,7 +174,8 @@ class GridWorldEnv(BaseEnv):
             # GroundAtom(self._IsSliced, [tomato])
 
             # GroundAtom(self._Holding, [self._robot, tomato])
-            GroundAtom(self._On, [patty, self._grill])
+            # GroundAtom(self._On, [patty, self._grill])
+            GroundAtom(self._Adjacent, [self._robot, patty])
         }
 
         for i in range(num):
@@ -314,22 +315,22 @@ class GridWorldEnv(BaseEnv):
         return (row, col)
 
     @classmethod
-    def get_empty_cells(cls, state: State) -> Set[Tuple[int, int]]:
+    def get_empty_cells(cls, state: State) -> Set[Object]:
         max_x, max_y = -1, -1
-        cells = []
+        cells = {}
         for obj in state:
             if obj.is_instance(cls._cell_type):
                 x, y = cls.get_position(obj, state)
                 max_x = max(max_x, x)
                 max_y = max(max_y, y)
-                cells.append((x, y))
+                cells[(x, y)] = obj
 
         for obj in state:
-            if not obj.is_instance(cls._cell_type) and not obj.is_instance(cls._robot_type):
+            if not obj.is_instance(cls._cell_type):
                 x, y = cls.get_position(obj, state)
-                cells.remove((x, y))
+                del cells[(x, y)]
 
-        return set(cells)
+        return set(cells.values())
 
 
     def simulate(self, state: State, action: Action) -> State:

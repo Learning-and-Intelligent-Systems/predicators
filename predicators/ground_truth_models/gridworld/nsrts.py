@@ -1,4 +1,4 @@
-"""Ground-truth NSRTs for the cover environment."""
+"""Ground-truth NSRTs for the gridworld environment."""
 
 from typing import Dict, List, Set
 
@@ -31,6 +31,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot_type = types["robot"]
         item_type = types["item"]
         station_type = types["station"]
+        object_type = types["object"]
 
         # Objects
         bottom_bun = Variable("?bottom_bun", bottom_bun_type)
@@ -42,6 +43,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         item = Variable("?item", item_type)
         station = Variable("?station", station_type)
+        from_obj = Variable("?from_obj", object_type)
+        to_obj = Variable("?to_obj", object_type)
 
         # Predicates
         Adjacent = predicates["Adjacent"]
@@ -54,30 +57,30 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # GoalHack = predicates["GoalHack"]
 
         # Options
-        Pick = options["Pick"]
-        Place = options["Place"]
+        Move = options["Move"]
+        # Pick = options["Pick"]
+        # Place = options["Place"]
         # Cook = options["Cook"]
         # Slice = options["Slice"]
 
         nsrts = set()
 
-        # Pick
-        parameters = [robot, item]
-        option_vars = [robot, item]
-        option = Pick
+        # Move
+        parameters = [robot, to_obj, from_obj]
+        option_vars = [robot, to_obj, from_obj]
+        option = Move
         preconditions = {
-            LiftedAtom(HandEmpty, [robot]),
+            LiftedAtom(Adjacent, [robot, from_obj])
         }
         add_effects = {
-            LiftedAtom(Holding, [robot, item])
+            LiftedAtom(Adjacent, [robot, to_obj])
         }
         delete_effects = {
-            LiftedAtom(HandEmpty, [robot])
+            LiftedAtom(Adjacent, [robot, from_obj])
         }
-
-        ignore_effects: Set[Predicate] = set()
-        pick_nsrt = NSRT(
-            "Pick",
+        ignore_effects = set()
+        move_nsrt = NSRT(
+            "Move",
             parameters,
             preconditions,
             add_effects,
@@ -87,35 +90,64 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             option_vars,
             null_sampler
         )
-        nsrts.add(pick_nsrt)
-
-        # Place
-        parameters = [robot, item, station]
-        option_vars = [robot, item, station]
-        option = Place
-        preconditions = {
-            LiftedAtom(Holding, [robot, item]),
-            LiftedAtom(Facing, [robot, station])
-        }
-        add_effects = {
-            LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(On, [item, station])
-        }
-        delete_effects = {
-            LiftedAtom(Holding, [robot, item])
-        }
-        ignore_effects: Set[Predicate] = set()
-        place_nsrt = NSRT(
-            "Place",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
-        nsrts.add(place_nsrt)
-
+        nsrts.add(move_nsrt)
         return nsrts
+
+        # # Pick
+        # parameters = [robot, item]
+        # option_vars = [robot, item]
+        # option = Pick
+        # preconditions = {
+        #     LiftedAtom(HandEmpty, [robot]),
+        # }
+        # add_effects = {
+        #     LiftedAtom(Holding, [robot, item])
+        # }
+        # delete_effects = {
+        #     LiftedAtom(HandEmpty, [robot])
+        # }
+        #
+        # ignore_effects: Set[Predicate] = set()
+        # pick_nsrt = NSRT(
+        #     "Pick",
+        #     parameters,
+        #     preconditions,
+        #     add_effects,
+        #     delete_effects,
+        #     ignore_effects,
+        #     option,
+        #     option_vars,
+        #     null_sampler
+        # )
+        # nsrts.add(pick_nsrt)
+        #
+        # # Place
+        # parameters = [robot, item, station]
+        # option_vars = [robot, item, station]
+        # option = Place
+        # preconditions = {
+        #     LiftedAtom(Holding, [robot, item]),
+        #     LiftedAtom(Facing, [robot, station])
+        # }
+        # add_effects = {
+        #     LiftedAtom(HandEmpty, [robot]),
+        #     LiftedAtom(On, [item, station])
+        # }
+        # delete_effects = {
+        #     LiftedAtom(Holding, [robot, item])
+        # }
+        # ignore_effects: Set[Predicate] = set()
+        # place_nsrt = NSRT(
+        #     "Place",
+        #     parameters,
+        #     preconditions,
+        #     add_effects,
+        #     delete_effects,
+        #     ignore_effects,
+        #     option,
+        #     option_vars,
+        #     null_sampler
+        # )
+        # nsrts.add(place_nsrt)
+        #
+        # return nsrts
