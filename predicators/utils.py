@@ -44,7 +44,7 @@ from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
 from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    VisionLanguageModel
+    OpenAIVLM, VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -2227,6 +2227,14 @@ def create_vlm_predicate(
     return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
 
 
+def create_vlm_by_name(
+        model_name: str) -> VisionLanguageModel:  # pragma: no cover
+    """Create particular vlm using a provided name."""
+    if "gemini" in model_name:
+        return GoogleGeminiVLM(model_name)
+    return OpenAIVLM(model_name)
+
+
 def query_vlm_for_atom_vals(
         vlm_atoms: Collection[GroundAtom],
         state: State,
@@ -2250,7 +2258,7 @@ def query_vlm_for_atom_vals(
         vlm_query_str = f.read()
     vlm_query_str += atom_queries_str
     if vlm is None:
-        vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
+        vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     vlm_input_imgs = \
         [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
     vlm_output = vlm.sample_completions(vlm_query_str,

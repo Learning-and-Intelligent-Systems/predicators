@@ -16,8 +16,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME, VLMPredicateEnv
 from predicators.nsrt_learning.segmentation import _segment_with_option_changes
-from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    VisionLanguageModel
+from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, GroundAtom, \
     ImageOptionTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
@@ -717,7 +716,7 @@ def create_ground_atom_data_from_generated_demos(
     _save_img_option_trajs_in_folder(img_option_trajs)
     # Now, given these trajectories, we can query the VLM.
     if vlm is None:
-        vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
+        vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
     ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
         img_option_trajs, env, train_tasks, all_task_objs, vlm)
     return Dataset(option_segmented_trajs, ground_atoms_trajs)
@@ -835,7 +834,7 @@ def create_ground_atom_data_from_saved_img_trajs(
     # Given trajectories, we can now query the VLM to get proposals for ground
     # atoms that might be relevant to decision-making.
     if vlm is None:
-        vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
+        vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
     ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
         image_option_trajs, env, train_tasks, all_task_objs, vlm)
     # Now, we just need to create a goal state for every train task where

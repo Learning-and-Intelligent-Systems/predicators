@@ -1,4 +1,5 @@
 """Tests for PredicateSearchScoreFunction classes."""
+import os
 from typing import Callable, FrozenSet, List, Set
 
 import numpy as np
@@ -317,6 +318,9 @@ def test_exact_energy_score_function():
     """Tests for _ExactHeuristicEnergyBasedScoreFunction()."""
     # Just test this on BlocksEnv, since that's a known problem case
     # for hadd_energy_lookaheaddepth*.
+    # NOTE: without this below dummy API key, utils.flush_cache()
+    # produces a nasty openai error...
+    os.environ["OPENAI_API_KEY"] = "dummy API key"
     utils.flush_cache()
     utils.reset_config({
         "env": "blocks",
@@ -375,7 +379,9 @@ def test_exact_energy_score_function():
 def test_count_score_functions():
     """Tests for _RelaxationHeuristicCountBasedScoreFunction() and
     _ExactHeuristicCountBasedScoreFunction."""
-
+    # NOTE: without this below dummy API key, utils.flush_cache()
+    # produces a nasty openai error...
+    os.environ["OPENAI_API_KEY"] = "dummy API key"
     utils.flush_cache()
     utils.reset_config({
         "env": "cover",
