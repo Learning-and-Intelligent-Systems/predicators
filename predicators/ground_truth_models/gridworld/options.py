@@ -110,17 +110,20 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             def _check_goal(s):
                 sx, sy = GridWorldEnv.get_position(s, state)
                 if GridWorldEnv.is_adjacent(sx, sy, ox, oy):
-                    import pdb; pdb.set_trace()
                     return True
                 return False
 
-            def _get_successors(s: Tuple[int, int]) -> Iterator[Tuple[None, Tuple[int, int], float]]:
+            def _get_successors(s) -> Iterator[Tuple[None, Object, float]]:
                 # find the adjacent cells that are empty
                 empty_cells = GridWorldEnv.get_empty_cells(state)
-                adjacent_empty = [c for c in empty_cells if GridWorldEnv.Adjacent_holds(state, [robot, c])]
-                
+                sx, sy = GridWorldEnv.get_position(s, state)
+                adjacent_empty = []
+                for c in empty_cells:
+                    cx, cy = GridWorldEnv.get_position(c, state)
+                    if GridWorldEnv.is_adjacent(sx, sy, cx, cy):
+                        adjacent_empty.append(c)
                 for cell in adjacent_empty:
-                    print("yielding: ", cell)
+                    print("yielding: ", cell, "for origin: ", s)
                     yield (None, cell, 1.0)
 
             def get_priority(node):
@@ -133,8 +136,8 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                 _get_successors,
                 get_priority,
             )
+            
 
-            import pdb; pdb.set_trace()
             return path
 
         return policy
