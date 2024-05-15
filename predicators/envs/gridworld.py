@@ -73,6 +73,7 @@ class GridWorldEnv(BaseEnv):
         # Predicates
         # self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
         self._Adjacent = Predicate("Adjacent", [self._robot_type, self._object_type], self.Adjacent_holds)
+        self._AdjacentToNothing = Predicate("AdjacentToNothing", [self._robot_type], self._AdjacentToNothing_holds)
         self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self.Facing_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
@@ -170,12 +171,12 @@ class GridWorldEnv(BaseEnv):
             # GroundAtom(self._On, [cheese, patty]),
             # GroundAtom(self._On, [tomato, cheese]),
             # GroundAtom(self._On, [top_bun, tomato]),
-            # GroundAtom(self._IsCooked, [patty]),
+            GroundAtom(self._IsCooked, [patty]),
             # GroundAtom(self._IsSliced, [tomato])
 
             # GroundAtom(self._Holding, [self._robot, tomato])
             # GroundAtom(self._On, [patty, self._grill])
-            GroundAtom(self._Adjacent, [self._robot, patty])
+            # GroundAtom(self._Adjacent, [self._robot, patty])
         }
 
         for i in range(num):
@@ -212,6 +213,18 @@ class GridWorldEnv(BaseEnv):
         robot_col, robot_row = cls.get_position(robot, state)
         obj_col, obj_row = cls.get_position(obj, state)
         return cls.is_adjacent(obj_col, obj_row, robot_col, robot_row)
+
+    def _AdjacentToNothing_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        robot, = objects
+        rx, ry = self.get_position(robot, state)
+        for obj in state:
+            if obj.is_instance(self._item_type):
+                if not self._Holding_holds(state, [robot, obj]) and self.Adjacent_holds(state, [robot, obj]):
+                    return False
+            elif obj.is_instance(self._station_type):
+                if self.Adjacent_holds(state, [robot, obj]):
+                    return False
+        return True
 
     @classmethod
     def Facing_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -276,7 +289,7 @@ class GridWorldEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Adjacent, self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
+        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -328,7 +341,8 @@ class GridWorldEnv(BaseEnv):
         for obj in state:
             if not obj.is_instance(cls._cell_type):
                 x, y = cls.get_position(obj, state)
-                del cells[(x, y)]
+                if (x, y) in cells:
+                    del cells[(x, y)]
 
         return set(cells.values())
 
