@@ -46,6 +46,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         station = Variable("?station", station_type)
         from_obj = Variable("?from_obj", object_type)
         to_obj = Variable("?to_obj", object_type)
+        object = Variable("?object", object_type)
 
         # Predicates
         Adjacent = predicates["Adjacent"]
@@ -273,19 +274,18 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         )
         nsrts.add(pick_single_adjacent_nsrt)
 
-
         # Place
-        parameters = [robot, item, station]
-        option_vars = [robot, item, station]
+        parameters = [robot, item, object]
+        option_vars = [robot, item, object]
         option = Place
         preconditions = {
             LiftedAtom(Holding, [robot, item]),
-            LiftedAtom(Adjacent, [robot, station]),
-            LiftedAtom(Facing, [robot, station])
+            LiftedAtom(Adjacent, [robot, object]),
+            LiftedAtom(Facing, [robot, object])
         }
         add_effects = {
             LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(On, [item, station]),
+            LiftedAtom(On, [item, object]),
             LiftedAtom(Adjacent, [robot, item]),
             LiftedAtom(Facing, [robot, item])
         }
@@ -305,5 +305,37 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             null_sampler
         )
         nsrts.add(place_nsrt)
+
+        # # Place
+        # parameters = [robot, item, station]
+        # option_vars = [robot, item, station]
+        # option = Place
+        # preconditions = {
+        #     LiftedAtom(Holding, [robot, item]),
+        #     LiftedAtom(Adjacent, [robot, station]),
+        #     LiftedAtom(Facing, [robot, station])
+        # }
+        # add_effects = {
+        #     LiftedAtom(HandEmpty, [robot]),
+        #     LiftedAtom(On, [item, station]),
+        #     LiftedAtom(Adjacent, [robot, item]),
+        #     LiftedAtom(Facing, [robot, item])
+        # }
+        # delete_effects = {
+        #     LiftedAtom(Holding, [robot, item])
+        # }
+        # ignore_effects: Set[Predicate] = set()
+        # place_nsrt = NSRT(
+        #     "Place",
+        #     parameters,
+        #     preconditions,
+        #     add_effects,
+        #     delete_effects,
+        #     ignore_effects,
+        #     option,
+        #     option_vars,
+        #     null_sampler
+        # )
+        # nsrts.add(place_nsrt)
 
         return nsrts

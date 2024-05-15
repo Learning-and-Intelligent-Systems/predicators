@@ -172,11 +172,11 @@ class GridWorldEnv(BaseEnv):
             # GroundAtom(self._On, [cheese, patty]),
             # GroundAtom(self._On, [tomato, cheese]),
             # GroundAtom(self._On, [top_bun, tomato]),
-            GroundAtom(self._IsCooked, [patty])
+            GroundAtom(self._IsCooked, [patty]),
             # GroundAtom(self._IsSliced, [tomato])
 
             # GroundAtom(self._Holding, [self._robot, tomato])
-            # GroundAtom(self._On, [patty, self._grill])
+            GroundAtom(self._On, [patty, bottom_bun])
             # GroundAtom(self._Adjacent, [self._robot, patty])
         }
 

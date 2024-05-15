@@ -95,15 +95,30 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_Pick_terminal
         )
 
+        # # Place
+        # def _Place_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+        #     del memory, params  # unused
+        #     robot, item, station = objects
+        #     return HandEmpty.holds(state, [robot]) and On.holds(state, [item, station])
+        #
+        # Place = ParameterizedOption(
+        #     "Place",
+        #     types = [robot_type, item_type, station_type],
+        #     params_space=Box(0, 1, (0, )),
+        #     policy=cls._create_pickplace_policy(),
+        #     initiable=lambda s, m, o, p: True,
+        #     terminal=_Place_terminal
+        # )
+
         # Place
         def _Place_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
-            robot, item, station = objects
-            return HandEmpty.holds(state, [robot]) and On.holds(state, [item, station])
+            robot, item, obj = objects
+            return HandEmpty.holds(state, [robot]) and On.holds(state, [item, obj])
 
         Place = ParameterizedOption(
             "Place",
-            types = [robot_type, item_type, station_type],
+            types = [robot_type, item_type, object_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_pickplace_policy(),
             initiable=lambda s, m, o, p: True,
