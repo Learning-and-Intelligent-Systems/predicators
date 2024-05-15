@@ -334,7 +334,6 @@ class GridWorldEnv(BaseEnv):
 
 
     def simulate(self, state: State, action: Action) -> State:
-
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dcol, drow, turn, interact, pickplace = action.arr
@@ -430,10 +429,10 @@ class GridWorldEnv(BaseEnv):
                     new_z = 0
                 next_state.set(held_item, "z", new_z)
 
-        print("state: ", state)
-        print("action: ", action)
-        print("next state: ", next_state)
-        print()
+        # print("state: ", state)
+        # print("action: ", action)
+        # print("next state: ", next_state)
+        # print()
 
         return next_state
 

@@ -63,35 +63,35 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_Move_terminal
         )
 
-        # # Pick
-        # def _Pick_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-        #     del memory, params  # unused
-        #     robot, item = objects
-        #     return Holding.holds(state, [robot, item])
-        #
-        # Pick = ParameterizedOption(
-        #     "Pick",
-        #     types = [robot_type, item_type],
-        #     params_space=Box(0, 1, (0, )),
-        #     policy=cls._create_pick_policy(),
-        #     initiable=lambda s, m, o, p: True,
-        #     terminal=_Pick_terminal
-        # )
+        # Pick
+        def _Pick_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            del memory, params  # unused
+            robot, item = objects
+            return Holding.holds(state, [robot, item])
 
-        # # Place
-        # def _Place_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
-        #     del memory, params  # unused
-        #     robot, item, station = objects
-        #     return HandEmpty.holds(state, [robot]) and On.holds(state, [item, station])
-        #
-        # Place = ParameterizedOption(
-        #     "Place",
-        #     types = [robot_type, item_type, station_type],
-        #     params_space=Box(0, 1, (0, )),
-        #     policy=cls._create_place_policy(),
-        #     initiable=lambda s, m, o, p: True,
-        #     terminal=_Place_terminal
-        # )
+        Pick = ParameterizedOption(
+            "Pick",
+            types = [robot_type, item_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_pick_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Pick_terminal
+        )
+
+        # Place
+        def _Place_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            del memory, params  # unused
+            robot, item, station = objects
+            return HandEmpty.holds(state, [robot]) and On.holds(state, [item, station])
+
+        Place = ParameterizedOption(
+            "Place",
+            types = [robot_type, item_type, station_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_place_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Place_terminal
+        )
 
         return {Move}
 
@@ -123,7 +123,6 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                     if GridWorldEnv.is_adjacent(sx, sy, cx, cy):
                         adjacent_empty.append(c)
                 for cell in adjacent_empty:
-                    print("yielding: ", cell, "for origin: ", s)
                     yield (None, cell, 1.0)
 
             def get_priority(node):
@@ -136,9 +135,16 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                 _get_successors,
                 get_priority,
             )
-            
 
-            return path
+            # Now, compute the action to take based on the planned path towards
+            # we are trying to move to. The path is a list of cell objects
+            # starting from the cell that the robot is in.
+            next = path[1]
+            nx, ny = GridWorldEnv.get_position(next, state)
+            dx = np.clip(nx - rx, -1, 1)
+            dy = np.clip(ny - ry, -1, 1)
+            action = Action(np.array([dx, dy, -1, 0, 0], dtype=np.float32))
+            return action
 
         return policy
 
