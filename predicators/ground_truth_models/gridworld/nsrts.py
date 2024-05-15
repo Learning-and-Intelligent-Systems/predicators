@@ -23,7 +23,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Types
         bottom_bun_type = types["bottom_bun"]
         top_bun_type = types["top_bun"]
-        patty = types["patty"]
+        patty_type = types["patty"]
         cheese_type = types["cheese"]
         tomato_type = types["tomato"]
         grill_type = types["grill"]
@@ -36,6 +36,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Objects
         bottom_bun = Variable("?bottom_bun", bottom_bun_type)
         top_bun = Variable("?top_bun", top_bun_type)
+        patty = Variable("?patty", patty_type)
         cheese = Variable("?cheese", cheese_type)
         tomato = Variable("?tomato", tomato_type)
         grill = Variable("?grill", grill_type)
@@ -50,6 +51,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Adjacent = predicates["Adjacent"]
         AdjacentToNothing = predicates["AdjacentToNothing"]
         Facing = predicates["Facing"]
+        AdjacentNotFacing = predicates["AdjacentNotFacing"]
         IsCooked = predicates["IsCooked"]
         IsSliced = predicates["IsSliced"]
         HandEmpty = predicates["HandEmpty"]
@@ -75,9 +77,22 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, patty])
         }
         add_effects = {
-            
+            LiftedAtom(IsCooked, [patty])
         }
-
+        delete_effects = set()
+        ignore_effects = set()
+        cook_nsrt = NSRT(
+            "Cook",
+            parameters,
+            preconditions,
+            add_effects,
+            delete_effects,
+            ignore_effects,
+            option,
+            option_vars,
+            null_sampler
+        )
+        nsrts.add(cook_nsrt)
 
         # MoveWhenAlreadyAdjacent
         parameters = [robot, to_obj, from_obj]
@@ -168,14 +183,16 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = [robot, to_obj]
         option = Move
         preconditions = {
-            LiftedAtom(Adjacent, [robot, from_obj])
+            LiftedAtom(Adjacent, [robot, from_obj]),
+            LiftedAtom(AdjacentNotFacing, [robot, from_obj])
         }
         add_effects = {
             LiftedAtom(Adjacent, [robot, to_obj]),
             LiftedAtom(Facing, [robot, to_obj])
         }
         delete_effects = {
-            LiftedAtom(Adjacent, [robot, from_obj])
+            LiftedAtom(Adjacent, [robot, from_obj]),
+            LiftedAtom(AdjacentNotFacing, [robot, from_obj])
         }
         ignore_effects = set()
         move_when_not_facing_start_nsrt = NSRT(

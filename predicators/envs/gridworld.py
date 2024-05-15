@@ -75,6 +75,7 @@ class GridWorldEnv(BaseEnv):
         self._Adjacent = Predicate("Adjacent", [self._robot_type, self._object_type], self.Adjacent_holds)
         self._AdjacentToNothing = Predicate("AdjacentToNothing", [self._robot_type], self._AdjacentToNothing_holds)
         self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self.Facing_holds)
+        self._AdjacentNotFacing = Predicate("AdjacentNotFacing", [self._robot_type, self._object_type], self._AdjacentNotFacing_holds)
         self._IsCooked = Predicate("IsCooked", [self._patty_type], self._IsCooked_holds)
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type], self._HandEmpty_holds)
@@ -171,7 +172,7 @@ class GridWorldEnv(BaseEnv):
             # GroundAtom(self._On, [cheese, patty]),
             # GroundAtom(self._On, [tomato, cheese]),
             # GroundAtom(self._On, [top_bun, tomato]),
-            GroundAtom(self._IsCooked, [patty]),
+            GroundAtom(self._IsCooked, [patty])
             # GroundAtom(self._IsSliced, [tomato])
 
             # GroundAtom(self._Holding, [self._robot, tomato])
@@ -238,6 +239,9 @@ class GridWorldEnv(BaseEnv):
         facing_up = robot_row - obj_row == -1 and robot_col == obj_col and robot_dir == 0
         return facing_left or facing_right or facing_down or facing_up
 
+    def _AdjacentNotFacing_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        return self.Adjacent_holds(state, objects) and not self.Facing_holds(state, objects)
+
     def _IsCooked_holds(self, state: State, objects: Sequence[Object]) -> bool:
         patty, = objects
         return state.simulator_state[patty]["is_cooked"] > 0.5
@@ -289,7 +293,7 @@ class GridWorldEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
+        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._AdjacentNotFacing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:

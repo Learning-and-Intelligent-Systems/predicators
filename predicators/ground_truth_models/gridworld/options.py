@@ -27,7 +27,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
         # Types
         bottom_bun_type = types["bottom_bun"]
         top_bun_type = types["top_bun"]
-        patty = types["patty"]
+        patty_type = types["patty"]
         cheese_type = types["cheese"]
         tomato_type = types["tomato"]
         grill_type = types["grill"]
@@ -40,7 +40,9 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # Predicates
         Adjacent = predicates["Adjacent"]
+        AdjacentToNothing = predicates["AdjacentToNothing"]
         Facing = predicates["Facing"]
+        AdjacentNotFacing = predicates["AdjacentNotFacing"]
         IsCooked = predicates["IsCooked"]
         IsSliced = predicates["IsSliced"]
         HandEmpty = predicates["HandEmpty"]
@@ -49,7 +51,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
         # GoalHack = predicates["GoalHack"]
 
         # Cook
-        def _Cook_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool):
+        def _Cook_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             _, patty, _ = objects
             return IsCooked.holds(state, [patty])
@@ -118,6 +120,8 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             del state, memory, objects, params  # unused
             action = Action(np.array([0, 0, -1, 1, 0], dtype=np.float32))
             return action
+
+        return policy
 
     @classmethod
     def _create_move_policy(cls) -> ParameterizedPolicy:
