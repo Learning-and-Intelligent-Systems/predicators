@@ -77,7 +77,8 @@ def test_demo_dataset():
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert len(dataset.trajectories) == 7
     assert len(dataset.trajectories[0].states) == 3
     assert len(dataset.trajectories[0].actions) == 2
@@ -96,7 +97,9 @@ def test_demo_dataset():
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories) == 7
     assert len(dataset.trajectories[0].states) == 3
     assert len(dataset.trajectories[0].actions) == 2
@@ -125,7 +128,8 @@ def test_demo_dataset():
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     assert options == {Pick}
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert len(dataset.trajectories) == 3
     at_least_one_pick_found = False
     at_least_one_place_found = False
@@ -156,7 +160,9 @@ def test_demo_dataset():
     Holding = [pred for pred in env.predicates if pred.name == "Holding"][0]
     imposs_goal = {GroundAtom(HandEmpty, []), Holding([list(init)[0]])}
     train_tasks[0] = Task(init, imposs_goal)
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories) < 7
     # Test max_initial_demos.
     utils.reset_config({
@@ -168,21 +174,26 @@ def test_demo_dataset():
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 7
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories) == 3
     utils.update_config({
         "offline_data_method": "not a real method",
     })
     with pytest.raises(NotImplementedError):
-        create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+        create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                       predicates)
     utils.update_config({
         "offline_data_method":
         "demo",
         "offline_data_task_planning_heuristic":
         "not a real heuristic",
     })
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     with pytest.raises(ValueError):
-        create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+        create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                       predicates)
     # Test demo video and image generation.
     video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
     image_dir = os.path.join(os.path.dirname(__file__), "_fake_images")
@@ -205,7 +216,9 @@ def test_demo_dataset():
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories) == 1
     assert os.path.exists(video_file)
     assert os.path.exists(image_file)
@@ -224,7 +237,8 @@ def test_demo_dataset():
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert 0 < len(dataset.trajectories) < 5
     # Use bilevel planning to collect data, but don't use otherwise.
     utils.reset_config({
@@ -240,7 +254,8 @@ def test_demo_dataset():
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert len(dataset.trajectories) == 5
 
 
@@ -269,9 +284,10 @@ def test_demo_dataset_loading(num_train_tasks, load_data, demonstrator,
         shutil.rmtree(CFG.data_dir)
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     with expectation as e:
         dataset = create_dataset(env, train_tasks,
-                                 get_gt_options(env.get_name()))
+                                 get_gt_options(env.get_name()), predicates)
     if e is None:
         assert len(dataset.trajectories) == num_train_tasks
         assert all(traj.train_task_idx < len(train_tasks)
@@ -302,7 +318,9 @@ def test_demo_dataset_loading_tricky_case(num_train_tasks, load_data,
         shutil.rmtree(CFG.data_dir)
     env = BlocksEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     # Note the use of <= here rather than ==.
     assert len(dataset.trajectories) <= num_train_tasks
     assert all(traj.train_task_idx < len(train_tasks)
@@ -324,7 +342,9 @@ def test_demo_replay_dataset():
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories) == 5 + 3
     assert len(dataset.trajectories[-1].states) == 2
     assert len(dataset.trajectories[-1].actions) == 1
@@ -348,7 +368,8 @@ def test_demo_replay_dataset():
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert len(dataset.trajectories) == 5 + 3
     assert len(dataset.trajectories[-1].states) == 2
     assert len(dataset.trajectories[-1].actions) == 1
@@ -378,7 +399,8 @@ def test_demo_replay_dataset():
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     assert options == {Pick}
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert len(dataset.trajectories) == 3 + 3
     at_least_one_pick_found = False
     at_least_one_place_found = False
@@ -402,7 +424,9 @@ def test_demo_replay_dataset():
     })
     env = ClutteredTableEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories[-1].states) == 2
     assert len(dataset.trajectories[-1].actions) == 1
 
@@ -420,8 +444,10 @@ def test_dataset_with_annotations():
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     trajectories = create_dataset(env, train_tasks,
-                                  get_gt_options(env.get_name())).trajectories
+                                  get_gt_options(env.get_name()),
+                                  predicates).trajectories
     # The annotations and trajectories need to be the same length.
     with pytest.raises(AssertionError):
         dataset = Dataset(trajectories, [])
@@ -450,7 +476,9 @@ def test_ground_atom_dataset():
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories) == 15
     assert len(dataset.annotations) == 15
     Covers, HandEmpty, Holding = _get_predicates_by_names(
@@ -501,8 +529,10 @@ def test_ground_atom_dataset():
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     with pytest.raises(ValueError):
-        create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+        create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                       predicates)
 
 
 def test_empty_dataset():
@@ -513,7 +543,9 @@ def test_empty_dataset():
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert len(dataset.trajectories) == 0
     with pytest.raises(AssertionError):
         _ = dataset.annotations
@@ -551,11 +583,12 @@ def test_loading_saved_vlm_img_demos_folder(atom_proposal_prompt_type,
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     vlm = _DummyVLM()
     if atom_proposal_prompt_type != "not_a_real_prompt_type" and \
         atom_labelling_prompt_type != "not_a_real_prompt_type":
         loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
-            env, train_tasks, get_gt_options(env.get_name()), vlm)
+            env, train_tasks, predicates, get_gt_options(env.get_name()), vlm)
         assert len(loaded_dataset.trajectories) == 1
         assert len(loaded_dataset.annotations) == 1
         assert len(loaded_dataset.annotations[0][0]) == 1
@@ -564,7 +597,8 @@ def test_loading_saved_vlm_img_demos_folder(atom_proposal_prompt_type,
     else:
         with pytest.raises(ValueError) as e:
             loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
-                env, train_tasks, get_gt_options(env.get_name()), vlm)
+                env, train_tasks, predicates, get_gt_options(env.get_name()),
+                vlm)
         assert "Unknown" in str(e)
     for dirpath, _, filenames in os.walk(
             CFG.pretrained_model_prompt_cache_dir):
@@ -589,10 +623,11 @@ def test_env_debug_grammar():
         "grammar_search_vlm_atom_proposal_use_debug": True
     })
     env = IceTeaMakingEnv()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     train_tasks = env.get_train_tasks()
     vlm = _DummyVLM()
     loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
-        env, train_tasks, get_gt_options(env.get_name()), vlm)
+        env, train_tasks, predicates, get_gt_options(env.get_name()), vlm)
     assert len(loaded_dataset.trajectories) == 1
     assert len(loaded_dataset.annotations) == 1
     assert len(loaded_dataset.annotations[0][0]) == 6
@@ -616,8 +651,9 @@ def test_loading_txt_files():
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     loaded_dataset = create_dataset(env, train_tasks,
-                                    get_gt_options(env.get_name()))
+                                    get_gt_options(env.get_name()), predicates)
     assert len(loaded_dataset.trajectories) == 1
 
 
@@ -630,16 +666,18 @@ def test_create_ground_atom_data_from_generated_demos():
         "offline_data_planning_timeout": 500,
         "option_learner": "no_learning",
         "num_train_tasks": 1,
-        "included_options": "PickPlace"
+        "included_options": "PickPlace",
+        "excluded_predicates": "all",
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     options = parse_config_included_options(env)
-    dataset = create_dataset(env, train_tasks, options)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert len(dataset.trajectories) == 1
     for state in dataset.trajectories[0].states:
         state.simulator_state = [np.zeros((32, 32), dtype=np.uint8)]
     vlm = _DummyVLM()
     vlm_dataset = create_ground_atom_data_from_generated_demos(
-        dataset, env, train_tasks, vlm)
+        dataset, env, predicates, train_tasks, vlm)
     assert len(vlm_dataset.annotations) == 1

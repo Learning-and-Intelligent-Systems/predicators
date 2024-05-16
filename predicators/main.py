@@ -129,7 +129,7 @@ def main() -> None:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
-        offline_dataset = create_dataset(env, train_tasks, options)
+        offline_dataset = create_dataset(env, train_tasks, options, preds)
     else:
         offline_dataset = None
     # Create the cognitive manager.
