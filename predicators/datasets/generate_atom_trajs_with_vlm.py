@@ -9,6 +9,7 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+import dill as pkl
 import numpy as np
 import PIL.Image
 
@@ -269,6 +270,10 @@ def _save_img_option_trajs_in_folder(
                     img.save(
                         Path(curr_traj_timestep_folder,
                              str(j) + "_" + str(k) + ".jpg"))
+                # Save the object-centric state alongside the images.
+                state_file = curr_traj_timestep_folder / "state.p"
+                with open(state_file, "wb") as f:
+                    pkl.dump(f, state_file)
             options_txt_file_path = Path(curr_traj_folder, "options_traj.txt")
             options_txt_file_contents = ""
             for opt in img_option_traj.actions:
@@ -813,7 +818,8 @@ def create_ground_atom_data_from_saved_img_trajs(
         assert path.is_dir()
         state_folders = [f.path for f in os.scandir(path) if f.is_dir()]
         num_states_in_traj = len(state_folders)
-        state_traj = []
+        img_traj = []
+        state_traj: Optional[List[State]] = []
         for state_num in range(num_states_in_traj):
             curr_imgs = []
             curr_state_path = path.joinpath(str(state_num))
@@ -821,7 +827,15 @@ def create_ground_atom_data_from_saved_img_trajs(
             img_files = sorted(glob.glob(str(curr_state_path) + "/*.jpg"))
             for img in img_files:
                 curr_imgs.append(PIL.Image.open(img))
-            state_traj.append(curr_imgs)
+            img_traj.append(curr_imgs)
+            state_file = curr_state_path / "state.p"
+            if state_file.exists():
+                with open(state_file, "rb") as fp:
+                    state = pkl.load(fp)
+                assert state_traj is not None
+                state_traj.append(state)
+            else:
+                state_traj = None
         # Get objects from train tasks to be used for future parsing.
         curr_train_task = train_tasks[train_task_idx]
         curr_task_objs = set(curr_train_task.init)
@@ -861,8 +875,9 @@ def create_ground_atom_data_from_saved_img_trajs(
         # Given ground options, we can finally make ImageOptionTrajectories.
         image_option_trajs.append(
             ImageOptionTrajectory(list(curr_task_objs),
-                                  state_traj,
+                                  img_traj,
                                   ground_option_traj,
+                                  state_traj,
                                   _is_demo=True,
                                   _train_task_idx=train_task_idx))
     # Given trajectories, we can now query the VLM to get proposals for ground
