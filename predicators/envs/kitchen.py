@@ -222,6 +222,11 @@ README of that repo suggests!"
                       cls._BurnerAhead_holds),
             Predicate("BurnerBehind", [cls.surface_type, cls.surface_type],
                       cls._BurnerBehind_holds),
+            Predicate("KettleBoiling",
+                      [cls.kettle_type, cls.surface_type, cls.knob_type],
+                      cls._KettleBoiling_holds),
+            Predicate("KnobAndBurnerLinked", [cls.knob_type, cls.surface_type],
+                      cls._KnobAndBurnerLinkedHolds)
         }
 
         return {p.name: p for p in preds}
@@ -323,6 +328,8 @@ README of that repo suggests!"
             return knob4_turned_on
         if goal_desc == "Turn on the light":
             return light_turned_on
+        if goal_desc == "Move the kettle to the back burner and turn it on":
+            return kettle_on_burner and knob4_turned_on
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,
@@ -330,13 +337,16 @@ README of that repo suggests!"
         tasks = []
 
         assert CFG.kitchen_goals in [
-            "all", "kettle_only", "knob_only", "light_only"
+            "all", "kettle_only", "knob_only", "light_only", "boil_kettle"
         ]
         goal_descriptions: List[str] = []
         if CFG.kitchen_goals in ["all", "kettle_only"]:
             goal_descriptions.append("Move the kettle to the back burner")
         if CFG.kitchen_goals in ["all", "knob_only"]:
             goal_descriptions.append("Turn on the back burner")
+        if CFG.kitchen_goals in ["all", "boil_kettle"]:
+            goal_descriptions.append(
+                "Move the kettle to the back burner and turn it on")
         if CFG.kitchen_goals in ["all", "light_only"]:
             goal_descriptions.append("Turn on the light")
         if CFG.kitchen_goals == "all":
@@ -532,6 +542,24 @@ README of that repo suggests!"
         if burner1 == burner2:
             return False
         return not cls._BurnerAhead_holds(state, objects)
+
+    @classmethod
+    def _KettleBoiling_holds(cls, state: State,
+                             objects: Sequence[Object]) -> bool:
+        """Predicate that's necessary for goal specification."""
+        kettle, burner, knob = objects
+        return cls.On_holds(state, [knob]) and cls._OnTop_holds(
+            state, [kettle, burner])
+
+    @classmethod
+    def _KnobAndBurnerLinkedHolds(cls, state: State,
+                                  objects: Sequence[Object]) -> bool:
+        """Predicate that's necessary for goal specification."""
+        knob, burner = objects
+        # NOTE: we assume the knobs and burners are
+        # all named "knob1", "burner1", .... And that "knob1" corresponds
+        # to "burner1"
+        return knob.name[-1] == burner.name[-1]
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)

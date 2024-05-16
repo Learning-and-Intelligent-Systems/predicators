@@ -19,6 +19,7 @@ class KitchenPerceiver(BasePerceiver):
         OnTop = pred_name_to_pred["OnTop"]
         TurnedOn = pred_name_to_pred["TurnedOn"]
         kettle = KitchenEnv.object_name_to_object("kettle")
+        KettleBoiling = pred_name_to_pred["KettleBoiling"]
         knob4 = KitchenEnv.object_name_to_object("knob4")
         burner4 = KitchenEnv.object_name_to_object("burner4")
         light = KitchenEnv.object_name_to_object("light")
@@ -40,6 +41,8 @@ class KitchenPerceiver(BasePerceiver):
             goal = {
                 GroundAtom(TurnedOn, [light]),
             }
+        elif goal_desc == "Move the kettle to the back burner and turn it on":
+            goal = {GroundAtom(KettleBoiling, [kettle, burner4, knob4])}
         else:
             raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
         return Task(state, goal)
