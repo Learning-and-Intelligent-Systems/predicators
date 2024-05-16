@@ -271,9 +271,10 @@ def _save_img_option_trajs_in_folder(
                         Path(curr_traj_timestep_folder,
                              str(j) + "_" + str(k) + ".jpg"))
                 # Save the object-centric state alongside the images.
+                assert img_option_traj.states is not None
                 state_file = curr_traj_timestep_folder / "state.p"
                 with open(state_file, "wb") as f:
-                    pkl.dump(f, state_file)
+                    pkl.dump(img_option_traj.states[j], f)
             options_txt_file_path = Path(curr_traj_folder, "options_traj.txt")
             options_txt_file_contents = ""
             for opt in img_option_traj.actions:
