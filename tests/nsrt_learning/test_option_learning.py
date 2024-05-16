@@ -311,7 +311,11 @@ def test_option_learning_approach_multistep_cover():
     approach = create_approach("nsrt_learning", env.predicates,
                                get_gt_options(env.get_name()), env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, known_options=set())
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env,
+                             train_tasks,
+                             known_options=set(),
+                             known_predicates=predicates)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     num_test_successes = 0
@@ -348,7 +352,11 @@ def test_implicit_bc_option_learning_touch_point():
     approach = create_approach("nsrt_learning", env.predicates,
                                get_gt_options(env.get_name()), env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, known_options=set())
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env,
+                             train_tasks,
+                             known_options=set(),
+                             known_predicates=predicates)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     num_test_successes = 0
@@ -400,7 +408,11 @@ def test_action_conversion():
         train_tasks = [t.task for t in env.get_train_tasks()]
         approach = create_approach("nsrt_learning", env.predicates, set(),
                                    env.types, env.action_space, train_tasks)
-        dataset = create_dataset(env, train_tasks, known_options=set())
+        predicates, _ = utils.parse_config_excluded_predicates(env)
+        dataset = create_dataset(env,
+                                 train_tasks,
+                                 known_options=set(),
+                                 known_predicates=predicates)
         approach.learn_from_offline_dataset(dataset)
         task = env.get_test_tasks()[0]
         robot, target = sorted(list(task.init))

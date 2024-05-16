@@ -86,7 +86,9 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
     approach = ActiveSamplerLearningApproach(env.predicates, options,
                                              env.types, env.action_space,
                                              train_tasks)
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert approach.is_learning_based
     # Learning with an empty dataset should not crash.
     approach.learn_from_offline_dataset(Dataset([]))

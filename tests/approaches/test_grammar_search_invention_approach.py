@@ -185,8 +185,9 @@ def test_invention_from_txt_file():
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
     loaded_dataset = create_dataset(env, train_tasks,
-                                    get_gt_options(env.get_name()))
+                                    get_gt_options(env.get_name()), predicates)
     approach = GrammarSearchInventionApproach(env.goal_predicates,
                                               get_gt_options(env.get_name()),
                                               env.types, env.action_space,
