@@ -193,9 +193,9 @@ README of that repo suggests!"
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return {
-            self._pred_name_to_pred["OnTop"],
-            self._pred_name_to_pred["TurnedOn"],
-            self._pred_name_to_pred["Open"],
+            # self._pred_name_to_pred["OnTop"],
+            # self._pred_name_to_pred["TurnedOn"],
+            # self._pred_name_to_pred["Open"],
             self._pred_name_to_pred["KettleBoiling"]
         }
 
