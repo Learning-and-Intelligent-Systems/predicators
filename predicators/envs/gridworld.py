@@ -81,6 +81,7 @@ class GridWorldEnv(BaseEnv):
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type], self._HandEmpty_holds)
         self._Holding = Predicate("Holding", [self._robot_type, self._item_type], self._Holding_holds)
         self._On = Predicate("On", [self._object_type, self._object_type], self._On_holds)
+        self._OnNothing = Predicate("OnNothing", [self._item_type], self._OnNothing_holds)
         self._GoalHack = Predicate("GoalHack", [self._bottom_bun_type, self._patty_type, self._cheese_type, self._tomato_type, self._top_bun_type], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
@@ -159,9 +160,6 @@ class GridWorldEnv(BaseEnv):
         state_dict[bottom_bun] = {"row": 0, "col": 2, "z": 0}
         hidden_state[bottom_bun] = {"is_held": 0.0}
 
-        # # Get the top right cell and make the goal for the agent to go there.
-        # top_right_cell = self._cells[-1]
-        # goal = {GroundAtom(self._RobotInCell, [self._robot, top_right_cell])}
         goal = {
             # GroundAtom(
             #     self._GoalHack,
@@ -173,10 +171,11 @@ class GridWorldEnv(BaseEnv):
             # GroundAtom(self._On, [tomato, cheese]),
             # GroundAtom(self._On, [top_bun, tomato]),
             GroundAtom(self._IsCooked, [patty]),
-            # GroundAtom(self._IsSliced, [tomato])
+            # GroundAtom(self._IsSliced, [tomato]),
 
             # GroundAtom(self._Holding, [self._robot, tomato])
-            GroundAtom(self._On, [patty, bottom_bun])
+            GroundAtom(self._On, [patty, bottom_bun]),
+            # GroundAtom(self._On, [tomato, patty])
             # GroundAtom(self._Adjacent, [self._robot, patty])
         }
 
@@ -267,6 +266,14 @@ class GridWorldEnv(BaseEnv):
 
         return a_x==b_x and a_y==b_y and a_z - 1 == b_z
 
+    def _OnNothing_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        item, = objects
+        for obj in state:
+            if obj.is_instance(self._item_type) or obj.is_instance(self._station_type):
+                if self._On_holds(state, [item, obj]):
+                    return False
+        return True
+
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
         bottom, patty, cheese, tomato, top = objects
         atoms = [
@@ -293,7 +300,7 @@ class GridWorldEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._AdjacentNotFacing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._GoalHack}
+        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._AdjacentNotFacing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._OnNothing, self._GoalHack}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:

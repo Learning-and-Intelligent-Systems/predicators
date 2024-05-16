@@ -50,6 +50,21 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
         On = predicates["On"]
         # GoalHack = predicates["GoalHack"]
 
+        # Slice
+        def _Slice_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
+            del memory, params  # unused
+            _, tomato, _ = objects
+            return IsSliced.holds(state, [tomato])
+
+        Slice = ParameterizedOption(
+            "Slice",
+            types = [robot_type, tomato_type, cutting_board_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_slice_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Slice_terminal
+        )
+
         # Cook
         def _Cook_terminal(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
@@ -125,7 +140,18 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_Place_terminal
         )
 
-        return {Move, Pick, Place, Cook}
+        return {Move, Pick, Place, Cook, Slice}
+
+    @classmethod
+    def _create_slice_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+               params: Array) -> Action:
+            del state, memory, objects, params  # unused
+            action = Action(np.array([0, 0, -1, 1, 0], dtype=np.float32))
+            return action
+
+        return policy
 
     @classmethod
     def _create_cook_policy(cls) -> ParameterizedPolicy:
