@@ -167,12 +167,20 @@ class GridWorldEnv(BaseEnv):
             # )
 
             GroundAtom(self._On, [patty, bottom_bun]),
+            # GroundAtom(self._On, [tomato, patty]),
+            # GroundAtom(self._On, [cheese, tomato]),
+            # GroundAtom(self._On, [top_bun, cheese]),
+            GroundAtom(self._On, [cheese, patty]),
+            GroundAtom(self._On, [tomato, cheese]),
+            GroundAtom(self._On, [top_bun, tomato]),
+
+
             # GroundAtom(self._On, [cheese, patty]),
             # GroundAtom(self._On, [tomato, cheese]),
             # GroundAtom(self._On, [top_bun, tomato]),
+
             GroundAtom(self._IsCooked, [patty]),
             GroundAtom(self._IsSliced, [tomato]),
-            GroundAtom(self._On, [tomato, patty])
         }
 
         for i in range(num):
@@ -454,6 +462,10 @@ class GridWorldEnv(BaseEnv):
         # print("action: ", action)
         # print("next state: ", next_state)
         # print()
+        # top_bun = [obj for obj in state if obj.name == "top_bun"][0]
+        # if pickplace > 0 and state.simulator_state[top_bun]["is_held"] > 0.5:
+        #     print()
+        #     import pdb; pdb.set_trace()
 
         return next_state
 
