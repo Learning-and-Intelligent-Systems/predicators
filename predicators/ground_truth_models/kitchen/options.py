@@ -59,7 +59,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         hinge_door_type = types["hinge_door"]
 
         # Predicates
-        OnTop = predicates["OnTop"]
+        OnTop = predicates["KettleOnTopOfBurner"]
 
         options: Set[ParameterizedOption] = set()
 

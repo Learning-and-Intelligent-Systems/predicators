@@ -16,8 +16,8 @@ class KitchenPerceiver(BasePerceiver):
     def reset(self, env_task: EnvironmentTask) -> Task:
         state = self._observation_to_state(env_task.init_obs)
         pred_name_to_pred = KitchenEnv.create_predicates()
-        OnTop = pred_name_to_pred["OnTop"]
-        TurnedOn = pred_name_to_pred["TurnedOn"]
+        OnTop = pred_name_to_pred["KettleOnTopOfBurner"]
+        TurnedOn = pred_name_to_pred["KnobTurnedOn"]
         kettle = KitchenEnv.object_name_to_object("kettle")
         KettleBoiling = pred_name_to_pred["KettleBoiling"]
         knob4 = KitchenEnv.object_name_to_object("knob4")

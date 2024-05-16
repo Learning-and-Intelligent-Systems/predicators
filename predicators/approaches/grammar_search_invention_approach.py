@@ -1035,7 +1035,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset: List[GroundAtomTrajectory],
             train_tasks: List[Task]) -> Set[Predicate]:
         """Perform a greedy search over predicate sets."""
-
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
             del s  # unused

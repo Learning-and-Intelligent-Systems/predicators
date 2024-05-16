@@ -39,6 +39,17 @@ _TRACKED_SITE_TO_JOINT = {
 
 _TRACKED_BODIES = ["Burner 1", "Burner 2", "Burner 3", "Burner 4"]
 
+_OBJECT_NAME_SUBS = {
+    # "burner1": "near-right-burner",
+    # "burner2": "near-left-burner",
+    # "burner3": "far-right-burner",
+    # "burner4": "far-left-burner",
+    "knob1": "near-right-knob",
+    "knob2": "near-left-knob",
+    "knob3": "far-right-knob",
+    "knob4": "far-left-knob",
+}
+
 
 class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
@@ -86,8 +97,8 @@ class KitchenEnv(BaseEnv):
     obj_name_to_pre_push_dpos = {
         ("kettle", "on"): (-0.05, -0.3, -0.12),
         ("kettle", "off"): (0.0, 0.0, 0.08),
-        ("knob4", "on"): (-0.1, -0.15, 0.05),
-        ("knob4", "off"): (0.05, -0.12, -0.05),
+        ("far-left-knob", "on"): (-0.1, -0.15, 0.05),
+        ("far-left-knob", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
         ("light", "off"): (-0.1, -0.05, -0.05),
         ("microhandle", "on"): (0.0, -0.1, 0.13),
@@ -192,41 +203,42 @@ README of that repo suggests!"
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {
-            # self._pred_name_to_pred["OnTop"],
-            # self._pred_name_to_pred["TurnedOn"],
-            # self._pred_name_to_pred["Open"],
-            self._pred_name_to_pred["KettleBoiling"]
-        }
+        # return {
+        #     # self._pred_name_to_pred["OnTop"],
+        #     # self._pred_name_to_pred["TurnedOn"],
+        #     # self._pred_name_to_pred["Open"],
+        #     self._pred_name_to_pred["KettleBoiling"]
+        # }
+        return self.predicates - {self._pred_name_to_pred["KettleOnTopOfBurner"], self._pred_name_to_pred["NotKettleOnTopOfBurner"]}
 
     @classmethod
     def create_predicates(cls) -> Dict[str, Predicate]:
         """Exposed for perceiver."""
         preds = {
-            Predicate("AtPreTurnOff", [cls.gripper_type, cls.on_off_type],
+            Predicate("GripperReadyToTurnKnobOff", [cls.gripper_type, cls.on_off_type],
                       cls._AtPreTurnOff_holds),
-            Predicate("AtPreTurnOn", [cls.gripper_type, cls.on_off_type],
+            Predicate("GripperReadyToTurnKnobOn", [cls.gripper_type, cls.on_off_type],
                       cls._AtPreTurnOn_holds),
-            Predicate("AtPrePushOnTop", [cls.gripper_type, cls.kettle_type],
+            Predicate("GripperReadyToPushKettleForward", [cls.gripper_type, cls.kettle_type],
                       cls._AtPrePushOnTop_holds),
-            Predicate("AtPrePullKettle", [cls.gripper_type, cls.kettle_type],
+            Predicate("GripperReadyToPullKettleBack", [cls.gripper_type, cls.kettle_type],
                       cls._AtPrePullKettle_holds),
-            Predicate("OnTop", [cls.kettle_type, cls.surface_type],
+            Predicate("KettleOnTopOfBurner", [cls.kettle_type, cls.surface_type],
                       cls._OnTop_holds),
-            Predicate("NotOnTop", [cls.kettle_type, cls.surface_type],
+            Predicate("NotKettleOnTopOfBurner", [cls.kettle_type, cls.surface_type],
                       cls._NotOnTop_holds),
-            Predicate("TurnedOn", [cls.on_off_type], cls.On_holds),
-            Predicate("TurnedOff", [cls.on_off_type], cls.Off_holds),
-            Predicate("Open", [cls.on_off_type], cls.Open_holds),
-            Predicate("Closed", [cls.on_off_type], cls.Closed_holds),
-            Predicate("BurnerAhead", [cls.surface_type, cls.surface_type],
+            Predicate("KnobTurnedOn", [cls.on_off_type], cls.On_holds),
+            Predicate("KnobTurnedOff", [cls.on_off_type], cls.Off_holds),
+            Predicate("HingeOpen", [cls.on_off_type], cls.Open_holds),
+            Predicate("HingeClosed", [cls.on_off_type], cls.Closed_holds),
+            Predicate("Ahead", [cls.surface_type, cls.surface_type],
                       cls._BurnerAhead_holds),
-            Predicate("BurnerBehind", [cls.surface_type, cls.surface_type],
+            Predicate("Behind", [cls.surface_type, cls.surface_type],
                       cls._BurnerBehind_holds),
             Predicate("KettleBoiling",
                       [cls.kettle_type, cls.surface_type, cls.knob_type],
                       cls._KettleBoiling_holds),
-            Predicate("KnobAndBurnerLinked", [cls.knob_type, cls.surface_type],
+            Predicate("KnobControlsBurner", [cls.knob_type, cls.surface_type],
                       cls._KnobAndBurnerLinkedHolds)
         }
 
@@ -247,7 +259,11 @@ README of that repo suggests!"
     @classmethod
     def object_name_to_object(cls, obj_name: str) -> Object:
         """Made public for perceiver."""
-        return Object(obj_name, cls.obj_name_to_type[obj_name])
+
+
+        final_obj_name = _OBJECT_NAME_SUBS.get(obj_name, obj_name)
+
+        return Object(final_obj_name, cls.obj_name_to_type[obj_name])
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
@@ -560,7 +576,21 @@ README of that repo suggests!"
         # NOTE: we assume the knobs and burners are
         # all named "knob1", "burner1", .... And that "knob1" corresponds
         # to "burner1"
-        return knob.name[-1] == burner.name[-1]
+        rev_subs = {v: k for k, v in _OBJECT_NAME_SUBS.items()}
+        knob_name = rev_subs.get(knob.name, knob.name)
+        burner_name = rev_subs.get(burner.name, burner.name)
+        return knob_name[-1] == burner_name[-1]
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
+
+    @property
+    def vlm_debug_atom_strs(self) -> Set[str]:
+        state_info = self.get_object_centric_state_info()
+        state = self.state_info_to_state(state_info)
+        atoms = utils.all_possible_ground_atoms(state, self.predicates - self.goal_predicates)
+        atom_strs = {
+            atom.predicate.name + "(" + ", ".join([o.name for o in atom.objects]) + ")"
+            for atom in atoms
+        }
+        return atom_strs

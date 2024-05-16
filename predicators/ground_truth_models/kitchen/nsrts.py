@@ -57,20 +57,20 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         PushClose = options["PushClose"]
 
         # Predicates
-        AtPreTurnOn = predicates["AtPreTurnOn"]
-        AtPreTurnOff = predicates["AtPreTurnOff"]
-        AtPrePushOnTop = predicates["AtPrePushOnTop"]
-        AtPrePullKettle = predicates["AtPrePullKettle"]
-        Closed = predicates["Closed"]
-        TurnedOn = predicates["TurnedOn"]
-        TurnedOff = predicates["TurnedOff"]
-        OnTop = predicates["OnTop"]
-        Open = predicates["Open"]
-        NotOnTop = predicates["NotOnTop"]
-        BurnerAhead = predicates["BurnerAhead"]
-        BurnerBehdind = predicates["BurnerBehind"]
+        AtPreTurnOn = predicates["GripperReadyToTurnKnobOff"]
+        AtPreTurnOff = predicates["GripperReadyToTurnKnobOn"]
+        AtPrePushOnTop = predicates["GripperReadyToPushKettleForward"]
+        AtPrePullKettle = predicates["GripperReadyToPullKettleBack"]
+        Closed = predicates["HingeClosed"]
+        TurnedOn = predicates["KnobTurnedOn"]
+        TurnedOff = predicates["KnobTurnedOff"]
+        OnTop = predicates["KettleOnTopOfBurner"]
+        Open = predicates["HingeOpen"]
+        NotOnTop = predicates["NotKettleOnTopOfBurner"]
+        BurnerAhead = predicates["Ahead"]
+        BurnerBehdind = predicates["Behind"]
         KettleBoiling = predicates["KettleBoiling"]
-        KnobAndBurnerLinked = predicates["KnobAndBurnerLinked"]
+        KnobAndBurnerLinked = predicates["KnobControlsBurner"]
 
         nsrts = set()
 

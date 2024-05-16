@@ -75,6 +75,22 @@ def _generate_prompt_for_atom_proposals(
     return ret_list
 
 
+def _get_natural_description(atom_str):
+    if atom_str == "KettleOnTopOfBurner(kettle, far-left-burner)":
+        return "The kettle is on the burner labelled 4 in the image"
+    if atom_str == "KettleOnTopOfBurner(kettle, far-right-burner)":
+        return "The kettle is on the burner labelled 3 in the image"
+    if atom_str == "KettleOnTopOfBurner(kettle, near-left-burner)":
+        return "The kettle is on the burner labelled 2 in the image"
+    if atom_str == "KettleOnTopOfBurner(kettle, near-right-burner)":
+        return "The kettle is on the burner labelled 1 in the image"
+    if atom_str.startswith("Not"):
+        return f"Opposite of {atom_str[3:]}"
+    import ipdb; ipdb.set_trace()
+    raise NotImplementedError
+    
+
+
 def _generate_prompt_for_scene_labelling(
         traj: ImageOptionTrajectory,
         atoms_list: List[str]) -> List[Tuple[str, List[PIL.Image.Image]]]:
@@ -99,6 +115,8 @@ def _generate_prompt_for_scene_labelling(
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
+        # natural_description = _get_natural_description(atom_str)
+        # prompt += f" [{natural_description}]"
     for curr_imgs in traj.imgs:
         # NOTE: we rip out just one img from each of the state
         # images. This is fine/works for the case where we only
@@ -182,7 +200,7 @@ def _parse_unique_atom_proposals_from_list(
         assert len(atoms_proposal_for_traj) == 1
         curr_atoms_proposal = atoms_proposal_for_traj[0]
         # Regex pattern to match predicates
-        atom_match_pattern = r"\b[a-z_]+\([a-z0-9_, ]+\)"
+        atom_match_pattern = r"\b[a-z0-9_-]+\([a-z0-9_, -]+\)"
         # Find all matches in the text
         matches = re.findall(atom_match_pattern,
                              curr_atoms_proposal,
@@ -190,7 +208,7 @@ def _parse_unique_atom_proposals_from_list(
         for atom_proposal_txt in matches:
             num_atoms_considered += 1
             atom_is_valid = True
-            atom = re.sub(r"[^\w\s\(\),]", "", atom_proposal_txt).strip(' ')
+            atom = re.sub(r"[^\w\s\(\),_-]", "", atom_proposal_txt).strip(' ')
             obj_names = re.findall(r'\((.*?)\)', atom)
             if obj_names:
                 obj_names_list = [
@@ -324,7 +342,6 @@ def _parse_structured_state_into_ground_atoms(
         curr_atoms_traj = []
         objs_for_task = set(train_tasks[i].init)
         curr_obj_name_to_obj = {obj.name: obj for obj in objs_for_task}
-        goal_atoms = train_tasks[i].goal
 
         if use_dummy_goal:
             # NOTE: In this case, we assume that there is precisely one dummy
@@ -364,11 +381,17 @@ def _parse_structured_state_into_ground_atoms(
                         # Start by checking that the number of object
                         # args are always the same
                         num_args = 0
+                        predicate_valid = True
                         for obj_args in objs_and_val_dict.keys():
                             if num_args == 0:
                                 num_args = len(obj_args)
                             else:
-                                assert num_args == len(obj_args)
+                                # TODO...
+                                predicate_valid = False
+                                break
+                                # assert num_args == len(obj_args)
+                        if not predicate_valid:
+                            continue
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
                         assert obj_type is not None, (
@@ -616,7 +639,7 @@ def _query_vlm_to_generate_ground_atoms_trajs(
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
     else:  # pragma: no cover.
-        assert isinstance(env, VLMPredicateEnv)
+        # assert isinstance(env, VLMPredicateEnv)
         atom_proposals_set = env.vlm_debug_atom_strs
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
