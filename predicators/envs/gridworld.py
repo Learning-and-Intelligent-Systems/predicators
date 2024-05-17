@@ -80,8 +80,9 @@ class GridWorldEnv(BaseEnv):
         self._IsSliced = Predicate("IsSliced", [self._tomato_type], self._IsSliced_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type], self._HandEmpty_holds)
         self._Holding = Predicate("Holding", [self._robot_type, self._item_type], self._Holding_holds)
-        self._On = Predicate("On", [self._object_type, self._object_type], self._On_holds)
-        self._OnNothing = Predicate("OnNothing", [self._item_type], self._OnNothing_holds)
+        self._On = Predicate("On", [self._item_type, self._object_type], self._On_holds)
+        self._OnNothing = Predicate("OnNothing", [self._object_type], self._OnNothing_holds)
+        self._Clear = Predicate("Clear", [self._object_type], self._Clear_holds)
         self._GoalHack = Predicate("GoalHack", [self._bottom_bun_type, self._patty_type, self._cheese_type, self._tomato_type, self._top_bun_type], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
@@ -171,8 +172,8 @@ class GridWorldEnv(BaseEnv):
             # GroundAtom(self._On, [cheese, tomato]),
             # GroundAtom(self._On, [top_bun, cheese]),
             GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._On, [tomato, cheese]),
-            GroundAtom(self._On, [top_bun, tomato]),
+            # GroundAtom(self._On, [tomato, cheese]),
+            # GroundAtom(self._On, [top_bun, tomato]),
 
 
             # GroundAtom(self._On, [cheese, patty]),
@@ -271,10 +272,18 @@ class GridWorldEnv(BaseEnv):
         return a_x==b_x and a_y==b_y and a_z - 1 == b_z
 
     def _OnNothing_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        item, = objects
-        for obj in state:
-            if obj.is_instance(self._item_type) or obj.is_instance(self._station_type):
-                if self._On_holds(state, [item, obj]):
+        obj, = objects
+        for other_obj in state:
+            if other_obj.is_instance(self._item_type) or other_obj.is_instance(self._station_type):
+                if self._On_holds(state, [obj, other_obj]):
+                    return False
+        return True
+
+    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        obj, = objects
+        for other_obj in state:
+            if other_obj.is_instance(self._item_type) or other_obj.is_instance(self._station_type):
+                if self._On_holds(state, [other_obj, obj]):
                     return False
         return True
 
@@ -304,12 +313,12 @@ class GridWorldEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._AdjacentNotFacing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._OnNothing, self._GoalHack}
+        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._AdjacentNotFacing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._OnNothing, self._Clear, self._GoalHack}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
         # return {self._IsCooked, self._IsSliced, self._On, self._GoalHack}
-        return {self._On}
+        return {self._On, self._IsCooked, self._IsSliced}
 
     @property
     def action_space(self) -> Box:
