@@ -3,11 +3,14 @@
 APPROACHES:
   learn_all:
     NAME: "vlm_online_invention"
-    # NAME: "oracle"
     FLAGS: []
 ENVS:
   stick_button:
-    NAME: "stick_button"
+    # NAME: "stick_button"
+    NAME: "cover_place_hard"
+    # NAME: "doors"
+    # NAME: "sokoban"
+    # NAME: "painting"
 ARGS: 
   # []
   - "debug"
@@ -15,30 +18,34 @@ ARGS:
   # - "make_segmented_demo_videos"
   # - "make_demo_videos" 
   # - "use_gui"
-  - "load_approach"
+  # - "load_approach"
 FLAGS:
-  num_train_tasks: 0
-  num_test_tasks: 10
-  num_tasks_for_prompt: 3
-  option_learner: direct_bc # So it doesn' include all oracle options in init
+  num_train_tasks: 20
+  num_test_tasks: 50
+  # option_learner: direct_bc # So it doesn' include all oracle options in init
                             # when including all options, should also include
                             # all predicates.
-  included_options: "HandPressButton"
-  # stick_button_button_position: "at_least_one_top"
-  # stick_button_button_position: "only_bottom"
-  # stick_button_button_position: "only_top"
+  option_learner: no_learning # include all options by flagging no learning
+  sampler_learner: oracle
+  strips_learner: "cluster_and_intersect"
   # bilevel_plan_without_sim: True
-  excluded_predicates: "'Grasped,StickAboveButton'"
-  sesame_max_samples_per_step: 100
-  min_perc_data_for_nsrt: 1
-  segmenter: "contacts"
+  # excluded_predicates: "'Grasped,StickAboveButton'"
+  excluded_predicates: "all"
+  sesame_max_samples_per_step: 10
+  min_perc_data_for_nsrt: 3
+  segmenter: "option_changes"
   neural_gaus_regressor_max_itr: 50000
   vlm_model_name: "gpt-3.5-turbo-0125"
   timeout: 300
   pybullet_camera_width: 1674 
   pybullet_camera_height: 900
   video_fps: 20
-
-START_SEED: 456
+  grammar_search_search_algorithm: "gbfs"
+  painting_raise_environment_failure: False
+  llm_predicator_use_grammar: True
+  grammar_search_grammar_use_single_feature: False
+  grammar_search_grammar_use_skip_grammar: False
+  llm_predicator_oracle_base: True
+START_SEED: 2
 NUM_SEEDS: 1
 ...

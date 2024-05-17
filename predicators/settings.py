@@ -16,7 +16,6 @@ class GlobalSettings:
     # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
-    num_tasks_for_prompt = 3
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.
     num_online_learning_cycles = 10
@@ -100,7 +99,7 @@ class GlobalSettings:
     # painting env parameters
     painting_initial_holding_prob = 0.5
     painting_lid_open_prob = 0.3
-    painting_num_objs_train = [2, 3]
+    painting_num_objs_train = [1]
     painting_num_objs_test = [3, 4]
     painting_max_objs_in_goal = float("inf")
     painting_goal_receptacles = "box_and_shelf"  # box_and_shelf, box, shelf
@@ -281,7 +280,8 @@ class GlobalSettings:
     screws_num_screws_test = [25, 30]
 
     # doors env parameters
-    doors_room_map_size = 5
+    doors_map_size_train = [2]
+    doors_map_size_test = [5]
     doors_min_obstacles_per_room = 0
     doors_max_obstacles_per_room = 3
     doors_min_room_exists_frac = 0.25
@@ -640,10 +640,12 @@ class GlobalSettings:
     active_sampler_learning_init_cycles_to_pursue_goal = 1
 
     # grammar search invention parameters
+    grammar_search_grammar_use_single_feature = True
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
     grammar_search_grammar_use_diff_features = False
     grammar_search_grammar_use_euclidean_dist = False
+    grammar_search_grammar_use_skip_grammar = True
     grammar_search_use_handcoded_debug_grammar = False
     grammar_search_pred_selection_approach = "score_optimization"
     grammar_search_pred_clusterer = "oracle"
@@ -686,6 +688,10 @@ class GlobalSettings:
     # filepath to be used if offline_data_method is set to
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
+
+    # LLM predicate invention algorithm parameters
+    llm_predicator_use_grammar = True
+    llm_predicator_oracle_base = True
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -766,6 +772,7 @@ class GlobalSettings:
                     "coffee": 1000,
                     "exit_garage": 1000,
                     "tools": 1000,
+                    "doors": 1000,
                     "stick_button": 1000,
                     "stick_button_move": 1000
                 })[args.get("env", "")],
@@ -822,19 +829,19 @@ class GlobalSettings:
             # Parameters specific to the cover environment.
             # cover env parameters
             cover_num_blocks=defaultdict(lambda: 2, {
-                "cover_place_hard": 1,
+                # "cover_place_hard": 1,
             })[args.get("env", "")],
             cover_num_targets=defaultdict(lambda: 2, {
-                "cover_place_hard": 1,
+                # "cover_place_hard": 1,
             })[args.get("env", "")],
             cover_block_widths=defaultdict(lambda: [0.1, 0.07], {
-                "cover_place_hard": [0.1],
+                # "cover_place_hard": [0.1],
             })[args.get("env", "")],
             cover_target_widths=defaultdict(lambda: [0.05, 0.03], {
-                "cover_place_hard": [0.05],
+                # "cover_place_hard": [0.05],
             })[args.get("env", "")],
             cover_initial_holding_prob=defaultdict(lambda: 0.75, {
-                "cover_place_hard": 0.0,
+                # "cover_place_hard": 0.0,
             })[args.get("env", "")],
         )
 

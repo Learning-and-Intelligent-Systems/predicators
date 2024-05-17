@@ -11,6 +11,8 @@ from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
     Set, Tuple
 
 import numpy as np
+from tabulate import tabulate
+
 
 from predicators import utils
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -20,7 +22,7 @@ from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
-    STRIPSOperator, Task, _GroundSTRIPSOperator
+    STRIPSOperator, Task, _GroundSTRIPSOperator, NSRT
 
 
 def create_score_function(
@@ -96,6 +98,7 @@ def create_score_function(
         f"Unknown score function: {score_function_name}.")
 
 
+
 @dataclass(frozen=True, eq=False, repr=False)
 class _PredicateSearchScoreFunction(abc.ABC):
     """A score function for guiding search over predicate sets."""
@@ -166,7 +169,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
                                                 low_level_trajs,
-                                                segmented_trajs, strips_ops,
+                                                segmented_trajs, 
+                                                strips_ops,
                                                 option_specs)
         pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
@@ -193,6 +197,28 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             complexity += op.get_complexity()
         return CFG.grammar_search_operator_complexity_weight * complexity
 
+@dataclass(frozen=True, eq=False, repr=False)
+class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
+    """Score a predicate set by learning operators and counting classification
+    errors."""
+    succ_optn_dict: Dict[str, Dict]
+    fail_optn_dict: Dict[str, Dict]
+
+    def evaluate_with_operators(self,
+                                candidate_predicates: FrozenSet[Predicate],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
+                                strips_ops: List[STRIPSOperator],
+                                option_specs: List[OptionSpec]
+                                ) -> float:
+        del candidate_predicates, low_level_trajs, segmented_trajs
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        tp, tn, fp, fn, _ = utils.count_classification_result_for_ops(
+            nsrts, self.succ_optn_dict, self.fail_optn_dict
+        )
+        accuracy = round((tp + tn) / (tp + tn + fp + fn), 
+                     2) if tp + tn + fp + fn > 0 else 0
+        return -accuracy*100
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):

@@ -29,6 +29,7 @@ class PaintingGroundTruthOptionFactory(GroundTruthOptionFactory):
         obj_type = types["obj"]
         lid_type = types["lid"]
 
+        # Add terminal is held
         Pick = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
             # params: [grasp]

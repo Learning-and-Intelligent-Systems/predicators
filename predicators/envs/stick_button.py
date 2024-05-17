@@ -48,14 +48,14 @@ class StickButtonEnv(BaseEnv):
     # Types
     # The (x, y) is the center of the robot. Theta is only relevant when
     # the hand is holding the stick.
-    _hand_type = Type("hand", ["x", "y", "theta"])
+    _hand_type = Type(name="hand", feature_names=["x", "y", "theta"])
     # The (x, y) is the center of the button.
-    _button_type = Type("button", ["x", "y", "pressed"])
+    _button_type = Type(name="button", feature_names=["x", "y", "pressed"])
     # The (x, y) is the bottom left-hand corner of the stick, and theta
     # is CCW angle in radians, consistent with utils.Rectangle.
-    _stick_type = Type("stick", ["x", "y", "theta", "held"])
+    _stick_type = Type(name="stick", feature_names=["x", "y", "theta", "held"])
     # Holds the stick up so that it can be grasped by the robot.
-    _holder_type = Type("holder", ["x", "y", "theta"])
+    _holder_type = Type(name="holder", feature_names=["x", "y", "theta"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -81,7 +81,7 @@ class StickButtonEnv(BaseEnv):
                                           self._ReachableByHand_holds)
 
         # Static objects (always exist no matter the settings).
-        self._robot = Object("robby's hand", self._hand_type)
+        self._robot = Object("robby_hand", self._hand_type)
         self._stick = Object("stick", self._stick_type)
         self._holder = Object("holder", self._holder_type)
 
@@ -146,6 +146,15 @@ class StickButtonEnv(BaseEnv):
                 # Place the stick back on the holder.
                 next_state.set(self._stick, "held", 0.0)
 
+            # Check if any button is now pressed.
+            tip_rect = self.stick_rect_to_tip_rect(stick_rect)
+            for button in state.get_objects(self._button_type):
+                circ = self.object_to_geom(button, state)
+                if (circ.intersects(tip_rect) and stick_held) or \
+                   (circ.intersects(robot_circ) and not stick_held):
+                    next_state.set(button, "pressed", 1.0)
+
+
             # Check if the stick is now held for the first time.
             if not stick_held and stick_rect.intersects(robot_circ):
                 # Check for a collision with the stick holder. The reason that
@@ -159,14 +168,22 @@ class StickButtonEnv(BaseEnv):
                     return state.copy()
 
                 next_state.set(self._stick, "held", 1.0)
+            
+            both_unpressed = True
+            num_buttons = len(state.get_objects(self._button_type))
+            if num_buttons==2:
+                for button in state.get_objects(self._button_type):
+                    if state.get(button, "pressed") > 0.5:
+                        both_unpressed = False
+                
+                if both_unpressed:
+                    both_pressed = True
+                    for button in state.get_objects(self._button_type):
+                        if next_state.get(button, "pressed") < 0.5:
+                            both_pressed = False
+                    if both_pressed:
+                        breakpoint()
 
-            # Check if any button is now pressed.
-            tip_rect = self.stick_rect_to_tip_rect(stick_rect)
-            for button in state.get_objects(self._button_type):
-                circ = self.object_to_geom(button, state)
-                if (circ.intersects(tip_rect) and stick_held) or \
-                   (circ.intersects(robot_circ) and not stick_held):
-                    next_state.set(button, "pressed", 1.0)
 
         return next_state
 
@@ -508,17 +525,29 @@ class StickButtonMovementEnv(StickButtonEnv):
     # Make x_ub smaller to make predicate invention constant finding easier.
     x_ub: ClassVar[float] = 6.0
     rz_x_ub: ClassVar[float] = x_ub
+
+    # Types
+    # The (x, y) is the center of the button.
+    _button_type = Type(name="button", feature_names=["x", "y", "pressed"])
+    # Holds the stick up so that it can be grasped by the robot.
+    _holder_type = Type(name="holder", feature_names=["x", "y", "theta"])
     # The (x, y) is the bottom left-hand corner of the stick, and theta
     # is CCW angle in radians, consistent with utils.Rectangle. The tip
     # x and y correspond to the end of the stick.
     _stick_type = Type("stick", ["x", "y", "tip_x", "tip_y", "theta", "held"])
+    # The (x, y) is the center of the center. Theta is only relevant when
+    # the hand is holding the stick.
     # We add an attribute for the open/closed status of the robot's gripper.
-    _robot_type = _robot_type = Type("robot", ["x", "y", "theta", "fingers"])
+    _hand_type = Type("hand", ["x", "y", "theta", "fingers"])
+
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+        # Predicates
+        self._Pressed = Predicate("Pressed", [self._button_type],
+                                    self._Pressed_holds)
+        self._HandEmpty = Predicate("HandEmpty", [self._hand_type],
                                     self._HandEmpty_holds_diff_signature)
 
     def _get_tasks(self, num: int, num_button_lst: List[int],

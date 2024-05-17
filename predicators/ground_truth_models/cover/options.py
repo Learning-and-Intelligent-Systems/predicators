@@ -182,6 +182,9 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
         block_type = types["block"]
         target_type = types["target"]
 
+        Holding = predicates["Holding"]
+        HandEmpty = predicates["HandEmpty"]
+
         def _Pick_policy(s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> Action:
             del m  # unused
@@ -197,16 +200,29 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
         if CFG.env == "cover_typed_options":
             lb, ub = (-0.1, 0.1)
 
+        def _Pick_terminal(s: State, m: Dict, o: Sequence[Object],
+                           p: Array) -> bool:
+            # Pick is done when we're holding the desired object.
+            return Holding.holds(s, o)
+
         Pick = utils.SingletonParameterizedOption("Pick",
-                                                  _Pick_policy,
-                                                  types=[block_type],
-                                                  params_space=Box(
-                                                      lb, ub, (1, )))
+                                                _Pick_policy,
+                                                types=[block_type],
+                                                params_space=Box(
+                                                      lb, ub, (1, )),
+                                                # terminal=_Pick_terminal,
+                                                )
 
         def _Place_policy(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> Action:
             del state, memory, objects  # unused
             return Action(params)  # action is simply the parameter
+
+        def _Place_terminal(s: State, m: Dict, o: Sequence[Object],
+                            p: Array) -> bool:
+            # del o  # unused
+            # Place is done when the hand is empty.
+            return HandEmpty.holds(s, [])
 
         place_types = [block_type, target_type]
         if CFG.env == "cover_typed_options":
@@ -215,7 +231,9 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             "Place",
             _Place_policy,  # use the parent class's policy
             types=place_types,
-            params_space=Box(0, 1, (1, )))
+            params_space=Box(0, 1, (1, )),
+            # terminal=_Place_terminal,
+            )
 
         return {Pick, Place}
 

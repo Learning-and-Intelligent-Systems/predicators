@@ -228,6 +228,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(painttoshelf_nsrt)
 
         # PlaceInBox
+        # This doesn't have the lid open as the precondition.
         obj = Variable("?obj", obj_type)
         box = Variable("?box", box_type)
         robot = Variable("?robot", robot_type)

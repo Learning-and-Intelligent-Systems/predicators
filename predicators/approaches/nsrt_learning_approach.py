@@ -40,6 +40,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
     @property
     def is_learning_based(self) -> bool:
         return True
+    
+    @property
+    def is_offline_learning_based(self) -> bool:
+        return True
 
     def _get_current_nsrts(self) -> Set[NSRT]:
         return self._nsrts

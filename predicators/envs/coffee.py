@@ -47,24 +47,24 @@ class CoffeeEnv(BaseEnv):
     open_fingers: ClassVar[float] = 0.4
     closed_fingers: ClassVar[float] = 0.1
     # Machine settings.
-    machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)
-    machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)
+    machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb) # 0.1
+    machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb) # 0.2
     machine_z_len: ClassVar[float] = 0.4 * (z_ub - z_lb)
-    machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
-    machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
+    machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding # 9.4
+    machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding # 9.3
     button_x: ClassVar[float] = machine_x + machine_x_len / 2
     button_y: ClassVar[float] = machine_y
     button_z: ClassVar[float] = 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_x_len
     # Jug settings.
-    jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
+    jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0 # 0.4
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
     jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
     jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
     jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + pick_jug_y_padding + \
-                                     init_padding
+                                     init_padding # 0.4 + 1.5 + 0.5 = 2.4
     jug_init_y_ub: ClassVar[
-        float] = machine_y - machine_y_len - jug_radius - init_padding
+        float] = machine_y - machine_y_len - jug_radius - init_padding # 8.6
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
     jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
@@ -72,14 +72,14 @@ class CoffeeEnv(BaseEnv):
     dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
     dispense_area_y: ClassVar[float] = machine_y - 1.1 * jug_radius
     # Cup settings.
-    cup_radius: ClassVar[float] = 0.6 * jug_radius
-    cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
+    cup_radius: ClassVar[float] = 0.6 * jug_radius # 0.24
+    cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding # 0.74
     cup_init_x_ub: ClassVar[
-        float] = machine_x - machine_x_len - cup_radius - init_padding
-    cup_init_y_lb: ClassVar[float] = jug_init_y_lb
-    cup_init_y_ub: ClassVar[float] = jug_init_y_ub
-    cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
-    cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
+        float] = machine_x - machine_x_len - cup_radius - init_padding # 8.56
+    cup_init_y_lb: ClassVar[float] = jug_init_y_lb # 2.4
+    cup_init_y_ub: ClassVar[float] = jug_init_y_ub # 8.6
+    cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb) # 0.75
+    cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb) # 1.5
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
     # Simulation settings.
     pour_x_offset: ClassVar[float] = 1.5 * (cup_radius + jug_radius)

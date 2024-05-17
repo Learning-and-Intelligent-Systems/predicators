@@ -47,12 +47,12 @@ class DoorsEnv(BaseEnv):
         # Predicates
         self._InRoom = Predicate("InRoom", [self._robot_type, self._room_type],
                                  self._InRoom_holds)
-        self._InDoorway = Predicate("InDoorway",
-                                    [self._robot_type, self._door_type],
-                                    self._InDoorway_holds)
         self._InMainRoom = Predicate("InMainRoom",
                                      [self._robot_type, self._room_type],
                                      self._InMainRoom_holds)
+        self._InDoorway = Predicate("InDoorway",
+                                    [self._robot_type, self._door_type],
+                                    self._InDoorway_holds)
         self._TouchingDoor = Predicate("TouchingDoor",
                                        [self._robot_type, self._door_type],
                                        self._TouchingDoor_holds)
@@ -66,10 +66,11 @@ class DoorsEnv(BaseEnv):
         self._DoorsShareRoom = Predicate("DoorsShareRoom",
                                          [self._door_type, self._door_type],
                                          self._DoorsShareRoom_holds)
+
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
-        self._room_map_size = CFG.doors_room_map_size
+        # self._room_map_size = CFG.doors_room_map_size
         self._min_obstacles_per_room = CFG.doors_min_obstacles_per_room
         self._max_obstacles_per_room = CFG.doors_max_obstacles_per_room
         self._min_room_exists_frac = CFG.doors_min_room_exists_frac
@@ -112,10 +113,14 @@ class DoorsEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+        return self._get_tasks(num=CFG.num_train_tasks, 
+                            map_size_list=CFG.doors_map_size_train, 
+                            rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks, 
+                            map_size_list=CFG.doors_map_size_test, 
+                            rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -218,11 +223,13 @@ class DoorsEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+                    map_size_list: Optional[List[int]] ,
+                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         for _ in range(num):
             # Sample a room map.
-            room_map = self._sample_room_map(rng)
+            map_size = map_size_list[rng.choice(len(map_size_list))]
+            room_map = self._sample_room_map(rng, map_size)
             state = self._sample_initial_state_from_map(room_map, rng)
             # Sample the goal.
             rooms = state.get_objects(self._room_type)
@@ -373,6 +380,7 @@ class DoorsEnv(BaseEnv):
 
     def _InDoorway_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
+        # Holds when close to the door
         robot, door = objects
         doorway_geom = self.door_to_doorway_geom(door, state)
         robot_geom = self.object_to_geom(robot, state)
@@ -689,12 +697,13 @@ class DoorsEnv(BaseEnv):
             doorway_geom_cache[door] = geom
         return doorway_geom_cache[door]
 
-    def _sample_room_map(self, rng: np.random.Generator) -> NDArray:
+    def _sample_room_map(self, rng: np.random.Generator,
+                         room_map_size: int) -> NDArray:
         # Sample a grid where any room can be reached from any other room.
         # To do this, perform a random tree search in the grid for a certain
         # number of steps, starting from a random location.
-        assert self._room_map_size > 1
-        room_map = np.zeros((self._room_map_size, self._room_map_size),
+        assert room_map_size > 1
+        room_map = np.zeros((room_map_size, room_map_size),
                             dtype=bool)
         min_num_rooms = max(2, int(self._min_room_exists_frac * room_map.size))
         max_num_rooms = int(self._max_room_exists_frac * room_map.size)
@@ -708,7 +717,7 @@ class DoorsEnv(BaseEnv):
                 if 0 <= nr < room_map.shape[0] and 0 <= nc < room_map.shape[1]:
                     yield (nr, nc)
 
-        start_r, start_c = rng.integers(self._room_map_size, size=2)
+        start_r, start_c = rng.integers(room_map_size, size=2)
         start_room = (start_r, start_c)
         queue = [start_room]
         visited = {start_room}

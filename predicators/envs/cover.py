@@ -31,11 +31,12 @@ class CoverEnv(BaseEnv):
         super().__init__(use_gui)
 
         # Types
-        self._block_type = Type(
-            "block", ["is_block", "is_target", "width", "pose", "grasp"])
+        self._block_type = Type("block", 
+                        ["is_block", "is_target", "width", "pose", "grasp"])
         self._target_type = Type("target",
                                  ["is_block", "is_target", "width", "pose"])
         self._robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+
         # Predicates
         self._IsBlock = Predicate("IsBlock", [self._block_type],
                                   self._IsBlock_holds)
@@ -44,9 +45,12 @@ class CoverEnv(BaseEnv):
         self._Covers = Predicate("Covers",
                                  [self._block_type, self._target_type],
                                  self._Covers_holds)
-        self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
+        # IsClear(y) is Forall x:box. not Covers(x, y) -- quantify all but one
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
+        # HandEmpty() is Forall x. not Holding(x) -- quantify over all vars
+        self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
+
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -401,6 +405,28 @@ class CoverEnvTypedOptions(CoverEnv):
 
     This means we need two options (one for block, one for target).
     """
+    def __init__(self, use_gui):
+        super().__init__(use_gui)
+
+        # Repeating Types and Predicates for LLM input.
+        # Types
+        self._block_type = Type("block", 
+                        ["is_block", "is_target", "width", "pose", "grasp"])
+        self._target_type = Type("target",
+                                 ["is_block", "is_target", "width", "pose"])
+        self._robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+
+        # Predicates
+        self._IsBlock = Predicate("IsBlock", [self._block_type],
+                                  self._IsBlock_holds)
+        self._IsTarget = Predicate("IsTarget", [self._target_type],
+                                   self._IsTarget_holds)
+        self._Covers = Predicate("Covers",
+                                 [self._block_type, self._target_type],
+                                 self._Covers_holds)
+        self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
+        self._Holding = Predicate("Holding", [self._block_type],
+                                  self._Holding_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -518,6 +544,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
+        # Types
         # Need to now include y and gripper info in state.
         # Removing "pose" because that's ambiguous.
         # Also adding height to blocks.
@@ -1009,6 +1036,29 @@ class CoverEnvPlaceHard(CoverEnv):
     of different sampler learning approaches.
     """
     _allow_free_space_placing: ClassVar[bool] = True
+
+    # Repeating Types and Predicates for LLM input.
+    # Types
+    _block_type = Type("block",
+                        ["is_block", "is_target", "width", "pose", "grasp"])
+    _target_type = Type("target",                       
+                        ["is_block", "is_target", "width", "pose"])
+    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+
+    def __init__(self, use_gui):
+        super().__init__(use_gui)
+
+        # Predicates
+        self._IsBlock = Predicate("IsBlock", [self._block_type],
+                                  self._IsBlock_holds)
+        self._IsTarget = Predicate("IsTarget", [self._target_type],
+                                   self._IsTarget_holds)
+        self._Covers = Predicate("Covers",
+                                 [self._block_type, self._target_type],
+                                 self._Covers_holds)
+        self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
+        self._Holding = Predicate("Holding", [self._block_type],
+                                  self._Holding_holds)
 
     @classmethod
     def get_name(cls) -> str:

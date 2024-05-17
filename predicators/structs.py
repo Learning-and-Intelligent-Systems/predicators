@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import abc
-import copy
+import textwrap
 import itertools
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
+from inspect import getsource
+from pprint import PrettyPrinter, pformat
 
 import numpy as np
 import PIL.Image
@@ -133,7 +135,8 @@ class State:
     def get(self, obj: Object, feature_name: str) -> Any:
         """Look up an object feature by name."""
         idx = obj.type.feature_names.index(feature_name)
-        return self.data[obj][idx]
+        val = self.data[obj][idx]
+        return val
 
     def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
         """Set the value of an object feature by name."""
@@ -192,12 +195,17 @@ class State:
 
     def pretty_str(self) -> str:
         """Display the state in a nice human-readable format."""
+        def format_float(val):
+            if isinstance(val, float):
+                return f"{val:.1f}"
+            return str(val)
+
         type_to_table: Dict[Type, List[List[str]]] = {}
         for obj in self:
             if obj.type not in type_to_table:
                 type_to_table[obj.type] = []
             type_to_table[obj.type].append([obj.name] + \
-                                            list(map(str, self[obj])))
+                                            list(map(format_float, self[obj])))
         table_strs = []
         for t in sorted(type_to_table):
             headers = ["type: " + t.name] + list(t.feature_names)
@@ -208,7 +216,58 @@ class State:
                                                           4) + "\n"
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
+    
+    # def dict_str(self) -> Dict[str, Dict[str, Any]]:
+    #     """Return a dictionary representation of the state."""
+    #     state_dict = {}
+    #     for obj in self:
+    #         obj_dict = {}
+    #         for attribute, value in zip(obj.type.feature_names, self[obj]):
+    #             if isinstance(value, (float, int)):
+    #                 value = round(value, 1)
+    #             obj_dict[attribute] = value
+    #         state_dict[f"{obj.name}:{obj.type.name}"] = obj_dict
+    #     # Create a PrettyPrinter with a large width
+    #     dict_str = "{"
+    #     n_keys = len(state_dict.keys())
+    #     for i, (key, value) in enumerate(state_dict.items()):
+    #         value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+    #         if i == 0:
+    #             dict_str += f"'{key}': {{{value_str}}},\n"
+    #         elif i == n_keys-1: 
+    #             dict_str += f" '{key}': {{{value_str}}}"
+    #         else:
+    #             dict_str += f" '{key}': {{{value_str}}},\n"
+    #     dict_str += "}"
+    #     return dict_str
 
+    def dict_str(self, indent: int = 0) -> Dict[str, Dict[str, Any]]:
+        """Return a dictionary representation of the state."""
+        state_dict = {}
+        for obj in self:
+            obj_dict = {}
+            for attribute, value in zip(obj.type.feature_names, self[obj]):
+                if isinstance(value, (float, int, np.float32)):
+                    value = round(float(value), 1)
+                obj_dict[attribute] = value
+            state_dict[f"{obj.name}:{obj.type.name}"] = obj_dict
+
+        # Create a string of n_space spaces
+        spaces = " " * indent
+
+        # Create a PrettyPrinter with a large width
+        dict_str = spaces + "{"
+        n_keys = len(state_dict.keys())
+        for i, (key, value) in enumerate(state_dict.items()):
+            value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+            if i == 0:
+                dict_str += f"'{key}': {{{value_str}}},\n"
+            elif i == n_keys-1: 
+                dict_str += spaces + f" '{key}': {{{value_str}}}"
+            else:
+                dict_str += spaces + f" '{key}': {{{value_str}}},\n"
+        dict_str += "}"
+        return dict_str
 
 DefaultState = State({})
 
@@ -298,7 +357,9 @@ class Predicate:
     def classifier_str(self) -> str:
         """Get a string representation of the classifier."""
         clf_str = getsource(self._classifier)
-        return f"{clf_str}"
+        clf_str = textwrap.dedent(clf_str)
+        clf_str = clf_str.replace("@staticmethod\n", "")
+        return clf_str
 
     def predicate_str(self) -> str:
         """Get a string representation of the predicate's name, types, and 
@@ -594,6 +655,10 @@ class ParameterizedOption:
     def __hash__(self) -> int:
         return self._hash
 
+    # def __str__(self) -> str:
+    #     variables = ", ".join(t.name for t in self.types)
+    #     return f"{self.name}({variables})"
+
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
         assert len(objects) == len(self.types)
@@ -643,6 +708,9 @@ class _Option:
         action = self._policy(state)
         action.set_option(self)
         return action
+    
+    def clear_memory(self):
+        self.memory: Dict = {}
 
 
 DummyOption: _Option = ParameterizedOption(
@@ -908,6 +976,10 @@ class NSRT:
     Ignore Effects: {sorted(self.ignore_effects, key=str)}
     Option Spec: {self.option.name}({option_var_str})"""
 
+    def option_str(self) -> str:
+        option_var_str = ", ".join([str(v) for v in self.option_vars])
+        return f"{self.option.name}({option_var_str})"
+
     @cached_property
     def _hash(self) -> int:
         return hash(str(self))
@@ -1027,6 +1099,10 @@ class _GroundNSRT:
     Ignore Effects: {sorted(self.ignore_effects, key=str)}
     Option: {self.option}
     Option Objects: {self.option_objs}"""
+
+    def ground_option_str(self) -> str:
+        var_str = ", ".join([str(v) for v in self.option_objs])
+        return f"{self.option.name}({var_str})"
 
     @cached_property
     def _hash(self) -> int:

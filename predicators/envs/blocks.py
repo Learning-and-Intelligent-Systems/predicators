@@ -325,7 +325,8 @@ class BlocksEnv(BaseEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + self._block_size * (0.5 + pile_j)
+            # Example: 0.2 + 0.045 * 0.5 
+            z = self.table_height + self._block_size * (0.5 + pile_j) 
             r, g, b = rng.uniform(size=3)
             if "clear" in self._block_type.feature_names:
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,

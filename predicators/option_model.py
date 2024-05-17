@@ -100,13 +100,19 @@ class _OracleOptionModel(_OptionModelBase):
         # Note: mypy complains if this is None instead of DefaultState.
         if CFG.option_model_terminate_on_repeat:
             last_state = DefaultState
+            call_counter = 0
 
             def _terminal(s: State) -> bool:
                 nonlocal last_state
+                nonlocal call_counter
+                call_counter += 1
+                # print(call_counter)
                 if option_copy.terminal(s):
                     return True
                 if last_state is not DefaultState and last_state.allclose(s):
-                    raise utils.OptionExecutionFailure("Option got stuck.")
+                    raise utils.OptionExecutionFailure(
+                        f"Option got stuck in option model after " +\
+                        f"{call_counter} calls.")
                 last_state = s
                 return False
         else:
@@ -114,13 +120,23 @@ class _OracleOptionModel(_OptionModelBase):
             _terminal = lambda s: option_copy.terminal(s)  # pylint: disable=unnecessary-lambda
 
         try:
+            # if option_copy.name == "Place" and \
+            #     option_copy.objects[1].name=='target1' and \
+            #         option_copy.objects[0].name=='block0':
+            #     try:
+            #         if np.isclose(list(state.data.items())[1][1][3], 0.5, atol=0.1) and\
+            #             np.isclose(list(state.data.items())[4][1][3], 0.5, atol=0.1):
+            #             print(state.dict_str())
+            #             breakpoint()
+            #     except:
+            #         pass
             traj = utils.run_policy_with_simulator(
                 option_copy.policy,
                 self._simulator,
                 state,
                 _terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
-        except utils.OptionExecutionFailure:
+        except utils.OptionExecutionFailure as e:
             # If there is a failure during the execution of the option, treat
             # this as a noop.
             return state, 0

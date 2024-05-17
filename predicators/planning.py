@@ -13,11 +13,13 @@ import subprocess
 import sys
 import tempfile
 import time
+from tqdm import tqdm
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
 from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
     Optional, Sequence, Set, Tuple
+import shutil
 
 import numpy as np
 
@@ -33,6 +35,11 @@ from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
+# Get the console width
+console_width = shutil.get_terminal_size().columns
+
+# Calculate 60% of the console width
+ncols = int(console_width * 0.6)
 
 @dataclass(repr=False, eq=False)
 class _Node:
@@ -191,6 +198,7 @@ def _sesame_plan_with_astar(
                     metrics["plan_length"] = len(plan)
                     metrics["refinement_time"] = (time.perf_counter() -
                                                   refinement_start_time)
+                    metrics["partial_refinements"] = partial_refinements
                     return plan, skeleton, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
@@ -206,6 +214,7 @@ def _sesame_plan_with_astar(
                 (skeleton, e.info["longest_failed_refinement"]))
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
             e.info["partial_refinements"] = partial_refinements
+            e.info["metrics"] = metrics
             raise e
 
 
@@ -368,6 +377,13 @@ def _skeleton_generator(
     Issue #1117 for a discussion on why this is False by default.
     """
 
+    # Initialize the progress bar
+    progress_bar = False
+    if progress_bar:
+        pbar = tqdm(total=max_skeletons_optimized, desc="High level search",
+            ncols=ncols, 
+            bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}', 
+            colour='green')
     start_time = time.perf_counter()
     current_objects = set(task.init)
     queue: List[Tuple[float, float, _Node]] = []
@@ -389,6 +405,7 @@ def _skeleton_generator(
         # This set will maintain (frozen) atom sets that have been fully
         # expanded already, and ensure that we never expand redundantly.
         visited_atom_sets = set()
+
     # Start search.
     while queue and (time.perf_counter() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
@@ -405,6 +422,8 @@ def _skeleton_generator(
         # logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
+            if progress_bar:
+                pbar.update(1)
             metrics["num_skeletons_optimized"] += 1
             yield node.skeleton, node.atoms_sequence
         else:
@@ -488,6 +507,9 @@ def _skeleton_generator(
     if not queue:
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.perf_counter() - start_time >= timeout
+    if progress_bar:
+        pbar.close()
+
     raise _SkeletonSearchTimeout
 
 
@@ -519,6 +541,14 @@ def run_low_level_search(
     num_tries = [0 for _ in skeleton]
     # Optimization: if the params_space for the NSRT option is empty, only
     # sample it once, because all samples are just empty (so equivalent).
+    
+    progress_bar = False
+    if progress_bar:
+        pbar = tqdm(total=sum(max_tries), desc="Low level search", 
+                ncols=ncols, 
+                bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}', 
+                colour='blue', 
+                leave=False)
     max_tries = [
         CFG.sesame_max_samples_per_step
         if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
@@ -557,6 +587,8 @@ def run_low_level_search(
         option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
         # Increment num_samples metric by 1
+        if progress_bar:
+            pbar.update(1)
         metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
@@ -628,6 +660,8 @@ def run_low_level_search(
             try_end_time = time.perf_counter()
             refinement_time[cur_idx - 1] += try_end_time - try_start_time
         if plan_found:
+            if progress_bar:
+                pbar.close()
             return plan, True  # success!
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
             # Update the longest_failed_refinement found so far.
@@ -669,6 +703,8 @@ def run_low_level_search(
                                 })
                     return longest_failed_refinement, False
     # Should only get here if the skeleton was empty.
+    if progress_bar:
+        pbar.close()
     assert not skeleton
     return [], True
 

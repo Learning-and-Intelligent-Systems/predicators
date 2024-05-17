@@ -120,6 +120,11 @@ class CogMan:
         """See BaseApproach docstring."""
         return self._approach.is_learning_based
 
+    @property
+    def is_offline_learning_based(self) -> bool:
+        """See BaseApproach docstring."""
+        return self._approach.is_offline_learning_based
+
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """See BaseApproach docstring."""
         return self._approach.learn_from_offline_dataset(dataset)

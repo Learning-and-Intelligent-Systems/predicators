@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 from copy import deepcopy
+from tabulate import tabulate
+from pprint import pprint
 
 import dill as pkl
 import imageio
@@ -72,6 +74,360 @@ if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
     if len(cuda_visible_devices) and cuda_visible_devices[0] != "0":
         cuda_visible_devices[0] = "0"
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
+
+def print_confusion_matrix(tp, tn, fp, fn):
+    precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
+    recall = round(tp / (tp + fn), 2) if tp + fn > 0 else 0
+    specificity = round(tn / (tn + fp), 2) if tn + fp > 0 else 0
+    accuracy = round((tp + tn) / (tp + tn + fp + fn), 
+                     2) if tp + tn + fp + fn > 0 else 0
+    f1_score = round(2 * (precision * recall) / (precision + recall), 
+                     2) if precision + recall > 0 else 0
+
+    table = [["", "Positive", "Negative", "Precision", "Recall", "Specificity",
+              "Accuracy", "F1 Score", ],
+             ["True", tp, tn, "", "", "", "", ""],
+             ["False", fp, fn, "", "", "", "", ""],
+             ["", "", "", precision, recall, specificity, accuracy, f1_score]]
+    logging.info(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+
+def count_classification_result_for_ops(
+        nsrts: List[NSRT],
+        succ_optn_dict: Dict[str, Dict],
+        fail_optn_dict: Dict[str, Dict],
+        return_str: bool = False,
+        initial_ite: bool = False,
+        print_cm: bool = False) -> Tuple[int, int, int, int, str]:
+
+    np.set_printoptions(precision=1)
+    result_str = []
+    max_num_examples = 3
+    max_num_groundings = 3
+    # Make a {option_str: {ground_option_str: states}} dictionary and only list 
+    # the top max_num_grounds ground option: states examples with the most 
+    # examples
+    tp_state_dict, fn_state_dict, tn_state_dict, fp_state_dict =\
+        [defaultdict(lambda: defaultdict(lambda: defaultdict(list))) for _ 
+         in range(4)]
+    accuracy_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    sum_tp, sum_fn, sum_tn, sum_fp = 0, 0, 0, 0
+    ground_options = set(succ_optn_dict.keys()) | set(fail_optn_dict.keys())
+
+    for g_optn in ground_options:
+        # Use atom states directly 
+        succ_states = succ_optn_dict[g_optn]['states']
+        succ_abs_states = succ_optn_dict[g_optn]['abstract_states']
+        fail_states = fail_optn_dict[g_optn]['states']
+        fail_abs_states = fail_optn_dict[g_optn]['abstract_states']
+        n_succ_states, n_fail_states = len(succ_states), len(fail_states)
+        n_tot = n_succ_states + n_fail_states
+
+        # Get the tp, fn, tn, fp states for each ground_option
+        tp_states, fn_states, tn_states, fp_states = [], [], [], []
+        if initial_ite:
+            tp_states, fp_states = succ_states, fail_states
+            if succ_states:
+                optn = succ_optn_dict[g_optn]['option']
+                tp_state_dict[str(optn)][g_optn]['states'].extend(succ_states)
+
+            if fail_states:
+                optn = fail_optn_dict[g_optn]['option']
+                fp_state_dict[str(optn)][g_optn]['states'].extend(fail_states)
+        else:
+            # Filter out the tp, fn states from succ_option_dict
+            if succ_states:
+                # Get all consistent ground operators
+                optn = succ_optn_dict[g_optn]['option']
+                # Assume the g_optn is unique in each task
+                env_objects = set(succ_states[0])
+                optn_objs = succ_optn_dict[g_optn]['optn_objs']
+                # optn_vars = succ_optn_dict[g_optn]['optn_vars']
+
+                # Ground using `all_ground_nsrts()`
+                '''When ground with env_objects, then this should be inside the 
+                succ_states loop; Moreover, this might not be consistent with
+                the option because being able to press a button does not mean
+                it can press that specific button.'''
+                # env_objects = set(succ_states[0])
+                # ground_nsrtss = [all_ground_nsrts(nsrt, env_objects)
+                '''When ground with optn_objs, the error of "no
+                ground nsrt" will take place on iteration 0 when the origin 
+                nsrts have a larger parameter space than the options'''
+                # ground_nsrtss = [all_ground_nsrts(nsrt, optn_objs)
+                #                     for nsrt in nsrts if nsrt.option == optn]
+
+                # Ground using `all_ground_operators_given_partial()`
+                '''In this case, with learned operators that has new parameter 
+                names the `assert set(sub).issubset(set(operator.parameters))` 
+                assertion in the `ground_operator...` method will fail.'''
+                # use the new variable names
+                relevant_nsrt = [nsrt for nsrt in nsrts if nsrt.option == optn]
+                optn_vars = relevant_nsrt[0].option_vars
+                assert len(optn_vars) == len(optn_objs)
+                option_var_to_obj = dict(zip(optn_vars, optn_objs))
+                ground_nsrtss = [all_ground_operators_given_partial(
+                                        nsrt, env_objects, option_var_to_obj)
+                                    for nsrt in relevant_nsrt]
+
+                # Flatten the list of lists
+                ground_nsrts = [nsrt for nsrt_list in ground_nsrtss 
+                                    for nsrt in nsrt_list]
+                for state, atom_state in zip(succ_states, succ_abs_states):
+                    # atom_state = abstract(state, 
+                    #                             self._get_current_predicates())
+                    if any([gnsrt.preconditions.issubset(atom_state) for gnsrt 
+                                                            in ground_nsrts]):
+                        tp_states.append(state)
+                        tp_state_dict[str(optn)][g_optn]['states'].append(state)
+                    else:
+                        fn_states.append(state)
+                        fn_state_dict[str(optn)][g_optn]['states'].append(state)
+            # filter out the tn, fp states
+            if fail_states:
+                # Get all consistent ground operators
+                optn = fail_optn_dict[g_optn]['option']
+                # Assume the g_optn is unique in each task
+                env_objects = set(fail_states[0])
+                optn_objs = fail_optn_dict[g_optn]['optn_objs']
+                # optn_vars = fail_optn_dict[g_optn]['optn_vars']
+
+                # Ground by all objects
+                # ground_nsrtss = [all_ground_nsrts(nsrt, optn_objs)
+                #                 for nsrt in nsrts if nsrt.option==optn]
+
+                # Ground by partial assignment
+                # use the new variable names
+                relevant_nsrt = [nsrt for nsrt in nsrts if nsrt.option == optn]
+                optn_vars = relevant_nsrt[0].option_vars
+                assert len(optn_vars) == len(optn_objs)
+                option_var_to_obj = dict(zip(optn_vars, optn_objs))
+                ground_nsrtss = [all_ground_operators_given_partial(
+                                        nsrt, env_objects, option_var_to_obj)
+                                    for nsrt in relevant_nsrt]
+
+                # Flatten the list of lists
+                ground_nsrts = [nsrt for nsrt_list in ground_nsrtss
+                                    for nsrt in nsrt_list]
+                for state, atom_state in zip(fail_states, fail_abs_states):
+                    # atom_state = utils.abstract(state,
+                    #                             self._get_current_predicates())
+                    if any([gnsrt.preconditions.issubset(atom_state) for gnsrt 
+                                                            in ground_nsrts]):
+                        fp_states.append(state)
+                        fp_state_dict[str(optn)][g_optn]['states'].append(state)
+                    else:
+                        tn_states.append(state)
+                        tn_state_dict[str(optn)][g_optn]['states'].append(state)
+        # Convert the states to string
+        n_tp, n_fn = len(tp_states), len(fn_states)
+        n_tn, n_fp = len(tn_states), len(fp_states)
+        sum_tp, sum_fn = sum_tp+n_tp, sum_fn+n_fn
+        sum_tn, sum_fp = sum_tn+n_tn, sum_fp+n_fp
+
+        tp_state_dict[str(optn)][g_optn]['n_tp'] = n_tp
+        fp_state_dict[str(optn)][g_optn]['n_fp'] = n_fp
+        tn_state_dict[str(optn)][g_optn]['n_tn'] = n_tn
+        fn_state_dict[str(optn)][g_optn]['n_fn'] = n_fn
+        tp_state_dict[str(optn)][g_optn]['n_succ'] = n_succ_states
+        fn_state_dict[str(optn)][g_optn]['n_succ'] = n_succ_states
+        tn_state_dict[str(optn)][g_optn]['n_fail'] = n_fail_states
+        fp_state_dict[str(optn)][g_optn]['n_fail'] = n_fail_states
+        accuracy_dict[str(optn)][g_optn]['tot'] = n_tot
+        accuracy_dict[str(optn)][g_optn]['acc'] = (n_tp + n_tn) / n_tot
+    
+    if return_str:
+        # What how to simplify the prompt?
+        # 1. The g_opt with the highest non-1 accuracy, based on repeated states
+        # 2. ''                                       , based on unique states
+        # 3. ......
+
+        # For each option, sort the g_options based on some metrics, currently
+        # based on accuracy
+        # Create a new dict of form: {option: (g_option, accuracy)}
+        option_dict = defaultdict(list)
+        for option_str, ground_options in accuracy_dict.items():
+            for ground_option_str, data in ground_options.items():
+                acc = data['acc']
+                option_dict[option_str].append((ground_option_str, acc))
+        for option_str, ground_options in option_dict.items():
+            sorted_ground_options = sorted(ground_options, 
+                                           key=lambda x: x[1], reverse=True)
+            option_dict[option_str] = sorted_ground_options
+        # pprint(option_dict)
+        
+        for optn_str in option_dict.keys():
+            n_g_optn_shown = 0
+            for (g_optn, acc) in option_dict[optn_str]:
+                if n_g_optn_shown == max_num_groundings: break
+                if acc < 1: 
+                    n_g_optn_shown += 1
+                # else:
+                #     continue
+
+                n_tp = tp_state_dict[optn_str][g_optn]['n_tp']
+                n_fp = fp_state_dict[optn_str][g_optn]['n_fp']
+                n_tn = tn_state_dict[optn_str][g_optn]['n_tn']
+                n_fn = fn_state_dict[optn_str][g_optn]['n_fn']
+                n_tot = accuracy_dict[optn_str][g_optn]['tot']
+                n_succ_states = tp_state_dict[optn_str][g_optn]['n_succ']
+                n_fail_states = tn_state_dict[optn_str][g_optn]['n_fail']
+
+                # The following is similar to before
+                tp_state_str = set([s.dict_str(indent=2) for s 
+                    in tp_state_dict[optn_str][g_optn]['states']])
+                fn_state_str = set([s.dict_str(indent=2) for s 
+                    in fn_state_dict[optn_str][g_optn]['states']])
+                tn_state_str = set([s.dict_str(indent=2) for s 
+                    in tn_state_dict[optn_str][g_optn]['states']])
+                fp_state_str = set([s.dict_str(indent=2) for s 
+                    in fp_state_dict[optn_str][g_optn]['states']])
+                uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
+                uniq_n_tn, uniq_n_fp = len(tn_state_str), len(fp_state_str)
+
+                if n_succ_states:
+                    result_str.append(
+                    f"Ground option {g_optn} was applied on {n_tot} states and "+
+                    f"*successfully* executed on {n_succ_states}/{n_tot} states "+
+                    "(ground truth positive states).")
+                    # True Positive
+                    if n_tp:# and (n_succ_states/n_tot) < 1:
+                        result_str.append(
+                        f"  Out of the {n_succ_states} GT positive states, "+
+                        f"with the current predicates and operators, "+
+                        f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
+                        "operators' precondition (true positives)"+
+                        (f", to list {max_num_examples}:" if 
+                            uniq_n_tp > max_num_examples else ":"))
+                        for i, state_str in enumerate(tp_state_str): 
+                            if i == max_num_examples: break
+                            result_str.append(state_str+'\n')
+
+                    # False Negative
+                    if n_fn:
+                        result_str.append(
+                        f"  Out of the {n_succ_states} GT positive states, "+
+                        f"with the current predicates and operators, "+
+                        f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
+                        "operators' precondition (false negatives)"+
+                        (f", to list {max_num_examples}:" if 
+                            uniq_n_fn > max_num_examples else ":"))
+                        for i, state_str in enumerate(fn_state_str): 
+                            if i == max_num_examples: break
+                            result_str.append(state_str+'\n')
+                        # result_str.append("\n")
+
+                # GT Negative
+                if n_fail_states:
+                    result_str.append(
+                    f"Ground option {g_optn} was applied on {n_tot} states and "+
+                    f"*failed* to executed on {n_fail_states}/{n_tot} states "+
+                    "(ground truth negative states).")
+                    if n_fp:
+                        # False Positive
+                        result_str.append(
+                        f"  Out of the {n_fail_states} GT negative states, "+
+                        f"with the current predicates and operators, "+
+                        f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
+                        "operators' precondition (false positives)"+
+                        (f", to list {max_num_examples}:" if 
+                            uniq_n_fp > max_num_examples else ":"))
+                        for i, state_str in enumerate(fp_state_str):
+                            if i == max_num_examples: break
+                            result_str.append(state_str+'\n')
+                        # result_str.append("\n")
+
+                    if n_tn:# and (n_tn/n_fail_states) < 1:
+                        # True Negative
+                        result_str.append(
+                        f"  Out of the {n_fail_states} GT negative states, "+
+                        f"with the current predicates and operators, "+
+                        f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
+                        "operators' precondition (true negatives)"+
+                        (f", to list {max_num_examples}:" if 
+                            uniq_n_tn > max_num_examples else ":"))
+                        for i, state_str in enumerate(tn_state_str):
+                            if i == max_num_examples: break
+                            result_str.append(state_str+'\n')
+                        # result_str.append("\n")
+
+    if print_cm:
+        print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
+
+        # # GT Positive
+        # if return_str:
+        #     tp_state_str = set([s.dict_str(indent=2) for s in tp_states])
+        #     fn_state_str = set([s.dict_str(indent=2) for s in fn_states])
+        #     tn_state_str = set([s.dict_str(indent=2) for s in tn_states])
+        #     fp_state_str = set([s.dict_str(indent=2) for s in fp_states])
+        #     uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
+        #     uniq_n_tn, uniq_n_fp = len(tn_state_str), len(fp_state_str)
+        #     if n_succ_states:
+        #         result_str.append(
+        #         f"Ground option {g_optn} was applied on {n_tot} states and "+
+        #         f"*successfully* executed on {n_succ_states}/{n_tot} states "+
+        #         "(ground truth positive states).")
+        #         # True Positive
+        #         if n_tp and (n_succ_states/n_tot) < 1:
+        #             result_str.append(
+        #             f"  Out of the {n_succ_states} GT positive states, "+
+        #             f"with the current predicates and operators, "+
+        #             f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
+        #             "operators' precondition (true positives)"+
+        #             (f", to list {max_num_examples}:" if 
+        #                 uniq_n_tp > max_num_examples else ":"))
+        #             for i, state_str in enumerate(tp_state_str): 
+        #                 if i == max_num_examples: break
+        #                 result_str.append(state_str+'\n')
+
+        #         # False Negative
+        #         if n_fn:
+        #             result_str.append(
+        #             f"  Out of the {n_succ_states} GT positive states, "+
+        #             f"with the current predicates and operators, "+
+        #             f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
+        #             "operators' precondition (false negatives)"+
+        #             (f", to list {max_num_examples}:" if 
+        #                 uniq_n_fn > max_num_examples else ":"))
+        #             for i, state_str in enumerate(fn_state_str): 
+        #                 if i == max_num_examples: break
+        #                 result_str.append(state_str+'\n')
+        #             # result_str.append("\n")
+
+        #     # GT Negative
+        #     if n_fail_states:
+        #         result_str.append(
+        #         f"Ground option {g_optn} was applied on {n_tot} states and "+
+        #         f"*failed* to executed on {n_fail_states}/{n_tot} states "+
+        #         "(ground truth negative states).")
+        #         if n_fp:
+        #             # False Positive
+        #             result_str.append(
+        #             f"  Out of the {n_fail_states} GT negative states, "+
+        #             f"with the current predicates and operators, "+
+        #             f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
+        #             "operators' precondition (false positives)"+
+        #             (f", to list {max_num_examples}:" if 
+        #                 uniq_n_fp > max_num_examples else ":"))
+        #             for i, state_str in enumerate(fp_state_str):
+        #                 if i == max_num_examples: break
+        #                 result_str.append(state_str+'\n')
+        #             # result_str.append("\n")
+
+        #         if n_tn and (n_tn/n_fail_states) < 1:
+        #             # True Negative
+        #             result_str.append(
+        #             f"  Out of the {n_fail_states} GT negative states, "+
+        #             f"with the current predicates and operators, "+
+        #             f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
+        #             "operators' precondition (true negatives)"+
+        #             (f", to list {max_num_examples}:" if 
+        #                 uniq_n_tn > max_num_examples else ":"))
+        #             for i, state_str in enumerate(tn_state_str):
+        #                 if i == max_num_examples: break
+        #                 result_str.append(state_str+'\n')
+        #             # result_str.append("\n")
+
+    return sum_tp, sum_tn, sum_fp, sum_fn, '\n'.join(result_str)
 
 
 def count_positives_for_ops(
@@ -993,7 +1349,9 @@ class SingletonParameterizedOption(ParameterizedOption):
         types: Optional[Sequence[Type]] = None,
         params_space: Optional[Box] = None,
         initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
-                                     bool]] = None
+                                     bool]] = None,
+        terminal: Optional[Callable[[State, Dict, Sequence[Object], Array],
+                                     bool]] = None,
     ) -> None:
         if types is None:
             types = []
@@ -1015,10 +1373,17 @@ class SingletonParameterizedOption(ParameterizedOption):
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
-            del objects, params  # unused
-            assert "start_state" in memory, \
-                "Must call initiable() before terminal()."
-            return state is not memory["start_state"]
+            if terminal is not None:
+                assert "start_state" in memory, \
+                    "Must call initiable() before terminal()."
+                # assert not state.allclose(memory["start_state"])
+                return terminal(state, memory, objects, params)
+            else:
+                del objects, params  # unused
+                assert "start_state" in memory, \
+                    "Must call initiable() before terminal()."
+                return not state.allclose(memory["start_state"])
+            # return state is not memory["start_state"]
 
         super().__init__(name,
                          types,
@@ -1302,9 +1667,10 @@ def option_policy_to_policy(
     cur_option = DummyOption
     num_cur_option_steps = 0
     last_state: Optional[State] = None
+    last_action: Optional[Action] = None
 
     def _policy(state: State) -> Action:
-        nonlocal cur_option, num_cur_option_steps, last_state
+        nonlocal cur_option, num_cur_option_steps, last_state, last_action
 
         if cur_option is DummyOption:
             last_option: Optional[_Option] = None
@@ -1319,6 +1685,8 @@ def option_policy_to_policy(
 
         if last_state is not None and \
             raise_error_on_repeated_state and state.allclose(last_state):
+            last_state_str = last_state.pretty_str().replace('\n', '\n\t')
+
             raise OptionTimeoutFailure(
                 "Encountered repeated state.",
                 info={"last_failed_option": last_option})
@@ -1332,13 +1700,15 @@ def option_policy_to_policy(
                 raise e
             if not cur_option.initiable(state):
                 raise OptionExecutionFailure(
-                    "Unsound option policy.",
-                    info={"last_failed_option": last_option})
+                        "Unsound option policy.",
+                        info={"last_failed_option": last_option})
             num_cur_option_steps = 0
 
         num_cur_option_steps += 1
 
-        return cur_option.policy(state)
+        action = cur_option.policy(state)
+        last_action = action
+        return action
 
     return _policy
 
@@ -2354,7 +2724,10 @@ def all_ground_operators_given_partial(
         sub: VarToObjSub) -> Iterator[_GroundSTRIPSOperator]:
     """Get all possible groundings of the given operator with the given objects
     such that the parameters are consistent with the given substitution."""
-    assert set(sub).issubset(set(operator.parameters))
+    try:
+        assert set(sub).issubset(set(operator.parameters))
+    except:
+        breakpoint()
     types = [p.type for p in operator.parameters if p not in sub]
     for choice in get_object_combinations(objects, types):
         # Complete the choice with the args that are determined from the sub.
@@ -2636,6 +3009,13 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
         sample = {universe[i] for i in idxs}
         yield sample
 
+def llm_pred_dataset_save_name(invention_iteration: int) -> str:
+    suffix_str = ".data"
+    dataset_fname =\
+        f"{CFG.env}_{CFG.sesame_max_skeletons_optimized}_{CFG.timeout:.0f}_" +\
+        f"{CFG.num_train_tasks}_{CFG.seed}_{invention_iteration}" + suffix_str
+    dataset_path = os.path.join(CFG.data_dir, dataset_fname)
+    return dataset_path
 
 def create_dataset_filename_str(
         saving_ground_atoms: bool,

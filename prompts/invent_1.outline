@@ -1,0 +1,32 @@
+Class definitions for `Predicate` and `State` are:
+[STRUCT_DEFINITION]
+
+The environment includes the following object-type variables:
+[TYPES_IN_ENV]
+
+The initial set of predicates used to describe goals includes:
+[PREDICATES_IN_ENV]
+
+The previously invented predicates are:
+[INVENTED_PREDICATES]
+
+The set of parameterized options includes:
+[OPTIONS_IN_ENV]
+
+With all the predicates, the agent learned the following action operators:
+[NSRTS_IN_ENV]
+
+With these new operators, the agent got the following results on the previous ground truth positive and negative states:
+[OPERATOR_PERFORMACE]
+
+Your objective is to invent all necessary predicates for this domain, so they can be added to the action operators' preconditions and effects to facilitate effective and efficient planning. Define predicates in python blocks as follows:
+```python
+def classifier(state: State, objects: Sequence[Object]) -> bool:
+    # Implement the boolean classifier function here
+    
+name: str = # Define the predicate name here
+types: Sequence[Type] = # Write a list of object types variables exist in the environment here
+predicate_name = Predicate(name, types, classifier)
+```
+More specifically, this means when the invented predicates are added to the preconditions, the states where the ground option fail to execute (GT negative states) should not satisfy any of its ground operators' precondition, while the states where the ground option successfully executed (GT positive states) should satisfy at least one of its operators' precondition.
+That is, in future planning, the operators with the invented predicates should help to maximize the number of true positive and true negative states while minimizing the number of false negative and false positive states.
