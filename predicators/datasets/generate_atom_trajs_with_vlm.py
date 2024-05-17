@@ -255,7 +255,7 @@ def _save_img_option_trajs_in_folder(
     """Save a set of image option trajectories as a folder."""
     data_dir_path = os.path.join(utils.get_path_to_predicators_root(),
                                  CFG.data_dir)
-    base_folder_name = CFG.env + "__vlm_demos___" + str(CFG.seed) + "__" + str(
+    base_folder_name = CFG.env + "__vlm_demos__" + str(CFG.seed) + "__" + str(
         len(img_option_trajs))
     base_folder_path = Path(data_dir_path, base_folder_name)
     if not os.path.exists(base_folder_path):
@@ -481,11 +481,13 @@ def _create_dummy_goal_state_for_each_task(
 
 
 def _convert_ground_option_trajs_into_lowleveltrajs(
-        option_trajs: List[List[_Option]], dummy_goal_states: List[State],
+        option_trajs: List[List[_Option]],
+        dummy_goal_states: Optional[List[State]],
         train_tasks: List[Task]) -> List[LowLevelTrajectory]:
     """Convert option trajectories into LowLevelTrajectories to be used in
     constructing a Dataset."""
-    assert len(option_trajs) == len(dummy_goal_states) == len(train_tasks)
+    if dummy_goal_states is not None:
+        assert len(option_trajs) == len(dummy_goal_states) == len(train_tasks)
     # NOTE: In this LowLevelTrajectory, we assume the low level states
     # are the same as the init state until the final state.
     trajs = []
@@ -500,7 +502,10 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
                        option_trajs[traj_num][idx_within_traj]))
         # Now, we need to append the final state because there are 1 more
         # states than actions.
-        curr_traj_states.append(dummy_goal_states[traj_num])
+        if dummy_goal_states is not None:
+            curr_traj_states.append(dummy_goal_states[traj_num])
+        else:
+            curr_tra
         curr_traj = LowLevelTrajectory(curr_traj_states, curr_traj_actions,
                                        True, traj_num)
         trajs.append(curr_traj)
@@ -849,11 +854,18 @@ def create_ground_atom_data_from_saved_img_trajs(
         with open(options_traj_file, "r", encoding="utf-8") as f:
             options_file_str = f.read()
         option_names_list = re.findall(r'(\w+)\(', options_file_str)
-        parsed_str_objects = re.findall(r'\((.*?)\)', options_file_str)
-        object_args_list = [obj.split(', ') for obj in parsed_str_objects]
-        # Remove empty square brackets from the object_args_list.
-        for object_arg_sublist in object_args_list:
-            object_arg_sublist.remove('[]')
+        option_args_strs = re.findall(r'\((.*?)\)', options_file_str)
+        parsed_str_objects = [
+            re.sub(r'\[[^\]]*\]', '', option_args_str).strip()
+            for option_args_str in option_args_strs
+        ]
+        cleaned_parsed_str_objects = [
+            obj_str[:-1] if obj_str[-1] == "," else obj_str
+            for obj_str in parsed_str_objects
+        ]
+        object_args_list = [
+            obj.split(', ') for obj in cleaned_parsed_str_objects
+        ]
         parameters = [
             ast.literal_eval(obj) if obj else []
             for obj in re.findall(r'\[(.*?)\]', options_file_str)
@@ -867,10 +879,12 @@ def create_ground_atom_data_from_saved_img_trajs(
                 for opt_arg in option_objs_strs_list
             ]
             option = option_name_to_option[option_name]
-            ground_option = option.ground(objects, np.array(option_params))
-            # NOTE: we assert the option was initiable in the env's initial
-            # state because during learning, we will assert that the option's
-            # initiable function was previously called.
+            if isinstance(option_params, float):
+                params_tuple = (option_params, )
+            else:
+                params_tuple = option_params
+            assert isinstance(params_tuple, Tuple)
+            ground_option = option.ground(objects, np.array(params_tuple))
             assert ground_option.initiable(curr_train_task.init)
             ground_option_traj.append(ground_option)
         # Given ground options, we can finally make ImageOptionTrajectories.
@@ -888,15 +902,28 @@ def create_ground_atom_data_from_saved_img_trajs(
     ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
         image_option_trajs, env, train_tasks, known_predicates, all_task_objs,
         vlm)
-    # Now, we just need to create a goal state for every train task where
-    # the dummy goal predicate holds. This is just bookkeeping necessary
-    # for NSRT learning and planning such that the goal doesn't hold
-    # in the initial state and holds in the final state of each demonstration
-    # trajectory.
-    goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
-        env, train_tasks)
-    # Finally, we need to construct actual LowLevelTrajectories.
-    low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
-        [traj.actions for traj in image_option_trajs],
-        goal_states_for_every_traj, train_tasks)
+    # Finally, we just need to construct LowLevelTrajectories that we can
+    # output as part of our Dataset.
+    goal_states_for_every_traj = None
+    if "DummyGoal" in train_tasks[0].goal:
+        # Now, we just need to create a goal state for every train task
+        # where the dummy goal predicate holds. This is just bookkeeping
+        # necessary for NSRT learning and planning such that the goal
+        # doesn't hold in the initial state and holds in the final state of
+        # each demonstration trajectory.
+        goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
+            env, train_tasks)
+        # Finally, we need to construct actual LowLevelTrajectories.
+        low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
+            [traj.actions for traj in image_option_trajs],
+            goal_states_for_every_traj, train_tasks)
+    else:
+        low_level_trajs = []
+        for io_traj in image_option_trajs:
+            assert io_traj.states is not None
+            low_level_trajs.append(
+                LowLevelTrajectory(io_traj.states, [
+                    Action(np.zeros(env.action_space.shape), act)
+                    for act in io_traj.actions
+                ]))
     return Dataset(low_level_trajs, ground_atoms_trajs)
