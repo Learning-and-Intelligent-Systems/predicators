@@ -156,7 +156,10 @@ def _learn_pnad_options(pnads: List[PNAD],
         pnad_options_known = example_action.has_option()
         # Sanity check the assumption described above.
         if pnad_options_known:
-            assert example_action.get_option().parent in known_options
+            try:
+                assert example_action.get_option().parent in known_options
+            except:
+                breakpoint()
         for (segment, _) in pnad.datastore:
             for action in segment.actions:
                 if pnad_options_known:

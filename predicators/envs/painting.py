@@ -25,20 +25,23 @@ from predicators.utils import EnvironmentFailure, HumanDemonstrationFailure
 
 class PaintingEnv(BaseEnv):
     """Painting domain."""
+    # Constants present in goal predicates
+    shelf_l: ClassVar[float] = 2.0  # shelf length
+    shelf_lb: ClassVar[float] = 1.
+    shelf_ub: ClassVar[float] = shelf_lb + shelf_l - 0.05
+    color_tol: ClassVar[float] = 1e-2
+    box_s: ClassVar[float] = 0.8  # side length
+    box_y: ClassVar[float] = 0.5  # y coordinate
+    box_lb: ClassVar[float] = box_y - box_s / 10
+    box_ub: ClassVar[float] = box_y + box_s / 10
+
     # Parameters that aren't important enough to need to clog up settings.py
     table_lb: ClassVar[float] = -10.1
     table_ub: ClassVar[float] = -1.0
     table_height: ClassVar[float] = 0.2
     table_x: ClassVar[float] = 1.65
-    shelf_l: ClassVar[float] = 2.0  # shelf length
-    shelf_lb: ClassVar[float] = 1.
-    shelf_ub: ClassVar[float] = shelf_lb + shelf_l - 0.05
     shelf_x: ClassVar[float] = 1.65
     shelf_y: ClassVar[float] = (shelf_lb + shelf_ub) / 2.0
-    box_s: ClassVar[float] = 0.8  # side length
-    box_y: ClassVar[float] = 0.5  # y coordinate
-    box_lb: ClassVar[float] = box_y - box_s / 10
-    box_ub: ClassVar[float] = box_y + box_s / 10
     box_x: ClassVar[float] = 1.65
     env_lb: ClassVar[float] = min(table_lb, shelf_lb, box_lb)
     env_ub: ClassVar[float] = max(table_ub, shelf_ub, box_ub)
@@ -47,7 +50,6 @@ class PaintingEnv(BaseEnv):
     obj_x: ClassVar[float] = 1.65
     obj_z: ClassVar[float] = table_height + obj_height / 2
     pick_tol: ClassVar[float] = 1e-2
-    color_tol: ClassVar[float] = 1e-2
     wetness_tol: ClassVar[float] = 0.5
     dirtiness_tol: ClassVar[float] = 0.5
     open_fingers: ClassVar[float] = 0.8
@@ -57,18 +59,19 @@ class PaintingEnv(BaseEnv):
     nextto_thresh: ClassVar[float] = 1.0
     on_table_height_tol: ClassVar[float] = 5e-02
 
+    # Types
+    _obj_type = Type("obj", [
+        "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
+        "grasp", "held"
+    ])
+    _box_type = Type("box", ["pose_x", "pose_y", "color"])
+    _lid_type = Type("lid", ["is_open"])
+    _shelf_type = Type("shelf", ["pose_x", "pose_y", "color"])
+    _robot_type = Type("robot", ["pose_x", "pose_y", "fingers"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        self._obj_type = Type("obj", [
-            "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
-            "grasp", "held"
-        ])
-        self._box_type = Type("box", ["pose_x", "pose_y", "color"])
-        self._lid_type = Type("lid", ["is_open"])
-        self._shelf_type = Type("shelf", ["pose_x", "pose_y", "color"])
-        self._robot_type = Type("robot", ["pose_x", "pose_y", "fingers"])
         # Predicates
         self._InBox = Predicate("InBox", [self._obj_type, self._box_type],
                                 self._InBox_holds)
@@ -101,6 +104,7 @@ class PaintingEnv(BaseEnv):
                                   self._IsClean_holds)
         self._IsOpen = Predicate("IsOpen", [self._lid_type],
                                  self._IsOpen_holds)
+
         # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)

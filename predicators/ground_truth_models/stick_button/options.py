@@ -263,12 +263,12 @@ class StickButtonMovementGroundTruthOptionFactory(
         # redefine RobotPressButton to update its arguments.
         init_options = super().get_options(env_name, types, predicates,
                                            action_space)
-        robot_type = types["robot"]
+        robot_type = types["hand"]
         button_type = types["button"]
         stick_type = types["stick"]
         holder_type = types["holder"]
 
-        RobotAboveButton = predicates["RobotAboveButton"]
+        RobotAboveButton = predicates["HandAboveButton"]
         StickAboveButton = predicates["StickAboveButton"]
         Pressed = predicates["Pressed"]
         Grasped = predicates["Grasped"]
@@ -282,7 +282,7 @@ class StickButtonMovementGroundTruthOptionFactory(
             return RobotAboveButton.holds(state, [robot, button])
 
         RobotMoveToButton = ParameterizedOption(
-            "RobotMoveToButton",
+            "HandMoveToButton",
             types=[robot_type, button_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_robot_moveto_button_policy(),
@@ -316,7 +316,7 @@ class StickButtonMovementGroundTruthOptionFactory(
             return Pressed.holds(state, [button])
 
         RobotPressButton = ParameterizedOption(
-            "RobotPressButton",
+            "HandPressButton",
             types=[robot_type, button_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_robot_press_button_policy(),
@@ -344,7 +344,7 @@ class StickButtonMovementGroundTruthOptionFactory(
         unchanged_options = {
             opt
             for opt in init_options
-            if opt.name not in ["RobotPressButton", "PlaceStick"]
+            if opt.name not in ["HandPressButton", "PlaceStick"]
         }
         changed_options = {RobotPressButton, PlaceStick}
         new_options = {RobotMoveToButton, StickMoveToButton}

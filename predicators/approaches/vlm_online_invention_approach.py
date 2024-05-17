@@ -3,20 +3,26 @@ Example command line:
     export OPENAI_API_KEY=<your API key>
 """
 import re
+import os
 import ast
 import json
+import time
 import base64
+import dill
 import logging
-from typing import Set, List, Dict, Sequence, Tuple, Any
+import textwrap
+from typing import Set, List, Dict, Sequence, Tuple, Any, FrozenSet, Iterator
 import subprocess
 import inspect
 from inspect import getsource
 from copy import deepcopy
 import importlib.util
+from collections import defaultdict, namedtuple
 
 from gym.spaces import Box
 import numpy as np
 import imageio
+from tabulate import tabulate
 
 from predicators import utils
 from predicators.settings import CFG
@@ -24,29 +30,56 @@ from predicators.ground_truth_models import get_gt_nsrts
 from predicators.llm_interface import OpenAILLM, OpenAILLMNEW
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
+from predicators.predicate_search_score_functions import \
+    _PredicateSearchScoreFunction, create_score_function
 from predicators.structs import Dataset, LowLevelTrajectory, Predicate, \
     ParameterizedOption, Type, Task, Optional, GroundAtomTrajectory, \
     AnnotatedPredicate, State, Object, _TypedEntity
 from predicators.approaches.grammar_search_invention_approach import \
-    create_score_function 
+    create_score_function, _create_grammar 
 from predicators.envs import BaseEnv
-from predicators.envs.stick_button import StickButtonEnv
 from predicators.utils import option_plan_to_policy, OptionExecutionFailure, \
     EnvironmentFailure
+from predicators.predicate_search_score_functions import \
+    _ClassificationErrorScoreFunction
 
-from predicators.envs.stick_button import StickButtonEnv
 
 import_str = """
 from typing import Sequence
 import numpy as np
 from predicators.structs import State, Object, Predicate, Type
-from predicators.envs.stick_button import StickButtonEnv
-        
-_hand_type = StickButtonEnv._hand_type
-_button_type = StickButtonEnv._button_type
-_stick_type = StickButtonEnv._stick_type
-_holder_type = StickButtonEnv._holder_type
 """
+
+Result = namedtuple("Result", ['info'])
+
+def print_confusion_matrix(tp, tn, fp, fn):
+    precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
+    recall = round(tp / (tp + fn), 2) if tp + fn > 0 else 0
+    specificity = round(tn / (tn + fp), 2) if tn + fp > 0 else 0
+    accuracy = round((tp + tn) / (tp + tn + fp + fn), 
+                     2) if tp + tn + fp + fn > 0 else 0
+    f1_score = round(2 * (precision * recall) / (precision + recall), 
+                     2) if precision + recall > 0 else 0
+
+    table = [["", "Positive", "Negative", "Precision", "Recall", "Specificity",
+              "Accuracy", "F1 Score", ],
+             ["True", tp, tn, "", "", "", "", ""],
+             ["False", fp, fn, "", "", "", "", ""],
+             ["", "", "", precision, recall, specificity, accuracy, f1_score]]
+    logging.info(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+
+# Function to encode the image
+def encode_image(image_path: str) -> str:
+  with open(image_path, "rb") as image_file:
+    return base64.b64encode(image_file.read()).decode('utf-8')
+
+def add_python_quote(text: str) -> str:
+    return f"```python\n{text}\n```\n"
+
+def d2s(dict_with_arrays):
+    # Convert State data with numpy arrays to lists, and to string
+    return str({k: [round(i, 2) for i in v.tolist()] for k, v in 
+            dict_with_arrays.items()})
 
 class VlmInventionApproach(NSRTLearningApproach):
     """Predicate Invention with VLMs"""
@@ -61,6 +94,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._nsrts = nsrts
 
         self._learned_predicates: Set[Predicate] = set()
+        # self._candidates: Set[Predicate] = set()
         self._num_inventions = 0
         # Set up the VLM
         self._vlm = OpenAILLMNEW(CFG.vlm_model_name)
@@ -69,6 +103,10 @@ class VlmInventionApproach(NSRTLearningApproach):
     @classmethod
     def get_name(cls) -> str:
         return "vlm_online_invention"
+
+    @property
+    def is_offline_learning_based(self) -> bool:
+        return False
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
@@ -80,63 +118,46 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._learned_predicates = (set(preds.values()) -
                                     self._initial_predicates)
 
-    def _solve_tasks(self, tasks: List[Task]) -> List[Any]:
-        '''Solve a dataset of tasks
+    def _solve_tasks(self, env, tasks: List[Task]) -> Tuple[List, Dataset]:
+        '''When return_trajctories is True, return the dataset of trajectories
+        otherwise, return the results of solving the tasks (succeeded/failed 
+        plans).
         '''
         results = []
-        for i, task in enumerate(tasks):
-            logging.info(f"Solving Task {i}")
-            # the longest refinements and the error
-            # print(f"task {i}, objects {list(task.init)}")
+        trajectories = []
+        for idx, task in enumerate(tasks):
+            logging.info(f"Solving Task {idx}")
             try:
                 policy = self.solve(task, timeout=CFG.timeout) 
             except (ApproachTimeout, ApproachFailure) as e:
                 logging.info(f"--> Failed: {str(e)}")
                 result = e
             else:
-                logging.info("--> Succeeded")
-                result = {
-                        "option_plan": self._last_plan,
-                        "nsrt_plan": self._last_nsrt_plan,
-                        "policy": policy}
-                # print(result.info['partial_refinements'][0][0])
-            results.append(result)
-        return results
-    
-    def _collect_experience(self, env: BaseEnv, tasks:List[Task]) -> Dataset:
-        '''Collect experience from solving tasks
-        '''
-        trajectories = []
-        for idx, task in enumerate(tasks):
-            logging.info(f"Solving Task {i}")
-            try:
-                policy = self.solve(task, timeout=CFG.timeout)
-            except (ApproachTimeout, ApproachFailure) as e:
-                logging.info(f"--> Failed: {str(e)}")
-                continue
-            else:
                 logging.info(f"--> Succeeded")
                 policy = utils.option_plan_to_policy(self._last_plan)
-                traj, _ = utils.run_policy(
-                    policy,
+                
+                result = Result(info={"option_plan": self._last_plan,
+                                        "nsrt_plan": self._last_nsrt_plan,
+                                        "metrics": self._last_metrics,
+                                        "policy": policy})
+
+                # Collect trajectory
+                traj, _ = utils.run_policy(policy,
                     env,
                     "train",
                     idx,
                     termination_function=lambda s: False,
                     max_num_steps=CFG.horizon,
-                    exceptions_to_break_on={
-                        utils.OptionExecutionFailure,
-                    },
-                )
+                    exceptions_to_break_on={utils.OptionExecutionFailure,})
                 traj = LowLevelTrajectory(traj.states,
                                         traj.actions,
                                         _is_demo=True,
                                         _train_task_idx=idx)
                 trajectories.append(traj)
-
+            results.append(result)
         dataset = Dataset(trajectories)
-        return dataset
 
+        return results, dataset
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         pass
@@ -144,388 +165,310 @@ class VlmInventionApproach(NSRTLearningApproach):
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         '''Learn from interacting with the offline dataset
         '''
-        tasks_for_prompt = tasks[:CFG.num_tasks_for_prompt]
-        # Ask it to try to solve the tasks
-        # results = self._solve_tasks(tasks[:tasks_for_prompt])
-        # # Use the results to prompt the llm
-        # invention_prompt = self._create_invention_prompt(env, results, tasks)
-        
+        self.env_name = env.get_name()
+        num_tasks = len(tasks)
+        invent_ite = 0
+        max_invent_ite = 2
+        invent_at_every_ite = True # Invent at every iterations
+        base_candidates = set()
         manual_prompt = True
-        response_file = './prompts/online_invent_1.response'
+        regenerate_response = False
+        load_llm_pred_invent_dataset = False
+        save_llm_pred_invent_dataset = True
+        solve_rate, prev_solve_rate = 0, np.inf # init to inf
+        have_unsolved_train_tasks = solve_rate < 1
 
-        # if manual_prompt:
-        #     # create a empty txt file for pasting chatGPT response
-        #     with open(response_file, 'w') as file:
-        #         file.write('')
-        # else:
-        #     vlm_predictions = self._vlm.sample_completions(invention_prompt,
-        #                                         temperature=CFG.llm_temperature,
-        #                                         seed=CFG.seed,
-        #                                         save_file=response_file)[0]
+        while invent_ite < max_invent_ite:
+            # Act in the environment to collect data
+            if have_unsolved_train_tasks:
+                # Reset at every iteration
+                self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
+                self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
 
-        candidates = self._parse_predicate_predictions(response_file)
-        logging.info(f"Done: created {len(candidates)} candidates:")
+                # Set up load/save filename for interaction dataset
+                ds_fname = utils.llm_pred_dataset_save_name(invent_ite)
+                if load_llm_pred_invent_dataset and os.path.exists(ds_fname):
+                    # Load from dataset_fname
+                    with open(ds_fname, 'rb') as f:
+                        results, dataset = dill.load(f) 
+                    logging.info(f"Loaded dataset from {ds_fname}\n")
+                else:
+                    # Ask it to try to solve the tasks
+                    results, dataset = self._solve_tasks(env, tasks)
+                    if save_llm_pred_invent_dataset:
+                        with open(ds_fname, 'wb') as f:
+                            dill.dump((results, dataset), f)
+                        logging.info(f"Saved dataset to {ds_fname}\n")
 
-        # Use the predicates to do another round of planning
-        self._learned_predicates = candidates
+                num_solved = sum([isinstance(r, tuple) for r in results])
+                solve_rate = num_solved / num_tasks
+                no_improvement = not(solve_rate > prev_solve_rate)
+                logging.info(f"\n===ite {invent_ite}, "+\
+                             f"solve rate {num_solved}/{num_tasks}.\n")
+                # Add data to the succ/fail_optn_dict
+                self._process_interaction_result(env, results, tasks)
 
-        # # Apply the candidate predicates to the data.
-        # logging.info("Applying predicates to data...")
-        # # Get the template str for the dataset filename for saving
-        # # a ground atom dataset.
-        # dataset_fname, _ = utils.create_dataset_filename_str(True)
-        # # Add a bunch of things relevant to grammar search to the
-        # # dataset filename string.
-        # dataset_fname = dataset_fname[:-5] + \
-        #     f"_{CFG.grammar_search_max_predicates}" + \
-        #     f"_{CFG.grammar_search_grammar_includes_givens}" + \
-        #     f"_{CFG.grammar_search_grammar_includes_foralls}" + \
-        #     f"_{CFG.grammar_search_grammar_use_diff_features}" + \
-        #     f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
-        #     dataset_fname[-5:]
+            # Invent when no improvement in solve rate
+            if no_improvement or invent_at_every_ite:
+                if CFG.llm_predicator_oracle_base:
+                    new_candidates = env.predicates - self._initial_predicates
+                else:
+                    # Use the results to prompt the llm
+                    prompt = self._create_prompt(env, invent_ite)
 
-        # # Load pre-saved data if the CFG.load_atoms flag is set.
-        # atom_dataset: Optional[List[GroundAtomTrajectory]] = None
-        # if CFG.load_atoms:
-        #     atom_dataset = utils.load_ground_atom_dataset(
-        #         dataset_fname, dataset.trajectories)
-        # else:
-        #     atom_dataset = utils.create_ground_atom_dataset(
-        #         dataset.trajectories,
-        #         set(candidates) | self._initial_predicates)
-        #     # Save this atoms dataset if the save_atoms flag is set.
-        #     if CFG.save_atoms:
-        #         utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
-        # logging.info("Done.")
+                    response_file =\
+                        f'./prompts/invent_{self.env_name}_{invent_ite}.response'
+                    if not os.path.exists(response_file) or regenerate_response:
+                        if manual_prompt:
+                            # create a empty txt file for pasting chatGPT response
+                            with open(response_file, 'w') as file:
+                                pass
+                            logging.info(
+                                f"## Please paste the response from the LLM "+
+                                f"to {response_file}")
+                            input("Press Enter when you have pasted the "+
+                                  "response.")
+                        else:
+                            self._vlm.sample_completions(prompt,
+                                temperature=CFG.llm_temperature,
+                                seed=CFG.seed,
+                                save_file=response_file)[0]
 
-        # # Select a subset of the candidates to keep.
-        # logging.info("Selecting a subset...")
-        # if CFG.grammar_search_pred_selection_approach == "score_optimization":
-        #     # Create the score function that will be used to guide search.
-        #     score_function = create_score_function(
-        #         CFG.grammar_search_score_function, self._initial_predicates,
-        #         atom_dataset, candidates, self._train_tasks)
-        #     self._learned_predicates = \
-        #         self._select_predicates_by_score_hillclimbing(
-        #         candidates, score_function, self._initial_predicates,
-        #         atom_dataset, self._train_tasks)
-        # else:
-        #     raise NotImplementedError
-        # logging.info("Done.")
+                # If using the oracle predicates
+                    new_candidates = self._parse_predicate_predictions(
+                        response_file)
+                logging.info(f"Done: created {len(new_candidates)} "+
+                             "candidates:")
 
-        # Finally, learn NSRTs via superclass, using all the kept predicates.
-        dataset = self._collect_experience(env, tasks)
-        annotations = None
-        if dataset.has_annotations:
-            annotations = dataset.annotations
-        self._learn_nsrts(dataset.trajectories,
-                          online_learning_cycle=None,
-                          annotations=annotations)
-        
-    def _parse_predicate_predictions(self, prediction_file: str
-                                     ) -> Set[Predicate]:
-        # Read the prediction file
-        with open(prediction_file, 'r') as file:
-            response = file.read()
+                # Select a subset of the candidates to keep by score optimization    
+                base_candidates |= new_candidates
 
-        # Regular expression to match Python code blocks
-        pattern = re.compile(r'```python(.*?)```', re.DOTALL)
-        python_blocks = []
-        # Find all Python code blocks in the text
-        for match in pattern.finditer(response):
-            # Extract the Python code block and add it to the list
-            python_blocks.append(match.group(1).strip())
-        
-        candidates = set()
-        for code_str in python_blocks:
-            # Extract name from code block
-            match = re.search(r'(\w+)\s*=\s*Predicate', code_str)
-            if match:
-                pred_name =  match.group(1)
-            else:
-                raise ValueError("No predicate name found in the code block")
-            logging.info(f"Found definition for predicate {pred_name}")
-            
-            # # Type check the code
-            # passed = False
-            # while not passed:
-            #     result, passed = self.type_check_proposed_predicates(pred_name, 
-            #                                                          code_str)
-            #     if not passed:
-            #         # Ask the LLM or the User to fix the code
-            #         pass
-            #     else:
-            #         break
+                # Optionally add grammar to the candidates
+                if CFG.llm_predicator_use_grammar:
+                    grammar = _create_grammar(dataset=dataset, 
+                        given_predicates=base_candidates |\
+                            self._initial_predicates)
+                    all_candidates: Dict[Predicate, float] = grammar.generate(
+                        max_num=CFG.grammar_search_max_predicates)
+                else:
+                    # Assign cost 0 for every candidate, for now.
+                    all_candidates: Dict[Predicate, float] = {p: 0 for p in 
+                                                            base_candidates}
 
-            # Instantiate the predicate
-            context = {}
-            exec(import_str + '\n' + code_str, context)
-            candidates.add(context[pred_name])
+                # Add a atomic states for succ_optn_dict and fail_optn_dict
+                logging.info("Applying predicates to data...")
+                for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+                    for g_optn in optn_dict.keys():
+                        atom_states = []
+                        for state in optn_dict[g_optn]['states']:
+                            atom_states.append(utils.abstract(
+                            state, 
+                            set(all_candidates) | self._initial_predicates))
+                        optn_dict[g_optn]['abstract_states'] = atom_states
+                # Apply the candidate predicates to the data.
+                atom_dataset: List[GroundAtomTrajectory] =\
+                    utils.create_ground_atom_dataset(
+                        dataset.trajectories, 
+                        set(all_candidates) | self._initial_predicates)
+                logging.info("Done.")
+                score_function = _ClassificationErrorScoreFunction(
+                                    self._initial_predicates,
+                                    atom_dataset,
+                                    all_candidates,
+                                    self._train_tasks, #Not used in the basic appro.?
+                                    succ_optn_dict=self.succ_optn_dict,
+                                    fail_optn_dict=self.fail_optn_dict)
+                start_time = time.perf_counter()
+                self._learned_predicates = \
+                    self._select_predicates_by_score_hillclimbing(
+                        all_candidates, 
+                        score_function, 
+                        self._initial_predicates)
+                logging.info(
+                f"Total search time {time.perf_counter()-start_time:.2f} seconds")
+                # self._learned_predicates = new_candidates
+                invent_ite += 1
 
-        return candidates
 
-    def type_check_proposed_predicates(self,
-                                       predicate_name: str,
-                                       code_block: str) -> Tuple[str, bool]:
-        # Write the definition to a python file
-        predicate_fname = f'./prompts/oi1_predicate_{predicate_name}.py'
-        with open(predicate_fname, 'w') as f:
-            f.write(import_str + '\n' + code_block)
+            # Finally, learn NSRTs via superclass, using all the kept predicates.
+            annotations = None
+            if dataset.has_annotations:
+                annotations = dataset.annotations
+            self._learn_nsrts(dataset.trajectories,
+                                online_learning_cycle=None,
+                                annotations=annotations)
 
-        # Type check
-        logging.info(f"Start type checking the predicate "+
-                        f"{predicate_name}...")
-        result = subprocess.run(["mypy", 
-                                    "--strict-equality", 
-                                    "--disallow-untyped-calls", 
-                                    "--warn-unreachable",
-                                    "--disallow-incomplete-defs",
-                                    "--show-error-codes",
-                                    "--show-column-numbers",
-                                    "--show-error-context",
-                                predicate_fname], 
-                                capture_output=True, text=True)
-        stdout = result.stdout
-        passed = result.returncode == 0
-        return stdout, passed
-        
-    def _create_invention_prompt(self, env: BaseEnv, 
-                                 results: Dict=None, 
-                                 tasks: Task=None) -> str:
+            # Print the new classification results with the new operators
+            _, _, _, _, _ = utils.count_classification_result_for_ops(
+                                        self._nsrts,
+                                        self.succ_optn_dict,
+                                        self.fail_optn_dict,
+                                        return_str=False,
+                                        initial_ite=False,
+                                        print_cm=True)
+            prev_solve_rate = solve_rate
+
+        logging.info("Invention finished.")
+        # breakpoint()
+        return
+
+    def _select_predicates_by_score_hillclimbing(
+            self, candidates: Dict[Predicate, float],
+            score_function: _PredicateSearchScoreFunction,
+            initial_predicates: Set[Predicate]=None,
+            atom_dataset: List[GroundAtomTrajectory]=None,
+            train_tasks: List[Task]=None) -> Set[Predicate]:
+        """Perform a greedy search over predicate sets."""
+
+        # There are no goal states for this search; run until exhausted.
+        def _check_goal(s: FrozenSet[Predicate]) -> bool:
+            del s  # unused
+            return False
+
+        # Successively consider larger predicate sets.
+        def _get_successors(
+            s: FrozenSet[Predicate]
+        ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+            for predicate in sorted(set(candidates) - s):  # determinism
+                # Actions not needed. Frozensets for hashing. The cost of
+                # 1.0 is irrelevant because we're doing GBFS / hill
+                # climbing and not A* (because we don't care about the
+                # path).
+                yield (None, frozenset(s | {predicate}), 1.0)
+
+        # Start the search with no candidates.
+        init: FrozenSet[Predicate] = frozenset()
+
+        # Greedy local hill climbing search.
+        if CFG.grammar_search_search_algorithm == "hill_climbing":
+            path, _, heuristics = utils.run_hill_climbing(
+                init,
+                _check_goal,
+                _get_successors,
+                score_function.evaluate,
+                enforced_depth=CFG.grammar_search_hill_climbing_depth,
+                parallelize=CFG.grammar_search_parallelize_hill_climbing)
+            logging.info("\nHill climbing summary:")
+            for i in range(1, len(path)):
+                new_additions = path[i] - path[i - 1]
+                assert len(new_additions) == 1
+                new_addition = next(iter(new_additions))
+                h = heuristics[i]
+                prev_h = heuristics[i - 1]
+                logging.info(f"\tOn step {i}, added {new_addition}, with "
+                             f"heuristic {h:.3f} (an improvement of "
+                             f"{prev_h - h:.3f} over the previous step)")
+        elif CFG.grammar_search_search_algorithm == "gbfs":
+            path, _ = utils.run_gbfs(
+                init,
+                _check_goal,
+                _get_successors,
+                score_function.evaluate,
+                max_evals=CFG.grammar_search_gbfs_num_evals)
+        else:
+            raise NotImplementedError(
+                "Unrecognized grammar_search_search_algorithm: "
+                f"{CFG.grammar_search_search_algorithm}.")
+        kept_predicates = path[-1]
+        # The total number of predicate sets evaluated is just the
+        # ((number of candidates selected) + 1) * total number of candidates.
+        # However, since 'path' always has length one more than the
+        # number of selected candidates (since it evaluates the empty
+        # predicate set first), we can just compute it as below.
+        # assert self._metrics.get("total_num_predicate_evaluations") is None
+        self._metrics["total_num_predicate_evaluations"] = len(path) * len(
+            candidates)
+
+        # # Filter out predicates that don't appear in some operator
+        # # preconditions.
+        # logging.info("\nFiltering out predicates that don't appear in "
+        #              "preconditions...")
+        # preds = kept_predicates | initial_predicates
+        # pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, preds)
+        # segmented_trajs = [
+        #     segment_trajectory(ll_traj, set(preds), atom_seq=atom_seq)
+        #     for (ll_traj, atom_seq) in pruned_atom_data
+        # ]
+        # low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        # preds_in_preconds = set()
+        # for pnad in learn_strips_operators(low_level_trajs,
+        #                                    train_tasks,
+        #                                    set(kept_predicates
+        #                                        | initial_predicates),
+        #                                    segmented_trajs,
+        #                                    verify_harmlessness=False,
+        #                                    annotations=None,
+        #                                    verbose=False):
+        #     for atom in pnad.op.preconditions:
+        #         preds_in_preconds.add(atom.predicate)
+        # kept_predicates &= preds_in_preconds
+
+        logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
+                     f"{len(candidates)} candidates:")
+        for pred in kept_predicates:
+            logging.info(f"\t{pred}")
+        score_function.evaluate(kept_predicates)  # log useful numbers
+
+        return set(kept_predicates)        
+
+
+
+    def _create_prompt(self, env: BaseEnv, ite: int) -> str:
         '''Compose a prompt for VLM for predicate invention
         '''
-        ########### These doesn't use the dataset ###########
         # Read the template
-        with open('./prompts/online_invent_0_template.prompt', 'r') as file:
+        with open('./prompts/invent_.outline', 'r') as file:
             template = file.read()
 
-        def add_python_quote(text: str) -> str:
-            return f"```python\n{text}\n```\n"
-
-        def d2s(dict_with_arrays):
-            # Convert State data with numpy arrays to lists, and to string
-            return str({k: [round(i, 2) for i in v.tolist()] for k, v in 
-                    dict_with_arrays.items()})
-
         ##### Meta Environment
-        # Predicate Class
-        predicate_class_str = getsource(Predicate)
-        delimitor = "return self._classifier(state, objects)"
-        keep_index = predicate_class_str.find(delimitor)
-        keep_index += len(delimitor) + 1
-        template = template.replace('[PREDICATE_CLASS_DEFINITION]', 
-                    add_python_quote(predicate_class_str[:keep_index]))
-
-        # State Class
-        state_class_str = getsource(State)
-        template = template.replace('[STATE_CLASS_DEFININTION]',
-                                    add_python_quote(state_class_str))
-
-        # Object Class
-        type_str = getsource(Type)
-        typed_entity_str = getsource(_TypedEntity)
-        object_class_str = getsource(Object)
-        template = template.replace('[OBJECT_CLASS_DEFINITION]',
-                        add_python_quote(type_str + "\n" +
-                                         typed_entity_str +  "\n" +
-                                         object_class_str))
+        # Structure classes
+        with open('./prompts/class_definitions.py', 'r') as f:
+            struct_str = f.read()
+        template = template.replace('[STRUCT_DEFINITION]',
+                                    add_python_quote(struct_str))
 
         ##### Environment
-        # Type Initialization
-        source_code = getsource(StickButtonEnv)
-        type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"        
-        type_block = re.search(type_pattern, source_code, re.DOTALL)
-        type_init_str = type_block.group()
-        template = template.replace("[TYPES_IN_ENV]", 
-                                    add_python_quote(type_init_str))
+        self.env_source_code = getsource(env.__class__)
+        # Type Instantiation
+        type_instan_str = add_python_quote(
+                            self._env_type_str(self.env_source_code))
+        template = template.replace("[TYPES_IN_ENV]", type_instan_str)
 
         # Predicates
-        predicate_pattern = r"(# Predicates.*?)(?=\n\s*\n|$)"        
-        predicate_block = re.search(predicate_pattern, source_code, re.DOTALL)
-        predicate_init_str = predicate_block.group()
-        # Predicates with classifiers
-        initial_predicate_str = []
-        initial_predicate_str.append(str(self._initial_predicates) + "\n")
-
-        for p in self._initial_predicates:
-            p_name = p.name
-            # Init code
-            p_init_pattern = r"(self\._" + re.escape(p_name) +\
-                      r" = Predicate\(.*?\n.*?\))"
-            block = re.search(p_init_pattern, predicate_init_str, re.DOTALL)
-            p_init_str = block.group()
-            # Predicate description with classifiers
-            initial_predicate_str.append(
-                f"Predicate `{p_name}` is created by\n" + 
-                add_python_quote(p_init_str) +
-                "This creates Predicate " +
-                p.predicate_str())
-        initial_predicate_str = '\n'.join(initial_predicate_str)
-        template = template.replace("[PREDICATES_IN_ENV]",
-                                    initial_predicate_str)
+        pred_str = []
+        pred_str.append(self._init_predicate_str(self.env_source_code))
+        if ite > 0:
+            pred_str.append("The previously invented predicates are:")
+            pred_str.append(self._invented_predicate_str(ite))
+        pred_str = '\n'.join(pred_str)
+        template = template.replace("[PREDICATES_IN_ENV]", pred_str)
+        
+        # Options
+        options_str = set()
+        for nsrt in self._nsrts:
+            options_str.add(nsrt.option_str())
+        options_str = '\n'.join(list(options_str))
+        template = template.replace("[OPTIONS_IN_ENV]", options_str)
         
         # NSRTS
         nsrt_str = []
         for nsrt in self._nsrts:
-            nsrt_str.append(str(nsrt))
+            nsrt_str.append(str(nsrt).replace("NSRT-", ""))
         template = template.replace("[NSRTS_IN_ENV]", '\n'.join(nsrt_str))
 
-        ##### Task Information
-        # Set the print options
-        np.set_printoptions(precision=1)
-
-        task_str = []
-        for i, t in enumerate(tasks):
-            # Task specifications
-            task_str.append(f"Task {i}:")
-            task_str.append("Initial State with objects and feature names: \n" + 
-                            t.init.pretty_str() )
-            task_str.append("Initial Abstract State: " + str(utils.abstract(
-                t.init, self._initial_predicates)) + '\n')
-            task_str.append("Task goal: " + str(t.goal) + '\n')
-
-            # Planning Results
-            # Planning succeeded
-            result = results[i]
-            if isinstance(result, dict):
-                print(f"Task {i}: planning succeeded.")
-                nsrt_plan = result['nsrt_plan']
-                option_plan = result['option_plan'].copy()
-                # policy = utils.option_plan_to_policy(result['option_plan'])
-                task_str.append("The bilevel planning succeeded.\n")
-
-                # High level plan
-                task_str.append("The high-level plan is:")
-                high_level_plan = []
-                for i, nsrt in enumerate(nsrt_plan):
-                    high_level_plan.append(f"Step {i}: " + str(nsrt))
-                task_str.append('\n'.join(high_level_plan))
-                task_str.append("Done.\n")
-
-                # Executing the plan
-                state = env.reset(train_or_test='train', task_idx=i)
-                task_str.append("The state-action trajectory is:")
-                task_str.append("State: " + d2s(state.data) + "\n")
-                def policy(_): raise OptionExecutionFailure("")
-                nsrt_counter = 0
-                for _ in range(CFG.horizon):
-                    try:
-                        act = policy(state)
-                        task_str.append("Action: " + str(act._arr) + "\n")
-                        state = env.step(act)
-                        task_str.append("State: " + d2s(state.data) + "\n")
-                    except OptionExecutionFailure as e:
-                        # When the one-option policy reaches terminal state
-                        try:
-                            policy = utils.option_plan_to_policy(
-                                    [option_plan.pop(0)])
-                        except IndexError:
-                            # When the option plan is empty
-                            task_str.append(f"Abstract State: " + 
-                                            str(utils.abstract(state, 
-                                                self._initial_predicates)) +
-                                            "\n")
-                            break
-                        else:
-                            task_str.append(f"Abstract State: " + 
-                                            str(utils.abstract(state, 
-                                                   self._initial_predicates)) +
-                                            "\n")
-                            task_str.append(
-                                f"Start executing Step {nsrt_counter}: "+
-                                    f"{str(nsrt_plan[nsrt_counter])}\n")
-                            nsrt_counter += 1
-            # Planning failed
-            else:
-                print(f"Task {i}: planning failed.")
-                # Take the first task plan
-                # len(nsrt_plan) >= len(longest_refinement)
-                nsrt_plan = result.info['partial_refinements'][0][0]
-                longest_refinement = result.info['partial_refinements'][0][1]
-                longest_refinement_len = len(longest_refinement)
-
-                # REASON_OF_BILEVEL_PLANNING_FAILURE
-                task_str.append("The bilevel planning failed because: " +
-                                str(result) + "\n")
-                # Shortest_task_plan
-                task_str.append("The first task plan (skeleton) the planner "+
-                                "found is: ")
-                for j, nsrt in enumerate(nsrt_plan):
-                    task_str.append(f"Step {j}: " + str(nsrt))
-                task_str.append("")
-
-                # Where did the refinement fail?
-                task_str.append("The motion plan (refinment) got stuck at "+
-                                "step " + str(longest_refinement_len-1) + '\n')
-                print("The motion plan (refinment) got stuck at step " + 
-                                str(longest_refinement_len-1))
-
-                # Executing the plan
-                state = env.reset(train_or_test='train', task_idx=i)
-                task_str.append("The state-action trajectory is:")
-                task_str.append("State: " + d2s(state.data) + "\n")
-                nsrt_counter = 0
-                if longest_refinement_len > 1:
-                    head_options = longest_refinement[:-1]
-                    def policy(_): raise OptionExecutionFailure("")
-                    for _ in range(CFG.horizon):
-                        try:
-                            act = policy(state)
-                            task_str.append("Action: " + str(act._arr) + "\n")
-                            state = env.step(act)
-                            task_str.append("State: " + d2s(state.data) + "\n")
-                        except OptionExecutionFailure:
-                            # When the one-option policy reaches terminal state
-                            try:
-                                policy = utils.option_plan_to_policy(
-                                        [head_options.pop(0)])
-                            except IndexError:
-                                # The head_options plan is empty
-                                break
-                            else:
-                                task_str.append(f"Abstract State: " + 
-                                                str(utils.abstract(state, 
-                                                    self._initial_predicates)) +
-                                                "\n")
-                                task_str.append(
-                                    f"Start executing Step {nsrt_counter}: " +
-                                    f"{str(nsrt_plan[nsrt_counter])}\n")
-                                nsrt_counter += 1
-                    
-                tail_policy = option_plan_to_policy(longest_refinement[-1:], 
-                                            max_option_steps=None,
-                                            raise_error_on_repeated_state=True)
-
-                # State before executing the last option
-                task_str.append(f"Abstract State: " + str(utils.abstract(
-                    state, self._initial_predicates)) + "\n")
-                task_str.append(f"Start executing Step {nsrt_counter} which " +
-                                f"failed: {str(nsrt_plan[nsrt_counter])}\n")
-                # Action trajectories before failure
-                for _ in range(CFG.horizon):
-                    try:
-                        act = tail_policy(state)
-                        task_str.append("Action: " + str(act._arr) + "\n")
-                    except OptionExecutionFailure as e:
-                        task_str.append("Action attempt: " + str(act._arr)+"\n")
-                        task_str.append("The option failed because: " +
-                                            str(e) + '\n')
-                        break
-                    try:
-                        state = env.step(act)
-                        task_str.append("State: " + d2s(state.data) + '\n')
-                    except EnvironmentFailure as e:
-                        task_str.append("The option failed because: " +
-                                            str(e)+'\n')
-                        break
-                
-        task_str = '\n'.join(task_str)
-        template = template.replace("[INTERACTION_RESULTS]", task_str)
+        _, _, _, _, summary_str = utils.count_classification_result_for_ops(
+                                        self._nsrts,
+                                        self.succ_optn_dict,
+                                        self.fail_optn_dict,
+                                        return_str=True,
+                                        initial_ite=(ite==0),
+                                        print_cm=True
+                                    )
+        template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
         # Save the text prompt
-        with open('./prompts/online_invent_1.prompt', 'w') as file:
-            file.write(template)
-
+        with open(f'./prompts/invent_{self.env_name}_{ite}.prompt','w') as f:
+            f.write(template)
         prompt = template
 
         # if CFG.rgb_observation:
@@ -579,69 +522,681 @@ class VlmInventionApproach(NSRTLearningApproach):
         # #     prompt = json.load(file)
         return prompt
 
-    def _create_interpretation_prompt(self, pred: AnnotatedPredicate, idx: int) -> str:
-        with open('./prompts/interpret_0.prompt', 'r') as file:
-            template = file.read()
-        text_prompt = template.replace('[INSERT_QUERY_HERE]', pred.__str__())
+    def _parse_predicate_predictions(self, prediction_file: str
+                                     ) -> Set[Predicate]:
+        # Read the prediction file
+        with open(prediction_file, 'r') as file:
+            response = file.read()
 
-        # Save the text prompt
-        with open(f'./prompts/interpret_1_cover_{idx}_{pred.name}_text.prompt', 'w') \
-            as file:
-            file.write(text_prompt)
+        # Regular expression to match Python code blocks
+        pattern = re.compile(r'```python(.*?)```', re.DOTALL)
+        python_blocks = []
+        # Find all Python code blocks in the text
+        for match in pattern.finditer(response):
+            # Extract the Python code block and add it to the list
+            python_blocks.append(match.group(1).strip())
         
-        text_entry = {
-            "type": "text",
-            "text": text_prompt
-        }
-        prompt = [{
-            "role": "user",
-            "content": text_entry
-        }]
+        candidates = set()
+        context = {}
+        type_init_str = self._env_type_str(self.env_source_code)
+        constants_str = self._constants_str(self.env_source_code)
+        for code_str in python_blocks:
+            # Extract name from code block
+            match = re.search(r'(\w+)\s*=\s*Predicate', code_str)
+            if match:
+                pred_name =  match.group(1)
+            else:
+                raise ValueError("No predicate name found in the code block")
+            logging.info(f"Found definition for predicate {pred_name}")
+            
+            # # Type check the code
+            # passed = False
+            # while not passed:
+            #     result, passed = self.type_check_proposed_predicates(pred_name, 
+            #                                                          code_str)
+            #     if not passed:
+            #         # Ask the LLM or the User to fix the code
+            #         pass
+            #     else:
+            #         break
 
-        # Convert the prompt to JSON string
-        prompt_json = json.dumps(prompt, indent=2)
-        with open(f'./prompts/interpret_2_cover_{idx}_{pred.name}.prompt', 'w') \
-            as file:
-            file.write(str(prompt_json))
-        return prompt
+            # Instantiate the predicate
+            try:
+                exec(import_str + '\n' + type_init_str + '\n' + constants_str +
+                     code_str, context)
+            except:
+                breakpoint()
+            candidates.add(context[pred_name])
 
-    def _parse_classifier_response(self, response: str) -> str:
-        # Define the regex pattern to match Python code block
-        pattern = r'```python(.*?)```'
-        
-        # Use regex to find the Python code block in the response
-        match = re.search(pattern, response, re.DOTALL)
-        
-        # If a match is found, return the Python code block
+        return candidates
+
+    def type_check_proposed_predicates(self,
+                                       predicate_name: str,
+                                       code_block: str) -> Tuple[str, bool]:
+        # Write the definition to a python file
+        predicate_fname = f'./prompts/oi1_predicate_{predicate_name}.py'
+        with open(predicate_fname, 'w') as f:
+            f.write(import_str + '\n' + code_block)
+
+        # Type check
+        logging.info(f"Start type checking the predicate "+
+                        f"{predicate_name}...")
+        result = subprocess.run(["mypy", 
+                                    "--strict-equality", 
+                                    "--disallow-untyped-calls", 
+                                    "--warn-unreachable",
+                                    "--disallow-incomplete-defs",
+                                    "--show-error-codes",
+                                    "--show-column-numbers",
+                                    "--show-error-context",
+                                predicate_fname], 
+                                capture_output=True, text=True)
+        stdout = result.stdout
+        passed = result.returncode == 0
+        return stdout, passed
+
+    def _env_type_str(self, source_code: str) -> str:  
+        type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"        
+        type_block = re.search(type_pattern, source_code, re.DOTALL)
+        type_init_str = type_block.group()
+        type_init_str = textwrap.dedent(type_init_str)
+        # type_init_str = add_python_quote(type_init_str)
+        return type_init_str
+
+    def _constants_str(self, source_code: str) -> str:
+        # Some constants, if any, defined in the environment are
+        constants_str = ''
+        pattern = r"(    # Constants present in goal predicates.*?)(?=\n\s*\n|$)"
+        match = re.search(pattern, source_code, re.DOTALL)
         if match:
-            return match.group(1).strip()
+            constants_str = match.group(1)
+            constants_str = textwrap.dedent(constants_str)
+        return constants_str
+
+
+    def _init_predicate_str(self, source_code: str) -> str:
+        '''Extract the initial predicates from the environment source code
+        '''
+        init_pred_str = []
+        init_pred_str.append(str({p.pretty_str()[1] for p 
+                                    in self._initial_predicates}) + "\n")
         
-        # If no match is found, return an empty string
-        return ''
+        # Print the variable definitions
+        constants_str = self._constants_str(source_code)
+        if constants_str:
+            init_pred_str.append(
+                "The environment defines the following constants that can be "+\
+                "used in defining predicates:")
+            init_pred_str.append(add_python_quote(constants_str))
 
-    def _parse_predicate_signature_predictions(self, response: str) -> Set[Predicate]:
+        # Get the entire predicate instantiation code block.
+        predicate_pattern = r"(# Predicates.*?)(?=\n\s*\n|$)"        
+        predicate_block = re.search(predicate_pattern, source_code, re.DOTALL)
+        pred_instantiation_str = predicate_block.group()
 
-        # Regular expression to match the predicate format
-        pattern = r"`(.*?)` -- (.*?)\n"
-        matches = re.findall(pattern, response)
+        for p in self._initial_predicates:
+            p_name = p.name
+            # Get the instatiation code for p from the code block
+            p_instan_pattern = r"(self\._" + re.escape(p_name) +\
+                                r" = Predicate\(.*?\n.*?\))"
+            block = re.search(p_instan_pattern, pred_instantiation_str, 
+                              re.DOTALL)
+            p_instan_str = block.group()
+            pred_str = "Predicate " + p.pretty_str()[1] + " is defined by\n" +\
+                        add_python_quote(p.classifier_str() + p_instan_str)
+            init_pred_str.append(pred_str.replace("self.", ""))
 
-        # Create a list of AnnotatedPredicate instances
-        predicates = []
-        for match in matches:
-            pred_str = match[0]
-            description = match[1]
-            name = pred_str.split('(')[0]
-            args = pred_str.split('(')[1].replace(')', '').split(', ')
-            types = [self._type_dict[arg.split(':')[1]] for arg in args]
-            predicate = AnnotatedPredicate(name=name, types=types, 
-                                           description=description,
-                                           _classifier=None)
-            predicates.append(predicate)
-        for pred in predicates: 
-            logging.info(pred)
-        return predicates
+        return '\n'.join(init_pred_str)
+        
+    def _invented_predicate_str(self, ite: int) -> str:
+        '''Get the predicate definitions from the previous response file
+        '''
+        new_predicate_str = []
+        new_predicate_str.append(str(self._learned_predicates) + '\n')
+        prediction_file = f'./prompts/invent_{self.env_name}_{ite-1}'+\
+            ".response"
+        with open(prediction_file, 'r') as file:
+            response = file.read()
 
-# Function to encode the image
-def encode_image(image_path: str) -> str:
-  with open(image_path, "rb") as image_file:
-    return base64.b64encode(image_file.read()).decode('utf-8')
+        # Regular expression to match Python code blocks
+        code_pattern = re.compile(r'```python(.*?)```', re.DOTALL)
+        for match in code_pattern.finditer(response):
+            python_block = match.group(1).strip()
+            # pred_match = re.search(r'Predicate\("([^"]*)"', python_block)
+            pred_match = re.search(r'name\s*(:\s*str)?\s*= "([^"]*)"', 
+                                   python_block)
+            pred_name =  pred_match.group(2)
+            pred = next((p for p in self._learned_predicates if p.name == 
+                         pred_name), None)
+            if pred:
+                new_predicate_str.append("Predicate " + pred.pretty_str()[1] +
+                        " is defined by\n" + add_python_quote(python_block))
+        has_not_or_forall = [p.name.startswith("NOT") or 
+                             p.name.startswith("Forall")  for p in 
+                             self._learned_predicates]
+        if has_not_or_forall:
+            new_predicate_str.append("Predicates with names starting with "+
+            "'NOT' or 'Forall' are defined by taking the negation or adding"+
+            "universal quantifiers over other existing predicates.")
+        return '\n'.join(new_predicate_str)
+
+    def _process_interaction_result(self, env: BaseEnv,
+                                    results: Dict, 
+                                    tasks: Task,
+                                    add_intermediate_details=False) -> None:    
+        '''When add_intermediate_details == True, detailed interaction 
+        trajectories are added to the return string
+        '''
+
+        # num_solved = sum([isinstance(r, tuple) for r in results])
+        # num_attempted = len(results)
+        # logging.info(f"The agent solved {num_solved} out of " +
+        #                 f"{num_attempted} tasks.\n")
+        logging.info("\n===Processing the interaction results...\n")
+
+        for i, _ in enumerate(tasks):
+            t = tasks[i]
+
+            # Planning Results
+            result = results[i]
+            for k, v in result.info['metrics'].items():
+                if k == 'num_skeletons_optimized':
+                    num_skeletons_optimized = v
+            if num_skeletons_optimized == 0:
+                continue
+
+            if isinstance(result, tuple):
+                # Found a successful plan
+                logging.info(f"Task {i}: planning succeeded.")
+                nsrt_plan = result.info['nsrt_plan']
+                option_plan = result.info['option_plan'].copy()
+
+                # Add the Plan Execution Trajectory
+                init_state = env.reset(train_or_test='train', task_idx=i)
+                _, _ = self._plan_to_str(init_state, env, 
+                    nsrt_plan, option_plan, add_intermediate_details)
+
+                # Show examples of failed refinement
+                for p_ref in result.info['metrics']['partial_refinements']:
+                    nsrt_plan = p_ref[0]
+                    # longest option refinement
+                    option_plan = p_ref[1].copy()
+                    failed_opt_idx = len(option_plan) - 1
+
+                    state = env.reset(train_or_test='train', task_idx=i)
+                    # Successful part
+                    if failed_opt_idx > 0:
+                        state, _ = self._plan_to_str(
+                            state, env, nsrt_plan, option_plan[:-1], 
+                            add_intermediate_details)
+                    # Failed part
+                    _, _ = self._plan_to_str(state, env, 
+                            nsrt_plan[failed_opt_idx:], option_plan[-1:], 
+                            add_intermediate_details, failed_opt=True)
+                
+            else:
+                # Didn't find a successful plan
+                logging.info(f"Task {i}: planning failed.")
+                
+                # Get all the failed trajectories
+                for p_ref in result.info['partial_refinements']:
+                    nsrt_plan = p_ref[0]
+                    # longest refinement
+                    option_plan = p_ref[1].copy()
+                    failed_opt_idx = len(option_plan) - 1
+
+                    state = env.reset(train_or_test='train', task_idx=i)
+                    # Successful part
+                    if failed_opt_idx > 0:
+                        state, _ = self._plan_to_str(
+                            state, env, nsrt_plan, option_plan[:-1], 
+                            add_intermediate_details)
+                    # Failed part
+                    _, _ = self._plan_to_str(state, env, 
+                        nsrt_plan[failed_opt_idx:], option_plan[-1:], 
+                        add_intermediate_details, failed_opt=True)
+
+        # Add the abstract states
+        # maybe should be optimized?
+        for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+            for g_optn in optn_dict.keys():
+                atom_states = []
+                for state in optn_dict[g_optn]['states']:
+                    atom_states.append(utils.abstract(
+                        state, self._get_current_predicates()))
+                optn_dict[g_optn]['abstract_states'] = atom_states
+    
+    def _plan_to_str(self, init_state: State, env: BaseEnv, 
+                             nsrt_plan: List, option_plan: List, 
+                             add_intermediate_details: bool=False,
+                             failed_opt: bool=False) -> List[str]:
+
+        task_str = []
+        # Executing the plan
+        state = init_state
+        def policy(_): raise OptionExecutionFailure("placeholder policy")
+        nsrt_counter = 0
+        for step_counter in range(CFG.horizon):
+            try:
+                act = policy(state)
+                state = env.step(act)
+                if add_intermediate_details:
+                    task_str.append("Action: " + str(act._arr) + "\n")
+                    task_str.append("State: " + d2s(state.data) + "\n")
+            except OptionExecutionFailure as e:
+                # When the one-option policy reaches terminal state
+                # we're cetain the plan is successfully terminated 
+                # because this is a successful plan.
+                if str(e) == "placeholder policy" or\
+                (str(e) == "Option plan exhausted!" and not failed_opt) or\
+                (str(e) == "Encountered repeated state." and not failed_opt):
+                    if nsrt_counter > 0:
+                        task_str.append(
+                            "The option successfully terminated in state: \n" +
+                            state.dict_str() + "\n")
+                    try:
+                        option = option_plan.pop(0)
+                        # if option.name == "OpenLid":
+                        #     breakpoint()
+                        policy = utils.option_plan_to_policy(
+                                [option], 
+                                raise_error_on_repeated_state=True)
+                    except IndexError: break
+                    else:
+                        if not failed_opt:
+                            g_nsrt = nsrt_plan[nsrt_counter]
+                            gop_str = g_nsrt.ground_option_str()
+                            self.succ_optn_dict[gop_str]['states'].append(state)
+                            # assume unique grounding
+                            self.succ_optn_dict[gop_str]['optn_objs'] =\
+                                g_nsrt.option_objs
+                            self.succ_optn_dict[gop_str]['optn_vars'] =\
+                                g_nsrt.parent.option_vars
+                            self.succ_optn_dict[gop_str]['option'] =\
+                                g_nsrt.option
+                            task_str.append(
+                            "The option "+
+                            f"{nsrt_plan[nsrt_counter].ground_option_str()} "+
+                            "is successfully initialized in the above state.\n"
+                            )
+                            nsrt_counter += 1
+                else:
+                    if add_intermediate_details:
+                        task_str.append("Action attempt: "+str(act._arr)+"\n")
+                    task_str.append("The option failed in execution because: "+
+                                        str(e) + '\n')
+                    # if nsrt_plan[0].ground_option_str()=="StickPressButton(robby_hand:hand, stick:stick, button0:button)":
+                    #     breakpoint()
+                    # self.fail_optn_dict[nsrt_plan[0].ground_option_str()
+                    #                     ].append((init_state, e))
+                    g_nsrt = nsrt_plan[0]
+                    gop_str = g_nsrt.ground_option_str()
+                    self.fail_optn_dict[gop_str]['states'].append(state)
+                    self.fail_optn_dict[gop_str]['errors'].append(e)
+                    # assume unique grounding
+                    self.fail_optn_dict[gop_str]['optn_objs'] =\
+                        g_nsrt.option_objs
+                    self.fail_optn_dict[gop_str]['optn_vars'] =\
+                        g_nsrt.parent.option_vars
+                    self.fail_optn_dict[gop_str]['option'] =\
+                        g_nsrt.option
+                    break
+            # except AssertionError as e:
+            #     breakpoint()
+            # #     policy(state)
+            #     logging.info("error")
+
+        final_state = state
+        return final_state, task_str
+
+
+    # def _create_interpretation_prompt(self, pred: AnnotatedPredicate, idx: int) -> str:
+    #     with open('./prompts/interpret_0.prompt', 'r') as file:
+    #         template = file.read()
+    #     text_prompt = template.replace('[INSERT_QUERY_HERE]', pred.__str__())
+
+    #     # Save the text prompt
+    #     with open(f'./prompts/interpret_1_cover_{idx}_{pred.name}_text.prompt', 'w') \
+    #         as file:
+    #         file.write(text_prompt)
+        
+    #     text_entry = {
+    #         "type": "text",
+    #         "text": text_prompt
+    #     }
+    #     prompt = [{
+    #         "role": "user",
+    #         "content": text_entry
+    #     }]
+
+    #     # Convert the prompt to JSON string
+    #     prompt_json = json.dumps(prompt, indent=2)
+    #     with open(f'./prompts/interpret_2_cover_{idx}_{pred.name}.prompt', 'w') \
+    #         as file:
+    #         file.write(str(prompt_json))
+    #     return prompt
+
+    # def _parse_classifier_response(self, response: str) -> str:
+    #     # Define the regex pattern to match Python code block
+    #     pattern = r'```python(.*?)```'
+        
+    #     # Use regex to find the Python code block in the response
+    #     match = re.search(pattern, response, re.DOTALL)
+        
+    #     # If a match is found, return the Python code block
+    #     if match:
+    #         return match.group(1).strip()
+        
+    #     # If no match is found, return an empty string
+    #     return ''
+
+    # def _parse_predicate_signature_predictions(self, response: str) -> Set[Predicate]:
+
+    #     # Regular expression to match the predicate format
+    #     pattern = r"`(.*?)` -- (.*?)\n"
+    #     matches = re.findall(pattern, response)
+
+    #     # Create a list of AnnotatedPredicate instances
+    #     predicates = []
+    #     for match in matches:
+    #         pred_str = match[0]
+    #         description = match[1]
+    #         name = pred_str.split('(')[0]
+    #         args = pred_str.split('(')[1].replace(')', '').split(', ')
+    #         types = [self._type_dict[arg.split(':')[1]] for arg in args]
+    #         predicate = AnnotatedPredicate(name=name, types=types, 
+    #                                        description=description,
+    #                                        _classifier=None)
+    #         predicates.append(predicate)
+    #     for pred in predicates: 
+    #         logging.info(pred)
+    #     return predicates
+
+    # def option_positive_negative_states_str(self,
+    #                       succ_option_dict: Dict, 
+    #                       fail_option_dict: Dict,
+    #                     ) -> str:
+    #     # Set the print options
+    #     np.set_printoptions(precision=1)
+
+    #     # a "success" dictionary of NSRT: List[executable states]
+    #     # a "failure" dictionary of NSRT, List[(non-executable state, error)]
+    #     task_str = []
+    #     for ground_opt, obj_states in succ_option_dict.items():
+    #         # task_str.append(
+    #         #     f"The precondition of {str(nsrt)} \nwas satisfied on the " +
+    #         #     "following states and the corresponding option was " +
+    #         #     "successfully executed until termination:\n")
+    #         task_str.append(
+    #             f"The ground option {ground_opt} was initilized successfully"+
+    #             " by a ground NSRT on the following states and was executed "+
+    #             "successfully until termination:\n")
+    #         states = obj_states['states']
+    #         for state in states:
+    #             task_str.append(state.dict_str() + "\n")
+
+    #     task_str.append("But some options failed to execute.")
+    #     # task_str.append("The agent failed to solve the following NSRTs:")
+    #     for ground_opt, obj_states in fail_option_dict.items():
+    #         # task_str.append(
+    #         #     f"The precondition of {str(nsrt)} \n was satisfied on the " +
+    #         #     "following states but the corresponding option " +
+    #         #     "failed to execute due to these errors: \n")
+    #         task_str.append(
+    #             f"The ground option {ground_opt} was initialized according "+
+    #              "to the task plan on the following states but failed to "+
+    #              "execute until successful termination due errors (listed "+
+    #              "under the initial state: \n")
+    #         states = obj_states['states']
+    #         for state, error in states:
+    #             task_str.append("The option was initialized on:\n"+
+    #                             state.dict_str() + "\n" +
+    #                             "Error Encountered: " + str(error) + "\n")
+
+    #     return '\n'.join(task_str)
+
+    # def _get_option_states_str(self, succ_optn_dict: Dict, fail_optn_dict: Dict,
+    #                                     init: bool=False) -> str:
+    #     result_str = []
+    #     max_examples_num = 5
+    #     sum_tp, sum_fn, sum_tn, sum_fp = 0, 0, 0, 0
+    #     ground_options =\
+    #         set(succ_optn_dict.keys()) | set(fail_optn_dict.keys())
+
+    #     for g_optn in ground_options:
+    #         succ_states = succ_optn_dict[g_optn]['states']
+    #         fail_states = fail_optn_dict[g_optn]['states']
+    #         n_succ_states, n_fail_states = len(succ_states), len(fail_states)
+    #         n_tot = n_succ_states + n_fail_states
+
+    #         # Get the tp, fn, tn, fp states for each ground_option
+    #         tp_states, fn_states, tn_states, fp_states = [], [], [], []
+    #         if init:
+    #             # Initially, all the succ states are true positives by the 
+    #             # classification of the preconditions; while all the fail states
+    #             # are false positives.
+    #             tp_states = succ_states
+    #             fp_states = fail_states
+    #         else:
+    #             # Filter out the tp, fn states from succ_option_dict
+    #             if succ_states:
+    #                 optn = succ_optn_dict[g_optn]['option']
+    #                 grounding = succ_optn_dict[g_optn]['grounding']
+    #                 ground_nsrts = [utils.all_ground_nsrts(nsrt, grounding)
+    #                                 for nsrt in self._nsrts if nsrt.option==optn]
+    #                 ground_nsrts = [nsrt for nsrt_list in ground_nsrts 
+    #                                 for nsrt in nsrt_list]
+    #                 for state in succ_states:
+    #                     atom_state = utils.abstract(state, 
+    #                                                 self._get_current_predicates())
+    #                     if any([nsrt.preconditions.issubset(atom_state) for nsrt in 
+    #                                 ground_nsrts]):
+    #                         tp_states.append(state)
+    #                     else:
+    #                         fn_states.append(state)
+    #             # filter out the tn, fp states
+    #             if fail_states:
+    #                 optn = fail_optn_dict[g_optn]['option']
+    #                 grounding = fail_optn_dict[g_optn]['grounding']
+    #                 ground_nsrts = [utils.all_ground_nsrts(nsrt, grounding)
+    #                                 for nsrt in self._nsrts if nsrt.option==optn]
+    #                 ground_nsrts = [nsrt for nsrt_list in ground_nsrts
+    #                                 for nsrt in nsrt_list]
+    #                 for state in fail_states:
+    #                     atom_state = utils.abstract(state,
+    #                                                 self._get_current_predicates())
+    #                     if any([nsrt.preconditions.issubset(atom_state) for nsrt in 
+    #                                 ground_nsrts]):
+    #                         fp_states.append(state)
+    #                     else:
+    #                         tn_states.append(state)
+                
+    #         # Convert the states to string
+    #         n_tp, n_fn = len(tp_states), len(fn_states)
+    #         n_tn, n_fp = len(tn_states), len(fp_states)
+    #         sum_tp, sum_fn = sum_tp+n_tp, sum_fn+n_fn
+    #         sum_tn, sum_fp = sum_tn+n_tn, sum_fp+n_fp
+    #         tp_state_str = set([s.dict_str() for s in tp_states])
+    #         fn_state_str = set([s.dict_str() for s in fn_states])
+    #         tn_state_str = set([s.dict_str() for s in tn_states])
+    #         fp_state_str = set([s.dict_str() for s in fp_states])
+    #         uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
+    #         uniq_n_tn, uniq_n_fp = len(tn_state_str), len(fp_state_str)
+
+    #         # GT Positive
+    #         if n_succ_states:
+    #             result_str.append(
+    #             f"Ground option {g_optn} was applied on {n_tot} states and "+
+    #             f"*successfully* executed on {n_succ_states}/{n_tot} states "+
+    #             "(ground truth positive states).")
+    #             # True Positive
+    #             if n_tp:
+    #                 result_str.append(
+    #                 f"Out of the {n_succ_states} GT positive states, "+
+    #                 f"with the current predicates and operators, "+
+    #                 f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
+    #                 "operators' precondition (true positives)"+
+    #                 (f", to list {max_examples_num}:" if 
+    #                     uniq_n_tp > max_examples_num else ":"))
+    #                 for i, state_str in enumerate(tp_state_str): 
+    #                     if i == max_examples_num: break
+    #                     result_str.append(state_str+'\n')
+    #                 # result_str.append("\n")
+
+    #             # False Negative
+    #             if n_fn:
+    #                 result_str.append(
+    #                 f"Out of the {n_succ_states} GT positive states, "+
+    #                 f"with the current predicates and operators, "+
+    #                 f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
+    #                 "operators' precondition (false negatives)"+
+    #                 (f", to list {max_examples_num}:" if 
+    #                     uniq_n_fn > max_examples_num else ":"))
+    #                 for i, state_str in enumerate(fn_state_str): 
+    #                     if i == max_examples_num: break
+    #                     result_str.append(state_str+'\n')
+    #                 # result_str.append("\n")
+
+    #         # GT Negative
+    #         if n_fail_states:
+    #             result_str.append(
+    #             f"Ground option {g_optn} was applied on {n_tot} states and "+
+    #             f"*failed* to executed on {n_fail_states}/{n_tot} states "+
+    #             "(ground truth negative states).")
+    #             if n_fp:
+    #                 # False Positive
+    #                 result_str.append(
+    #                 f"Out of the {n_fail_states} GT negative states, "+
+    #                 f"with the current predicates and operators, "+
+    #                 f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
+    #                 "operators' precondition (false positives)"+
+    #                 (f", to list {max_examples_num}:" if 
+    #                     uniq_n_fp > max_examples_num else ":"))
+    #                 for i, state_str in enumerate(fp_state_str):
+    #                     if i == max_examples_num: break
+    #                     result_str.append(state_str+'\n')
+    #                 # result_str.append("\n")
+
+    #             if n_tn:
+    #                 # True Negative
+    #                 result_str.append(
+    #                 f"Out of the {n_fail_states} GT negative states, "+
+    #                 f"with the current predicates and operators, "+
+    #                 f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
+    #                 "operators' precondition (true negatives)"+
+    #                 (f", to list {max_examples_num}:" if 
+    #                     uniq_n_tn > max_examples_num else ":"))
+    #                 for i, state_str in enumerate(tn_state_str):
+    #                     if i == max_examples_num: break
+    #                     result_str.append(state_str+'\n')
+    #                 # result_str.append("\n")
+
+    #     print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
+    #     return '\n'.join(result_str)
+
+    # def _interaction_summary_str(self, 
+    #                              succ_optn_dict, 
+    #                              fail_optn_dict, 
+    #                              include_traj_str: bool) -> str:
+    #     result_str = []
+    #     max_example_num = 5
+    #     sum_tp, sum_fp = 0, 0
+    #     ground_options =\
+    #         set(succ_optn_dict.keys()) | set(fail_optn_dict.keys())
+
+    #     for g_optn in ground_options:
+    #         # Get the tp, fn, tn, fp states for each ground_option
+    #         succ_states = succ_optn_dict[g_optn]['states']
+    #         fail_states = fail_optn_dict[g_optn]['states']
+    #         n_succ_states, n_fail_states = len(succ_states), len(fail_states)
+
+    #         tp_states, fp_states = succ_states, fail_states
+    #         n_tp, n_fp = n_succ_states, n_fail_states
+            
+    #         sum_tp += n_tp
+    #         sum_fp += n_fp
+    #         tp_state_str = set([s.dict_str() for s in tp_states])
+    #         fp_state_str = set([s.dict_str() for s in fp_states])
+
+    #         if not include_traj_str and tp_states:
+    #             result_str.append(
+    #                 f"Ground option {g_optn} successfully executed on "+
+    #                 f"{n_succ_states} states (true positives)" +
+    #                 f", to list {max_example_num}:" if n_tp > max_example_num 
+    #                     else ":")
+    #             for i, state_str in enumerate(tp_state_str):
+    #                 if i == max_example_num: break
+    #                 result_str.append(f"{state_str}\n")
+    #         if fp_states:
+    #             result_str.append(f"Ground option {g_optn} was initialized "+
+    #                 f"but failed to execute on {n_fail_states} states (false positives)"+
+    #                 f", to list {max_example_num}:" if n_fp > max_example_num 
+    #                     else ":")
+    #             for i, state_str in enumerate(fp_state_str):
+    #                 if i == max_example_num: break
+    #                 result_str.append(f"{state_str}\n")
+
+    #     # Print a confusion matrix table based on sum_tp and sum_fp
+    #     print_confusion_matrix(sum_tp, 0, sum_fp, 0)
+    #     return '\n'.join(result_str)
+
+    # def _create_refinement_prompt(self, env: BaseEnv,
+    #                               ite: int,
+    #                               ) -> str:
+    #     # Read the template
+    #     with open(f'./prompts/invent_1.outline', 'r') as file:
+    #         template = file.read()
+
+    #     #### Meta
+    #     # Structure classes
+    #     with open('./prompts/class_definitions.py', 'r') as f:
+    #         struct_str = f.read()
+    #     template = template.replace('[STRUCT_DEFINITION]',
+    #                                 add_python_quote(struct_str))
+
+    #     #### Environment
+    #     # self.env_source_code = getsource(env.__class__)
+    #     # Type Initialization
+    #     type_init_str = add_python_quote(
+    #         self._env_type_str(self.env_source_code))
+    #     template = template.replace("[TYPES_IN_ENV]",  type_init_str)
+
+    #     # Initial Predicates
+    #     init_predicate_str = self._init_predicate_str(self.env_source_code)
+    #     template = template.replace("[PREDICATES_IN_ENV]", init_predicate_str)
+
+    #     # Previously Invented Predicates
+    #     new_predicate_str = self._invented_predicate_str(ite)
+    #     template = template.replace("[INVENTED_PREDICATES]", new_predicate_str)
+
+    #     # Options
+    #     options_str = set()
+    #     for nsrt in self._nsrts:
+    #         options_str.add(nsrt.option_str())
+    #     options_str = '\n'.join(list(options_str))
+    #     template = template.replace("[OPTIONS_IN_ENV]", options_str)
+
+    #     # NSRTS
+    #     nsrt_str = []
+    #     for nsrt in self._nsrts:
+    #         nsrt_str.append(str(nsrt).replace("NSRT-", ""))
+    #     template = template.replace("[NSRTS_IN_ENV]", '\n'.join(nsrt_str))
+
+    #     # Interaction result
+    #     # Add a atomic states for succ_optn_dict and fail_optn_dict
+    #     _, _, _, _, summary_str = utils.count_classification_result_for_ops(
+    #                                     self._nsrts,
+    #                                     self.succ_optn_dict,
+    #                                     self.fail_optn_dict,
+    #                                     return_str=True,
+    #                                     print_cm=True,
+    #                                 )
+    #     template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
+
+    #     # Save the text prompt
+    #     with open(f'./prompts/invent_{self.env_name}_{ite}.prompt', 'w') as\
+    #         file:
+    #         file.write(template)
+
+    #     prompt = template
+    #     return prompt

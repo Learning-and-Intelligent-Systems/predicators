@@ -126,7 +126,7 @@ def main() -> None:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
-    if approach.is_learning_based:
+    if approach.is_offline_learning_based:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
@@ -150,9 +150,12 @@ def _run_pipeline(env: BaseEnv,
     # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if cogman.is_learning_based:
-        assert offline_dataset is not None, "Missing offline dataset"
-        num_offline_transitions = sum(
+        if cogman.is_offline_learning_based:
+            assert offline_dataset is not None, "Missing offline dataset"
+            num_offline_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
+        else:
+            num_offline_transitions = 0
         num_online_transitions = 0
         total_query_cost = 0.0
         if CFG.load_approach:
@@ -337,12 +340,6 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
         solve_start = time.perf_counter()
         try:
             # Check if the task is solvable.
-            solvable = True
-            for button in env_task.init.get_objects(env._button_type):
-                if env_task.init.get(button, "y") > env.rz_y_ub:
-                    solvable = False
-                    break
-            logging.info("Task is solvable: " + str(solvable))
             # We call reset here, outside of run_episode, so that we can log
             # planning failures, timeouts, etc. This is mostly for legacy
             # reasons (before cogman existed separately from approaches).
@@ -435,7 +432,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             make_video = CFG.make_failure_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                     f"{log_message}")
+                     f"{log_message}\n")
         if make_video:
             assert monitor is not None
             video = monitor.get_video()

@@ -1,0 +1,54 @@
+To improve the effectiveness and efficiency of planning in this domain, we need to define additional predicates that capture essential state properties and can be used as preconditions for actions. Below are the definitions of three predicates: `IsGrasped`, `IsOnTable`, and `IsAboveTarget`. These predicates will help in identifying the necessary conditions for executing `Pick` and `Place` actions successfully.
+
+### Predicate: IsGrasped
+
+This predicate checks whether a block is currently grasped by the robot.
+
+```python
+def _IsGrasped_holds(state: State, objects: Sequence[Object]) -> bool:
+    block = objects[0]
+    return state.get(block, "grasp") != -1
+
+name: str = "IsGrasped"
+types: Sequence[Type] = [_block_type]
+IsGrasped = Predicate(name, types, _IsGrasped_holds)
+```
+
+### Predicate: IsOnTable
+
+This predicate checks whether a block is on the table (not being grasped).
+
+```python
+def _IsOnTable_holds(state: State, objects: Sequence[Object]) -> bool:
+    block = objects[0]
+    return state.get(block, "grasp") == -1
+
+name: str = "IsOnTable"
+types: Sequence[Type] = [_block_type]
+IsOnTable = Predicate(name, types, _IsOnTable_holds)
+```
+
+### Predicate: IsAboveTarget
+
+This predicate checks whether a block is positioned directly above a target.
+
+```python
+def _IsAboveTarget_holds(state: State, objects: Sequence[Object]) -> bool:
+    block, target = objects
+    block_pose = state.get(block, "pose")
+    block_width = state.get(block, "width")
+    target_pose = state.get(target, "pose")
+    target_width = state.get(target, "width")
+    return (block_pose - block_width / 2 <= target_pose + target_width / 2) and \
+           (block_pose + block_width / 2 >= target_pose - target_width / 2)
+
+name: str = "IsAboveTarget"
+types: Sequence[Type] = [_block_type, _target_type]
+IsAboveTarget = Predicate(name, types, _IsAboveTarget_holds)
+```
+
+### Updated Action Operators with New Predicates
+
+Now, we can update the action operators to use these predicates as preconditions to improve planning accuracy.
+
+By introducing these new predicates (`IsGrasped`, `IsOnTable`, and `IsAboveTarget`) and incorporating them into the action operators' preconditions, we aim to better distinguish between states where actions should succeed or fail. This should reduce the number of false positives and ensure that the planning process is more effective and efficient.
