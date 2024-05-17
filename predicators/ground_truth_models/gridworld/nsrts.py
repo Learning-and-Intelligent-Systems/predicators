@@ -21,39 +21,42 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
         # Types
-        bottom_bun_type = types["bottom_bun"]
         top_bun_type = types["top_bun"]
-        patty_type = types["patty"]
+        bottom_bun_type = types["bottom_bun"]
         cheese_type = types["cheese"]
         tomato_type = types["tomato"]
+        patty_type = types["patty"]
+
         grill_type = types["grill"]
         cutting_board_type = types["cutting_board"]
         robot_type = types["robot"]
+
         item_type = types["item"]
         station_type = types["station"]
         object_type = types["object"]
 
-        # Objects
-        bottom_bun = Variable("?bottom_bun", bottom_bun_type)
+        # Variables
         top_bun = Variable("?top_bun", top_bun_type)
-        patty = Variable("?patty", patty_type)
+        bottom_bun = Variable("?bottom_bun", bottom_bun_type)
         cheese = Variable("?cheese", cheese_type)
         tomato = Variable("?tomato", tomato_type)
+        patty = Variable("?patty", patty_type)
+
         grill = Variable("?grill", grill_type)
         cutting_board = Variable("?cutting_board", cutting_board_type)
         robot = Variable("?robot", robot_type)
+
         item = Variable("?item", item_type)
         station = Variable("?station", station_type)
-        from_obj = Variable("?from_obj", item_type)
-
-        to_obj = Variable("?to_obj", object_type)
         object = Variable("?object", object_type)
 
+        from_obj = Variable("?from_obj", item_type)
         from_obj1 = Variable("?from_obj1", item_type)
         from_obj2 = Variable("?from_obj2", item_type)
         from_obj3 = Variable("?from_obj3", item_type)
         from_obj4 = Variable("?from_obj4", object_type)
 
+        to_obj = Variable("?to_obj", object_type)
         to_obj1 = Variable("?to_obj1", item_type)
         to_obj2 = Variable("?to_obj2", item_type)
         to_obj3 = Variable("?to_obj3", item_type)
@@ -62,8 +65,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Predicates
         Adjacent = predicates["Adjacent"]
         AdjacentToNothing = predicates["AdjacentToNothing"]
-        Facing = predicates["Facing"]
         AdjacentNotFacing = predicates["AdjacentNotFacing"]
+        Facing = predicates["Facing"]
         IsCooked = predicates["IsCooked"]
         IsSliced = predicates["IsSliced"]
         HandEmpty = predicates["HandEmpty"]

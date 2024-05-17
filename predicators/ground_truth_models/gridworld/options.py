@@ -174,6 +174,8 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
             rx, ry = GridWorldEnv.get_position(robot, state)
             ox, oy = GridWorldEnv.get_position(to_obj, state)
 
+            # If we're adjacent to the object but not facing it, turn to face
+            # it.
             if GridWorldEnv.Adjacent_holds(state, [robot, to_obj]) and not GridWorldEnv.Facing_holds(state, [robot, to_obj]):
                 if rx == ox:
                     if ry > oy:
@@ -187,29 +189,29 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                         action = Action(np.array([0, 0, 3, 0, 0], dtype=np.float32))
 
             else:
-                # Find the path we need to take to become adjacent to the to_obj.
-                init = [obj for obj in state if obj.is_instance(GridWorldEnv._cell_type) and (rx, ry) == GridWorldEnv.get_position(obj, state)][0]
+                # Find the path we need to take to the object.
+                init = GridWorldEnv.get_position(robot, state)
 
                 def _check_goal(s):
-                    sx, sy = GridWorldEnv.get_position(s, state)
+                    sx, sy = s
                     if GridWorldEnv.is_adjacent(sx, sy, ox, oy):
                         return True
                     return False
 
                 def _get_successors(s) -> Iterator[Tuple[None, Object, float]]:
-                    # find the adjacent cells that are empty
+                    # Find the adjacent cells that are empty.
                     empty_cells = GridWorldEnv.get_empty_cells(state)
-                    sx, sy = GridWorldEnv.get_position(s, state)
+                    sx, sy  = s
                     adjacent_empty = []
-                    for c in empty_cells:
-                        cx, cy = GridWorldEnv.get_position(c, state)
+                    for cell in empty_cells:
+                        cx, cy = cell
                         if GridWorldEnv.is_adjacent(sx, sy, cx, cy):
-                            adjacent_empty.append(c)
+                            adjacent_empty.append(cell)
                     for cell in adjacent_empty:
                         yield (None, cell, 1.0)
 
                 def get_priority(node):
-                    x, y = GridWorldEnv.get_position(node.state, state)
+                    x, y = node.state
                     return abs(x - ox) + abs(y - oy)
 
                 path, _ = utils._run_heuristic_search(
@@ -220,13 +222,13 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                 )
 
                 # Now, compute the action to take based on the path we have
-                # planned. Note that the path is a list of cell objects starting
-                # from the cell that the robot is in.
-                next = path[1]
-                nx, ny = GridWorldEnv.get_position(next, state)
+                # planned. Note that the path is a list of (x, y) tuples
+                # starting from the location of the robot.
+                nx, ny = path[1]
                 dx = np.clip(nx - rx, -1, 1)
                 dy = np.clip(ny - ry, -1, 1)
                 action = Action(np.array([dx, dy, -1, 0, 0], dtype=np.float32))
+
             return action
 
         return policy

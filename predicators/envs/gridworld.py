@@ -1,6 +1,8 @@
-"""A simple gridworld environment inspired by https://github.com/portal-cornell/robotouille.
+"""A simple gridworld environment where a robot prepares a burger, inspired by
+https://github.com/portal-cornell/robotouille.
 
-The environment also uses a lot of assets from robotouille.
+This environment uses assets from robotouille that were designed by Nicole Thean
+(https://github.com/nicolethean).
 """
 
 import logging
@@ -19,28 +21,26 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type, Observation
 
-# - Start with only VLM predicates
-# - Then do KNOWN predicates + VLM predicates
-# - Then do predicates generated from the grammar + VLM predicates
-# - Towards this, look into where the ground atom dataset is created, after that it's just the normal grammar search approach
-
-# - Want to be able to run this as a VLM env, or a normal env
-# - Want to give oracle's predicates access to full state, but not non-oracle's (maybe can use a different perceiver -- the perceiver we use with non-oracle actually throws out info that is there)
-# - Need to keep track of certain state outside of the actual state (e.g. is_cooked for patty)
-# - Make subclass of state that has the observation that produced it as a field
-# - There should be a texture-based rendering (using pygame) and a non-texture-based rendering, using matplotlib?
-
-# Operators
-# - Pick(robot, item)
-# - Place(robot, item)
-# - Cook(robot, item, grill)
-# - Cut(robot, item, cutting board)
-
 class GridWorldEnv(BaseEnv):
-    """TODO"""
+    """A simple gridworld environment where a robot prepares a burger, inspired
+    by https://github.com/portal-cornell/robotouille.
 
-    # TODO
-    ASSETS_DIRECTORY = ""
+    This environment is designed to showcase a predicate invention approach that
+    learns geometric predicates that operate on the object-centric state and
+    video-language model predicates that operate on the visual rendering of the
+    state.
+
+    One quirk of this environment is that we want certain parts of the state to
+    only be accessible by the oracle approach. This is because we want to invent
+    predicates like IsCooked as a VLM predicate, but not a geometric predicate,
+    so no information about how cooked an object is should be in the state. The
+    solution to this is to hide certain state inside State.simulator_state.
+    After the demonstrations are created by the oracle approach, we can erase
+    this simulator state before we pass the demonstrations to the predicate
+    invention approach.
+    """
+
+    ASSETS_DIRECTORY = "predicators/envs/assets/imgs/"
 
     # Types
     _object_type = Type("object", [])
@@ -62,16 +62,13 @@ class GridWorldEnv(BaseEnv):
     dir_to_int = {"up": 0, "left": 1, "down": 2, "right": 3}
     int_to_dir = {0: "up", 1: "left", 2: "down", 3: "right"}
 
+    num_rows = CFG.gridworld_num_rows
+    num_cols = CFG.gridworld_num_cols
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        self.num_rows = CFG.gridworld_num_rows
-        self.num_cols = CFG.gridworld_num_cols
-        self.num_cells = self.num_rows * self.num_cols
-
         # Predicates
-        # self._RobotInCell = Predicate("RobotInCell", [self._robot_type, self._cell_type], self._In_holds)
         self._Adjacent = Predicate("Adjacent", [self._robot_type, self._object_type], self.Adjacent_holds)
         self._AdjacentToNothing = Predicate("AdjacentToNothing", [self._robot_type], self._AdjacentToNothing_holds)
         self._Facing = Predicate("Facing", [self._robot_type, self._object_type], self.Facing_holds)
@@ -83,15 +80,12 @@ class GridWorldEnv(BaseEnv):
         self._On = Predicate("On", [self._item_type, self._object_type], self._On_holds)
         self._OnNothing = Predicate("OnNothing", [self._object_type], self._OnNothing_holds)
         self._Clear = Predicate("Clear", [self._object_type], self._Clear_holds)
-        self._GoalHack = Predicate("GoalHack", [self._bottom_bun_type, self._patty_type, self._cheese_type, self._tomato_type, self._top_bun_type], self._GoalHack_holds)
+        # self._GoalHack = Predicate("GoalHack", [self._bottom_bun_type, self._patty_type, self._cheese_type, self._tomato_type, self._top_bun_type], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robby", self._robot_type)
         self._grill = Object("grill", self._grill_type)
         self._cutting_board = Object("cutting_board", self._cutting_board_type)
-        self._cells = [
-            Object(f"cell{i}", self._cell_type) for i in range(self.num_cells)
-        ]
 
     @classmethod
     def get_name(cls) -> str:
@@ -124,18 +118,6 @@ class GridWorldEnv(BaseEnv):
         state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
         state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
 
-        # Add cells
-        counter = 0
-        for i in range(self.num_rows):
-            for j in range(self.num_cols):
-                # get the next cell
-                cell = self._cells[counter]
-                state_dict[cell] = {
-                    "row": i,
-                    "col": j
-                }
-                counter += 1
-
         # Add patty
         patty = Object("patty", self._patty_type)
         state_dict[patty] = {"row": 0, "col": 0, "z": 0}
@@ -162,24 +144,10 @@ class GridWorldEnv(BaseEnv):
         hidden_state[bottom_bun] = {"is_held": 0.0}
 
         goal = {
-            # GroundAtom(
-            #     self._GoalHack,
-            #     [bottom_bun, patty, cheese, tomato, top_bun]
-            # )
-
             GroundAtom(self._On, [patty, bottom_bun]),
-            # GroundAtom(self._On, [tomato, patty]),
-            # GroundAtom(self._On, [cheese, tomato]),
-            # GroundAtom(self._On, [top_bun, cheese]),
             GroundAtom(self._On, [cheese, patty]),
-            # GroundAtom(self._On, [tomato, cheese]),
-            # GroundAtom(self._On, [top_bun, tomato]),
-
-
-            # GroundAtom(self._On, [cheese, patty]),
-            # GroundAtom(self._On, [tomato, cheese]),
-            # GroundAtom(self._On, [top_bun, tomato]),
-
+            GroundAtom(self._On, [tomato, cheese]),
+            GroundAtom(self._On, [top_bun, tomato]),
             GroundAtom(self._IsCooked, [patty]),
             GroundAtom(self._IsSliced, [tomato]),
         }
@@ -187,16 +155,8 @@ class GridWorldEnv(BaseEnv):
         for i in range(num):
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = hidden_state
-            # Note: this takes in Observation, GoalDescription, whose types is Any
+            # Note: this takes in Observation, GoalDescription, whose types are Any
             tasks.append(EnvironmentTask(state, goal))
-
-            # import copy
-            # new_state_dict = copy.deepcopy(state_dict)
-            # new_hidden_state = copy.deepcopy(hidden_state)
-            # state = utils.create_state_from_dict(new_state_dict)
-            # state.simulator_state = new_hidden_state
-            # # Note: this takes in Observation, GoalDescription, whose types is Any
-            # tasks.append(EnvironmentTask(state, goal))
 
         return tasks
 
@@ -264,12 +224,11 @@ class GridWorldEnv(BaseEnv):
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         a, b = objects
-        a_x, a_y = self.get_position(a, state)
-        b_x, b_y = self.get_position(b, state)
-        a_z = state.get(a, "z")
-        b_z = state.get(b, "z")
-
-        return a_x==b_x and a_y==b_y and a_z - 1 == b_z
+        ax, ay = self.get_position(a, state)
+        bx, by = self.get_position(b, state)
+        az = state.get(a, "z")
+        bz = state.get(b, "z")
+        return ax==bx and ay==by and az - 1 == bz
 
     def _OnNothing_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -313,11 +272,10 @@ class GridWorldEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Adjacent, self._AdjacentToNothing, self._Facing, self._AdjacentNotFacing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._OnNothing, self._Clear, self._GoalHack}
+        return {self._Adjacent, self._AdjacentToNothing, self._AdjacentNotFacing, self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,  self._On, self._OnNothing, self._Clear}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        # return {self._IsCooked, self._IsSliced, self._On, self._GoalHack}
         return {self._On, self._IsCooked, self._IsSliced}
 
     @property
@@ -352,24 +310,18 @@ class GridWorldEnv(BaseEnv):
         return (row, col)
 
     @classmethod
-    def get_empty_cells(cls, state: State) -> Set[Object]:
-        max_x, max_y = -1, -1
-        cells = {}
-        for obj in state:
-            if obj.is_instance(cls._cell_type):
-                x, y = cls.get_position(obj, state)
-                max_x = max(max_x, x)
-                max_y = max(max_y, y)
-                cells[(x, y)] = obj
+    def get_empty_cells(cls, state: State) -> Set[Tuple[int, int]]:
+        cells = set()
+        for y in range(cls.num_rows):
+            for x in range(cls.num_cols):
+                cells.add((x, y))
 
         for obj in state:
-            if not obj.is_instance(cls._cell_type):
-                x, y = cls.get_position(obj, state)
-                if (x, y) in cells:
-                    del cells[(x, y)]
+            x, y = cls.get_position(obj, state)
+            if (x, y) in cells:
+                cells.remove((x, y))
 
-        return set(cells.values())
-
+        return set(cells)
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -478,20 +430,6 @@ class GridWorldEnv(BaseEnv):
 
         return next_state
 
-    def reset(self, train_or_test: str, task_idx: int) -> Observation:
-        """Resets the current state to the train or test task initial state."""
-        self._current_task = self.get_task(train_or_test, task_idx)
-        self._current_observation = self._current_task.init_obs
-        # Copy to prevent external changes to the environment's state.
-        # This default implementation of reset assumes that observations are
-        # states. Subclasses with different states should override.
-        assert isinstance(self._current_observation, State)
-        return self._current_observation.copy()
-
-    #
-    # def step(self, action: Action) -> Observation:
-    #     pass
-
     def render_state_plt(
             self,
             state: State,
@@ -511,78 +449,62 @@ class GridWorldEnv(BaseEnv):
             ax.axhline(y=i, color="k", linestyle="-")
 
         # Draw robot
-        robot_col = state.get(self._robot, "col")
-        robot_row = state.get(self._robot, "row")
+        x, y = self.get_position(self._robot, state)
         # ax.plot(robot_col + 0.5, robot_row + 0.5, 'rs', markersize=20)
         robot_direction = self.int_to_dir[state.get(self._robot, "dir")]
-        robot_img = mpimg.imread(f"predicators/envs/assets/imgs/robot_{robot_direction}.png")
-        x, y = robot_col, robot_row
-        image_size = (0.8, 0.8)
-        # ax.imshow(robot_img, extent=[robot_col, robot_col + 1, robot_row, robot_row + 1])
-        ax.imshow(robot_img, extent=[x + (1 - image_size[0]) / 2, x + (1 + image_size[0]) / 2, y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2])
+        robot_img = mpimg.imread(utils.get_env_asset_path(f"imgs/robot_{robot_direction}.png"))
+        img_size = (0.8, 0.8)
+        ax.imshow(robot_img, extent=[x + (1 - img_size[0]) / 2, x + (1 + img_size[0]) / 2, y + (1 - img_size[1]) / 2, y + (1 + img_size[1]) / 2])
 
         # Draw grill
-        grill_img = mpimg.imread("predicators/envs/assets/imgs/grill.png")
-        grill_col, grill_row = self.get_position(self._grill, state)
-        x, y = grill_col, grill_row
+        x, y = self.get_position(self._grill, state)
+        grill_img = mpimg.imread(utils.get_env_asset_path("imgs/grill.png"))
         ax.imshow(grill_img, extent=[x, x+1, y, y+1])
 
         # Draw cutting board
-        cutting_board_img = mpimg.imread("predicators/envs/assets/imgs/cutting_board.png")
-        cutting_board_col, cutting_board_row = self.get_position(self._cutting_board, state)
-        x, y = cutting_board_col, cutting_board_row
+        x, y = self.get_position(self._cutting_board, state)
+        cutting_board_img = mpimg.imread(utils.get_env_asset_path("imgs/cutting_board.png"))
         ax.imshow(cutting_board_img, extent=[x, x+1, y, y+1])
 
         # Draw items
         type_to_img = {
-            self._cheese_type: mpimg.imread("predicators/envs/assets/imgs/cheese.png"),
             self._top_bun_type: mpimg.imread("predicators/envs/assets/imgs/top_bun.png"),
-            self._bottom_bun_type: mpimg.imread("predicators/envs/assets/imgs/bottom_bun.png")
+            self._bottom_bun_type: mpimg.imread("predicators/envs/assets/imgs/bottom_bun.png"),
+            self._cheese_type: mpimg.imread("predicators/envs/assets/imgs/cheese.png"),
+            self._tomato_type: mpimg.imread(utils.get_env_asset_path("imgs/whole_tomato.png")),
+            self._patty_type: mpimg.imread(utils.get_env_asset_path("imgs/raw_patty.png"))
         }
         held_img_size = (0.3, 0.3)
         offset = held_img_size[1] * (1/3)
-        patty = [object for object in state if object.is_instance(self._patty_type)][0]
-        tomato = [obj for obj in state if obj.is_instance(self._tomato_type)][0]
-        cheese = [obj for obj in state if obj.is_instance(self._cheese_type)][0]
-        top_bun = [obj for obj in state if obj.is_instance(self._top_bun_type)][0]
-        bottom_bun = [obj for obj in state if obj.is_instance(self._bottom_bun_type)][0]
-        items = [patty, tomato, cheese, top_bun, bottom_bun]
+        items = [obj for obj in state if obj.is_instance(self._item_type)]
         for item in items:
-            img = None
-            if "is_cooked" in state.simulator_state[item]:
-                raw_patty_img = mpimg.imread("predicators/envs/assets/imgs/raw_patty.png")
-                cooked_patty_img = mpimg.imread("predicators/envs/assets/imgs/cooked_patty.png")
-                img = cooked_patty_img if self._IsCooked_holds(state, [item]) else raw_patty_img
-            elif "is_sliced" in state.simulator_state[item]:
-                whole_tomato_img = mpimg.imread("predicators/envs/assets/imgs/whole_tomato.png")
-                sliced_tomato_img = mpimg.imread("predicators/envs/assets/imgs/sliced_tomato.png")
-                img = sliced_tomato_img if self._IsSliced_holds(state, [tomato]) else whole_tomato_img
-            else:
-                img = type_to_img[item.type]
+            img = type_to_img[item.type]
+            if "is_cooked" in state.simulator_state[item] and self._IsCooked_holds(state, [item]):
+                img = mpimg.imread(utils.get_env_asset_path("imgs/cooked_patty.png"))
+            elif "is_sliced" in state.simulator_state[item] and self._IsSliced_holds(state, [item]):
+                img = mpimg.imread(utils.get_env_asset_path("imgs/sliced_tomato.png"))
             zorder = state.get(item, "z")
             is_held = state.simulator_state[item]["is_held"] > 0.5
             x, y = self.get_position(item, state)
+            # If the item is held, make it smaller so that it does obstruct the
+            # robot.
+            img_size = (0.7, 0.7)
             if is_held:
                 extent = [x + (1 - held_img_size[0]) * (1/2), x + (1 + held_img_size[0]) * (1/2), y + offset, y + held_img_size[1] + offset]
+            # If the item is on top of something else, make it look like it by
+            # moving it up a little.
             elif zorder > 0:
                 offset = 0.1 * zorder
-                image_size = (0.7, 0.7)
-                extent = [x + (1 - image_size[0]) * (1/2), x + (1 + image_size[0]) * (1/2), y + (1 - image_size[1]) / 2 + offset, y + (1 + image_size[1]) / 2 + offset]
+                extent = [x + (1 - img_size[0]) * (1/2), x + (1 + img_size[0]) * (1/2), y + (1 - img_size[1]) / 2 + offset, y + (1 + img_size[1]) / 2 + offset]
             else:
-                # extent = [x, x+1, y, y+1]
-                image_size = (0.7, 0.7)
-                extent = [x + (1 - image_size[0]) * (1/2), x + (1 + image_size[0]) * (1/2), y + (1 - image_size[1]) / 2, y + (1 + image_size[1]) / 2]
+                extent = [x + (1 - img_size[0]) * (1/2), x + (1 + img_size[0]) * (1/2), y + (1 - img_size[1]) / 2, y + (1 + img_size[1]) / 2]
             ax.imshow(img, extent=extent, zorder=zorder)
 
         # Draw background
-        floor_img = mpimg.imread("predicators/envs/assets/imgs/floorwood.png")
-        for i in range(self.num_rows):
-            for j in range(self.num_cols):
-                x, y = j, i
-                extent = [
-                    x, x+1, y, y+1
-                ]
-                ax.imshow(floor_img, extent=extent, zorder=-1)
+        floor_img = mpimg.imread(utils.get_env_asset_path("imgs/floorwood.png"))
+        for y in range(self.num_rows):
+            for x in range(self.num_cols):
+                ax.imshow(floor_img, extent=[x, x+1, y, y+1], zorder=-1)
 
         ax.set_xlim(0, self.num_cols)
         ax.set_ylim(0, self.num_rows)
