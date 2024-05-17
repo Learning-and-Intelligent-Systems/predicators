@@ -94,22 +94,12 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(On, [tomato, cutting_board]),
             LiftedAtom(Facing, [robot, tomato])
         }
-        add_effects = {
-            LiftedAtom(IsSliced, [tomato])
-        }
+        add_effects = {LiftedAtom(IsSliced, [tomato])}
         delete_effects = set()
         ignore_effects = set()
-        slice_nsrt = NSRT(
-            "Slice",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        slice_nsrt = NSRT("Slice", parameters, preconditions, add_effects,
+                          delete_effects, ignore_effects, option, option_vars,
+                          null_sampler)
         nsrts.add(slice_nsrt)
 
         # Cook
@@ -121,22 +111,12 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(On, [patty, grill]),
             LiftedAtom(Facing, [robot, patty])
         }
-        add_effects = {
-            LiftedAtom(IsCooked, [patty])
-        }
+        add_effects = {LiftedAtom(IsCooked, [patty])}
         delete_effects = set()
         ignore_effects = set()
-        cook_nsrt = NSRT(
-            "Cook",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        cook_nsrt = NSRT("Cook", parameters, preconditions, add_effects,
+                         delete_effects, ignore_effects, option, option_vars,
+                         null_sampler)
         nsrts.add(cook_nsrt)
 
         # # MoveWhenAlreadyAdjacent
@@ -181,21 +161,13 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Adjacent, [robot, to_obj]),
             LiftedAtom(Facing, [robot, to_obj])
         }
-        delete_effects = {
-            LiftedAtom(AdjacentToNothing, [robot])
-        }
+        delete_effects = {LiftedAtom(AdjacentToNothing, [robot])}
         ignore_effects = set()
-        move_from_nothing_to_one_stack_nsrt = NSRT(
-            "MoveFromNothingToOneStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        move_from_nothing_to_one_stack_nsrt = NSRT("MoveFromNothingToOneStack",
+                                                   parameters, preconditions,
+                                                   add_effects, delete_effects,
+                                                   ignore_effects, option,
+                                                   option_vars, null_sampler)
         nsrts.add(move_from_nothing_to_one_stack_nsrt)
 
         # MoveFromNothingToTwoStack
@@ -214,21 +186,13 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Adjacent, [robot, to_obj4]),
             LiftedAtom(Facing, [robot, to_obj4]),
         }
-        delete_effects = {
-            LiftedAtom(AdjacentToNothing, [robot])
-        }
+        delete_effects = {LiftedAtom(AdjacentToNothing, [robot])}
         ignore_effects = set()
-        move_from_nothing_to_two_stack_nsrt = NSRT(
-            "MoveFromNothingToTwoStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        move_from_nothing_to_two_stack_nsrt = NSRT("MoveFromNothingToTwoStack",
+                                                   parameters, preconditions,
+                                                   add_effects, delete_effects,
+                                                   ignore_effects, option,
+                                                   option_vars, null_sampler)
         nsrts.add(move_from_nothing_to_two_stack_nsrt)
 
         # MoveFromNothingToThreeStack
@@ -250,21 +214,12 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Adjacent, [robot, to_obj4]),
             LiftedAtom(Facing, [robot, to_obj4]),
         }
-        delete_effects = {
-            LiftedAtom(AdjacentToNothing, [robot])
-        }
+        delete_effects = {LiftedAtom(AdjacentToNothing, [robot])}
         ignore_effects = set()
         move_from_nothing_to_three_stack_nsrt = NSRT(
-            "MoveFromNothingToThreeStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+            "MoveFromNothingToThreeStack", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
         nsrts.add(move_from_nothing_to_three_stack_nsrt)
 
         # MoveFromNothingToFourStack
@@ -289,21 +244,12 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Adjacent, [robot, to_obj4]),
             LiftedAtom(Facing, [robot, to_obj4])
         }
-        delete_effects = {
-            LiftedAtom(AdjacentToNothing, [robot])
-        }
+        delete_effects = {LiftedAtom(AdjacentToNothing, [robot])}
         ignore_effects = set()
         move_from_nothing_to_four_stack_nsrt = NSRT(
-            "MoveFromNothingToFourStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+            "MoveFromNothingToFourStack", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
         nsrts.add(move_from_nothing_to_four_stack_nsrt)
 
         # MoveWhenFacingOneStack
@@ -325,17 +271,11 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, from_obj4]),
         }
         ignore_effects = set()
-        move_when_facing_one_stack_nsrt = NSRT(
-            "MoveWhenFacingOneStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        move_when_facing_one_stack_nsrt = NSRT("MoveWhenFacingOneStack",
+                                               parameters, preconditions,
+                                               add_effects, delete_effects,
+                                               ignore_effects, option,
+                                               option_vars, null_sampler)
         nsrts.add(move_when_facing_one_stack_nsrt)
 
         # MoveWhenFacingTwoStack
@@ -362,17 +302,11 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, from_obj4])
         }
         ignore_effects = set()
-        move_when_facing_two_stack_nsrt = NSRT(
-            "MoveWhenFacingTwoStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        move_when_facing_two_stack_nsrt = NSRT("MoveWhenFacingTwoStack",
+                                               parameters, preconditions,
+                                               add_effects, delete_effects,
+                                               ignore_effects, option,
+                                               option_vars, null_sampler)
         nsrts.add(move_when_facing_two_stack_nsrt)
 
         # MoveWhenFacingThreeStack
@@ -404,21 +338,17 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, from_obj4])
         }
         ignore_effects = set()
-        move_when_facing_three_stack_nsrt = NSRT(
-            "MoveWhenFacingThreeStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        move_when_facing_three_stack_nsrt = NSRT("MoveWhenFacingThreeStack",
+                                                 parameters, preconditions,
+                                                 add_effects, delete_effects,
+                                                 ignore_effects, option,
+                                                 option_vars, null_sampler)
         nsrts.add(move_when_facing_three_stack_nsrt)
 
         # MoveWhenFacingFourStack
-        parameters = [robot, to_obj, from_obj1, from_obj2, from_obj3, from_obj4]
+        parameters = [
+            robot, to_obj, from_obj1, from_obj2, from_obj3, from_obj4
+        ]
         option_vars = [robot, to_obj]
         option = Move
         preconditions = {
@@ -451,17 +381,11 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, from_obj4])
         }
         ignore_effects = set()
-        move_when_facing_four_stack_nsrt = NSRT(
-            "MoveWhenFacingFourStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        move_when_facing_four_stack_nsrt = NSRT("MoveWhenFacingFourStack",
+                                                parameters, preconditions,
+                                                add_effects, delete_effects,
+                                                ignore_effects, option,
+                                                option_vars, null_sampler)
         nsrts.add(move_when_facing_four_stack_nsrt)
 
         # MoveWhenFacingThreeStack
@@ -493,17 +417,11 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, from_obj3])
         }
         ignore_effects = set()
-        move_when_facing_three_stack_nsrt = NSRT(
-            "MoveWhenFacingThreeStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        move_when_facing_three_stack_nsrt = NSRT("MoveWhenFacingThreeStack",
+                                                 parameters, preconditions,
+                                                 add_effects, delete_effects,
+                                                 ignore_effects, option,
+                                                 option_vars, null_sampler)
         nsrts.add(move_when_facing_three_stack_nsrt)
 
         # MoveFromOneStackToThreeStack
@@ -534,16 +452,9 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         ignore_effects = set()
         move_from_one_stack_to_three_stack_nsrt = NSRT(
-            "MoveFromOneStackToThreeStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+            "MoveFromOneStackToThreeStack", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
         nsrts.add(move_from_one_stack_to_three_stack_nsrt)
 
         # # MoveWhenNotFacingStart
@@ -630,17 +541,10 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, item])
         }
         ignore_effects: Set[Predicate] = set()
-        pick_single_adjacent_nsrt = NSRT(
-            "PickSingleAdjacent",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        pick_single_adjacent_nsrt = NSRT("PickSingleAdjacent", parameters,
+                                         preconditions, add_effects,
+                                         delete_effects, ignore_effects,
+                                         option, option_vars, null_sampler)
         nsrts.add(pick_single_adjacent_nsrt)
 
         # PickFromStack
@@ -667,17 +571,10 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(On, [item, object]),
         }
         ignore_effects: Set[Predicate] = set()
-        pick_from_stack_nsrt = NSRT(
-            "PickFromStack",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        pick_from_stack_nsrt = NSRT("PickFromStack", parameters, preconditions,
+                                    add_effects, delete_effects,
+                                    ignore_effects, option, option_vars,
+                                    null_sampler)
         nsrts.add(pick_from_stack_nsrt)
 
         # Place
@@ -702,17 +599,9 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Clear, [object])
         }
         ignore_effects: Set[Predicate] = set()
-        place_nsrt = NSRT(
-            "Place",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
+        place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
+                          delete_effects, ignore_effects, option, option_vars,
+                          null_sampler)
         nsrts.add(place_nsrt)
 
         return nsrts

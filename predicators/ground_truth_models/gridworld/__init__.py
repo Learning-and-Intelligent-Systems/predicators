@@ -3,4 +3,6 @@
 from .nsrts import GridWorldGroundTruthNSRTFactory
 from .options import GridWorldGroundTruthOptionFactory
 
-__all__ = ["GridWorldGroundTruthOptionFactory", "GridWorldGroundTruthNSRTFactory"]
+__all__ = [
+    "GridWorldGroundTruthOptionFactory", "GridWorldGroundTruthNSRTFactory"
+]

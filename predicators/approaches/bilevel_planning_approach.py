@@ -59,100 +59,70 @@ class BilevelPlanningApproach(BaseApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        import pdb; pdb.set_trace()
-        nsrts = list(nsrts)
-        MoveWhenFacingOneStack = [n for n in nsrts if n.name ==  "MoveWhenFacingOneStack"][0]
-        MoveWhenFacingTwoStack = [n for n in nsrts if n.name ==  "MoveWhenFacingTwoStack"][0]
-        MoveWhenFacingThreeStack = [n for n in nsrts if n.name ==  "MoveWhenFacingThreeStack"][0]
-        MoveWhenFacingFourStack = [n for n in nsrts if n.name ==  "MoveWhenFacingFourStack"][0]
-
-        MoveWhenAlreadyAdjacent = [n for n in nsrts if n.name ==  "MoveWhenAlreadyAdjacent"][0]
-
-        MoveFromNothingToOneStack = [n for n in nsrts if n.name ==  "MoveFromNothingToOneStack"][0]
-        MoveFromNothingToTwoStack = [n for n in nsrts if n.name ==  "MoveFromNothingToTwoStack"][0]
-        MoveFromNothingToThreeStack = [n for n in nsrts if n.name ==  "MoveFromNothingToThreeStack"][0]
-        MoveFromNothingToFourStack = [n for n in nsrts if n.name ==  "MoveFromNothingToFourStack"][0]
-
-        MoveFromOneStackToThreeStack = [n for n in nsrts if n.name ==  "MoveFromOneStackToThreeStack"][0]
-
-        PickSingleAdjacent = [n for n in nsrts if n.name == "PickSingleAdjacent"][0]
-        PickFromStack = [n for n in nsrts if n.name == "PickFromStack"][0]
-        Place = [n for n in nsrts if n.name == "Place"][0]
-
-        Cook = [n for n in nsrts if n.name == "Cook"][0]
-        Slice = [n for n in nsrts if n.name == "Slice"][0]
-
-        grill = [obj for obj in task.init if obj.name == "grill"][0]
-        patty = [obj for obj in task.init if obj.name == "patty"][0]
-        robot = [obj for obj in task.init if obj.name == "robby"][0]
-        tomato = [obj for obj in task.init if obj.name == "tomato"][0]
-        cutting_board = [obj for obj in task.init if obj.name == "cutting_board"][0]
-        cheese = [obj for obj in task.init if obj.name == "cheese"][0]
-        top_bun = [obj for obj in task.init if obj.name == "top_bun"][0]
-        bottom_bun = [obj for obj in task.init if obj.name == "bottom_bun"][0]
-
-        init = utils.abstract(task.init, preds)
+        # import pdb; pdb.set_trace()
+        # nsrts = list(nsrts)
+        # MoveWhenFacingOneStack = [n for n in nsrts if n.name ==  "MoveWhenFacingOneStack"][0]
+        # MoveWhenFacingTwoStack = [n for n in nsrts if n.name ==  "MoveWhenFacingTwoStack"][0]
+        # MoveWhenFacingThreeStack = [n for n in nsrts if n.name ==  "MoveWhenFacingThreeStack"][0]
+        # MoveWhenFacingFourStack = [n for n in nsrts if n.name ==  "MoveWhenFacingFourStack"][0]
+        #
+        # MoveWhenAlreadyAdjacent = [n for n in nsrts if n.name ==  "MoveWhenAlreadyAdjacent"][0]
+        #
+        # MoveFromNothingToOneStack = [n for n in nsrts if n.name ==  "MoveFromNothingToOneStack"][0]
+        # MoveFromNothingToTwoStack = [n for n in nsrts if n.name ==  "MoveFromNothingToTwoStack"][0]
+        # MoveFromNothingToThreeStack = [n for n in nsrts if n.name ==  "MoveFromNothingToThreeStack"][0]
+        # MoveFromNothingToFourStack = [n for n in nsrts if n.name ==  "MoveFromNothingToFourStack"][0]
+        #
+        # MoveFromOneStackToThreeStack = [n for n in nsrts if n.name ==  "MoveFromOneStackToThreeStack"][0]
+        #
+        # PickSingleAdjacent = [n for n in nsrts if n.name == "PickSingleAdjacent"][0]
+        # PickFromStack = [n for n in nsrts if n.name == "PickFromStack"][0]
+        # Place = [n for n in nsrts if n.name == "Place"][0]
+        #
+        # Cook = [n for n in nsrts if n.name == "Cook"][0]
+        # Slice = [n for n in nsrts if n.name == "Slice"][0]
+        #
+        # grill = [obj for obj in task.init if obj.name == "grill"][0]
+        # patty = [obj for obj in task.init if obj.name == "patty"][0]
+        # robot = [obj for obj in task.init if obj.name == "robby"][0]
+        # tomato = [obj for obj in task.init if obj.name == "tomato"][0]
+        # cutting_board = [obj for obj in task.init if obj.name == "cutting_board"][0]
+        # cheese = [obj for obj in task.init if obj.name == "cheese"][0]
+        # top_bun = [obj for obj in task.init if obj.name == "top_bun"][0]
+        # bottom_bun = [obj for obj in task.init if obj.name == "bottom_bun"][0]
+        #
+        # init = utils.abstract(task.init, preds)
 
         # plan = [
-        #     MoveWhenFacingStart.ground([robot, patty, grill]),
+        #     MoveWhenFacingOneStack.ground([robot, patty, grill]),
         #     PickSingleAdjacent.ground([robot, patty]),
-        #     MoveFromNothing.ground([robot, grill]),
+        #     MoveFromNothingToOneStack.ground([robot, grill]),
         #     Place.ground([robot, patty, grill]),
         #     Cook.ground([robot, patty, grill]),
         #     PickFromStack.ground([robot, patty, grill]),
-        #     MoveWhenFacingStart.ground([robot, bottom_bun, grill]),
+        #     MoveWhenFacingOneStack.ground([robot, bottom_bun, grill]),
         #     Place.ground([robot, patty, bottom_bun]),
         #
-        #     MoveWhenFacingStart.ground([robot, cheese, patty]),
+        #     MoveWhenFacingTwoStack.ground([robot, cheese, patty, bottom_bun]),
         #     PickSingleAdjacent.ground([robot, cheese]),
-        #     MoveFromNothing.ground([robot, patty]),
+        #     MoveFromNothingToTwoStack.ground([robot, patty, bottom_bun]),
         #     Place.ground([robot, cheese, patty]),
         #
-        #     MoveWhenFacingStart.ground([robot, tomato, cheese]),
+        #     MoveWhenFacingThreeStack.ground([robot, tomato, cheese, patty, bottom_bun]),
         #     PickSingleAdjacent.ground([robot, tomato]),
-        #     MoveFromNothing.ground([robot, cutting_board]),
+        #     MoveFromNothingToOneStack.ground([robot, cutting_board]),
         #     Place.ground([robot, tomato, cutting_board]),
         #     Slice.ground([robot, tomato, cutting_board]),
         #     PickFromStack.ground([robot, tomato, cutting_board]),
-        #     MoveWhenFacingStart.ground([robot, cheese, cutting_board]),
+        #     MoveFromOneStackToThreeStack.ground([robot, cheese, patty, bottom_bun, cutting_board]),
         #     Place.ground([robot, tomato, cheese]),
         #
-        #     MoveWhenFacingStart.ground([robot, top_bun, cheese]),
+        #     MoveWhenFacingFourStack.ground([robot, top_bun, tomato, cheese, patty, bottom_bun]),
         #     PickSingleAdjacent.ground([robot, top_bun]),
-        #     MoveFromNothing.ground([robot, cheese]),
+        #     MoveFromNothingToFourStack.ground([robot, tomato, cheese, patty, bottom_bun]),
         #     Place.ground([robot, top_bun, tomato])
         # ]
-
-        plan = [
-            MoveWhenFacingOneStack.ground([robot, patty, grill]),
-            PickSingleAdjacent.ground([robot, patty]),
-            MoveFromNothingToOneStack.ground([robot, grill]),
-            Place.ground([robot, patty, grill]),
-            Cook.ground([robot, patty, grill]),
-            PickFromStack.ground([robot, patty, grill]),
-            MoveWhenFacingOneStack.ground([robot, bottom_bun, grill]),
-            Place.ground([robot, patty, bottom_bun]),
-
-            MoveWhenFacingTwoStack.ground([robot, cheese, patty, bottom_bun]),
-            PickSingleAdjacent.ground([robot, cheese]),
-            MoveFromNothingToTwoStack.ground([robot, patty, bottom_bun]),
-            Place.ground([robot, cheese, patty]),
-
-            MoveWhenFacingThreeStack.ground([robot, tomato, cheese, patty, bottom_bun]),
-            PickSingleAdjacent.ground([robot, tomato]),
-            MoveFromNothingToOneStack.ground([robot, cutting_board]),
-            Place.ground([robot, tomato, cutting_board]),
-            Slice.ground([robot, tomato, cutting_board]),
-            PickFromStack.ground([robot, tomato, cutting_board]),
-            MoveFromOneStackToThreeStack.ground([robot, cheese, patty, bottom_bun, cutting_board]),
-            Place.ground([robot, tomato, cheese]),
-
-            MoveWhenFacingFourStack.ground([robot, top_bun, tomato, cheese, patty, bottom_bun]),
-            PickSingleAdjacent.ground([robot, top_bun]),
-            MoveFromNothingToFourStack.ground([robot, tomato, cheese, patty, bottom_bun]),
-            Place.ground([robot, top_bun, tomato])
-        ]
-        option_plan = [n.option.ground(n.option_objs, []) for n in plan]
+        # option_plan = [n.option.ground(n.option_objs, []) for n in plan]
 
         # atoms_seq = [init]
         # curr_atoms = init
@@ -175,9 +145,9 @@ class BilevelPlanningApproach(BaseApproach):
         # curr_atoms = (curr_atoms | curr_nsrt.add_effects) - curr_nsrt.delete_effects
         # count += 1
         #
-        import pdb; pdb.set_trace()
-        nsrt_plan, atoms_seq, metrics = self._run_task_plan(task, nsrts, preds, timeout, seed)
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
+        # nsrt_plan, atoms_seq, metrics = self._run_task_plan(task, nsrts, preds, timeout, seed)
+        # import pdb; pdb.set_trace()
 
         # Run task planning only and then greedily sample and execute in the
         # policy.
@@ -199,14 +169,15 @@ class BilevelPlanningApproach(BaseApproach):
 
         # Run full bilevel planning.
         else:
-            # option_plan, nsrt_plan, metrics = self._run_sesame_plan(
-            #     task, nsrts, preds, timeout, seed)
-            # self._last_plan = option_plan
-            # self._last_nsrt_plan = nsrt_plan
+            option_plan, nsrt_plan, metrics = self._run_sesame_plan(
+                task, nsrts, preds, timeout, seed)
             self._last_plan = option_plan
-            self._last_nsrt_plan = plan
+            self._last_nsrt_plan = nsrt_plan
+            # for n in nsrt_plan: print(n.name, n.objects)
+            # import pdb; pdb.set_trace()
+            # self._last_plan = option_plan
+            # self._last_nsrt_plan = plan
             policy = utils.option_plan_to_policy(option_plan)
-
 
         # import pdb; pdb.set_trace()
 
