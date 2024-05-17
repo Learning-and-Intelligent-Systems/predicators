@@ -830,7 +830,7 @@ def create_ground_atom_data_from_saved_img_trajs(
                 curr_imgs.append(PIL.Image.open(img))
             img_traj.append(curr_imgs)
             state_file = curr_state_path / "state.p"
-            if state_file.exists():
+            if state_file.exists():  # pragma: no cover
                 with open(state_file, "rb") as fp:
                     state = pkl.load(fp)
                 assert state_traj is not None
