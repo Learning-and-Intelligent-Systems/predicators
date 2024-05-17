@@ -139,34 +139,34 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         )
         nsrts.add(cook_nsrt)
 
-        # MoveWhenAlreadyAdjacent
-        parameters = [robot, to_obj, from_obj3]
-        option_vars = [robot, to_obj]
-        option = Move
-        preconditions = {
-            LiftedAtom(Adjacent, [robot, from_obj3]),
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, from_obj3])
-        }
-        add_effects = {
-            LiftedAtom(Facing, [robot, to_obj])
-        }
-        delete_effects = {
-            LiftedAtom(Facing, [robot, from_obj3])
-        }
-        ignore_effects = set()
-        move_when_already_adjacent_nsrt = NSRT(
-            "MoveWhenAlreadyAdjacent",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
-        nsrts.add(move_when_already_adjacent_nsrt)
+        # # MoveWhenAlreadyAdjacent
+        # parameters = [robot, to_obj, from_obj3]
+        # option_vars = [robot, to_obj]
+        # option = Move
+        # preconditions = {
+        #     LiftedAtom(Adjacent, [robot, from_obj3]),
+        #     LiftedAtom(Adjacent, [robot, to_obj]),
+        #     LiftedAtom(Facing, [robot, from_obj3])
+        # }
+        # add_effects = {
+        #     LiftedAtom(Facing, [robot, to_obj])
+        # }
+        # delete_effects = {
+        #     LiftedAtom(Facing, [robot, from_obj3])
+        # }
+        # ignore_effects = set()
+        # move_when_already_adjacent_nsrt = NSRT(
+        #     "MoveWhenAlreadyAdjacent",
+        #     parameters,
+        #     preconditions,
+        #     add_effects,
+        #     delete_effects,
+        #     ignore_effects,
+        #     option,
+        #     option_vars,
+        #     null_sampler
+        # )
+        # nsrts.add(move_when_already_adjacent_nsrt)
 
         # MoveFromNothingToOneStack
         parameters = [robot, to_obj]
@@ -546,68 +546,68 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         )
         nsrts.add(move_from_one_stack_to_three_stack_nsrt)
 
-        # MoveWhenNotFacingStart
-        parameters = [robot, to_obj, from_obj3]
-        option_vars = [robot, to_obj]
-        option = Move
-        preconditions = {
-            LiftedAtom(Adjacent, [robot, from_obj3]),
-            LiftedAtom(AdjacentNotFacing, [robot, from_obj3])
-        }
-        add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, to_obj])
-        }
-        delete_effects = {
-            LiftedAtom(Adjacent, [robot, from_obj3]),
-            LiftedAtom(AdjacentNotFacing, [robot, from_obj3])
-        }
-        ignore_effects = set()
-        move_when_not_facing_start_nsrt = NSRT(
-            "MoveWhenNotFacingStart",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
-        nsrts.add(move_when_not_facing_start_nsrt)
+        # # MoveWhenNotFacingStart
+        # parameters = [robot, to_obj, from_obj3]
+        # option_vars = [robot, to_obj]
+        # option = Move
+        # preconditions = {
+        #     LiftedAtom(Adjacent, [robot, from_obj3]),
+        #     LiftedAtom(AdjacentNotFacing, [robot, from_obj3])
+        # }
+        # add_effects = {
+        #     LiftedAtom(Adjacent, [robot, to_obj]),
+        #     LiftedAtom(Facing, [robot, to_obj])
+        # }
+        # delete_effects = {
+        #     LiftedAtom(Adjacent, [robot, from_obj3]),
+        #     LiftedAtom(AdjacentNotFacing, [robot, from_obj3])
+        # }
+        # ignore_effects = set()
+        # move_when_not_facing_start_nsrt = NSRT(
+        #     "MoveWhenNotFacingStart",
+        #     parameters,
+        #     preconditions,
+        #     add_effects,
+        #     delete_effects,
+        #     ignore_effects,
+        #     option,
+        #     option_vars,
+        #     null_sampler
+        # )
+        # nsrts.add(move_when_not_facing_start_nsrt)
 
-        # PickMultipleAdjacent
-        parameters = [robot, item]
-        option_vars = [robot, item]
-        option = Pick
-        preconditions = {
-            LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(Adjacent, [robot, item]),
-            LiftedAtom(Facing, [robot, item]),
-            LiftedAtom(OnNothing, [item]),
-            LiftedAtom(Clear, [item])
-        }
-        add_effects = {
-            LiftedAtom(Holding, [robot, item])
-        }
-        delete_effects = {
-            LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(Adjacent, [robot, item]),
-            LiftedAtom(Facing, [robot, item])
-        }
-        ignore_effects: Set[Predicate] = set()
-        pick_multiple_adjacent_nsrt = NSRT(
-            "PickMultipleAdjacent",
-            parameters,
-            preconditions,
-            add_effects,
-            delete_effects,
-            ignore_effects,
-            option,
-            option_vars,
-            null_sampler
-        )
-        nsrts.add(pick_multiple_adjacent_nsrt)
+        # # PickMultipleAdjacent
+        # parameters = [robot, item]
+        # option_vars = [robot, item]
+        # option = Pick
+        # preconditions = {
+        #     LiftedAtom(HandEmpty, [robot]),
+        #     LiftedAtom(Adjacent, [robot, item]),
+        #     LiftedAtom(Facing, [robot, item]),
+        #     LiftedAtom(OnNothing, [item]),
+        #     LiftedAtom(Clear, [item])
+        # }
+        # add_effects = {
+        #     LiftedAtom(Holding, [robot, item])
+        # }
+        # delete_effects = {
+        #     LiftedAtom(HandEmpty, [robot]),
+        #     LiftedAtom(Adjacent, [robot, item]),
+        #     LiftedAtom(Facing, [robot, item])
+        # }
+        # ignore_effects: Set[Predicate] = set()
+        # pick_multiple_adjacent_nsrt = NSRT(
+        #     "PickMultipleAdjacent",
+        #     parameters,
+        #     preconditions,
+        #     add_effects,
+        #     delete_effects,
+        #     ignore_effects,
+        #     option,
+        #     option_vars,
+        #     null_sampler
+        # )
+        # nsrts.add(pick_multiple_adjacent_nsrt)
 
         # PickSingleAdjacent
         parameters = [robot, item]
@@ -714,37 +714,5 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             null_sampler
         )
         nsrts.add(place_nsrt)
-
-        # # Place
-        # parameters = [robot, item, station]
-        # option_vars = [robot, item, station]
-        # option = Place
-        # preconditions = {
-        #     LiftedAtom(Holding, [robot, item]),
-        #     LiftedAtom(Adjacent, [robot, station]),
-        #     LiftedAtom(Facing, [robot, station])
-        # }
-        # add_effects = {
-        #     LiftedAtom(HandEmpty, [robot]),
-        #     LiftedAtom(On, [item, station]),
-        #     LiftedAtom(Adjacent, [robot, item]),
-        #     LiftedAtom(Facing, [robot, item])
-        # }
-        # delete_effects = {
-        #     LiftedAtom(Holding, [robot, item])
-        # }
-        # ignore_effects: Set[Predicate] = set()
-        # place_nsrt = NSRT(
-        #     "Place",
-        #     parameters,
-        #     preconditions,
-        #     add_effects,
-        #     delete_effects,
-        #     ignore_effects,
-        #     option,
-        #     option_vars,
-        #     null_sampler
-        # )
-        # nsrts.add(place_nsrt)
 
         return nsrts

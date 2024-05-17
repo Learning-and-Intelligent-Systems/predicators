@@ -38,9 +38,17 @@ class GridWorldEnv(BaseEnv):
     After the demonstrations are created by the oracle approach, we can erase
     this simulator state before we pass the demonstrations to the predicate
     invention approach.
-    """
 
-    ASSETS_DIRECTORY = "predicators/envs/assets/imgs/"
+    Example command to see demos created:
+    python predicators/main.py --env gridworld
+    --approach grammar_search_invention --seed 0 --num_train_tasks 10
+    --option_model_terminate_on_repeat False
+    --sesame_max_skeletons_optimized 1000 --timeout 80
+    --sesame_max_samples_per_step 1 --make_demo_videos
+    --sesame_task_planner fdopt
+
+    Note that the default task planner is too slow -- fast downward is required.
+    """
 
     # Types
     _object_type = Type("object", [])
@@ -48,7 +56,6 @@ class GridWorldEnv(BaseEnv):
     _station_type = Type("station", [], _object_type)
 
     _robot_type = Type("robot", ["row", "col", "fingers", "dir"])
-    _cell_type = Type("cell", ["row", "col"])
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
     _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
@@ -59,8 +66,8 @@ class GridWorldEnv(BaseEnv):
     _grill_type = Type("grill", ["row", "col", "z"], _station_type)
     _cutting_board_type = Type("cutting_board", ["row", "col", "z"], _station_type)
 
-    dir_to_int = {"up": 0, "left": 1, "down": 2, "right": 3}
-    int_to_dir = {0: "up", 1: "left", 2: "down", 3: "right"}
+    dir_to_enum = {"up": 0, "left": 1, "down": 2, "right": 3}
+    enum_to_dir = {0: "up", 1: "left", 2: "down", 3: "right"}
 
     num_rows = CFG.gridworld_num_rows
     num_cols = CFG.gridworld_num_cols
@@ -98,7 +105,6 @@ class GridWorldEnv(BaseEnv):
             self._item_type,
             self._station_type,
             self._robot_type,
-            self._cell_type,
             self._patty_type,
             self._tomato_type,
             self._cheese_type,
@@ -155,7 +161,8 @@ class GridWorldEnv(BaseEnv):
         for i in range(num):
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = hidden_state
-            # Note: this takes in Observation, GoalDescription, whose types are Any
+            # Note: this takes in Observation, GoalDescription, whose types are
+            # Any
             tasks.append(EnvironmentTask(state, goal))
 
         return tasks
@@ -166,18 +173,12 @@ class GridWorldEnv(BaseEnv):
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
-    def _In_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        robot, cell = objects
-        robot_row, robot_col = state.get(robot, "row"), state.get(robot, "col")
-        cell_row, cell_col = state.get(cell, "row"), state.get(cell, "col")
-        return robot_row == cell_row and robot_col == cell_col
-
     @classmethod
     def Adjacent_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects
-        robot_col, robot_row = cls.get_position(robot, state)
-        obj_col, obj_row = cls.get_position(obj, state)
-        return cls.is_adjacent(obj_col, obj_row, robot_col, robot_row)
+        rx, ry = cls.get_position(robot, state)
+        ox, oy = cls.get_position(obj, state)
+        return cls.is_adjacent(rx, ry, ox, oy)
 
     def _AdjacentToNothing_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
@@ -194,13 +195,13 @@ class GridWorldEnv(BaseEnv):
     @classmethod
     def Facing_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects
-        robot_col, robot_row = cls.get_position(robot, state)
-        robot_dir = state.get(robot, "dir")
-        obj_col, obj_row = cls.get_position(obj, state)
-        facing_left = robot_row == obj_row and robot_col - obj_col == 1 and robot_dir == 1
-        facing_right = robot_row == obj_row and robot_col - obj_col == -1 and robot_dir == 3
-        facing_down = robot_row - obj_row == 1 and robot_col == obj_col and robot_dir == 2
-        facing_up = robot_row - obj_row == -1 and robot_col == obj_col and robot_dir == 0
+        rx, ry = cls.get_position(robot, state)
+        rdir = state.get(robot, "dir")
+        ox, oy = cls.get_position(obj, state)
+        facing_left = ry == oy and rx - ox == 1 and cls.enum_to_dir[rdir] == "left"
+        facing_right = ry == oy and rx - ox == -1 and cls.enum_to_dir[rdir] == "right"
+        facing_down = ry - oy == 1 and rx == ox and cls.enum_to_dir[rdir] == "down"
+        facing_up = ry - oy == -1 and rx == ox and cls.enum_to_dir[rdir] == "up"
         return facing_left or facing_right or facing_down or facing_up
 
     def _AdjacentNotFacing_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -280,9 +281,11 @@ class GridWorldEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # dx (column), dy (row), cutcook, pickplace
+        # dx (column), dy (row), direction, cut/cook, pick/place
         # We expect dx and dy to be one of -1, 0, or 1.
-        # We expect interact to be either 0 or 1.
+        # We expect direction to be one of -1, 0, 1, 2, or 3. -1 signifies
+        # "no change in direction", and 0, 1, 2, and 3 signify a direction.
+        # We expect cut/cook and pick/place to be 0 or 1.
         return Box(low=np.array([-1.0, -1.0, -1.0, 0.0, 0.0]), high=np.array([1.0, 1.0, 3.0, 1.0, 1.0]), dtype=np.float32)
 
     @staticmethod
@@ -298,16 +301,16 @@ class GridWorldEnv(BaseEnv):
         return "no_change"
 
     @staticmethod
-    def _get_cell_in_direction(row, col, direction) -> Tuple[int, int]:
+    def _get_cell_in_direction(x, y, direction) -> Tuple[int, int]:
         if direction == "left":
-            return (row, col - 1)
+            return (x - 1, y)
         elif direction == "right":
-            return (row, col + 1)
+            return (x + 1, y)
         elif direction == "up":
-            return (row + 1, col)
+            return (x, y + 1)
         elif direction == "down":
-            return (row - 1, col)
-        return (row, col)
+            return (x, y - 1)
+        return (x, y)
 
     @classmethod
     def get_empty_cells(cls, state: State) -> Set[Tuple[int, int]]:
@@ -324,94 +327,85 @@ class GridWorldEnv(BaseEnv):
         return set(cells)
 
     def simulate(self, state: State, action: Action) -> State:
+        # We assume only one of <dcol, drow>, <direction>, <interact>, <pickplace>
+        # is not "null" in each action.
+        # If each one was null, the action would be <0, 0, -1, 0, 0>.
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
-        dcol, drow, turn, interact, pickplace = action.arr
+        dcol, drow, dir_from_turning, interact, pickplace = action.arr
 
-        robot_col, robot_row = self.get_position(self._robot, state)
-        new_col = np.clip(robot_col + dcol, 0, self.num_cols - 1)
-        new_row = np.clip(robot_row + drow, 0, self.num_rows - 1)
+        rx, ry = self.get_position(self._robot, state)
+        new_rx = np.clip(rx + dcol, 0, self.num_cols - 1)
+        new_ry = np.clip(ry + drow, 0, self.num_rows - 1)
 
-        # compute robot direction
-        direction = self._get_robot_direction(dcol, drow)
-        if direction != "no_change":
-            # We'll need to be facing an object to pick it up or interact with
-            # it.
-            next_state.set(self._robot, "dir", self.dir_to_int[direction])
-        elif turn in [0, 1, 2, 3]:
-            next_state.set(self._robot, "dir", turn)
+        # Compute the robot's direction.
+        dir_from_movement = self._get_robot_direction(dcol, drow)
+        if dir_from_movement != "no_change":
+            next_state.set(self._robot, "dir", self.dir_to_enum[dir_from_movement])
+        elif dir_from_turning in [0, 1, 2, 3]:
+            next_state.set(self._robot, "dir", dir_from_turning)
 
-        # get the objects we can interact with
+        # Get the objects we can interact with.
         items = [obj for obj in state if obj.is_instance(self._item_type)]
 
-        # check for collision
-        other_objects = []
-        for object in state:
-            if not object.is_instance(self._robot_type) and not object.is_instance(self._cell_type):
-                other_objects.append(object)
+        # Check for collision.
+        other_objects = [obj for obj in state if not obj.is_instance(self._robot_type)]
         for obj in other_objects:
             if obj in items:
                 if state.simulator_state[obj]["is_held"] > 0.5:
                     continue
-            obj_col, obj_row = self.get_position(obj, state)
-            if abs(new_col - obj_col) < 1e-3 and abs(new_row - obj_row) < 1e-3:
+            ox, oy = self.get_position(obj, state)
+            if abs(new_rx - ox) < 1e-3 and abs(new_ry - oy) < 1e-3:
                 return next_state
 
-        next_state.set(self._robot, "col", new_col)
-        next_state.set(self._robot, "row", new_row)
+        # No collision detected, so we can move the robot.
+        next_state.set(self._robot, "col", new_rx)
+        next_state.set(self._robot, "row", new_ry)
 
-        # also move held object, if there is one
+        # If an object was held, move it with the robot.
         for item in items:
             if state.simulator_state[item]["is_held"] > 0.5:
-                next_state.set(item, "col", new_col)
-                next_state.set(item, "row", new_row)
+                next_state.set(item, "col", new_rx)
+                next_state.set(item, "row", new_ry)
 
-        # handle interaction
+        # Handle interaction (cutting or cooking).
         for item in items:
-            item_x, item_y = self.get_position(item, state)
-            board_x, board_y = self.get_position(self._cutting_board, state)
-            grill_x, grill_y = self.get_position(self._grill, state)
-            if self.Facing_holds(state, [self._robot, item]):
-                if interact > 0.5:
-                    if item.is_instance(self._patty_type) and grill_x==item_x and grill_y==item_y:
-                        next_state.simulator_state[item]["is_cooked"] = 1.0
-                    elif item.is_instance(self._tomato_type) and board_x==item_x and board_y==item_y:
-                        next_state.simulator_state[item]["is_sliced"] = 1.0
+            if self.Facing_holds(state, [self._robot, item]) and interact > 0.5:
+                if item.is_instance(self._patty_type) and self._On_holds(state, [item, self._grill]):
+                    next_state.simulator_state[item]["is_cooked"] = 1.0
+                elif item.is_instance(self._tomato_type) and self._On_holds(state, [item, self._cutting_board]):
+                    next_state.simulator_state[item]["is_sliced"] = 1.0
 
-        # handle pick
+        # Handle picking.
         if pickplace > 0.5 and self._HandEmpty_holds(state, [self._robot]):
-            # get all items we are facing
             facing_items = []
             for item in items:
                 if self.Facing_holds(state, [self._robot, item]):
-                    item_z = state.get(item, "z")
-                    facing_items.append((item, item_z))
+                    facing_items.append((item, state.get(item, "z")))
             if len(facing_items) > 0:
                 # We'll pick up the item that is "on top".
                 on_top = max(facing_items, key=lambda x: x[1])[0]
                 next_state.simulator_state[on_top]["is_held"] = 1.0
-                next_state.set(on_top, "col", robot_col)
-                next_state.set(on_top, "row", robot_row)
+                next_state.set(on_top, "col", rx)
+                next_state.set(on_top, "row", ry)
                 next_state.set(on_top, "z", 0)
                 next_state.set(self._robot, "fingers", 1.0)
 
-        # handle place
+        # Handle placing.
         if pickplace > 0.5 and not self._HandEmpty_holds(state, [self._robot]):
             held_item = [item for item in items if state.simulator_state[item]["is_held"] > 0.5][0]
-            place_row, place_col = self._get_cell_in_direction(robot_row, robot_col, self.int_to_dir[state.get(self._robot, "dir")])
-            if 0 <= place_row <= self.num_rows and 0 <= place_col <= self.num_cols:
+            px, py = self._get_cell_in_direction(rx, ry, self.enum_to_dir[state.get(self._robot, "dir")])
+            if 0 <= py <= self.num_rows and 0 <= px <= self.num_cols:
                 next_state.set(self._robot, "fingers", 0.0)
                 next_state.simulator_state[held_item]["is_held"] = 0.0
-                next_state.set(held_item, "col", place_col)
-                next_state.set(held_item, "row", place_row)
+                next_state.set(held_item, "col", px)
+                next_state.set(held_item, "row", py)
                 # If any other objects are at this location, then this must go
                 # on top of them.
-                # get objects at this location
                 objects_at_loc = []
-                for obj in state:
-                    if obj.is_instance(self._item_type) or obj.is_instance(self._station_type):
-                        x, y = self.get_position(obj, state)
-                        if x == place_col and y == place_row:
+                for obj in other_objects:
+                        ox, oy = self.get_position(obj, state)
+                        if ox == px and oy == py:
                             objects_at_loc.append((obj, state.get(obj, "z")))
                 if len(objects_at_loc) > 0:
                     new_z = max(objects_at_loc, key=lambda x: x[1])[1] + 1
@@ -451,7 +445,7 @@ class GridWorldEnv(BaseEnv):
         # Draw robot
         x, y = self.get_position(self._robot, state)
         # ax.plot(robot_col + 0.5, robot_row + 0.5, 'rs', markersize=20)
-        robot_direction = self.int_to_dir[state.get(self._robot, "dir")]
+        robot_direction = self.enum_to_dir[state.get(self._robot, "dir")]
         robot_img = mpimg.imread(utils.get_env_asset_path(f"imgs/robot_{robot_direction}.png"))
         img_size = (0.8, 0.8)
         ax.imshow(robot_img, extent=[x + (1 - img_size[0]) / 2, x + (1 + img_size[0]) / 2, y + (1 - img_size[1]) / 2, y + (1 + img_size[1]) / 2])
@@ -517,7 +511,7 @@ class GridWorldEnv(BaseEnv):
 
         def _event_to_action(state: State,
                              event: matplotlib.backend_bases.Event) -> Action:
-            logging.info("Controls: arrow keys to move, (e) to interact, (f) to pickplace")
+            logging.info("Controls: arrow keys to move, wasd to change direction, (e) to interact, (f) to pickplace")
             dcol, drow, turn, interact, pickplace = 0, 0, -1, 0, 0
             if event.key == "w":
                 turn = 0

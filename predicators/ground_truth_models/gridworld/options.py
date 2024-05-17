@@ -25,15 +25,16 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                     action_space: Box) -> Set[ParameterizedOption]:
 
         # Types
-        bottom_bun_type = types["bottom_bun"]
         top_bun_type = types["top_bun"]
-        patty_type = types["patty"]
+        bottom_bun_type = types["bottom_bun"]
         cheese_type = types["cheese"]
         tomato_type = types["tomato"]
+        patty_type = types["patty"]
+
         grill_type = types["grill"]
         cutting_board_type = types["cutting_board"]
         robot_type = types["robot"]
-        cell_type = types["cell"]
+
         item_type = types["item"]
         station_type = types["station"]
         object_type = types["object"]
