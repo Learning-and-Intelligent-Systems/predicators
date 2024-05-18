@@ -308,7 +308,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         self._feasibility_classifier = ConstFeasibilityClassifier()
         # self._test_tasks_ran = 0
         assert CFG.feasibility_learning_strategy in {
-            "backtracking", "load_data", "load_model"}
+            "backtracking", "load_data"}
 
     @classmethod
     def get_name(cls) -> str:
@@ -318,15 +318,10 @@ class SearchPruningApproach(NSRTLearningApproach):
         # Setting up the logger properly
         logging.getLogger().setLevel(logging.DEBUG)
 
-        # Loading the model early
-        if CFG.feasibility_learning_strategy == "load_model":
-            assert CFG.feasibility_load_path
-            self._feasibility_classifier = torch.load(
-                CFG.feasibility_load_path)
-            self._feasibility_classifier._optimizer = None
-
         # Generate the base NSRTs
+        start = time.perf_counter()
         super().learn_from_offline_dataset(dataset)
+        logging.info(f"TRAINING NSRTS TOOK {time.perf_counter() - start}")
 
         # Make sure we have direct access to the regressors
         assert all(type(nsrt.sampler) ==
@@ -381,9 +376,6 @@ class SearchPruningApproach(NSRTLearningApproach):
         # TODO: add an option to limit the number of tasks explored and handling around that
         assert CFG.feasibility_search_device in {'cpu', 'cuda'}
 
-        # To make sure we are able to use the Pool without having to copy the entire model we reset the classifier
-        self._feasibility_classifier = ConstFeasibilityClassifier()
-
         # Precomputing the datapoints for interleaved backtracking
         search_datapoints: List[InterleavedBacktrackingDatapoint] = [
             InterleavedBacktrackingDatapoint(
@@ -422,6 +414,10 @@ class SearchPruningApproach(NSRTLearningApproach):
         #     os.path.join(CFG.feasibility_debug_directory, f"initial-visualization")
         # )
         # assert False
+
+        # To make sure we are able to use the Pool without having to copy the entire model we reset the classifier
+        # self._feasibility_classifier = ConstFeasibilityClassifier()
+        self._learn_neural_feasibility_classifier(max_skeleton_length)
 
         # Precomputing the nsrts on different devices
         if CFG.feasibility_search_device == 'cpu':
@@ -470,17 +466,17 @@ class SearchPruningApproach(NSRTLearningApproach):
                 os.makedirs(prefix_directory, exist_ok=True)
 
                 # Moving the feasibility classifier to devices
-                if isinstance(self._feasibility_classifier, torch.nn.Module) and CFG.feasibility_search_device == 'cuda':
-                    feasibility_classifiers = [deepcopy(
-                        self._feasibility_classifier) for _ in range(torch.cuda.device_count())]
+                if isinstance(self._feasibility_classifier, NeuralFeasibilityClassifier) and CFG.feasibility_search_device == 'cuda':
+                    logging.info("DEEP COPYING THE CLASSIFIER")
+                    feasibility_classifiers = [self._feasibility_classifier.safe_copy() for _ in range(torch.cuda.device_count())]
                     if len(feasibility_classifiers) == 1:
                         feasibility_classifiers[0].to('cuda')
                     else:
                         for id, feasibility_classifier in enumerate(feasibility_classifiers):
                             feasibility_classifier.to(f'cuda:{id}')
-                elif isinstance(self._feasibility_classifier, torch.nn.Module):
-                    feasibility_classifiers = [
-                        deepcopy(self._feasibility_classifier)]
+                elif isinstance(self._feasibility_classifier, NeuralFeasibilityClassifier):
+                    logging.info("DEEP COPYING THE CLASSIFIER")
+                    feasibility_classifiers = [self._feasibility_classifier.safe_copy()]
                     feasibility_classifiers[0].to('cpu')
                 else:
                     assert prefix_length == max_skeleton_length - 1
@@ -518,8 +514,7 @@ class SearchPruningApproach(NSRTLearningApproach):
                     SearchPruningApproach._backtracking_fill_dataset(
                         self._training_feasibility_dataset, pool, prefix_length, self._option_model,
                         feasibility_classifiers, seed, chosen_training_search_datapoints, cfg,
-                        os.path.join(prefix_directory,
-                                     f'train-data-gathering'),
+                        os.path.join(prefix_directory, f'train-data-gathering'),
                     )
                 logging.info(
                     f"Took {duration} seconds to gather training data")
@@ -620,7 +615,6 @@ class SearchPruningApproach(NSRTLearningApproach):
         assert len(skeleton) > prefix_length
         CFG.__dict__.update(cfg.__dict__)
         CFG.seed = seed
-        # Bug in pytorch with shared_memory being slow to use with more than one thread
         torch.set_num_threads(1)
         utils.set_global_seed(seed)
 
@@ -780,7 +774,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             shared_memory - whether to make the classifier movable between processes
                 (using the torch.multiprocessing library)
         """
-        if not CFG.feasibility_keep_model_params or not isinstance(self._feasibility_classifier, torch.nn.Module):
+        if not CFG.feasibility_keep_model_params or not isinstance(self._feasibility_classifier, NeuralFeasibilityClassifier):
             neural_feasibility_classifier = NeuralFeasibilityClassifier(
                 nsrts=self._nsrts,
                 featurizer_sizes=CFG.feasibility_featurizer_sizes,
@@ -796,7 +790,6 @@ class SearchPruningApproach(NSRTLearningApproach):
                 max_train_iters=CFG.feasibility_max_itr,
                 general_lr=CFG.feasibility_general_lr,
                 transformer_lr=CFG.feasibility_transformer_lr,
-                min_inference_prefix=min_inference_prefix,
                 threshold_recalibration_percentile=CFG.feasibility_threshold_recalibration_percentile,
                 max_num_objects=CFG.feasibility_max_object_count,
                 use_torch_gpu=CFG.use_torch_gpu,
@@ -805,11 +798,15 @@ class SearchPruningApproach(NSRTLearningApproach):
                 l2_penalty=CFG.feasibility_l2_penalty,
             )
             self._feasibility_classifier = neural_feasibility_classifier
-        else:
-            self._feasibility_classifier.min_inference_prefix = min_inference_prefix
+        self._feasibility_classifier.set_min_inference_prefix(min_inference_prefix)
         self._feasibility_classifier.fit(
             training_dataset=self._training_feasibility_dataset,
             validation_dataset=self._validation_feasibility_dataset,
             training_snapshot_directory=training_snapshot_directory,
             delete_optimizer=not CFG.feasibility_keep_model_params,
         )
+
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        assert CFG.feasibility_load_path
+        super().load(online_learning_cycle)
+        self._feasibility_classifier = torch.load(CFG.feasibility_load_path)

@@ -4,6 +4,10 @@ import numpy as np
 from experiments.envs.pybullet_packing.env import PyBulletPackingEnv
 from predicators.settings import CFG
 
+import logging
+import sys
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
 # Constants
 gripper_open_thresh = 0.039
 

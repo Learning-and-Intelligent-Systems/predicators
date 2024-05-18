@@ -3,7 +3,8 @@ import functools
 import itertools
 import logging
 import pickle
-from typing import Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Set, Tuple, cast
+import time
+from typing import Any, ClassVar, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Tuple, cast
 
 from experiments.envs.utils import DottedDict
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
@@ -17,6 +18,7 @@ from predicators.pybullet_helpers.robots.panda import PandaPyBulletRobot
 from predicators.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, Predicate, State, Type
+from predicators.utils import BiRRT, PyBulletState
 from pybullet_utils.transformations import quaternion_from_euler
 
 import numpy as np
@@ -26,9 +28,11 @@ from shapely.geometry import Polygon, MultiPolygon, box
 from shapely.affinity import translate, rotate
 from shapely import wkt
 import os
-import time
+from gym.spaces import Box
 
-from predicators.utils import PyBulletState
+
+BlockId = int
+BoxId = int
 
 def get_asset_path(filename: str) -> str:
     path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'assets', filename)
@@ -38,12 +42,31 @@ def get_asset_path(filename: str) -> str:
 def get_tagged_block_sizes() -> List[Tuple[float, float, float]]:
     tags_path = get_asset_path('tags')
     return [
-        tuple(pickle.load(open(os.path.join(tags_path, block_info_fname), 'rb'))['dimensions'])
+        dimensions
         for block_info_fname in os.listdir(tags_path)
+        for d, w, h in [sorted(pickle.load(open(os.path.join(tags_path, block_info_fname), 'rb'))['dimensions'])]
+        for dimensions in [(d, w, h), (w, d, h)]
     ]
 
-BlockId = int
-BoxId = int
+def get_box_creation_params(max_block_width: float, max_finger_width: float, gripper_width: float, col_margins: float, row_margins: float):
+    box_width_sep = max(max_block_width/2, max_finger_width/2) + col_margins + max_block_width/2
+    box_width_margin = gripper_width / 2 + col_margins
+
+    box_depth_sep = max_block_width + row_margins
+    box_depth_margin = max_block_width / 2 + row_margins
+
+    return box_width_sep, box_width_margin, box_depth_sep, box_depth_margin
+
+def get_box_dimensions(
+    num_rows: int,
+    num_cols: int,
+    height: float,
+    width_sep: float,
+    width_margin: float,
+    depth_sep: float,
+    depth_margin: float,
+) -> Tuple[float, float, float]:
+    return (depth_sep * (num_rows - 1) + depth_margin * 2, width_sep * (num_cols - 1) + width_margin * 2, height)
 
 @dataclass
 class PyBulletPackingState(PyBulletState):
@@ -60,6 +83,8 @@ class PyBulletPackingState(PyBulletState):
             self._box_id, self._placement_offsets
         )
 
+PackingMotionPlanningState = Tuple[npt.NDArray, bool, bool] # (joints, is starting state, ok for block to be too close)
+
 class PyBulletPackingEnv(PyBulletEnv):
     # Assets
     block_poses: ClassVar[Polygon] = wkt.load(open(get_asset_path("block-poses.wkt")))
@@ -67,40 +92,64 @@ class PyBulletPackingEnv(PyBulletEnv):
 
     # Settings
     ## Task Generation
-    range_train_box_cols: ClassVar[Tuple[int, int]] = (2, 4)
+    range_train_box_cols: ClassVar[Tuple[int, int]] = (2, 5)
     num_box_rows: ClassVar[int] = 2
-    box_front_margin = 0.20
+    box_front_margin = 0.3
     block_side_margin = 0.1
     block_vert_offset = 0.001
 
     num_tries: ClassVar[int] = 100000
 
     ## Object Descriptors
-    block_sizes: ClassVar[Dict[BlockId, Tuple[float, float, float]]] = dict(enumerate(itertools.product(
-        [0.07, 0.06, 0.05],
-        [0.07, 0.06, 0.05],
-        [0.13, 0.14, 0.15]
-    ), 1000))
-    box_col_counts: ClassVar[Dict[BoxId, int]] = dict(enumerate(range(2, 4+1), 1000))
+    ### Blocks
+    blocks_ids_to_dimensions: ClassVar[Dict[BlockId, Tuple[float, float, float]]] = dict(enumerate(get_tagged_block_sizes(), 1000))
+
+    ### Boxes
+    max_box_col_count: ClassVar[float] = 5
+    assert max_box_col_count >= max(*range_train_box_cols)
+
+    box_width_sep: ClassVar[float]
+    box_width_margin: ClassVar[float]
+    box_depth_sep: ClassVar[float]
+    box_depth_margin: ClassVar[float]
+    box_width_sep, box_width_margin, box_depth_sep, box_depth_margin = get_box_creation_params(
+        max_block_width = max(size for d, w, _ in blocks_ids_to_dimensions.values() for size in [d, w]),
+        max_finger_width = 0.14,
+        gripper_width = 0.21,
+        col_margins = 0.06,
+        row_margins = 0.03,
+    )
+    box_height: ClassVar[float] = 0.545
+
+    num_cols_to_box_id: ClassVar[Dict[int, BoxId]] = {i: i for i in range(2, max_box_col_count+1)}
+    box_id_to_dimensions: ClassVar[Dict[BoxId, Tuple[float, float, float]]] = dict(zip(
+        num_cols_to_box_id.keys(),
+        itertools.starmap(get_box_dimensions, zip(
+            itertools.repeat(num_box_rows),
+            num_cols_to_box_id.values(),
+            itertools.repeat(box_height),
+            itertools.repeat(box_width_sep),
+            itertools.repeat(box_width_margin),
+            itertools.repeat(box_depth_sep),
+            itertools.repeat(box_depth_margin),
+        ))
+    ))
+    box_id_to_dimensions[num_cols_to_box_id[5]] = (0.279, 0.93, 0.545)
 
     ## World Shape Parameters
     hiding_pose: ClassVar[Pose] = Pose((0.0, 0.0, -10.0), PyBulletEnv._default_orn)
 
-    box_color: ClassVar[Tuple[float, float, float, float]] = (0.1, 0.1, 0.1, 0.7)
-    box_height: ClassVar[float] = 0.4
-    box_col_margins: ClassVar[float] = 0.05
-    box_row_margins: ClassVar[float] = 0.03
-
-    gripper_width: ClassVar[float] = 0.21
-    max_finger_width: ClassVar[float] = 0.14
+    box_color: ClassVar[Tuple[float, float, float, float]] = (0.70, 0.55, 0.36, 0.7)
+    box_thickness: ClassVar[float] = 0.005
 
     robot_base_pos: ClassVar[Pose3D] = (-0.0716, .0, .0)
-    robot_ee_init_pose: ClassVar[Pose] = Pose((0.3, .0, 0.3), (.0, 1.0, .0, .0))
+    robot_ee_init_pose: ClassVar[Pose] = Pose((0.4, .0, 0.5), (.0, 1.0, .0, .0))
     robot_finger_normals: ClassVar[Tuple[Pose3D, Pose3D]] = ((0, 1, 0), (0, -1, 0))
 
-    debug_space_height: ClassVar[float] = 1.21
-    debug_space_width: ClassVar[float] = 1.4
-    debug_space_size: ClassVar[float] = 0.5
+    ## Collision Thresholds
+    bounds_min_distance: ClassVar[float] = 0.01
+    box_min_distance: ClassVar[float] = 0.005
+    block_min_distance: ClassVar[float] = 0.003
 
     ## Predicate thresholds
     held_thresh: ClassVar[float] = 0.5
@@ -198,16 +247,16 @@ class PyBulletPackingEnv(PyBulletEnv):
         range_box_cols: Tuple[int, int]
     ) -> EnvironmentTask:
         num_box_cols = rng.integers(*range_box_cols, endpoint=True)
-        collision_poly = MultiPolygon()
 
-        # Creating objects
+        # Setting up the state
+        ## Creating objects
         block_id_to_block = {
             block_id: Object(f"block{idx}", self._block_type)
-            for idx, block_id in enumerate(rng.choice(list(self.block_sizes.keys()), num_box_cols * self.num_box_rows, replace=False))
+            for idx, block_id in enumerate(rng.choice(list(self.blocks_ids_to_dimensions.keys()), num_box_cols * self.num_box_rows, replace=False))
         }
-        box_id = self._get_box_id(num_box_cols)
+        box_id = self.num_cols_to_box_id[num_box_cols]
 
-        # Setting up placement offsets
+        ## Setting up placement offsets
         placement_indices = np.arange(num_box_cols * self.num_box_rows).reshape(self.num_box_rows, num_box_cols)
         for row in range(self.num_box_rows):
             rng.shuffle(placement_indices[row])
@@ -218,24 +267,23 @@ class PyBulletPackingEnv(PyBulletEnv):
             placement_indices % num_box_cols - (num_box_cols - 1) / 2
         ]).T
 
-        y_sep, _, x_sep, _ = self._get_box_creation_params()
-        placement_offsets = list(map(tuple, placement_coords * [x_sep, y_sep]))
+        placement_offsets = list(map(tuple, placement_coords * [self.box_depth_sep, self.box_width_sep]))
 
-        # Creating the state and goal
+        ## Creating the state and goal
         data: Dict[Object, npt.NDArray] = {}
         state = PyBulletPackingState(data, self._robot_initial_joints, block_id_to_block, box_id, placement_offsets)
         goal = {self._InBox([block, self._box]) for block in block_id_to_block.values()}
 
-        # Setting up the robot and joint positions
+        # Setting up object data
+        ## Setting up the robot and joint positions
         data[self._robot] = np.array(list(itertools.chain(
             self.robot_ee_init_pose.position,
             self.robot_ee_init_pose.orientation,
             [1.0]
         )))
 
-        # Setting up the box
-        box_d, box_w, box_h = self._get_box_dims(box_id)
-        box_poly = box(-box_d/2, -box_w/2, box_d/2, box_w/2)
+        ## Setting up the box
+        box_d, box_w, box_h = self.box_id_to_dimensions[box_id]
         _, box_y_min, box_x_max, box_y_max = self.box_poses.bounds
 
         box_x = box_x_max - box_d/2 - 0.0001
@@ -244,17 +292,17 @@ class PyBulletPackingEnv(PyBulletEnv):
         data[self._box] = np.array(list(itertools.chain(
             (box_x, box_y, box_h / 2), [box_d, box_w, box_h],
         )))
-        collision_poly = collision_poly.union(
-            translate(box(-box_d/2 - self.box_front_margin, -box_w/2, box_d/2, box_w/2), box_x, box_y)
+        box_margin_poly = translate(box(-box_d/2 - self.box_front_margin, -box_w/2, box_d/2, box_w/2), box_x, box_y).union(
+            box(box_x - box_d/2, box_y_min, box_x + box_d/2, box_y_max)
         )
-        collision_poly = collision_poly.union(
-            translate(box(-box_d/2, box_y_min, box_d/2, box_y_max), box_x, box_y)
-        )
+        box_poly = translate(box(-box_d/2, box_y_min, box_d/2, box_y_max), box_x, box_y)
 
-        # Setting up the blocks
+        ## Setting up the blocks
         block_x_min, block_y_min, block_x_max, block_y_max = self.block_poses.bounds
+        blocks_poly = MultiPolygon()
+        blocks_margins_poly = MultiPolygon()
         for block_id, block in block_id_to_block.items():
-            block_d, block_w, block_h = self.block_sizes[block_id]
+            block_d, block_w, block_h = self.blocks_ids_to_dimensions[block_id]
             for _ in range(self.num_tries):
                 block_x_vertical = rng.choice([True, False])
                 block_axis_up = rng.choice([True, False])
@@ -264,13 +312,19 @@ class PyBulletPackingEnv(PyBulletEnv):
                 )
 
                 block_w_2d = block_w if block_x_vertical else block_d
-                block_poly_margins = translate(rotate(
-                    box(-block_h/2, -block_w_2d/2 - self.block_side_margin, block_h/2, block_w_2d/2 + self.block_side_margin),
-                block_rot, use_radians=True), block_x, block_y)
-                if self.block_poses.contains(block_poly_margins) and not collision_poly.intersects(block_poly_margins) >= self.block_side_margin and block_x > -0.0:
+                block_transform = lambda geom: translate(rotate(geom, block_rot, use_radians=True), block_x, block_y)
+                block_poly = block_transform(box(-block_h/2, -block_w_2d/2, block_h/2, block_w_2d/2))
+                block_poly_margins = block_transform(box(
+                    -block_h/2 - self.block_min_distance,
+                    -block_w_2d/2 - max(self.block_min_distance, self.block_side_margin),
+                    block_h/2 + self.block_min_distance,
+                    block_w_2d/2 + max(self.block_side_margin, self.block_min_distance)
+                ))
+                if self.block_poses.contains(block_poly) and not box_margin_poly.intersects(block_poly) and \
+                        not box_poly.intersects(block_poly_margins) and not blocks_poly.intersects(block_poly_margins) and\
+                        not blocks_margins_poly.intersects(block_poly):
                     break
             else:
-                print([self.block_sizes[block_id] for block_id in block_id_to_block])
                 raise ValueError('Could not generate a task with given settings')
 
             block_quat = multiply_poses(
@@ -287,9 +341,8 @@ class PyBulletPackingEnv(PyBulletEnv):
                 block_quat,
                 [0],
             )))
-            collision_poly = collision_poly.union(translate(rotate(
-                box(-block_h/2, -block_w_2d/2, block_h/2, block_w_2d/2),
-            block_rot, use_radians=True), block_x, block_y))
+            blocks_poly = blocks_poly.union(block_poly)
+            blocks_margins_poly = blocks_margins_poly.union(block_poly_margins)
         return EnvironmentTask(state, goal)
 
     def _generate_real_task(
@@ -298,14 +351,15 @@ class PyBulletPackingEnv(PyBulletEnv):
         num_box_cols = CFG.pybullet_packing_test_num_box_cols
         assert len(self._real_block_poses) == num_box_cols * self.num_box_rows
 
-        # Creating objects
+        # Setting up the state
+        ## Creating objects
         block_id_to_block = {
             block_id: Object(f"block{block_id}", self._block_type)
             for block_id in self._real_block_poses
         }
-        box_id = self._get_box_id(CFG.pybullet_packing_test_num_box_cols)
+        box_id = self.num_cols_to_box_id[CFG.pybullet_packing_test_num_box_cols]
 
-        # Setting up placement offsets
+        ## Setting up placement offsets
         placement_indices = np.arange(num_box_cols * self.num_box_rows).reshape(self.num_box_rows, num_box_cols)
         for row in range(self.num_box_rows):
             self._test_rng.shuffle(placement_indices[row])
@@ -316,37 +370,38 @@ class PyBulletPackingEnv(PyBulletEnv):
             placement_indices % num_box_cols - (num_box_cols - 1) / 2
         ]).T
 
-        y_sep, _, x_sep, _ = self._get_box_creation_params()
-        placement_offsets = list(map(tuple, placement_coords * [x_sep, y_sep]))
+        placement_offsets = list(map(tuple, placement_coords * [self.box_width_sep, self.box_depth_sep]))
 
-        # Creating the state and goal
+        ## Creating the state and goal
         data: Dict[Object, npt.NDArray] = {}
         state = PyBulletPackingState(data, self._robot_initial_joints, block_id_to_block, box_id, placement_offsets)
         goal = {self._InBox([block, self._box]) for block in block_id_to_block.values()}
 
-        # Setting up the robot and joint positions
+        # Setting up object data
+        ## Setting up the robot and joint positions
         data[self._robot] = np.array(list(itertools.chain(
             self.robot_ee_init_pose.position,
             self.robot_ee_init_pose.orientation,
             [1.0]
         )))
 
-        # Setting up the box
-        box_d, box_w, box_h = self._get_box_dims(box_id)
+        ## Setting up the box
+        box_d, box_w, box_h = self.box_id_to_dimensions[box_id]
         _, _, box_x_max, _ = self.box_poses.bounds
         data[self._box] = np.array(list(itertools.chain(
             (box_x_max - box_d/2 - 0.0001, 0, box_h / 2), [box_d, box_w, box_h],
         )))
 
-        # Setting up the blocks
+        ## Setting up the blocks
         for block_id, block in block_id_to_block.items():
             pose = Pose((0, 0, self.block_vert_offset)).multiply(self._real_block_poses[block_id])
             data[block] = np.array(list(itertools.chain(
                 pose.position,
-                self.block_sizes[block_id],
+                self.blocks_ids_to_dimensions[block_id],
                 pose.orientation,
                 [0],
             )))
+        self._reset_state(state)
         return EnvironmentTask(state, goal)
 
     @classmethod
@@ -367,14 +422,14 @@ class PyBulletPackingEnv(PyBulletEnv):
         p.setCollisionFilterPair(pybullet_robot.robot_id, bodies.bounds_obj_id, -1, -1, False, physicsClientId=physics_client_id)
 
         # Creating the box objects
-        assert max(cls.box_col_counts.values()) >= max(*cls.range_train_box_cols, CFG.pybullet_packing_test_num_box_cols)
-        bodies.box_id_to_obj_id = {box_id: cls._create_box(box_id, physics_client_id) for box_id in cls.box_col_counts}
+        bodies.box_id_to_obj_id = {box_id: cls._create_box(box_id, physics_client_id) for box_id in cls.box_id_to_dimensions}
+        logging.info(f"BOX DIMENSIONS: {[(num_cols, cls.box_id_to_dimensions[box_id]) for num_cols, box_id in cls.num_cols_to_box_id.items()]}")
 
         # Creating the block objects
-        assert max(cls.box_col_counts.values()) * cls.num_box_rows <= len(cls.block_sizes)
+        assert cls.max_box_col_count * cls.num_box_rows <= len(cls.blocks_ids_to_dimensions)
         bodies.block_id_to_obj_id = {
             block_id: cls._create_block(dimensions, color, physics_client_id)
-            for color, (block_id, dimensions) in zip(np.linspace([1, 0, 0, 1], [0, 0, 1, 1], len(cls.block_sizes)), cls.block_sizes.items())
+            for color, (block_id, dimensions) in zip(np.linspace([1, 0, 0, 1], [0, 0, 1, 1], len(cls.blocks_ids_to_dimensions)), cls.blocks_ids_to_dimensions.items())
         }
 
         # Parsing the real world task info
@@ -382,7 +437,7 @@ class PyBulletPackingEnv(PyBulletEnv):
         if CFG.pybullet_packing_task_info:
             real_block_info = pickle.load(open(CFG.pybullet_packing_task_info, 'rb'))
             for real_block_pose, real_block_dimensions in real_block_info:
-                for block_id, block_dimensions in cls.block_sizes.items():
+                for block_id, block_dimensions in cls.blocks_ids_to_dimensions.items():
                     if np.allclose(block_dimensions, real_block_dimensions):
                         bodies.real_block_poses[block_id] = real_block_pose
                         break
@@ -408,18 +463,34 @@ class PyBulletPackingEnv(PyBulletEnv):
     def simulate(self, state: State, action: Action) -> State:
         """Additionally check for collisions"""
         logging.info("SIMULATE")
-        self._restart_pybullet() # Check if the env is running in a new process and needs a new pybullet instance
 
+        # Check if the env is running in a new process and needs a new pybullet instance
+        self._restart_pybullet()
+
+        # Reset pybullet
         self._current_observation = state
         self._reset_state(state)
+
+        # Remember whether an object was grasped to check later if we performed a grasp
+        was_block_grasped = self._held_obj_id is not None
+
+        # Perform the action
         next_state = self.step(action)
 
-        self._remove_grasp_constraint() # Clean up afterwards for functions like run_motion_planning
+        # Clean up afterwards for functions like run_motion_planning
+        self._remove_grasp_constraint()
 
-        if CFG.pybullet_control_mode == "reset" and self.check_collisions(itertools.chain(
-            (self._block_id_to_obj_id[block_id] for block_id in self._block_id_to_block),
-            [self._bounds_obj_id, self._box_id_to_obj_id[self._box_id]]
-        )):
+        # Run collision checking
+        assert isinstance(self._pybullet_robot, PandaPyBulletRobot)
+        collision, block_bounds_too_close = self.check_collisions(
+            robot = self._pybullet_robot,
+            bounds_obj_id = self._bounds_obj_id,
+            box_obj_id = self._box_id_to_obj_id[self._box_id],
+            block_obj_ids = [self._block_id_to_obj_id[block_id] for block_id in self._block_id_to_block],
+            held_obj_id = self._held_obj_id,
+            physics_client_id = self._physics_client_id
+        )
+        if CFG.pybullet_control_mode == "reset" and collision and not (block_bounds_too_close and not was_block_grasped):
             return state
         return next_state
 
@@ -434,30 +505,86 @@ class PyBulletPackingEnv(PyBulletEnv):
         cls._reset_pybullet(state, robot, bodies.block_id_to_obj_id, bodies.box_id_to_obj_id, physics_client_id)
 
         held_blocks = [(block_id, block) for block_id, block in state._block_id_to_block.items() if state.get(block, "held") >= cls.held_thresh]
-        held_block_id, held_block = held_blocks[0]
 
+        held_obj_id = None
         if held_blocks:
             (held_block_id, held_block), = held_blocks
+            held_obj_id = bodies.block_id_to_obj_id[held_block_id]
             bx, by, bz = state[held_block][:3]
             bqx, bqy, bqz, bqw = state[held_block][6:10]
             rx, ry, rz, rqx, rqy, rqz, rqw = state[cls._robot][:7]
-            base_link_to_held_obj = Pose((rx, ry, rz), (rqx, rqy, rqz, rqw)).invert().multiply(Pose((bx, by, bz), (bqx, bqy, bqz, bqw)))
+            base_link_to_held_block = Pose((rx, ry, rz), (rqx, rqy, rqz, rqw)).invert().multiply(Pose((bx, by, bz), (bqx, bqy, bqz, bqw)))
         else:
-            base_link_to_held_obj = None
+            base_link_to_held_block = None
 
-        return run_motion_planning(
-            robot = robot,
-            initial_positions = state.joint_positions,
-            target_positions = target_joint_positions,
-            collision_bodies = list(itertools.chain(
-                (bodies.block_id_to_obj_id[block_id] for block_id in state._block_id_to_block),
-                [bodies.bounds_obj_id, bodies.box_id_to_obj_id[state._box_id]]
-            )),
-            seed = CFG.seed,
-            physics_client_id = physics_client_id,
-            held_object = bodies.block_id_to_obj_id[held_block_id] if held_blocks else None,
-            base_link_to_held_obj = base_link_to_held_obj, # type: ignore
-        )
+        joint_space = robot.action_space
+        joint_space.seed(CFG.seed)
+        num_interp = CFG.pybullet_birrt_extend_num_interp
+
+        def _sample_fn(pt: PackingMotionPlanningState) -> PackingMotionPlanningState:
+            joints, _, _ = pt
+            new_joints = joint_space.sample()
+            # Don't change the fingers.
+            new_joints[robot.left_finger_joint_idx] = joints[robot.left_finger_joint_idx]
+            new_joints[robot.right_finger_joint_idx] = joints[robot.right_finger_joint_idx]
+            return new_joints, False, False # Not a starting state and the block cannot be too close
+
+        def _extend_fn(pt1: PackingMotionPlanningState,
+                    pt2: PackingMotionPlanningState) -> Iterator[PackingMotionPlanningState]:
+            joints_start, start_is_starting_state, _ = pt1
+            joints_end, end_is_starting_state, _ = pt2
+            is_starting_state = start_is_starting_state | end_is_starting_state
+            if np.allclose(joints_start, joints_end):
+                yield joints_end, False, is_starting_state
+            for joints in np.linspace(joints_start, joints_end, num_interp + 1)[1:]:
+                yield joints, False, is_starting_state
+
+        def _collision_fn(pt: PackingMotionPlanningState) -> bool:
+            joints, _, block_too_close_to_bounds_ok = pt
+            robot.set_joints(list(joints))
+            if base_link_to_held_block is not None:
+                assert held_obj_id is not None
+                world_to_base_link = get_link_state(
+                    robot.robot_id,
+                    robot.end_effector_id,
+                    physics_client_id=physics_client_id).com_pose
+                world_to_held_block = world_to_base_link.multiply(base_link_to_held_block)
+                p.resetBasePositionAndOrientation(
+                    held_obj_id,
+                    world_to_held_block.position,
+                    world_to_held_block.orientation,
+                    physicsClientId=physics_client_id)
+
+            assert isinstance(robot, PandaPyBulletRobot)
+            collision, block_too_close_to_bounds = cls.check_collisions(
+                robot = robot,
+                bounds_obj_id = bodies.bounds_obj_id,
+                box_obj_id = bodies.box_id_to_obj_id[state._box_id],
+                block_obj_ids = [bodies.block_id_to_obj_id[block_id] for block_id in state._block_id_to_block],
+                held_obj_id = held_obj_id,
+                physics_client_id = physics_client_id,
+            )
+            return collision and not (block_too_close_to_bounds and block_too_close_to_bounds_ok)
+
+        def _distance_fn(from_pt: PackingMotionPlanningState, to_pt: PackingMotionPlanningState) -> float:
+            from_joints, _, _ = from_pt
+            to_joints, _, _ = to_pt
+            return ((from_joints - to_joints) ** 2).sum()
+
+        joint_positions_list, _, _ = zip(*BiRRT(
+            _sample_fn,
+            _extend_fn,
+            _collision_fn,
+            _distance_fn,
+            np.random.default_rng(CFG.seed),
+            num_attempts=CFG.pybullet_birrt_num_attempts,
+            num_iters=CFG.pybullet_birrt_num_iters,
+            smooth_amt=CFG.pybullet_birrt_smooth_amt
+        ).query((np.array(state.joint_positions), True, True), (np.array(target_joint_positions), False, False)))
+
+        keep_joints = [True] + [not np.allclose(np.subtract(next, curr), np.subtract(curr, prev)) for prev, curr, next in zip(joint_positions_list[:-2], joint_positions_list[1:-1], joint_positions_list[2:])] + [True]
+        filtered_joint_positions, _ = zip(*filter(lambda x: x[1], zip(joint_positions_list, keep_joints)))
+        return filtered_joint_positions
 
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle packing-specific resetting."""
@@ -543,7 +670,7 @@ class PyBulletPackingEnv(PyBulletEnv):
 
         # Getting the robot state
         rx, ry, rz, rqx, rqy, rqz, rqw, rf = self._pybullet_robot.get_state()
-        data[self._robot] = np.array([rx, ry, rz, rqx, rqy, rqz, rqw, self._fingers_joint_to_state(rf)])
+        data[self._robot] = np.array([rx, ry, rz, rqx, rqy, rqz, rqw, self.fingers_joint_to_state(rf, self._pybullet_robot)])
 
         # Getting the box state
         box_position = p.getBasePositionAndOrientation(
@@ -551,7 +678,7 @@ class PyBulletPackingEnv(PyBulletEnv):
             physicsClientId=self._physics_client_id
         )[0]
         data[self._box] = np.array(list(itertools.chain(
-            box_position, self._get_box_dims(self._box_id)
+            box_position, self.box_id_to_dimensions[self._box_id]
         )))
 
         # Getting the blocks states
@@ -561,7 +688,7 @@ class PyBulletPackingEnv(PyBulletEnv):
                 physicsClientId=self._physics_client_id
             )
             data[block] = np.array(list(itertools.chain(
-                block_pose[0], self.block_sizes[block_id],
+                block_pose[0], self.blocks_ids_to_dimensions[block_id],
                 block_pose[1], [0.0]
             )))
         if self._held_obj_id is not None:
@@ -620,39 +747,95 @@ class PyBulletPackingEnv(PyBulletEnv):
         finger_state = get_link_state(self._pybullet_robot.robot_id, finger_id, self._physics_client_id)
         return matrix_from_quat(finger_state.linkWorldOrientation)
 
-    def check_collisions(self, obj_ids_iter: Iterator[int]) -> bool:
-        block_obj_ids = set(self._block_id_to_obj_id.values())
-        obj_ids = list(obj_ids_iter)
+    @classmethod
+    def check_collisions(
+        cls,
+        robot: PandaPyBulletRobot,
+        bounds_obj_id: int,
+        box_obj_id: int,
+        block_obj_ids: Iterable[int],
+        held_obj_id: Optional[int],
+        physics_client_id: int,
+    ) -> Tuple[bool, bool]:
+        block_obj_ids = set(block_obj_ids)
+        if robot.check_self_collision(robot.get_joints()):
+            logging.info("ROBOT SELF COLLISION")
+            return True, False
 
-        p.performCollisionDetection(physicsClientId=self._physics_client_id)
-        for idx, obj_id in enumerate(obj_ids):
-            if obj_id == self._held_obj_id:
-                continue
-            if p.getContactPoints(self._pybullet_robot.robot_id, obj_id, physicsClientId=self._physics_client_id):
-                p1, p2 = p.getContactPoints(self._pybullet_robot.robot_id, obj_id, physicsClientId=self._physics_client_id)[0][5:7]
-                logging.info(f"ROBOT COLLISION {p.getBodyInfo(obj_id, physicsClientId=self._physics_client_id)} {idx}/{len(obj_ids)}")
-                if obj_id in block_obj_ids:
-                    logging.info("BLOCK")
-                elif obj_id == self._box_id_to_obj_id[self._box_id]:
-                    logging.info("BOX")
+        if held_obj_id is not None:
+            block_obj_ids.discard(held_obj_id)
+
+        collisions = cls._check_collisions_single_mesh(
+            robot.robot_id, bounds_obj_id, box_obj_id, block_obj_ids, physics_client_id, exclude_bounds_base_collision_check=True
+        )
+        for obj_id, distance in collisions:
+            if obj_id == bounds_obj_id:
+                logging.info(f"ROBOT COLLISION WITH BOUNDS AT DISTANCE {distance}")
+            elif obj_id == box_obj_id:
+                logging.info(f"ROBOT COLLISION WITH BOX AT DISTANCE {distance}")
+            else:
+                logging.info(f"ROBOT COLLISION WITH BLOCK WITH ID {obj_id} AT DISTANCE {distance}")
+        if collisions:
+            return True, False
+
+        if held_obj_id is not None:
+            collisions = cls._check_collisions_single_mesh(held_obj_id, bounds_obj_id, box_obj_id, block_obj_ids, physics_client_id)
+            held_obj_too_close_to_bounds = True
+            for obj_id, distance in collisions:
+                if obj_id == bounds_obj_id:
+                    logging.info(f"BLOCK COLLISION WITH BOUNDS AT DISTANCE {distance}")
+                elif obj_id == box_obj_id:
+                    logging.info(f"BLOCK COLLISION WITH BOX AT DISTANCE {distance}")
                 else:
-                    logging.info("BOUNDS")
-                return True
-            if self._held_obj_id is not None and p.getContactPoints(self._held_obj_id, obj_id, physicsClientId=self._physics_client_id):
-                p1, p2 = p.getContactPoints(self._held_obj_id, obj_id, physicsClientId=self._physics_client_id)[0][5:7]
-                logging.info(f"BLOCK COLLISION {p.getBodyInfo(obj_id, physicsClientId=self._physics_client_id)} {idx}/{len(obj_ids)}")
-                if obj_id in block_obj_ids:
-                    logging.info("BLOCK")
-                elif obj_id == self._box_id_to_obj_id[self._box_id]:
-                    logging.info("BOX")
-                else:
-                    logging.info("BOUNDS")
-                return True
-        return False
+                    logging.info(f"BLOCK COLLISION WITH BLOCK WITH ID {obj_id} AT DISTANCE {distance}")
+                held_obj_too_close_to_bounds &= obj_id == bounds_obj_id and distance > 0.0
+            if collisions:
+                return True, held_obj_too_close_to_bounds
+        return False, False
 
     @classmethod
-    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
-                               fingers_state: float) -> float:
+    def _check_collisions_single_mesh(
+        cls,
+        obj_id: int,
+        bounds_obj_id: int,
+        box_obj_id: int,
+        block_obj_ids: Iterable[int],
+        physics_client_id: int,
+        exclude_bounds_base_collision_check: bool = False
+    ) -> List[Tuple[int, float]]:
+        collisions = []
+        collisions += cls._check_collisions_two_meshes(
+            obj_id, bounds_obj_id, cls.bounds_min_distance, physics_client_id, base_collision = not exclude_bounds_base_collision_check
+        )
+        collisions += cls._check_collisions_two_meshes(obj_id, box_obj_id, cls.box_min_distance, physics_client_id)
+        for block_obj_id in block_obj_ids:
+            collisions += cls._check_collisions_two_meshes(obj_id, block_obj_id, cls.block_min_distance, physics_client_id)
+        return collisions
+
+    @classmethod
+    def _check_collisions_two_meshes(
+        cls,
+        obj_id: int,
+        other_obj_id: int,
+        min_distance: float,
+        physics_client_id: int,
+        base_collision: bool = True,
+    ) -> List[Tuple[int, float]]:
+        if obj_id == other_obj_id:
+            return []
+        closest_points = p.getClosestPoints(obj_id, other_obj_id, min_distance, physicsClientId=physics_client_id)
+        if not base_collision:
+            closest_points = [p for p in closest_points if p[3] != -1 or p[4] != -1]
+        if closest_points:
+            return [(other_obj_id, min(closest_point[8] for closest_point in closest_points))]
+        return []
+
+    @classmethod
+    def fingers_state_to_joint(
+        cls,
+        pybullet_robot: SingleArmPyBulletRobot,
+        fingers_state: float,
+    ) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
 
         The fingers in the State are either 0 or 1. Transform them to be
@@ -664,14 +847,16 @@ class PyBulletPackingEnv(PyBulletEnv):
         closed_f = pybullet_robot.closed_fingers
         return closed_f if fingers_state == 0.0 else open_f
 
-    def _fingers_joint_to_state(self, fingers_joint: float) -> float:
+    @classmethod
+    def fingers_joint_to_state(
+        cls,
+        fingers_joint: float,
+        pybullet_robot: SingleArmPyBulletRobot,
+    ) -> float:
         """Convert the finger joint values in PyBullet to values for the State.
-
-        The joint values given as input are the ones coming out of
-        self._pybullet_robot.get_state().
         """
-        open_f = self._pybullet_robot.open_fingers
-        closed_f = self._pybullet_robot.closed_fingers
+        open_f = pybullet_robot.open_fingers
+        closed_f = pybullet_robot.closed_fingers
         # Fingers in the State should be either 0 or 1.
         return int(fingers_joint > (open_f + closed_f) / 2)
 
@@ -703,39 +888,14 @@ class PyBulletPackingEnv(PyBulletEnv):
         )
 
     @classmethod
-    def _get_box_creation_params(cls) -> Tuple[float, float, float, float]:
-        max_block_width = max(size for sizes in cls.block_sizes.values() for size in sizes[:2])
-
-        block_width_sep = max(max_block_width/2, cls.max_finger_width/2) + cls.box_col_margins + max_block_width/2
-        block_width_margin = cls.gripper_width / 2 + cls.box_col_margins
-
-        block_depth_sep = max_block_width + cls.box_row_margins
-        block_depth_margin = max_block_width / 2 + cls.box_row_margins
-
-        return block_width_sep, block_width_margin, block_depth_sep, block_depth_margin
-
-    @classmethod
-    def _get_box_dims(cls, box_id: BoxId) -> Tuple[float, float, float]:
-        block_width_sep, block_width_margin, block_depth_sep, block_depth_margin = cls._get_box_creation_params()
-        box_depth = block_depth_sep * (cls.num_box_rows - 1) + block_depth_margin * 2
-        box_width = block_width_sep * (cls.box_col_counts[box_id] - 1) + block_width_margin * 2
-        return (box_depth, box_width, cls.box_height)
-
-    @classmethod
     def _create_box(cls, box_id: int, physics_client_id: int) -> int:
         return create_pybullet_box(
             cls.box_color,
-            cls._get_box_dims(box_id),
-            0, 1, cls._default_orn,
+            cls.box_id_to_dimensions[box_id],
+            cls.box_thickness,
+            1, cls._default_orn,
             physics_client_id,
         )
-
-    @classmethod
-    def _get_box_id(cls, col_count: int) -> BoxId:
-        for box_id, box_col_count in cls.box_col_counts.items():
-            if box_col_count == col_count:
-                return box_id
-        raise ValueError(f"Box with column count {col_count} does not exist")
 
     @classmethod
     def _get_box_corners(cls, state: State, block: Object) -> npt.NDArray[np.float32]:
@@ -758,39 +918,53 @@ class PyBulletPackingEnv(PyBulletEnv):
 
 def create_pybullet_box(
     color: Tuple[float, float, float, float],
-    scale: Tuple[float, float, float],
-    mass: float, friction: float, orientation: Quaternion,
+    dimensions: Tuple[float, float, float],
+    thickness: float,
+    friction: float, orientation: Quaternion,
     physics_client_id: int
 ) -> int:
     """A generic utility for creating a new block.
 
     Returns the PyBullet ID of the newly created block.
     """
-    # The poses here are not important because they are overwritten by
-    # the state values when a task is reset.
     pose = (0, 0, 0)
+    mass = 0
 
-    # Create the collision shape.
-    collision_id = p.createCollisionShape(shapeType=p.GEOM_MESH,
-                                          fileName=get_asset_path("box.obj"),
-                                          meshScale=scale,
-                                          flags=p.GEOM_FORCE_CONCAVE_TRIMESH,
-                                          physicsClientId=physics_client_id)
+    d, w, h = dimensions
+    half_extents = [
+        (thickness/2, w/2, h/2),
+        (d/2, thickness/2, h/2), (d/2, thickness/2, h/2),
+        (d/2, w/2, thickness/2), (d/2, w/2, thickness/2)
+    ]
+    frame_positions = [
+        (d/2 - thickness/2, 0, 0),
+        (0, -w/2 + thickness/2, 0), (0, w/2 - thickness/2, 0),
+        (0, 0, -h/2 + thickness/2), (0, 0, h/2 - thickness/2)
+    ]
 
-    # Create the visual_shape.
-    visual_id = p.createVisualShape(shapeType=p.GEOM_MESH,
-                                    fileName=get_asset_path("box.obj"),
-                                    meshScale=scale,
-                                    rgbaColor=color,
-                                    physicsClientId=physics_client_id)
+    collision_id = p.createCollisionShapeArray(
+        shapeTypes = [p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX],
+        halfExtents = half_extents,
+        collisionFramePositions = frame_positions,
+        physicsClientId=physics_client_id,
+    )
+    visual_id = p.createVisualShapeArray(
+        shapeTypes = [p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX],
+        halfExtents = half_extents,
+        visualFramePositions = frame_positions,
+        rgbaColors=[color, color, color, color, color],
+        physicsClientId=physics_client_id,
+    )
 
-    # Create the body.
-    block_id = p.createMultiBody(baseMass=mass,
-                                 baseCollisionShapeIndex=collision_id,
-                                 baseVisualShapeIndex=visual_id,
-                                 basePosition=pose,
-                                 baseOrientation=orientation,
-                                 physicsClientId=physics_client_id)
+    block_id = p.createMultiBody(
+        baseMass=mass,
+        baseCollisionShapeIndex=collision_id,
+        baseVisualShapeIndex=visual_id,
+        basePosition=pose,
+        baseOrientation=orientation,
+        physicsClientId=physics_client_id
+    )
+
     p.changeDynamics(
         block_id,
         linkIndex=-1,  # -1 for the base

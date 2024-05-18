@@ -78,7 +78,7 @@ class OptionHelper:
         world_from_current_gripper: Pose = Pose((rx, ry, rz), (rqx, rqy, rqz, rqw))
 
         return world_from_current_gripper, world_from_target_gripper, "open"
-    
+
     def grasp_block_guide(
         self,
         state: State,
@@ -149,7 +149,7 @@ class OptionHelper:
         )
 
         return world_from_current_gripper, world_from_target_gripper, "closed"
-    
+
     def post_put_block_guide(
         self,
         state: State,
@@ -218,7 +218,7 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
         option_helper = OptionHelper(pybullet_robot, robot_type)
 
         # Option funcs
-        box_depths, box_widths, _ = zip(*(PyBulletPackingEnv._get_box_dims(box_id) for box_id in PyBulletPackingEnv.box_col_counts))
+        box_depths, box_widths, _ = zip(*PyBulletPackingEnv.box_id_to_dimensions.values())
         box_max_depth, box_max_width = max(box_depths), max(box_widths)
 
         option_types = [robot_type, box_type, block_type]

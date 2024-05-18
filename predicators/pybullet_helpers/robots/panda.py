@@ -1,5 +1,9 @@
 """Franka Emika Panda robot."""
-from typing import Optional
+from functools import cached_property
+import itertools
+import logging
+import time
+from typing import List, Optional, Tuple
 
 from predicators import utils
 from predicators.pybullet_helpers.ikfast import IKFastInfo
@@ -16,6 +20,16 @@ import pybullet as p
 
 class PandaPyBulletRobot(SingleArmPyBulletRobot):
     """Franka Emika Panda which we assume is fixed on some base."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @cached_property
+    def _collision_check_link_pairs(self) -> List[Tuple[int, int]]:
+        return list(itertools.product(
+            map(self.link_from_name, ["panda_link0", "panda_link1", "panda_link2"]),
+            map(self.link_from_name, ["panda_link5", "panda_link6", "panda_link7", "panda_link8", "panda_hand", "panda_leftfinger", "panda_rightfinger"]),
+        ))
 
     @classmethod
     def get_name(cls) -> str:
@@ -52,7 +66,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
 
     @property
     def open_fingers(self) -> float:
-        return 0.04
+        return 0.040
 
     @property
     def closed_fingers(self) -> float:
@@ -81,8 +95,11 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
 
         # Store current joint positions so we can reset
         initial_joint_states = self.get_joints()
-        
-        filtered_joint_positions = filter(lambda j: not self._check_self_collision(j), map(self._convert_ikfast_to_joint_positions, ik_solutions))
+
+        filtered_joint_positions = filter(
+            lambda j: not self.check_self_collision(j, revert_joints=False),
+            map(self._convert_ikfast_to_joint_positions, ik_solutions)
+        )
         joint_positions = next(filtered_joint_positions, None)
 
         # Reset joint positions
@@ -95,7 +112,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
 
         # Use first solution as it is closest to current joint state
         return joint_positions
-    
+
     def _convert_ikfast_to_joint_positions(self, ik_solution: JointPositions) -> JointPositions:
         joint_positions = list(ik_solution)
         first_finger_idx, second_finger_idx = sorted(
@@ -104,16 +121,15 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         joint_positions.insert(second_finger_idx, self.open_fingers)
         return joint_positions
 
-    def _check_self_collision(self, joint_positions: JointPositions) -> bool:
+    def check_self_collision(self, joint_positions: JointPositions, revert_joints: bool = True) -> bool:
+        initial_joint_states = self.get_joints() if revert_joints else None
         self.set_joints(joint_positions)
-        a = self.link_from_name("panda_link1")
-        b = self.link_from_name("panda_link2")
-        c = self.link_from_name("panda_link5")
-        p.setCollisionFilterPair(self.robot_id, self.robot_id, a, c, True, physicsClientId=self.physics_client_id)
-        p.setCollisionFilterPair(self.robot_id, self.robot_id, b, c, True, physicsClientId=self.physics_client_id)
-        p.performCollisionDetection(physicsClientId=self.physics_client_id)
-        if p.getClosestPoints(self.robot_id, self.robot_id, 0.08, a, c):
-            return True
-        if p.getClosestPoints(self.robot_id, self.robot_id, 0.08, b, c):
-            return True
-        return False
+
+        collision = any(
+            p.getClosestPoints(self.robot_id, self.robot_id, 0.08, link_obj_id, other_link_obj_id)
+            for link_obj_id, other_link_obj_id in self._collision_check_link_pairs
+        )
+
+        if initial_joint_states is not None:
+            self.set_joints(initial_joint_states)
+        return collision

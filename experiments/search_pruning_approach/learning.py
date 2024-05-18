@@ -29,10 +29,14 @@ np.set_printoptions(linewidth=np.inf, precision=4,
 
 def tensor_stats(x: Tensor, full_tensor: bool = False):
     if x.numel() == 0:
-        return f"shape: {x.shape}"
+        return f"device: {x.device}; shape: {x.shape}"
+    if x.grad is None:
+        if full_tensor:
+            return f"min: {x.min(dim=0).values.tolist()}; max: {x.max(dim=0).values.tolist()}; mean: {x.mean(dim=0).tolist()}; std: {x.std(dim=0).tolist()}; device: {x.device}; shape: {x.shape}"
+        return f"min: {x.min().item():.4f}; max: {x.max().item():.4f}; mean: {x.mean().item():.4f}; std: {x.std().item():.4f}; device: {x.device}; shape: {x.shape}"
     if full_tensor:
-        return f"min: {x.min(dim=0).values.tolist()}; max: {x.max(dim=0).values.tolist()}; mean: {x.mean(dim=0).tolist()}; std: {x.std(dim=0).tolist()}; shape: {x.shape}"
-    return f"min: {x.min().item():.4f}; max: {x.max().item():.4f}; mean: {x.mean().item():.4f}; std: {x.std().item():.4f}; shape: {x.shape}"
+        return f"grad_min: {x.grad.min(dim=0).values.tolist():.4f}; grad_max: {x.grad.max(dim=0).values.tolist():.4f}; grad_mean: {x.grad.mean(dim=0).tolist():.4f}; grad_std: {x.grad.std(dim=0).tolist():.4f}; min: {x.min(dim=0).values.tolist():.4f}; max: {x.max(dim=0).values.tolist():.4f}; mean: {x.mean(dim=0).olist():.4f}; std: {x.std(dim=0).tolist():.4f}; grad_device: {x.grad.device}; device: {x.device}; shape: {x.shape}"
+    return f"grad_min: {x.grad.min().item():.4f}; grad_max: {x.grad.max().item():.4f}; grad_mean: {x.grad.mean().item():.4f}; grad_std: {x.grad.std().item():.4f}; min: {x.min().item():.4f}; max: {x.max().item():.4f}; mean: {x.mean().item():.4f}; std: {x.std().item():.4f}; grad_device: {x.grad.device}; device: {x.device}; shape: {x.shape}"
 
 
 def l1_regularization(models: Union[nn.Module, Iterable[nn.Module]]) -> Tensor:
@@ -326,7 +330,6 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         max_train_iters: int,
         general_lr: float,
         transformer_lr: float,
-        min_inference_prefix: int,
         threshold_recalibration_percentile: float,
         max_num_objects: int,
         optimizer_name: str = 'adam',
@@ -344,7 +347,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         assert cls_style in {'learned', 'marked', 'mean'}
         self._cls_style = cls_style
 
-        self.min_inference_prefix = min_inference_prefix
+        self.min_inference_prefix = 0
         self._thresh = classification_threshold
         self._max_num_objects = max_num_objects
 
@@ -361,7 +364,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
             (nsrt, ran_flag): self.create_featurizer(
                 f"featurizer_{self._skeleton_nsrt_indices[(nsrt, ran_flag)]}_{nsrt.name}_{'ran' if ran_flag else 'not_ran'}",
                 nsrt, featurizer_sizes, dropout,
-            ) for nsrt in nsrts for ran_flag in [True, False]
+            ) for (nsrt, ran_flag) in skeleton_nsrts
         }
 
         self._positional_encoding = Tokenizer(
@@ -417,8 +420,14 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         self._unsure_confidence = classification_threshold
         self._trained_failing_nsrts: Set[NSRT] = set()
 
-    def move_to_device(self, device: str) -> 'NeuralFeasibilityClassifier':
-        return self.to(device).share_memory()
+    def set_min_inference_prefix(self, min_inference_prefix: int) -> None:
+        self.min_inference_prefix = min_inference_prefix
+
+    def safe_copy(self) -> 'NeuralFeasibilityClassifier':
+        feasibility_classifier = copy.deepcopy(self)
+        feasibility_classifier.load_state_dict(self.state_dict(), strict=True)
+        feasibility_classifier._optimizer = None
+        return feasibility_classifier
 
     @torch.no_grad()
     def classify(self, states: Sequence[State], skeleton: Sequence[_GroundNSRT]) -> Tuple[bool, float]:
@@ -498,10 +507,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                 self._optimizer.step()
 
                 if itr % 100 == 0:
-                    for name, param in self.named_parameters():
-                        if param.grad is not None:
-                            logging.info(f"-- PARAM NAME {(name + ' '*70)[:70]} gradient stats: {tensor_stats(param.grad)} value stats: {tensor_stats(param)}")
-
+                    self.print_param_debug()
                     if itr % self._num_iters == 0:
                         training_debug_str, _, training_acc, _, _ = self.report_performance(training_dataset, training_loss_fn)
                         validation_debug_str, validation_loss, validation_acc, _, _ = self.report_performance(validation_dataset, validation_loss_fn)
@@ -601,6 +607,10 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
         output = self._classifier_head(classifier_tokens).flatten()
 
         return output, self._classifier_head[0](transformer_outputs).flatten()
+
+    def print_param_debug(self):
+        for name, param in self.state_dict(keep_vars=True).items():
+            logging.info(f"-- DICT ENTRY NAME {(name + ' '*70)[:70]} stats: {tensor_stats(param)}")
 
     def create_featurizer(
         self,

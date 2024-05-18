@@ -10,7 +10,7 @@ from predicators.structs import NSRT, _GroundNSRT, Array, GroundAtom, Object, Pa
 
 
 class PyBulletPackingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
-    offset_perturbation: ClassVar[Tuple[float, float]] = (0.015, 0.015)
+    offset_perturbation: ClassVar[Tuple[float, float]] = (0.015, 0.045)
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
