@@ -22,8 +22,8 @@ ARGS:
   # - "make_demo_videos" 
   # - "use_gui"
 FLAGS:
-  num_train_tasks: 10
-  num_test_tasks: 10
+  num_train_tasks: 20
+  num_test_tasks: 50
   # option_learner: direct_bc # So it doesn' include all oracle options in init
                             # when including all options, should also include
                             # all predicates.
@@ -42,6 +42,7 @@ FLAGS:
   pybullet_camera_width: 1674 
   pybullet_camera_height: 900
   video_fps: 20
+  sesame_max_skeletons_optimized: 200
 
 START_SEED: 2
 NUM_SEEDS: 1

@@ -140,7 +140,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                                         "nsrt_plan": self._last_nsrt_plan,
                                         "metrics": self._last_metrics,
                                         "policy": policy})
-
                 # Collect trajectory
                 traj, _ = utils.run_policy(policy,
                     env,
@@ -168,7 +167,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         invent_ite = 0
-        max_invent_ite = 2
+        max_invent_ite = 3
         invent_at_every_ite = True # Invent at every iterations
         base_candidates = set()
         manual_prompt = True
@@ -177,6 +176,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         save_llm_pred_invent_dataset = True
         solve_rate, prev_solve_rate = 0, np.inf # init to inf
         have_unsolved_train_tasks = solve_rate < 1
+        self._learned_predicates = set()
 
         while invent_ite < max_invent_ite:
             # Act in the environment to collect data
@@ -203,12 +203,33 @@ class VlmInventionApproach(NSRTLearningApproach):
                 num_solved = sum([isinstance(r, tuple) for r in results])
                 solve_rate = num_solved / num_tasks
                 no_improvement = not(solve_rate > prev_solve_rate)
-                logging.info(f"\n===ite {invent_ite}, "+\
-                             f"solve rate {num_solved}/{num_tasks}.\n")
+                logging.info(f"\n===ite {invent_ite}, "
+                             f"solve rate {num_solved / num_tasks} "
+                             f"prev_solve_rate {prev_solve_rate}\n")
+
+                # if invent_ite==1:return
+                # Early stopping
+                if (no_improvement and invent_ite > 0) or solve_rate == 1:
+                    if solve_rate == 1:
+                        logging.info(f"return on ite {invent_ite} because "
+                                     "all train tasks are solved")
+                        # self._nsrts = self._prev_nsrts
+                        # self._learned_predicates = self._prev_learned_predicates
+                        return
+                    else:
+                        logging.info(f"No improvement in solve rate at iteration "
+                        f"{invent_ite}. prev_solve_rate {prev_solve_rate}, current "
+                        f"solve_rate {solve_rate}.")
+                        self._nsrts = self._prev_nsrts
+                        self._learned_predicates = self._prev_learned_predicates
+                        return
+
                 # Add data to the succ/fail_optn_dict
                 self._process_interaction_result(env, results, tasks)
 
+
             # Invent when no improvement in solve rate
+            self._prev_learned_predicates = self._learned_predicates
             if no_improvement or invent_at_every_ite:
                 if CFG.llm_predicator_oracle_base:
                     new_candidates = env.predicates - self._initial_predicates
@@ -294,22 +315,26 @@ class VlmInventionApproach(NSRTLearningApproach):
             annotations = None
             if dataset.has_annotations:
                 annotations = dataset.annotations
+            self._prev_nsrts = self._nsrts
             self._learn_nsrts(dataset.trajectories,
                                 online_learning_cycle=None,
                                 annotations=annotations)
 
             # Print the new classification results with the new operators
-            _, _, _, _, _ = utils.count_classification_result_for_ops(
+            tp, tn, fp, fn, _ = utils.count_classification_result_for_ops(
                                         self._nsrts,
                                         self.succ_optn_dict,
                                         self.fail_optn_dict,
                                         return_str=False,
                                         initial_ite=False,
                                         print_cm=True)
+            clf_acc = (tp + tn) / (tp + tn + fp + fn)
+            logging.info(f"Ite {invent_ite-1}, clf accuracy: {clf_acc:.2f}, "
+                        f"solve rate (before predicate search): {solve_rate}")
             prev_solve_rate = solve_rate
 
         logging.info("Invention finished.")
-        # breakpoint()
+        breakpoint()
         return
 
     def _select_predicates_by_score_hillclimbing(
