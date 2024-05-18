@@ -88,13 +88,14 @@ PackingMotionPlanningState = Tuple[npt.NDArray, bool, bool] # (joints, is starti
 class PyBulletPackingEnv(PyBulletEnv):
     # Assets
     block_poses: ClassVar[Polygon] = wkt.load(open(get_asset_path("block-poses.wkt")))
+    block_poses_margins: ClassVar[Polygon] = wkt.load(open(get_asset_path("block-poses-margins.wkt")))
     box_poses: ClassVar[Polygon] = wkt.load(open(get_asset_path("box-poses.wkt")))
 
     # Settings
     ## Task Generation
     range_train_box_cols: ClassVar[Tuple[int, int]] = (2, 5)
     num_box_rows: ClassVar[int] = 2
-    box_front_margin = 0.2
+    box_front_margin = 0.25
     block_side_margin = 0.1
     block_vert_offset = 0.001
 
@@ -320,9 +321,9 @@ class PyBulletPackingEnv(PyBulletEnv):
                     block_h/2 + self.block_min_distance,
                     block_w_2d/2 + max(self.block_side_margin, self.block_min_distance)
                 ))
-                if self.block_poses.contains(block_poly) and not box_margin_poly.intersects(block_poly) and \
-                        not box_poly.intersects(block_poly_margins) and not blocks_poly.intersects(block_poly_margins) and\
-                        not blocks_margins_poly.intersects(block_poly):
+                if self.block_poses.contains(block_poly) and not self.block_poses_margins.intersects(block_poly_margins) and \
+                        not box_margin_poly.intersects(block_poly) and not box_poly.intersects(block_poly_margins) and \
+                        not blocks_poly.intersects(block_poly_margins) and not blocks_margins_poly.intersects(block_poly):
                     break
             else:
                 raise ValueError('Could not generate a task with given settings')
@@ -410,8 +411,6 @@ class PyBulletPackingEnv(PyBulletEnv):
             cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, DottedDict]:
         """Run super(), then handle packing-specific initialization."""
-        if not using_gui:
-            return cls.initialize_pybullet(True)
         physics_client_id, pybullet_robot, bodies =  super(
         ).initialize_pybullet(using_gui)
         bodies = DottedDict(bodies)
