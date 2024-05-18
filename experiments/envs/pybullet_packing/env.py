@@ -94,7 +94,7 @@ class PyBulletPackingEnv(PyBulletEnv):
     ## Task Generation
     range_train_box_cols: ClassVar[Tuple[int, int]] = (2, 5)
     num_box_rows: ClassVar[int] = 2
-    box_front_margin = 0.3
+    box_front_margin = 0.2
     block_side_margin = 0.1
     block_vert_offset = 0.001
 
@@ -410,6 +410,8 @@ class PyBulletPackingEnv(PyBulletEnv):
             cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, DottedDict]:
         """Run super(), then handle packing-specific initialization."""
+        if not using_gui:
+            return cls.initialize_pybullet(True)
         physics_client_id, pybullet_robot, bodies =  super(
         ).initialize_pybullet(using_gui)
         bodies = DottedDict(bodies)
