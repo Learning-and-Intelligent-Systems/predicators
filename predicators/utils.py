@@ -162,12 +162,17 @@ def count_classification_result_for_ops(
                 assertion in the `ground_operator...` method will fail.'''
                 # use the new variable names
                 relevant_nsrt = [nsrt for nsrt in nsrts if nsrt.option == optn]
-                optn_vars = relevant_nsrt[0].option_vars
-                assert len(optn_vars) == len(optn_objs)
-                option_var_to_obj = dict(zip(optn_vars, optn_objs))
+                # optn_vars = relevant_nsrt[0].option_vars
+                # assert len(optn_vars) == len(optn_objs)
+                # option_var_to_obj = dict(zip(optn_vars, optn_objs))
+                # ground_nsrtss = [all_ground_operators_given_partial(
+                #                         nsrt, env_objects, option_var_to_obj)
+                #                     for nsrt in relevant_nsrt]
                 ground_nsrtss = [all_ground_operators_given_partial(
-                                        nsrt, env_objects, option_var_to_obj)
-                                    for nsrt in relevant_nsrt]
+                                    nsrt, 
+                                    env_objects, 
+                                    dict(zip(nsrt.option_vars, optn_objs))
+                                ) for nsrt in relevant_nsrt]
 
                 # Flatten the list of lists
                 ground_nsrts = [nsrt for nsrt_list in ground_nsrtss 
@@ -198,12 +203,17 @@ def count_classification_result_for_ops(
                 # Ground by partial assignment
                 # use the new variable names
                 relevant_nsrt = [nsrt for nsrt in nsrts if nsrt.option == optn]
-                optn_vars = relevant_nsrt[0].option_vars
-                assert len(optn_vars) == len(optn_objs)
-                option_var_to_obj = dict(zip(optn_vars, optn_objs))
+                # optn_vars = relevant_nsrt[0].option_vars
+                # assert len(optn_vars) == len(optn_objs)
+                # option_var_to_obj = dict(zip(optn_vars, optn_objs))
+                # ground_nsrtss = [all_ground_operators_given_partial(
+                #                         nsrt, env_objects, option_var_to_obj)
+                #                     for nsrt in relevant_nsrt]
                 ground_nsrtss = [all_ground_operators_given_partial(
-                                        nsrt, env_objects, option_var_to_obj)
-                                    for nsrt in relevant_nsrt]
+                                    nsrt, 
+                                    env_objects, 
+                                    dict(zip(nsrt.option_vars, optn_objs))
+                                ) for nsrt in relevant_nsrt]
 
                 # Flatten the list of lists
                 ground_nsrts = [nsrt for nsrt_list in ground_nsrtss
