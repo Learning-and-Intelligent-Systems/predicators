@@ -137,8 +137,8 @@ class GlobalSettings:
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
     pybullet_robot = "fetch"
-    pybullet_birrt_num_attempts = 40
-    pybullet_birrt_num_iters = 1000
+    pybullet_birrt_num_attempts = 50
+    pybullet_birrt_num_iters = 4000
     pybullet_birrt_smooth_amt = 100
     pybullet_birrt_extend_num_interp = 100
     pybullet_control_mode = "position"

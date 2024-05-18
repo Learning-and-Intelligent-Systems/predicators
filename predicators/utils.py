@@ -2021,6 +2021,7 @@ class RRT(Generic[_RRTState]):
         return self._distance_fn(pt, node.data)
 
     def _smooth_path(self, path: List[_RRTState]) -> List[_RRTState]:
+        logging.info("SMOOTHING THE RRT")
         assert len(path) > 2
         for _ in range(self._smooth_amt):
             i = self._rng.integers(0, len(path) - 1)
@@ -2032,7 +2033,7 @@ class RRT(Generic[_RRTState]):
             shortcut = list(self._extend_fn(path[i], path[j]))
             if len(shortcut) < j - i and \
                     all(not self._collision_fn(pt) for pt in shortcut):
-                path = path[:i + 1] + shortcut + path[j + 1:]
+                path = path[:i] + shortcut + path[j + 1:]
         return path
 
 

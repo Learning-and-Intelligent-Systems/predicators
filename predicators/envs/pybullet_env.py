@@ -94,9 +94,9 @@ class PyBulletEnv(BaseEnv):
         p.resetSimulation(physicsClientId=physics_client_id)
 
         # Load plane.
-        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
-                   useFixedBase=True,
-                   physicsClientId=physics_client_id)
+        #p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+        #           useFixedBase=True,
+        #           physicsClientId=physics_client_id)
 
         # Load robot.
         pybullet_robot = cls._create_pybullet_robot(physics_client_id)
@@ -287,6 +287,7 @@ class PyBulletEnv(BaseEnv):
             logging.info("FINGERS CLOSING")
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
+            logging.info(self._held_obj_id)
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \

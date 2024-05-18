@@ -40,7 +40,46 @@ class OptionHelper:
         target = self.pybullet_robot.closed_fingers
         return current, target
 
-    def grab_block_guide(
+    def pregrasp_block_guide(
+        self,
+        state: State,
+        objects: Sequence[Object],
+        params: Array
+    ) -> Tuple[Pose, Pose, str]:
+        grip_height, _, _ = params
+        robot, _, block = objects
+
+        block_from_block_center = Pose((0, 0, grip_height * state.get(block, "h")))
+
+        bx, by, bz = state[block][:3]
+        bqx, bqy, bqz, bqw = state[block][6:10]
+        world_from_block_rot: Pose = Pose((bx, by, bz), (bqx, bqy, bqz, bqw))
+
+        for rot_times in range(4):
+            block_rot_from_block = Pose((0, 0, 0), quaternion_from_euler(0, 0, np.pi/2 * rot_times)) # type: ignore
+            world_from_gripper: Pose = multiply_poses(
+                world_from_block_rot,
+                block_rot_from_block,
+                block_from_block_center,
+                PyBulletPackingGroundTruthOptionFactory.block_center_from_gripper_offset,
+            )
+            world_from_up_gripper: Pose = multiply_poses(
+                Pose((0, 0, 0), world_from_gripper.orientation),
+                PyBulletPackingGroundTruthOptionFactory.gripper_rot_from_up_gripper
+            )
+            if world_from_up_gripper.position[2] >= PyBulletPackingGroundTruthOptionFactory.up_gripper_thresh:
+                world_from_target_gripper = world_from_gripper
+                break
+        else:
+            logging.info(f"BLOCK {block} NOT ON ITS SIDE; BLOCK STATE {state[block]}")
+            raise RuntimeError("Block not on its side")
+
+        rx, ry, rz, rqx, rqy, rqz, rqw = state[robot][:7]
+        world_from_current_gripper: Pose = Pose((rx, ry, rz), (rqx, rqy, rqz, rqw))
+
+        return world_from_current_gripper, world_from_target_gripper, "open"
+    
+    def grasp_block_guide(
         self,
         state: State,
         objects: Sequence[Object],
@@ -110,6 +149,38 @@ class OptionHelper:
         )
 
         return world_from_current_gripper, world_from_target_gripper, "closed"
+    
+    def post_put_block_guide(
+        self,
+        state: State,
+        objects: Sequence[Object],
+        params: Array
+    ) -> Tuple[Pose, Pose, str]:
+        grip_height, offset_x, offset_y = params
+        robot, box, block = objects
+
+        block_from_block_center = Pose((0, 0, grip_height * state.get(block, "h")))
+        block_bottom_from_block = Pose((0, 0, state.get(block, "h")/2))
+        box_bottom_from_block_bottom = Pose((offset_x, offset_y, 0))
+        box_from_box_bottom_offset = Pose((0, 0, -state.get(box, "h")/2))
+
+        rx, ry, rz = state[box][:3]
+        world_from_box: Pose = Pose((rx, ry, rz))
+
+        rx, ry, rz, rqx, rqy, rqz, rqw = state[robot][:7]
+        world_from_current_gripper: Pose = Pose((rx, ry, rz), (rqx, rqy, rqz, rqw))
+
+        world_from_target_gripper: Pose = multiply_poses(
+            world_from_box,
+            box_from_box_bottom_offset,
+            PyBulletPackingGroundTruthOptionFactory.box_bottom_offset_from_box_bottom,
+            box_bottom_from_block_bottom,
+            block_bottom_from_block,
+            block_from_block_center,
+            PyBulletPackingGroundTruthOptionFactory.block_center_from_gripper_offset,
+        )
+
+        return world_from_current_gripper, world_from_target_gripper, "open"
 
 class PyBulletPackingOptionRobot:
     def __getattr__(self, name: str) -> Any:
@@ -117,8 +188,9 @@ class PyBulletPackingOptionRobot:
         return pybullet_robot.__getattribute__(name)
 
 class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
-    block_center_from_gripper: ClassVar[Pose] = Pose((-0.01, 0, 0), quaternion_from_euler(0, np.pi*1/2, 0)) # type: ignore
-    box_bottom_offset_from_box_bottom: ClassVar[Pose] = Pose((0, 0, 0.01))
+    block_center_from_gripper_offset: ClassVar[Pose] = Pose((-0.12, 0, 0), quaternion_from_euler(0, np.pi*1/2, 0)) # type: ignore
+    block_center_from_gripper: ClassVar[Pose] = Pose((-0.015, 0, 0), quaternion_from_euler(0, np.pi*1/2, 0)) # type: ignore
+    box_bottom_offset_from_box_bottom: ClassVar[Pose] = Pose((0, 0, 0.011))
     gripper_rot_from_up_gripper: ClassVar[Pose] = Pose((0, 0, 0), quaternion_from_euler(0, np.pi*1/2, 0)).invert().multiply(Pose((-1, 0, 0))) # type: ignore
 
     up_gripper_thresh: ClassVar[float] = 0.9
@@ -151,36 +223,32 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         option_types = [robot_type, box_type, block_type]
         params_space = Box(
-            np.array([-0.5, -box_max_depth/2, -box_max_width/2]),
-            np.array([0.5, box_max_depth/2, box_max_width/2])
+            np.array([-0.15, -box_max_depth/2, -box_max_width/2]),
+            np.array([0.35, box_max_depth/2, box_max_width/2])
         )
-        grab_option, put_option = (
+        close_fingers = create_change_fingers_option(
+            robot = pybullet_robot,
+            name = "CloseFingers",
+            types = option_types,
+            params_space = params_space,
+            get_current_and_target_val = option_helper.close_fingers_func,
+            max_vel_norm = CFG.pybullet_max_vel_norm,
+            grasp_tol = PyBulletPackingEnv.grasp_tol,
+        )
+        open_fingers = create_change_fingers_option(
+            robot = pybullet_robot,
+            name = "OpenFingers",
+            types = option_types,
+            params_space = params_space,
+            get_current_and_target_val = option_helper.open_fingers_func,
+            max_vel_norm = CFG.pybullet_max_vel_norm,
+            grasp_tol = PyBulletPackingEnv.grasp_tol,
+        )
+        option = (
             cls._create_jumping_options #if CFG.option_model_terminate_on_repeat else cls._create_movement_options
         )(
-            pybullet_robot, robot_type, option_types, params_space, option_helper
+            pybullet_robot, robot_type, option_types, params_space, option_helper, close_fingers, open_fingers
         )
-        option = utils.LinearChainParameterizedOption("Move",[
-            grab_option,
-            create_change_fingers_option(
-                robot = pybullet_robot,
-                name = "CloseFingers",
-                types = option_types,
-                params_space = params_space,
-                get_current_and_target_val = option_helper.close_fingers_func,
-                max_vel_norm = CFG.pybullet_max_vel_norm,
-                grasp_tol = PyBulletPackingEnv.grasp_tol,
-            ),
-            put_option,
-            create_change_fingers_option(
-                robot = pybullet_robot,
-                name = "OpenFingers",
-                types = option_types,
-                params_space = params_space,
-                get_current_and_target_val = option_helper.open_fingers_func,
-                max_vel_norm = CFG.pybullet_max_vel_norm,
-                grasp_tol = PyBulletPackingEnv.grasp_tol,
-            ),
-        ])
         return {option}
 
     @classmethod
@@ -189,7 +257,8 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
         pybullet_robot: PyBulletPackingOptionRobot,
         robot_type: Type, option_types: List[Type],
         params_space: Box, option_helper: OptionHelper,
-    ) -> Tuple[ParameterizedOption, ParameterizedOption]:
+        close_fingers: ParameterizedOption, open_fingers: ParameterizedOption,
+    ) -> ParameterizedOption:
         # assert CFG.pybullet_control_mode == "position"
 
         def grab_initiable(
@@ -199,7 +268,7 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
         ) -> bool:
             assert isinstance(state, PyBulletPackingState)
             memory["finger_nudge"] = cls.finger_action_nudge_magnitude
-            _, target_pose, _ = option_helper.grab_block_guide(state, objects, params)
+            _, target_pose, _ = option_helper.grasp_block_guide(state, objects, params)
             try:
                 target_joint_positions = pybullet_robot.inverse_kinematics(target_pose, True)
             except InverseKinematicsError:
@@ -248,7 +317,7 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
                 raise utils.OptionExecutionFailure("Motion planning failed.")
             return not memory["motion_plan"]
 
-        return (
+        return utils.LinearChainParameterizedOption("Move",[
             ParameterizedOption(
                 "MoveEndEffectorToGrasp",
                 types = option_types,
@@ -257,6 +326,7 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
                 initiable = grab_initiable,
                 terminal = motion_plan_terminal
             ),
+            close_fingers,
             ParameterizedOption(
                 "MoveBlockToBox",
                 types = option_types,
@@ -265,7 +335,8 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
                 initiable = put_initiable,
                 terminal = motion_plan_terminal
             ),
-        )
+            open_fingers,
+        ])
 
     @classmethod
     def _create_jumping_options(
@@ -273,20 +344,32 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
         pybullet_robot: PyBulletPackingOptionRobot,
         robot_type: Type, option_types: List[Type],
         params_space: Box, option_helper: OptionHelper,
-    ) -> Tuple[ParameterizedOption, ParameterizedOption]:
+        close_fingers: ParameterizedOption, open_fingers: ParameterizedOption,
+    ) -> ParameterizedOption:
         assert CFG.pybullet_control_mode == "reset"
 
-        return (
+        return utils.LinearChainParameterizedOption("Move",[
+            create_move_end_effector_to_pose_option(
+                robot = pybullet_robot,
+                name = "MoveEndEffectorToPreGrasp",
+                types = option_types,
+                params_space = params_space,
+                get_current_and_target_pose_and_finger_status = option_helper.pregrasp_block_guide,
+                move_to_pos_tol = cls.move_to_pose_tol,
+                max_vel_norm = CFG.pybullet_max_vel_norm,
+                finger_action_nudge_magnitude = cls.finger_action_nudge_magnitude,
+            ),
             create_move_end_effector_to_pose_option(
                 robot = pybullet_robot,
                 name = "MoveEndEffectorToGrasp",
                 types = option_types,
                 params_space = params_space,
-                get_current_and_target_pose_and_finger_status = option_helper.grab_block_guide,
+                get_current_and_target_pose_and_finger_status = option_helper.grasp_block_guide,
                 move_to_pos_tol = cls.move_to_pose_tol,
                 max_vel_norm = CFG.pybullet_max_vel_norm,
                 finger_action_nudge_magnitude = cls.finger_action_nudge_magnitude,
             ),
+            close_fingers,
             create_move_end_effector_to_pose_option(
                 robot = pybullet_robot,
                 name = "MoveBlockToBox",
@@ -297,4 +380,15 @@ class PyBulletPackingGroundTruthOptionFactory(GroundTruthOptionFactory):
                 max_vel_norm = CFG.pybullet_max_vel_norm,
                 finger_action_nudge_magnitude = cls.finger_action_nudge_magnitude,
             ),
-        )
+            open_fingers,
+            create_move_end_effector_to_pose_option(
+                robot = pybullet_robot,
+                name = "RetractEEFromBox",
+                types = option_types,
+                params_space = params_space,
+                get_current_and_target_pose_and_finger_status = option_helper.post_put_block_guide,
+                move_to_pos_tol = cls.move_to_pose_tol,
+                max_vel_norm = CFG.pybullet_max_vel_norm,
+                finger_action_nudge_magnitude = cls.finger_action_nudge_magnitude,
+            ),
+        ])

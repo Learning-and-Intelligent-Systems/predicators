@@ -103,4 +103,8 @@ def run_motion_planning(
                         num_iters=CFG.pybullet_birrt_num_iters,
                         smooth_amt=CFG.pybullet_birrt_smooth_amt)
 
-    return birrt.query(initial_positions, target_positions)
+    joint_positions_list = birrt.query(initial_positions, target_positions)
+    keep_joints = [True] + [not np.allclose(np.subtract(next, curr), np.subtract(curr, prev)) for prev, curr, next in zip(joint_positions_list[:-2], joint_positions_list[1:-1], joint_positions_list[2:])] + [True]
+    filtered_joint_positions, _ = zip(*filter(lambda x: x[1], zip(joint_positions_list, keep_joints)))
+    return filtered_joint_positions
+

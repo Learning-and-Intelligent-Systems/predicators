@@ -10,6 +10,7 @@ import os, sys
 import itertools
 from experiments.envs.pybullet_packing.env import PyBulletPackingEnv
 from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.link import get_link_state
 import pybullet as p
 
 from predicators.pybullet_helpers.robots.panda import PandaPyBulletRobot
@@ -35,13 +36,12 @@ for fname in os.listdir(tags_path):
     block_id_to_tags[block_id] = {tag_id: tag_info for tag_id, tag_info in block_info.items() if type(tag_id) == int}
 
 ## Camera intrinsics
-intrinsics = np.load(os.path.join(asset_path, "intrinsics.npz"))
+intrinsics = np.load(os.path.join(asset_path, "intrinsics_new.npz"))
 intrinsics_K = intrinsics['K']
 intrinsics_D = intrinsics['D']
 
 ## Camera extrinsics
-ee_from_camera = Pose(*pkl.load(open(os.path.join(asset_path, "extrinsics.pkl"), 'rb')))
-
+panda_hand_from_camera = Pose(*pkl.load(open(os.path.join(asset_path, "extrinsics.pkl"), 'rb')))
 def process_tags(color_image):
     corners, ids, _ = detector.detectMarkers(
         cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
@@ -67,6 +67,12 @@ def pnp_block_poses(ids, corners, min_tags=1):
         X_TCs[:] = np.eye(4)
         X_TCs[:, :2, 3] = tag_length * corner_coeffs
 
+	    # filter out non top markers
+        #w = img_corners[:, 0].max() - img_corners[:, 0].min()
+        #h = img_corners[:, 1].max() - img_corners[:, 1].min()
+        #if min(w/h, h/w) < 0.9:
+        #    continue
+
         # and get the object frame poses
         X_OCs = np.einsum('ij,njk->nik', X_OT, X_TCs)
         obj_corners = X_OCs[:, :3, 3]
@@ -89,9 +95,9 @@ def pnp_block_poses(ids, corners, min_tags=1):
 
     return block_id_to_camera_from_block
 
-def apply_extrinsics(block_id_to_camera_from_block, world_from_ee):
+def apply_extrinsics(block_id_to_camera_from_block, world_from_panda_hand):
     return {
-        block_id: world_from_ee.multiply(ee_from_camera, camera_from_block)
+        block_id: world_from_panda_hand.multiply(panda_hand_from_camera, camera_from_block)
         for block_id, camera_from_block in block_id_to_camera_from_block.items()
     }
 
@@ -143,7 +149,7 @@ def draw_block(camera_from_object: Pose, dimensions, color_image, draw_axis=True
     # and draw them into the image
     for corner, image_pt in zip(signed_corners, image_points):
         color = np.array([1.0,0.0,0.7])*100 + (corner[2] > 0) * 155
-        cv2.circle(color_image, tuple(image_pt[0].astype(int)), 5, color, -1)
+        cv2.circle(color_image, tuple(image_pt[0].astype(int)), 1, color, -1)
 
     if draw_axis:
         axis, angle = p.getAxisAngleFromQuaternion(camera_from_object.orientation)
@@ -165,14 +171,19 @@ def draw_debug(color_image):
 
     cv2.imshow('Blocks', color_image)
 
-def get_blocks_data(color_image: npt.NDArray, world_from_ee: Pose) -> List[Tuple[int, Pose]]:
+def get_blocks_data(color_image: npt.NDArray, world_from_panda_hand: Pose) -> List[Tuple[int, Pose]]:
     ids, corners = process_tags(color_image)
     block_id_to_camera_from_block = pnp_block_poses(ids, corners)
-    block_id_to_world_from_block = apply_extrinsics(block_id_to_camera_from_block, world_from_ee)
+    block_id_to_world_from_block = apply_extrinsics(block_id_to_camera_from_block, world_from_panda_hand)
     return list(block_id_to_world_from_block.items())
 
 def merge_blocks_data(blocks_data: List[Tuple[int, Pose]], floor_z: float=0.0) -> List[Tuple[Pose, Tuple[float, float, float]]]:
-    blocks_info: List[Tuple[Pose, Tuple[float, float, float]]] = []
+    # blocks_info: List[Tuple[Pose, Tuple[float, float, float]]] = [
+    #     (block_pose, block_id_to_dimensions[block_id])
+    #     for block_id, block_pose in blocks_data
+    # ]
+    # return blocks_info
+    blocks_info = []
     for block_id, block_data in itertools.groupby(sorted(blocks_data, key=lambda x: x[0]), lambda x: x[0]):
         _, poses = zip(*block_data)
         position = np.mean([pose.position for pose in poses], axis=0)
@@ -186,10 +197,18 @@ def get_task_data(fname: str) -> Pose:
     joint_angles = data['parameter']['poses'][0]['relative_trajectories'][0][0]['joint_angles']
     return get_gripper_pose(joint_angles)
 
+CFG.seed = 0
+robot = PandaPyBulletRobot(PyBulletPackingEnv.robot_ee_init_pose, p.connect(p.DIRECT), Pose(PyBulletPackingEnv.robot_base_pos, PyBulletPackingEnv._default_orn))
+
 def get_gripper_pose(joint_angles):
-    CFG.seed = 0
-    robot = PandaPyBulletRobot(PyBulletPackingEnv.robot_ee_init_pose, p.connect(p.DIRECT), Pose(PyBulletPackingEnv.robot_base_pos, PyBulletPackingEnv._default_orn))
-    return robot.forward_kinematics(joint_angles + robot.get_joints()[7:])
+    robot.set_joints(joint_angles + robot.get_joints()[7:])
+    panda_hand_link_state = get_link_state(
+        robot.robot_id,
+        robot.link_from_name("panda_hand"),
+        physics_client_id = robot.physics_client_id
+    )
+    return Pose(panda_hand_link_state.worldLinkFramePosition, panda_hand_link_state.worldLinkFrameOrientation)
+    #return robot.forward_kinematics(joint_angles + robot.get_joints()[7:])
 
 if __name__ == "__main__":
     _, img_data_pkl, arg = sys.argv
@@ -203,7 +222,7 @@ if __name__ == "__main__":
     if arg == '--debug':
         for color_image, _ in image_data:
             draw_debug(color_image)
-        cv2.waitKey(10000)
+            cv2.waitKey(100000)
     else:
         blocks_info = merge_blocks_data(
             sum([get_blocks_data(color_image, get_gripper_pose(joint_angles)) for color_image, joint_angles in image_data], start=[]), # type: ignore
