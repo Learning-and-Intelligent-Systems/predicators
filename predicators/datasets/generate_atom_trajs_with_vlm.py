@@ -940,7 +940,7 @@ def create_ground_atom_data_from_saved_img_trajs(
             assert io_traj.states is not None
             low_level_trajs.append(
                 LowLevelTrajectory(io_traj.states, [
-                    Action(np.zeros(env.action_space.shape, dtype=np.floar32),
+                    Action(np.zeros(env.action_space.shape, dtype=np.float32),
                            act) for act in io_traj.actions
                 ], True, io_traj.train_task_idx))
     return Dataset(low_level_trajs, ground_atoms_trajs)
