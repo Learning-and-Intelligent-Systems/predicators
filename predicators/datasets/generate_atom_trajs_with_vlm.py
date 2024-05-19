@@ -779,7 +779,7 @@ def create_ground_atom_data_from_labelled_txt(
     # Finally, we just need to construct LowLevelTrajectories that we can
     # output as part of our Dataset.
     goal_states_for_every_traj = None
-    if "DummyGoal" in train_tasks[0].goal:
+    if "DummyGoal" in str(train_tasks[0].goal):
         # Now, we just need to create a goal state for every train task
         # where the dummy goal predicate holds. This is just bookkeeping
         # necessary for NSRT learning and planning such that the goal
@@ -796,10 +796,15 @@ def create_ground_atom_data_from_labelled_txt(
             states = [train_tasks[i].init for _ in range(len(opt_traj))]
             states.append(train_tasks[i].init)
             actions = [
-                Action(np.zeros(env.action_space.shape), opt)
+                Action(np.zeros(env.action_space.shape, dtype=np.float32), opt)
                 for opt in opt_traj
             ]
-            low_level_trajs.append(LowLevelTrajectory(states, actions))
+            # NOTE: we're making an assumption here that the train_task_idx
+            # of the LowLevelTrajectory is i. This may not be true and
+            # is probably something we should deal with in a principled way
+            # in the future.
+            low_level_trajs.append(LowLevelTrajectory(states, actions, True,
+                                                      i))
     return Dataset(low_level_trajs, ground_atoms_trajs)
 
 
@@ -896,7 +901,6 @@ def create_ground_atom_data_from_saved_img_trajs(
                 params_tuple = (option_params, )
             else:
                 params_tuple = option_params
-            assert isinstance(params_tuple, Tuple)
             ground_option = option.ground(objects, np.array(params_tuple))
             assert ground_option.initiable(curr_train_task.init)
             ground_option_traj.append(ground_option)
@@ -918,7 +922,7 @@ def create_ground_atom_data_from_saved_img_trajs(
     # Finally, we just need to construct LowLevelTrajectories that we can
     # output as part of our Dataset.
     goal_states_for_every_traj = None
-    if "DummyGoal" in train_tasks[0].goal:
+    if "DummyGoal" in str(train_tasks[0].goal):
         # Now, we just need to create a goal state for every train task
         # where the dummy goal predicate holds. This is just bookkeeping
         # necessary for NSRT learning and planning such that the goal
@@ -936,7 +940,7 @@ def create_ground_atom_data_from_saved_img_trajs(
             assert io_traj.states is not None
             low_level_trajs.append(
                 LowLevelTrajectory(io_traj.states, [
-                    Action(np.zeros(env.action_space.shape), act)
-                    for act in io_traj.actions
-                ]))
+                    Action(np.zeros(env.action_space.shape, dtype=np.floar32),
+                           act) for act in io_traj.actions
+                ], True, io_traj.train_task_idx))
     return Dataset(low_level_trajs, ground_atoms_trajs)

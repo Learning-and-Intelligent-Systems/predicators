@@ -1180,6 +1180,11 @@ class ImageOptionTrajectory:
         """States in the trajectory, if they exist."""
         return self._states
 
+    @property
+    def train_task_idx(self) -> Optional[int]:
+        """Returns the idx of the train task."""
+        return self._train_task_idx
+
 
 @dataclass(repr=False, eq=False)
 class Dataset:

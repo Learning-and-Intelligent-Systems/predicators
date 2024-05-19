@@ -655,6 +655,24 @@ def test_loading_txt_files():
     loaded_dataset = create_dataset(env, train_tasks,
                                     get_gt_options(env.get_name()), predicates)
     assert len(loaded_dataset.trajectories) == 1
+    utils.reset_config({
+        "env":
+        "kitchen",
+        "num_train_tasks":
+        1,
+        "offline_data_method":
+        "demo+labelled_atoms",
+        "data_dir":
+        "tests/datasets/mock_vlm_datasets",
+        "handmade_demo_filename":
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    loaded_dataset = create_dataset(env, train_tasks,
+                                    get_gt_options(env.get_name()), predicates)
+    assert len(loaded_dataset.trajectories) == 1
 
 
 def test_create_ground_atom_data_from_generated_demos():
