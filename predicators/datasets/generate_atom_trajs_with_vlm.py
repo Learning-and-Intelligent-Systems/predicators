@@ -481,13 +481,11 @@ def _create_dummy_goal_state_for_each_task(
 
 
 def _convert_ground_option_trajs_into_lowleveltrajs(
-        option_trajs: List[List[_Option]],
-        dummy_goal_states: Optional[List[State]],
+        option_trajs: List[List[_Option]], dummy_goal_states: List[State],
         train_tasks: List[Task]) -> List[LowLevelTrajectory]:
     """Convert option trajectories into LowLevelTrajectories to be used in
     constructing a Dataset."""
-    if dummy_goal_states is not None:
-        assert len(option_trajs) == len(dummy_goal_states) == len(train_tasks)
+    assert len(option_trajs) == len(dummy_goal_states) == len(train_tasks)
     # NOTE: In this LowLevelTrajectory, we assume the low level states
     # are the same as the init state until the final state.
     trajs = []
@@ -502,10 +500,7 @@ def _convert_ground_option_trajs_into_lowleveltrajs(
                        option_trajs[traj_num][idx_within_traj]))
         # Now, we need to append the final state because there are 1 more
         # states than actions.
-        if dummy_goal_states is not None:
-            curr_traj_states.append(dummy_goal_states[traj_num])
-        else:
-            curr_tra
+        curr_traj_states.append(dummy_goal_states[traj_num])
         curr_traj = LowLevelTrajectory(curr_traj_states, curr_traj_actions,
                                        True, traj_num)
         trajs.append(curr_traj)
@@ -531,7 +526,7 @@ def _parse_options_txt_into_structured_actions(
     structured set of tuples suitable for later conversion into more structured
     GroundAtomTrajectories."""
     structured_actions_output = []
-    pattern_option = r'(\w+)\(([^)]*)\)\[([\d.,\s]*)\] ->'
+    pattern_option = r'(\w+)\(([^)]*)\)\[([\d.,\s-]*)\] ->'
     option_matches = re.findall(pattern_option, text)
     for i in range(len(option_matches)):
         current_option_with_objs = (option_matches[i][0],
@@ -781,12 +776,30 @@ def create_ground_atom_data_from_labelled_txt(
     _debug_log_atoms_trajs(ground_atoms_trajs)
     option_trajs = _parse_structured_actions_into_ground_options(
         structured_actions, known_options, train_tasks)
-    # We also need to create the goal state for every train task.
-    goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
-        env, train_tasks)
-    # Finally, we need to construct actual LowLevelTrajectories.
-    low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
-        option_trajs, goal_states_for_every_traj, train_tasks)
+    # Finally, we just need to construct LowLevelTrajectories that we can
+    # output as part of our Dataset.
+    goal_states_for_every_traj = None
+    if "DummyGoal" in train_tasks[0].goal:
+        # Now, we just need to create a goal state for every train task
+        # where the dummy goal predicate holds. This is just bookkeeping
+        # necessary for NSRT learning and planning such that the goal
+        # doesn't hold in the initial state and holds in the final state of
+        # each demonstration trajectory.
+        goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
+            env, train_tasks)
+        # Finally, we need to construct actual LowLevelTrajectories.
+        low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
+            option_trajs, goal_states_for_every_traj, train_tasks)
+    else:
+        low_level_trajs = []
+        for i, opt_traj in enumerate(option_trajs):
+            states = [train_tasks[i].init for _ in range(len(opt_traj))]
+            states.append(train_tasks[i].init)
+            actions = [
+                Action(np.zeros(env.action_space.shape), opt)
+                for opt in opt_traj
+            ]
+            low_level_trajs.append(LowLevelTrajectory(states, actions))
     return Dataset(low_level_trajs, ground_atoms_trajs)
 
 
