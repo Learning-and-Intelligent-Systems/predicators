@@ -13,11 +13,12 @@ from predicators.datasets.generate_atom_trajs_with_vlm import \
 from predicators.datasets.ground_atom_data import create_ground_atom_data
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Dataset, ParameterizedOption, Task
+from predicators.structs import Dataset, ParameterizedOption, Predicate, Task
 
 
 def create_dataset(env: BaseEnv, train_tasks: List[Task],
-                   known_options: Set[ParameterizedOption]) -> Dataset:
+                   known_options: Set[ParameterizedOption],
+                   known_predicates: Set[Predicate]) -> Dataset:
     """Create offline datasets for training, given a set of training tasks for
     an environment.
 
@@ -69,7 +70,7 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         # Second, we add annotations to these trajectories by leveraging
         # a VLM.
         return create_ground_atom_data_from_generated_demos(
-            demo_data, env, train_tasks)
+            demo_data, env, known_predicates, train_tasks)
     if CFG.offline_data_method == "demo+labelled_atoms":
         return create_ground_atom_data_from_labelled_txt(
             env, train_tasks, known_options)
@@ -79,7 +80,7 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         # instantiated and called from inside this method, but when testing,
         # we want to instantiate our own 'dummy' VLM.
         return create_ground_atom_data_from_saved_img_trajs(
-            env, train_tasks, known_options)
+            env, train_tasks, known_predicates, known_options)
     if CFG.offline_data_method == "empty":
         return Dataset([])
     raise NotImplementedError("Unrecognized dataset method.")

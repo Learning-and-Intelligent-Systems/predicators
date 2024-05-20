@@ -31,7 +31,9 @@ def test_llm_bilevel_planning_approach():
                                           train_tasks)
     assert approach.get_name() == "llm_bilevel_planning"
     # Test "learning", i.e., constructing the prompt prefix.
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert not approach._prompt_prefix  # pylint: disable=protected-access
     approach.learn_from_offline_dataset(dataset)
     assert approach._prompt_prefix  # pylint: disable=protected-access

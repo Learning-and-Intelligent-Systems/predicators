@@ -25,7 +25,9 @@ def test_oracle_strips_learner():
     # With sufficiently representative data, all operators should be learned.
     env = create_new_env("blocks")
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     segmented_trajs = [
         segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
@@ -71,7 +73,8 @@ def test_oracle_strips_learner():
     })
     env = create_new_env("blocks")
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, set())
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, set(), predicates)
     segmented_trajs = [
         segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
@@ -115,7 +118,9 @@ def test_oracle_strips_learner():
     })
     env = create_new_env("cover_multistep_options")
     train_tasks = [t.task for t in env.get_train_tasks()]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     # Truncate dataset.
     state, next_state = dataset.trajectories[0].states[:2]
     action = dataset.trajectories[0].actions[0]

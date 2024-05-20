@@ -1135,9 +1135,9 @@ class LowLevelTrajectory:
 
 @dataclass(frozen=True, repr=False, eq=False)
 class ImageOptionTrajectory:
-    """A structure similar to a LowLevelTrajectory where instead of low-level
-    states and actions, we record images at every state (i.e., observations),
-    as well as the option that was executed to get between observation images.
+    """A structure similar to a LowLevelTrajectory where we record images at
+    every state (i.e., observations), as well as the option that was executed
+    to get between observation images. States are optionally included too.
 
     Invariant 1: If this trajectory is a demonstration, it must contain
     a train task idx and achieve the goal in the respective train task.
@@ -1149,6 +1149,7 @@ class ImageOptionTrajectory:
     _objects: Collection[Object]
     _state_imgs: List[List[PIL.Image.Image]]
     _actions: List[_Option]
+    _states: Optional[List[State]] = field(default=None)
     _is_demo: bool = field(default=False)
     _train_task_idx: Optional[int] = field(default=None)
 
@@ -1156,10 +1157,12 @@ class ImageOptionTrajectory:
         assert len(self._state_imgs) == len(self._actions) + 1
         if self._is_demo:
             assert self._train_task_idx is not None
+        if self._states is not None:
+            assert len(self._states) == len(self._state_imgs)
 
     @property
     def imgs(self) -> List[List[PIL.Image.Image]]:
-        """States in the trajectory."""
+        """State images in the trajectory."""
         return self._state_imgs
 
     @property
@@ -1171,6 +1174,16 @@ class ImageOptionTrajectory:
     def actions(self) -> List[_Option]:
         """Actions in the trajectory."""
         return self._actions
+
+    @property
+    def states(self) -> Optional[List[State]]:
+        """States in the trajectory, if they exist."""
+        return self._states
+
+    @property
+    def train_task_idx(self) -> Optional[int]:
+        """Returns the idx of the train task."""
+        return self._train_task_idx
 
 
 @dataclass(repr=False, eq=False)
