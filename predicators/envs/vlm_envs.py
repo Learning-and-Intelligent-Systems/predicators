@@ -4,7 +4,6 @@ Will likely be updated and potentially split into separate files in the
 future.
 """
 
-import abc
 from typing import List, Optional, Sequence, Set
 
 import matplotlib
@@ -14,7 +13,7 @@ from gym.spaces import Box
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type
+    Predicate, State, Task, Type
 
 DUMMY_GOAL_OBJ_NAME = "dummy_goal_obj"  # used in VLM parsing as well.
 
@@ -82,14 +81,6 @@ class VLMPredicateEnv(BaseEnv):
         del num, rng
         raise NotImplementedError("Override!")
 
-    @property
-    @abc.abstractmethod
-    def vlm_debug_atom_strs(self) -> Set[str]:
-        """Return a set of atom strings that should be sufficient for a VLM to
-        label demonstrations consistently to learn good operators."""
-        raise NotImplementedError(
-            "VLM debug atom strings not implemented for this environment.")
-
 
 class IceTeaMakingEnv(VLMPredicateEnv):
     """A (simplified) version of a tea-making task that's closer to pick-and-
@@ -140,11 +131,8 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             for _ in range(num)
         ]
 
-    @property
-    def vlm_debug_atom_strs(self) -> Set[str]:
-        """A 'debug grammar' set of predicates that should be sufficient for
-        completing the task; useful for comparing different methods of VLM
-        truth-value labelling given the same set of atom proposals to label."""
+    def get_vlm_debug_atom_strs(self, train_tasks: List[Task]) -> Set[str]:
+        del train_tasks
         return set([
             "hand_grasping_spoon(hand, spoon)",
             "hand_grasping_teabag(hand, teabag)", "spoon_in_cup(spoon, cup)",
