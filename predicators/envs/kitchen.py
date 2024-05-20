@@ -557,7 +557,7 @@ README of that repo suggests!"
     def _KnobAndBurnerLinkedHolds(cls, state: State,
                                   objects: Sequence[Object]) -> bool:
         """Predicate that's necessary for goal specification."""
-        del state # unused
+        del state  # unused
         knob, burner = objects
         # NOTE: we assume the knobs and burners are
         # all named "knob1", "burner1", .... And that "knob1" corresponds
