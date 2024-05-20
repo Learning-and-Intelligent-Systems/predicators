@@ -1,11 +1,20 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
-research/relay-policy-learning."""
+research/relay-policy-learning.
+
+NOTE: when the --use_gui flag is turned on in this environment, it displays
+only the default rendering from the environment. We additionally augment this
+rendering when we do VLM-based predicate invention, which is not displayed
+by this function, but will be displayed when using any flag that makes and
+saves videos.
+"""
 import copy
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import matplotlib
 import numpy as np
+import PIL
 from gym.spaces import Box
+from PIL import ImageDraw
 
 try:
     import gymnasium as mujoco_kitchen_gym
@@ -183,8 +192,36 @@ README of that repo suggests!"
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: Image = self._gym_env.render()  # type: ignore
-        return [arr]
+        curr_img_arr: Image = self._gym_env.render()  # type: ignore
+        if CFG.kitchen_render_set_of_marks:
+            # Add text labels for the burners to the image. Useful for VLM-based
+            # predicate invention.
+            curr_img_pil = PIL.Image.fromarray(curr_img_arr)
+            draw = ImageDraw.Draw(curr_img_pil)
+            # Specify the font size and type (default font is used here)
+            font = utils.get_scaled_default_font(draw, 3)
+            # Define the text and position
+            burner1_text = "burner1"
+            burner1_position = (300, 290)
+            burner2_text = "burner2"
+            burner2_position = (210, 310)
+            burner3_text = "burner3"
+            burner3_position = (260, 230)
+            burner4_text = "burner4"
+            burner4_position = (185, 250)
+            burner1_img = utils.add_text_to_draw_img(draw, burner1_position,
+                                                     burner1_text, font)
+            burner2_img = utils.add_text_to_draw_img(burner1_img,
+                                                     burner2_position,
+                                                     burner2_text, font)
+            burner3_img = utils.add_text_to_draw_img(burner2_img,
+                                                     burner3_position,
+                                                     burner3_text, font)
+            burner4_img = utils.add_text_to_draw_img(burner3_img,
+                                                     burner4_position,
+                                                     burner4_text, font)
+            curr_img_arr = np.array(curr_img_pil)
+        return [curr_img_arr]
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -276,7 +313,7 @@ README of that repo suggests!"
             self._gym_env.render()
         self._current_observation = {
             "state_info": self.get_object_centric_state_info(),
-            "obs_images": [self._gym_env.render()]
+            "obs_images": self.render()
         }
         return self._copy_observation(self._current_observation)
 
@@ -377,7 +414,7 @@ README of that repo suggests!"
         self._gym_env.reset(seed=seed)
         return {
             "state_info": self.get_object_centric_state_info(),
-            "obs_images": [self._gym_env.render()]
+            "obs_images": self.render()
         }
 
     @classmethod
