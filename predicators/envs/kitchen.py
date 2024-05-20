@@ -192,11 +192,19 @@ README of that repo suggests!"
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {
-            self._pred_name_to_pred["OnTop"],
-            self._pred_name_to_pred["TurnedOn"],
-            self._pred_name_to_pred["Open"]
-        }
+        OnTop = self._pred_name_to_pred["OnTop"]
+        TurnedOn = self._pred_name_to_pred["TurnedOn"]
+        KettleBoiling = self._pred_name_to_pred["KettleBoiling"]
+        goal_preds = set()
+        if CFG.kitchen_goals in ["all", "kettle_only"]:
+            goal_preds.add(OnTop)
+        if CFG.kitchen_goals in ["all", "knob_only"]:
+            goal_preds.add(TurnedOn)
+        if CFG.kitchen_goals in ["all", "light_only"]:
+            goal_preds.add(TurnedOn)
+        if CFG.kitchen_goals in ["all", "boil_kettle"]:
+            goal_preds.add(KettleBoiling)
+        return goal_preds
 
     @classmethod
     def create_predicates(cls) -> Dict[str, Predicate]:
@@ -319,8 +327,8 @@ README of that repo suggests!"
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner4])
         knob4_turned_on = self.On_holds(state, [knob4])
         light_turned_on = self.On_holds(state, [light])
-        kettle_boiling_holds = self._KettleBoiling_holds(
-            state, [kettle, burner4, knob4])
+        kettle_boiling = self._KettleBoiling_holds(state,
+                                                   [kettle, burner4, knob4])
         if goal_desc == ("Move the kettle to the back burner and turn it on; "
                          "also turn on the light"):
             return kettle_on_burner and knob4_turned_on and light_turned_on
@@ -331,7 +339,7 @@ README of that repo suggests!"
         if goal_desc == "Turn on the light":
             return light_turned_on
         if goal_desc == "Move the kettle to the back burner and turn it on":
-            return kettle_boiling_holds
+            return kettle_boiling
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,
