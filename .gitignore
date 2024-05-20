@@ -2,6 +2,7 @@ __pycache__
 *.pyc
 .vscode
 .DS_Store
+.vscode
 *.egg-info
 *.pkl
 *~
