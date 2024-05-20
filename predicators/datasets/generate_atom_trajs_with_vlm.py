@@ -646,7 +646,6 @@ def _query_vlm_to_generate_ground_atoms_trajs(
             atom_strs_proposals_list, all_task_objs)
     else:  # pragma: no cover.
         atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
-        import ipdb; ipdb.set_trace()
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
