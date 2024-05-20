@@ -15,7 +15,7 @@ import PIL.Image
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME, VLMPredicateEnv
+from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME
 from predicators.nsrt_learning.segmentation import _segment_with_option_changes
 from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
@@ -645,8 +645,8 @@ def _query_vlm_to_generate_ground_atoms_trajs(
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
     else:  # pragma: no cover.
-        assert isinstance(env, VLMPredicateEnv)
-        atom_proposals_set = env.vlm_debug_atom_strs
+        atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
+        import ipdb; ipdb.set_trace()
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.

@@ -1,5 +1,6 @@
 __pycache__
 *.pyc
+.vscode
 .DS_Store
 *.egg-info
 *.pkl
