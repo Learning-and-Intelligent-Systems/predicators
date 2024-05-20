@@ -206,9 +206,9 @@ README of that repo suggests!"
             burner2_text = "burner2"
             burner2_position = (210, 310)
             burner3_text = "burner3"
-            burner3_position = (260, 230)
+            burner3_position = (260, 215)
             burner4_text = "burner4"
-            burner4_position = (185, 250)
+            burner4_position = (165, 230)
             burner1_img = utils.add_text_to_draw_img(draw, burner1_position,
                                                      burner1_text, font)
             burner2_img = utils.add_text_to_draw_img(burner1_img,
