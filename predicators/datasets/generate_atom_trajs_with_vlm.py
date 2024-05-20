@@ -233,8 +233,12 @@ def _save_labelled_trajs_as_txt(
             curr_option_str = curr_option.name + "("
             for obj in curr_option.objects:
                 curr_option_str += str(obj.name) + ", "
-            curr_option_str = curr_option_str[:-2] + ")" + str(
-                curr_option.params.tolist()) + " -> "
+            if len(curr_option.objects) > 0:
+                curr_option_str = curr_option_str[:-2] + ")" + str(
+                    curr_option.params.tolist()) + " -> "
+            else:
+                curr_option_str = curr_option_str[:] + ")" + str(
+                    curr_option.params.tolist()) + " -> "
             save_str += curr_state_str + "\n\n" + curr_option_str + "\n\n"
         # At the end of the trajectory, we need to append the final state,
         # and a "===" delimiter.
@@ -365,6 +369,11 @@ def _parse_structured_state_into_ground_atoms(
                 # check for this in the future.
                 if pred_name not in pred_name_to_pred:
                     if len(objs_and_val_dict.keys()) == 1:
+                        # NOTE: this below code doesn't do the right thing
+                        # when there are multiple of the predicate that
+                        # are true with different objects of the same type
+                        # (e.g. Covers(obj1, targ1) and Covers(obj2, targ2)).
+                        # We might want to do something about this.
                         # In this case, we make a predicate that takes in
                         # exactly one types argument.
                         for obj_args in objs_and_val_dict.keys():
@@ -440,6 +449,7 @@ def _parse_structured_actions_into_ground_options(
             ground_option = option.ground([
                 curr_obj_name_to_obj[obj_name]
                 for obj_name in structured_action[1]
+                if len(obj_name.strip()) > 0
             ], np.array(structured_action[2]))
             # Call initiable here because we will be calling
             # terminal later, and initiable always needs
@@ -877,13 +887,17 @@ def create_ground_atom_data_from_saved_img_trajs(
             re.sub(r'\[[^\]]*\]', '', option_args_str).strip()
             for option_args_str in option_args_strs
         ]
-        cleaned_parsed_str_objects = [
-            obj_str[:-1] if obj_str[-1] == "," else obj_str
-            for obj_str in parsed_str_objects
-        ]
-        object_args_list = [
-            obj.split(', ') for obj in cleaned_parsed_str_objects
-        ]
+        objects_exist = len(''.join(obj_str
+                                    for obj_str in parsed_str_objects)) > 0
+        object_args_list = [[] for _ in range(len(parsed_str_objects))]
+        if objects_exist:
+            cleaned_parsed_str_objects = [
+                obj_str[:-1] if obj_str[-1] == "," else obj_str
+                for obj_str in parsed_str_objects
+            ]
+            object_args_list = [
+                obj.split(', ') for obj in cleaned_parsed_str_objects
+            ]
         parameters = [
             ast.literal_eval(obj) if obj else []
             for obj in re.findall(r'\[(.*?)\]', options_file_str)

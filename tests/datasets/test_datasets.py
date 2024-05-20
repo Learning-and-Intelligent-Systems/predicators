@@ -551,6 +551,41 @@ def test_empty_dataset():
         _ = dataset.annotations
 
 
+def test_loading_saved_vlm_img_demos_folder_non_dummy_goal():
+    """Test loading a dataset from img demo files."""
+    utils.reset_config({
+        "env": "cover",
+        "num_train_tasks": 1,
+        "offline_data_method": "saved_vlm_img_demos_folder",
+        "data_dir": "tests/datasets/mock_vlm_datasets",
+        "seed": 456,
+        "vlm_trajs_folder_name": "cover__vlm_demos__456__1",
+        "grammar_search_vlm_atom_proposal_prompt_type": "naive_each_step",
+        "grammar_search_vlm_atom_label_prompt_type": "per_scene_naive",
+        "pretrained_model_prompt_cache_dir":
+        "tests/datasets/mock_vlm_datasets/cache",
+        "cover_num_blocks": 1,
+        "cover_num_targets": 1,
+        "cover_block_widths": [0.1],
+        "cover_target_widths": [0.05],
+        "excluded_predicates": "all"
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    vlm = _DummyVLM()
+    loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
+        env, train_tasks, predicates, get_gt_options(env.get_name()), vlm)
+    assert len(loaded_dataset.trajectories) == 1
+    assert len(loaded_dataset.annotations) == 1
+    assert "DummyGoal" not in str(loaded_dataset.annotations[0][-1])
+    for dirpath, _, filenames in os.walk(
+            CFG.pretrained_model_prompt_cache_dir):
+        # Remove regular files, ignore directories
+        for filename in filenames:
+            os.unlink(os.path.join(dirpath, filename))
+
+
 @pytest.mark.parametrize(
     "atom_proposal_prompt_type, atom_labelling_prompt_type",
     [("naive_each_step", "per_scene_naive"),
@@ -558,8 +593,8 @@ def test_empty_dataset():
      ("naive_whole_traj", "per_scene_cot"),
      ("not_a_real_prompt_type", "per_scene_cot"),
      ("naive_whole_traj", "not_a_real_prompt_type")])
-def test_loading_saved_vlm_img_demos_folder(atom_proposal_prompt_type,
-                                            atom_labelling_prompt_type):
+def test_loading_saved_vlm_img_demos_folder_dummy_goal(
+        atom_proposal_prompt_type, atom_labelling_prompt_type):
     """Test loading a dataset from img demo files."""
     utils.reset_config({
         "env":
@@ -657,7 +692,7 @@ def test_loading_txt_files():
     assert len(loaded_dataset.trajectories) == 1
     utils.reset_config({
         "env":
-        "kitchen",
+        "cover",
         "num_train_tasks":
         1,
         "offline_data_method":
@@ -665,14 +700,17 @@ def test_loading_txt_files():
         "data_dir":
         "tests/datasets/mock_vlm_datasets",
         "handmade_demo_filename":
-        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
+        "cover__demo+labelled_atoms__manual__1.txt"
     })
-    env = IceTeaMakingEnv()
+    env = CoverEnv()
     train_tasks = env.get_train_tasks()
     predicates, _ = utils.parse_config_excluded_predicates(env)
     loaded_dataset = create_dataset(env, train_tasks,
                                     get_gt_options(env.get_name()), predicates)
     assert len(loaded_dataset.trajectories) == 1
+    assert len(loaded_dataset.trajectories[0].actions) == 2
+    assert loaded_dataset.trajectories[0].actions[0].get_option(
+    ).name == "PickPlace"
 
 
 def test_create_ground_atom_data_from_generated_demos():

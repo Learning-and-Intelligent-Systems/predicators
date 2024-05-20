@@ -4,7 +4,7 @@ This approach is primarily useful for inventing predicates via program synthesis
 
 An example command for running the approach from that paper is:
 ```
-python predicators/main.py --env cover --approach grammar_search_invention --excluded_predicates all --num_train_tasks 50
+python predicators/main.py --env cover --approach grammar_search_invention --excluded_predicates all --num_train_tasks 50 --seed 0
 ```
 
 Last updated: 04/28/2024
