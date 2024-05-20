@@ -889,7 +889,9 @@ def create_ground_atom_data_from_saved_img_trajs(
         ]
         objects_exist = len(''.join(obj_str
                                     for obj_str in parsed_str_objects)) > 0
-        object_args_list = [[] for _ in range(len(parsed_str_objects))]
+        object_args_list: List[List[str]] = [
+            [] for _ in range(len(parsed_str_objects))
+        ]
         if objects_exist:
             cleaned_parsed_str_objects = [
                 obj_str[:-1] if obj_str[-1] == "," else obj_str
