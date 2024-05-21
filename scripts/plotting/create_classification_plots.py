@@ -159,7 +159,7 @@ def heatmap(data: Array,
     ax.set_yticks(yticks)
     ax.set_xticklabels(xtick_labels)
     ax.set_yticklabels(ytick_labels)
-    # Let the horizontal axes labeling appear on top
+    # Let the horizontal axes labelling appear on top
     ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
     # Rotate the tick labels and set their alignment
     plt.setp(ax.get_xticklabels(),

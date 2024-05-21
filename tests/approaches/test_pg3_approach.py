@@ -151,7 +151,9 @@ def test_pg3_approach(approach_name, approach_cls):
         option = act.get_option()
         assert option.name == "pick-up"
     # Test learning with a fast heuristic.
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     approach.learn_from_offline_dataset(dataset)
     load_path = utils.get_approach_load_path_str()
     expected_policy_file = f"{load_path}_None.ldl"
@@ -190,7 +192,8 @@ def test_cluttered_table_pg3_approach():
     train_tasks = [t.task for t in env.get_train_tasks()]
     approach = PG3Approach(env.predicates, get_gt_options(env.get_name()),
                            env.types, env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             env.predicates)
     approach.learn_from_offline_dataset(dataset)
     # Test several tasks to make sure we encounter at least one discovered
     # failure.

@@ -1,0 +1,4 @@
+pick(teabag, hand, [])
+place_in(teabag, cup, [])
+pick(spoon, hand, [])
+place_in(spoon, cup, [])

@@ -74,7 +74,8 @@ def _test_approach(env_name,
         options = parse_config_included_options(env)
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0].task

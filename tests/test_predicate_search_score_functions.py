@@ -1,4 +1,5 @@
 """Tests for PredicateSearchScoreFunction classes."""
+import os
 from typing import Callable, FrozenSet, List, Set
 
 import numpy as np
@@ -156,7 +157,9 @@ def test_prediction_error_score_function():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _PredictionErrorScoreFunction(initial_predicates,
@@ -191,7 +194,9 @@ def test_hadd_match_score_function():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _RelaxationHeuristicMatchBasedScoreFunction(
@@ -222,7 +227,9 @@ def test_relaxation_energy_score_function():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
@@ -317,6 +324,9 @@ def test_exact_energy_score_function():
     """Tests for _ExactHeuristicEnergyBasedScoreFunction()."""
     # Just test this on BlocksEnv, since that's a known problem case
     # for hadd_energy_lookaheaddepth*.
+    # NOTE: without this below dummy API key, utils.flush_cache()
+    # produces a nasty openai error...
+    os.environ["OPENAI_API_KEY"] = "dummy API key"
     utils.flush_cache()
     utils.reset_config({
         "env": "blocks",
@@ -335,7 +345,9 @@ def test_exact_energy_score_function():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _ExactHeuristicEnergyBasedScoreFunction(
@@ -375,7 +387,9 @@ def test_exact_energy_score_function():
 def test_count_score_functions():
     """Tests for _RelaxationHeuristicCountBasedScoreFunction() and
     _ExactHeuristicCountBasedScoreFunction."""
-
+    # NOTE: without this below dummy API key, utils.flush_cache()
+    # produces a nasty openai error...
+    os.environ["OPENAI_API_KEY"] = "dummy API key"
     utils.flush_cache()
     utils.reset_config({
         "env": "cover",
@@ -401,7 +415,9 @@ def test_count_score_functions():
     candidates[NotHandEmpty] = 1.0
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     for name in ["exact_count", "lmcut_count_lookaheaddepth0"]:
@@ -452,7 +468,9 @@ def test_branching_factor_score_function():
     }
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.goal_predicates | set(candidates))
     score_function = _BranchingFactorScoreFunction(env.goal_predicates,
@@ -487,7 +505,9 @@ def test_task_planning_score_function():
     }
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.goal_predicates | set(candidates))
     score_function = _TaskPlanningScoreFunction(env.goal_predicates,
@@ -533,8 +553,9 @@ def test_expected_nodes_score_function():
         }
         env_train_tasks = env.get_train_tasks()
         train_tasks = [t.task for t in env_train_tasks]
+        predicates, _ = utils.parse_config_excluded_predicates(env)
         dataset = create_dataset(env, train_tasks,
-                                 get_gt_options(env.get_name()))
+                                 get_gt_options(env.get_name()), predicates)
         atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, env.goal_predicates | set(candidates))
         score_function = _ExpectedNodesScoreFunction(
@@ -566,7 +587,9 @@ def test_expected_nodes_score_function():
     })
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.goal_predicates | set(candidates))
     score_function = _ExpectedNodesScoreFunction(

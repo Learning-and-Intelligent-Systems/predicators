@@ -250,11 +250,16 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             if gripper_y - obj_y > 2 * cls.moveto_tol or \
                gripper_y - obj2_y > 2 * cls.moveto_tol:
                 return True
-            if not GroundAtom(OnTop, [obj, obj2]).holds(state):
-                return False
-            # Stronger check to deal with case where push release leads object
-            # to be no longer OnTop.
-            return obj_y > obj2_y - cls.moveto_tol / 4.0
+            # NOTE: this stronger check was necessary at some point to deal
+            # with a subtle case where this action pushes the kettle off
+            # the burner when it ends. However, this stronger check often
+            # doesn't terminate when the goal is set to pushing the kettle
+            # onto a particular burner. So now, we just terminate
+            # when the action's symbolic effects hold; we might have to
+            # reinstate/incorporate this stronger check later if the issue
+            # starts cropping up again.
+            # return obj_y > obj2_y - cls.moveto_tol / 4.0
+            return GroundAtom(OnTop, [obj, obj2]).holds(state)
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",

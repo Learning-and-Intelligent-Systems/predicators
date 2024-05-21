@@ -763,3 +763,22 @@ def test_regional_bumpy_cover_env():
         act = policy(state)
         next_state = env.simulate(state, act)
         assert state.allclose(next_state)
+
+
+def test_debug_atoms_vlm_str():
+    """Tests the get_vlm_debug_atom_strs method."""
+    utils.reset_config({
+        "env": "cover",
+        "excluded_predicates": "all",
+        "num_train_tasks": 1
+    })
+    env = create_new_env("cover")
+    tasks = env.get_train_tasks()
+    debug_atoms_strs = env.get_vlm_debug_atom_strs(tasks)
+    gt_debug_strs = [
+        'Holding(block0)', 'IsBlock(block1)', 'IsTarget(target0)',
+        'Holding(block1)', 'HandEmpty()', 'IsTarget(target1)',
+        'IsBlock(block0)'
+    ]
+    for debug_str in gt_debug_strs:
+        assert debug_str in debug_atoms_strs

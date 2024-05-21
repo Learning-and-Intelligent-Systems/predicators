@@ -114,7 +114,9 @@ def test_interaction():
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     _run_pipeline(env, cogman, train_tasks, dataset)
     utils.update_config({
         "approach": "bridge_policy",

@@ -183,7 +183,8 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
     options = get_gt_options(env.get_name())
     env_train_tasks = env.get_train_tasks()
     train_tasks = [t.task for t in env_train_tasks]
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     start_time = time.perf_counter()
 
     for non_goal_predicates in non_goal_predicate_sets:

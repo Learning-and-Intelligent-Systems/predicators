@@ -43,7 +43,7 @@ class DomainTransitionGraph:
     Attributes:
     - init (int): the initial state value of the DTG variable
     - size (int): the number of values in the domain
-    - arcs (defaultdict: int -> set(int)): the DTG arcs (unlabeled)
+    - arcs (defaultdict: int -> set(int)): the DTG arcs (unlabelled)
 
     There are no transition labels or goal values.
 

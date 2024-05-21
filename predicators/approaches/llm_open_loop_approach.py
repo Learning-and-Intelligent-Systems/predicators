@@ -38,8 +38,8 @@ from typing import Collection, Dict, Iterator, List, Optional, Sequence, Set, \
 from predicators.approaches import ApproachFailure
 from predicators.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
-from predicators.llm_interface import OpenAILLM
 from predicators.planning import task_plan_with_option_plan_constraint
+from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
@@ -98,6 +98,7 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         # Query the LLM.
         llm_predictions = self._llm.sample_completions(
             prompt=prompt,
+            imgs=None,
             temperature=CFG.llm_temperature,
             seed=CFG.seed,
             num_completions=CFG.llm_num_completions)

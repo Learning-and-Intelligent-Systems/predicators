@@ -390,13 +390,17 @@ class GlobalSettings:
     nsrt_rl_valid_reward_steps_threshold = 10
 
     # parameters for large language models
-    llm_prompt_cache_dir = "llm_cache"
+    pretrained_model_prompt_cache_dir = "pretrained_model_cache"
     llm_openai_max_response_tokens = 700
     llm_use_cache_only = False
     llm_model_name = "text-curie-001"  # "text-davinci-002"
     vlm_model_name = "text-curie-001"  # "text-davinci-002"
     llm_temperature = 0.5
     llm_num_completions = 1
+
+    # parameters for vision language models
+    # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
+    vlm_model_name = "gemini-pro-vision"
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
@@ -432,6 +436,7 @@ class GlobalSettings:
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
     video_dir = "videos"
+    image_dir = "images"
     video_fps = 2
     failure_video_mode = "longest_only"
 
@@ -473,6 +478,12 @@ class GlobalSettings:
     cluster_and_search_score_func_max_groundings = 10000
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
+    cluster_and_intersect_prune_low_data_pnads = False
+    # If cluster_and_intersect_prune_low_data_pnads is set to True, PNADs must
+    # have at least this fraction of the segments produced by the option that is
+    # associated with their PNAD in order to not be pruned during operator
+    # learning.
+    cluster_and_intersect_min_datastore_fraction = 0.0
 
     # torch GPU usage setting
     use_torch_gpu = False
@@ -645,6 +656,9 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
+    grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
+    grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
+    grammar_search_vlm_atom_proposal_use_debug = False
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
@@ -653,6 +667,13 @@ class GlobalSettings:
     llm_predicator_use_grammar = True
     llm_predicator_oracle_base = True
     llm_predicator_oracle_learned = False
+
+    # filepath to be used if offline_data_method is set to
+    # demo+labelled_atoms
+    handmade_demo_filename = ""
+    # filepath to be used if offline_data_method is set to
+    # saved_vlm_img_demos_folder
+    vlm_trajs_folder_name = ""
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

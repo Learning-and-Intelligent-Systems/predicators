@@ -15,8 +15,10 @@ from predicators.approaches.grammar_search_invention_approach import \
     _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
     _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
+from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
 from predicators.envs.stick_button import StickButtonMovementEnv
+from predicators.envs.vlm_envs import IceTeaMakingEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, Object, \
@@ -122,6 +124,81 @@ def test_predicate_grammar(segmenter):
     debug_grammar = _create_grammar(dataset, set())
     assert len(debug_grammar.generate(max_num=10)) == 3
     utils.update_config({"grammar_search_use_handcoded_debug_grammar": False})
+
+
+def test_labelled_atoms_invention():
+    """Tests for _PredicateGrammar class."""
+    utils.reset_config({
+        "env": "cover",
+        "offline_data_method": "demo+labelled_atoms"
+    })
+    env = CoverEnv()
+    train_task = env.get_train_tasks()[0].task
+    state = train_task.init
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    block = [o for o in state if o.name == "block0"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    state.set(block, "grasp", -1)
+    other_state.set(block, "grasp", 1)
+    preds = env.predicates
+    assert len(preds) == 5
+    ground_atoms = []
+    for s in [state, other_state]:
+        curr_state_atoms = utils.abstract(s, preds)
+        ground_atoms.append(curr_state_atoms)
+
+    ll_trajs = [
+        LowLevelTrajectory([state, other_state],
+                           [Action(np.zeros(1, dtype=np.float32))])
+    ]
+    dataset = Dataset(ll_trajs, [ground_atoms])
+
+    approach = GrammarSearchInventionApproach(env.predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              [train_task])
+
+    with pytest.raises(AssertionError):
+        # The below command should fail because even though it should be able
+        # to extract predicates from the dataset, the trajectories' actions
+        # don't have options that can be used.
+        approach.learn_from_offline_dataset(dataset)
+
+
+def test_invention_from_txt_file():
+    """Test loading a dataset from a txt file."""
+    utils.reset_config({
+        "env":
+        "ice_tea_making",
+        "num_train_tasks":
+        1,
+        "num_test_tasks":
+        0,
+        "offline_data_method":
+        "demo+labelled_atoms",
+        "data_dir":
+        "tests/datasets/mock_vlm_datasets",
+        "handmade_demo_filename":
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    loaded_dataset = create_dataset(env, train_tasks,
+                                    get_gt_options(env.get_name()), predicates)
+    approach = GrammarSearchInventionApproach(env.goal_predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              train_tasks)
+    approach.learn_from_offline_dataset(loaded_dataset)
+    # The ice_tea_making__demo+labelled_atoms__manual__1.txt happens to
+    # set all atoms to True at all timesteps, and so we expect predicate
+    # invention to not select any of the predicates (only select the goal)
+    # predicates.
+    assert len(approach._get_current_predicates()) == 1  # pylint:disable=protected-access
+    assert approach._get_current_predicates() == env.goal_predicates  # pylint:disable=protected-access
 
 
 def test_euclidean_grammar():

@@ -18,6 +18,7 @@ class KitchenPerceiver(BasePerceiver):
         pred_name_to_pred = KitchenEnv.create_predicates()
         OnTop = pred_name_to_pred["OnTop"]
         TurnedOn = pred_name_to_pred["TurnedOn"]
+        KettleBoiling = pred_name_to_pred["KettleBoiling"]
         kettle = KitchenEnv.object_name_to_object("kettle")
         knob4 = KitchenEnv.object_name_to_object("knob4")
         burner4 = KitchenEnv.object_name_to_object("burner4")
@@ -40,6 +41,8 @@ class KitchenPerceiver(BasePerceiver):
             goal = {
                 GroundAtom(TurnedOn, [light]),
             }
+        elif goal_desc == "Move the kettle to the back burner and turn it on":
+            goal = {GroundAtom(KettleBoiling, [kettle, burner4, knob4])}
         else:
             raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
         return Task(state, goal)
@@ -48,7 +51,9 @@ class KitchenPerceiver(BasePerceiver):
         return self._observation_to_state(observation)
 
     def _observation_to_state(self, obs: Observation) -> State:
-        return KitchenEnv.state_info_to_state(obs["state_info"])
+        state = KitchenEnv.state_info_to_state(obs["state_info"])
+        state.simulator_state = obs["obs_images"]
+        return state
 
     def render_mental_images(self, observation: Observation,
                              env_task: EnvironmentTask) -> Video:

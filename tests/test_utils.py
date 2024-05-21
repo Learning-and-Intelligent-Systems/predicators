@@ -17,12 +17,33 @@ from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
 from predicators.ground_truth_models import _get_predicates_by_names, \
     get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    State, STRIPSOperator, Type, Variable
+    State, STRIPSOperator, Type, Variable, VLMPredicate
 from predicators.utils import GoalCountHeuristic, _PyperplanHeuristicWrapper, \
     _TaskPlanningHeuristic
+
+
+class _DummyVLM(VisionLanguageModel):
+
+    def get_id(self):
+        return "dummy"
+
+    def _sample_completions(self,
+                            prompt,
+                            imgs,
+                            temperature,
+                            seed,
+                            stop_token=None,
+                            num_completions=1):
+        del prompt, imgs, temperature, seed, stop_token  # unused.
+        completions = []
+        for _ in range(num_completions):
+            completion = "* is_fishy: True."
+            completions.append(completion)
+        return completions
 
 
 @pytest.mark.parametrize("max_groundings,exp_num_true,exp_num_false",
@@ -1099,6 +1120,15 @@ def test_abstract():
     }
     # Wrapping a predicate should destroy its classifier.
     assert not utils.abstract(state, {wrapped_pred1, wrapped_pred2})
+    # Now, test the case where we abstract using a VLM predicate.
+    utils.reset_config({"seed": 123})
+    vlm_pred = VLMPredicate("IsFishy", [], lambda s, o: NotImplementedError,
+                            lambda o: "is_fishy")
+    vlm_state = state.copy()
+    vlm_state.simulator_state = [np.zeros((30, 30, 3), dtype=np.uint8)]
+    vlm_atoms_set = utils.abstract(vlm_state, [vlm_pred], _DummyVLM())
+    assert len(vlm_atoms_set) == 1
+    assert "IsFishy" in str(vlm_atoms_set)
 
 
 def test_create_new_variables():
@@ -2496,6 +2526,20 @@ def test_save_video():
     video = [rng.integers(255, size=(3, 3), dtype=np.uint8) for _ in range(3)]
     utils.save_video(filename, video)
     os.remove(os.path.join(dirname, filename))
+    os.rmdir(dirname)
+
+
+def test_save_images():
+    """Tests for save_images()."""
+    dirname = "_fake_tmp_images_dir"
+    prefix = "image_prefix"
+    utils.reset_config({"image_dir": dirname})
+    rng = np.random.default_rng(123)
+    video = [rng.integers(255, size=(3, 3), dtype=np.uint8) for _ in range(3)]
+    utils.save_images(prefix, video)
+    os.remove(os.path.join(dirname, prefix + "_image_0.png"))
+    os.remove(os.path.join(dirname, prefix + "_image_1.png"))
+    os.remove(os.path.join(dirname, prefix + "_image_2.png"))
     os.rmdir(dirname)
 
 
