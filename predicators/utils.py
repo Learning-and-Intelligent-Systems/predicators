@@ -42,8 +42,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
-from bosdyn.client import math_helpers
 import PIL.Image
+from bosdyn.client import math_helpers
 from gym.spaces import Box
 from matplotlib import patches
 from numpy.typing import NDArray
@@ -63,9 +63,9 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, SpotAction, SpotActionExtraInfo, \
-    State, STRIPSOperator, Task, Type, Variable, VarToObjSub, VLMPredicate, \
-    Video, _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
-    _TypedEntity
+    State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
+    VLMPredicate, _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, \
+    _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
