@@ -1,0 +1,14 @@
+===
+{*IsRobot(robby): True
+} ->
+
+PickPlace()[0.6926419734954834] -> 
+
+{*IsRobot(robby): True
+} ->
+
+PickPlace()[0.6926419734954834] -> 
+
+{*IsRobot(robby): True
+}
+===

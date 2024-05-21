@@ -351,6 +351,10 @@ class GlobalSettings:
     # grid row env parameters
     grid_row_num_cells = 100
 
+    # burger env parameters
+    gridworld_num_rows = 4
+    gridworld_num_cols = 4
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -409,7 +413,8 @@ class GlobalSettings:
     override_json_with_input = False  # Only works with SpotEnv for now
 
     # parameters for vision language models
-    vlm_model_name = "gemini-pro-vision"  # "gemini-1.5-pro-latest"
+    # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
+    vlm_model_name = "gemini-pro-vision"
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
@@ -445,6 +450,7 @@ class GlobalSettings:
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
     video_dir = "videos"
+    image_dir = "images"
     video_fps = 2
     failure_video_mode = "longest_only"
 
@@ -486,6 +492,12 @@ class GlobalSettings:
     cluster_and_search_score_func_max_groundings = 10000
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
+    cluster_and_intersect_prune_low_data_pnads = False
+    # If cluster_and_intersect_prune_low_data_pnads is set to True, PNADs must
+    # have at least this fraction of the segments produced by the option that is
+    # associated with their PNAD in order to not be pruned during operator
+    # learning.
+    cluster_and_intersect_min_datastore_fraction = 0.0
 
     # torch GPU usage setting
     use_torch_gpu = False
@@ -669,7 +681,7 @@ class GlobalSettings:
     # demo+labelled_atoms
     handmade_demo_filename = ""
     # filepath to be used if offline_data_method is set to
-    # img_demos
+    # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
 
     @classmethod

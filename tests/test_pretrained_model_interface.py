@@ -8,7 +8,7 @@ from PIL import Image
 
 from predicators import utils
 from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    LargeLanguageModel, OpenAILLM, VisionLanguageModel
+    LargeLanguageModel, OpenAILLM, OpenAIVLM, VisionLanguageModel
 
 
 class _DummyLLM(LargeLanguageModel):
@@ -127,13 +127,21 @@ def test_openai_llm():
     if "OPENAI_API_KEY" not in os.environ:  # pragma: no cover
         os.environ["OPENAI_API_KEY"] = "dummy API key"
     # Create an OpenAILLM with the curie model.
-    llm = OpenAILLM("text-curie-001")
-    assert llm.get_id() == "openai-text-curie-001"
+    llm = OpenAILLM("gpt-4o")
+    assert llm.get_id() == "openai-gpt-4o"
     # Uncomment this to test manually, but do NOT uncomment in master, because
     # each query costs money.
-    # completions = llm.sample_completions("Hi", 0.5, 123, num_completions=2)
+    # completions = llm.sample_completions("Hi",
+    #                                      None,
+    #                                      0.5,
+    #                                      123,
+    #                                      num_completions=2)
     # assert len(completions) == 2
-    # completions2 = llm.sample_completions("Hi", 0.5, 123, num_completions=2)
+    # completions2 = llm.sample_completions("Hi",
+    #                                       None,
+    #                                       0.5,
+    #                                       123,
+    #                                       num_completions=2)
     # assert completions == completions2
     # shutil.rmtree(cache_dir)
 
@@ -147,3 +155,37 @@ def test_gemini_vlm():
     # Create an OpenAILLM with the curie model.
     vlm = GoogleGeminiVLM("gemini-pro-vision")
     assert vlm.get_id() == "Google-gemini-pro-vision"
+
+
+def test_openai_vlm():
+    """Tests for GoogleGeminiVLM()."""
+    cache_dir = "_fake_llm_cache_dir"
+    utils.reset_config({"pretrained_model_prompt_cache_dir": cache_dir})
+    if "OPENAI_API_KEY" not in os.environ:  # pragma: no cover
+        os.environ["OPENAI_API_KEY"] = "dummy API key"
+    # Create an OpenAILLM with the curie model.
+    vlm = OpenAIVLM("gpt-4-turbo")
+    assert vlm.get_id() == "OpenAI-gpt-4-turbo"
+    dummy_img = Image.new('RGB', (100, 100))
+    vision_messages = vlm.prepare_vision_messages([dummy_img], "wakanda",
+                                                  "forever")
+    assert len(vision_messages) == 1
+    assert vision_messages[0]['content'][1]['type'] == 'image_url'
+    # NOTE: Uncomment below lines for actual test.
+    # images = [Image.open("tests/datasets/test_vlm_predicate_img.jpg")]
+    # prompt = """
+    #     Describe the object relationships between the objects and containers.
+    #     You can use following predicate-style descriptions:
+    #     Inside(object1, container)
+    #     Blocking(object1, object2)
+    #     On(object, surface)
+    #     """
+    # completions = vlm.sample_completions(prompt=prompt,
+    #                                      imgs=images,
+    #                                      temperature=0.5,
+    #                                      num_completions=3,
+    #                                      seed=0)
+    # assert len(completions) == 3
+    # for completion in completions:
+    #     assert "Inside" in completion
+    # shutil.rmtree(cache_dir)

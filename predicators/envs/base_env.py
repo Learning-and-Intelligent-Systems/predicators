@@ -14,8 +14,8 @@ from predicators import utils
 from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultEnvironmentTask, \
-    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
-    Video
+    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Task, \
+    Type, Video
 
 
 class BaseEnv(abc.ABC):
@@ -426,3 +426,25 @@ class BaseEnv(abc.ABC):
         """Get the current observation of this environment."""
         assert isinstance(self._current_observation, State)
         return self._current_observation.copy()
+
+    def get_vlm_debug_atom_strs(self, train_tasks: List[Task]) -> Set[str]:
+        """A 'debug grammar' set of predicates that should be sufficient for
+        completing the task; useful for comparing different methods of VLM
+        truth-value labelling given the same set of atom proposals to label.
+
+        For the BaseEnv, this method simply takes the names of all
+        excluded predicates and uses these (i.e., forcing the VLM to
+        learn a classifier for these predicates). Subclasses can
+        override to handle more specific use cases.
+        """
+        _, excluded_preds = utils.parse_config_excluded_predicates(self)
+        all_ground_atoms_set: Set[GroundAtom] = set()
+        for tt in train_tasks:
+            all_ground_atoms_set |= set(
+                utils.all_possible_ground_atoms(tt.init, excluded_preds))
+        atom_strs = {
+            atom.predicate.name + "(" +
+            ", ".join([o.name for o in atom.objects]) + ")"
+            for atom in sorted(all_ground_atoms_set)
+        }
+        return atom_strs
