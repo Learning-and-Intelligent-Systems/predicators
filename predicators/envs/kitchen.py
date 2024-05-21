@@ -481,8 +481,7 @@ README of that repo suggests!"
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.knob_type):
-            ret_val = state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
-            return ret_val
+            return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
         if obj.is_instance(cls.switch_type):
             return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
         return False
