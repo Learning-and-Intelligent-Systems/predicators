@@ -1,6 +1,6 @@
 """Ground-truth NSRTs for the gridworld environment."""
 
-from typing import Dict, List, Set
+from typing import Dict, Set
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
@@ -21,9 +21,9 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
         # Types
-        top_bun_type = types["top_bun"]
-        bottom_bun_type = types["bottom_bun"]
-        cheese_type = types["cheese"]
+        # top_bun_type = types["top_bun"]
+        # bottom_bun_type = types["bottom_bun"]
+        # cheese_type = types["cheese"]
         tomato_type = types["tomato"]
         patty_type = types["patty"]
 
@@ -32,13 +32,13 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot_type = types["robot"]
 
         item_type = types["item"]
-        station_type = types["station"]
+        # station_type = types["station"]
         object_type = types["object"]
 
         # Variables
-        top_bun = Variable("?top_bun", top_bun_type)
-        bottom_bun = Variable("?bottom_bun", bottom_bun_type)
-        cheese = Variable("?cheese", cheese_type)
+        # top_bun = Variable("?top_bun", top_bun_type)
+        # bottom_bun = Variable("?bottom_bun", bottom_bun_type)
+        # cheese = Variable("?cheese", cheese_type)
         tomato = Variable("?tomato", tomato_type)
         patty = Variable("?patty", patty_type)
 
@@ -47,16 +47,14 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
 
         item = Variable("?item", item_type)
-        station = Variable("?station", station_type)
-        object = Variable("?object", object_type)
+        # station = Variable("?station", station_type)
+        obj = Variable("?object", object_type)
 
-        from_obj = Variable("?from_obj", item_type)
         from_obj1 = Variable("?from_obj1", item_type)
         from_obj2 = Variable("?from_obj2", item_type)
         from_obj3 = Variable("?from_obj3", item_type)
         from_obj4 = Variable("?from_obj4", object_type)
 
-        to_obj = Variable("?to_obj", object_type)
         to_obj1 = Variable("?to_obj1", item_type)
         to_obj2 = Variable("?to_obj2", item_type)
         to_obj3 = Variable("?to_obj3", item_type)
@@ -65,7 +63,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Predicates
         Adjacent = predicates["Adjacent"]
         AdjacentToNothing = predicates["AdjacentToNothing"]
-        AdjacentNotFacing = predicates["AdjacentNotFacing"]
+        # AdjacentNotFacing = predicates["AdjacentNotFacing"]
         Facing = predicates["Facing"]
         IsCooked = predicates["IsCooked"]
         IsSliced = predicates["IsSliced"]
@@ -149,17 +147,17 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # nsrts.add(move_when_already_adjacent_nsrt)
 
         # MoveFromNothingToOneStack
-        parameters = [robot, to_obj]
-        option_vars = [robot, to_obj]
+        parameters = [robot, to_obj4]
+        option_vars = [robot, to_obj4]
         option = Move
         preconditions = {
             LiftedAtom(AdjacentToNothing, [robot]),
-            LiftedAtom(Clear, [to_obj]),
-            LiftedAtom(OnNothing, [to_obj])
+            LiftedAtom(Clear, [to_obj4]),
+            LiftedAtom(OnNothing, [to_obj4])
         }
         add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, to_obj])
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4])
         }
         delete_effects = {LiftedAtom(AdjacentToNothing, [robot])}
         ignore_effects = set()
@@ -253,8 +251,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(move_from_nothing_to_four_stack_nsrt)
 
         # MoveWhenFacingOneStack
-        parameters = [robot, to_obj, from_obj4]
-        option_vars = [robot, to_obj]
+        parameters = [robot, to_obj4, from_obj4]
+        option_vars = [robot, to_obj4]
         option = Move
         preconditions = {
             LiftedAtom(Adjacent, [robot, from_obj4]),
@@ -263,8 +261,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnNothing, [from_obj4])
         }
         add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, to_obj])
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4])
         }
         delete_effects = {
             LiftedAtom(Adjacent, [robot, from_obj4]),
@@ -279,8 +277,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(move_when_facing_one_stack_nsrt)
 
         # MoveWhenFacingTwoStack
-        parameters = [robot, to_obj, from_obj1, from_obj4]
-        option_vars = [robot, to_obj]
+        parameters = [robot, to_obj4, from_obj1, from_obj4]
+        option_vars = [robot, to_obj4]
         option = Move
         preconditions = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -292,8 +290,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnNothing, [from_obj4])
         }
         add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, to_obj])
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4])
         }
         delete_effects = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -310,8 +308,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(move_when_facing_two_stack_nsrt)
 
         # MoveWhenFacingThreeStack
-        parameters = [robot, to_obj, from_obj1, from_obj2, from_obj4]
-        option_vars = [robot, to_obj]
+        parameters = [robot, to_obj4, from_obj1, from_obj2, from_obj4]
+        option_vars = [robot, to_obj4]
         option = Move
         preconditions = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -326,8 +324,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnNothing, [from_obj4])
         }
         add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, to_obj])
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4])
         }
         delete_effects = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -347,9 +345,9 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # MoveWhenFacingFourStack
         parameters = [
-            robot, to_obj, from_obj1, from_obj2, from_obj3, from_obj4
+            robot, to_obj4, from_obj1, from_obj2, from_obj3, from_obj4
         ]
-        option_vars = [robot, to_obj]
+        option_vars = [robot, to_obj4]
         option = Move
         preconditions = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -367,8 +365,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnNothing, [from_obj4])
         }
         add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, to_obj])
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4])
         }
         delete_effects = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -389,8 +387,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(move_when_facing_four_stack_nsrt)
 
         # MoveWhenFacingThreeStack
-        parameters = [robot, to_obj, from_obj1, from_obj2, from_obj3]
-        option_vars = [robot, to_obj]
+        parameters = [robot, to_obj4, from_obj1, from_obj2, from_obj3]
+        option_vars = [robot, to_obj4]
         option = Move
         preconditions = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -405,8 +403,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnNothing, [from_obj3])
         }
         add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj]),
-            LiftedAtom(Facing, [robot, to_obj])
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4])
         }
         delete_effects = {
             LiftedAtom(Adjacent, [robot, from_obj1]),
@@ -548,27 +546,27 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(pick_single_adjacent_nsrt)
 
         # PickFromStack
-        parameters = [robot, item, object]
+        parameters = [robot, item, obj]
         option_vars = [robot, item]
         option = Pick
         preconditions = {
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(Adjacent, [robot, item]),
             LiftedAtom(Facing, [robot, item]),
-            LiftedAtom(Adjacent, [robot, object]),
-            LiftedAtom(Facing, [robot, object]),
-            LiftedAtom(On, [item, object]),
+            LiftedAtom(Adjacent, [robot, obj]),
+            LiftedAtom(Facing, [robot, obj]),
+            LiftedAtom(On, [item, obj]),
             LiftedAtom(Clear, [item])
         }
         add_effects = {
             LiftedAtom(Holding, [robot, item]),
-            LiftedAtom(Clear, [object])
+            LiftedAtom(Clear, [obj])
         }
         delete_effects = {
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(Adjacent, [robot, item]),
             LiftedAtom(Facing, [robot, item]),
-            LiftedAtom(On, [item, object]),
+            LiftedAtom(On, [item, obj]),
         }
         ignore_effects: Set[Predicate] = set()
         pick_from_stack_nsrt = NSRT("PickFromStack", parameters, preconditions,
@@ -578,25 +576,25 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(pick_from_stack_nsrt)
 
         # Place
-        parameters = [robot, item, object]
-        option_vars = [robot, item, object]
+        parameters = [robot, item, obj]
+        option_vars = [robot, item, obj]
         option = Place
         preconditions = {
             LiftedAtom(Holding, [robot, item]),
-            LiftedAtom(Adjacent, [robot, object]),
-            LiftedAtom(Facing, [robot, object]),
-            LiftedAtom(Clear, [object])
+            LiftedAtom(Adjacent, [robot, obj]),
+            LiftedAtom(Facing, [robot, obj]),
+            LiftedAtom(Clear, [obj])
         }
         add_effects = {
             LiftedAtom(HandEmpty, [robot]),
-            LiftedAtom(On, [item, object]),
+            LiftedAtom(On, [item, obj]),
             LiftedAtom(Adjacent, [robot, item]),
             LiftedAtom(Facing, [robot, item])
         }
         delete_effects = {
             LiftedAtom(Holding, [robot, item]),
             LiftedAtom(OnNothing, [item]),
-            LiftedAtom(Clear, [object])
+            LiftedAtom(Clear, [obj])
         }
         ignore_effects: Set[Predicate] = set()
         place_nsrt = NSRT("Place", parameters, preconditions, add_effects,

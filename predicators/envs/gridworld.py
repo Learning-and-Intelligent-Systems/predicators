@@ -19,7 +19,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Observation, Predicate, State, Type
+    Predicate, State, Type
 
 
 class GridWorldEnv(BaseEnv):
@@ -105,7 +105,10 @@ class GridWorldEnv(BaseEnv):
                                     self._OnNothing_holds)
         self._Clear = Predicate("Clear", [self._object_type],
                                 self._Clear_holds)
-        # self._GoalHack = Predicate("GoalHack", [self._bottom_bun_type, self._patty_type, self._cheese_type, self._tomato_type, self._top_bun_type], self._GoalHack_holds)
+        # self._GoalHack = Predicate("GoalHack", [
+        #     self._bottom_bun_type, self._patty_type, self._cheese_type,
+        #     self._tomato_type, self._top_bun_type
+        # ], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robby", self._robot_type)
@@ -127,6 +130,7 @@ class GridWorldEnv(BaseEnv):
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused
         tasks = []
 
         # Add robot, grill, and cutting board
@@ -175,7 +179,7 @@ class GridWorldEnv(BaseEnv):
             GroundAtom(self._IsSliced, [tomato]),
         }
 
-        for i in range(num):
+        for _ in range(num):
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = hidden_state
             # Note: this takes in Observation, GoalDescription, whose types are
@@ -192,6 +196,7 @@ class GridWorldEnv(BaseEnv):
 
     @classmethod
     def Adjacent_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        """Public for use by oracle options."""
         robot, obj = objects
         rx, ry = cls.get_position(robot, state)
         ox, oy = cls.get_position(obj, state)
@@ -200,7 +205,6 @@ class GridWorldEnv(BaseEnv):
     def _AdjacentToNothing_holds(self, state: State,
                                  objects: Sequence[Object]) -> bool:
         robot, = objects
-        rx, ry = self.get_position(robot, state)
         for obj in state:
             if obj.is_instance(self._item_type):
                 if not self._Holding_holds(
@@ -214,6 +218,7 @@ class GridWorldEnv(BaseEnv):
 
     @classmethod
     def Facing_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        """Public for use by oracle options."""
         robot, obj = objects
         rx, ry = cls.get_position(robot, state)
         rdir = state.get(robot, "dir")
@@ -289,14 +294,16 @@ class GridWorldEnv(BaseEnv):
         ]
         return all(atoms)
 
-    @staticmethod
-    def get_position(object: Object, state: State) -> Tuple[int, int]:
-        col = state.get(object, "col")
-        row = state.get(object, "row")
+    @classmethod
+    def get_position(cls, obj: Object, state: State) -> Tuple[int, int]:
+        """Public for use by oracle options."""
+        col = state.get(obj, "col")
+        row = state.get(obj, "row")
         return col, row
 
-    @staticmethod
-    def is_adjacent(col_1, row_1, col_2, row_2):
+    @classmethod
+    def is_adjacent(cls, col_1, row_1, col_2, row_2):
+        """Public for use by oracle options."""
         adjacent_vertical = col_1 == col_2 and abs(row_1 - row_2) == 1
         adjacent_horizontal = row_1 == row_2 and abs(col_1 - col_2) == 1
         return adjacent_vertical or adjacent_horizontal
@@ -328,11 +335,11 @@ class GridWorldEnv(BaseEnv):
     def _get_robot_direction(dx: float, dy: float) -> str:
         if dx < 0:
             return "left"
-        elif dx > 0:
+        if dx > 0:
             return "right"
-        elif dy < 0:
+        if dy < 0:
             return "down"
-        elif dy > 0:
+        if dy > 0:
             return "up"
         return "no_change"
 
@@ -340,16 +347,17 @@ class GridWorldEnv(BaseEnv):
     def _get_cell_in_direction(x, y, direction) -> Tuple[int, int]:
         if direction == "left":
             return (x - 1, y)
-        elif direction == "right":
+        if direction == "right":
             return (x + 1, y)
-        elif direction == "up":
+        if direction == "up":
             return (x, y + 1)
-        elif direction == "down":
+        if direction == "down":
             return (x, y - 1)
         return (x, y)
 
     @classmethod
     def get_empty_cells(cls, state: State) -> Set[Tuple[int, int]]:
+        """Public for use by oracle options."""
         cells = set()
         for y in range(cls.num_rows):
             for x in range(cls.num_cols):
@@ -363,8 +371,8 @@ class GridWorldEnv(BaseEnv):
         return set(cells)
 
     def simulate(self, state: State, action: Action) -> State:
-        # We assume only one of <dcol, drow>, <direction>, <interact>, <pickplace>
-        # is not "null" in each action.
+        # We assume only one of <dcol, drow>, <direction>, <interact>,
+        # <pickplace> is not "null" in each action.
         # If each one was null, the action would be <0, 0, -1, 0, 0>.
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
@@ -587,8 +595,10 @@ class GridWorldEnv(BaseEnv):
 
         def _event_to_action(state: State,
                              event: matplotlib.backend_bases.Event) -> Action:
+            del state  # unused
             logging.info(
-                "Controls: arrow keys to move, wasd to change direction, (e) to interact, (f) to pickplace"
+                "Controls: arrow keys to move, wasd to change direction, " \
+                "(e) to interact, (f) to pick/place"
             )
             dcol, drow, turn, interact, pickplace = 0, 0, -1, 0, 0
             if event.key == "w":
