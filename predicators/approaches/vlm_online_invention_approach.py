@@ -18,6 +18,7 @@ from inspect import getsource
 from copy import deepcopy
 import importlib.util
 from collections import defaultdict, namedtuple
+from pprint import pformat
 
 from gym.spaces import Box
 import numpy as np
@@ -130,10 +131,10 @@ class VlmInventionApproach(NSRTLearningApproach):
             try:
                 policy = self.solve(task, timeout=CFG.timeout) 
             except (ApproachTimeout, ApproachFailure) as e:
-                logging.info(f"--> Failed: {str(e)}")
+                logging.info(f"Planning failed: {str(e)}")
                 result = e
             else:
-                logging.info(f"--> Succeeded")
+                # logging.info(f"--> Succeeded")
                 policy = utils.option_plan_to_policy(self._last_plan)
                 
                 result = Result(info={"option_plan": self._last_plan,
@@ -155,7 +156,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                 trajectories.append(traj)
             results.append(result)
         dataset = Dataset(trajectories)
-
         return results, dataset
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
@@ -166,8 +166,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         '''
         self.env_name = env.get_name()
         num_tasks = len(tasks)
-        invent_ite = 0
-        max_invent_ite = 3
+        propose_ite = 0
+        max_invent_ite = 5
         invent_at_every_ite = True # Invent at every iterations
         base_candidates = set()
         manual_prompt = True
@@ -175,167 +175,201 @@ class VlmInventionApproach(NSRTLearningApproach):
         load_llm_pred_invent_dataset = False
         save_llm_pred_invent_dataset = True
         solve_rate, prev_solve_rate = 0, np.inf # init to inf
-        have_unsolved_train_tasks = solve_rate < 1
+        best_solve_rate, best_ite, clf_acc = 0, 0, 0
+        clf_acc_at_best_solve_rate = 0
+        best_nsrt, best_preds = deepcopy(self._nsrts), set()
         self._learned_predicates = set()
+        self._init_nsrts = deepcopy(self._nsrts)
 
-        while invent_ite < max_invent_ite:
-            # Act in the environment to collect data
-            if have_unsolved_train_tasks:
-                # Reset at every iteration
-                self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
-                self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
+        # init data collection
+        # Set up load/save filename for interaction dataset
+        ds_fname = utils.llm_pred_dataset_save_name(0)
+        if load_llm_pred_invent_dataset and os.path.exists(ds_fname):
+            # Load from dataset_fname
+            with open(ds_fname, 'rb') as f:
+                results, dataset = dill.load(f) 
+            logging.info(f"Loaded dataset from {ds_fname}\n")
+        else:
+            # Ask it to try to solve the tasks
+            results, dataset = self._solve_tasks(env, tasks)
+            if save_llm_pred_invent_dataset:
+                with open(ds_fname, 'wb') as f:
+                    dill.dump((results, dataset), f)
+                logging.info(f"Saved dataset to {ds_fname}\n")
 
-                # Set up load/save filename for interaction dataset
-                ds_fname = utils.llm_pred_dataset_save_name(invent_ite)
-                if load_llm_pred_invent_dataset and os.path.exists(ds_fname):
-                    # Load from dataset_fname
-                    with open(ds_fname, 'rb') as f:
-                        results, dataset = dill.load(f) 
-                    logging.info(f"Loaded dataset from {ds_fname}\n")
-                else:
-                    # Ask it to try to solve the tasks
-                    results, dataset = self._solve_tasks(env, tasks)
-                    if save_llm_pred_invent_dataset:
-                        with open(ds_fname, 'wb') as f:
-                            dill.dump((results, dataset), f)
-                        logging.info(f"Saved dataset to {ds_fname}\n")
+        num_solved = sum([isinstance(r, tuple) for r in results])
+        prev_solve_rate = num_solved / num_tasks
+        logging.info(f"===ite {0}; "
+                    f"no invent solve rate {num_solved / num_tasks}\n")
+        self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
+        self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
 
-                num_solved = sum([isinstance(r, tuple) for r in results])
-                solve_rate = num_solved / num_tasks
-                no_improvement = not(solve_rate > prev_solve_rate)
-                logging.info(f"\n===ite {invent_ite}, "
-                             f"solve rate {num_solved / num_tasks} "
-                             f"prev_solve_rate {prev_solve_rate}\n")
-
-                # if invent_ite==1:return
-                # Early stopping
-                if (no_improvement and invent_ite > 0) or solve_rate == 1:
-                    if solve_rate == 1:
-                        logging.info(f"return on ite {invent_ite} because "
-                                     "all train tasks are solved")
-                        # self._nsrts = self._prev_nsrts
-                        # self._learned_predicates = self._prev_learned_predicates
-                        return
-                    else:
-                        logging.info(f"No improvement in solve rate at iteration "
-                        f"{invent_ite}. prev_solve_rate {prev_solve_rate}, current "
-                        f"solve_rate {solve_rate}.")
-                        self._nsrts = self._prev_nsrts
-                        self._learned_predicates = self._prev_learned_predicates
-                        return
-
-                # Add data to the succ/fail_optn_dict
-                self._process_interaction_result(env, results, tasks)
-
+        for ite in range(1, max_invent_ite+1):
+            logging.info(f"===Starting iteration {ite}...")
+            # Reset at every iteration
+            # self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
+            # self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
+            self._process_interaction_result(env, results, tasks, ite,
+                                            log_when_first_success=True)
+            #### End of data collection
 
             # Invent when no improvement in solve rate
             self._prev_learned_predicates = self._learned_predicates
-            if no_improvement or invent_at_every_ite:
+            if ite == 1 or no_improvement or invent_at_every_ite:
+                # Invent only when there is no improvement in solve rate
+                # Or when invent_at_every_ite is True
+                #   Create prompt to inspect the execution
                 if CFG.llm_predicator_oracle_base:
+                    # If using the oracle predicates
                     new_candidates = env.predicates - self._initial_predicates
+                    # new_candidates = set([list(env.predicates - self._initial_predicates)[0], list(env.predicates - self._initial_predicates)[2]])
                 else:
                     # Use the results to prompt the llm
-                    prompt = self._create_prompt(env, invent_ite)
-
+                    prompt = self._create_prompt(env, ite)
                     response_file =\
-                        f'./prompts/invent_{self.env_name}_{invent_ite}.response'
-                    if not os.path.exists(response_file) or regenerate_response:
-                        if manual_prompt:
-                            # create a empty txt file for pasting chatGPT response
-                            with open(response_file, 'w') as file:
-                                pass
-                            logging.info(
-                                f"## Please paste the response from the LLM "+
-                                f"to {response_file}")
-                            input("Press Enter when you have pasted the "+
-                                  "response.")
-                        else:
-                            self._vlm.sample_completions(prompt,
-                                temperature=CFG.llm_temperature,
-                                seed=CFG.seed,
-                                save_file=response_file)[0]
+                    f'./prompts/invent_{self.env_name}_1.response'
+                    # f'./prompts/invent_{self.env_name}_{ite}.response'
+                    breakpoint()
+                    new_candidates = self._get_llm_predictions(prompt,
+                                                    response_file, 
+                                                    manual_prompt,
+                                                    regenerate_response)
+                logging.info(f"Done: created {len(new_candidates)} candidates:")
 
-                # If using the oracle predicates
-                    new_candidates = self._parse_predicate_predictions(
-                        response_file)
-                logging.info(f"Done: created {len(new_candidates)} "+
-                             "candidates:")
-
-                # Select a subset of the candidates to keep by score optimization    
-                base_candidates |= new_candidates
-
-                # Optionally add grammar to the candidates
-                if CFG.llm_predicator_use_grammar:
-                    grammar = _create_grammar(dataset=dataset, 
-                        given_predicates=base_candidates |\
-                            self._initial_predicates)
-                    all_candidates: Dict[Predicate, float] = grammar.generate(
-                        max_num=CFG.grammar_search_max_predicates)
+                if CFG.llm_predicator_oracle_learned:
+                    self._learned_predicates = new_candidates
                 else:
-                    # Assign cost 0 for every candidate, for now.
-                    all_candidates: Dict[Predicate, float] = {p: 0 for p in 
-                                                            base_candidates}
+                    # Select a subset candidates by score optimization    
+                    base_candidates |= new_candidates
 
-                # Add a atomic states for succ_optn_dict and fail_optn_dict
-                logging.info("Applying predicates to data...")
-                for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
-                    for g_optn in optn_dict.keys():
-                        atom_states = []
-                        for state in optn_dict[g_optn]['states']:
-                            atom_states.append(utils.abstract(
-                            state, 
-                            set(all_candidates) | self._initial_predicates))
-                        optn_dict[g_optn]['abstract_states'] = atom_states
-                # Apply the candidate predicates to the data.
-                atom_dataset: List[GroundAtomTrajectory] =\
-                    utils.create_ground_atom_dataset(
-                        dataset.trajectories, 
-                        set(all_candidates) | self._initial_predicates)
-                logging.info("Done.")
-                score_function = _ClassificationErrorScoreFunction(
-                                    self._initial_predicates,
-                                    atom_dataset,
-                                    all_candidates,
-                                    self._train_tasks, #Not used in the basic appro.?
-                                    succ_optn_dict=self.succ_optn_dict,
-                                    fail_optn_dict=self.fail_optn_dict)
-                start_time = time.perf_counter()
-                self._learned_predicates = \
-                    self._select_predicates_by_score_hillclimbing(
-                        all_candidates, 
-                        score_function, 
-                        self._initial_predicates)
-                logging.info(
-                f"Total search time {time.perf_counter()-start_time:.2f} seconds")
-                # self._learned_predicates = new_candidates
-                invent_ite += 1
+                    ### Predicate Search
+                    # Optionally add grammar to the candidates
+                    if CFG.llm_predicator_use_grammar:
+                        grammar = _create_grammar(dataset=dataset, 
+                            given_predicates=base_candidates |\
+                                self._initial_predicates)
+                        all_candidates: Dict[Predicate, float] = grammar.generate(
+                            max_num=CFG.grammar_search_max_predicates)
+                    else:
+                        # Assign cost 0 for every candidate, for now.
+                        all_candidates: Dict[Predicate, float] = {p: 0 for p in 
+                                                                base_candidates}
+                    # Add a atomic states for succ_optn_dict and fail_optn_dict
+                    logging.info("Applying predicates to data...")
+                    for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+                        for g_optn in optn_dict.keys():
+                            atom_states = []
+                            for state in optn_dict[g_optn]['states']:
+                                atom_states.append(utils.abstract(
+                                state, 
+                                set(all_candidates) | self._initial_predicates))
+                            optn_dict[g_optn]['abstract_states'] = atom_states
+                    # Apply the candidate predicates to the data.
+                    atom_dataset: List[GroundAtomTrajectory] =\
+                        utils.create_ground_atom_dataset(
+                            dataset.trajectories, 
+                            set(all_candidates) | self._initial_predicates)
+                    logging.info("Done.")
+                    score_function = _ClassificationErrorScoreFunction(
+                        self._initial_predicates, atom_dataset, all_candidates,
+                        self._train_tasks, self.succ_optn_dict, self.fail_optn_dict)
 
+                    start_time = time.perf_counter()
+                    self._learned_predicates = \
+                        self._select_predicates_by_score_hillclimbing(
+                            all_candidates, 
+                            score_function, 
+                            self._initial_predicates)
+                    logging.info(
+                    f"Total search time {time.perf_counter()-start_time:.2f} seconds")
+                propose_ite += 1
 
             # Finally, learn NSRTs via superclass, using all the kept predicates.
             annotations = None
             if dataset.has_annotations:
                 annotations = dataset.annotations
-            self._prev_nsrts = self._nsrts
-            self._learn_nsrts(dataset.trajectories,
-                                online_learning_cycle=None,
-                                annotations=annotations)
+            self._learn_nsrts(dataset.trajectories, online_learning_cycle=None,
+                annotations=annotations)
+
+            # Add init_nsrts whose option isn't in the current nsrts to 
+            cur_options = [nsrt.option for nsrt in self._nsrts]
+            for p_nsrts in self._init_nsrts:
+                if not p_nsrts.option in cur_options:
+                    self._nsrts.add(p_nsrts)
+            print("All NSRTS after learning", pformat(self._nsrts))
+
+            ### Collect Data again
+            # Set up load/save filename for interaction dataset
+            ds_fname = utils.llm_pred_dataset_save_name(ite)
+            if load_llm_pred_invent_dataset and os.path.exists(ds_fname):
+                # Load from dataset_fname
+                with open(ds_fname, 'rb') as f:
+                    results, dataset = dill.load(f) 
+                logging.info(f"Loaded dataset from {ds_fname}\n")
+            else:
+                # Ask it to try to solve the tasks
+                results, dataset = self._solve_tasks(env, tasks)
+                if save_llm_pred_invent_dataset:
+                    with open(ds_fname, 'wb') as f:
+                        dill.dump((results, dataset), f)
+                    logging.info(f"Saved dataset to {ds_fname}\n")
+
+            num_solved = sum([isinstance(r, tuple) for r in results])
+            solve_rate = num_solved / num_tasks
+            no_improvement = not(solve_rate > prev_solve_rate)
 
             # Print the new classification results with the new operators
             tp, tn, fp, fn, _ = utils.count_classification_result_for_ops(
-                                        self._nsrts,
-                                        self.succ_optn_dict,
-                                        self.fail_optn_dict,
-                                        return_str=False,
-                                        initial_ite=False,
-                                        print_cm=True)
+                self._nsrts, self.succ_optn_dict, self.fail_optn_dict,
+                return_str=False, initial_ite=False, print_cm=True)
             clf_acc = (tp + tn) / (tp + tn + fp + fn)
-            logging.info(f"Ite {invent_ite-1}, clf accuracy: {clf_acc:.2f}, "
-                        f"solve rate (before predicate search): {solve_rate}")
+            logging.info(f"\n===ite {ite} finished. "
+                            f"Solve rate {num_solved / num_tasks} "
+                            f"Prev solve rate {prev_solve_rate} "
+                            f"Clf accuracy: {clf_acc:.2f}\n")
+
+            # Save the best model
+            if solve_rate > best_solve_rate :
+                best_solve_rate = solve_rate
+                clf_acc_at_best_solve_rate = clf_acc
+                best_ite = ite
+                best_nsrt = self._nsrts
+                best_preds = self._learned_predicates
             prev_solve_rate = solve_rate
+            if solve_rate == 1:
+                break
 
         logging.info("Invention finished.")
+        logging.info(f"\nBest solve rate {best_solve_rate} first achieved at ite "
+            f"{best_ite}; clf accuracy {clf_acc_at_best_solve_rate}")
+        logging.info(f"Predicates learned {best_preds}")
+        logging.info(f"NSRTs learned {pformat(best_nsrt)}")
         breakpoint()
+        self._nsrts = best_nsrt
+        self._learned_predicates = best_preds
         return
+    
+    def _get_llm_predictions(self, prompt: str, response_file: str,
+                             manual_prompt: bool=False,
+                             regenerate_response: bool=False) -> Set[Predicate]:
+        if not os.path.exists(response_file) or regenerate_response:
+            if manual_prompt:
+                # create a empty file for pasting chatGPT response
+                with open(response_file, 'w') as file:
+                    pass
+                logging.info(
+                    f"## Please paste the response from the LLM "+
+                    f"to {response_file}")
+                input("Press Enter when you have pasted the "+
+                        "response.")
+            else:
+                self._vlm.sample_completions(prompt,
+                    temperature=CFG.llm_temperature,
+                    seed=CFG.seed,
+                    save_file=response_file)[0]
+        new_candidates = self._parse_predicate_predictions(
+            response_file)
+        return new_candidates
 
     def _select_predicates_by_score_hillclimbing(
             self, candidates: Dict[Predicate, float],
@@ -360,9 +394,19 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # climbing and not A* (because we don't care about the
                 # path).
                 yield (None, frozenset(s | {predicate}), 1.0)
+            # for predicate in sorted(s):  # determinism
+            #     # Actions not needed. Frozensets for hashing. The cost of
+            #     # 1.0 is irrelevant because we're doing GBFS / hill
+            #     # climbing and not A* (because we don't care about the
+            #     # path).
+            #     yield (None, frozenset(set(s) - {predicate}), 1.0)
 
         # Start the search with no candidates.
         init: FrozenSet[Predicate] = frozenset()
+        # init: FrozenSet[Predicate] = frozenset(candidates.keys())
+
+        # calculate the number of total combinations of all sizes
+        num_combinations = 2**len(set(candidates))
 
         # Greedy local hill climbing search.
         if CFG.grammar_search_search_algorithm == "hill_climbing":
@@ -389,7 +433,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                 _check_goal,
                 _get_successors,
                 score_function.evaluate,
-                max_evals=CFG.grammar_search_gbfs_num_evals)
+                max_evals=CFG.grammar_search_gbfs_num_evals,
+                full_search_tree_size=num_combinations,
+                )
         else:
             raise NotImplementedError(
                 "Unrecognized grammar_search_search_algorithm: "
@@ -708,6 +754,8 @@ class VlmInventionApproach(NSRTLearningApproach):
     def _process_interaction_result(self, env: BaseEnv,
                                     results: Dict, 
                                     tasks: Task,
+                                    ite: int,
+                                    log_when_first_success: bool,
                                     add_intermediate_details=False) -> None:    
         '''When add_intermediate_details == True, detailed interaction 
         trajectories are added to the return string
@@ -717,25 +765,34 @@ class VlmInventionApproach(NSRTLearningApproach):
         # num_attempted = len(results)
         # logging.info(f"The agent solved {num_solved} out of " +
         #                 f"{num_attempted} tasks.\n")
-        logging.info("\n===Processing the interaction results...\n")
+        logging.info("===Processing the interaction results...\n")
+        if ite == 1:
+            self.solve_log = [False] * len(tasks)
 
         for i, _ in enumerate(tasks):
-            t = tasks[i]
-
             # Planning Results
             result = results[i]
-            for k, v in result.info['metrics'].items():
-                if k == 'num_skeletons_optimized':
-                    num_skeletons_optimized = v
-            if num_skeletons_optimized == 0:
+            try:
+                for k, v in result.info['metrics'].items():
+                    if k == 'num_skeletons_optimized':
+                        num_skeletons_optimized = v
+                if num_skeletons_optimized == 0:
+                    continue
+            except:
+                logging.info(f"Task {i}: is not dr-reachable.")
                 continue
 
             if isinstance(result, tuple):
                 # Found a successful plan
-                logging.info(f"Task {i}: planning succeeded.")
+                # logging.info(f"Task {i}: planning succeeded.")
+                # Only log
                 nsrt_plan = result.info['nsrt_plan']
                 option_plan = result.info['option_plan'].copy()
-
+                if log_when_first_success:
+                    if self.solve_log[i]:
+                        continue
+                    else:
+                        self.solve_log[i] = True
                 # Add the Plan Execution Trajectory
                 init_state = env.reset(train_or_test='train', task_idx=i)
                 _, _ = self._plan_to_str(init_state, env, 
@@ -761,7 +818,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 
             else:
                 # Didn't find a successful plan
-                logging.info(f"Task {i}: planning failed.")
+                # logging.info(f"Task {i}: planning failed.")
                 
                 # Get all the failed trajectories
                 for p_ref in result.info['partial_refinements']:

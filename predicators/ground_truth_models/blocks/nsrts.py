@@ -93,7 +93,8 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         otherblock = Variable("?otherblock", block_type)
         robot = Variable("?robot", robot_type)
         parameters = [block, otherblock, robot]
-        option_vars = [robot, otherblock]
+        option_vars = [block, otherblock, robot]
+        # option_vars = [robot, otherblock]
         option = Stack
         preconditions = {
             LiftedAtom(Holding, [block]),
@@ -118,7 +119,8 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         block = Variable("?block", block_type)
         robot = Variable("?robot", robot_type)
         parameters = [block, robot]
-        option_vars = [robot]
+        option_vars = [block, robot]
+        # option_vars = [robot]
         option = PutOnTable
         preconditions = {LiftedAtom(Holding, [block])}
         add_effects = {

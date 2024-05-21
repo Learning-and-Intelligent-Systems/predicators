@@ -29,7 +29,9 @@ from typing import TypeVar, Union, cast
 from copy import deepcopy
 from tabulate import tabulate
 from pprint import pprint
+import shutil
 
+from tqdm import tqdm
 import dill as pkl
 import imageio
 import matplotlib
@@ -2090,13 +2092,26 @@ def _run_heuristic_search(
         max_expansions: int = 10000000,
         max_evals: int = 10000000,
         timeout: int = 10000000,
-        lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
+        lazy_expansion: bool = False,
+        full_search_tree_size: int = 10000000) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
 
     Depending on get_priority, can implement A*, GBFS, or UCS.
 
     If no goal is found, returns the state with the best priority.
     """
+    num_search = min(max_expansions, max_evals, full_search_tree_size)
+    progress_bar = False
+    if progress_bar:
+        # Get the console width
+        console_width = shutil.get_terminal_size().columns
+        # Calculate 60% of the console width
+        ncols = int(console_width * 0.6)
+        pbar = tqdm(total=num_search, desc="Heuristic Search",
+            ncols=ncols, 
+            bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}', 
+            colour='green')
+
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
     state_to_best_path_cost: Dict[_S, float] = \
         defaultdict(lambda: float("inf"))
@@ -2138,6 +2153,8 @@ def _run_heuristic_search(
                                               action=action)
             priority = get_priority(child_node)
             num_evals += 1
+            if progress_bar:
+                pbar.update(1)
             hq.heappush(queue, (priority, next(tiebreak), child_node))
             state_to_best_path_cost[child_state] = child_path_cost
             if priority < best_node_priority:
@@ -2153,6 +2170,8 @@ def _run_heuristic_search(
                 break
 
     # Did not find path to goal; return best path seen.
+    if progress_bar:
+        pbar.close()
     return _finish_plan(best_node)
 
 
@@ -2179,12 +2198,13 @@ def run_gbfs(initial_state: _S,
              max_expansions: int = 10000000,
              max_evals: int = 10000000,
              timeout: int = 10000000,
+             full_search_tree_size: int = 10000000,
              lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search."""
     get_priority = lambda n: heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
                                  get_priority, max_expansions, max_evals,
-                                 timeout, lazy_expansion)
+                                 timeout, lazy_expansion, full_search_tree_size)
 
 
 def run_astar(initial_state: _S,

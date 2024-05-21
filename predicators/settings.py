@@ -76,7 +76,7 @@ class GlobalSettings:
     regional_bumpy_cover_include_impossible_nsrt = False
 
     # blocks env parameters
-    blocks_num_blocks_train = [3, 4]
+    blocks_num_blocks_train = [2, 3, 4]
     blocks_num_blocks_test = [5, 6]
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
@@ -111,7 +111,7 @@ class GlobalSettings:
     rnt_painting_max_objs_in_goal = 2
 
     # tools env parameters
-    tools_num_items_train = [2]
+    tools_num_items_train = [1, 2]
     tools_num_items_test = [2, 3]
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
@@ -269,7 +269,7 @@ class GlobalSettings:
     pddl_miconic_procedural_test_max_passengers = 2
 
     # stick button env parameters
-    stick_button_num_buttons_train = [1, 2]
+    stick_button_num_buttons_train = [2]
     stick_button_num_buttons_test = [3, 4]
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
@@ -692,6 +692,7 @@ class GlobalSettings:
     # LLM predicate invention algorithm parameters
     llm_predicator_use_grammar = True
     llm_predicator_oracle_base = True
+    llm_predicator_oracle_learned = False
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -772,7 +773,6 @@ class GlobalSettings:
                     "coffee": 1000,
                     "exit_garage": 1000,
                     "tools": 1000,
-                    "doors": 1000,
                     "stick_button": 1000,
                     "stick_button_move": 1000
                 })[args.get("env", "")],

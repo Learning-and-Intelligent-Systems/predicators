@@ -10,6 +10,7 @@ from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
+from predicators import utils
 
 
 class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -393,7 +394,10 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _get_jug_z(cls, state: State, robot: Object, jug: Object) -> float:
-        assert state.get(jug, "is_held") > 0.5
+        try:
+            assert state.get(jug, "is_held") > 0.5
+        except:
+            raise utils.OptionExecutionFailure("Jug is not held.")
         # Offset to account for handle.
         return state.get(robot, "z") - CoffeeEnv.jug_handle_height
 

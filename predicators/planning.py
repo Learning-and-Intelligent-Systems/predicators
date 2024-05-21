@@ -37,7 +37,6 @@ _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
 # Get the console width
 console_width = shutil.get_terminal_size().columns
-
 # Calculate 60% of the console width
 ncols = int(console_width * 0.6)
 

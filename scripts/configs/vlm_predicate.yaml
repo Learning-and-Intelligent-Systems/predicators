@@ -7,10 +7,17 @@ APPROACHES:
 ENVS:
   stick_button:
     # NAME: "stick_button"
-    NAME: "cover_place_hard"
+    # NAME: "cover_place_hard"
+    # NAME: "blocks"
     # NAME: "doors"
     # NAME: "sokoban"
+    # NAME: "sandwich"
+    # NAME: "screws"
+    # NAME: "sticky_table"
     # NAME: "painting"
+    NAME: "tools"
+    # NAME: "coffee"
+    # NAME: "playroom_simple"
 ARGS: 
   # []
   - "debug"
@@ -40,12 +47,16 @@ FLAGS:
   pybullet_camera_width: 1674 
   pybullet_camera_height: 900
   video_fps: 20
+  # grammar_search_search_algorithm: "hill_climbing"
   grammar_search_search_algorithm: "gbfs"
   painting_raise_environment_failure: False
-  llm_predicator_use_grammar: True
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
+
+  llm_predicator_use_grammar: False
   llm_predicator_oracle_base: True
+  llm_predicator_oracle_learned: True
+  # grammar_search_pred_complexity_weight: 1e-5
 START_SEED: 2
 NUM_SEEDS: 1
 ...
