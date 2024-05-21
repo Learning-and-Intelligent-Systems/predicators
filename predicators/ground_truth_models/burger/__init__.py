@@ -3,6 +3,4 @@
 from .nsrts import BurgerGroundTruthNSRTFactory
 from .options import BurgerGroundTruthOptionFactory
 
-__all__ = [
-    "BurgerGroundTruthOptionFactory", "BurgerGroundTruthNSRTFactory"
-]
+__all__ = ["BurgerGroundTruthOptionFactory", "BurgerGroundTruthNSRTFactory"]
