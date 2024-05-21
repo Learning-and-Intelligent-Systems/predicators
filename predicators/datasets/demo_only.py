@@ -191,6 +191,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                     exceptions_to_break_on={
                         utils.OptionExecutionFailure,
                         utils.HumanDemonstrationFailure,
+                        ApproachFailure
                     },
                     monitor=video_monitor)
             else:  # pragma: no cover

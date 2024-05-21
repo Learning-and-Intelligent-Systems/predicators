@@ -183,7 +183,7 @@ def run_episode_and_get_observations(
     task_idx: int,
     max_num_steps: int,
     do_env_reset: bool = True,
-    terminate_on_goal_reached: bool = True,
+    terminate_on_goal_reached: bool = False,
     exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
     monitor: Optional[utils.LoggingMonitor] = None
 ) -> Tuple[Tuple[List[Observation], List[Action]], bool, Metrics]:
@@ -247,7 +247,6 @@ def run_episode_and_get_observations(
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
-                import ipdb; ipdb.set_trace()
                 raise e
             if terminate_on_goal_reached and env.goal_reached():
                 break
@@ -266,7 +265,7 @@ def run_episode_and_get_states(
     task_idx: int,
     max_num_steps: int,
     do_env_reset: bool = True,
-    terminate_on_goal_reached: bool = True,
+    terminate_on_goal_reached: bool = False,
     exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
     monitor: Optional[utils.LoggingMonitor] = None
 ) -> Tuple[LowLevelTrajectory, bool, Metrics]:

@@ -226,40 +226,54 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         options.add(move_to_pre_pull_kettle)
 
         # PushObjOnObjForward
+        def _PushObjOnObjForward_initiable(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
+            # Store the home pose, which we will go to after pushing!
+            memory["waypoints"] = [
+                (cls.home_pos, down_quat),
+            ]
+            memory["object_pushed"] = False
+            return True
+
+
         def _PushObjOnObjForward_policy(state: State, memory: Dict,
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
-            del state, memory, objects  # unused
-            # The parameter is a push direction angle with respect to y.
-            push_angle = params[0]
-            unit_y, unit_x = np.cos(push_angle), np.sin(push_angle)
-            dx = unit_x * cls.max_push_mag
-            dy = unit_y * cls.max_push_mag
-            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
-            return Action(arr)
 
-        def _PushObjOnObjForward_terminal(state: State, memory: Dict,
-                                          objects: Sequence[Object],
-                                          params: Array) -> bool:
-            del memory, params  # unused
-            gripper, obj, obj2 = objects
-            gripper_y = state.get(gripper, "y")
-            obj_y = state.get(obj, "y")
-            obj2_y = state.get(obj2, "y")
-            # Terminate early if the gripper is far past either of the objects.
-            if gripper_y - obj_y > 2 * cls.moveto_tol or \
-               gripper_y - obj2_y > 2 * cls.moveto_tol:
-                return True
-            # NOTE: this stronger check was necessary at some point to deal
-            # with a subtle case where this action pushes the kettle off
-            # the burner when it ends. However, this stronger check often
-            # doesn't terminate when the goal is set to pushing the kettle
-            # onto a particular burner. So now, we just terminate
-            # when the action's symbolic effects hold; we might have to
-            # reinstate/incorporate this stronger check later if the issue
-            # starts cropping up again.
-            # return obj_y > obj2_y - cls.moveto_tol / 4.0
-            return GroundAtom(OnTop, [obj, obj2]).holds(state)
+            if not memory["object_pushed"]:
+                # First, we check whether the object has already been pushed, or
+                # if we are so far away that we should give up on trying to
+                # push it.
+                gripper, obj, obj2 = objects
+                gripper_y = state.get(gripper, "y")
+                obj_y = state.get(obj, "y")
+                obj2_y = state.get(obj2, "y")
+                # Terminate early if the gripper is far past either of the objects.
+                if gripper_y - obj_y > 2 * cls.moveto_tol or \
+                gripper_y - obj2_y > 2 * cls.moveto_tol:
+                    memory["object_pushed"] = True
+                # NOTE: this stronger check was necessary at some point to deal
+                # with a subtle case where this action pushes the kettle off
+                # the burner when it ends. However, this stronger check often
+                # doesn't terminate when the goal is set to pushing the kettle
+                # onto a particular burner. So now, we just terminate
+                # when the action's symbolic effects hold; we might have to
+                # reinstate/incorporate this stronger check later if the issue
+                # starts cropping up again.
+                # return obj_y > obj2_y - cls.moveto_tol / 4.0
+                memory["object_pushed"] = GroundAtom(OnTop, [obj, obj2]).holds(state)
+                # After we've set the memory correctly, we need to actually
+                # return the correct action.
+                # The parameter is a push direction angle with respect to y.
+                push_angle = params[0]
+                unit_y, unit_x = np.cos(push_angle), np.sin(push_angle)
+                dx = unit_x * cls.max_push_mag
+                dy = unit_y * cls.max_push_mag
+                arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+                return Action(arr)
+            else:
+                return _MoveTo_policy(state, memory, objects, params)        
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
@@ -267,8 +281,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Parameter is an angle for pushing forward.
             params_space=Box(-np.pi, np.pi, (1, )),
             policy=_PushObjOnObjForward_policy,
-            initiable=lambda _1, _2, _3, _4: True,
-            terminal=_PushObjOnObjForward_terminal)
+            initiable=_PushObjOnObjForward_initiable,
+            terminal=_MoveTo_terminal)
 
         options.add(PushObjOnObjForward)
 
