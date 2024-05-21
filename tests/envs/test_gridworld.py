@@ -229,5 +229,3 @@ def test_gridworld():
     action = option.policy(state)
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 3
-
-
