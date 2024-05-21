@@ -1,0 +1,231 @@
+"""Test cases for the burger environment."""
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+
+from predicators import utils
+from predicators.envs.burger import BurgerEnv
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
+from predicators.settings import CFG
+from predicators.structs import Action, GroundAtom
+
+
+def test_burger():
+    """Tests for BurgerEnv."""
+
+    utils.reset_config({
+        "env": "burger",
+        "option_model_terminate_on_repeat": False,
+        "sesame_max_skeletons_optimized": 1000,
+        "sesame_max_samples_per_step": 1,
+        "sesame_task_planner": "fdopt"
+    })
+
+    env = BurgerEnv()
+    for task in env.get_train_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    for task in env.get_test_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    assert len(env.predicates) == 12
+    assert len(env.goal_predicates) == 3
+    assert env.get_name() == "burger"
+    assert len(env.types) == 11
+    options = get_gt_options(env.get_name())
+    assert len(options) == 5
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    assert len(nsrts) == 15
+    task = env.get_train_tasks()[0]
+    MoveWhenFacingOneStack = [
+        n for n in nsrts if n.name == "MoveWhenFacingOneStack"
+    ][0]
+    MoveWhenFacingTwoStack = [
+        n for n in nsrts if n.name == "MoveWhenFacingTwoStack"
+    ][0]
+    MoveWhenFacingThreeStack = [
+        n for n in nsrts if n.name == "MoveWhenFacingThreeStack"
+    ][0]
+    MoveWhenFacingFourStack = [
+        n for n in nsrts if n.name == "MoveWhenFacingFourStack"
+    ][0]
+    MoveFromNothingToOneStack = [
+        n for n in nsrts if n.name == "MoveFromNothingToOneStack"
+    ][0]
+    MoveFromNothingToTwoStack = [
+        n for n in nsrts if n.name == "MoveFromNothingToTwoStack"
+    ][0]
+    MoveFromNothingToFourStack = [
+        n for n in nsrts if n.name == "MoveFromNothingToFourStack"
+    ][0]
+    MoveFromOneStackToThreeStack = [
+        n for n in nsrts if n.name == "MoveFromOneStackToThreeStack"
+    ][0]
+    PickSingleAdjacent = [n for n in nsrts
+                          if n.name == "PickSingleAdjacent"][0]
+    PickFromStack = [n for n in nsrts if n.name == "PickFromStack"][0]
+    Place = [n for n in nsrts if n.name == "Place"][0]
+    Cook = [n for n in nsrts if n.name == "Cook"][0]
+    Slice = [n for n in nsrts if n.name == "Slice"][0]
+
+    grill = [obj for obj in task.init if obj.name == "grill"][0]
+    patty = [obj for obj in task.init if obj.name == "patty"][0]
+    robot = [obj for obj in task.init if obj.name == "robby"][0]
+    tomato = [obj for obj in task.init if obj.name == "tomato"][0]
+    cutting_board = [obj for obj in task.init
+                     if obj.name == "cutting_board"][0]
+    cheese = [obj for obj in task.init if obj.name == "cheese"][0]
+    top_bun = [obj for obj in task.init if obj.name == "top_bun"][0]
+    bottom_bun = [obj for obj in task.init if obj.name == "bottom_bun"][0]
+
+    plan = [
+        MoveWhenFacingOneStack.ground([robot, patty, grill]),
+        PickSingleAdjacent.ground([robot, patty]),
+        MoveFromNothingToOneStack.ground([robot, grill]),
+        Place.ground([robot, patty, grill]),
+        Cook.ground([robot, patty, grill]),
+        PickFromStack.ground([robot, patty, grill]),
+        MoveWhenFacingOneStack.ground([robot, bottom_bun, grill]),
+        Place.ground([robot, patty, bottom_bun]),
+        MoveWhenFacingTwoStack.ground([robot, cheese, patty, bottom_bun]),
+        PickSingleAdjacent.ground([robot, cheese]),
+        MoveFromNothingToTwoStack.ground([robot, patty, bottom_bun]),
+        Place.ground([robot, cheese, patty]),
+        MoveWhenFacingThreeStack.ground(
+            [robot, tomato, cheese, patty, bottom_bun]),
+        PickSingleAdjacent.ground([robot, tomato]),
+        MoveFromNothingToOneStack.ground([robot, cutting_board]),
+        Place.ground([robot, tomato, cutting_board]),
+        Slice.ground([robot, tomato, cutting_board]),
+        PickFromStack.ground([robot, tomato, cutting_board]),
+        MoveFromOneStackToThreeStack.ground(
+            [robot, cheese, patty, bottom_bun, cutting_board]),
+        Place.ground([robot, tomato, cheese]),
+        MoveWhenFacingFourStack.ground(
+            [robot, top_bun, tomato, cheese, patty, bottom_bun]),
+        PickSingleAdjacent.ground([robot, top_bun]),
+        MoveFromNothingToFourStack.ground(
+            [robot, tomato, cheese, patty, bottom_bun]),
+        Place.ground([robot, top_bun, tomato])
+    ]
+
+    option_plan = [n.option.ground(n.option_objs, []) for n in plan]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "train",
+                               0,
+                               termination_function=lambda s: False,
+                               max_num_steps=CFG.horizon,
+                               exceptions_to_break_on={
+                                   utils.OptionExecutionFailure,
+                                   utils.HumanDemonstrationFailure,
+                               },
+                               monitor=None)
+
+    # Test _AdjacentToNothing_holds
+    state = task.init
+    state.set(robot, "col", 1)
+    state.set(top_bun, "col", 2)
+    abstract_state = utils.abstract(state, env.predicates)
+    AdjacentToNothing = [
+        p for p in env.predicates if p.name == "AdjacentToNothing"
+    ][0]
+    assert GroundAtom(AdjacentToNothing, [robot]) in abstract_state
+
+    # Test _OnNothing_holds
+    OnNothing = [p for p in env.predicates if p.name == "OnNothing"][0]
+    assert GroundAtom(OnNothing,
+                      [top_bun]) not in utils.abstract(traj.states[-1],
+                                                       env.predicates)
+
+    # Test _GoalHack_holds
+    GoalHack = [p for p in env.predicates if p.name == "GoalHack"][0]
+    assert GroundAtom(GoalHack, [bottom_bun, patty, cheese, tomato, top_bun
+                                 ]) in utils.abstract(traj.states[-1],
+                                                      env.predicates)
+
+    # Test get_cell_in_direction
+    x, y = env.get_cell_in_direction(1, 1, "left")
+    assert x == 0 and y == 1
+    x, y = env.get_cell_in_direction(1, 1, "up")
+    assert x == 1 and y == 2
+    x, y = env.get_cell_in_direction(1, 1, "no_change")
+    assert x == 1 and y == 1
+
+    # Test collision
+    state.set(robot, "col", 2)  # robot is at (2, 2)
+    action = Action(np.array([1, 0, -1, 0, 0], dtype=np.float32))
+    next_state = env.simulate(state, action)
+    assert env.get_position(robot,
+                            next_state) == env.get_position(robot, state)
+
+    # Test placing on the ground
+    state = traj.states[5]
+    action = Action(np.array([0, 0, -1, 0, 1], dtype=np.float32))
+    next_state = env.simulate(state, action)
+    assert env.get_position(patty, next_state) == env.get_position(
+        patty, traj.states[4])
+    assert next_state.get(patty, "z") == 0
+
+    # Test rendering
+    env.render_state_plt(traj.states[0], task)
+    env.render_state_plt(traj.states[5], task)
+    env.render_state_plt(traj.states[-1], task)
+
+    # Test interface for collecting demonstrations
+    event_to_action = env.get_event_to_action_fn()
+    fig = plt.figure()
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "asdf")
+    assert isinstance(event_to_action(state, event), Action)
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "q")
+    with pytest.raises(utils.HumanDemonstrationFailure):
+        event_to_action(state, event)
+    for key in ["w", "a", "s", "d", "left", "right", "down", "up", "e", "f"]:
+        event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, key)
+        event_to_action(state, event)
+    plt.close()
+
+    # Test move option when already adjacent but not facing
+    state = task.init
+    state.set(grill, "col", 2)
+    state.set(grill, "row", 3)
+    Move = [o for o in options if o.name == "Move"][0]
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 0
+
+    state = task.init
+    state.set(grill, "col", 2)
+    state.set(grill, "row", 1)
+    Move = [o for o in options if o.name == "Move"][0]
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 2
+
+    state = task.init
+    state.set(grill, "col", 1)
+    state.set(grill, "row", 2)
+    Move = [o for o in options if o.name == "Move"][0]
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 1
+
+    state = task.init
+    state.set(grill, "col", 3)
+    state.set(grill, "row", 2)
+    state.set(robot, "dir", 1)
+    Move = [o for o in options if o.name == "Move"][0]
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 3

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import itertools
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
@@ -162,7 +163,8 @@ class State:
         new_data = {}
         for obj in self:
             new_data[obj] = self._copy_state_value(self.data[obj])
-        return State(new_data, simulator_state=self.simulator_state)
+        return State(new_data,
+                     simulator_state=copy.deepcopy(self.simulator_state))
 
     def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):
