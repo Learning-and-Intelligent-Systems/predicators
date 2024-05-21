@@ -189,10 +189,10 @@ def test_gridworld():
     plt.close()
 
     # Test move option when already adjacent but not facing
-    Move = [o for o in options if o.name == "Move"][0]
     state = task.init
     state.set(grill, "col", 2)
     state.set(grill, "row", 3)
+    Move = [o for o in options if o.name == "Move"][0]
     option = Move.ground([robot, grill], [])
     assert option.initiable(state)
     action = option.policy(state)
@@ -202,8 +202,32 @@ def test_gridworld():
     state = task.init
     state.set(grill, "col", 2)
     state.set(grill, "row", 1)
+    Move = [o for o in options if o.name == "Move"][0]
     option = Move.ground([robot, grill], [])
     assert option.initiable(state)
     action = option.policy(state)
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 2
+
+    state = task.init
+    state.set(grill, "col", 1)
+    state.set(grill, "row", 2)
+    Move = [o for o in options if o.name == "Move"][0]
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 1
+
+    state = task.init
+    state.set(grill, "col", 3)
+    state.set(grill, "row", 2)
+    state.set(robot, "dir", 1)
+    Move = [o for o in options if o.name == "Move"][0]
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 3
+
+

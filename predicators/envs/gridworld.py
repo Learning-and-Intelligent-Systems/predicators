@@ -495,7 +495,6 @@ class GridWorldEnv(BaseEnv):
             task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        print("state in render: ", state)
         figsize = (self.num_cols * 2, self.num_rows * 2)
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         plt.suptitle(caption, wrap=True)

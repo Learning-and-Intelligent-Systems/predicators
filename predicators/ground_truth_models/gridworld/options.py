@@ -1,6 +1,6 @@
 """Ground-truth options for the gridworld environment."""
 
-from typing import Dict, Iterator, Sequence, Set, Tuple
+from typing import Dict, Sequence, Set, Tuple, Iterator
 
 import numpy as np
 from gym.spaces import Box
@@ -49,80 +49,88 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
         On = predicates["On"]
-
         # GoalHack = predicates["GoalHack"]
 
         # Slice
         def _Slice_terminal(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
+            objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             _, tomato, _ = objects
             return IsSliced.holds(state, [tomato])
 
         Slice = ParameterizedOption(
             "Slice",
-            types=[robot_type, tomato_type, cutting_board_type],
+            types = [robot_type, tomato_type, cutting_board_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_slice_policy(),
             initiable=lambda s, m, o, p: True,
-            terminal=_Slice_terminal)
+            terminal=_Slice_terminal
+        )
 
         # Cook
         def _Cook_terminal(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
+            objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             _, patty, _ = objects
             return IsCooked.holds(state, [patty])
 
-        Cook = ParameterizedOption("Cook",
-                                   types=[robot_type, patty_type, grill_type],
-                                   params_space=Box(0, 1, (0, )),
-                                   policy=cls._create_cook_policy(),
-                                   initiable=lambda s, m, o, p: True,
-                                   terminal=_Cook_terminal)
+        Cook = ParameterizedOption(
+            "Cook",
+            types = [robot_type, patty_type, grill_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_cook_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Cook_terminal
+        )
 
         # Move
         def _Move_terminal(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
+            objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             robot, to_obj = objects
             return Facing.holds(state, [robot, to_obj])
 
-        Move = ParameterizedOption("Move",
-                                   types=[robot_type, object_type],
-                                   params_space=Box(0, 1, (0, )),
-                                   policy=cls._create_move_policy(),
-                                   initiable=lambda s, m, o, p: True,
-                                   terminal=_Move_terminal)
+        Move = ParameterizedOption(
+            "Move",
+            types = [robot_type, object_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_move_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Move_terminal
+        )
 
         # Pick
         def _Pick_terminal(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
+            objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             robot, item = objects
             return Holding.holds(state, [robot, item])
 
-        Pick = ParameterizedOption("Pick",
-                                   types=[robot_type, item_type],
-                                   params_space=Box(0, 1, (0, )),
-                                   policy=cls._create_pickplace_policy(),
-                                   initiable=lambda s, m, o, p: True,
-                                   terminal=_Pick_terminal)
+        Pick = ParameterizedOption(
+            "Pick",
+            types = [robot_type, item_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_pickplace_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Pick_terminal
+        )
 
         # Place
         def _Place_terminal(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
+            objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             robot, item, obj = objects
-            return HandEmpty.holds(state, [robot]) and On.holds(
-                state, [item, obj])
+            return HandEmpty.holds(state, [robot]) and On.holds(state,
+                [item, obj])
 
-        Place = ParameterizedOption("Place",
-                                    types=[robot_type, item_type, object_type],
-                                    params_space=Box(0, 1, (0, )),
-                                    policy=cls._create_pickplace_policy(),
-                                    initiable=lambda s, m, o, p: True,
-                                    terminal=_Place_terminal)
+        Place = ParameterizedOption(
+            "Place",
+            types = [robot_type, item_type, object_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_pickplace_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Place_terminal
+        )
 
         return {Move, Pick, Place, Cook, Slice}
 
@@ -130,7 +138,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _create_slice_policy(cls) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
+               params: Array) -> Action:
             del state, memory, objects, params  # unused
             action = Action(np.array([0, 0, -1, 1, 0], dtype=np.float32))
             return action
@@ -141,7 +149,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _create_cook_policy(cls) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
+               params: Array) -> Action:
             del state, memory, objects, params  # unused
             action = Action(np.array([0, 0, -1, 1, 0], dtype=np.float32))
             return action
@@ -152,7 +160,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _create_move_policy(cls) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
+               params: Array) -> Action:
             del memory, params  # unused
             robot, to_obj = objects
             rx, ry = GridWorldEnv.get_position(robot, state)
@@ -164,16 +172,20 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                 not GridWorldEnv.Facing_holds(state, [robot, to_obj]):
                 if rx == ox:
                     if ry > oy:
+                        print("got here1", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 2, 0, 0], dtype=np.float32))
                     elif ry < oy:
+                        print("got here2", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 0, 0, 0], dtype=np.float32))
                 elif ry == oy:
                     if rx > ox:
+                        print("got here3", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 1, 0, 0], dtype=np.float32))
                     elif rx < ox:
+                        print("got here4", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 3, 0, 0], dtype=np.float32))
 
@@ -191,7 +203,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                     Iterator[Tuple[None, Tuple[int, int], float]]:
                     # Find the adjacent cells that are empty.
                     empty_cells = GridWorldEnv.get_empty_cells(state)
-                    sx, sy = s
+                    sx, sy  = s
                     adjacent_empty = []
                     for cell in empty_cells:
                         cx, cy = cell
@@ -204,10 +216,12 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                     sx, sy = s
                     return abs(sx - ox) + abs(sy - oy)
 
-                path, _ = utils.run_astar(initial_state=init,
-                                          check_goal=_check_goal,
-                                          get_successors=_get_successors,
-                                          heuristic=heuristic)
+                path, _ = utils.run_astar(
+                    initial_state=init,
+                    check_goal=_check_goal,
+                    get_successors=_get_successors,
+                    heuristic=heuristic
+                )
 
                 # Now, compute the action to take based on the path we have
                 # planned. Note that the path is a list of (x, y) tuples
@@ -225,7 +239,7 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _create_pickplace_policy(cls) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
+               params: Array) -> Action:
             del state, memory, objects, params  # unused
             action = Action(np.array([0, 0, -1, 0, 1], dtype=np.float32))
             return action
