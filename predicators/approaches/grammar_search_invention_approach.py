@@ -341,7 +341,8 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
         ]
 
     def _classify_object(self, s: State, obj: Object) -> bool:
-        assert obj.type == self.body.types[self.free_variable_idx]
+        # assert obj.type == self.body.types[self.free_variable_idx]
+        assert obj.is_instance(self.body.types[self.free_variable_idx])
         for o in utils.get_object_combinations(set(s), self._quantified_types):
             o_lst = list(o)
             o_lst.insert(self.free_variable_idx, obj)
@@ -995,7 +996,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return (atom_dataset, candidates)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        if not CFG.offline_data_method == "demo+labelled_atoms":
+        if not CFG.offline_data_method in [
+                "demo+labelled_atoms", "saved_vlm_img_demos_folder",
+                "demo_with_vlm_imgs"
+        ]:
             atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
                 dataset)
         else:

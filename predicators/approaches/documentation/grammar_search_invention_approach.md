@@ -4,7 +4,7 @@ This approach is primarily useful for inventing predicates via program synthesis
 
 An example command for running the approach from that paper is:
 ```
-python predicators/main.py --env cover --approach grammar_search_invention --excluded_predicates all --num_train_tasks 50
+python predicators/main.py --env cover --approach grammar_search_invention --excluded_predicates all --num_train_tasks 50 --seed 0
 ```
 
 Last updated: 04/28/2024
@@ -64,9 +64,9 @@ apple_coring__vlm_demos__456__2
 ### Running predicate invention using these image demos
 To use the Gemini VLM, you need to set the `GOOGLE_API_KEY` environment variable in your terminal. You can make/get an API key [here](https://aistudio.google.com/app/apikey).
 
-Example command: `python predicators/main.py --env apple_coring --seed 456 --approach grammar_search_invention --excluded_predicates all --num_train_tasks 1 --num_test_tasks 0 --offline_data_method img_demos --vlm_trajs_folder_name apple_coring__vlm_demos__456__1`
+Example command: `python predicators/main.py --env apple_coring --seed 456 --approach grammar_search_invention --excluded_predicates all --num_train_tasks 1 --num_test_tasks 0 --offline_data_method saved_vlm_img_demos_folder --vlm_trajs_folder_name apple_coring__vlm_demos__456__1`
 
-The important flags here are the `--offline_data_method img_demos` and the `--vlm_trajs_folder_name apple_coring__vlm_demos__456__1`. The latter should point to the folder housing the demonstration set of interest!
+The important flags here are the `--offline_data_method saved_vlm_img_demos_folder` and the `--vlm_trajs_folder_name apple_coring__vlm_demos__456__1`. The latter should point to the folder housing the demonstration set of interest!
 
 Note that VLM responses are always cached, so if you run the command on a demonstration set and then rerun it, it should be much faster since it's using cached responses!
 

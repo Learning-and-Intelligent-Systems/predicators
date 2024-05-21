@@ -5,17 +5,19 @@ import glob
 import logging
 import os
 import re
+from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+import dill as pkl
 import numpy as np
 import PIL.Image
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME, VLMPredicateEnv
-from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    VisionLanguageModel
+from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME
+from predicators.nsrt_learning.segmentation import _segment_with_option_changes
+from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, GroundAtom, \
     ImageOptionTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
@@ -63,7 +65,8 @@ def _generate_prompt_for_atom_proposals(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
     elif CFG.grammar_search_vlm_atom_proposal_prompt_type == \
         "options_labels_whole_traj":
-        prompt += "\n".join(act.name + str(sorted(act.objects))
+        prompt += "\nSkills executed in trajectory:\n"
+        prompt += "\n".join(act.name + str(act.objects)
                             for act in traj.actions)
         # NOTE: exact same issue as described in the above note for
         # naive_whole_traj.
@@ -180,7 +183,7 @@ def _parse_unique_atom_proposals_from_list(
         assert len(atoms_proposal_for_traj) == 1
         curr_atoms_proposal = atoms_proposal_for_traj[0]
         # Regex pattern to match predicates
-        atom_match_pattern = r"\b[a-z_]+\([a-z0-9, ]+\)"
+        atom_match_pattern = r"\b[a-z0-9_-]+\([a-z0-9_, -]+\)"
         # Find all matches in the text
         matches = re.findall(atom_match_pattern,
                              curr_atoms_proposal,
@@ -188,7 +191,7 @@ def _parse_unique_atom_proposals_from_list(
         for atom_proposal_txt in matches:
             num_atoms_considered += 1
             atom_is_valid = True
-            atom = re.sub(r"[^\w\s\(\),]", "", atom_proposal_txt).strip(' ')
+            atom = re.sub(r"[^\w\s\(\),_-]", "", atom_proposal_txt).strip(' ')
             obj_names = re.findall(r'\((.*?)\)', atom)
             if obj_names:
                 obj_names_list = [
@@ -206,7 +209,7 @@ def _parse_unique_atom_proposals_from_list(
     return atoms_strs_set
 
 
-def save_labelled_trajs_as_txt(
+def _save_labelled_trajs_as_txt(
         env: BaseEnv, labelled_atoms_trajs: List[List[str]],
         ground_option_trajs: List[List[_Option]]) -> None:
     """Save a txt file with a text representation of GroundAtomTrajectories.
@@ -230,8 +233,12 @@ def save_labelled_trajs_as_txt(
             curr_option_str = curr_option.name + "("
             for obj in curr_option.objects:
                 curr_option_str += str(obj.name) + ", "
-            curr_option_str = curr_option_str[:-2] + ")" + str(
-                curr_option.params.tolist()) + " -> "
+            if len(curr_option.objects) > 0:
+                curr_option_str = curr_option_str[:-2] + ")" + str(
+                    curr_option.params.tolist()) + " -> "
+            else:
+                curr_option_str = curr_option_str[:] + ")" + str(
+                    curr_option.params.tolist()) + " -> "
             save_str += curr_state_str + "\n\n" + curr_option_str + "\n\n"
         # At the end of the trajectory, we need to append the final state,
         # and a "===" delimiter.
@@ -247,10 +254,47 @@ def save_labelled_trajs_as_txt(
     logging.info(f"Human-readable labelled trajectory saved to {filepath}!")
 
 
+def _save_img_option_trajs_in_folder(
+        img_option_trajs: List[ImageOptionTrajectory]) -> None:
+    """Save a set of image option trajectories as a folder."""
+    data_dir_path = os.path.join(utils.get_path_to_predicators_root(),
+                                 CFG.data_dir)
+    base_folder_name = CFG.env + "__vlm_demos__" + str(CFG.seed) + "__" + str(
+        len(img_option_trajs))
+    base_folder_path = Path(data_dir_path, base_folder_name)
+    if not os.path.exists(base_folder_path):
+        os.makedirs(base_folder_path, exist_ok=False)
+        for i, img_option_traj in enumerate(img_option_trajs):
+            curr_traj_folder = Path(base_folder_path, "traj_" + str(i))
+            os.makedirs(curr_traj_folder, exist_ok=False)
+            for j, img_list in enumerate(img_option_traj.imgs):
+                curr_traj_timestep_folder = Path(curr_traj_folder, str(j))
+                os.makedirs(curr_traj_timestep_folder, exist_ok=False)
+                for k, img in enumerate(img_list):
+                    img.save(
+                        Path(curr_traj_timestep_folder,
+                             str(j) + "_" + str(k) + ".jpg"))
+                # Save the object-centric state alongside the images.
+                assert img_option_traj.states is not None
+                state_file = curr_traj_timestep_folder / "state.p"
+                with open(state_file, "wb") as f:
+                    pkl.dump(img_option_traj.states[j], f)
+            options_txt_file_path = Path(curr_traj_folder, "options_traj.txt")
+            options_txt_file_contents = ""
+            for opt in img_option_traj.actions:
+                options_txt_file_contents += opt.name + "(" + ", ".join(
+                    obj.name for obj in opt.objects) + ", [" + ", ".join(
+                        str(param) for param in opt.params.tolist()) + "])\n"
+            with open(options_txt_file_path, "w", encoding="utf-8") as f:
+                f.write(options_txt_file_contents)
+
+
 def _parse_structured_state_into_ground_atoms(
     env: BaseEnv,
     train_tasks: List[Task],
     structured_state_trajs: List[List[Dict[str, Dict[Tuple[str, ...], bool]]]],
+    state_trajs: Optional[List[List[State]]] = None,
+    known_predicates: Optional[Set[Predicate]] = None,
 ) -> List[List[Set[GroundAtom]]]:
     """Convert structured state trajectories into actual trajectories of ground
     atoms."""
@@ -258,24 +302,31 @@ def _parse_structured_state_into_ground_atoms(
     # Firstly, the number of train tasks must equal the number of structured
     # state demos we have.
     assert len(train_tasks) == len(structured_state_trajs)
-    # Secondly, we assume there is only one goal predicate, and that it is
-    # a dummy goal predicate.
-    assert len(env.goal_predicates) == 1
-    goal_preds_list = list(env.goal_predicates)
-    goal_predicate = goal_preds_list[0]
-    assert goal_predicate.name == "DummyGoal"
-    # We also assume that there is precisely one "object" type that is
+    # Next, we check whether the task goal is a 'DummyGoal'. In this case, we
+    # must be using an environment that hasn't been fully implemented (with
+    # proper goal predicates, options, etc.).
+    use_dummy_goal = False
+    if "DummyGoal" in str(train_tasks[0].goal):
+        # In this case, we assume there is only one goal predicate, and that it
+        # is a dummy goal predicate.
+        assert len(env.goal_predicates) == 1
+        goal_preds_list = list(env.goal_predicates)
+        goal_predicate = goal_preds_list[0]
+        assert goal_predicate.name == "DummyGoal"
+        use_dummy_goal = True
+
+    # We also check whether there is precisely one "object" type that is
     # a superset of all other object types.
     obj_type = None
     for t in env.types:
         obj_type = t.oldest_ancestor
-        assert obj_type.name == "object"
-    assert obj_type is not None
+        if obj_type.name != "object":
+            obj_type = None
+            break
 
-    def _stripped_classifier(
-            state: State,
-            objects: Sequence[Object]) -> bool:  # pragma: no cover.
-        raise Exception("Stripped classifier should never be called!")
+    def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
+        return pred_name + "(" + ", ".join(
+            str(obj.name) for obj in objects) + ")"  # pragma: no cover
 
     pred_name_to_pred = {}
     atoms_trajs = []
@@ -285,14 +336,30 @@ def _parse_structured_state_into_ground_atoms(
         curr_atoms_traj = []
         objs_for_task = set(train_tasks[i].init)
         curr_obj_name_to_obj = {obj.name: obj for obj in objs_for_task}
-        # NOTE: We assume that there is precisely one dummy object that is
-        # used to track whether the dummy goal has been reached or not.
-        assert DUMMY_GOAL_OBJ_NAME in curr_obj_name_to_obj
-        # Create a goal atom for this demonstration using the goal predicate.
-        goal_atom = GroundAtom(goal_predicate,
-                               [curr_obj_name_to_obj[DUMMY_GOAL_OBJ_NAME]])
-        for structured_state in traj:
+        # If we have states, then we can just evaluate the goal predicates on
+        # them. But if we don't, then there's nothing we can do except assume
+        # that there is only one goal atom that gets satisfied at the end.
+        assume_goal_holds_at_end = use_dummy_goal
+        if state_trajs is None:
+            assert len(train_tasks[i].goal) == 1
+            assert known_predicates is None or \
+                known_predicates.issubset(env.goal_predicates)
+            assume_goal_holds_at_end = True
+
+        if use_dummy_goal:
+            # NOTE: In this case, we assume that there is precisely one dummy
+            # object that is used to track whether the dummy goal has been
+            # reached or not.
+            assert DUMMY_GOAL_OBJ_NAME in curr_obj_name_to_obj
+
+        for j, structured_state in enumerate(traj):
+
             curr_ground_atoms_state = set()
+            if state_trajs is not None:
+                assert known_predicates is not None
+                curr_ground_atoms_state |= utils.abstract(
+                    state_trajs[i][j], known_predicates)
+
             for pred_name, objs_and_val_dict in structured_state.items():
                 # IMPORTANT NOTE: this currently assumes that the data is such
                 # that a predicate with a certain name (e.g. "Sliced")
@@ -302,6 +369,11 @@ def _parse_structured_state_into_ground_atoms(
                 # check for this in the future.
                 if pred_name not in pred_name_to_pred:
                     if len(objs_and_val_dict.keys()) == 1:
+                        # NOTE: this below code doesn't do the right thing
+                        # when there are multiple of the predicate that
+                        # are true with different objects of the same type
+                        # (e.g. Covers(obj1, targ1) and Covers(obj2, targ2)).
+                        # We might want to do something about this.
                         # In this case, we make a predicate that takes in
                         # exactly one types argument.
                         for obj_args in objs_and_val_dict.keys():
@@ -311,8 +383,10 @@ def _parse_structured_state_into_ground_atoms(
                             for obj_name in obj_args:
                                 curr_obj = curr_obj_name_to_obj[obj_name]
                                 pred_types.append(curr_obj.type)
-                            pred_name_to_pred[pred_name] = Predicate(
-                                pred_name, pred_types, _stripped_classifier)
+                            pred_name_to_pred[
+                                pred_name] = utils.create_vlm_predicate(
+                                    pred_name, pred_types,
+                                    partial(_get_vlm_query_str, pred_name))
                     else:
                         # In this case, we need to make a predicate that
                         # takes in the generic 'object' type such that
@@ -328,9 +402,15 @@ def _parse_structured_state_into_ground_atoms(
                                 assert num_args == len(obj_args)
                         # Given this, add one new predicate with num_args
                         # number of 'object' type arguments.
-                        pred_name_to_pred[pred_name] = Predicate(
-                            pred_name, [obj_type for _ in range(num_args)],
-                            _stripped_classifier)
+                        assert obj_type is not None, (
+                            "VLM atom parsing "
+                            "failure; please add an 'object' type to your "
+                            "environment that is a supertype of all other "
+                            "types.")
+                        pred_name_to_pred[
+                            pred_name] = utils.create_vlm_predicate(
+                                pred_name, [obj_type for _ in range(num_args)],
+                                partial(_get_vlm_query_str, pred_name))
 
                 # Given that we've now built up predicates and object
                 # dictionaries. We can now convert the current state into
@@ -342,8 +422,8 @@ def _parse_structured_state_into_ground_atoms(
                                 pred_name_to_pred[pred_name],
                                 [curr_obj_name_to_obj[o] for o in obj_args]))
             curr_atoms_traj.append(curr_ground_atoms_state)
-        # Add the goal atom at the end of the trajectory.
-        curr_atoms_traj[-1].add(goal_atom)
+        if assume_goal_holds_at_end:
+            curr_atoms_traj[-1] |= train_tasks[i].goal
         atoms_trajs.append(curr_atoms_traj)
     return atoms_trajs
 
@@ -369,6 +449,7 @@ def _parse_structured_actions_into_ground_options(
             ground_option = option.ground([
                 curr_obj_name_to_obj[obj_name]
                 for obj_name in structured_action[1]
+                if len(obj_name.strip()) > 0
             ], np.array(structured_action[2]))
             # Call initiable here because we will be calling
             # terminal later, and initiable always needs
@@ -455,7 +536,7 @@ def _parse_options_txt_into_structured_actions(
     structured set of tuples suitable for later conversion into more structured
     GroundAtomTrajectories."""
     structured_actions_output = []
-    pattern_option = r'(\w+)\(([^)]*)\)\[([\d.,\s]*)\] ->'
+    pattern_option = r'(\w+)\(([^)]*)\)\[([\d.,\s-]*)\] ->'
     option_matches = re.findall(pattern_option, text)
     for i in range(len(option_matches)):
         current_option_with_objs = (option_matches[i][0],
@@ -548,6 +629,144 @@ def _parse_vlmtraj_file_into_structured_trajs(
     return (output_state_trajs, output_action_trajs)
 
 
+def _query_vlm_to_generate_ground_atoms_trajs(
+        image_option_trajs: List[ImageOptionTrajectory], env: BaseEnv,
+        train_tasks: List[Task], known_predicates: Set[Predicate],
+        all_task_objs: Set[Object],
+        vlm: VisionLanguageModel) -> List[List[Set[GroundAtom]]]:
+    """Given a collection of ImageOptionTrajectories, query a VLM to convert
+    these into ground atom trajectories."""
+    if not CFG.grammar_search_vlm_atom_proposal_use_debug:
+        logging.info("Querying VLM for candidate atom proposals...")
+        atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
+            image_option_trajs, vlm, 1)
+        logging.info("Done querying VLM for candidate atoms!")
+        # We now parse and sanitize this set of atoms.
+        atom_proposals_set = _parse_unique_atom_proposals_from_list(
+            atom_strs_proposals_list, all_task_objs)
+    else:  # pragma: no cover.
+        atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
+    assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
+    # Given this set of unique atom proposals, we now ask the VLM
+    # to label these in every scene from the demonstrations.
+    # NOTE: we convert to a sorted list here to get rid of randomness from set
+    # ordering.
+    unique_atoms_list = sorted(atom_proposals_set)
+    # Now, query the VLM!
+    logging.info("Querying VLM to label every scene...")
+    atom_labels = _label_trajectories_with_vlm_atom_values(
+        image_option_trajs, vlm, unique_atoms_list)
+    logging.info("Done querying VLM for scene labelling!")
+    # Save the output as a human-readable txt file.
+    _save_labelled_trajs_as_txt(
+        env, atom_labels, [io_traj.actions for io_traj in image_option_trajs])
+    # Now, parse this information into a Dataset!
+    # Start by converting all the labelled atoms into a more structured
+    # dict. This requires each set of labelled atoms text to be enclosed
+    # by curly brackets.
+    structured_state_trajs = []
+    state_trajs: Optional[List[List[State]]] = []
+    for atom_traj, io_traj in zip(atom_labels, image_option_trajs,
+                                  strict=True):
+        atoms_txt_strs = [
+            '{' + curr_ts_atoms_txt + '}' for curr_ts_atoms_txt in atom_traj
+        ]
+        full_traj_atoms_str = '\n\n'.join(atoms_txt_strs)
+        structured_state_trajs.append(
+            _parse_atoms_txt_into_structured_state(full_traj_atoms_str))
+        if io_traj.states:
+            assert state_trajs is not None
+            state_trajs.append(io_traj.states)
+        else:
+            state_trajs = None
+    # Given this, we now convert each trajectory consisting of a series of
+    # structured states into a trajectory of GroundAtoms.
+    ground_atoms_trajs = _parse_structured_state_into_ground_atoms(
+        env,
+        train_tasks,
+        structured_state_trajs,
+        state_trajs=state_trajs,
+        known_predicates=known_predicates)
+    _debug_log_atoms_trajs(ground_atoms_trajs)
+    return ground_atoms_trajs
+
+
+def create_ground_atom_data_from_generated_demos(
+        dataset: Dataset,
+        env: BaseEnv,
+        known_predicates: Set[Predicate],
+        train_tasks: List[Task],
+        vlm: Optional[VisionLanguageModel] = None) -> Dataset:
+    """Given an input dataset that's been generated from one of our
+    environments, run the VLM on the images associated with the dataset. Return
+    a potentially *smaller* dataset that is annotated with VLM atom values.
+
+    Why are we returning a potentially-smaller dataset here? For many of
+    our environments, option executions result in multiple actions (not
+    just one). However, we only want to call the VLM to label the
+    state(s) before and after option execution. Thus, we first segment
+    the dataset.trajectories via option. We pick out the states before
+    and after each option execution to call the VLM on. We also replace
+    the trajectory actions with dummy zero actions that have the right
+    option. Thus, the dataset returned by this function is not suitable
+    for option learning (it's really intended for a setting where
+    options are known).
+    """
+    # We start by converting trajectories into ImageOptionTrajectories
+    # that we can feed to a VLM.
+    img_option_trajs: List[ImageOptionTrajectory] = []
+    all_task_objs: Set[Object] = set()
+    option_segmented_trajs: List[LowLevelTrajectory] = []
+    for traj in dataset.trajectories:
+        # We segment using option changes, which implicitly assumes that
+        # each action in the trajectory is linked to an option that isn't
+        # None.
+        segments = _segment_with_option_changes(traj, set(), None)
+        curr_traj_states_for_vlm: List[State] = []
+        curr_traj_actions_for_vlm: List[Action] = []
+        for segment in segments:
+            curr_traj_states_for_vlm.append(segment.states[0])
+            curr_traj_actions_for_vlm.append(segment.actions[0])
+        # We manually add the final two states (initial state and terminal
+        # state of the final option).
+        curr_traj_states_for_vlm.append(traj.states[-1])
+        # Pull out the images within the states we've saved for the trajectory.
+        # We assume that images are saved in the state's simulator_state
+        # field.
+        state_imgs: List[List[PIL.Image.Image]] = []
+        for state in curr_traj_states_for_vlm:
+            assert isinstance(state.simulator_state, List)
+            assert len(state.simulator_state) > 0
+            state_imgs.append([
+                PIL.Image.fromarray(img_arr)  # type: ignore
+                for img_arr in state.simulator_state
+            ])
+        img_option_trajs.append(
+            ImageOptionTrajectory(
+                set(traj.states[0]), state_imgs,
+                [act.get_option() for act in curr_traj_actions_for_vlm],
+                curr_traj_states_for_vlm, True, traj.train_task_idx))
+        option_segmented_trajs.append(
+            LowLevelTrajectory(curr_traj_states_for_vlm, [
+                Action(np.zeros(act.arr.shape, dtype=float), act.get_option())
+                for act in curr_traj_actions_for_vlm
+            ], True, traj.train_task_idx))
+        all_task_objs |= set(traj.states[0])
+        # We assume that all the input trajectories are such that the train task
+        # goal is achieved. Verify this before proceeding.
+        assert train_tasks[traj.train_task_idx].goal_holds(traj.states[-1])
+    # Save the trajectories in a folder so they can be loaded and re-labelled
+    # later.
+    _save_img_option_trajs_in_folder(img_option_trajs)
+    # Now, given these trajectories, we can query the VLM.
+    if vlm is None:
+        vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
+    ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
+        img_option_trajs, env, train_tasks, known_predicates, all_task_objs,
+        vlm)
+    return Dataset(option_segmented_trajs, ground_atoms_trajs)
+
+
 def create_ground_atom_data_from_labelled_txt(
         env: BaseEnv, train_tasks: List[Task],
         known_options: Set[ParameterizedOption]) -> Dataset:
@@ -566,18 +785,42 @@ def create_ground_atom_data_from_labelled_txt(
     _debug_log_atoms_trajs(ground_atoms_trajs)
     option_trajs = _parse_structured_actions_into_ground_options(
         structured_actions, known_options, train_tasks)
-    # We also need to create the goal state for every train task.
-    goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
-        env, train_tasks)
-    # Finally, we need to construct actual LowLevelTrajectories.
-    low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
-        option_trajs, goal_states_for_every_traj, train_tasks)
+    # Finally, we just need to construct LowLevelTrajectories that we can
+    # output as part of our Dataset.
+    goal_states_for_every_traj = None
+    if "DummyGoal" in str(train_tasks[0].goal):
+        # Now, we just need to create a goal state for every train task
+        # where the dummy goal predicate holds. This is just bookkeeping
+        # necessary for NSRT learning and planning such that the goal
+        # doesn't hold in the initial state and holds in the final state of
+        # each demonstration trajectory.
+        goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
+            env, train_tasks)
+        # Finally, we need to construct actual LowLevelTrajectories.
+        low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
+            option_trajs, goal_states_for_every_traj, train_tasks)
+    else:
+        low_level_trajs = []
+        for i, opt_traj in enumerate(option_trajs):
+            states = [train_tasks[i].init for _ in range(len(opt_traj))]
+            states.append(train_tasks[i].init)
+            actions = [
+                Action(np.zeros(env.action_space.shape, dtype=np.float32), opt)
+                for opt in opt_traj
+            ]
+            # NOTE: we're making an assumption here that the train_task_idx
+            # of the LowLevelTrajectory is i. This may not be true and
+            # is probably something we should deal with in a principled way
+            # in the future.
+            low_level_trajs.append(LowLevelTrajectory(states, actions, True,
+                                                      i))
     return Dataset(low_level_trajs, ground_atoms_trajs)
 
 
-def create_ground_atom_data_from_img_trajs(
+def create_ground_atom_data_from_saved_img_trajs(
         env: BaseEnv,
         train_tasks: List[Task],
+        known_predicates: Set[Predicate],
         known_options: Set[ParameterizedOption],
         vlm: Optional[VisionLanguageModel] = None) -> Dataset:
     """Given a folder containing trajectories that have images of scenes for
@@ -593,17 +836,23 @@ def create_ground_atom_data_from_img_trajs(
     assert folder_name_components[1] == "vlm_demos"
     assert int(folder_name_components[2]) == CFG.seed
     assert int(folder_name_components[3]) == CFG.num_train_tasks
-    num_trajs = len(os.listdir(trajectories_folder_path))
+    unfiltered_files = os.listdir(trajectories_folder_path)
+    # Each demonstration trajectory is in subfolder traj_<demo_number>.
+    traj_folders = [f for f in unfiltered_files if f[0:5] == "traj_"]
+    num_trajs = len(traj_folders)
     assert num_trajs == CFG.num_train_tasks
     option_name_to_option = {opt.name: opt for opt in known_options}
     image_option_trajs = []
     all_task_objs = set()
-    for train_task_idx, path in enumerate(
-            sorted(Path(trajectories_folder_path).iterdir())):
+    unfiltered_paths = sorted(Path(trajectories_folder_path).iterdir())
+    # Each demonstration trajectory is in subfolder traj_<demo_number>.
+    filtered_paths = [f for f in unfiltered_paths if "traj_" in f.parts[-1]]
+    for train_task_idx, path in enumerate(filtered_paths):
         assert path.is_dir()
         state_folders = [f.path for f in os.scandir(path) if f.is_dir()]
         num_states_in_traj = len(state_folders)
-        state_traj = []
+        img_traj = []
+        state_traj: Optional[List[State]] = []
         for state_num in range(num_states_in_traj):
             curr_imgs = []
             curr_state_path = path.joinpath(str(state_num))
@@ -611,7 +860,15 @@ def create_ground_atom_data_from_img_trajs(
             img_files = sorted(glob.glob(str(curr_state_path) + "/*.jpg"))
             for img in img_files:
                 curr_imgs.append(PIL.Image.open(img))
-            state_traj.append(curr_imgs)
+            img_traj.append(curr_imgs)
+            state_file = curr_state_path / "state.p"
+            if state_file.exists():  # pragma: no cover
+                with open(state_file, "rb") as fp:
+                    state = pkl.load(fp)
+                assert state_traj is not None
+                state_traj.append(state)
+            else:
+                state_traj = None
         # Get objects from train tasks to be used for future parsing.
         curr_train_task = train_tasks[train_task_idx]
         curr_task_objs = set(curr_train_task.init)
@@ -624,11 +881,24 @@ def create_ground_atom_data_from_img_trajs(
         with open(options_traj_file, "r", encoding="utf-8") as f:
             options_file_str = f.read()
         option_names_list = re.findall(r'(\w+)\(', options_file_str)
-        parsed_str_objects = re.findall(r'\((.*?)\)', options_file_str)
-        object_args_list = [obj.split(', ') for obj in parsed_str_objects]
-        # Remove empty square brackets from the object_args_list.
-        for object_arg_sublist in object_args_list:
-            object_arg_sublist.remove('[]')
+        option_args_strs = re.findall(r'\((.*?)\)', options_file_str)
+        parsed_str_objects = [
+            re.sub(r'\[[^\]]*\]', '', option_args_str).strip()
+            for option_args_str in option_args_strs
+        ]
+        objects_exist = len(''.join(obj_str
+                                    for obj_str in parsed_str_objects)) > 0
+        object_args_list: List[List[str]] = [
+            [] for _ in range(len(parsed_str_objects))
+        ]
+        if objects_exist:
+            cleaned_parsed_str_objects = [
+                obj_str[:-1] if obj_str[-1] == "," else obj_str
+                for obj_str in parsed_str_objects
+            ]
+            object_args_list = [
+                obj.split(', ') for obj in cleaned_parsed_str_objects
+            ]
         parameters = [
             ast.literal_eval(obj) if obj else []
             for obj in re.findall(r'\[(.*?)\]', options_file_str)
@@ -642,72 +912,50 @@ def create_ground_atom_data_from_img_trajs(
                 for opt_arg in option_objs_strs_list
             ]
             option = option_name_to_option[option_name]
-            ground_option = option.ground(objects, np.array(option_params))
-            # NOTE: we assert the option was initiable in the env's initial
-            # state because during learning, we will assert that the option's
-            # initiable function was previously called.
+            if isinstance(option_params, float):
+                params_tuple = (option_params, )
+            else:
+                params_tuple = option_params
+            ground_option = option.ground(objects, np.array(params_tuple))
             assert ground_option.initiable(curr_train_task.init)
             ground_option_traj.append(ground_option)
         # Given ground options, we can finally make ImageOptionTrajectories.
         image_option_trajs.append(
-            ImageOptionTrajectory(list(curr_task_objs), state_traj,
-                                  ground_option_traj, True, train_task_idx))
+            ImageOptionTrajectory(list(curr_task_objs),
+                                  img_traj,
+                                  ground_option_traj,
+                                  state_traj,
+                                  _is_demo=True,
+                                  _train_task_idx=train_task_idx))
     # Given trajectories, we can now query the VLM to get proposals for ground
     # atoms that might be relevant to decision-making.
     if vlm is None:
-        vlm = GoogleGeminiVLM(CFG.vlm_model_name)  # pragma: no cover.
-
-    if not CFG.grammar_search_vlm_atom_proposal_use_debug:
-        logging.info("Querying VLM for candidate atom proposals...")
-        atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
-            image_option_trajs, vlm, 1)
-        logging.info("Done querying VLM for candidate atoms!")
-        # We now parse and sanitize this set of atoms.
-        atom_proposals_set = _parse_unique_atom_proposals_from_list(
-            atom_strs_proposals_list, all_task_objs)
-    else:  # pragma: no cover.
-        assert isinstance(env, VLMPredicateEnv)
-        atom_proposals_set = env.vlm_debug_atom_strs
-    assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
-    # Given this set of unique atom proposals, we now ask the VLM
-    # to label these in every scene from the demonstrations.
-    # NOTE: we convert to a sorted list here to get rid of randomness from set
-    # ordering.
-    unique_atoms_list = sorted(atom_proposals_set)
-    # Now, query the VLM!
-    logging.info("Querying VLM to label every scene...")
-    atom_labels = _label_trajectories_with_vlm_atom_values(
-        image_option_trajs, vlm, unique_atoms_list)
-    logging.info("Done querying VLM for scene labelling!")
-    # Save the output as a human-readable txt file.
-    save_labelled_trajs_as_txt(
-        env, atom_labels, [io_traj.actions for io_traj in image_option_trajs])
-    # Now, parse this information into a Dataset!
-    # Start by converting all the labelled atoms into a more structured
-    # dict. This requires each set of labelled atoms text to be enclosed
-    # by curly brackets.
-    structured_state_trajs = []
-    for atom_traj in atom_labels:
-        atoms_txt_strs = [
-            '{' + curr_ts_atoms_txt + '}' for curr_ts_atoms_txt in atom_traj
-        ]
-        full_traj_atoms_str = '\n\n'.join(atoms_txt_strs)
-        structured_state_trajs.append(
-            _parse_atoms_txt_into_structured_state(full_traj_atoms_str))
-    # Given this, we now convert each trajectory consisting of a series of
-    # structured states into a trajectory of GroundAtoms.
-    ground_atoms_trajs = _parse_structured_state_into_ground_atoms(
-        env, train_tasks, structured_state_trajs)
-    _debug_log_atoms_trajs(ground_atoms_trajs)
-    # Now, we just need to create a goal state for every train task where
-    # the dummy goal predicate holds. This is just bookkeeping necessary
-    # for NSRT learning and planning such that the goal doesn't hold
-    # in the initial state and holds in the final state of each demonstration
-    # trajectory.
-    goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
-        env, train_tasks)
-    # Finally, we need to construct actual LowLevelTrajectories.
-    low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
-        [traj.actions for traj in image_option_trajs],
-        goal_states_for_every_traj, train_tasks)
+        vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
+    ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
+        image_option_trajs, env, train_tasks, known_predicates, all_task_objs,
+        vlm)
+    # Finally, we just need to construct LowLevelTrajectories that we can
+    # output as part of our Dataset.
+    goal_states_for_every_traj = None
+    if "DummyGoal" in str(train_tasks[0].goal):
+        # Now, we just need to create a goal state for every train task
+        # where the dummy goal predicate holds. This is just bookkeeping
+        # necessary for NSRT learning and planning such that the goal
+        # doesn't hold in the initial state and holds in the final state of
+        # each demonstration trajectory.
+        goal_states_for_every_traj = _create_dummy_goal_state_for_each_task(
+            env, train_tasks)
+        # Finally, we need to construct actual LowLevelTrajectories.
+        low_level_trajs = _convert_ground_option_trajs_into_lowleveltrajs(
+            [traj.actions for traj in image_option_trajs],
+            goal_states_for_every_traj, train_tasks)
+    else:
+        low_level_trajs = []
+        for io_traj in image_option_trajs:
+            assert io_traj.states is not None
+            low_level_trajs.append(
+                LowLevelTrajectory(io_traj.states, [
+                    Action(np.zeros(env.action_space.shape, dtype=np.float32),
+                           act) for act in io_traj.actions
+                ], True, io_traj.train_task_idx))
     return Dataset(low_level_trajs, ground_atoms_trajs)

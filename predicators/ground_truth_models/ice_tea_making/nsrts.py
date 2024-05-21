@@ -1,4 +1,4 @@
-"""Ground-truth NSRTs for the blocks environment."""
+"""Ground-truth NSRTs for the tea making environment."""
 
 from typing import Dict, Set
 
@@ -7,10 +7,10 @@ from predicators.structs import NSRT, ParameterizedOption, Predicate, Type
 
 
 class TeaMakingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
-    """Ground-truth NSRTs for the apple_coring environment."""
+    """Ground-truth NSRTs for the tea making environment."""
 
     @classmethod
-    def get_env_names(cls) -> Set[str]:
+    def get_env_names(cls) -> Set[str]:  # pragma: no cover
         return {"ice_tea_making"}
 
     @staticmethod
