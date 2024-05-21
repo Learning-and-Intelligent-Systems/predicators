@@ -21,9 +21,6 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
         # Types
-        # top_bun_type = types["top_bun"]
-        # bottom_bun_type = types["bottom_bun"]
-        # cheese_type = types["cheese"]
         tomato_type = types["tomato"]
         patty_type = types["patty"]
 
@@ -110,6 +107,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                          null_sampler)
         nsrts.add(cook_nsrt)
 
+        # NOTE: this nsrt will be relevant after the environment is updated to
+        # have more variation in the tasks' initial states.
         # # MoveWhenAlreadyAdjacent
         # parameters = [robot, to_obj, from_obj3]
         # option_vars = [robot, to_obj]
@@ -448,6 +447,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             null_sampler)
         nsrts.add(move_from_one_stack_to_three_stack_nsrt)
 
+        # NOTE: this nsrt will be relevant after the environment is updated to
+        # have more variation in the tasks' initial states.
         # # MoveWhenNotFacingStart
         # parameters = [robot, to_obj, from_obj3]
         # option_vars = [robot, to_obj]
@@ -478,6 +479,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # )
         # nsrts.add(move_when_not_facing_start_nsrt)
 
+        # NOTE: this nsrt will be relevant after the environment is updated to
+        # have more variation in the tasks' initial states.
         # # PickMultipleAdjacent
         # parameters = [robot, item]
         # option_vars = [robot, item]
