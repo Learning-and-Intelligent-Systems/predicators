@@ -143,8 +143,9 @@ def test_gridworld():
 
     # Test _GoalHack_holds
     GoalHack = [p for p in env.predicates if p.name == "GoalHack"][0]
-    assert GroundAtom(GoalHack, [bottom_bun, patty, cheese, tomato, top_bun]
-                      in utils.abstract(traj.states[-1], env.predicates))
+    assert GroundAtom(GoalHack, [bottom_bun, patty, cheese, tomato, top_bun
+                                 ]) in utils.abstract(traj.states[-1],
+                                                      env.predicates)
 
     # Test _get_cell_in_direction
     x, y = env.get_cell_in_direction(1, 1, "left")
