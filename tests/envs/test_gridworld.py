@@ -187,3 +187,24 @@ def test_gridworld():
         event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, key)
         event_to_action(state, event)
     plt.close()
+
+    # Test move option
+    import pdb; pdb.set_trace()
+    Move = [o for o in options if o.name == "Move"][0]
+    state = task.init
+    state.set(grill, "col", 2)
+    state.set(grill, "row", 3)
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 0
+
+    state = task.init
+    state.set(grill, "col", 2)
+    state.set(grill, "row", 1)
+    option = Move.ground([robot, grill], [])
+    assert option.initiable(state)
+    action = option.policy(state)
+    next_state = env.step(action)
+    assert next_state.get(robot, "dir") == 2
