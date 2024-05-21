@@ -32,13 +32,9 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot_type = types["robot"]
 
         item_type = types["item"]
-        # station_type = types["station"]
         object_type = types["object"]
 
         # Variables
-        # top_bun = Variable("?top_bun", top_bun_type)
-        # bottom_bun = Variable("?bottom_bun", bottom_bun_type)
-        # cheese = Variable("?cheese", cheese_type)
         tomato = Variable("?tomato", tomato_type)
         patty = Variable("?patty", patty_type)
 
@@ -47,7 +43,6 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
 
         item = Variable("?item", item_type)
-        # station = Variable("?station", station_type)
         obj = Variable("?object", object_type)
 
         from_obj1 = Variable("?from_obj1", item_type)
@@ -63,7 +58,6 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Predicates
         Adjacent = predicates["Adjacent"]
         AdjacentToNothing = predicates["AdjacentToNothing"]
-        # AdjacentNotFacing = predicates["AdjacentNotFacing"]
         Facing = predicates["Facing"]
         IsCooked = predicates["IsCooked"]
         IsSliced = predicates["IsSliced"]
@@ -72,7 +66,6 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         On = predicates["On"]
         OnNothing = predicates["OnNothing"]
         Clear = predicates["Clear"]
-        # GoalHack = predicates["GoalHack"]
 
         # Options
         Move = options["Move"]

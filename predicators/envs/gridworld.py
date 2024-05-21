@@ -28,7 +28,7 @@ class GridWorldEnv(BaseEnv):
 
     This environment is designed to showcase a predicate invention approach that
     learns geometric predicates that operate on the object-centric state and
-    video-language model predicates that operate on the visual rendering of the
+    vision-language model predicates that operate on the visual rendering of the
     state.
 
     One quirk of this environment is that we want certain parts of the state to
@@ -477,15 +477,6 @@ class GridWorldEnv(BaseEnv):
                 else:
                     new_z = 0
                 next_state.set(held_item, "z", new_z)
-
-        # print("state: ", state)
-        # print("action: ", action)
-        # print("next state: ", next_state)
-        # print()
-        # top_bun = [obj for obj in state if obj.name == "top_bun"][0]
-        # if pickplace > 0 and state.simulator_state[top_bun]["is_held"] > 0.5:
-        #     print()
-        #     import pdb; pdb.set_trace()
 
         return next_state
 
