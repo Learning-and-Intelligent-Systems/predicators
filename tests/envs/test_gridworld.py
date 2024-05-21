@@ -147,7 +147,7 @@ def test_gridworld():
                                  ]) in utils.abstract(traj.states[-1],
                                                       env.predicates)
 
-    # Test _get_cell_in_direction
+    # Test get_cell_in_direction
     x, y = env.get_cell_in_direction(1, 1, "left")
     assert x == 0 and y == 1
     x, y = env.get_cell_in_direction(1, 1, "up")
@@ -188,8 +188,7 @@ def test_gridworld():
         event_to_action(state, event)
     plt.close()
 
-    # Test move option
-    import pdb; pdb.set_trace()
+    # Test move option when already adjacent but not facing
     Move = [o for o in options if o.name == "Move"][0]
     state = task.init
     state.set(grill, "col", 2)
