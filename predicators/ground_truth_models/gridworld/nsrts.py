@@ -93,8 +93,8 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, tomato])
         }
         add_effects = {LiftedAtom(IsSliced, [tomato])}
-        delete_effects = set()
-        ignore_effects = set()
+        delete_effects: Set[LiftedAtom] = set()
+        ignore_effects: Set[Predicate] = set()
         slice_nsrt = NSRT("Slice", parameters, preconditions, add_effects,
                           delete_effects, ignore_effects, option, option_vars,
                           null_sampler)
@@ -538,7 +538,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Adjacent, [robot, item]),
             LiftedAtom(Facing, [robot, item])
         }
-        ignore_effects: Set[Predicate] = set()
+        ignore_effects: Set[Predicate] = set()  # type: ignore[no-redef]
         pick_single_adjacent_nsrt = NSRT("PickSingleAdjacent", parameters,
                                          preconditions, add_effects,
                                          delete_effects, ignore_effects,
@@ -568,7 +568,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Facing, [robot, item]),
             LiftedAtom(On, [item, obj]),
         }
-        ignore_effects: Set[Predicate] = set()
+        ignore_effects: Set[Predicate] = set()  # type: ignore[no-redef]
         pick_from_stack_nsrt = NSRT("PickFromStack", parameters, preconditions,
                                     add_effects, delete_effects,
                                     ignore_effects, option, option_vars,
@@ -596,7 +596,7 @@ class GridWorldGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnNothing, [item]),
             LiftedAtom(Clear, [obj])
         }
-        ignore_effects: Set[Predicate] = set()
+        ignore_effects: Set[Predicate] = set()  # type: ignore[no-redef]
         place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
                           delete_effects, ignore_effects, option, option_vars,
                           null_sampler)

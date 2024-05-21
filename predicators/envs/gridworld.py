@@ -105,10 +105,10 @@ class GridWorldEnv(BaseEnv):
                                     self._OnNothing_holds)
         self._Clear = Predicate("Clear", [self._object_type],
                                 self._Clear_holds)
-        # self._GoalHack = Predicate("GoalHack", [
-        #     self._bottom_bun_type, self._patty_type, self._cheese_type,
-        #     self._tomato_type, self._top_bun_type
-        # ], self._GoalHack_holds)
+        self._GoalHack = Predicate("GoalHack", [
+            self._bottom_bun_type, self._patty_type, self._cheese_type,
+            self._tomato_type, self._top_bun_type
+        ], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robby", self._robot_type)
@@ -206,12 +206,8 @@ class GridWorldEnv(BaseEnv):
                                  objects: Sequence[Object]) -> bool:
         robot, = objects
         for obj in state:
-            if obj.is_instance(self._item_type):
-                if not self._Holding_holds(
-                        state, [robot, obj]) and self.Adjacent_holds(
-                            state, [robot, obj]):
-                    return False
-            elif obj.is_instance(self._station_type):
+            if obj.is_instance(self._item_type) or \
+                obj.is_instance(self._station_type):
                 if self.Adjacent_holds(state, [robot, obj]):
                     return False
         return True
@@ -239,11 +235,13 @@ class GridWorldEnv(BaseEnv):
 
     def _IsCooked_holds(self, state: State, objects: Sequence[Object]) -> bool:
         patty, = objects
-        return state.simulator_state[patty]["is_cooked"] > 0.5
+        return state.simulator_state[patty][  # type: ignore[index]
+            "is_cooked"] > 0.5
 
     def _IsSliced_holds(self, state: State, objects: Sequence[Object]) -> bool:
         tomato, = objects
-        return state.simulator_state[tomato]["is_sliced"] > 0.5
+        return state.simulator_state[tomato][  # type: ignore[index]
+            "is_sliced"] > 0.5
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
@@ -253,7 +251,9 @@ class GridWorldEnv(BaseEnv):
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, item = objects
         return not self._HandEmpty_holds(
-            state, [robot]) and state.simulator_state[item]["is_held"] > 0.5
+            state,
+            [robot]) and state.simulator_state[item][  # type: ignore[index]
+                "is_held"] > 0.5
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         a, b = objects
@@ -302,7 +302,8 @@ class GridWorldEnv(BaseEnv):
         return col, row
 
     @classmethod
-    def is_adjacent(cls, col_1, row_1, col_2, row_2):
+    def is_adjacent(cls, col_1: int, row_1: int, col_2: int,
+                    row_2: int) -> bool:
         """Public for use by oracle options."""
         adjacent_vertical = col_1 == col_2 and abs(row_1 - row_2) == 1
         adjacent_horizontal = row_1 == row_2 and abs(col_1 - col_2) == 1
@@ -313,7 +314,8 @@ class GridWorldEnv(BaseEnv):
         return {
             self._Adjacent, self._AdjacentToNothing, self._AdjacentNotFacing,
             self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty,
-            self._Holding, self._On, self._OnNothing, self._Clear
+            self._Holding, self._On, self._OnNothing, self._Clear,
+            self._GoalHack
         }
 
     @property
@@ -344,7 +346,9 @@ class GridWorldEnv(BaseEnv):
         return "no_change"
 
     @staticmethod
-    def _get_cell_in_direction(x, y, direction) -> Tuple[int, int]:
+    def get_cell_in_direction(x: int, y: int,
+                              direction: str) -> Tuple[int, int]:
+        """Public for use by tests."""
         if direction == "left":
             return (x - 1, y)
         if direction == "right":
@@ -399,7 +403,8 @@ class GridWorldEnv(BaseEnv):
         ]
         for obj in other_objects:
             if obj in items:
-                if state.simulator_state[obj]["is_held"] > 0.5:
+                if state.simulator_state[obj][  # type: ignore[index]
+                        "is_held"] > 0.5:
                     continue
             ox, oy = self.get_position(obj, state)
             if abs(new_rx - ox) < 1e-3 and abs(new_ry - oy) < 1e-3:
@@ -411,7 +416,8 @@ class GridWorldEnv(BaseEnv):
 
         # If an object was held, move it with the robot.
         for item in items:
-            if state.simulator_state[item]["is_held"] > 0.5:
+            if state.simulator_state[item][  # type: ignore[index]
+                    "is_held"] > 0.5:
                 next_state.set(item, "col", new_rx)
                 next_state.set(item, "row", new_ry)
 
@@ -421,10 +427,12 @@ class GridWorldEnv(BaseEnv):
                                  [self._robot, item]) and interact > 0.5:
                 if item.is_instance(self._patty_type) and self._On_holds(
                         state, [item, self._grill]):
-                    next_state.simulator_state[item]["is_cooked"] = 1.0
+                    next_state.simulator_state[item][  # type: ignore[index]
+                        "is_cooked"] = 1.0
                 elif item.is_instance(self._tomato_type) and self._On_holds(
                         state, [item, self._cutting_board]):
-                    next_state.simulator_state[item]["is_sliced"] = 1.0
+                    next_state.simulator_state[item][  # type: ignore[index]
+                        "is_sliced"] = 1.0
 
         # Handle picking.
         if pickplace > 0.5 and self._HandEmpty_holds(state, [self._robot]):
@@ -435,7 +443,8 @@ class GridWorldEnv(BaseEnv):
             if len(facing_items) > 0:
                 # We'll pick up the item that is "on top".
                 on_top = max(facing_items, key=lambda x: x[1])[0]
-                next_state.simulator_state[on_top]["is_held"] = 1.0
+                next_state.simulator_state[on_top][  # type: ignore[index]
+                    "is_held"] = 1.0
                 next_state.set(on_top, "col", rx)
                 next_state.set(on_top, "row", ry)
                 next_state.set(on_top, "z", 0)
@@ -445,13 +454,15 @@ class GridWorldEnv(BaseEnv):
         if pickplace > 0.5 and not self._HandEmpty_holds(state, [self._robot]):
             held_item = [
                 item for item in items
-                if state.simulator_state[item]["is_held"] > 0.5
+                if state.simulator_state[item]  # type: ignore[index]
+                ["is_held"] > 0.5
             ][0]
-            px, py = self._get_cell_in_direction(
+            px, py = self.get_cell_in_direction(
                 rx, ry, self.enum_to_dir[state.get(self._robot, "dir")])
             if 0 <= py <= self.num_rows and 0 <= px <= self.num_cols:
                 next_state.set(self._robot, "fingers", 0.0)
-                next_state.simulator_state[held_item]["is_held"] = 0.0
+                next_state.simulator_state[held_item][  # type: ignore[index]
+                    "is_held"] = 0.0
                 next_state.set(held_item, "col", px)
                 next_state.set(held_item, "row", py)
                 # If any other objects are at this location, then this must go
@@ -484,6 +495,7 @@ class GridWorldEnv(BaseEnv):
             task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        print("state in render: ", state)
         figsize = (self.num_cols * 2, self.num_rows * 2)
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         plt.suptitle(caption, wrap=True)
@@ -538,16 +550,17 @@ class GridWorldEnv(BaseEnv):
         items = [obj for obj in state if obj.is_instance(self._item_type)]
         for item in items:
             img = type_to_img[item.type]
-            if "is_cooked" in state.simulator_state[
+            if "is_cooked" in state.simulator_state[  # type: ignore[index]
                     item] and self._IsCooked_holds(state, [item]):
                 img = mpimg.imread(
                     utils.get_env_asset_path("imgs/cooked_patty.png"))
-            elif "is_sliced" in state.simulator_state[
+            elif "is_sliced" in state.simulator_state[  # type: ignore[index]
                     item] and self._IsSliced_holds(state, [item]):
                 img = mpimg.imread(
                     utils.get_env_asset_path("imgs/sliced_tomato.png"))
             zorder = state.get(item, "z")
-            is_held = state.simulator_state[item]["is_held"] > 0.5
+            is_held = state.simulator_state[item][  # type: ignore[index]
+                "is_held"] > 0.5
             x, y = self.get_position(item, state)
             # If the item is held, make it smaller so that it does obstruct the
             # robot.
@@ -598,9 +611,11 @@ class GridWorldEnv(BaseEnv):
             del state  # unused
             logging.info(
                 "Controls: arrow keys to move, wasd to change direction, " \
-                "(e) to interact, (f) to pick/place"
+                "(e) to interact, (f) to pick/place, (q) to quit"
             )
             dcol, drow, turn, interact, pickplace = 0, 0, -1, 0, 0
+            if event.key == "q":
+                raise utils.HumanDemonstrationFailure("Human quit.")
             if event.key == "w":
                 turn = 0
             elif event.key == "a":
