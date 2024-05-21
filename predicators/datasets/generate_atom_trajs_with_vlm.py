@@ -368,12 +368,28 @@ def _parse_structured_state_into_ground_atoms(
                 # Sliced(apple, cutting_tool)). We might want to explicitly
                 # check for this in the future.
                 if pred_name not in pred_name_to_pred:
-                    if len(objs_and_val_dict.keys()) == 1:
-                        # NOTE: this below code doesn't do the right thing
-                        # when there are multiple of the predicate that
-                        # are true with different objects of the same type
-                        # (e.g. Covers(obj1, targ1) and Covers(obj2, targ2)).
-                        # We might want to do something about this.
+                    # Now, we check whether we need to make a specifically-
+                    # typed predicate (e.g OnTop(obj1: kettle, obj2: burner))
+                    # or a generically-typed one (e.g. OnTop(obj1: object,
+                    # obj2: object)). We do this by checking whether all
+                    # instances of a particular predicate that we see have
+                    # objects of the same type.
+                    # NOTE: in the future, we might want to consider using a
+                    # type hierarchy here; instead of always defaulting to
+                    # 'object' type, we can default to the least common ancestor
+                    # type.
+                    objs_and_val_keys = sorted(objs_and_val_dict.keys())
+                    init_obj_type_typle = tuple(
+                        curr_obj_name_to_obj[obj_name].type
+                        for obj_name in objs_and_val_keys[0])
+                    make_generic_typed_predicate = False
+                    for objs_and_val_key in objs_and_val_keys[1:]:
+                        if tuple(curr_obj_name_to_obj[obj_name].type
+                                 for obj_name in
+                                 objs_and_val_key) != init_obj_type_typle:
+                            make_generic_typed_predicate = True
+                            break
+                    if not make_generic_typed_predicate:
                         # In this case, we make a predicate that takes in
                         # exactly one types argument.
                         for obj_args in objs_and_val_dict.keys():

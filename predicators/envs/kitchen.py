@@ -596,7 +596,8 @@ README of that repo suggests!"
         """Predicate that's necessary for goal specification."""
         kettle, burner, knob = objects
         return cls.On_holds(state, [knob]) and cls._OnTop_holds(
-            state, [kettle, burner])
+            state, [kettle, burner]) and cls._KnobAndBurnerLinkedHolds(
+                state, [knob, burner])
 
     @classmethod
     def _KnobAndBurnerLinkedHolds(cls, state: State,
