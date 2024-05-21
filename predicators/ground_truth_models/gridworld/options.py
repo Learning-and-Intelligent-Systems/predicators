@@ -172,20 +172,16 @@ class GridWorldGroundTruthOptionFactory(GroundTruthOptionFactory):
                 not GridWorldEnv.Facing_holds(state, [robot, to_obj]):
                 if rx == ox:
                     if ry > oy:
-                        print("got here1", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 2, 0, 0], dtype=np.float32))
                     elif ry < oy:
-                        print("got here2", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 0, 0, 0], dtype=np.float32))
                 elif ry == oy:
                     if rx > ox:
-                        print("got here3", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 1, 0, 0], dtype=np.float32))
                     elif rx < ox:
-                        print("got here4", rx, ry, ox, oy)
                         action = Action(
                             np.array([0, 0, 3, 0, 0], dtype=np.float32))
 
