@@ -206,9 +206,9 @@ README of that repo suggests!"
             burner2_text = "burner2"
             burner2_position = (210, 310)
             burner3_text = "burner3"
-            burner3_position = (260, 215)
+            burner3_position = (260, 235)
             burner4_text = "burner4"
-            burner4_position = (165, 230)
+            burner4_position = (185, 260)
             burner1_img = utils.add_text_to_draw_img(draw, burner1_position,
                                                      burner1_text, font)
             burner2_img = utils.add_text_to_draw_img(burner1_img,
@@ -360,12 +360,14 @@ README of that repo suggests!"
         burner4 = self.object_name_to_object("burner4")
         knob4 = self.object_name_to_object("knob4")
         light = self.object_name_to_object("light")
+        gripper = self.object_name_to_object("gripper")
         goal_desc = self._current_task.goal_description
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner4])
         knob4_turned_on = self.On_holds(state, [knob4])
         light_turned_on = self.On_holds(state, [light])
         kettle_boiling = self._KettleBoiling_holds(state,
                                                    [kettle, burner4, knob4])
+        gripper_at_prepush_ontop = self._AtPrePushOnTop_holds(state, [gripper, kettle])
         if goal_desc == ("Move the kettle to the back burner and turn it on; "
                          "also turn on the light"):
             return kettle_on_burner and knob4_turned_on and light_turned_on
@@ -376,7 +378,7 @@ README of that repo suggests!"
         if goal_desc == "Turn on the light":
             return light_turned_on
         if goal_desc == "Move the kettle to the back burner and turn it on":
-            return kettle_boiling
+            return kettle_boiling #and gripper_at_prepush_ontop
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,

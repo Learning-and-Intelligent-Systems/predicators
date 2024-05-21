@@ -247,6 +247,7 @@ def run_episode_and_get_observations(
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
+                import ipdb; ipdb.set_trace()
                 raise e
             if terminate_on_goal_reached and env.goal_reached():
                 break
