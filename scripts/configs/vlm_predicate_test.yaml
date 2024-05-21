@@ -8,10 +8,14 @@ ENVS:
   stick_button:
     # NAME: "stick_button"
     # NAME: "stick_button_move"
-    NAME: "cover_place_hard"
+    # NAME: "cover_place_hard"
+    # NAME: "blocks"
     # NAME: "cover_multistep_options"
     # NAME: "doors"
     # NAME: "painting"
+    NAME: "tools"
+    # NAME: "coffee"
+    # NAME: "sticky_table"
 ARGS: 
   # []
   - "debug"
@@ -32,7 +36,7 @@ FLAGS:
   # stick_button_button_position: "only_bottom"
   # stick_button_button_position: "only_top"
   # bilevel_plan_without_sim: True
-  excluded_predicates: "all"
+  # excluded_predicates: "all"
   sesame_max_samples_per_step: 10
   min_perc_data_for_nsrt: 1
   segmenter: "contacts"

@@ -49,16 +49,14 @@ class BlocksEnv(BaseEnv):
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
 
+    # Types
+    _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
+                                "color_r", "color_g", "color_b"])
+    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        self._block_type = Type("block", [
-            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
-            "color_b"
-        ])
-        self._robot_type = Type("robot",
-                                ["pose_x", "pose_y", "pose_z", "fingers"])
         # Predicates
         self._On = Predicate("On", [self._block_type, self._block_type],
                              self._On_holds)
@@ -69,6 +67,7 @@ class BlocksEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
@@ -191,7 +190,8 @@ class BlocksEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._On, self._OnTable, self._GripperOpen, self._Holding,
+            self._On, self._OnTable, self._GripperOpen, 
+            self._Holding,
             self._Clear
         }
 
