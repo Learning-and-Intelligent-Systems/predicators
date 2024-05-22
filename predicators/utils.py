@@ -3807,7 +3807,7 @@ def get_scaled_default_font(
     width, height = draw.textbbox((0, 0), "A", font=base_font)[:2]
     scale_factor = size / max(width, height)
     # Scale the font using the factor
-    return base_font.font_variant(size=int(scale_factor *
+    return base_font.font_variant(size=int(scale_factor *  # type: ignore
                                            base_font.size))  # type: ignore
 
 
