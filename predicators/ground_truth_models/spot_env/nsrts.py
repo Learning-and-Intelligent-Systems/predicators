@@ -330,7 +330,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # similarly in the future.
 
         for strips_op in env.strips_operators:
-            sampler = _OPERATOR_NAME_TO_SAMPLER[strips_op.name]
+            sampler = operator_name_to_sampler[strips_op.name]
             option = options[strips_op.name]
             nsrt = strips_op.make_nsrt(
                 option=option,
