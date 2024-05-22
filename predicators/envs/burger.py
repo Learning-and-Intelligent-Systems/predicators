@@ -111,7 +111,7 @@ class BurgerEnv(BaseEnv):
         ], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
-        self._robot = Object("robby", self._robot_type)
+        self._robot = Object("robot", self._robot_type)
         self._grill = Object("grill", self._grill_type)
         self._cutting_board = Object("cutting_board", self._cutting_board_type)
 
