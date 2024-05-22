@@ -117,10 +117,10 @@ def count_classification_result_for_ops(
 
     for g_optn in ground_options:
         # Use atom states directly 
-        succ_states = succ_optn_dict[g_optn]['states']
-        succ_abs_states = succ_optn_dict[g_optn]['abstract_states']
-        fail_states = fail_optn_dict[g_optn]['states']
-        fail_abs_states = fail_optn_dict[g_optn]['abstract_states']
+        succ_states = succ_optn_dict[g_optn].states
+        succ_abs_states = succ_optn_dict[g_optn].abstract_states
+        fail_states = fail_optn_dict[g_optn].states
+        fail_abs_states = fail_optn_dict[g_optn].abstract_states
         n_succ_states, n_fail_states = len(succ_states), len(fail_states)
         n_tot = n_succ_states + n_fail_states
 
@@ -129,20 +129,20 @@ def count_classification_result_for_ops(
         if initial_ite:
             tp_states, fp_states = succ_states, fail_states
             if succ_states:
-                optn = succ_optn_dict[g_optn]['option']
+                optn = succ_optn_dict[g_optn].option
                 tp_state_dict[str(optn)][g_optn]['states'].extend(succ_states)
 
             if fail_states:
-                optn = fail_optn_dict[g_optn]['option']
+                optn = fail_optn_dict[g_optn].option
                 fp_state_dict[str(optn)][g_optn]['states'].extend(fail_states)
         else:
             # Filter out the tp, fn states from succ_option_dict
             if succ_states:
                 # Get all consistent ground operators
-                optn = succ_optn_dict[g_optn]['option']
+                optn = succ_optn_dict[g_optn].option
                 # Assume the g_optn is unique in each task
                 env_objects = set(succ_states[0])
-                optn_objs = succ_optn_dict[g_optn]['optn_objs']
+                optn_objs = succ_optn_dict[g_optn].optn_objs
                 # optn_vars = succ_optn_dict[g_optn]['optn_vars']
 
                 # Ground using `all_ground_nsrts()`
@@ -192,10 +192,10 @@ def count_classification_result_for_ops(
             # filter out the tn, fp states
             if fail_states:
                 # Get all consistent ground operators
-                optn = fail_optn_dict[g_optn]['option']
+                optn = fail_optn_dict[g_optn].option
                 # Assume the g_optn is unique in each task
                 env_objects = set(fail_states[0])
-                optn_objs = fail_optn_dict[g_optn]['optn_objs']
+                optn_objs = fail_optn_dict[g_optn].optn_objs
                 # optn_vars = fail_optn_dict[g_optn]['optn_vars']
 
                 # Ground by all objects

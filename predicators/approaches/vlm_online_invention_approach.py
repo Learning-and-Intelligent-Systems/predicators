@@ -35,7 +35,7 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.structs import Dataset, LowLevelTrajectory, Predicate, \
     ParameterizedOption, Type, Task, Optional, GroundAtomTrajectory, \
-    AnnotatedPredicate, State, Object, _TypedEntity
+    AnnotatedPredicate, State, Object, _TypedEntity, GroundOptionRecord
 from predicators.approaches.grammar_search_invention_approach import \
     create_score_function, _create_grammar 
 from predicators.envs import BaseEnv
@@ -182,15 +182,13 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._init_nsrts = deepcopy(self._nsrts)
 
         # init data collection
-        # Set up load/save filename for interaction dataset
         ds_fname = utils.llm_pred_dataset_save_name(0)
         if load_llm_pred_invent_dataset and os.path.exists(ds_fname):
-            # Load from dataset_fname
             with open(ds_fname, 'rb') as f:
                 results, dataset = dill.load(f) 
             logging.info(f"Loaded dataset from {ds_fname}\n")
         else:
-            # Ask it to try to solve the tasks
+            # Ask it to solve the tasks
             results, dataset = self._solve_tasks(env, tasks)
             if save_llm_pred_invent_dataset:
                 with open(ds_fname, 'wb') as f:
@@ -201,8 +199,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite {0}; "
                     f"no invent solve rate {num_solved / num_tasks}\n")
-        self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
-        self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
+        self.succ_optn_dict = defaultdict(GroundOptionRecord)
+        self.fail_optn_dict = defaultdict(GroundOptionRecord)
 
         for ite in range(1, max_invent_ite+1):
             logging.info(f"===Starting iteration {ite}...")
@@ -222,7 +220,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                 if CFG.llm_predicator_oracle_base:
                     # If using the oracle predicates
                     new_candidates = env.predicates - self._initial_predicates
-                    # new_candidates = set([list(env.predicates - self._initial_predicates)[0], list(env.predicates - self._initial_predicates)[2]])
                 else:
                     # Use the results to prompt the llm
                     prompt = self._create_prompt(env, ite)
@@ -248,7 +245,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                         grammar = _create_grammar(dataset=dataset, 
                             given_predicates=base_candidates |\
                                 self._initial_predicates)
-                        all_candidates: Dict[Predicate, float] = grammar.generate(
+                        all_candidates: Dict[Predicate, float] =\
+                            grammar.generate(
                             max_num=CFG.grammar_search_max_predicates)
                     else:
                         # Assign cost 0 for every candidate, for now.
@@ -259,11 +257,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                     for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
                         for g_optn in optn_dict.keys():
                             atom_states = []
-                            for state in optn_dict[g_optn]['states']:
+                            for state in optn_dict[g_optn].states:
                                 atom_states.append(utils.abstract(
                                 state, 
                                 set(all_candidates) | self._initial_predicates))
-                            optn_dict[g_optn]['abstract_states'] = atom_states
+                            optn_dict[g_optn].abstract_states = atom_states
                     # Apply the candidate predicates to the data.
                     atom_dataset: List[GroundAtomTrajectory] =\
                         utils.create_ground_atom_dataset(
@@ -272,7 +270,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     logging.info("Done.")
                     score_function = _ClassificationErrorScoreFunction(
                         self._initial_predicates, atom_dataset, all_candidates,
-                        self._train_tasks, self.succ_optn_dict, self.fail_optn_dict)
+                        self._train_tasks, self.succ_optn_dict, 
+                        self.fail_optn_dict)
 
                     start_time = time.perf_counter()
                     self._learned_predicates = \
@@ -281,7 +280,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             score_function, 
                             self._initial_predicates)
                     logging.info(
-                    f"Total search time {time.perf_counter()-start_time:.2f} seconds")
+                    f"Total search time {time.perf_counter()-start_time:.2f} "
+                    "seconds")
                 propose_ite += 1
 
             # Finally, learn NSRTs via superclass, using all the kept predicates.
@@ -888,14 +888,22 @@ class VlmInventionApproach(NSRTLearningApproach):
                         if not failed_opt:
                             g_nsrt = nsrt_plan[nsrt_counter]
                             gop_str = g_nsrt.ground_option_str()
-                            self.succ_optn_dict[gop_str]['states'].append(state)
-                            # assume unique grounding
-                            self.succ_optn_dict[gop_str]['optn_objs'] =\
-                                g_nsrt.option_objs
-                            self.succ_optn_dict[gop_str]['optn_vars'] =\
-                                g_nsrt.parent.option_vars
-                            self.succ_optn_dict[gop_str]['option'] =\
-                                g_nsrt.option
+                            if not self.succ_optn_dict[gop_str].has_states():
+                                self.succ_optn_dict[gop_str].assign_values(
+                                    g_nsrt.option_objs,
+                                    g_nsrt.parent.option_vars,
+                                    g_nsrt.option
+                                )
+                            self.succ_optn_dict[gop_str].append_state(state)
+                            
+                            # self.succ_optn_dict[gop_str]['states'].append(state)
+                            # # assume unique grounding
+                            # self.succ_optn_dict[gop_str]['optn_objs'] =\
+                            #     g_nsrt.option_objs
+                            # self.succ_optn_dict[gop_str]['optn_vars'] =\
+                            #     g_nsrt.parent.option_vars
+                            # self.succ_optn_dict[gop_str]['option'] =\
+                            #     g_nsrt.option
                             task_str.append(
                             "The option "+
                             f"{nsrt_plan[nsrt_counter].ground_option_str()} "+
@@ -913,15 +921,23 @@ class VlmInventionApproach(NSRTLearningApproach):
                     #                     ].append((init_state, e))
                     g_nsrt = nsrt_plan[0]
                     gop_str = g_nsrt.ground_option_str()
-                    self.fail_optn_dict[gop_str]['states'].append(state)
-                    self.fail_optn_dict[gop_str]['errors'].append(e)
-                    # assume unique grounding
-                    self.fail_optn_dict[gop_str]['optn_objs'] =\
-                        g_nsrt.option_objs
-                    self.fail_optn_dict[gop_str]['optn_vars'] =\
-                        g_nsrt.parent.option_vars
-                    self.fail_optn_dict[gop_str]['option'] =\
-                        g_nsrt.option
+                    if not self.fail_optn_dict[gop_str].has_states():
+                        self.fail_optn_dict[gop_str].assign_values(
+                            g_nsrt.option_objs,
+                            g_nsrt.parent.option_vars,
+                            g_nsrt.option,
+                            error=e
+                        )
+                    self.fail_optn_dict[gop_str].append_state(state)
+                    # self.fail_optn_dict[gop_str]['states'].append(state)
+                    # self.fail_optn_dict[gop_str]['errors'].append(e)
+                    # # assume unique grounding
+                    # self.fail_optn_dict[gop_str]['optn_objs'] =\
+                    #     g_nsrt.option_objs
+                    # self.fail_optn_dict[gop_str]['optn_vars'] =\
+                    #     g_nsrt.parent.option_vars
+                    # self.fail_optn_dict[gop_str]['option'] =\
+                    #     g_nsrt.option
                     break
             # except AssertionError as e:
             #     breakpoint()

@@ -1367,6 +1367,33 @@ class Dataset:
             self._annotations.append(annotation)
         self._trajectories.append(trajectory)
 
+@dataclass(eq=False)
+class GroundOptionRecord:
+    """Store the ground option execution results
+    """
+    states: List[State] = field(default_factory=list)
+    abstract_states: List[Set[GroundAtom]] = field(default_factory=list)
+    optn_objs: List[Object] = field(default_factory=list)
+    optn_vars: List[Variable] = field(default_factory=list)
+    option: ParameterizedOption = field(default=None)
+    error: Exception = field(default=None)
+
+    def has_states(self) -> bool:
+        """Check if the states list is non-empty"""
+        return bool(self.states)
+    
+    def append_state(self, state: State) -> None:
+        """Append a state to the states list"""
+        self.states.append(state)
+
+    def assign_values(self, optn_objs: List[Object], optn_vars: List[Variable], 
+                      option: ParameterizedOption, 
+                      error: Optional[Exception] = None) -> None:
+        """Assign new values to optn_objs, optn_vars, option, and error"""
+        self.optn_objs = optn_objs
+        self.optn_vars = optn_vars
+        self.option = option
+        self.error = error
 
 @dataclass(eq=False)
 class Segment:
