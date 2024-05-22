@@ -322,6 +322,7 @@ class GlobalSettings:
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
     kitchen_goals = "all"
+    kitchen_render_set_of_marks = False
 
     # sticky table env parameters
     sticky_table_num_tables = 5
