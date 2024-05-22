@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import itertools
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
@@ -10,6 +11,7 @@ from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
+import PIL.Image
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
@@ -28,6 +30,13 @@ class Type:
     def dim(self) -> int:
         """Dimensionality of the feature vector of this object type."""
         return len(self.feature_names)
+
+    @property
+    def oldest_ancestor(self) -> Type:
+        """Crawl up all the parent types to return the one at the top."""
+        if self.parent is None:
+            return self
+        return self.parent.oldest_ancestor
 
     def __call__(self, name: str) -> _TypedEntity:
         """Convenience method for generating _TypedEntities."""
@@ -154,7 +163,8 @@ class State:
         new_data = {}
         for obj in self:
             new_data[obj] = self._copy_state_value(self.data[obj])
-        return State(new_data, simulator_state=self.simulator_state)
+        return State(new_data,
+                     simulator_state=copy.deepcopy(self.simulator_state))
 
     def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):
@@ -206,7 +216,7 @@ class State:
 DefaultState = State({})
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=True, order=False, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states)."""
     name: str
@@ -297,6 +307,21 @@ class Predicate:
                             objects: Sequence[Object]) -> bool:
         # Separate this into a named function for pickling reasons.
         return not self._classifier(state, objects)
+
+    def __lt__(self, other: Predicate) -> bool:
+        return str(self) < str(other)
+
+
+@dataclass(frozen=True, order=False, repr=False, eq=False)
+class VLMPredicate(Predicate):
+    """Struct defining a predicate that calls a VLM as part of returning its
+    truth value.
+
+    NOTE: when instantiating a VLMPredicate, we typically pass in a 'Dummy'
+    classifier (i.e., one that returns simply raises some kind of error instead
+    of actually outputting a value of any kind).
+    """
+    get_vlm_query_str: Callable[[Sequence[Object]], str]
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -404,6 +429,12 @@ class GroundAtom(_Atom):
     def holds(self, state: State) -> bool:
         """Check whether this ground atom holds in the given state."""
         return self.predicate.holds(state, self.objects)
+
+    def get_vlm_query_str(self) -> str:
+        """If this GroundAtom is associated with a VLMPredicate, then get the
+        string that will be used to query the VLM."""
+        assert isinstance(self.predicate, VLMPredicate)
+        return self.predicate.get_vlm_query_str(self.objects)  # pylint:disable=no-member
 
 
 @dataclass(frozen=True, eq=False)
@@ -758,6 +789,12 @@ class _GroundSTRIPSOperator:
         return self.parent.name
 
     @property
+    def short_str(self) -> str:
+        """Abbreviated name, not necessarily unique."""
+        obj_str = ", ".join([o.name for o in self.objects])
+        return f"{self.name}({obj_str})"
+
+    @property
     def ignore_effects(self) -> Set[Predicate]:
         """Ignore effects from the parent."""
         return self.parent.ignore_effects
@@ -946,6 +983,12 @@ class _GroundNSRT:
         return self.parent.name
 
     @property
+    def short_str(self) -> str:
+        """Abbreviated name, not necessarily unique."""
+        obj_str = ", ".join([o.name for o in self.objects])
+        return f"{self.name}({obj_str})"
+
+    @property
     def ignore_effects(self) -> Set[Predicate]:
         """Ignore effects from the parent."""
         return self.parent.ignore_effects
@@ -1054,10 +1097,10 @@ class SpotAction(Action):
     """Subclassed to avoid issues with pickling bosdyn functions."""
 
     def __getnewargs__(self) -> Tuple:  # pragma: no cover
-        return (self.arr, )
+        return (self._arr, self._option)
 
     def __getstate__(self) -> Dict:  # pragma: no cover
-        return {"arr": self.arr}
+        return {"_arr": self._arr, "_option": self._option}
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -1104,6 +1147,59 @@ class LowLevelTrajectory:
         """The index of the train task."""
         assert self._train_task_idx is not None, \
             "This trajectory doesn't contain a train task idx!"
+        return self._train_task_idx
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class ImageOptionTrajectory:
+    """A structure similar to a LowLevelTrajectory where we record images at
+    every state (i.e., observations), as well as the option that was executed
+    to get between observation images. States are optionally included too.
+
+    Invariant 1: If this trajectory is a demonstration, it must contain
+    a train task idx and achieve the goal in the respective train task.
+    This invariant is checked upon creation of the trajectory (in
+    datasets) because the trajectory does not have a goal, it only has a
+    train task idx. Invariant 2: The length of the state images sequence
+    is always one greater than the length of the action sequence.
+    """
+    _objects: Collection[Object]
+    _state_imgs: List[List[PIL.Image.Image]]
+    _actions: List[_Option]
+    _states: Optional[List[State]] = field(default=None)
+    _is_demo: bool = field(default=False)
+    _train_task_idx: Optional[int] = field(default=None)
+
+    def __post_init__(self) -> None:
+        assert len(self._state_imgs) == len(self._actions) + 1
+        if self._is_demo:
+            assert self._train_task_idx is not None
+        if self._states is not None:
+            assert len(self._states) == len(self._state_imgs)
+
+    @property
+    def imgs(self) -> List[List[PIL.Image.Image]]:
+        """State images in the trajectory."""
+        return self._state_imgs
+
+    @property
+    def objects(self) -> Collection[Object]:
+        """Objects important to the trajectory."""
+        return self._objects
+
+    @property
+    def actions(self) -> List[_Option]:
+        """Actions in the trajectory."""
+        return self._actions
+
+    @property
+    def states(self) -> Optional[List[State]]:
+        """States in the trajectory, if they exist."""
+        return self._states
+
+    @property
+    def train_task_idx(self) -> Optional[int]:
+        """Returns the idx of the train task."""
         return self._train_task_idx
 
 
@@ -1796,6 +1892,29 @@ class GroundMacro:
         return len(self.ground_nsrts)
 
 
+@dataclass(frozen=True, repr=False, eq=False)
+class SpotActionExtraInfo:
+    """A sequence of things that are in the extra_info field of actions for the
+    SpotEnv.
+
+    We expect every action is linked to a parameterized skill. Thus, the
+    action name is the skill name. The operator objects are the discrete
+    skill parameters. The real_world_fn is an implementation of the
+    policy for the skill that should execute on a real world spot robot.
+    The real_world_fn_args are the arguments that this function requires
+    (which includes the continuous params and any other necessary)
+    params. The simulation_fn is an implementation of the skill policy
+    that should execute with a pbrspot simulation. The
+    simulation_fn_args are the arguments the simulation_fn requires.
+    """
+    action_name: str
+    operator_objects: Sequence[Object]
+    real_world_fn: Optional[Callable]
+    real_world_fn_args: Tuple
+    simulation_fn: Optional[Callable]
+    simulation_fn_args: Tuple
+
+
 # Convenience higher-order types useful throughout the code
 Observation = Any
 GoalDescription = Any
@@ -1813,6 +1932,12 @@ EntToEntSub = Dict[_TypedEntity, _TypedEntity]
 Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
     [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
+# NSRT Sampler that also returns a boolean indicating whether the sample was
+# generated randomly (for exploration) or from the current learned
+# distribution.
+NSRTSamplerWithEpsilonIndicator = Callable[
+    [State, Set[GroundAtom], np.random.Generator, Sequence[Object]],
+    Tuple[Array, bool]]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
                              _Atom)

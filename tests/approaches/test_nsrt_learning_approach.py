@@ -74,7 +74,8 @@ def _test_approach(env_name,
         options = parse_config_included_options(env)
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, options)
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0].task
@@ -359,7 +360,17 @@ def test_grammar_search_invention_approach():
         "grammar_search_search_algorithm": "hill_climbing",
         "pretty_print_when_loading": True,
         "grammar_search_gbfs_num_evals": 1,
+        "save_atoms": True
     }
+    _test_approach(env_name="cover",
+                   approach_name="grammar_search_invention",
+                   excluded_predicates="Holding",
+                   try_solving=False,
+                   sampler_learner="random",
+                   num_train_tasks=3,
+                   additional_settings=additional_settings)
+    # Now test loading.
+    additional_settings.update({"load_atoms": True})
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
                    excluded_predicates="Holding",
@@ -370,6 +381,7 @@ def test_grammar_search_invention_approach():
     # Test approach with unrecognized search algorithm.
     additional_settings["grammar_search_search_algorithm"] = \
         "not a real search algorithm"
+    additional_settings["load_atoms"] = False
     with pytest.raises(Exception) as e:
         _test_approach(env_name="cover",
                        approach_name="grammar_search_invention",

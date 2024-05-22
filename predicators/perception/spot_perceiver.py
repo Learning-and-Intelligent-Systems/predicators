@@ -1,8 +1,11 @@
 """A perceiver specific to spot envs."""
 
 import logging
-from typing import Dict, Optional, Set
+import time
+from pathlib import Path
+from typing import Dict, List, Optional, Set
 
+import imageio.v2 as iio
 import numpy as np
 from bosdyn.client import math_helpers
 from matplotlib import pyplot as plt
@@ -10,16 +13,16 @@ from matplotlib import pyplot as plt
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, SpotRearrangementEnv, _container_type, \
-    _immovable_object_type, _movable_object_type, _object_to_top_down_geom, \
-    _PartialPerceptionState, _robot_type, _SpotObservation, \
-    in_general_view_classifier
+    SpotCubeEnv, SpotRearrangementEnv, _drafting_table_type, \
+    _PartialPerceptionState, _SpotObservation, in_general_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
-from predicators.spot_utils.utils import load_spot_metadata
+from predicators.spot_utils.utils import _container_type, \
+    _immovable_object_type, _movable_object_type, _robot_type, \
+    get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
-    GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task, \
-    Video
+    GoalDescription, GroundAtom, Object, Observation, Predicate, \
+    SpotActionExtraInfo, State, Task, Video
 
 
 class SpotPerceiver(BasePerceiver):
@@ -30,6 +33,7 @@ class SpotPerceiver(BasePerceiver):
         self._known_object_poses: Dict[Object, math_helpers.SE3Pose] = {}
         self._objects_in_view: Set[Object] = set()
         self._objects_in_hand_view: Set[Object] = set()
+        self._objects_in_any_view_except_back: Set[Object] = set()
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
@@ -42,6 +46,7 @@ class SpotPerceiver(BasePerceiver):
         self._lost_objects: Set[Object] = set()
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
+        self._ordered_objects: List[Object] = []  # list of all known objects
         # Keep track of objects that are contained (out of view) in another
         # object, like a bag or bucket. This is important not only for gremlins
         # but also for small changes in the container's perceived pose.
@@ -55,22 +60,26 @@ class SpotPerceiver(BasePerceiver):
         return "spot_perceiver"
 
     def reset(self, env_task: EnvironmentTask) -> Task:
-        self._waiting_for_observation = True
-        self._curr_env = get_or_create_env(CFG.env)
-        assert isinstance(self._curr_env, SpotRearrangementEnv)
-        self._known_object_poses = {}
-        self._objects_in_view = set()
-        self._objects_in_hand_view = set()
-        self._robot = None
-        self._nonpercept_atoms = set()
-        self._nonpercept_predicates = set()
-        self._percept_predicates = self._curr_env.percept_predicates
-        self._prev_action = None
-        self._held_object = None
-        self._gripper_open_percentage = 0.0
-        self._robot_pos = math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat())
-        self._lost_objects = set()
-        self._container_to_contained_objects = {}
+        # Unless dry running, don't reset after the first time.
+        if self._waiting_for_observation or CFG.spot_run_dry:
+            self._waiting_for_observation = True
+            self._curr_env = get_or_create_env(CFG.env)
+            assert isinstance(self._curr_env, SpotRearrangementEnv)
+            self._known_object_poses = {}
+            self._objects_in_view = set()
+            self._objects_in_hand_view = set()
+            self._objects_in_any_view_except_back = set()
+            self._robot = None
+            self._nonpercept_atoms = set()
+            self._nonpercept_predicates = set()
+            self._percept_predicates = self._curr_env.percept_predicates
+            self._held_object = None
+            self._gripper_open_percentage = 0.0
+            self._robot_pos = math_helpers.SE3Pose(0, 0, 0,
+                                                   math_helpers.Quat())
+            self._lost_objects = set()
+            self._container_to_contained_objects = {}
+        self._prev_action = None  # already processed at the end of the cycle
         init_state = self._create_state()
         goal = self._create_goal(init_state, env_task.goal_description)
         return Task(init_state, goal)
@@ -87,28 +96,34 @@ class SpotPerceiver(BasePerceiver):
         # Update the curr held item when applicable.
         assert self._curr_env is not None
         if self._prev_action is not None:
-            assert isinstance(self._prev_action.extra_info, (list, tuple))
-            controller_name, objects, _, _ = self._prev_action.extra_info
+            assert isinstance(self._prev_action.extra_info,
+                              SpotActionExtraInfo)
+            controller_name = self._prev_action.extra_info.action_name
+            objects = self._prev_action.extra_info.operator_objects
             logging.info(
                 f"[Perceiver] Previous action was {controller_name}{objects}.")
             # The robot is always the 0th argument of an
             # operator!
             if "pick" in controller_name.lower():
-                assert self._held_object is None
-                # We know that the object that we attempted to grasp was
-                # the second argument to the controller.
-                object_attempted_to_grasp = objects[1]
-                # Remove from contained objects.
-                for contained in self._container_to_contained_objects.values():
-                    contained.discard(object_attempted_to_grasp)
-                # We only want to update the holding item id feature
-                # if we successfully picked something.
-                if self._gripper_open_percentage > HANDEMPTY_GRIPPER_THRESHOLD:
-                    self._held_object = object_attempted_to_grasp
+                if self._held_object is not None:
+                    assert CFG.spot_run_dry
                 else:
-                    # We lost the object!
-                    logging.info("[Perceiver] Object was lost!")
-                    self._lost_objects.add(object_attempted_to_grasp)
+                    # We know that the object that we attempted to grasp was
+                    # the second argument to the controller.
+                    object_attempted_to_grasp = objects[1]
+                    # Remove from contained objects.
+                    for contained in self.\
+                        _container_to_contained_objects.values():
+                        contained.discard(object_attempted_to_grasp)
+                    # We only want to update the holding item id feature
+                    # if we successfully picked something.
+                    if self._gripper_open_percentage > \
+                        HANDEMPTY_GRIPPER_THRESHOLD:
+                        self._held_object = object_attempted_to_grasp
+                    else:
+                        # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
+                        self._lost_objects.add(object_attempted_to_grasp)
             elif any(n in controller_name.lower() for n in
                      ["place", "drop", "preparecontainerforsweeping", "drag"]):
                 self._held_object = None
@@ -121,6 +136,21 @@ class SpotPerceiver(BasePerceiver):
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(obj)
+            elif any(n in controller_name.lower()
+                     for n in ["sweepintocontainer", "sweeptwoobjects"]):
+                robot = objects[0]
+                state = self._create_state()
+                if controller_name.lower() == "sweepintocontainer":
+                    objs = {objects[2]}
+                else:
+                    assert controller_name.lower().startswith("sweeptwoobject")
+                    objs = {objects[2], objects[3]}
+                for o in objs:
+                    is_in_view = in_general_view_classifier(state, [robot, o])
+                    if not is_in_view:
+                        # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
+                        self._lost_objects.add(o)
             else:
                 # Ensure the held object is reset if the hand is empty.
                 prev_held_object = self._held_object
@@ -161,6 +191,8 @@ class SpotPerceiver(BasePerceiver):
         self._known_object_poses.update(observation.objects_in_view)
         self._objects_in_view = set(observation.objects_in_view)
         self._objects_in_hand_view = observation.objects_in_hand_view
+        self._objects_in_any_view_except_back = \
+            observation.objects_in_any_view_except_back
         self._nonpercept_atoms = observation.nonpercept_atoms
         self._nonpercept_predicates = observation.nonpercept_predicates
         self._gripper_open_percentage = observation.gripper_open_percentage
@@ -185,7 +217,12 @@ class SpotPerceiver(BasePerceiver):
                 "qz": self._robot_pos.rot.z,
             },
         }
+        # Add new objects to the list of known objects.
+        known_objs = set(self._ordered_objects)
+        for obj in sorted(set(self._known_object_poses) - known_objs):
+            self._ordered_objects.append(obj)
         for obj, pose in self._known_object_poses.items():
+            object_id = self._ordered_objects.index(obj)
             state_dict[obj] = {
                 "x": pose.x,
                 "y": pose.y,
@@ -194,6 +231,7 @@ class SpotPerceiver(BasePerceiver):
                 "qx": pose.rot.x,
                 "qy": pose.rot.y,
                 "qz": pose.rot.z,
+                "object_id": object_id,
             }
             # Add static object features.
             static_feats = self._static_object_features.get(obj.name, {})
@@ -206,7 +244,7 @@ class SpotPerceiver(BasePerceiver):
                 else:
                     in_hand_view_val = 0.0
                 state_dict[obj]["in_hand_view"] = in_hand_view_val
-                if obj in self._objects_in_view:
+                if obj in self._objects_in_any_view_except_back:
                     in_view_val = 1.0
                 else:
                     in_view_val = 0.0
@@ -277,27 +315,128 @@ class SpotPerceiver(BasePerceiver):
             can = Object("soda_can", _movable_object_type)
             Holding = pred_name_to_pred["Holding"]
             return {GroundAtom(Holding, [robot, can])}
+        if goal_description == "pick up the bucket":
+            robot = Object("robot", _robot_type)
+            bucket = Object("bucket", _container_type)
+            Holding = pred_name_to_pred["Holding"]
+            return {GroundAtom(Holding, [robot, bucket])}
         if goal_description == "put the soda in the bucket and hold the brush":
             robot = Object("robot", _robot_type)
             can = Object("soda_can", _movable_object_type)
             bucket = Object("bucket", _container_type)
-            plunger = Object("plunger", _movable_object_type)
+            brush = Object("brush", _movable_object_type)
             Inside = pred_name_to_pred["Inside"]
             Holding = pred_name_to_pred["Holding"]
             return {
                 GroundAtom(Inside, [can, bucket]),
-                GroundAtom(Holding, [robot, plunger])
+                GroundAtom(Holding, [robot, brush])
             }
-        if goal_description == "put the ball on the table":
-            ball = Object("ball", _movable_object_type)
-            cup = Object("cup", _container_type)
-            drafting_table = Object("drafting_table", _immovable_object_type)
+        if goal_description == "unblock the train_toy":
+            train_toy = Object("train_toy", _movable_object_type)
+            NotBlocked = pred_name_to_pred["NotBlocked"]
+            return {
+                GroundAtom(NotBlocked, [train_toy]),
+            }
+        if goal_description == "get the objects into the bucket":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            Inside = pred_name_to_pred["Inside"]
+            return {
+                GroundAtom(Inside, [train_toy, bucket]),
+                GroundAtom(Inside, [football, bucket]),
+            }
+        if goal_description == "get the objects onto the table":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            black_table = Object("black_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [train_toy, black_table]),
+                GroundAtom(On, [football, black_table]),
+            }
+        if goal_description == "get the objects out of the bucket":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            NotInsideAnyContainer = pred_name_to_pred["NotInsideAnyContainer"]
+            return {
+                GroundAtom(NotInsideAnyContainer, [train_toy]),
+                GroundAtom(NotInsideAnyContainer, [football]),
+            }
+        if goal_description == "get the objects into the bucket and put " + \
+            "the bucket on the shelf":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            shelf = Object("shelf1", _immovable_object_type)
             On = pred_name_to_pred["On"]
             Inside = pred_name_to_pred["Inside"]
             return {
+                GroundAtom(Inside, [train_toy, bucket]),
+                GroundAtom(Inside, [football, bucket]),
+                GroundAtom(On, [bucket, shelf])
+            }
+        if goal_description == "get the train_toy and football onto the table":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            table = Object("black_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [train_toy, table]),
+                GroundAtom(On, [football, table]),
+            }
+        if goal_description == "get the train_toy into the bucket":
+            train_toy = Object("train_toy", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            Inside = pred_name_to_pred["Inside"]
+            return {
+                GroundAtom(Inside, [train_toy, bucket]),
+            }
+        if goal_description == "place bucket such that train_toy can be " + \
+            "swept into it":
+            bucket = Object("bucket", _container_type)
+            train_toy = Object("train_toy", _movable_object_type)
+            black_table = Object("black_table", _immovable_object_type)
+            ContainerReadyForSweeping = pred_name_to_pred[
+                "ContainerReadyForSweeping"]
+            return {
+                GroundAtom(ContainerReadyForSweeping, [bucket, black_table]),
+            }
+        if goal_description == "get the football into the bucket":
+            football = Object("football", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            Inside = pred_name_to_pred["Inside"]
+            return {
+                GroundAtom(Inside, [football, bucket]),
+            }
+        if goal_description == "get the brush into the bucket":
+            brush = Object("brush", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            Inside = pred_name_to_pred["Inside"]
+            return {
+                GroundAtom(Inside, [brush, bucket]),
+            }
+        if goal_description == "get the bucket on the table":
+            bucket = Object("bucket", _container_type)
+            table = Object("black_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [bucket, table]),
+            }
+        if goal_description == "get the brush on the table":
+            brush = Object("brush", _movable_object_type)
+            table = Object("black_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [brush, table]),
+            }
+        if goal_description == "put the ball on the table":
+            ball = Object("ball", _movable_object_type)
+            drafting_table = Object("drafting_table", _drafting_table_type)
+            On = pred_name_to_pred["On"]
+            return {
                 GroundAtom(On, [ball, drafting_table]),
-                GroundAtom(On, [cup, drafting_table]),
-                GroundAtom(Inside, [ball, cup])
             }
         if goal_description == "put the brush in the second shelf":
             brush = Object("brush", _movable_object_type)
@@ -306,11 +445,61 @@ class SpotPerceiver(BasePerceiver):
             return {
                 GroundAtom(On, [brush, shelf]),
             }
-        if goal_description == "pick up the bike seat":
+        if goal_description == "put the bucket in the second shelf":
+            bucket = Object("bucket", _container_type)
+            shelf = Object("shelf1", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [bucket, shelf]),
+            }
+        if goal_description == "pick up the brush":
             robot = Object("robot", _robot_type)
-            bike_seat = Object("bike_seat", _movable_object_type)
+            brush = Object("brush", _movable_object_type)
             Holding = pred_name_to_pred["Holding"]
-            return {GroundAtom(Holding, [robot, bike_seat])}
+            return {
+                GroundAtom(Holding, [robot, brush]),
+            }
+        if goal_description == "pick up the red block":
+            robot = Object("robot", _robot_type)
+            block = Object("red_block", _movable_object_type)
+            Holding = pred_name_to_pred["Holding"]
+            return {GroundAtom(Holding, [robot, block])}
+        if goal_description == "setup sweeping":
+            robot = Object("robot", _robot_type)
+            brush = Object("brush", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            black_table = Object("black_table", _immovable_object_type)
+            football = Object("football", _movable_object_type)
+            train_toy = Object("train_toy", _movable_object_type)
+            On = pred_name_to_pred["On"]
+            FitsInXY = pred_name_to_pred["FitsInXY"]
+            IsSemanticallyGreaterThan = pred_name_to_pred[
+                "IsSemanticallyGreaterThan"]
+            IsPlaceable = pred_name_to_pred["IsPlaceable"]
+            HasFlatTopSurface = pred_name_to_pred["HasFlatTopSurface"]
+            RobotReadyForSweeping = pred_name_to_pred["RobotReadyForSweeping"]
+            NotBlocked = pred_name_to_pred["NotBlocked"]
+            TopAbove = pred_name_to_pred["TopAbove"]
+            Holding = pred_name_to_pred["Holding"]
+            ContainerReadyForSweeping = pred_name_to_pred[
+                "ContainerReadyForSweeping"]
+            IsSweeper = pred_name_to_pred["IsSweeper"]
+            return {
+                GroundAtom(On, [football, black_table]),
+                GroundAtom(FitsInXY, [football, bucket]),
+                GroundAtom(FitsInXY, [train_toy, bucket]),
+                GroundAtom(IsSemanticallyGreaterThan, [train_toy, football]),
+                GroundAtom(IsPlaceable, [train_toy]),
+                GroundAtom(HasFlatTopSurface, [black_table]),
+                GroundAtom(RobotReadyForSweeping, [robot, train_toy]),
+                GroundAtom(NotBlocked, [train_toy]),
+                GroundAtom(On, [train_toy, black_table]),
+                GroundAtom(TopAbove, [black_table, bucket]),
+                GroundAtom(IsPlaceable, [football]),
+                GroundAtom(Holding, [robot, brush]),
+                GroundAtom(ContainerReadyForSweeping, [bucket, black_table]),
+                GroundAtom(IsSweeper, [brush])
+            }
         raise NotImplementedError("Unrecognized goal description")
 
     def render_mental_images(self, observation: Observation,
@@ -327,6 +516,18 @@ class SpotPerceiver(BasePerceiver):
         figsize = (x_ub - x_lb, y_ub - y_lb)
         fig = plt.figure(figsize=figsize)
         ax = fig.gca()
+        # Draw the allowed regions.
+        allowed_regions = get_allowed_map_regions()
+        for region in allowed_regions:
+            ax.triplot(region.points[:, 0],
+                       region.points[:, 1],
+                       region.simplices,
+                       linestyle="--",
+                       color="gray")
+            ax.plot(region.points[:, 0],
+                    region.points[:, 1],
+                    'o',
+                    color="gray")
         # Draw the robot as an arrow.
         assert self._robot is not None
         robot_pose = utils.get_se3_pose_from_state(state, self._robot)
@@ -350,7 +551,7 @@ class SpotPerceiver(BasePerceiver):
             # Don't plot the floor because it's enormous.
             if obj.name == "floor":
                 continue
-            geom = _object_to_top_down_geom(obj, state)
+            geom = object_to_top_down_geom(obj, state)
             geom.plot(ax,
                       label=obj.name,
                       facecolor=(0.0, 0.0, 0.0, 0.0),
@@ -368,4 +569,11 @@ class SpotPerceiver(BasePerceiver):
         ax.set_ylim(y_lb, y_ub)
         plt.tight_layout()
         img = utils.fig2data(fig, CFG.render_state_dpi)
+        # Save the most recent top-down view at every time step.
+        outdir = Path(CFG.spot_perception_outdir)
+        time_str = time.strftime("%Y%m%d-%H%M%S")
+        outfile = outdir / f"mental_top_down_{time_str}.png"
+        iio.imsave(outfile, img)
+        logging.info(f"Wrote out to {outfile}")
+        plt.close()
         return [img]

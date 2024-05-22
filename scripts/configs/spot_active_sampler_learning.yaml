@@ -7,14 +7,32 @@ APPROACHES:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "planning_progress"
 ENVS:
-  spot_bike_env:
-    NAME: "spot_cube_env"
+  # spot_ball_and_cup_sticky_table_env:
+  #   NAME: "spot_ball_and_cup_sticky_table_env"
+  #   FLAGS:
+  #     spot_robot_ip: "10.17.30.21"  # Donner
+  #     perceiver: "spot_perceiver"
+  #     execution_monitor: "expected_atoms"
+  #     spot_graph_nav_map: "floor8-cup-table"
+  #     spot_render_perception_outputs: False
+  #     active_sampler_learning_object_specific_samplers: True
+  #     max_num_steps_interaction_request: 20
+  #     horizon: 15
+  #     active_sampler_learning_init_cycles_to_pursue_goal: 5
+  spot_main_sweep_env:
+    NAME: "spot_main_sweep_env"
     FLAGS:
-      spot_robot_ip: "10.17.30.30"
+      spot_robot_ip: 10.17.30.21  # change to "10.0.0.3" for ethernet
       perceiver: "spot_perceiver"
       execution_monitor: "expected_atoms"
+      spot_graph_nav_map: "floor8-sweeping"
+      spot_render_perception_outputs: False  # change to True for dev
+      active_sampler_learning_object_specific_samplers: True
+      max_num_steps_interaction_request: 50
+      horizon: 12
+      active_sampler_learning_init_cycles_to_pursue_goal: 4
 ARGS:
-  - "debug"
+  - "debug" # add make_cogman_videos for dev
 FLAGS:
   strips_learner: "oracle"
   sampler_learner: "oracle"
@@ -23,13 +41,20 @@ FLAGS:
   max_initial_demos: 0
   num_train_tasks: 1000  # doesn't really matter
   num_test_tasks: 0  # can add back later if we want
-  max_num_steps_interaction_request: 50
   sampler_mlp_classifier_max_itr: 100000
   mlp_classifier_balance_data: False
   pytorch_train_print_every: 10000
+  active_sampler_learning_n_iter_no_change: 5000
+  active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
+  active_sampler_learning_explore_length_base: 10000
+  active_sampler_learning_exploration_epsilon: 0.5
+  active_sampler_learning_explore_pursue_goal_interval: 3
+  skill_competence_model_optimistic_recency_size: 5
+  skill_competence_model_optimistic_window_size: 5
+  active_sampler_learning_feature_selection: oracle
   online_nsrt_learning_requests_per_cycle: 1
-  num_online_learning_cycles: 25
+  num_online_learning_cycles: 100
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
 START_SEED: 123

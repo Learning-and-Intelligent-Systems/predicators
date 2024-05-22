@@ -62,7 +62,7 @@ class _MockApproach(BaseApproach):
         return [request1, request2, request3]
 
     def learn_from_interaction_results(self, results):
-        max_steps = CFG.max_num_steps_interaction_request
+        max_steps = CFG.max_num_steps_interaction_request + 1
         assert len(results) == 3
         result1, result2, result3 = results
         assert isinstance(result1, InteractionResult)
@@ -114,7 +114,9 @@ def test_interaction():
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     _run_pipeline(env, cogman, train_tasks, dataset)
     utils.update_config({
         "approach": "bridge_policy",
@@ -137,10 +139,6 @@ def test_interaction():
         "load_approach": True
     })
     _run_pipeline(env, cogman, train_tasks, dataset)
-    # Should crash with a load failure.
-    utils.update_config({"num_online_learning_cycles": 10})
-    with pytest.raises(IndexError):
-        _run_pipeline(env, cogman, train_tasks, dataset)
     # Should succeed because all cycles are skipped. Note that we must
     # reset_config instead of update_config because of known issues with
     # update_config and default args.

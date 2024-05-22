@@ -5,7 +5,6 @@ or options.
 """
 
 import logging
-import os
 import time
 from typing import Any, Dict, List, Optional, Set
 
@@ -68,42 +67,37 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         # options take many steps, this makes a big time/space difference.
         ground_atom_dataset: Optional[List[GroundAtomTrajectory]] = None
         if CFG.load_atoms:
-            os.makedirs(CFG.data_dir, exist_ok=True)
-            # Check that the dataset file was previously saved.
-            if os.path.exists(dataset_fname):
-                # Load the ground atoms dataset.
-                with open(dataset_fname, "rb") as f:
-                    ground_atom_dataset_atoms = pkl.load(f)
-                assert len(trajectories) == len(ground_atom_dataset_atoms)
-                logging.info("\n\nLOADED GROUND ATOM DATASET")
-
-                # The saved ground atom dataset consists only of sequences
-                # of sets of GroundAtoms, we need to recombine this with
-                # the LowLevelTrajectories to create a GroundAtomTrajectory.
-                ground_atom_dataset = []
-                for i, traj in enumerate(trajectories):
-                    ground_atom_seq = ground_atom_dataset_atoms[i]
-                    ground_atom_dataset.append(
-                        (traj, [set(atoms) for atoms in ground_atom_seq]))
-            else:
-                raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
+            ground_atom_dataset = utils.load_ground_atom_dataset(
+                dataset_fname, trajectories)
         elif CFG.save_atoms:
             # Apply predicates to data, producing a dataset of abstract states.
             ground_atom_dataset = utils.create_ground_atom_dataset(
                 trajectories, self._get_current_predicates())
-            # Save ground atoms dataset to file. Note that a
-            # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
-            # list of sets of GroundAtoms, so we only save the list of
-            # GroundAtoms (the LowLevelTrajectories are saved separately).
-            ground_atom_dataset_to_pkl = []
-            for gt_traj in ground_atom_dataset:
-                trajectory = []
-                for ground_atom_set in gt_traj[1]:
-                    trajectory.append(ground_atom_set)
-                ground_atom_dataset_to_pkl.append(trajectory)
-            with open(dataset_fname, "wb") as f:
-                pkl.dump(ground_atom_dataset_to_pkl, f)
-
+            utils.save_ground_atom_dataset(ground_atom_dataset, dataset_fname)
+        elif CFG.offline_data_method in [
+                "demo+labelled_atoms", "saved_vlm_img_demos_folder",
+                "demo_with_vlm_imgs"
+        ]:
+            # In this case, the annotations are basically ground atoms!
+            # We can use these to make GroundAtomTrajectories.
+            assert annotations is not None
+            assert len(annotations) == len(trajectories)
+            ground_atom_dataset = []
+            annotations_with_only_selected_preds = []
+            selected_preds = self._get_current_predicates()
+            for atoms_traj in annotations:
+                curr_selected_preds_atoms_traj = []
+                for atoms_set in atoms_traj:
+                    curr_selected_preds_atoms_set = set(
+                        atom for atom in atoms_set
+                        if atom.predicate in selected_preds)
+                    curr_selected_preds_atoms_traj.append(
+                        curr_selected_preds_atoms_set)
+                annotations_with_only_selected_preds.append(
+                    curr_selected_preds_atoms_traj)
+            for ll_traj, atoms in zip(trajectories,
+                                      annotations_with_only_selected_preds):
+                ground_atom_dataset.append((ll_traj, atoms))
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,
                                   self._train_tasks,

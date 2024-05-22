@@ -35,10 +35,10 @@ allowed-regions:
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
   floor:
-    x: 0.0
-    y: 0.0
+    x: 1.4
+    y: 0.5
     z: -0.5
-  white-table:
+  black_table:
     x: 3.2
     y: 0.5
     z: -0.1
@@ -67,28 +67,38 @@ static-object-features:
     length: 0.083
     width: 0.083
     placeable: 1  # true, can be placed
-  plunger:
+    is_sweeper: 0
+  brush:
     shape: 1  # cuboid
     height: 0.1
     length: 0.1
     width: 0.1
     placeable: 1
-  soda_can:
+    is_sweeper: 0
+  train_toy:
     shape: 2
     height: 0.114
     length: 0.065
     width: 0.065
     placeable: 1
+    is_sweeper: 0
+  football:
+    shape: 2
+    height: 0.08
+    length: 0.1
+    width: 0.1
+    placeable: 1
+    is_sweeper: 0
   floor:
     shape: 1
     height: 0.0001
     length: 10000000  # effectively infinite
     width: 10000000
-    flat_top_surface: 0
-  white-table:
+    flat_top_surface: 1
+  black_table:
     shape: 1
     height: 0.74
-    length: 1.07
+    length: 0.75
     width: 0.51
     flat_top_surface: 1
   shelf1:
@@ -103,15 +113,32 @@ static-object-features:
     length: 0.2
     width: 0.1
     placeable: 1
+    is_sweeper: 1
   bucket:
-    shape: 2
-    height: 0.4
-    width: 0.23
-    length: 0.23
+    shape: 1
+    height: 0.05
+    width: 0.3
+    length: 0.4
     placeable: 1
+    is_sweeper: 0
+    # Important for TopAbove that the bucket appears to always be on the ground
+    z: -0.45
+    # Rotation can't be detected.
+    qw: 1
+    qx: 0
+    qy: 0
+    qz: 0
   chair:
     shape: 2
     height: 0.8
     length: 0.5
     width: 0.5
     placeable: 0  # false, can't be placed
+    is_sweeper: 0
+    z: -0.1  # the chair can move in the x/y plane only
+# This should be calculable, but I'm lazy. These values represent the SE2 pose
+# (in the table frame) for the robot before placing the container.
+prepare_container_relative_xy:
+  dx: -0.8
+  dy: -0.6
+  angle: 0.0

@@ -39,6 +39,7 @@ def test_noisy_button_wrapper_approach(base_name, check_solved):
         if check_solved:
             assert task.goal_holds(traj.states[-1])
     task = train_tasks[0]
+    assert env.reset("train", 0).allclose(task.init)
     env.render_state_plt(task.init, task, caption="caption")
     env.render_state_plt(task.init, task, action=Action([0.5, 0.0]))
     # Cover the inherited methods.

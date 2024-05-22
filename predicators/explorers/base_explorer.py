@@ -14,7 +14,7 @@ from predicators.settings import CFG
 from predicators.spot_utils.skills.spot_find_objects import find_objects
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, ExplorationStrategy, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+    ParameterizedOption, Predicate, SpotActionExtraInfo, State, Task, Type
 
 _RNG_COUNT = itertools.count()  # make sure RNG changes per instantiation
 
@@ -73,7 +73,7 @@ class BaseExplorer(abc.ABC):
                     state.get(obj, "lost") > 0.5:
                     lost_objects.add(obj)
             # Need to find the objects.
-            if lost_objects:
+            if lost_objects:  # pragma: no cover
                 logging.info(
                     f"[Explorer Spot Wrapper] Lost objects: {lost_objects}")
                 # Reset the base approach policy.
@@ -83,21 +83,25 @@ class BaseExplorer(abc.ABC):
                     get_detection_id_for_object(o)
                     for o in lost_objects
                 }
-                return utils.create_spot_env_action(
+                extra_info = SpotActionExtraInfo(
                     "find-objects", [], find_objects,
-                    (robot, localizer, lease_client, lost_object_ids))
+                    (state, self._rng, robot, localizer, lease_client,
+                     lost_object_ids), None, tuple())
+                return utils.create_spot_env_action(extra_info)
             # Found the objects. Stow the arm before replanning.
-            if need_stow:
+            if need_stow:  # pragma: no cover
                 logging.info(
                     "[Explorer Spot Wrapper] Lost objects found, stowing.")
                 need_stow = False
                 robot, _, _ = get_robot()
-                return utils.create_spot_env_action("stow-arm", [], stow_arm,
-                                                    (robot, ))
+                extra_info = SpotActionExtraInfo("stow-arm", [], stow_arm,
+                                                 (robot, ), None, tuple())
+                return utils.create_spot_env_action(extra_info)
             # Give control back to base policy.
             logging.info(
-                "[Explorer Spot Wrapper] Giving control to base policy.")
-            return policy(state)
+                "[Explorer Spot Wrapper] Giving control to base policy."
+            )  # pragma: no cover
+            return policy(state)  # pragma: no cover
 
         # Terminate after the given number of steps.
         remaining_steps = self._max_steps_before_termination
@@ -107,13 +111,13 @@ class BaseExplorer(abc.ABC):
             if termination_fn(state):
                 logging.info("[Base Explorer] terminating due to term fn")
                 return True
-            if remaining_steps <= 0:
-                logging.info("[Base Explorer] terminating due to max steps")
-                return True
             steps_taken = self._max_steps_before_termination - remaining_steps
             actual_remaining_steps = min(
                 remaining_steps,
                 CFG.max_num_steps_interaction_request - steps_taken)
+            if actual_remaining_steps <= 0:
+                logging.info("[Base Explorer] terminating due to max steps")
+                return True
             logging.info(
                 "[Base Explorer] not yet terminating (remaining steps: "
                 f"{actual_remaining_steps})")

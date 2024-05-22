@@ -29,20 +29,25 @@ def test_legacy_skill_competence_model():
     """Tests for LegacySkillCompetenceModel()."""
     utils.reset_config({
         "skill_competence_default_alpha_beta": (1.0, 1.0),
+        "skill_competence_initial_prediction_bonus": 1e-2,
     })
     model = create_competence_model("legacy", "test")
     assert isinstance(model, LegacySkillCompetenceModel)
     assert np.isclose(model.get_current_competence(), 0.5)
-    assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
+    assert np.isclose(model.predict_competence(1),
+                      0.5 + CFG.skill_competence_initial_prediction_bonus)
     model.observe(True)
     assert model.get_current_competence() > 0.5
-    assert model.predict_competence(1) > 0.5 + 1e-2
+    assert model.predict_competence(
+        1) > 0.5 + CFG.skill_competence_initial_prediction_bonus
     model.observe(False)
     assert np.isclose(model.get_current_competence(), 0.5)
-    assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
+    assert np.isclose(model.predict_competence(1),
+                      0.5 + CFG.skill_competence_initial_prediction_bonus)
     model.advance_cycle()
     assert np.isclose(model.get_current_competence(), 0.5)
-    assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
+    assert np.isclose(model.predict_competence(1),
+                      0.5 + CFG.skill_competence_initial_prediction_bonus)
     model.observe(True)
     assert model.get_current_competence() > 0.5
 
@@ -53,10 +58,12 @@ def test_latent_variable_skill_competence_model_short():
         "skill_competence_model_num_em_iters": 1,
         "skill_competence_model_max_train_iters": 10,
         "skill_competence_default_alpha_beta": (1.0, 1.0),
+        "skill_competence_initial_prediction_bonus": 1e-2,
     })
     model = create_competence_model("latent_variable", "test")
     assert np.isclose(model.get_current_competence(), 0.5)
-    assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
+    assert np.isclose(model.predict_competence(1),
+                      0.5 + CFG.skill_competence_initial_prediction_bonus)
     model.observe(True)
     assert model.get_current_competence() > 0.5
     assert model.predict_competence(1) > model.get_current_competence()
@@ -72,12 +79,14 @@ def test_optimistic_skill_competence_model():
     """Tests for OptimisticSkillCompetenceModel()."""
     utils.reset_config({
         "skill_competence_default_alpha_beta": (1.0, 1.0),
+        "skill_competence_initial_prediction_bonus": 1e-2,
     })
     h = CFG.skill_competence_model_lookahead
 
     model = create_competence_model("optimistic", "test")
     assert np.isclose(model.get_current_competence(), 0.5)
-    assert np.isclose(model.predict_competence(h), 0.5 + 1e-2)
+    assert np.isclose(model.predict_competence(h),
+                      0.5 + CFG.skill_competence_initial_prediction_bonus)
 
     # Test impossible skill.
     model = create_competence_model("optimistic", "impossible-skill")
@@ -154,12 +163,14 @@ def test_latent_variable_skill_competence_model_long():
     """Long tests for LatentVariableSkillCompetenceModel()."""
     utils.reset_config({
         "skill_competence_default_alpha_beta": (1.0, 1.0),
+        "skill_competence_initial_prediction_bonus": 1e-2,
     })
     h = CFG.skill_competence_model_lookahead
 
     model = create_competence_model("latent_variable", "test")
     assert np.isclose(model.get_current_competence(), 0.5)
-    assert np.isclose(model.predict_competence(h), 0.5 + 1e-2)
+    assert np.isclose(model.predict_competence(h),
+                      0.5 + CFG.skill_competence_initial_prediction_bonus)
 
     # Test impossible skill.
     model = create_competence_model("latent_variable", "impossible-skill")

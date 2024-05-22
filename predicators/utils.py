@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import contextlib
+import curses
 import functools
 import gc
 import heapq as hq
@@ -35,20 +36,25 @@ try:  # pragma: no cover
 except ModuleNotFoundError:  # pragma: no cover
     _TTS_AVAILABLE = False
 
+import dill as pkl
 import imageio
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
+import PIL.Image
 from bosdyn.client import math_helpers
 from gym.spaces import Box
 from matplotlib import patches
+from numpy.typing import NDArray
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
+from predicators.pretrained_model_interface import GoogleGeminiVLM, \
+    OpenAIVLM, VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -56,9 +62,10 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, SpotAction, State, \
-    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
+    ParameterizedOption, Predicate, Segment, SpotAction, SpotActionExtraInfo, \
+    State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
+    VLMPredicate, _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, \
+    _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -287,6 +294,16 @@ def prompt_user(prompt: str) -> str:  # pragma: no cover
     return input(prompt)
 
 
+def wait_for_any_button_press(msg: str) -> None:  # pragma: no cover
+    """Print some text and wait for the user to press any button."""
+    stdscr = curses.initscr()
+    curses.noecho()
+    stdscr.addstr(msg)
+    stdscr.getkey()
+    curses.flushinp()
+    curses.endwin()
+
+
 def construct_active_sampler_input(state: State, objects: Sequence[Object],
                                    params: Array,
                                    param_option: ParameterizedOption) -> Array:
@@ -347,13 +364,66 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                     sampler_input_lst.extend(state[obj])
                 sampler_input_lst.extend(params)
         elif "spot" in CFG.env:  # pragma: no cover
-            if "Sweep" in param_option.name:
+            if "SweepIntoContainer" in param_option.name:
+                _, _, target, _, container = objects
+                for obj in [target, container]:
+                    sampler_input_lst.append(state.get(obj, "x"))
+                    sampler_input_lst.append(state.get(obj, "y"))
+                sampler_input_lst.extend(params)
+            elif "SweepTwoObjects" in param_option.name:
+                _, _, target1, target2, _, container = objects
+                for obj in [target1, target2, container]:
+                    sampler_input_lst.append(state.get(obj, "x"))
+                    sampler_input_lst.append(state.get(obj, "y"))
+                sampler_input_lst.extend(params)
+            elif "Pick" in param_option.name:
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    target_obj = objects[1]
+                    object_id = state.get(target_obj, "object_id")
+                    sampler_input_lst.append(object_id)
+                sampler_input_lst.extend(params)
+            elif "Place" in param_option.name and "OnTop" in param_option.name:
+                surface_obj = objects[2]
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    held_obj = objects[1]
+                    sampler_input_lst.append(state.get(held_obj, "object_id"))
+                    sampler_input_lst.append(
+                        state.get(surface_obj, "object_id"))
+                if surface_obj.type.name == "drafting_table":
+                    sampler_input_lst.extend([
+                        state.get(surface_obj, "sticky-region-x"),
+                        state.get(surface_obj, "sticky-region-y")
+                    ])
+                else:
+                    sampler_input_lst.extend([0.0, 0.0])
+                # Samples are relative dx, dy, dz, and we only need
+                # dx and dy for the table!
+                sampler_input_lst.extend(params[:2])
+            elif param_option.name.startswith("DropObjectInside") and \
+                len(objects) == 3:
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    _, held_obj, container_obj = objects
+                    held_object_id = state.get(held_obj, "object_id")
+                    sampler_input_lst.append(held_object_id)
+                    container_obj_id = state.get(container_obj, "object_id")
+                    sampler_input_lst.append(container_obj_id)
                 sampler_input_lst.extend(params)
             else:
                 base_feat_names = [
-                    "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height",
-                    "width", "length"
+                    "x",
+                    "y",
+                    "z",
+                    "qw",
+                    "qx",
+                    "qy",
+                    "qz",
+                    "shape",
+                    "height",
+                    "width",
+                    "length",
                 ]
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    base_feat_names.append("object_id")
                 for obj in objects:
                     if obj.type.name == "robot":
                         sampler_input_lst.extend(state[obj])
@@ -381,6 +451,14 @@ class _Geom2D(abc.ABC):
         """Checks if a point is contained in the shape."""
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        """Samples a random point inside the 2D shape."""
+        raise NotImplementedError("Override me!")
+
     def intersects(self, other: _Geom2D) -> bool:
         """Checks if this shape intersects with another one."""
         return geom2ds_intersect(self, other)
@@ -397,6 +475,10 @@ class LineSegment(_Geom2D):
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         ax.plot([self.x1, self.x2], [self.y1, self.y2], **kwargs)
 
+    @staticmethod
+    def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
+        return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
+
     def contains_point(self, x: float, y: float) -> bool:
         # https://stackoverflow.com/questions/328107
         a = (self.x1, self.y1)
@@ -406,11 +488,21 @@ class LineSegment(_Geom2D):
         # if the distance from a to b is (approximately) equal to the distance
         # from a to c and the distance from c to b.
         eps = 1e-6
+        return -eps < self._dist(a, c) + self._dist(c, b) - self._dist(a,
+                                                                       b) < eps
 
-        def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
-            return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
-
-        return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge == 0.0, "not yet implemented" + \
+            " non-infinite min_dist_from_edge"
+        line_slope = (self.y2 - self.y1) / (self.x2 - self.x1)
+        y_intercept = self.y2 - (line_slope * self.x2)
+        random_x_point = rng.uniform(self.x1, self.x2)
+        random_y_point_on_line = line_slope * random_x_point + y_intercept
+        assert self.contains_point(random_x_point, random_y_point_on_line)
+        return (random_x_point, random_y_point_on_line)
 
 
 @dataclass(frozen=True)
@@ -432,6 +524,19 @@ class Circle(_Geom2D):
         dist_between_centers = np.sqrt((other_circle.x - self.x)**2 +
                                        (other_circle.y - self.y)**2)
         return (dist_between_centers + other_circle.radius) <= self.radius
+
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge < self.radius, "min_dist_from_edge is " + \
+            "greater than radius"
+        rand_mag = rng.uniform(0, self.radius - min_dist_from_edge)
+        rand_theta = rng.uniform(0, 2 * np.pi)
+        x_point = self.x + rand_mag * np.cos(rand_theta)
+        y_point = self.y + rand_mag * np.sin(rand_theta)
+        assert self.contains_point(x_point, y_point)
+        return (x_point, y_point)
 
 
 @dataclass(frozen=True)
@@ -471,6 +576,23 @@ class Triangle(_Geom2D):
         has_pos = sign1 or sign2 or sign3
         return not has_neg or not has_pos
 
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge == 0.0, "not yet implemented" + \
+            " non-zero min_dist_from_edge"
+        a = np.array([self.x2 - self.x1, self.y2 - self.y1])
+        b = np.array([self.x3 - self.x1, self.y3 - self.y1])
+        u1 = rng.uniform(0, 1)
+        u2 = rng.uniform(0, 1)
+        if u1 + u2 > 1.0:
+            u1 = 1 - u1
+            u2 = 1 - u2
+        point_in_triangle = (u1 * a + u2 * b) + np.array([self.x1, self.y1])
+        assert self.contains_point(point_in_triangle[0], point_in_triangle[1])
+        return (point_in_triangle[0], point_in_triangle[1])
+
 
 @dataclass(frozen=True)
 class Rectangle(_Geom2D):
@@ -504,15 +626,27 @@ class Rectangle(_Geom2D):
                                             rotation_about_center)
 
     @functools.cached_property
+    def rotation_matrix(self) -> NDArray[np.float64]:
+        """Get the rotation matrix."""
+        return np.array([[np.cos(self.theta), -np.sin(self.theta)],
+                         [np.sin(self.theta),
+                          np.cos(self.theta)]])
+
+    @functools.cached_property
+    def inverse_rotation_matrix(self) -> NDArray[np.float64]:
+        """Get the inverse rotation matrix."""
+        return np.array([[np.cos(self.theta),
+                          np.sin(self.theta)],
+                         [-np.sin(self.theta),
+                          np.cos(self.theta)]])
+
+    @functools.cached_property
     def vertices(self) -> List[Tuple[float, float]]:
         """Get the four vertices for the rectangle."""
         scale_matrix = np.array([
             [self.width, 0],
             [0, self.height],
         ])
-        rotate_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)],
-                                  [np.sin(self.theta),
-                                   np.cos(self.theta)]])
         translate_vector = np.array([self.x, self.y])
         vertices = np.array([
             (0, 0),
@@ -521,7 +655,7 @@ class Rectangle(_Geom2D):
             (1, 0),
         ])
         vertices = vertices @ scale_matrix.T
-        vertices = vertices @ rotate_matrix.T
+        vertices = vertices @ self.rotation_matrix.T
         vertices = translate_vector + vertices
         # Convert to a list of tuples. Slightly complicated to appease both
         # type checking and linting.
@@ -550,13 +684,29 @@ class Rectangle(_Geom2D):
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        rotate_matrix = np.array([[np.cos(self.theta),
-                                   np.sin(self.theta)],
-                                  [-np.sin(self.theta),
-                                   np.cos(self.theta)]])
-        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        # First invert translation, then invert rotation.
+        rx, ry = np.array([x - self.x, y - self.y
+                           ]) @ self.inverse_rotation_matrix.T
         return 0 <= rx <= self.width and \
                0 <= ry <= self.height
+
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge <= self.width / 2 and \
+            min_dist_from_edge <= self.height / 2, \
+                "cannot achieve sample with min_dist_from_edge"
+        rand_width = rng.uniform(min_dist_from_edge,
+                                 self.width - min_dist_from_edge)
+        rand_height = rng.uniform(min_dist_from_edge,
+                                  self.height - min_dist_from_edge)
+        # First rotate, then translate.
+        rx, ry = np.array([rand_width, rand_height]) @ self.rotation_matrix.T
+        x = rx + self.x
+        y = ry + self.y
+        assert self.contains_point(x, y)
+        return (x, y)
 
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
@@ -979,8 +1129,6 @@ class SingletonParameterizedOption(ParameterizedOption):
         # has been executed yet.
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-            if "start_state" in memory:
-                assert state.allclose(memory["start_state"])
             # Always update the memory dict due to the "is" check in _terminal.
             memory["start_state"] = state
             assert initiable is not None
@@ -1084,7 +1232,9 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
 
-    NOTE: this may be deprecated in the future in favor of run_episode.
+    NOTE: this may be deprecated in the future in favor of run_episode defined
+    in cogman.py. Ideally, we should consolidate both run_policy and
+    run_policy_with_simulator below into run_episode.
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
@@ -2186,17 +2336,103 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
     return Task(task.init, stripped_goal)
 
 
-def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
+def create_vlm_predicate(
+        name: str, types: Sequence[Type],
+        get_vlm_query_str: Callable[[Sequence[Object]], str]) -> VLMPredicate:
+    """Simple function that creates VLMPredicates with dummy classifiers, which
+    is the most-common way these need to be created."""
+
+    def _stripped_classifier(
+            state: State,
+            objects: Sequence[Object]) -> bool:  # pragma: no cover.
+        raise Exception("VLM predicate classifier should never be called!")
+
+    return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
+
+
+def create_vlm_by_name(
+        model_name: str) -> VisionLanguageModel:  # pragma: no cover
+    """Create particular vlm using a provided name."""
+    if "gemini" in model_name:
+        return GoogleGeminiVLM(model_name)
+    return OpenAIVLM(model_name)
+
+
+def query_vlm_for_atom_vals(
+        vlm_atoms: Collection[GroundAtom],
+        state: State,
+        vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
+    """Given a set of ground atoms, queries a VLM and gets the subset of these
+    atoms that are true."""
+    true_atoms: Set[GroundAtom] = set()
+    # This only works if state.simulator_state is some list of images that the
+    # vlm can be called on.
+    assert state.simulator_state is not None
+    assert isinstance(state.simulator_state, List)
+    imgs = state.simulator_state
+    vlm_atoms = sorted(vlm_atoms)
+    atom_queries_str = "\n* "
+    atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
+                                    for atom in vlm_atoms)
+    filepath_to_vlm_prompt = get_path_to_predicators_root() + \
+        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
+        "per_scene_naive.txt"
+    with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
+        vlm_query_str = f.read()
+    vlm_query_str += atom_queries_str
+    if vlm is None:
+        vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
+    vlm_input_imgs = \
+        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
+    vlm_output = vlm.sample_completions(vlm_query_str,
+                                        vlm_input_imgs,
+                                        0.0,
+                                        seed=CFG.seed,
+                                        num_completions=1)
+    assert len(vlm_output) == 1
+    vlm_output_str = vlm_output[0]
+    all_atom_queries = atom_queries_str.strip().split("\n")
+    all_vlm_responses = vlm_output_str.strip().split("\n")
+
+    # NOTE: this assumption is likely too brittle; if this is breaking, feel
+    # free to remove/adjust this and change the below parsing loop accordingly!
+    assert len(all_atom_queries) == len(all_vlm_responses)
+    for i, (atom_query, curr_vlm_output_line) in enumerate(
+            zip(all_atom_queries, all_vlm_responses)):
+        assert atom_query + ":" in curr_vlm_output_line
+        assert "." in curr_vlm_output_line
+        period_idx = curr_vlm_output_line.find(".")
+        if curr_vlm_output_line[len(atom_query +
+                                    ":"):period_idx].lower().strip() == "true":
+            true_atoms.add(vlm_atoms[i])
+    return true_atoms
+
+
+def abstract(state: State,
+             preds: Collection[Predicate],
+             vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
     Duplicate arguments in predicates are allowed.
     """
+    # Start by pulling out all VLM predicates.
+    vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+    # Next, classify all non-VLM predicates.
     atoms = set()
     for pred in preds:
-        for choice in get_object_combinations(list(state), pred.types):
-            if pred.holds(state, choice):
-                atoms.add(GroundAtom(pred, choice))
+        if pred not in vlm_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                if pred.holds(state, choice):
+                    atoms.add(GroundAtom(pred, choice))
+    if len(vlm_preds) > 0:
+        # Now, aggregate all the VLM predicates and make a single call to a
+        # VLM to get their values.
+        vlm_atoms = set()
+        for pred in vlm_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                vlm_atoms.add(GroundAtom(pred, choice))
+        atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
     return atoms
 
 
@@ -2550,6 +2786,59 @@ def prune_ground_atom_dataset(
     return new_ground_atom_dataset
 
 
+def load_ground_atom_dataset(
+        dataset_fname: str,
+        trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
+    """Load a previously-saved ground atom dataset.
+
+    Note importantly that we only save atoms themselves, we don't save
+    the low-level trajectory information that's necessary to make
+    GroundAtomTrajectories given series of ground atoms (that info can
+    be saved separately, in case one wants to just load trajectories and
+    not also load ground atoms). Thus, this function needs to take these
+    trajectories as input.
+    """
+    os.makedirs(CFG.data_dir, exist_ok=True)
+    # Check that the dataset file was previously saved.
+    ground_atom_dataset_atoms: Optional[List[List[Set[GroundAtom]]]] = []
+    if os.path.exists(dataset_fname):
+        # Load the ground atoms dataset.
+        with open(dataset_fname, "rb") as f:
+            ground_atom_dataset_atoms = pkl.load(f)
+        assert ground_atom_dataset_atoms is not None
+        assert len(trajectories) == len(ground_atom_dataset_atoms)
+        logging.info("\n\nLOADED GROUND ATOM DATASET")
+
+        # The saved ground atom dataset consists only of sequences
+        # of sets of GroundAtoms, we need to recombine this with
+        # the LowLevelTrajectories to create a GroundAtomTrajectory.
+        ground_atom_dataset = []
+        for i, traj in enumerate(trajectories):
+            ground_atom_seq = ground_atom_dataset_atoms[i]
+            ground_atom_dataset.append(
+                (traj, [set(atoms) for atoms in ground_atom_seq]))
+    else:
+        raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
+    return ground_atom_dataset
+
+
+def save_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
+                             dataset_fname: str) -> None:
+    """Saves a given ground atom dataset so it can be loaded in the future."""
+    # Save ground atoms dataset to file. Note that a
+    # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
+    # list of sets of GroundAtoms, so we only save the list of
+    # GroundAtoms (the LowLevelTrajectories are saved separately).
+    ground_atom_dataset_to_pkl = []
+    for gt_traj in ground_atom_dataset:
+        trajectory = []
+        for ground_atom_set in gt_traj[1]:
+            trajectory.append(ground_atom_set)
+        ground_atom_dataset_to_pkl.append(trajectory)
+    with open(dataset_fname, "wb") as f:
+        pkl.dump(ground_atom_dataset_to_pkl, f)
+
+
 def extract_preds_and_types(
     ops: Collection[NSRTOrSTRIPSOperator]
 ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:
@@ -2658,6 +2947,17 @@ def compute_necessary_atoms_seq(
         necessary_image |= set(curr_nsrt.preconditions)
         necessary_atoms_seq = [set(necessary_image)] + necessary_atoms_seq
     return necessary_atoms_seq
+
+
+def compute_atoms_seq_from_plan(
+        skeleton: List[_GroundNSRT],
+        init_atoms: Set[GroundAtom]) -> List[Set[GroundAtom]]:
+    """Compute a sequence of atoms by applying ground NSRTs from a plan in
+    sequence."""
+    atoms_sequence = [init_atoms]
+    for ground_nsrt in skeleton:
+        atoms_sequence.append(apply_operator(ground_nsrt, atoms_sequence[-1]))
+    return atoms_sequence
 
 
 def get_successors_from_ground_ops(
@@ -3091,6 +3391,19 @@ def save_video(outfile: str, video: Video) -> None:
     logging.info(f"Wrote out to {outpath}")
 
 
+def save_images(outfile_prefix: str, video: Video) -> None:
+    """Save the video as individual images to image_dir."""
+    outdir = CFG.image_dir
+    os.makedirs(outdir, exist_ok=True)
+    width = len(str(len(video)))
+    for i, image in enumerate(video):
+        image_number = str(i).zfill(width)
+        outfile = outfile_prefix + f"_image_{image_number}.png"
+        outpath = os.path.join(outdir, outfile)
+        imageio.imwrite(outpath, image)
+        logging.info(f"Wrote out to {outpath}")
+
+
 def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
     """Return the absolute path to env asset."""
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -3103,10 +3416,20 @@ def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
 
 def get_third_party_path() -> str:
     """Return the absolute path to the third party directory."""
-    module_path = Path(__file__)
-    predicators_dir = module_path.parent
-    third_party_dir_path = os.path.join(predicators_dir, "third_party")
+    third_party_dir_path = os.path.join(get_path_to_predicators_root(),
+                                        "predicators/third_party")
     return third_party_dir_path
+
+
+def get_path_to_predicators_root() -> str:
+    """Return the absolute path to the predicators root directory.
+
+    Specifically, this returns something that looks like:
+    '<installation-path>/predicators'. Note there is no '/' at the end.
+    """
+    module_path = Path(__file__)
+    predicators_dir = module_path.parent.parent
+    return str(predicators_dir)
 
 
 def import_submodules(path: List[str], name: str) -> None:
@@ -3450,11 +3773,32 @@ def find_all_balanced_expressions(s: str) -> List[str]:
     return exprs
 
 
-def f_range_intersection(lb1: float, ub1: float, lb2: float,
-                         ub2: float) -> bool:
-    """Given upper and lower bounds for two feature ranges, returns True iff
-    the ranges intersect."""
+def range_intersection(lb1: float, ub1: float, lb2: float, ub2: float) -> bool:
+    """Given upper and lower bounds for two ranges, returns True iff the ranges
+    intersect."""
     return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
+
+
+def compute_abs_range_given_two_ranges(lb1: float, ub1: float, lb2: float,
+                                       ub2: float) -> Tuple[float, float]:
+    """Given upper and lower bounds of two feature ranges, returns the upper.
+
+    and lower bound of |f1 - f2|.
+    """
+    # Now, we must compute the upper and lower bounds of
+    # the expression |t1.f1 - t2.f2|. If the intervals
+    # [lb1, ub1] and [lb2, ub2] overlap, then the lower
+    # bound of the expression is just 0. Otherwise, if
+    # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
+    # ub2 < lb1, the lower bound is |lb1 - ub2|.
+    if range_intersection(lb1, ub1, lb2, ub2):
+        lb = 0.0
+    else:
+        lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+    # The upper bound for the expression can be
+    # computed in a similar fashion.
+    ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+    return (lb, ub)
 
 
 def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
@@ -3572,15 +3916,10 @@ def get_se3_pose_from_state(
 
 
 def create_spot_env_action(
-    action_name: str,
-    operator_objects: Sequence[Object] = tuple(),
-    fn: Optional[Callable] = None,
-    fn_args: Sequence = tuple()
-) -> Action:  # pragma: no cover
+        action_extra_info: SpotActionExtraInfo) -> Action:  # pragma: no cover
     """Helper for spot environments."""
     return SpotAction(np.array([], dtype=np.float32),
-                      extra_info=(action_name, tuple(operator_objects), fn,
-                                  tuple(fn_args)))
+                      extra_info=action_extra_info)
 
 
 def _obs_to_state_pass_through(obs: Observation) -> State:
@@ -3597,7 +3936,8 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
                                     obs_to_state: Callable[
                                         [Observation],
                                         State] = _obs_to_state_pass_through,
-                                    assert_effects: bool = True,
+                                    assert_add_effects: bool = True,
+                                    assert_delete_effects: bool = True,
                                     max_steps: int = 400) -> State:
     """Utility for tests.
 
@@ -3618,10 +3958,11 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
         state = obs_to_state(obs)
         if option.terminal(state):
             break
-    if assert_effects:
+    if assert_add_effects:
         for atom in ground_nsrt.add_effects:
             assert atom.holds(state), \
                 f"Add effect for {ground_nsrt_str} failed: {atom}"
+    if assert_delete_effects:
         for atom in ground_nsrt.delete_effects:
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"

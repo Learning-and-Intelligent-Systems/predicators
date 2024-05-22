@@ -324,6 +324,8 @@ def task_plan(
     if not goal.issubset(reachable_atoms):
         logging.info(f"Detected goal unreachable. Goal: {goal}")
         logging.info(f"Initial atoms: {init_atoms}")
+        logging.info(
+            f"Reachable atoms not in init: {reachable_atoms - init_atoms}")
         raise PlanningFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(DefaultState, goal)
     metrics: Metrics = defaultdict(float)
@@ -1178,7 +1180,10 @@ def run_task_plan_once(
         max_horizon: float = np.inf,
         **kwargs: Any
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
-    """Get a single abstract plan for a task."""
+    """Get a single abstract plan for a task.
+
+    The sequence of ground atom sets returned represent NECESSARY atoms.
+    """
 
     init_atoms = utils.abstract(task.init, preds)
     goal = task.goal
@@ -1253,7 +1258,10 @@ def run_task_plan_once(
         raise ValueError("Unrecognized sesame_task_planner: "
                          f"{CFG.sesame_task_planner}")
 
-    return plan, atoms_seq, metrics
+    necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+        plan, atoms_seq, goal)
+
+    return plan, necessary_atoms_seq, metrics
 
 
 class PlanningFailure(utils.ExceptionWithInfo):

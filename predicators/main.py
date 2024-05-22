@@ -40,15 +40,14 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Sequence, Set, Tuple
-from typing import Type as TypingType
+from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     create_approach
-from predicators.cogman import CogMan
+from predicators.cogman import CogMan, run_episode_and_get_observations
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.execution_monitoring import create_execution_monitor
@@ -56,8 +55,8 @@ from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
-from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Observation, Response, Task, Video, _Option
+from predicators.structs import Dataset, InteractionRequest, \
+    InteractionResult, Metrics, Response, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -124,7 +123,8 @@ def main() -> None:
         options = parse_config_included_options(env)
     # Create the agent (approach).
     approach_name = CFG.approach
-    if CFG.approach_wrapper:
+    # MAPLE-Q is not compatible with a wrapper.
+    if CFG.approach_wrapper and approach_name != "maple_q":
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
@@ -132,7 +132,7 @@ def main() -> None:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
-        offline_dataset = create_dataset(env, train_tasks, options)
+        offline_dataset = create_dataset(env, train_tasks, options, preds)
     else:
         offline_dataset = None
     # Create the cognitive manager.
@@ -182,42 +182,55 @@ def _run_pipeline(env: BaseEnv,
             teacher = Teacher(train_tasks)
         else:
             teacher = None
-        already_loaded_approach = False
+        load_approach = CFG.load_approach
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
+
             if i < CFG.skip_until_cycle:
                 continue
-            logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
-            logging.info("Getting interaction requests...")
-            if num_online_transitions >= CFG.online_learning_max_transitions:
-                logging.info("Reached online_learning_max_transitions, "
-                             "terminating")
-                break
-            interaction_requests = cogman.get_interaction_requests()
-            if not interaction_requests:
-                logging.info("Did not receive any interaction requests, "
-                             "terminating")
-                break  # agent doesn't want to learn anything more; terminate
-            interaction_results, query_cost = _generate_interaction_results(
-                cogman, env, teacher, interaction_requests, i)
-            num_online_transitions += sum(
-                len(result.actions) for result in interaction_results)
-            total_query_cost += query_cost
-            logging.info(f"Query cost incurred this cycle: {query_cost}")
-            # We want to load iff:
-            # - CFG.restart_learning is False
-            # - CFG.restart_learning is True, but we haven't yet loaded the
-            #   approach
-            if CFG.load_approach and not (CFG.restart_learning
-                                          and already_loaded_approach):
-                cogman.load(online_learning_cycle=i)
-                learning_time += 0.0  # ignore loading time
-                already_loaded_approach = True
-            else:
-                learning_start = time.perf_counter()
-                logging.info("Learning from interaction results...")
-                cogman.learn_from_interaction_results(interaction_results)
-                learning_time += time.perf_counter() - learning_start
+
+            # Start by loading the approach from the previous cycle, if we are
+            # loading approaches, and if we haven't already restarted learning.
+            if load_approach:
+                # If the cycle is 0, then we already loaded the approach before
+                # offline learning, so we don't need to do anything here.
+                if i > 0:  # pragma: no cover
+                    last_cycle = i - 1
+                    cogman.load(online_learning_cycle=last_cycle)
+                # If we're restarting learning, no need to load from now on.
+                if CFG.restart_learning:  # pragma: no cover
+                    load_approach = False
+
+            if not CFG.online_learning_test_only:
+                # Run online interaction.
+                logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
+                logging.info("Getting interaction requests...")
+                if num_online_transitions >= \
+                    CFG.online_learning_max_transitions:
+                    logging.info("Reached online_learning_max_transitions, "
+                                 "terminating")
+                    break
+                interaction_requests = cogman.get_interaction_requests()
+                if not interaction_requests:
+                    logging.info("Did not receive any interaction requests, "
+                                 "terminating")
+                    # agent doesn't want to learn anything more; terminate
+                    break
+                interaction_results, query_cost = _generate_interaction_results(
+                    cogman, env, teacher, interaction_requests, i)
+                num_online_transitions += sum(
+                    len(result.actions) for result in interaction_results)
+                total_query_cost += query_cost
+                logging.info(f"Query cost incurred this cycle: {query_cost}")
+
+                # Learn from online interaction results, unless we are loading
+                # and not restarting learning.
+                if not CFG.load_approach or CFG.restart_learning:
+                    learning_start = time.perf_counter()
+                    logging.info("Learning from interaction results...")
+                    cogman.learn_from_interaction_results(interaction_results)
+                    learning_time += time.perf_counter() - learning_start
+
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
@@ -264,12 +277,12 @@ def _generate_interaction_results(
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
         cogman.reset(env_task)
-        observed_traj, _, _ = _run_episode(
+        observed_traj, _, _ = run_episode_and_get_observations(
             cogman,
             env,
             "train",
             request.train_task_idx,
-            max_num_steps=CFG.max_num_steps_interaction_request,
+            max_num_steps=(CFG.max_num_steps_interaction_request + 1),
             terminate_on_goal_reached=False,
             exceptions_to_break_on={
                 utils.EnvironmentFailure,
@@ -320,9 +333,10 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     for test_task_idx, env_task in enumerate(test_tasks):
         solve_start = time.perf_counter()
         try:
-            # We call reset here, outside of run_episode, so that we can log
-            # planning failures, timeouts, etc. This is mostly for legacy
-            # reasons (before cogman existed separately from approaches).
+            # We call reset here, outside of run_episode_and_get_observations,
+            # so that we can log planning failures, timeouts, etc. This is
+            # mostly for legacy reasons (before cogman existed separately
+            # from approaches).
             cogman.reset(env_task)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
@@ -361,7 +375,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            traj, solved, execution_metrics = _run_episode(
+            traj, solved, execution_metrics = run_episode_and_get_observations(
                 cogman,
                 env,
                 "test",
@@ -450,91 +464,6 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
         metrics[f"avg_{metric_name}"] = (
             total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
-
-
-def _run_episode(
-    cogman: CogMan,
-    env: BaseEnv,
-    train_or_test: str,
-    task_idx: int,
-    max_num_steps: int,
-    do_env_reset: bool = True,
-    terminate_on_goal_reached: bool = True,
-    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-    monitor: Optional[utils.LoggingMonitor] = None
-) -> Tuple[Tuple[List[Observation], List[Action]], bool, Metrics]:
-    """Execute cogman starting from the initial state of a train or test task
-    in the environment.
-
-    Note that the environment and cogman internal states are updated.
-
-    Terminates when any of these conditions hold:
-    (1) cogman.step returns None, indicating termination
-    (2) max_num_steps is reached
-    (3) cogman or env raise an exception of type in exceptions_to_break_on
-    (4) terminate_on_goal_reached is True and the env goal is reached.
-
-    Note that in the case where the exception is raised in step, we exclude the
-    last action from the returned trajectory to maintain the invariant that
-    the trajectory states are of length one greater than the actions.
-
-    This is defined here mostly to avoid circular import issues for cogman.
-    We may want to move it eventually.
-    """
-    if do_env_reset:
-        env.reset(train_or_test, task_idx)
-        if monitor is not None:
-            monitor.reset(train_or_test, task_idx)
-    obs = env.get_observation()
-    observations = [obs]
-    actions: List[Action] = []
-    curr_option: Optional[_Option] = None
-    metrics: Metrics = defaultdict(float)
-    metrics["policy_call_time"] = 0.0
-    metrics["num_options_executed"] = 0.0
-    exception_raised_in_step = False
-    if not (terminate_on_goal_reached and env.goal_reached()):
-        for _ in range(max_num_steps):
-            monitor_observed = False
-            exception_raised_in_step = False
-            try:
-                start_time = time.perf_counter()
-                act = cogman.step(obs)
-                metrics["policy_call_time"] += time.perf_counter() - start_time
-                if act is None:
-                    break
-                if act.has_option() and act.get_option() != curr_option:
-                    curr_option = act.get_option()
-                    metrics["num_options_executed"] += 1
-                # Note: it's important to call monitor.observe() before
-                # env.step(), because the monitor may, for example, call
-                # env.render(), which outputs images of the current env
-                # state. If we instead called env.step() first, we would
-                # mistakenly record images of the next time step instead of
-                # the current one.
-                if monitor is not None:
-                    monitor.observe(obs, act)
-                    monitor_observed = True
-                obs = env.step(act)
-                actions.append(act)
-                observations.append(obs)
-            except Exception as e:
-                if exceptions_to_break_on is not None and \
-                   any(issubclass(type(e), c) for c in exceptions_to_break_on):
-                    if monitor_observed:
-                        exception_raised_in_step = True
-                    break
-                if monitor is not None and not monitor_observed:
-                    monitor.observe(obs, None)
-                raise e
-            if terminate_on_goal_reached and env.goal_reached():
-                break
-    if monitor is not None and not exception_raised_in_step:
-        monitor.observe(obs, None)
-    cogman.finish_episode(obs)
-    traj = (observations, actions)
-    solved = env.goal_reached()
-    return traj, solved, metrics
 
 
 def _save_test_results(results: Metrics,

@@ -1,11 +1,13 @@
 """Interface for finding objects by moving around and running detection."""
 
+import time
 from typing import Any, Collection, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from bosdyn.client import math_helpers
 from bosdyn.client.lease import LeaseClient
 from bosdyn.client.sdk import Robot
+from scipy.spatial import Delaunay
 
 from predicators import utils
 from predicators.spot_utils.perception.object_detection import detect_objects
@@ -18,7 +20,10 @@ from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_FLOOR_POSE
+    DEFAULT_HAND_LOOK_FLOOR_POSE, get_allowed_map_regions, \
+    get_collision_geoms_for_nav, get_relative_se2_from_se3, \
+    sample_random_nearby_point_to_move, spot_pose_to_geom2d
+from predicators.structs import State
 
 
 def _find_objects_with_choreographed_moves(
@@ -28,6 +33,7 @@ def _find_objects_with_choreographed_moves(
     relative_base_moves: Sequence[math_helpers.SE2Pose],
     relative_hand_moves: Optional[Sequence[math_helpers.SE3Pose]] = None,
     open_and_close_gripper: bool = True,
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Helper for object search with hard-coded relative moves."""
 
@@ -44,10 +50,15 @@ def _find_objects_with_choreographed_moves(
     if open_and_close_gripper:
         open_gripper(robot)
 
+    # Wait briefly for the hand to finish opening.
+    time.sleep(0.5)
+
     # Run detection once to start before moving.
     rgbds = capture_images(robot, localizer)
     all_rgbds.append(rgbds)
-    detections, artifacts = detect_objects(object_ids, rgbds)
+    detections, artifacts = detect_objects(object_ids,
+                                           rgbds,
+                                           allowed_regions=allowed_regions)
     all_detections.update(detections)
     all_artifacts.update(artifacts)
 
@@ -70,7 +81,9 @@ def _find_objects_with_choreographed_moves(
         localizer.localize()
         rgbds = capture_images(robot, localizer)
         all_rgbds.append(rgbds)
-        detections, artifacts = detect_objects(object_ids, rgbds)
+        detections, artifacts = detect_objects(object_ids,
+                                               rgbds,
+                                               allowed_regions=allowed_regions)
         all_detections.update(detections)
         all_artifacts.update(artifacts)
 
@@ -101,6 +114,7 @@ def init_search_for_objects(
     object_ids: Collection[ObjectDetectionID],
     num_spins: int = 8,
     relative_hand_moves: Optional[List[math_helpers.SE3Pose]] = None,
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Spin around in place looking for objects.
 
@@ -114,14 +128,15 @@ def init_search_for_objects(
         localizer,
         object_ids,
         base_moves,
-        relative_hand_moves=relative_hand_moves)
+        relative_hand_moves=relative_hand_moves,
+        allowed_regions=allowed_regions)
 
 
-def find_objects(
+def step_back_to_find_objects(
     robot: Robot,
     localizer: SpotLocalizer,
-    lease_client: LeaseClient,
     object_ids: Collection[ObjectDetectionID],
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> None:
     """Execute a hard-coded sequence of movements and hope that one of them
     puts the lost object in view.
@@ -143,21 +158,53 @@ def find_objects(
                               -np.pi / 6), DEFAULT_HAND_LOOK_FLOOR_POSE),
     ]
     base_moves, hand_moves = zip(*moves)
+    # Don't open and close the gripper because we need the object to be
+    # in view when the action has finished, and we can't leave the gripper
+    # open because then HandEmpty will misfire.
+    _find_objects_with_choreographed_moves(robot,
+                                           localizer,
+                                           object_ids,
+                                           base_moves,
+                                           hand_moves,
+                                           open_and_close_gripper=False,
+                                           allowed_regions=allowed_regions)
+
+
+def find_objects(
+    state: State,
+    rng: np.random.Generator,
+    robot: Robot,
+    localizer: SpotLocalizer,
+    lease_client: LeaseClient,
+    object_ids: Collection[ObjectDetectionID],
+    allowed_regions: Optional[Collection[Delaunay]] = None,
+) -> None:
+    """First try stepping back to find an object, and if that doesn't work,
+    then try to either ask the user or keep sampling a random location to move
+    to in order to find the lost object."""
     try:
-        # Don't open and close the gripper because we need the object to be
-        # in view when the action has finished, and we can't leave the gripper
-        # open because then HandEmpty will misfire.
-        _find_objects_with_choreographed_moves(robot,
-                                               localizer,
-                                               object_ids,
-                                               base_moves,
-                                               hand_moves,
-                                               open_and_close_gripper=False)
+        step_back_to_find_objects(robot,
+                                  localizer,
+                                  object_ids,
+                                  allowed_regions=allowed_regions)
     except RuntimeError:
-        prompt = ("Please take control of the robot and make the object "
+        prompt = ("Hit 'c' to have the robot try to find the object "
+                  "by moving to a random pose, or "
+                  "take control of the robot and make the object "
                   "become in its view. Hit the 'Enter' key when you're done!")
-        utils.prompt_user(prompt)
+        user_pref = input(prompt)
         lease_client.take()
+        if user_pref == "c":
+            localizer.localize()
+            spot_pose = localizer.get_last_robot_pose()
+            robot_geom = spot_pose_to_geom2d(spot_pose)
+            collision_geoms = get_collision_geoms_for_nav(state)
+            allowed_regions = get_allowed_map_regions()
+            dist, yaw, _ = sample_random_nearby_point_to_move(
+                robot_geom, collision_geoms, rng, 2.5, allowed_regions)
+            rel_pose = get_relative_se2_from_se3(spot_pose, spot_pose, dist,
+                                                 yaw)
+            navigate_to_relative_pose(robot, rel_pose)
 
 
 if __name__ == "__main__":
@@ -215,6 +262,7 @@ if __name__ == "__main__":
         # Test finding a lost object.
         input("Set up finding lost object test")
         cube = object_ids[2]
-        find_objects(robot, localizer, lease_client, {cube})
+
+        step_back_to_find_objects(robot, localizer, {cube})
 
     _run_manual_test()

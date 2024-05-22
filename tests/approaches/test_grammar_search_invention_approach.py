@@ -9,11 +9,16 @@ from predicators import utils
 from predicators.approaches.grammar_search_invention_approach import \
     GrammarSearchInventionApproach, _AttributeDiffCompareClassifier, \
     _create_grammar, _DataBasedPredicateGrammar, \
+    _EuclideanAttributeDiffCompareClassifier, \
+    _EuclideanDistancePredicateGrammar, \
     _FeatureDiffInequalitiesPredicateGrammar, _ForallClassifier, \
     _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
     _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
+from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
+from predicators.envs.stick_button import StickButtonMovementEnv
+from predicators.envs.vlm_envs import IceTeaMakingEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, Object, \
@@ -49,6 +54,8 @@ def test_predicate_grammar(segmenter):
     env = CoverEnv()
     single_ineq_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
     diff_ineq_grammar = _FeatureDiffInequalitiesPredicateGrammar(dataset)
+    euclidean_grammar = _EuclideanDistancePredicateGrammar(
+        dataset, "x", "y", "x", "y")
     assert len(single_ineq_grammar.generate(max_num=1)) == 1
     sing_feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
     assert sing_feature_ranges[robby.type]["hand"] == (0.5, 0.8)
@@ -56,6 +63,15 @@ def test_predicate_grammar(segmenter):
     doub_feature_ranges = diff_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
     assert doub_feature_ranges[robby.type]["hand"] == (0.5, 0.8)
     assert doub_feature_ranges[block.type]["grasp"] == (-1, 1)
+    euclidean_feature_ranges = euclidean_grammar._get_feature_ranges()  # pylint: disable=protected-access
+    assert euclidean_feature_ranges[block.type]["is_block"] == (1.0, 1.0)
+    assert euclidean_feature_ranges[robby.type]["hand"] == (0.5, 0.8)
+
+    # Generate from the diff ineq grammar and verify that the number of
+    # candidates generated is under the limit.
+    preds = diff_ineq_grammar.generate(max_num=100)
+    assert len(preds) <= 100
+
     forall_grammar = _create_grammar(dataset, env.predicates)
     # Test edge case where there are no low-level features in the dataset.
     dummy_type = Type("dummy", [])
@@ -69,8 +85,11 @@ def test_predicate_grammar(segmenter):
         dummy_dataset)
     dummy_doub_grammar = _FeatureDiffInequalitiesPredicateGrammar(
         dummy_dataset)
+    dummy_euc_grammar = _EuclideanDistancePredicateGrammar(
+        dummy_dataset, "x", "y", "x", "y")
     assert len(dummy_sing_grammar.generate(max_num=1)) == 0
     assert len(dummy_doub_grammar.generate(max_num=1)) == 0
+    assert len(dummy_euc_grammar.generate(max_num=1)) == 0
     # There are only so many unique predicates possible under the grammar.
     # Non-unique predicates are pruned. Note that with a larger dataset,
     # more predicates would appear unique.
@@ -80,10 +99,10 @@ def test_predicate_grammar(segmenter):
     utils.reset_config({
         "grammar_search_grammar_use_diff_features": True,
         "segmenter": segmenter,
-        "env": "cover"
+        "env": "cover",
     })
     forall_grammar = _create_grammar(dataset, env.predicates)
-    assert len(forall_grammar.generate(max_num=100)) == 55
+    assert len(forall_grammar.generate(max_num=100)) == 9
     # Test CFG.grammar_search_predicate_cost_upper_bound.
     default = CFG.grammar_search_predicate_cost_upper_bound
     utils.reset_config({"grammar_search_predicate_cost_upper_bound": 0})
@@ -105,6 +124,109 @@ def test_predicate_grammar(segmenter):
     debug_grammar = _create_grammar(dataset, set())
     assert len(debug_grammar.generate(max_num=10)) == 3
     utils.update_config({"grammar_search_use_handcoded_debug_grammar": False})
+
+
+def test_labelled_atoms_invention():
+    """Tests for _PredicateGrammar class."""
+    utils.reset_config({
+        "env": "cover",
+        "offline_data_method": "demo+labelled_atoms"
+    })
+    env = CoverEnv()
+    train_task = env.get_train_tasks()[0].task
+    state = train_task.init
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    block = [o for o in state if o.name == "block0"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    state.set(block, "grasp", -1)
+    other_state.set(block, "grasp", 1)
+    preds = env.predicates
+    assert len(preds) == 5
+    ground_atoms = []
+    for s in [state, other_state]:
+        curr_state_atoms = utils.abstract(s, preds)
+        ground_atoms.append(curr_state_atoms)
+
+    ll_trajs = [
+        LowLevelTrajectory([state, other_state],
+                           [Action(np.zeros(1, dtype=np.float32))])
+    ]
+    dataset = Dataset(ll_trajs, [ground_atoms])
+
+    approach = GrammarSearchInventionApproach(env.predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              [train_task])
+
+    with pytest.raises(AssertionError):
+        # The below command should fail because even though it should be able
+        # to extract predicates from the dataset, the trajectories' actions
+        # don't have options that can be used.
+        approach.learn_from_offline_dataset(dataset)
+
+
+def test_invention_from_txt_file():
+    """Test loading a dataset from a txt file."""
+    utils.reset_config({
+        "env":
+        "ice_tea_making",
+        "num_train_tasks":
+        1,
+        "num_test_tasks":
+        0,
+        "offline_data_method":
+        "demo+labelled_atoms",
+        "data_dir":
+        "tests/datasets/mock_vlm_datasets",
+        "handmade_demo_filename":
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt"
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    loaded_dataset = create_dataset(env, train_tasks,
+                                    get_gt_options(env.get_name()), predicates)
+    approach = GrammarSearchInventionApproach(env.goal_predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              train_tasks)
+    approach.learn_from_offline_dataset(loaded_dataset)
+    # The ice_tea_making__demo+labelled_atoms__manual__1.txt happens to
+    # set all atoms to True at all timesteps, and so we expect predicate
+    # invention to not select any of the predicates (only select the goal)
+    # predicates.
+    assert len(approach._get_current_predicates()) == 1  # pylint:disable=protected-access
+    assert approach._get_current_predicates() == env.goal_predicates  # pylint:disable=protected-access
+
+
+def test_euclidean_grammar():
+    """Tests for the EuclideanGrammar."""
+    utils.reset_config({"env": "stick_button_move"})
+    env = StickButtonMovementEnv()
+    train_task = env.get_train_tasks()[0].task
+    state = train_task.init
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    curr_x = state.get(robby, "x")
+    curr_y = state.get(robby, "y")
+    other_state.set(robby, "x", curr_x + 0.05)
+    other_state.set(robby, "y", curr_y + 0.05)
+    dataset = Dataset([
+        LowLevelTrajectory([state, other_state],
+                           [Action(np.zeros(4, dtype=np.float32))])
+    ])
+    utils.reset_config({
+        "grammar_search_grammar_use_euclidean_dist": True,
+        "segmenter": "atom_changes",
+    })
+    grammar = _create_grammar(dataset, env.predicates)
+    assert len(grammar.generate(max_num=100)) == 28
+    utils.reset_config({
+        "grammar_search_grammar_use_euclidean_dist": False,
+        "segmenter": "contacts"
+    })
 
 
 def test_halving_constant_generator():
@@ -202,6 +324,17 @@ def test_unary_free_forall_classifier():
     assert str(classifier3) == "NOT-Forall[1:plate_type].[NOT-On(0,1)]"
     assert classifier3.pretty_str() == ("?x:cup_type",
                                         "¬(∀ ?y:plate_type . ¬On(?x, ?y))")
+
+
+def test_euclidean_classifier_and_grammar():
+    """Tests for the _EuclideanAttributeDiffCompareClassifier and certain
+    aspects of the euclidean grammar."""
+    a_type = Type("a_type", ["x", "y"])
+    b_type = Type("b_type", ["x", "y"])
+    classifier0 = _EuclideanAttributeDiffCompareClassifier(
+        0, a_type, "x", "y", 1, b_type, "x", "y", 1.0, 0, gt, ">")
+    assert classifier0.pretty_str() == (
+        '?x:a_type, ?y:b_type', '((?x.x - ?y.x)^2  + ((?x.y - ?y.y)^2 > 1.0)')
 
 
 def test_unrecognized_clusterer():

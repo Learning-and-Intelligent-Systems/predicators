@@ -16,6 +16,7 @@ are currently detected. Rotations should be ignored.
 
 import io
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
@@ -32,6 +33,7 @@ import requests
 from bosdyn.client import math_helpers
 from matplotlib import pyplot as plt
 from scipy import ndimage
+from scipy.spatial import Delaunay
 
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
@@ -59,6 +61,7 @@ def get_last_detected_objects(
 def detect_objects(
     object_ids: Collection[ObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],  # camera name to RGBD
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect object poses (in the world frame!) from RGBD.
 
@@ -102,7 +105,7 @@ def detect_objects(
 
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
-        language_object_ids, rgbds)
+        language_object_ids, rgbds, allowed_regions)
     detections.update(language_detections)
     artifacts["language"] = language_artifacts
 
@@ -196,6 +199,7 @@ def detect_objects_from_april_tags(
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict]:
     """Detect an object pose using a vision-language model.
 
@@ -207,31 +211,42 @@ def detect_objects_from_language(
 
     object_id_to_img_detections = _query_detic_sam(object_ids, rgbds)
 
-    # Aggregate detections over images.
-    # Get the best-scoring image detections for each object ID.
-    object_id_to_best_img: Dict[ObjectDetectionID, RGBDImageWithContext] = {}
-    for obj_id, img_detections in object_id_to_img_detections.items():
-        if not img_detections:
-            continue
-        best_score = -np.inf
-        best_camera: Optional[str] = None
-        for camera, detection in img_detections.items():
-            if detection.score > best_score:
-                best_score = detection.score
-                best_camera = camera
-        assert best_camera is not None
-        object_id_to_best_img[obj_id] = rgbds[best_camera]
+    # Convert the image detections into pose detections. Use the best scoring
+    # image for which a pose can be successfully extracted.
 
-    # Convert the image detections into pose detections.
+    def _get_detection_score(img_detections: Dict[str, SegmentedBoundingBox],
+                             camera: str) -> float:
+        return img_detections[camera].score
+
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
-    for obj_id, rgbd in object_id_to_best_img.items():
-        seg_bb = object_id_to_img_detections[obj_id][rgbd.camera_name]
-        pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd)
-        # Pose extraction can fail due to depth reading issues. See docstring
-        # of _get_pose_from_segmented_bounding_box for more.
-        if pose is None:
-            continue
-        detections[obj_id] = pose
+    for obj_id, img_detections in object_id_to_img_detections.items():
+        # Consider detections from best (highest) to worst score.
+        for camera in sorted(img_detections,
+                             key=partial(_get_detection_score, img_detections),
+                             reverse=True):
+            seg_bb = img_detections[camera]
+            rgbd = rgbds[camera]
+            pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd)
+            # Pose extraction can fail due to depth reading issues. See
+            # docstring of _get_pose_from_segmented_bounding_box for more.
+            if pose is None:
+                continue
+            # If the detected pose is outside the allowed bounds, skip.
+            pose_xy = np.array([pose.x, pose.y])
+            if allowed_regions is not None:
+                in_allowed_region = False
+                for region in allowed_regions:
+                    if region.find_simplex(pose_xy).item() >= 0:
+                        in_allowed_region = True
+                        break
+                if not in_allowed_region:
+                    logging.info("WARNING: throwing away detection for " +\
+                                 f"{obj_id} because it's out of bounds. " + \
+                                 f"(pose = {pose_xy})")
+                    continue
+            # Pose extraction succeeded.
+            detections[obj_id] = pose
+            break
 
     # Save artifacts for analysis and debugging.
     artifacts = {
@@ -259,7 +274,7 @@ def _query_detic_sam(
     # Create buffer dictionary to send to server.
     buf_dict = {}
     for camera_name, rgbd in rgbds.items():
-        pil_rotated_img = PIL.Image.fromarray(rgbd.rotated_rgb)
+        pil_rotated_img = PIL.Image.fromarray(rgbd.rotated_rgb)  # type: ignore
         buf_dict[camera_name] = _image_to_bytes(pil_rotated_img)
 
     # Extract all the classes that we want to detect.
@@ -396,25 +411,38 @@ def _get_pose_from_segmented_bounding_box(
     # Convert camera to world.
     world_frame_pose = rgbd.world_tform_camera * camera_frame_pose
 
-    return world_frame_pose
+    # The angles are not meaningful, so override them.
+    final_pose = math_helpers.SE3Pose(x=world_frame_pose.x,
+                                      y=world_frame_pose.y,
+                                      z=world_frame_pose.z,
+                                      rot=math_helpers.Quat())
+
+    return final_pose
 
 
-def get_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
-                    artifacts: Dict[str, Any], object_id: ObjectDetectionID,
-                    camera_name: str) -> Tuple[int, int]:
-    """Select a pixel for grasping in the given camera image."""
+def get_grasp_pixel(
+    rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
+    object_id: ObjectDetectionID, camera_name: str, rng: np.random.Generator
+) -> Tuple[Tuple[int, int], Optional[math_helpers.Quat]]:
+    """Select a pixel for grasping in the given camera image.
+
+    NOTE: for april tag detections, the pixel returned will correspond to the
+    center of the april tag, which may not always be ideal for grasping.
+    Consider using OBJECT_SPECIFIC_GRASP_SELECTORS in this case.
+    """
 
     if object_id in OBJECT_SPECIFIC_GRASP_SELECTORS:
         selector = OBJECT_SPECIFIC_GRASP_SELECTORS[object_id]
-        return selector(rgbds, artifacts, camera_name)
+        return selector(rgbds, artifacts, camera_name, rng)
 
-    return get_object_center_pixel_from_artifacts(artifacts, object_id,
-                                                  camera_name)
+    pixel = get_random_mask_pixel_from_artifacts(artifacts, object_id,
+                                                 camera_name, rng)
+    return (pixel[0], pixel[1]), None
 
 
-def get_object_center_pixel_from_artifacts(
+def get_random_mask_pixel_from_artifacts(
         artifacts: Dict[str, Any], object_id: ObjectDetectionID,
-        camera_name: str) -> Tuple[int, int]:
+        camera_name: str, rng: np.random.Generator) -> Tuple[int, int]:
     """Extract the pixel in the image corresponding to the center of the object
     with object ID.
 
@@ -438,8 +466,23 @@ def get_object_center_pixel_from_artifacts(
         seg_bb = detections[object_id][camera_name]
     except KeyError:
         raise ValueError(f"{object_id} not detected in {camera_name}")
-    x1, y1, x2, y2 = seg_bb.bounding_box
-    return int((x1 + x2) / 2), int((y1 + y2) / 2)
+
+    # Select a random valid pixel from the mask.
+    mask = seg_bb.mask
+    pixels_in_mask = np.where(mask)
+    mask_idx = rng.choice(len(pixels_in_mask))
+    pixel_tuple = (pixels_in_mask[1][mask_idx], pixels_in_mask[0][mask_idx])
+    # Uncomment to plot the grasp pixel being selected!
+    # rgb_img = artifacts["language"]["rgbds"][camera_name].rgb
+    # _, axes = plt.subplots()
+    # axes.imshow(rgb_img)
+    # axes.add_patch(
+    #     plt.Rectangle((pixel_tuple[0], pixel_tuple[1]), 5, 5, color='red'))
+    # plt.tight_layout()
+    # outdir = Path(CFG.spot_perception_outdir)
+    # plt.savefig(outdir / "grasp_pixel.png", dpi=300)
+    # plt.close()
+    return pixel_tuple
 
 
 def visualize_all_artifacts(artifacts: Dict[str,
@@ -494,8 +537,12 @@ def visualize_all_artifacts(artifacts: Dict[str,
             ax_row[4].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
 
             # Labels.
+            abbreviated_name = obj_id.language_id
+            max_abbrev_len = 24
+            if len(abbreviated_name) > max_abbrev_len:
+                abbreviated_name = abbreviated_name[:max_abbrev_len] + "..."
             row_label = "\n".join([
-                obj_id.language_id, f"[{rgbd.camera_name}]",
+                abbreviated_name, f"[{rgbd.camera_name}]",
                 f"[score: {seg_bb.score:.2f}]"
             ])
             ax_row[0].set_ylabel(row_label, fontsize=6)
@@ -509,6 +556,7 @@ def visualize_all_artifacts(artifacts: Dict[str,
         plt.tight_layout()
         plt.savefig(detections_outfile, dpi=300)
         print(f"Wrote out to {detections_outfile}.")
+        plt.close()
 
     # Visualize all of the images that have no detections.
     all_cameras = set(rgbds)
@@ -543,6 +591,7 @@ def visualize_all_artifacts(artifacts: Dict[str,
         plt.tight_layout()
         plt.savefig(no_detections_outfile, dpi=300)
         print(f"Wrote out to {no_detections_outfile}.")
+        plt.close()
 
 
 def display_camera_detections(artifacts: Dict[str, Any],
@@ -631,11 +680,17 @@ if __name__ == "__main__":
     from predicators.spot_utils.utils import verify_estop
 
     TEST_CAMERAS = [
-        "hand_color_image", "frontleft_fisheye_image", "left_fisheye_image",
-        "right_fisheye_image"
+        "hand_color_image",
+        "frontleft_fisheye_image",
+        "left_fisheye_image",
+        "right_fisheye_image",
+        "frontright_fisheye_image",
     ]
     TEST_APRIL_TAG_ID = 408
-    TEST_LANGUAGE_DESCRIPTIONS = ["brush", "drill"]
+    TEST_LANGUAGE_DESCRIPTIONS = [
+        "small basketball toy/stuffed toy basketball/small orange ball",
+        "small football toy/stuffed toy football/small brown ball",
+    ]
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.

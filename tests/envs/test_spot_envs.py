@@ -6,25 +6,29 @@ from typing import List
 import dill as pkl
 import numpy as np
 import pytest
+from bosdyn.client import math_helpers
 
 from predicators import utils
 from predicators.approaches import create_approach
 from predicators.cogman import CogMan
 from predicators.envs import create_new_env
-from predicators.envs.spot_env import SpotCubeEnv
+from predicators.envs.spot_env import SpotBallAndCupStickyTableEnv, \
+    SpotCubeEnv, SpotMainSweepEnv
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_perceiver import SpotPerceiver
 from predicators.settings import CFG
+from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
+    move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import go_home
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, GroundAtom, _GroundNSRT
 
 
-@pytest.mark.parametrize("env", ["spot_cube_env", "spot_soda_sweep_env"])
-def test_spot_env_dry_run(env) -> None:
+def test_spot_env_dry_run():
     """Dry run tests (do not require access to robot)."""
     utils.reset_config({
-        "env": env,
+        "env": "spot_cube_env",
         "approach": "spot_wrapper[oracle]",
         "num_train_tasks": 0,
         "num_test_tasks": 1,
@@ -32,8 +36,9 @@ def test_spot_env_dry_run(env) -> None:
         "spot_run_dry": True,
         "bilevel_plan_without_sim": True,
         "spot_use_perfect_samplers": True,
+        "spot_graph_nav_map": "floor8-v2",
     })
-    env = create_new_env(env)
+    env = create_new_env(CFG.env)
     perceiver = SpotPerceiver()
     execution_monitor = create_execution_monitor("expected_atoms")
     env_train_tasks = env.get_train_tasks()
@@ -53,6 +58,180 @@ def test_spot_env_dry_run(env) -> None:
         assert act is not None
         obs = env.step(act)
     assert env.goal_reached()
+
+
+@pytest.mark.parametrize("graph_nav_map", ["floor8-v2", "floor8-sweeping"])
+def test_spot_main_sweep_env_dry_run(graph_nav_map):
+    """Tests specific to the main sweeping environment."""
+    utils.reset_config({
+        "env": "spot_main_sweep_env",
+        "approach": "spot_wrapper[oracle]",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "seed": 123,
+        "spot_run_dry": True,
+        "bilevel_plan_without_sim": True,
+        "spot_use_perfect_samplers": True,
+        "spot_graph_nav_map": graph_nav_map,
+    })
+    # Need to flush cache due to cached graph nav map.
+    utils.flush_cache()
+    env = create_new_env(CFG.env)
+    perceiver = SpotPerceiver()
+    execution_monitor = create_execution_monitor("expected_atoms")
+    env_train_tasks = env.get_train_tasks()
+    env_test_tasks = env.get_test_tasks()
+    train_tasks = [perceiver.reset(t) for t in env_train_tasks]
+    options = get_gt_options(env.get_name())
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    approach = create_approach(CFG.approach, env.predicates, options,
+                               env.types, env.action_space, train_tasks)
+    cogman = CogMan(approach, perceiver, execution_monitor)
+    env_task = env_test_tasks[0]
+    cogman.reset(env_task)
+    init_obs = env.reset("test", 0)
+    state = perceiver.step(init_obs)
+
+    # Test that we can sweep the train_toy into the bucket, dump it out, then
+    # do the whole thing again.
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
+    MoveToHandViewObject = nsrt_name_to_nsrt["MoveToHandViewObject"]
+    PickObjectFromTop = nsrt_name_to_nsrt["PickObjectFromTop"]
+    PickObjectToDrag = nsrt_name_to_nsrt["PickObjectToDrag"]
+    PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
+    DragToUnblockObject = nsrt_name_to_nsrt["DragToUnblockObject"]
+    SweepIntoContainer = nsrt_name_to_nsrt["SweepIntoContainer"]
+    PrepareContainerForSweeping = nsrt_name_to_nsrt[
+        "PrepareContainerForSweeping"]
+    PickAndDumpContainer = nsrt_name_to_nsrt["PickAndDumpContainer"]
+
+    rng = np.random.default_rng(123)
+
+    obj_name_to_obj = {o.name: o for o in state}
+    robot = obj_name_to_obj["robot"]
+    bucket = obj_name_to_obj["bucket"]
+    brush = obj_name_to_obj["brush"]
+    train_toy = obj_name_to_obj["train_toy"]
+    chair = obj_name_to_obj["chair"]
+    table = obj_name_to_obj["black_table"]
+    floor = obj_name_to_obj["floor"]
+
+    def _run_ground_nsrt(ground_nsrt,
+                         state,
+                         override_params=None,
+                         assert_add_effects=True,
+                         assert_delete_effects=True):
+
+        def obs_to_state(obs):
+            option = ground_nsrt.sample_option(state, set(), rng)
+            assert option.initiable(state)
+            action = option.policy(state)
+            perceiver.update_perceiver_with_action(action)
+            perceiver.step(obs)
+
+            # Uncomment for debugging. Also add "render_state_dpi": 150.
+            # imgs = perceiver.render_mental_images(obs, env_task)
+            # import cv2
+            # cv2.imshow("Mental image", imgs[0])
+            # cv2.waitKey(0)
+
+            return perceiver._create_state()  # pylint: disable=protected-access
+
+        return utils.run_ground_nsrt_with_assertions(
+            ground_nsrt,
+            state,
+            env,
+            rng,
+            override_params,
+            obs_to_state,
+            assert_add_effects=assert_add_effects,
+            assert_delete_effects=assert_delete_effects)
+
+    # Set up all the NSRTs for the following tests.
+    move_to_hand_view_bucket = MoveToHandViewObject.ground([robot, bucket])
+    pick_bucket = PickObjectFromTop.ground([robot, bucket, floor])
+    prepare_bucket = PrepareContainerForSweeping.ground(
+        [robot, bucket, train_toy, table])
+    move_to_hand_view_chair = MoveToHandViewObject.ground([robot, chair])
+    pick_chair = PickObjectToDrag.ground([robot, chair])
+    drag_chair = DragToUnblockObject.ground([robot, chair, train_toy])
+    move_to_hand_view_brush = MoveToHandViewObject.ground([robot, brush])
+    pick_brush = PickObjectFromTop.ground([robot, brush, floor])
+    move_to_reach_train_toy = MoveToReachObject.ground([robot, train_toy])
+    sweep = SweepIntoContainer.ground([robot, brush, train_toy, table, bucket])
+    move_to_reach_floor = MoveToReachObject.ground([robot, floor])
+    place_brush = PlaceObjectOnTop.ground([robot, brush, floor])
+    dump_bucket = PickAndDumpContainer.ground(
+        [robot, bucket, floor, train_toy])
+    move_to_hand_view_train_toy = MoveToHandViewObject.ground(
+        [robot, train_toy])
+    pick_train_toy = PickObjectFromTop.ground([robot, train_toy, floor])
+    move_to_reach_table = MoveToReachObject.ground([robot, table])
+    place_train_toy = PlaceObjectOnTop.ground([robot, train_toy, table])
+
+    # Assertions will be raised in _run_ground_nsrt if there are any issues.
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    state = _run_ground_nsrt(pick_bucket, state)
+    state = _run_ground_nsrt(prepare_bucket, state)
+    state = _run_ground_nsrt(move_to_hand_view_chair, state)
+    state = _run_ground_nsrt(pick_chair, state, assert_delete_effects=False)
+    state = _run_ground_nsrt(drag_chair, state)
+    state = _run_ground_nsrt(move_to_hand_view_brush, state)
+    state = _run_ground_nsrt(pick_brush, state)
+    state = _run_ground_nsrt(move_to_reach_train_toy, state)
+    state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
+    state = _run_ground_nsrt(move_to_reach_floor, state)
+    state = _run_ground_nsrt(place_brush, state)
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    state = _run_ground_nsrt(dump_bucket, state)
+    state = _run_ground_nsrt(move_to_reach_floor, state)
+    state = _run_ground_nsrt(move_to_hand_view_train_toy, state)
+    state = _run_ground_nsrt(pick_train_toy, state)
+    state = _run_ground_nsrt(move_to_reach_table, state)
+    state = _run_ground_nsrt(place_train_toy, state)
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    state = _run_ground_nsrt(pick_bucket, state)
+    state = _run_ground_nsrt(prepare_bucket, state)
+    state = _run_ground_nsrt(move_to_hand_view_brush, state)
+    state = _run_ground_nsrt(pick_brush, state)
+    state = _run_ground_nsrt(move_to_reach_train_toy, state)
+    state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
+    state = _run_ground_nsrt(move_to_reach_floor, state)
+    state = _run_ground_nsrt(place_brush, state)
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    _run_ground_nsrt(dump_bucket, state)
+
+
+def test_json_loading():
+    """Tests specific to the main sweeping environment."""
+    utils.reset_config({
+        "env":
+        "spot_soda_floor_env",
+        "approach":
+        "spot_wrapper[oracle]",
+        "num_train_tasks":
+        0,
+        "num_test_tasks":
+        1,
+        "seed":
+        123,
+        "spot_run_dry":
+        True,
+        "bilevel_plan_without_sim":
+        True,
+        "spot_use_perfect_samplers":
+        True,
+        "spot_graph_nav_map":
+        "floor8-sweeping",
+        "test_task_json_dir":
+        "predicators/envs/assets/task_jsons/spot/test/"
+    })
+    # Need to flush cache due to cached graph nav map.
+    utils.flush_cache()
+    env = create_new_env(CFG.env)
+    env_test_tasks = env.get_test_tasks()
+    assert len(env_test_tasks) == 1
 
 
 def real_robot_cube_env_test() -> None:
@@ -296,5 +475,177 @@ def real_robot_cube_env_test() -> None:
     assert GroundAtom(Holding, [spot, cube]).holds(state)
 
 
+def real_robot_drafting_table_placement_test() -> None:
+    """Another real robot test, not to be run by unit tests! Mostly for
+    debugging the place sampler on the drafting table, which seems to be
+    surprisingly biased to the left side of the table. Note that this test
+    doesn't assert anything: a user must manually check that the agent is
+    sampling a different point on the surface every time.
+
+    Run this test by running the file directly, i.e.,
+
+    python tests/envs/test_spot_envs.py --spot_robot_ip <ip address>
+
+    Optionally load the last initial state:
+
+    python tests/envs/test_spot_envs.py --spot_robot_ip <ip address> \
+        --test_task_json_dir predicators/envs/assets/task_jsons/spot/
+    """
+    args = utils.parse_args(env_required=False,
+                            seed_required=False,
+                            approach_required=False)
+    utils.reset_config({
+        "env":
+        "spot_ball_and_cup_sticky_table_env",
+        "approach":
+        "spot_wrapper[oracle]",
+        "num_train_tasks":
+        0,
+        "num_test_tasks":
+        1,
+        "seed":
+        123,
+        "spot_robot_ip":
+        args["spot_robot_ip"],
+        "spot_graph_nav_map":
+        args["spot_graph_nav_map"],
+        "test_task_json_dir":
+        args.get("test_task_json_dir", None),
+    })
+    rng = np.random.default_rng(123)
+    env = SpotBallAndCupStickyTableEnv()
+    perceiver = SpotPerceiver()
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+
+    # This should have the robot spin around and locate all objects.
+    task = env.get_test_tasks()[0]
+    obs = env.reset("test", 0)
+    perceiver.reset(task)
+    objects_in_view = {o.name: o for o in obs.objects_in_view}
+    cup = objects_in_view["cup"]
+    drafting_table = objects_in_view["drafting_table"]
+    state = perceiver.step(obs)
+    spot = next(o for o in state if o.type.name == "robot")
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
+    PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
+    ground_nsrts: List[_GroundNSRT] = []
+    for nsrt in sorted(nsrts):
+        ground_nsrts.extend(utils.all_ground_nsrts(nsrt, set(state)))
+
+    # First, move to the drafting table.
+    move_to_drafting_table_nsrt = MoveToReachObject.ground(
+        (spot, drafting_table))
+    # Sample and run an option to move to the surface.
+    option = move_to_drafting_table_nsrt.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(10):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Now, sample a placement option multiple times and run it.
+    place_on_table_nsrt = PlaceObjectOnTop.ground([spot, cup, drafting_table])
+    for _ in range(10):
+        option = place_on_table_nsrt.sample_option(state, set(), rng)
+        assert option.initiable(state)
+        for _ in range(100):  # should terminate much earlier
+            action = option.policy(state)
+            obs = env.step(action)
+            perceiver.update_perceiver_with_action(action)
+            state = perceiver.step(obs)
+            if option.terminal(state):
+                break
+
+
+def real_robot_sweeping_nsrt_test() -> None:
+    """Test for running the sweeping skill and base sampler on the real robot.
+
+    This is similar to the test in spot_sweep.py, but it uses the whole NSRT.
+
+    Run this test by running the file directly, i.e.,
+
+    python tests/envs/test_spot_envs.py --spot_robot_ip <ip address>
+    """
+    args = utils.parse_args(env_required=False,
+                            seed_required=False,
+                            approach_required=False)
+    utils.reset_config({
+        "env": "spot_main_sweep_env",
+        "approach": "spot_wrapper[oracle]",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "seed": 123,
+        "spot_robot_ip": args["spot_robot_ip"],
+    })
+    rng = np.random.default_rng(123)
+    env = SpotMainSweepEnv()
+    robot = env._robot  # pylint: disable=protected-access
+    perceiver = SpotPerceiver()
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+
+    # This should have the robot spin around and locate all objects.
+    task = env.get_test_tasks()[0]
+    obs = env.reset("test", 0)
+    perceiver.reset(task)
+    objects_in_view = {o.name: o for o in obs.objects_in_view}
+    train_toy = objects_in_view["train_toy"]
+    football = objects_in_view["football"]
+    table = objects_in_view["black_table"]
+    container = objects_in_view["bucket"]
+    brush = objects_in_view["brush"]
+    floor = objects_in_view["floor"]
+    state = perceiver.step(obs)
+    spot = next(o for o in state if o.type.name == "robot")
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    MoveToReadySweep = nsrt_name_to_nsrt["MoveToReadySweep"]
+    SweepTwoObjectsIntoContainer = \
+        nsrt_name_to_nsrt["SweepTwoObjectsIntoContainer"]
+    MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
+    PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
+    move_to_container_nsrt = MoveToReadySweep.ground(
+        (spot, container, train_toy))
+    sweep_nsrt = SweepTwoObjectsIntoContainer.ground(
+        (spot, brush, train_toy, football, table, container))
+    move_to_floor_nsrt = MoveToReachObject.ground((spot, floor))
+    place_nsrt = PlaceObjectOnTop.ground((spot, brush, floor))
+
+    # Ask for the brush.
+    hand_side_pose = math_helpers.SE3Pose(x=0.80,
+                                          y=0.0,
+                                          z=0.25,
+                                          rot=math_helpers.Quat.from_yaw(
+                                              -np.pi / 2))
+    move_hand_to_relative_pose(robot, hand_side_pose)
+    open_gripper(robot)
+    # Press any key, instead of just enter. Useful for remote control.
+    msg = "Put the brush in the robot's gripper, then press any key"
+    utils.wait_for_any_button_press(msg)
+    close_gripper(robot)
+    stow_arm(robot)
+
+    nsrt_sequence: List[_GroundNSRT] = []
+    # Sweep 10 times.
+    nsrt_sequence += [move_to_container_nsrt, sweep_nsrt] * 10
+    # Drop the sweeper on the floor.
+    nsrt_sequence += [move_to_floor_nsrt, place_nsrt]
+
+    for nsrt in nsrt_sequence:
+        option = nsrt.sample_option(state, set(), rng)
+        assert option.initiable(state)
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        assert option.terminal(state)
+
+
 if __name__ == "__main__":
-    real_robot_cube_env_test()
+    # real_robot_cube_env_test()
+    # real_robot_drafting_table_placement_test()
+    real_robot_sweeping_nsrt_test()

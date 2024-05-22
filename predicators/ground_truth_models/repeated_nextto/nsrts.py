@@ -15,7 +15,10 @@ class RepeatedNextToGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"repeated_nextto", "repeated_nextto_ambiguous"}
+        return {
+            "repeated_nextto", "repeated_nextto_ambiguous",
+            "repeated_nextto_simple"
+        }
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],

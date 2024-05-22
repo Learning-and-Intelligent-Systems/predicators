@@ -55,9 +55,7 @@ static-object-features:
     height: 0.0001
     length: 10000000  # effectively infinite
     width: 10000000
-    flat_top_surface: 0
-    placeable: 0
-  white-table:
+  black_table:
     shape: 1
     height: 0.74
     length: 1.07

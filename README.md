@@ -2,7 +2,17 @@
 
 ## Repository Description
 
-This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*, as described in [this paper](https://arxiv.org/abs/2203.09634). Several features are concurrently under active development. **Please contact <tslvr@mit.edu> or <njk@mit.edu> before attempting to use it for your own research.** In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers. 
+This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*, as described in the following papers:
+
+1. [Learning Symbolic Operators for Task and Motion Planning](https://arxiv.org/abs/2103.00589). Silver*, Chitnis*, Tenenbaum, Kaelbling, Lozano-Perez. IROS 2021.
+2. [Learning Neuro-Symbolic Relational Transition Models for Bilevel Planning](https://arxiv.org/abs/2105.14074). Chitnis*, Silver*, Tenenbaum, Lozano-Perez, Kaelbling. IROS 2022.
+3. [Learning Neuro-Symbolic Skills for Bilevel Planning](http://arxiv.org/abs/2206.10680). Silver, Athalye, Tenenbaum, Lozano-Perez, Kaelbling. CoRL 2022.
+4. [Predicate Invention for Bilevel Planning](https://arxiv.org/abs/2203.09634). Silver*, Chitnis*, Kumar, McClinton, Lozano-Perez, Kaelbling, Tenenbaum. AAAI 2023.
+5. [Embodied Active Learning of Relational State Abstractions for Bilevel Planning](https://arxiv.org/abs/2303.04912). Li, Silver. CoLLAs 2023.
+6. [Learning Efficient Abstract Planning Models that Choose What to Predict](https://arxiv.org/abs/2208.07737). Kumar*, McClinton*, Chitnis, Silver, Lozano-Perez, Kaelbling. CoRL 2023.
+7. [Practice Makes Perfect: Planning to Learn Skill Parameter Policies](https://arxiv.org/abs/2402.15025). Kumar*, Silver*, McClinton, Zhao, Proulx, Lozano-Perez, Kaelbling, Barry. Under Review 2024.
+
+The codebase is still under active development. **Please contact <tslvr@mit.edu> or <njk@mit.edu> before attempting to use it for your own research.**
 
 ### Code Structure
 
@@ -18,7 +28,7 @@ Methods for predicate learning are implemented as Approaches (e.g., `predicators
 A simple implementation of search-then-sample bilevel planning is provided in `predicators/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
 
 ## Installation
-* This repository uses Python versions 3.8+.
+* This repository uses Python versions 3.10-3.11. We recommend 3.10.14.
 * Run `pip install -e .` to install dependencies.
 
 ## Instructions For Running Code
