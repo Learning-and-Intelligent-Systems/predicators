@@ -37,6 +37,7 @@ import PIL.Image
 from gym.spaces import Box
 from matplotlib import patches
 from numpy.typing import NDArray
+from PIL import ImageDraw, ImageFont
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
@@ -3791,3 +3792,45 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"
     return state
+
+
+def get_scaled_default_font(
+        draw: ImageDraw.ImageDraw,
+        size: int) -> ImageFont.FreeTypeFont:  # pragma: no cover
+    """Method that modifies the size of some provided PIL ImageDraw font.
+
+    Useful for scaling up font sizes when using PIL to insert text
+    directly into images.
+    """
+    # Determine the scaling factor
+    base_font = ImageFont.load_default()
+    width, height = draw.textbbox((0, 0), "A", font=base_font)[:2]
+    scale_factor = size / max(width, height)
+    # Scale the font using the factor
+    return base_font.font_variant(size=int(scale_factor *  # type: ignore
+                                           base_font.size))  # type: ignore
+
+
+def add_text_to_draw_img(
+        draw: ImageDraw.ImageDraw, position: Tuple[int, int], text: str,
+        font: ImageFont.FreeTypeFont
+) -> ImageDraw.ImageDraw:  # pragma: no cover
+    """Method that adds some text with a particular font at a particular pixel
+    position in an input PIL.ImageDraw.ImageDraw image.
+
+    Returns the modified ImageDraw.ImageDraw with the added text.
+    """
+    text_width, text_height = draw.textbbox((0, 0), text, font=font)[2:]
+    background_position = (position[0] - 5, position[1] - 5
+                           )  # Slightly larger than text
+    background_size = (text_width + 10, text_height + 10)
+    # Draw the background rectangle
+    draw.rectangle([
+        background_position,
+        (background_position[0] + background_size[0],
+         background_position[1] + background_size[1])
+    ],
+                   fill="black")
+    # Add the text to the image
+    draw.text(position, text, fill="red", font=font)
+    return draw
