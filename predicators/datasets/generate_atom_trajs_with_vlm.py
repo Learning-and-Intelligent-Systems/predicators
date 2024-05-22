@@ -737,15 +737,14 @@ def create_ground_atom_data_from_generated_demos(
         # state of the final option).
         curr_traj_states_for_vlm.append(traj.states[-1])
         # Pull out the images within the states we've saved for the trajectory.
-        # We assume that images are saved in the state's simulator_state
-        # field.
+        # We assume that the state's simulator_state attribute is a dictionary,
+        # and that the image for each state is access by the key "image".
         state_imgs: List[List[PIL.Image.Image]] = []
         for state in curr_traj_states_for_vlm:
-            assert isinstance(state.simulator_state, List)
-            assert len(state.simulator_state) > 0
+            assert "image" in state.simulator_state
             state_imgs.append([
                 PIL.Image.fromarray(img_arr)  # type: ignore
-                for img_arr in state.simulator_state
+                for img_arr in state.simulator_state["image"]
             ])
         img_option_trajs.append(
             ImageOptionTrajectory(

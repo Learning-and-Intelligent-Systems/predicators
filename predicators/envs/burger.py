@@ -5,13 +5,13 @@ This environment uses assets from robotouille that were designed by
 Nicole Thean (https://github.com/nicolethean).
 """
 
+import copy
 import logging
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-# import pygame
 import numpy as np
 from gym.spaces import Box
 
@@ -19,7 +19,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type
+    Predicate, State, Type, DefaultTask, Observation
 
 
 class BurgerEnv(BaseEnv):
@@ -132,10 +132,10 @@ class BurgerEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         del rng  # unused
         tasks = []
-
-        # Add robot, grill, and cutting board
         state_dict = {}
         hidden_state = {}
+
+        # Add robot, grill, and cutting board
         state_dict[self._robot] = {
             "row": 2,
             "col": 2,
@@ -173,17 +173,21 @@ class BurgerEnv(BaseEnv):
         goal = {
             GroundAtom(self._On, [patty, bottom_bun]),
             GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._On, [tomato, cheese]),
-            GroundAtom(self._On, [top_bun, tomato]),
+            # GroundAtom(self._On, [tomato, cheese]),
+            # GroundAtom(self._On, [top_bun, tomato]),
             GroundAtom(self._IsCooked, [patty]),
-            GroundAtom(self._IsSliced, [tomato]),
+            # GroundAtom(self._IsSliced, [tomato]),
+            # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato, top_bun])
         }
 
         for _ in range(num):
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = hidden_state
-            # Note: this takes in Observation, GoalDescription, whose types are
-            # Any
+            # A DefaultTask is basically a dummy task. Our render function
+            # does not use the task argument, so this is ok.
+            state.simulator_state["image"] = self.render_state(state, DefaultTask)[0]
+            # Recall that a EnvironmentTask consists of an Observation and a
+            # GoalDescription, both of whose types are Any.
             tasks.append(EnvironmentTask(state, goal))
 
         return tasks
@@ -287,10 +291,10 @@ class BurgerEnv(BaseEnv):
         atoms = [
             self._On_holds(state, [patty, bottom]),
             self._On_holds(state, [cheese, patty]),
-            self._On_holds(state, [tomato, cheese]),
-            self._On_holds(state, [top, tomato]),
+            # self._On_holds(state, [tomato, cheese]),
+            # self._On_holds(state, [top, tomato]),
             self._IsCooked_holds(state, [patty]),
-            self._IsSliced_holds(state, [tomato])
+            # self._IsSliced_holds(state, [tomato])
         ]
         return all(atoms)
 
@@ -321,6 +325,7 @@ class BurgerEnv(BaseEnv):
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return {self._On, self._IsCooked, self._IsSliced}
+        # return {self._On, self._GoalHack}
 
     @property
     def action_space(self) -> Box:
@@ -478,6 +483,9 @@ class BurgerEnv(BaseEnv):
                     new_z = 0
                 next_state.set(held_item, "z", new_z)
 
+        # Update the image
+        next_state.simulator_state["image"] = self.render_state(state, DefaultTask)[0]
+
         return next_state
 
     def render_state_plt(
@@ -592,6 +600,25 @@ class BurgerEnv(BaseEnv):
         ax.axis("off")
         plt.tight_layout()
         return fig
+
+    def _copy_observation(self, obs: Observation) -> Observation:
+        return copy.deepcopy(obs)
+
+    def get_observation(self) -> Observation:
+        return self._copy_observation(self._current_observation)
+
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
+        # Rather than have the observation be the state + the image, we just
+        # package the image inside the state's simulator_state.
+        self._current_task = self.get_task(train_or_test, task_idx)
+        self._current_observation = self._current_task.init_obs
+        return self._copy_observation(self._current_observation)
+
+    def step(self, action: Action) -> Observation:
+        # Rather than have the observation be the state + the image, we just
+        # package the image inside the state's simulator_state.
+        self._current_observation = self.simulate(self._current_observation, action)
+        return self._copy_observation(self._current_observation)
 
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
