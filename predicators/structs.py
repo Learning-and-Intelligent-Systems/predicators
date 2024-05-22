@@ -1373,6 +1373,7 @@ class GroundOptionRecord:
     """
     states: List[State] = field(default_factory=list)
     abstract_states: List[Set[GroundAtom]] = field(default_factory=list)
+    rendered_states: List[Image] = field(default_factory=list)
     optn_objs: List[Object] = field(default_factory=list)
     optn_vars: List[Variable] = field(default_factory=list)
     option: ParameterizedOption = field(default=None)
@@ -1382,9 +1383,13 @@ class GroundOptionRecord:
         """Check if the states list is non-empty"""
         return bool(self.states)
     
-    def append_state(self, state: State) -> None:
+    def append_state(self, state: State, 
+                     rendered_state: Image=None) -> None:
         """Append a state to the states list"""
         self.states.append(state)
+
+        if rendered_state:
+            self.rendered_states.append(rendered_state)
 
     def assign_values(self, optn_objs: List[Object], optn_vars: List[Variable], 
                       option: ParameterizedOption, 
