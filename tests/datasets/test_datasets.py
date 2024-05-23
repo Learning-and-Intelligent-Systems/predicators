@@ -592,7 +592,8 @@ def test_loading_saved_vlm_img_demos_folder_non_dummy_goal():
      ("options_labels_whole_traj", "per_scene_naive"),
      ("naive_whole_traj", "per_scene_cot"),
      ("not_a_real_prompt_type", "per_scene_cot"),
-     ("naive_whole_traj", "not_a_real_prompt_type")])
+     ("naive_whole_traj", "not_a_real_prompt_type"),
+     ("options_labels_whole_traj", "img_option_diffs")])
 def test_loading_saved_vlm_img_demos_folder_dummy_goal(
         atom_proposal_prompt_type, atom_labelling_prompt_type):
     """Test loading a dataset from img demo files."""
