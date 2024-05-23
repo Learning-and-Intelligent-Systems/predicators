@@ -130,7 +130,7 @@ def _generate_prompt_for_scene_labelling(
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
         for curr_imgs in traj.imgs:
-            # NOTE: same problem with ripping out images as in the above note.            
+            # NOTE: same problem with ripping out images as in the above note.
             ret_list.append((prompt, [curr_imgs[0]]))
     return ret_list
 
