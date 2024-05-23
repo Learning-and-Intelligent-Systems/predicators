@@ -49,6 +49,7 @@ class LargeLanguageModel(abc.ABC):
                            prompt: str,
                            temperature: float,
                            seed: int,
+                           save_file: str,
                            stop_token: Optional[str] = None,
                            num_completions: int = 1) -> List[str]:
         """Sample one or more completions from a prompt.

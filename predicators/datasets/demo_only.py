@@ -192,7 +192,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                         utils.OptionExecutionFailure,
                         utils.HumanDemonstrationFailure,
                     },
-                    video_monitor=video_monitor)
+                    monitor=video_monitor)
             else:  # pragma: no cover
                 # Otherwise, we get human input demos.
                 caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "

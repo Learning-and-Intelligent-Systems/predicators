@@ -671,6 +671,7 @@ class GlobalSettings:
     llm_predicator_use_grammar = True
     llm_predicator_oracle_base = True
     llm_predicator_oracle_learned = False
+    vlm_predicator_render_option_state = False
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms

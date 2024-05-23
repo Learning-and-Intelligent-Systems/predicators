@@ -201,8 +201,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
 class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting classification
     errors."""
-    succ_optn_dict: Dict[str, Dict]
-    fail_optn_dict: Dict[str, Dict]
+    succ_optn_dict: Dict[str, GroundOptionRecord]
+    fail_optn_dict: Dict[str, GroundOptionRecord]
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],

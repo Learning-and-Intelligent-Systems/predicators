@@ -78,6 +78,8 @@ class BilevelPlanningApproach(BaseApproach):
                 task, nsrts, preds, timeout, seed)
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
+            self._last_partial_refinements = metrics["partial_refinements"]
+            del metrics["partial_refinements"]
             self._last_metrics = metrics
             policy = utils.option_plan_to_policy(option_plan)
 

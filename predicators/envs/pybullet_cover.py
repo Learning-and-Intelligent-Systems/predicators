@@ -232,13 +232,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                      for hand_lb, hand_rb in hand_regions):
             # The constraint is violated, so noop.
             state_copy = self._current_state.copy()
-            # if CFG.rgb_observation:
-            #     rendered_state = utils.PyBulletRenderedState(
-            #         state_copy.data, state_copy.simulator_state,
-            #         self.render_segmented_obj()
-            #     )
-            #     return rendered_state
-            # else:
             return state_copy
         return super().step(action)
 

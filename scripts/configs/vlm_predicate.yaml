@@ -7,7 +7,7 @@ APPROACHES:
 ENVS:
   stick_button:
     # NAME: "stick_button"
-    # NAME: "cover_place_hard"
+    NAME: "cover_place_hard"
     # NAME: "blocks"
     # NAME: "doors"
     # NAME: "sokoban"
@@ -15,9 +15,11 @@ ENVS:
     # NAME: "screws"
     # NAME: "sticky_table"
     # NAME: "painting"
-    NAME: "tools"
+    # NAME: "tools"
     # NAME: "coffee"
     # NAME: "playroom_simple"
+    # NAME: "pybullet_cover"
+    
 ARGS: 
   # []
   - "debug"
@@ -56,7 +58,7 @@ FLAGS:
   llm_predicator_use_grammar: False
   llm_predicator_oracle_base: True
   llm_predicator_oracle_learned: True
-  # grammar_search_pred_complexity_weight: 1e-5
+  # vlm_predicator_render_option_state: True
 START_SEED: 2
 NUM_SEEDS: 1
 ...
