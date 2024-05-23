@@ -630,7 +630,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         for code_str in python_blocks:
             # Extract name from code block
             match = re.search(r'(\w+)\s*=\s*Predicate', code_str)
-            if match:
+            if match is not None:
                 pred_name =  match.group(1)
             else:
                 raise ValueError("No predicate name found in the code block")
@@ -685,10 +685,13 @@ class VlmInventionApproach(NSRTLearningApproach):
     def _env_type_str(self, source_code: str) -> str:  
         type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"        
         type_block = re.search(type_pattern, source_code, re.DOTALL)
-        type_init_str = type_block.group()
-        type_init_str = textwrap.dedent(type_init_str)
-        # type_init_str = add_python_quote(type_init_str)
-        return type_init_str
+        if type_block is not None:
+            type_init_str = type_block.group()
+            type_init_str = textwrap.dedent(type_init_str)
+            # type_init_str = add_python_quote(type_init_str)
+            return type_init_str
+        else:
+            raise Exception("No type definitions found in the environment.")
 
     def _constants_str(self, source_code: str) -> str:
         # Some constants, if any, defined in the environment are
@@ -719,19 +722,23 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Get the entire predicate instantiation code block.
         predicate_pattern = r"(# Predicates.*?)(?=\n\s*\n|$)"        
         predicate_block = re.search(predicate_pattern, source_code, re.DOTALL)
-        pred_instantiation_str = predicate_block.group()
+        if predicate_block is not None:
+            pred_instantiation_str = predicate_block.group()
 
-        for p in self._initial_predicates:
-            p_name = p.name
-            # Get the instatiation code for p from the code block
-            p_instan_pattern = r"(self\._" + re.escape(p_name) +\
-                                r" = Predicate\(.*?\n.*?\))"
-            block = re.search(p_instan_pattern, pred_instantiation_str, 
-                              re.DOTALL)
-            p_instan_str = block.group()
-            pred_str = "Predicate " + p.pretty_str()[1] + " is defined by\n" +\
-                        add_python_quote(p.classifier_str() + p_instan_str)
-            init_pred_str.append(pred_str.replace("self.", ""))
+            for p in self._initial_predicates:
+                p_name = p.name
+                # Get the instatiation code for p from the code block
+                p_instan_pattern = r"(self\._" + re.escape(p_name) +\
+                                    r" = Predicate\(.*?\n.*?\))"
+                block = re.search(p_instan_pattern, pred_instantiation_str, 
+                                  re.DOTALL)
+                if block is not None:
+                    p_instan_str = block.group()
+                    pred_str = "Predicate " + p.pretty_str()[1] +\
+                                " is defined by\n" +\
+                                add_python_quote(p.classifier_str() +\
+                                p_instan_str)
+                    init_pred_str.append(pred_str.replace("self.", ""))
 
         return '\n'.join(init_pred_str)
         
@@ -749,15 +756,16 @@ class VlmInventionApproach(NSRTLearningApproach):
         code_pattern = re.compile(r'```python(.*?)```', re.DOTALL)
         for match in code_pattern.finditer(response):
             python_block = match.group(1).strip()
-            # pred_match = re.search(r'Predicate\("([^"]*)"', python_block)
             pred_match = re.search(r'name\s*(:\s*str)?\s*= "([^"]*)"', 
                                    python_block)
-            pred_name =  pred_match.group(2)
-            pred = next((p for p in self._learned_predicates if p.name == 
-                         pred_name), None)
-            if pred:
-                new_predicate_str.append("Predicate " + pred.pretty_str()[1] +
-                        " is defined by\n" + add_python_quote(python_block))
+            if pred_match is not None:
+                pred_name =  pred_match.group(2)
+                pred = next((p for p in self._learned_predicates if p.name == 
+                             pred_name), None)
+                if pred:
+                    new_predicate_str.append("Predicate " + 
+                            pred.pretty_str()[1] + " is defined by\n" + 
+                            add_python_quote(python_block))
         has_not_or_forall = [p.name.startswith("NOT") or 
                              p.name.startswith("Forall")  for p in 
                              self._learned_predicates]
@@ -856,7 +864,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Executing the plan
         # task_str = []
         state = init_state
-        def policy(_: State) -> Action: 
+        def policy(s: State) -> Action: 
             raise OptionExecutionFailure("placeholder policy")
         nsrt_counter = 0
         for _ in range(CFG.horizon):
@@ -881,7 +889,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         option = option_plan.pop(0)
                         # if option.name == "OpenLid":
                         #     breakpoint()
-                        policy = utils.option_plan_to_policy(
+                        policy= utils.option_plan_to_policy(
                             [option], raise_error_on_repeated_state=True)
                     except IndexError: break
                     else:
