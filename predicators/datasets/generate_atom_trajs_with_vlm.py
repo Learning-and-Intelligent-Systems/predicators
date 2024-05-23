@@ -115,7 +115,10 @@ def _generate_prompt_for_scene_labelling(
             prompt += f"\n{atom_str}"
         for i in range(1, len(traj.imgs)):
             curr_prompt = prompt[:]
-            # NOTE: same problem with ripping out images as in the above note.
+            # NOTE: we rip out just one img from each of the state
+            # images. This is fine/works for the case where we only
+            # have one camera view, but probably will need to be
+            # amended in the future!
             curr_prompt_imgs = [
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
@@ -127,10 +130,7 @@ def _generate_prompt_for_scene_labelling(
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
         for curr_imgs in traj.imgs:
-            # NOTE: we rip out just one img from each of the state
-            # images. This is fine/works for the case where we only
-            # have one camera view, but probably will need to be
-            # amended in the future!
+            # NOTE: same problem with ripping out images as in the above note.            
             ret_list.append((prompt, [curr_imgs[0]]))
     return ret_list
 
