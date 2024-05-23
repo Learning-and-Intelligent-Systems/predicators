@@ -50,12 +50,27 @@ static-object-features:
     length: 0.065
     width: 0.065
     placeable: 1
+  bike_seat:
+    shape: 2
+    height: 0.114
+    length: 0.065
+    width: 0.065
+    placeable: 1
+  mount_wall:
+    shape: 1  # cylinder
+    height: 0.52
+    length: 0.51
+    width: 0.51
+    flat_top_surface: 1
+    placeable: 0
   floor:
     shape: 1
     height: 0.0001
     length: 10000000  # effectively infinite
     width: 10000000
-  black_table:
+    flat_top_surface: 0
+    placeable: 0
+  white-table:
     shape: 1
     height: 0.74
     length: 1.07
