@@ -94,9 +94,9 @@ def print_confusion_matrix(tp, tn, fp, fn):
     logging.info(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
 
 def count_classification_result_for_ops(
-        nsrts: List[NSRT],
-        succ_optn_dict: Dict[str, Dict],
-        fail_optn_dict: Dict[str, Dict],
+        nsrts: Set[NSRT],
+        succ_optn_dict: Dict[str, GroundOptionRecord],
+        fail_optn_dict: Dict[str, GroundOptionRecord],
         return_str: bool = False,
         initial_ite: bool = False,
         print_cm: bool = False) -> Tuple[int, int, int, int, str]:
@@ -1425,7 +1425,7 @@ class PyBulletState(State):
 
 @dataclass
 class PyBulletRenderedState(PyBulletState):
-    rendered_state: Dict[str, Video] = None
+    rendered_state: Dict[str, Image] = None
 
     def copy(self) -> State:
         state_dict_copy = super().copy().data

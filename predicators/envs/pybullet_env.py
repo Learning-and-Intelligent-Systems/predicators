@@ -19,7 +19,7 @@ from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Observation, \
-    State, Video
+    State, Video, Image
 
 
 class PyBulletEnv(BaseEnv):
@@ -242,7 +242,7 @@ class PyBulletEnv(BaseEnv):
 
     def render_segmented_obj(self,
                 action: Optional[Action] = None,
-                caption: Optional[str] = None) -> Dict[str, Video]: 
+                caption: Optional[str] = None) -> Dict[str, Image]: 
         '''Render the scene and the segmented objects in the scene.
         '''
         # if not self.using_gui:
@@ -288,7 +288,7 @@ class PyBulletEnv(BaseEnv):
         # imageio.imsave(f'./prompts/og_image.png', original_image)
         # imageio.imsave(f'./prompts/seg_image.png', seg_image)
 
-        segmented_images['scene'] = [original_image]
+        segmented_images['scene'] = original_image
 
         # Iterate over all bodies
         for bodyId in range(p.getNumBodies(self._physics_client_id)):
@@ -302,9 +302,22 @@ class PyBulletEnv(BaseEnv):
             # imageio.imsave(f'./prompts/obj_{bodyId}.png', cropped_image)
 
             # Add the cropped image to the dictionary
-            segmented_images[bodyId] = [cropped_image]
+            segmented_images[str(bodyId)] = cropped_image
 
         return segmented_images
+
+    def get_observation(self) -> Observation:
+        """Get the current observation of this environment."""
+        assert isinstance(self._current_observation, State)
+        state_copy = self._current_observation.copy()
+        if CFG.vlm_predicator_render_option_state:
+            rendered_state = utils.PyBulletRenderedState(
+                state_copy.data, state_copy.simulator_state,
+                self.render_segmented_obj()
+            )
+            return rendered_state
+        else:
+            return state_copy
 
     def step(self, action: Action) -> Observation:
         # Send the action to the robot.
@@ -358,6 +371,7 @@ class PyBulletEnv(BaseEnv):
         self._current_observation = self._get_state()
         
         state_copy = self._current_observation.copy()
+        # Commenting this out because maybe only need to render when requested
         # if CFG.rgb_observation:
         #     rendered_state = utils.PyBulletRenderedState(
         #         state_copy.data, state_copy.simulator_state,
@@ -466,21 +480,11 @@ class PyBulletEnv(BaseEnv):
         for task in tasks:
             # Reset the robot.
             init = task.init
-            if CFG.rgb_observation:
-                # Extract the joints.
-                self._reset_state(init)
-                joint_positions = self._pybullet_robot.get_joints()
-                # add the segmented rendering to the initial state
-                pybullet_init = utils.PyBulletRenderedState(
-                    init.data.copy(), simulator_state=joint_positions,
-                    rendered_state=self.render_segmented_obj()
-                )
-            else:
-                # Extract the joints.
-                self._pybullet_robot.reset_state(self._extract_robot_state(init))
-                joint_positions = self._pybullet_robot.get_joints()
-                pybullet_init = utils.PyBulletState(
-                    init.data.copy(), simulator_state=joint_positions)
+            # Extract the joints.
+            self._pybullet_robot.reset_state(self._extract_robot_state(init))
+            joint_positions = self._pybullet_robot.get_joints()
+            pybullet_init = utils.PyBulletState(
+                init.data.copy(), simulator_state=joint_positions)
             pybullet_task = EnvironmentTask(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks

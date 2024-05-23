@@ -682,6 +682,12 @@ class GlobalSettings:
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
 
+    # LLM predicate invention algorithm parameters
+    llm_predicator_use_grammar = True
+    llm_predicator_oracle_base = True
+    llm_predicator_oracle_learned = False
+    vlm_predicator_render_option_state = False
+
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms
     handmade_demo_filename = ""

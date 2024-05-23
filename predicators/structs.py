@@ -217,31 +217,7 @@ class State:
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
     
-    # def dict_str(self) -> Dict[str, Dict[str, Any]]:
-    #     """Return a dictionary representation of the state."""
-    #     state_dict = {}
-    #     for obj in self:
-    #         obj_dict = {}
-    #         for attribute, value in zip(obj.type.feature_names, self[obj]):
-    #             if isinstance(value, (float, int)):
-    #                 value = round(value, 1)
-    #             obj_dict[attribute] = value
-    #         state_dict[f"{obj.name}:{obj.type.name}"] = obj_dict
-    #     # Create a PrettyPrinter with a large width
-    #     dict_str = "{"
-    #     n_keys = len(state_dict.keys())
-    #     for i, (key, value) in enumerate(state_dict.items()):
-    #         value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
-    #         if i == 0:
-    #             dict_str += f"'{key}': {{{value_str}}},\n"
-    #         elif i == n_keys-1: 
-    #             dict_str += f" '{key}': {{{value_str}}}"
-    #         else:
-    #             dict_str += f" '{key}': {{{value_str}}},\n"
-    #     dict_str += "}"
-    #     return dict_str
-
-    def dict_str(self, indent: int = 0) -> Dict[str, Dict[str, Any]]:
+    def dict_str(self, indent: int = 0) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:
