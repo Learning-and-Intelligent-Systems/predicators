@@ -7,6 +7,8 @@ Nicole Thean (https://github.com/nicolethean).
 
 import copy
 import logging
+import io
+from PIL import Image
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
@@ -19,7 +21,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type, DefaultTask, Observation
+    Predicate, State, Type, DefaultTask, Observation, Video
 
 
 class BurgerEnv(BaseEnv):
@@ -185,7 +187,7 @@ class BurgerEnv(BaseEnv):
             state.simulator_state = hidden_state
             # A DefaultTask is basically a dummy task. Our render function
             # does not use the task argument, so this is ok.
-            state.simulator_state["image"] = self.render_state(state, DefaultTask)[0]
+            state.simulator_state["image"] = self.render_state(state, DefaultTask)
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
             tasks.append(EnvironmentTask(state, goal))
@@ -484,7 +486,7 @@ class BurgerEnv(BaseEnv):
                 next_state.set(held_item, "z", new_z)
 
         # Update the image
-        next_state.simulator_state["image"] = self.render_state(state, DefaultTask)[0]
+        next_state.simulator_state["image"] = self.render_state(state, DefaultTask)
 
         return next_state
 
@@ -600,6 +602,40 @@ class BurgerEnv(BaseEnv):
         ax.axis("off")
         plt.tight_layout()
         return fig
+
+    def render_state(self,
+                     state: State,
+                     task: EnvironmentTask,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> Video:
+        fig = self.render_state_plt(state, task, action, caption)
+        # Create an in-memory binary stream.
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        # Rewind the stream to the beginning so that it can be read from.
+        buf.seek(0)
+        img = Image.open(buf)
+        plt.close(fig)
+
+        # Convert the image to RGB mode to save as JPEG, because
+        # JPEG format does not support images with an alpha channel
+        # (transparency).
+        img_rgb = img.convert("RGB")
+        jpeg_buf = io.BytesIO()
+        img_rgb.save(jpeg_buf, format="JPEG")
+        jpeg_buf.seek(0)
+        jpeg_img = Image.open(jpeg_buf)
+
+        # If we return jpeg_img, we get this error:
+        # `ValueError: I/O operation on closed file`, so we copy it before
+        # closing the buffers.
+        ret_img = copy.deepcopy(jpeg_img)
+        ret_arr = np.array(ret_img)
+
+        buf.close()
+        jpeg_buf.close()
+
+        return [ret_arr]
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)

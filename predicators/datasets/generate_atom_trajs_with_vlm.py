@@ -717,6 +717,7 @@ def create_ground_atom_data_from_generated_demos(
         # each action in the trajectory is linked to an option that isn't
         # None.
         segments = _segment_with_option_changes(traj, set(), None)
+        # import pdb; pdb.set_trace()
         curr_traj_states_for_vlm: List[State] = []
         curr_traj_actions_for_vlm: List[Action] = []
         total_num_segment_states = 0
@@ -747,6 +748,7 @@ def create_ground_atom_data_from_generated_demos(
                 PIL.Image.fromarray(img_arr)  # type: ignore
                 for img_arr in state.simulator_state["image"]
             ])
+            # state_imgs.append([img for img in state.simulator_state["image"]])
         img_option_trajs.append(
             ImageOptionTrajectory(
                 set(traj.states[0]), state_imgs,

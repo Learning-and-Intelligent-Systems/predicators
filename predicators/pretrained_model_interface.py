@@ -267,7 +267,6 @@ class GoogleGeminiVLM(VisionLanguageModel):
             seed: int,
             stop_token: Optional[str] = None,
             num_completions: int = 1) -> List[str]:  # pragma: no cover
-        import pdb; pdb.set_trace()
         del seed, stop_token  # unused
         assert imgs is not None
         generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
@@ -277,7 +276,6 @@ class GoogleGeminiVLM(VisionLanguageModel):
             [prompt] + imgs,
             generation_config=generation_config)  # type: ignore
         response.resolve()
-        import pdb; pdb.set_trace()
         return [response.text]
 
 
