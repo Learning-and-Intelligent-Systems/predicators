@@ -122,7 +122,7 @@ def _generate_prompt_for_scene_labelling(
             curr_prompt_imgs = [
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
-            curr_prompt += f"\n\nSkill executed between states: "
+            curr_prompt += "\n\nSkill executed between states: "
             curr_prompt += traj.actions[i - 1].name + str(
                 traj.actions[i - 1].objects)
             ret_list.append((curr_prompt, curr_prompt_imgs))
