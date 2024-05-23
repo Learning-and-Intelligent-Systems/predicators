@@ -14,7 +14,7 @@ import pickle
 import time
 import torch
 from tqdm import tqdm
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Tuple, cast
 # from operator import itemgetter
 
 import matplotlib
@@ -43,7 +43,7 @@ __all__ = ["SearchPruningApproach"]
 
 
 @dataclass(frozen=True)
-class InterleavedBacktrackingDatapoint():
+class SearchPruningDataGenerationDatapoint():
     states: List[State]
     atoms_sequence: List[Set[GroundAtom]]
     horizons: npt.NDArray
@@ -54,7 +54,7 @@ class InterleavedBacktrackingDatapoint():
         assert len(self.states) == len(self.skeleton) + 1
         assert len(self.skeleton) == len(self.horizons)
 
-    def substitute_nsrts(self, nsrts_dict: Dict[str, NSRT]) -> 'InterleavedBacktrackingDatapoint':
+    def substitute_nsrts(self, nsrts_dict: Dict[str, NSRT]) -> 'SearchPruningDataGenerationDatapoint':
         return dataclasses.replace(self, skeleton=[
             nsrts_dict[str(ground_nsrt.parent)].ground(ground_nsrt.objects)
             for ground_nsrt in self.skeleton
@@ -116,7 +116,7 @@ def get_placement_coords(state: State, current_nsrt: _GroundNSRT, top_coords: bo
 #     return fig
 
 # def run_visualization_saving(
-#     search_datapoints: List[InterleavedBacktrackingDatapoint],
+#     search_datapoints: List[SearchPruningDataGenerationDatapoint],
 #     option_model: _OptionModelBase,
 #     seed: int,
 #     prefix_length: int,
@@ -234,7 +234,7 @@ def visualize_wbox_placement(
 
 
 def run_wbox_visualization_saving(
-    search_datapoints: List[InterleavedBacktrackingDatapoint],
+    search_datapoints: List[SearchPruningDataGenerationDatapoint],
     option_model: _OptionModelBase,
     seed: int,
     prefix_length: int,
@@ -307,8 +307,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         self._validation_feasibility_dataset: Optional[FeasibilityDataset] = None
         self._feasibility_classifier = ConstFeasibilityClassifier()
         # self._test_tasks_ran = 0
-        assert CFG.feasibility_learning_strategy in {
-            "backtracking", "load_data"}
+        assert CFG.feasibility_learning_strategy in {"backtracking", "load_data", "last_bad_action", "all_bad_actions"}
 
     @classmethod
     def get_name(cls) -> str:
@@ -348,6 +347,12 @@ class SearchPruningApproach(NSRTLearningApproach):
                 CFG.feasibility_debug_directory, 'loaded-data-training-snapshots')
             os.makedirs(snapshot_dir, exist_ok=True)
             self._learn_neural_feasibility_classifier(1, snapshot_dir)
+        elif CFG.feasibility_learning_strategy == "last_bad_action":
+            self._collect_data_last_bad_action(seed)
+            self._save_data(dataset_path)
+        elif CFG.feasibility_learning_strategy == "all_bad_actions":
+            self._collect_data_all_bad_actions(seed)
+            self._save_data(dataset_path)
         elif CFG.feasibility_learning_strategy == "backtracking":
             self._collect_data_interleaved_backtracking(seed)
             self._save_data(dataset_path)
@@ -370,6 +375,115 @@ class SearchPruningApproach(NSRTLearningApproach):
         ), open(path, "wb"))
         logging.info(f"saved generated feasibility datasets to {path}")
 
+    def _collect_data_last_bad_action(self, seed: int) -> None:
+        def add_bad_action(
+            skeleton: Sequence[_GroundNSRT],
+            states: Sequence[State],
+            feasibility_dataset: FeasibilityDataset
+        ) -> None:
+            feasibility_dataset.add_negative_datapoint(skeleton, states)
+
+        self.add_data_for_bad_actions_gathering(seed, add_bad_action)
+        self._learn_neural_feasibility_classifier(0)
+
+    def _collect_data_all_bad_actions(self, seed: int) -> None:
+        def add_bad_action(
+            skeleton: Sequence[_GroundNSRT],
+            states: Sequence[State],
+            feasibility_dataset: FeasibilityDataset
+        ) -> None:
+            for prefix_length in range(2, len(states)):
+                feasibility_dataset.add_negative_datapoint(skeleton, states[:prefix_length])
+
+        self.add_data_for_bad_actions_gathering(seed, add_bad_action)
+        self._learn_neural_feasibility_classifier(0)
+
+    def add_data_for_bad_actions_gathering(
+            self,
+            seed: int,
+            add_bad_action: Callable[[Sequence[_GroundNSRT], Sequence[State], FeasibilityDataset], None],
+        ) -> None:
+        logging.info("DATA FOR BAD ACTIONS GATHERING")
+        cfg = self._get_necessary_cfg_namespace()
+        training_datapoints, validation_datapoints, _ = self._get_data_generation_datapoints()
+
+        torch.multiprocessing.set_start_method('forkserver')
+        with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
+            logging.info("DATA FOR BAD ACTIONS GATHERING - TRAINING DATA")
+            self.add_data_for_single_dataset_bad_actions_gathering(
+                seed, training_datapoints,
+                self._training_feasibility_dataset,
+                add_bad_action, pool, cfg,
+                os.path.join(CFG.feasibility_debug_directory, 'train-data-gathering')
+            )
+
+            logging.info("DATA FOR BAD ACTIONS GATHERING - VALIDATION DATA")
+            self.add_data_for_single_dataset_bad_actions_gathering(
+                seed + len(training_datapoints), validation_datapoints,
+                self._validation_feasibility_dataset,
+                add_bad_action, pool, cfg,
+                os.path.join(CFG.feasibility_debug_directory, 'validation-data-gathering')
+            )
+
+    def add_data_for_single_dataset_bad_actions_gathering(
+            self,
+            seed: int,
+            data_generation_datapoints: List[SearchPruningDataGenerationDatapoint],
+            feasibility_dataset: FeasibilityDataset,
+            add_bad_action: Callable[[Sequence[_GroundNSRT], Sequence[State], FeasibilityDataset], None],
+            pool: torch.multiprocessing.Pool,
+            cfg: SimpleNamespace,
+            debug_dir: str
+        ) -> None:
+        os.makedirs(debug_dir, exist_ok=True)
+        for longest_failure, data_generation_datapoint in zip(pool.starmap(SearchPruningApproach._run_search_for_bad_actions, zip(
+            data_generation_datapoints,
+            np.arange(len(data_generation_datapoints)) + seed,
+            repeat(self._option_model),
+            repeat(cfg),
+            repeat(debug_dir),
+        )), data_generation_datapoints):
+            for prefix_length in range(2, len(data_generation_datapoint.states)):
+                feasibility_dataset.add_positive_datapoint(
+                    data_generation_datapoint.skeleton,
+                    data_generation_datapoint.states[:prefix_length]
+                )
+            if len(longest_failure) >= 2 and len(data_generation_datapoint.skeleton) >= len(longest_failure):
+                add_bad_action(data_generation_datapoint.skeleton, longest_failure, feasibility_dataset)
+
+    @staticmethod
+    def _run_search_for_bad_actions(
+        data_generation_datapoint: SearchPruningDataGenerationDatapoint,
+        seed: int,
+        option_model: _OptionModelBase,
+        cfg: SimpleNamespace,
+        debug_dir: str
+    ) -> List[State]:
+        global CFG
+        CFG.__dict__.update(cfg.__dict__)
+
+        logging.basicConfig(filename=os.path.join(debug_dir, f"{seed}.log"), force=True, level=logging.DEBUG)
+
+        def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
+            return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful
+        backtracking, is_successful = run_backtracking_for_data_generation(
+            previous_states = [data_generation_datapoint.states[0]],
+            goal = data_generation_datapoint.atoms_sequence[-1],
+            option_model = option_model,
+            skeleton = data_generation_datapoint.skeleton,
+            feasibility_classifier = ConstFeasibilityClassifier(),
+            atoms_sequence = data_generation_datapoint.atoms_sequence,
+            search_stop_condition = search_stop_condition,
+            seed = seed,
+            timeout = CFG.timeout,
+            metrics = {},
+            max_horizon = data_generation_datapoint.horizons[0],
+        )
+        if not is_successful:
+            longest_failure_states, _ = backtracking.longest_failure
+            return longest_failure_states
+        return []
+
     def _collect_data_interleaved_backtracking(self, seed: int) -> None:
         """Collects data by interleaving data collection for a certain suffix length and learning on that data
         """
@@ -377,30 +491,9 @@ class SearchPruningApproach(NSRTLearningApproach):
         assert CFG.feasibility_search_device in {'cpu', 'cuda'}
 
         # Precomputing the datapoints for interleaved backtracking
-        search_datapoints: List[InterleavedBacktrackingDatapoint] = [
-            InterleavedBacktrackingDatapoint(
-                states=[segment.states[0] for segment in segmented_traj] +
-                [segmented_traj[-1].states[-1]],
-                atoms_sequence=[
-                    segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
-                horizons=CFG.horizon -
-                np.cumsum([len(segment.actions)
-                          for segment in segmented_traj]),
-                skeleton=[self._seg_to_ground_nsrt[segment]
-                          for segment in segmented_traj]
-            ) for segmented_traj in self._segmented_trajs
-        ]
-        max_skeleton_length = max(map(len, self._segmented_trajs))
+        training_search_datapoints, validation_search_datapoints, max_skeleton_length = self._get_data_generation_datapoints()
 
-        while True:
-            self._rng.shuffle(search_datapoints)
-            validation_cutoff = round(len(search_datapoints) * CFG.feasibility_validation_fraction)
-            training_search_datapoints = search_datapoints[:validation_cutoff]
-            validation_search_datapoints = search_datapoints[validation_cutoff:]
-            if max(len(dp.skeleton) for dp in training_search_datapoints) == max(len(dp.skeleton) for dp in validation_search_datapoints) == max_skeleton_length:
-                break
-
-        num_validation_datapoints_per_iter = round(CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
+        num_validation_datapoints_per_iter = int(CFG.feasibility_num_datapoints_per_iter * (1 - CFG.feasibility_validation_fraction))
         num_training_datapoints_per_iter = CFG.feasibility_num_datapoints_per_iter - num_validation_datapoints_per_iter
         datapoint_multiplier = CFG.feasibility_max_datapoint_multiplier
 
@@ -438,22 +531,9 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info(f"Generating data with interleaved learning from {len(search_datapoints)} datapoints "
                      f"({len(training_search_datapoints)} for training and {len(validation_search_datapoints)} for validation)...")
 
-        torch.multiprocessing.set_start_method('forkserver')
-        cfg = SimpleNamespace(
-            sesame_max_samples_per_step=CFG.sesame_max_samples_per_step,
-            sesame_propagate_failures=CFG.sesame_propagate_failures,
-            sesame_check_expected_atoms=True,
-            sesame_check_static_object_changes=CFG.sesame_check_static_object_changes,
-            sesame_static_object_change_tol=CFG.sesame_static_object_change_tol,
-            sampler_disable_classifier=CFG.sampler_disable_classifier,
-            max_num_steps_option_rollout=CFG.max_num_steps_option_rollout,
-            option_model_terminate_on_repeat=CFG.option_model_terminate_on_repeat,
-            feasibility_num_data_collection_threads=CFG.feasibility_num_data_collection_threads,
-            pybullet_control_mode=CFG.pybullet_control_mode,
-            pybullet_max_vel_norm=CFG.pybullet_max_vel_norm,
-            feasibility_max_object_count=CFG.feasibility_max_object_count,
-        )
+        cfg = SearchPruningApproach._get_necessary_cfg_namespace()
 
+        torch.multiprocessing.set_start_method('forkserver')
         with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
             # for prefix_length in list(reversed(range(1, max_skeleton_length))) + [1]:
             for prefix_length in reversed(range(1, max_skeleton_length)):
@@ -531,23 +611,7 @@ class SearchPruningApproach(NSRTLearningApproach):
                     )
                 logging.info(
                     f"Took {duration} seconds to gather validation data")
-                # logging.info("Statistics; " + analyze_datapoints(
-                #     validation_positive_datapoints, validation_negative_datapoints
-                # ))
-
-                # if prefix_length > 1:
-                # self._learn_neural_feasibility_classifier(prefix_length)
                 self._learn_neural_feasibility_classifier(prefix_length)
-                # run_visualization_saving(
-                #     chosen_validation_search_datapoints, self._option_model, seed,
-                #     prefix_length, os.path.join(prefix_directory, f"visualization"),
-                #     self._feasibility_classifier
-                # )
-                # run_wbox_visualization_saving(
-                #     chosen_validation_search_datapoints, self._option_model, seed,
-                #     prefix_length, os.path.join(prefix_directory, f"visualization"),
-                #     self._feasibility_classifier
-                # )
                 self._save_data(os.path.join(
                     prefix_directory,
                     f'feasibility-classifier-data-snapshot.data'
@@ -573,7 +637,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         option_model: _OptionModelBase,
         feasibility_classifiers: List[FeasibilityClassifier],
         seed: int,
-        search_datapoints: List[InterleavedBacktrackingDatapoint],
+        search_datapoints: List[SearchPruningDataGenerationDatapoint],
         cfg: SimpleNamespace,
         debug_dir: str,
     ) -> Tuple[float, List[Tuple[List[_GroundNSRT], List[State]]], List[Tuple[List[_GroundNSRT], List[State]]]]:
@@ -604,7 +668,7 @@ class SearchPruningApproach(NSRTLearningApproach):
     @staticmethod
     def _backtracking_iteration(
         args: Tuple[int, _OptionModelBase, FeasibilityClassifier,
-                    int, InterleavedBacktrackingDatapoint, SimpleNamespace, str]
+                    int, SearchPruningDataGenerationDatapoint, SimpleNamespace, str]
     ) -> Tuple[List[List[State]], List[List[State]], List[List[State]]]:
         """ Running data collection for a single suffix length and task
         """
@@ -682,6 +746,47 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info(f"Option params: {option_params}")
         return positive_datapoints, negative_datapoints
 
+    def _get_data_generation_datapoints(self) -> Tuple[List[SearchPruningDataGenerationDatapoint], List[SearchPruningDataGenerationDatapoint], int]:
+        search_datapoints = [
+            SearchPruningDataGenerationDatapoint(
+                states=[segment.states[0] for segment in segmented_traj] +
+                [segmented_traj[-1].states[-1]],
+                atoms_sequence=[segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
+                horizons=CFG.horizon -
+                np.cumsum([len(segment.actions)
+                          for segment in segmented_traj]),
+                skeleton=[self._seg_to_ground_nsrt[segment]
+                          for segment in segmented_traj]
+            ) for segmented_traj in self._segmented_trajs
+        ]
+        max_skeleton_length = max(map(len, self._segmented_trajs))
+        while True:
+            self._rng.shuffle(search_datapoints)
+            validation_cutoff = round(len(search_datapoints) * CFG.feasibility_validation_fraction)
+            training_search_datapoints = search_datapoints[:validation_cutoff]
+            validation_search_datapoints = search_datapoints[validation_cutoff:]
+            if max(len(dp.skeleton) for dp in training_search_datapoints) == max(len(dp.skeleton) for dp in validation_search_datapoints) == max_skeleton_length:
+                return training_search_datapoints, validation_search_datapoints, max_skeleton_length
+
+    @staticmethod
+    def _get_necessary_cfg_namespace() -> SimpleNamespace:
+        return SimpleNamespace(
+            sesame_max_samples_per_step=CFG.sesame_max_samples_per_step,
+            sesame_propagate_failures=CFG.sesame_propagate_failures,
+            sesame_check_expected_atoms=True,
+            sesame_check_static_object_changes=CFG.sesame_check_static_object_changes,
+            sesame_static_object_change_tol=CFG.sesame_static_object_change_tol,
+            sampler_disable_classifier=CFG.sampler_disable_classifier,
+            max_num_steps_option_rollout=CFG.max_num_steps_option_rollout,
+            option_model_terminate_on_repeat=CFG.option_model_terminate_on_repeat,
+            feasibility_num_data_collection_threads=CFG.feasibility_num_data_collection_threads,
+            pybullet_control_mode=CFG.pybullet_control_mode,
+            pybullet_max_vel_norm=CFG.pybullet_max_vel_norm,
+            feasibility_max_object_count=CFG.feasibility_max_object_count,
+            timeout=CFG.timeout
+        )
+
+
     def _run_sesame_plan(
         self,
         task: Task,
@@ -736,9 +841,9 @@ class SearchPruningApproach(NSRTLearningApproach):
                     max_horizon=CFG.horizon
                 )
                 # if not is_success:
-                #     traj, _ = backtracking.longest_failuire
+                #     traj, _ = backtracking.longest_failure
                 #     run_visualization_saving(
-                #         [InterleavedBacktrackingDatapoint(
+                #         [SearchPruningDataGenerationDatapoint(
                 #             states = traj,
                 #             atoms_sequence = atoms_seq,
                 #             horizons = [100000000000] * (len(skeleton) + 2),
@@ -754,7 +859,7 @@ class SearchPruningApproach(NSRTLearningApproach):
                 backtracking = e.info.get('backtracking_tree')
                 timed_out = True
             if skeleton is not None and backtracking is not None:
-                _, plan = backtracking.longest_failuire
+                _, plan = backtracking.longest_failure
                 partial_refinements.append((skeleton, plan))
             if timed_out:
                 raise ApproachTimeout(

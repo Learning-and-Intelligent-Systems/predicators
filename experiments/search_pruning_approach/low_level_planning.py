@@ -67,6 +67,7 @@ class BacktrackingTree:
     def append_failed_try(self, option: _Option, tree: Optional['BacktrackingTree']) -> None:
         """ Adds a failed backtracking branch. Takes the ownership of the tree.
         """
+        logging.info("APPEND FAILED TRY")
         assert not self._frozen
         if tree is not None:
             tree._frozen = True
@@ -74,6 +75,7 @@ class BacktrackingTree:
         if tree is not None and tree._longest_failure_length + 1 > self._longest_failure_length:
             self._longest_failure_length = tree._longest_failure_length + 1
             self._longest_failure = (option, tree)
+            logging.info(f"NEW LONGEST FAILURE LENGTH OF {self._longest_failure_length}")
 
     def append_successful_try(self, option: _Option, tree: 'BacktrackingTree', refinement_time: float) -> None:
         assert not self._frozen
@@ -92,7 +94,7 @@ class BacktrackingTree:
         return self._visit(visitor)
 
     @property
-    def longest_failuire(self) -> Tuple[List[State], List[_Option]]:
+    def longest_failure(self) -> Tuple[List[State], List[_Option]]:
         states, options = self._visit(lambda tree: tree._longest_failure)
         assert len(states) == self._longest_failure_length + 1
         return states, options
@@ -158,13 +160,14 @@ def run_low_level_search(
         metrics,
         end_time,
     )
+    logging.info("1: IM HERE!!!!")
     if time.perf_counter() > end_time:
         raise PlanningTimeout("Backtracking timed out!", info={'backtracking_tree': tree})
     if mb_failure:
         failure, _ = mb_failure
         raise _DiscoveredFailureException(
             "Discovered a failure", failure,
-            {"longest_failed_refinement": tree.longest_failuire})
+            {"longest_failed_refinement": tree.longest_failure})
     return tree, tree.is_successful
 
 def run_backtracking_for_data_generation(
@@ -204,12 +207,12 @@ def run_backtracking_for_data_generation(
         end_time,
     )
     if time.perf_counter() > end_time:
-        raise PlanningTimeout("Backtracking timed out!", info={'backtracking_tree': tree})
+        return tree, False
     if mb_failure:
         failure, _ = mb_failure
         raise _DiscoveredFailureException(
             "Discovered a failure", failure,
-            {"longest_failed_refinement": tree.longest_failuire})
+            {"longest_failed_refinement": tree.longest_failure})
     return tree, tree.is_successful
 
 
@@ -274,9 +277,6 @@ def _backtrack( # TODO: add comments and docstring
         if CFG.sesame_check_expected_atoms and not all(a.holds(next_state) for a in atoms_sequence[current_depth + 1]):
             logging.info(f"Depth {current_depth}/{max_depth} Expected atoms do not hold")
             tree.append_failed_try(option, None) # REMOVED FAILURE MANAGEMENT FROM HERE
-            # if current_depth == len(skeleton) - 1 and iter >= max_tries[current_depth] // 2:
-            #     Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
-            #     plt.show()
             continue
 
         next_states = states + [next_state]
@@ -285,9 +285,6 @@ def _backtrack( # TODO: add comments and docstring
             feasible, confidence = feasibility_classifier.classify(next_states, skeleton)
             if not feasible:
                 logging.info(f"Depth {current_depth}/{max_depth} Feasibility classifier does not hold")
-                # if iter >= max_tries[current_depth] // 2:
-                    # Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
-                    # plt.show()
                 tree.append_failed_try(option, BacktrackingTree(next_state))
                 continue
             else:
@@ -316,6 +313,7 @@ def _backtrack( # TODO: add comments and docstring
 
         if time.perf_counter() > end_time: # Timeout handling
             logging.info(f"Depth {current_depth}/{max_depth} Timeout")
+            tree.append_failed_try(option, BacktrackingTree(next_state))
             return tree, None
 
         if next_tree.is_successful:
