@@ -390,11 +390,7 @@ class LiftedAtom(_Atom):
 
     def ground(self, sub: VarToObjSub) -> GroundAtom:
         """Create a GroundAtom with a given substitution."""
-        try:
-            assert set(self.variables).issubset(set(sub.keys()))
-        except AssertionError:
-            import ipdb
-            ipdb.set_trace()
+        assert set(self.variables).issubset(set(sub.keys()))
         return GroundAtom(self.predicate, [sub[v] for v in self.variables])
 
     def substitute(self, sub: VarToVarSub) -> LiftedAtom:
