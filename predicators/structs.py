@@ -20,6 +20,7 @@ from numpy.typing import NDArray
 from tabulate import tabulate
 
 from predicators.settings import CFG
+from predicators.utils import PyBulletState
 
 
 @dataclass(frozen=True, order=True)
@@ -252,6 +253,16 @@ class State:
 
 DefaultState = State({})
 
+@dataclass
+class PyBulletRenderedState(PyBulletState):
+    rendered_state: Dict[str, Image] = field(default_factory=dict)
+
+    def copy(self) -> State:
+        state_dict_copy = super().copy().data
+        simulator_state_copy = list(self.joint_positions)
+        rendered_state_copy = deepcopy(self.rendered_state)
+        return PyBulletRenderedState(state_dict_copy, simulator_state_copy, 
+                                     rendered_state_copy)
 
 @dataclass(frozen=True, order=False, repr=False)
 class Predicate:
@@ -363,6 +374,9 @@ class Predicate:
     def __lt__(self, other: Predicate) -> bool:
         return str(self) < str(other)
 
+@dataclass(frozen=True, repr=False, eq=False)
+class VPPredicate(Predicate):
+    """Visual Programmatic Predicate."""
 
 @dataclass(frozen=True, order=False, repr=False, eq=False)
 class VLMPredicate(Predicate):

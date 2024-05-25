@@ -67,6 +67,7 @@ class BlocksEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+        
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)

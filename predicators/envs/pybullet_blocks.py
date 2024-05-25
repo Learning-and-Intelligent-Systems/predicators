@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple
+from typing import Any, ClassVar, Dict, List, Tuple, Sequence
 
 import numpy as np
 import pybullet as p
@@ -15,7 +15,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
-    Predicate
+    Predicate, VPPredicate
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -47,9 +47,16 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
 
+        self._On_vpp = VPPredicate("On", [self._block_type, self._block_type],
+                                   self._On_holds_vpp)
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
         self._block_id_to_block: Dict[int, Object] = {}
+
+    def _On_holds_vpp(self, state: State, objects: Sequence[Object]) -> bool:
+        block1, block2 = objects
+        whole_image = ImagePatch(state.img_obs)
+        return whole_image.simple_query(f"is_{block1}_on_{block2}")
 
     @classmethod
     def initialize_pybullet(
