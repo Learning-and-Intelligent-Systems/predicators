@@ -38,10 +38,10 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
         On = predicates['On']
         OnTable = predicates['OnTable']
 
-        def _Pick_terminal(s: State, m: Dict, o: Sequence[Object],
-                           p: Array) -> bool:
-            robot, block = o
-            return Holding.holds(s, [block])
+        # def _Pick_terminal(s: State, m: Dict, o: Sequence[Object],
+        #                    p: Array) -> bool:
+        #     robot, block = o
+        #     return Holding.holds(s, [block])
             
         Pick = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
@@ -53,33 +53,33 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
             )
 
         # Probably will need to change the option parameters for this to work
-        def _Stack_terminal(s: State, m: Dict, o: Sequence[Object],
-                            p: Array) -> bool:
-            block, otherblock, _ = o
-            return On.holds(s, [block, otherblock])
+        # def _Stack_terminal(s: State, m: Dict, o: Sequence[Object],
+        #                     p: Array) -> bool:
+        #     block, otherblock, _ = o
+        #     return On.holds(s, [block, otherblock])
 
         Stack = utils.SingletonParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: []
             "Stack",
             cls._create_stack_policy(action_space, block_size),
-            # types=[robot_type, block_type],
-            types = [block_type, block_type, robot_type],
+            types=[robot_type, block_type],
+            # types = [block_type, block_type, robot_type],
             # terminal=_Stack_terminal,
             )
 
-        def _PutOnTable_terminal(s: State, m: Dict, o: Sequence[Object],
-                                 p: Array) -> bool:
-            block, _ = o
-            return OnTable.holds(s, [block])
+        # def _PutOnTable_terminal(s: State, m: Dict, o: Sequence[Object],
+        #                          p: Array) -> bool:
+        #     block, _ = o
+        #     return OnTable.holds(s, [block])
 
         PutOnTable = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable",
             cls._create_putontable_policy(action_space, block_size),
-            # types=[robot_type],
-            types=[block_type, robot_type],
+            types=[robot_type],
+            # types=[block_type, robot_type],
             params_space=Box(0, 1, (2, )),
             # terminal=_PutOnTable_terminal,
             )
@@ -111,8 +111,8 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory, params  # unused
-            # _, block = objects
-            _, block, _ = objects
+            _, block = objects
+            # _, block, _ = objects
 
             block_pose = np.array([
                 state.get(block, "pose_x"),

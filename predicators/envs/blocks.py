@@ -408,6 +408,20 @@ class BlocksEnv(BaseEnv):
         return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
+    def _On_holds_raw(self, state: State, objects: Sequence[Object]) -> bool:
+        block1, block2 = objects
+        if state.get(block1, "held") >= self.held_tol or \
+           state.get(block2, "held") >= self.held_tol:
+            return False
+        x1 = state.get(block1, "pose_x")
+        y1 = state.get(block1, "pose_y")
+        z1 = state.get(block1, "pose_z")
+        x2 = state.get(block2, "pose_x")
+        y2 = state.get(block2, "pose_y")
+        z2 = state.get(block2, "pose_z")
+        return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
+                           atol=self.on_tol)
+
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")

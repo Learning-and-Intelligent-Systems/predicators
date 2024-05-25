@@ -12,7 +12,8 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, Object, State
+from predicators.structs import Action, Array, EnvironmentTask, Object, State,\
+    Type
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -35,6 +36,13 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _offset: ClassVar[float] = 0.01
     pickplace_z: ClassVar[float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001
+
+    # Types
+    _block_type = Type("block", 
+                    ["is_block", "is_target", "width", "pose", "grasp"])
+    _target_type = Type("target",
+                                ["is_block", "is_target", "width", "pose"])
+    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
