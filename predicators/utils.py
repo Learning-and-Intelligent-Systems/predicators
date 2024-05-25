@@ -77,7 +77,7 @@ if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
         cuda_visible_devices[0] = "0"
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
 
-def print_confusion_matrix(tp, tn, fp, fn):
+def print_confusion_matrix(tp: int, tn: int, fp: int, fn: int) -> None:
     precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
     recall = round(tp / (tp + fn), 2) if tp + fn > 0 else 0
     specificity = round(tn / (tn + fp), 2) if tn + fp > 0 else 0
@@ -285,14 +285,47 @@ def count_classification_result_for_ops(
                 n_fail_states = tn_state_dict[optn_str][g_optn]['n_fail']
 
                 # The following is similar to before
-                tp_state_str = set([s.dict_str(indent=2) for s 
-                    in tp_state_dict[optn_str][g_optn]['states']])
-                fn_state_str = set([s.dict_str(indent=2) for s 
-                    in fn_state_dict[optn_str][g_optn]['states']])
-                tn_state_str = set([s.dict_str(indent=2) for s 
-                    in tn_state_dict[optn_str][g_optn]['states']])
-                fp_state_str = set([s.dict_str(indent=2) for s 
-                    in fp_state_dict[optn_str][g_optn]['states']])
+                # object-centric states representation
+                tp_state_str_dict = {s.dict_str(indent=2): s for s
+                    in tp_state_dict[optn_str][g_optn]['states']}
+                tp_state_str = set(tp_state_str_dict.keys())
+                fn_state_str_dict = {s.dict_str(indent=2): s for s
+                    in fn_state_dict[optn_str][g_optn]['states']}
+                fn_state_str = set(fn_state_str_dict.keys())
+                tn_state_str_dict = {s.dict_str(indent=2): s for s
+                    in tn_state_dict[optn_str][g_optn]['states']}
+                tn_state_str = set(tn_state_str_dict.keys())
+                fp_state_str_dict = {s.dict_str(indent=2): s for s
+                    in fp_state_dict[optn_str][g_optn]['states']}
+                fp_state_str = set(fp_state_str_dict.keys())
+                # tp_state_str = set([s.dict_str(indent=2) for s 
+                #     in tp_state_dict[optn_str][g_optn]['states']])
+                # fn_state_str = set([s.dict_str(indent=2) for s 
+                #     in fn_state_dict[optn_str][g_optn]['states']])
+                # tn_state_str = set([s.dict_str(indent=2) for s 
+                #     in tn_state_dict[optn_str][g_optn]['states']])
+                # fp_state_str = set([s.dict_str(indent=2) for s 
+                #     in fp_state_dict[optn_str][g_optn]['states']])
+
+                # rgb perception states representation
+                if CFG.vlm_predicator_render_option_state:
+                    tp_state_obs = [s.rendered_state['scene'] for s
+                        in tp_state_str_dict.values()]
+                    fn_state_obs = [s.rendered_state['scene'] for s
+                        in fn_state_str_dict.values()]
+                    tn_state_obs = [s.rendered_state['scene'] for s
+                        in tn_state_str_dict.values()]
+                    fp_state_obs = [s.rendered_state['scene'] for s
+                        in fp_state_str_dict.values()]
+                    # tp_state_obs = set([s.rendered_state['scene'] for s
+                    #     in tp_state_dict[optn_str][g_optn]['states']])
+                    # fn_state_obs = set([s.rendered_state['scene'] for s
+                    #     in fn_state_dict[optn_str][g_optn]['states']])
+                    # tn_state_obs = set([s.rendered_state['scene'] for s
+                    #     in tn_state_dict[optn_str][g_optn]['states']])
+                    # fp_state_obs = set([s.rendered_state['scene'] for s
+                    #     in fp_state_dict[optn_str][g_optn]['states']])
+                
                 uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
                 uniq_n_tn, uniq_n_fp = len(tn_state_str), len(fp_state_str)
 
@@ -310,9 +343,22 @@ def count_classification_result_for_ops(
                         "operators' precondition (true positives)"+
                         (f", to list {max_num_examples}:" if 
                             uniq_n_tp > max_num_examples else ":"))
-                        for i, state_str in enumerate(tp_state_str): 
-                            if i == max_num_examples: break
-                            result_str.append(state_str+'\n')
+                        result_str = append_classification_result_for_ops(
+                            result_str, g_optn, tp_state_obs, tp_state_str, 
+                            max_num_examples, "tp")
+                        # if CFG.vlm_predicator_render_option_state:
+                        #     for i, state_obs in enumerate(tp_state_obs): 
+                        #         if i == max_num_examples: break
+                        #         obs_name = f"{g_optn}+_tp_{str(i)}.jpg"
+                        #         obs_name, obs_path = vlm_option_obs_save_name(
+                        #             g_optn, i)
+                        #         # save the state_obs to a jpg file at obs_name
+                        #         imageio.imwrite(obs_path, state_obs)
+                        #         result_str.append(obs_name+'\n')
+                        # else:
+                        #     for i, state_str in enumerate(tp_state_str): 
+                        #         if i == max_num_examples: break
+                        #         result_str.append(state_str+'\n')
 
                     # False Negative
                     if n_fn:
@@ -323,9 +369,12 @@ def count_classification_result_for_ops(
                         "operators' precondition (false negatives)"+
                         (f", to list {max_num_examples}:" if 
                             uniq_n_fn > max_num_examples else ":"))
-                        for i, state_str in enumerate(fn_state_str): 
-                            if i == max_num_examples: break
-                            result_str.append(state_str+'\n')
+                        result_str = append_classification_result_for_ops(
+                            result_str, g_optn, fn_state_obs, fn_state_str, 
+                            max_num_examples, "fn")
+                        # for i, state_str in enumerate(fn_state_str): 
+                        #     if i == max_num_examples: break
+                        #     result_str.append(state_str+'\n')
                         # result_str.append("\n")
 
                 # GT Negative
@@ -343,9 +392,12 @@ def count_classification_result_for_ops(
                         "operators' precondition (false positives)"+
                         (f", to list {max_num_examples}:" if 
                             uniq_n_fp > max_num_examples else ":"))
-                        for i, state_str in enumerate(fp_state_str):
-                            if i == max_num_examples: break
-                            result_str.append(state_str+'\n')
+                        result_str = append_classification_result_for_ops(
+                            result_str, g_optn, fp_state_obs, fp_state_str, 
+                            max_num_examples, "fp")
+                        # for i, state_str in enumerate(fp_state_str):
+                        #     if i == max_num_examples: break
+                        #     result_str.append(state_str+'\n')
                         # result_str.append("\n")
 
                     if n_tn:# and (n_tn/n_fail_states) < 1:
@@ -357,9 +409,12 @@ def count_classification_result_for_ops(
                         "operators' precondition (true negatives)"+
                         (f", to list {max_num_examples}:" if 
                             uniq_n_tn > max_num_examples else ":"))
-                        for i, state_str in enumerate(tn_state_str):
-                            if i == max_num_examples: break
-                            result_str.append(state_str+'\n')
+                        result_str = append_classification_result_for_ops(
+                            result_str, g_optn, tn_state_obs, tn_state_str, 
+                            max_num_examples, "tn")
+                        # for i, state_str in enumerate(tn_state_str):
+                        #     if i == max_num_examples: break
+                        #     result_str.append(state_str+'\n')
                         # result_str.append("\n")
 
     if print_cm:
@@ -441,6 +496,26 @@ def count_classification_result_for_ops(
 
     return sum_tp, sum_tn, sum_fp, sum_fn, '\n'.join(result_str)
 
+def append_classification_result_for_ops(result_str: List[str],
+                                         g_optn: str,
+                                         states_obs: Set[Image],
+                                         states_str: Set[str],
+                                         max_num_examples: int,
+                                         category: str) -> List[str]:
+    if CFG.vlm_predicator_render_option_state:
+        for i, state_obs in enumerate(states_obs): 
+            if i == max_num_examples: break
+            # obs_name = f"{g_optn}_{category}_{str(i)}.png"
+            obs_name, obs_path = vlm_option_obs_save_name(
+                g_optn, category, i)
+            # save the state_obs to a jpg file at obs_name
+            imageio.imwrite(obs_path, state_obs)
+            result_str.append(obs_name+'\n')
+    else:
+        for i, state_str in enumerate(states_str): 
+            if i == max_num_examples: break
+            result_str.append(state_str+'\n')
+    return result_str
 
 def count_positives_for_ops(
     strips_ops: List[STRIPSOperator],
@@ -1425,7 +1500,7 @@ class PyBulletState(State):
 
 @dataclass
 class PyBulletRenderedState(PyBulletState):
-    rendered_state: Dict[str, Image] = None
+    rendered_state: Dict[str, Image] = field(default_factory=dict)
 
     def copy(self) -> State:
         state_dict_copy = super().copy().data
@@ -1544,12 +1619,6 @@ def run_policy(
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
-
-    # if CFG.rgb_observation:
-    #     for i, rgb_state in enumerate(states):
-    #         # assert rgb_state.rendered_state['scene'][0] is a np.array
-    #         assert isinstance(rgb_state.rendered_state['scene'][0], np.ndarray)
-    #     print("All states has RGB observations")
 
     if CFG.rgb_observation and CFG.make_segmented_demo_videos:
         video = monitor._seg_video['scene']
@@ -3046,6 +3115,15 @@ def llm_pred_dataset_save_name(invention_iteration: int) -> str:
         f"{CFG.num_train_tasks}_{CFG.seed}_{invention_iteration}" + suffix_str
     dataset_path = os.path.join(CFG.data_dir, dataset_fname)
     return dataset_path
+
+def vlm_option_obs_save_name(g_optn_str: str, category: str, obs_idx: int) ->\
+    Tuple[str, str]:
+    suffix_str = ".png"
+    img_fname = f"{CFG.env}_{g_optn_str}_{category}_{obs_idx}" + suffix_str
+    img_dir = "./prompts/images"
+    os.makedirs(img_dir, exist_ok=True)
+    img_path = os.path.join(img_dir, img_fname)
+    return img_fname, img_path
 
 def create_dataset_filename_str(
         saving_ground_atoms: bool,

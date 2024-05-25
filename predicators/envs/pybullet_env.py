@@ -283,7 +283,8 @@ class PyBulletEnv(BaseEnv):
 
 
         # Convert to numpy arrays
-        original_image = np.array(rgbImg).reshape((height, width, 4))
+        original_image = np.array(rgbImg, dtype=np.uint8).reshape((height, 
+                                                                   width, 4))
         seg_image = np.array(segImg).reshape((height, width))
         # imageio.imsave(f'./prompts/og_image.png', original_image)
         # imageio.imsave(f'./prompts/seg_image.png', seg_image)

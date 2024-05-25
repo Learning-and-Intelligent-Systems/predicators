@@ -11,7 +11,8 @@ import base64
 import dill
 import logging
 import textwrap
-from typing import Set, List, Dict, Sequence, Tuple, Any, FrozenSet, Iterator
+from typing import Set, List, Dict, Sequence, Tuple, Any, FrozenSet, Iterator,\
+    Callable
 import subprocess
 import inspect
 from inspect import getsource
@@ -19,6 +20,7 @@ from copy import deepcopy
 import importlib.util
 from collections import defaultdict, namedtuple
 from pprint import pformat
+from tqdm import tqdm
 
 from gym.spaces import Box
 import numpy as np
@@ -184,7 +186,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         base_candidates = set()
         manual_prompt = True
         regenerate_response = False
-        load_llm_pred_invent_dataset = False
+        load_llm_pred_invent_dataset = True
         save_llm_pred_invent_dataset = True
         solve_rate, prev_solve_rate = 0.0, np.inf # init to inf
         best_solve_rate, best_ite, clf_acc = 0.0, 0.0, 0.0
@@ -209,7 +211,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     dill.dump((results, dataset), f)
                 logging.info(f"Saved dataset to {ds_fname}\n")
 
-        num_solved = sum([isinstance(r, tuple) for r in results])
+        num_solved = sum([r.succeeded for r in results])
         prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite {0}; "
                 f"no invent solve rate {num_solved / num_tasks}\n")
@@ -330,7 +332,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         dill.dump((results, dataset), f)
                     logging.info(f"Saved dataset to {ds_fname}\n")
 
-            num_solved = sum([isinstance(r, tuple) for r in results])
+            num_solved = sum([r.succeeded for r in results])
             solve_rate= num_solved / num_tasks
             no_improvement = not(solve_rate > prev_solve_rate)
 
@@ -524,7 +526,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Predicates
         pred_str_lst = []
         pred_str_lst.append(self._init_predicate_str(self.env_source_code))
-        if ite > 0:
+        if ite > 1:
             pred_str_lst.append("The previously invented predicates are:")
             pred_str_lst.append(self._invented_predicate_str(ite))
         pred_str = '\n'.join(pred_str_lst)
@@ -549,8 +551,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                         self.fail_optn_dict,
                                         return_str=True,
                                         initial_ite=(ite==0),
-                                        print_cm=True
-                                    )
+                                        print_cm=True)
         template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
         # Save the text prompt
@@ -630,10 +631,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         for code_str in python_blocks:
             # Extract name from code block
             match = re.search(r'(\w+)\s*=\s*Predicate', code_str)
-            if match is not None:
-                pred_name =  match.group(1)
-            else:
+            if match is None:
                 raise ValueError("No predicate name found in the code block")
+            pred_name =  match.group(1)
             logging.info(f"Found definition for predicate {pred_name}")
             
             # # Type check the code
@@ -648,11 +648,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             #         break
 
             # Instantiate the predicate
-            try:
-                exec(import_str + '\n' + type_init_str + '\n' + constants_str +
+            exec(import_str + '\n' + type_init_str + '\n' + constants_str +
                      code_str, context)
-            except:
-                breakpoint()
             candidates.add(context[pred_name])
 
         return candidates
@@ -790,10 +787,13 @@ class VlmInventionApproach(NSRTLearningApproach):
         # logging.info(f"The agent solved {num_solved} out of " +
         #                 f"{num_attempted} tasks.\n")
         logging.info("===Processing the interaction results...\n")
+        num_tasks = len(tasks)
         if ite == 1:
-            self.solve_log = [False] * len(tasks)
+            self.solve_log = [False] * num_tasks
 
-        for i, _ in enumerate(tasks):
+        # Add a progress bar
+        for i, _ in tqdm(enumerate(tasks), total=num_tasks, 
+                         desc="Processing Interaction results"):
             # Planning Results
             result = results[i]
             try:
@@ -824,27 +824,24 @@ class VlmInventionApproach(NSRTLearningApproach):
                     nsrt_plan, option_plan, add_intermediate_details)
 
             # The failed refinement
-            try:
-                # This result is either a Result tuple or an exception
-                # todo: Maybe should unify them in _solve_tasks?
-                for p_ref in result.info['partial_refinements']:
-                    nsrt_plan = p_ref[0]
-                    # longest option refinement
-                    option_plan = p_ref[1].copy()
-                    failed_opt_idx = len(option_plan) - 1
+            # This result is either a Result tuple or an exception
+            # todo: Maybe should unify them in _solve_tasks?
+            for p_ref in result.info['partial_refinements']:
+                nsrt_plan = p_ref[0]
+                # longest option refinement
+                option_plan = p_ref[1].copy()
+                failed_opt_idx = len(option_plan) - 1
 
-                    state = env.reset(train_or_test='train', task_idx=i)
-                    # Successful part
-                    if failed_opt_idx > 0:
-                        state = self._plan_to_str(
-                            state, env, nsrt_plan, option_plan[:-1], 
-                            add_intermediate_details)
-                    # Failed part
-                    _ = self._plan_to_str(state, env, 
-                            nsrt_plan[failed_opt_idx:], option_plan[-1:], 
-                            add_intermediate_details, failed_opt=True)
-            except:
-                breakpoint()
+                state = env.reset(train_or_test='train', task_idx=i)
+                # Successful part
+                if failed_opt_idx > 0:
+                    state = self._plan_to_str(
+                        state, env, nsrt_plan, option_plan[:-1], 
+                        add_intermediate_details)
+                # Failed part
+                _ = self._plan_to_str(state, env, 
+                        nsrt_plan[failed_opt_idx:], option_plan[-1:], 
+                        add_intermediate_details, failed_opt=True)
 
         # Add the abstract states
         # maybe should be optimized?
@@ -864,11 +861,12 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Executing the plan
         # task_str = []
         state = init_state
-        def policy(s: State) -> Action: 
-            raise OptionExecutionFailure("placeholder policy")
+        policy: Optional[Callable[[State], Action]] = None
         nsrt_counter = 0
         for _ in range(CFG.horizon):
             try:
+                if policy is None:
+                    raise OptionExecutionFailure("placeholder policy")
                 act = policy(state)
                 state = env.step(act)
                 # if add_intermediate_details:
@@ -887,9 +885,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     #         state.dict_str() + "\n")
                     try:
                         option = option_plan.pop(0)
-                        # if option.name == "OpenLid":
-                        #     breakpoint()
-                        policy= utils.option_plan_to_policy(
+                        policy = utils.option_plan_to_policy(
                             [option], raise_error_on_repeated_state=True)
                     except IndexError: break
                     else:
@@ -902,35 +898,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     g_nsrt.parent.option_vars,
                                     g_nsrt.option
                                 )
-                            # if CFG.vlm_predicator_render_option_state:
                             self.succ_optn_dict[gop_str].append_state(
                                 env.get_observation())
-                            # else:
-                            #     self.succ_optn_dict[gop_str].append_state(state)
-                            
-                            # self.succ_optn_dict[gop_str]['states'].append(state)
-                            # # assume unique grounding
-                            # self.succ_optn_dict[gop_str]['optn_objs'] =\
-                            #     g_nsrt.option_objs
-                            # self.succ_optn_dict[gop_str]['optn_vars'] =\
-                            #     g_nsrt.parent.option_vars
-                            # self.succ_optn_dict[gop_str]['option'] =\
-                            #     g_nsrt.option
-                            # task_str.append(
-                            # "The option "+
-                            # f"{nsrt_plan[nsrt_counter].ground_option_str()} "+
-                            # "is successfully initialized in the above state.\n"
-                            # )
                             nsrt_counter += 1
                 else:
-                    # if add_intermediate_details:
-                    #     task_str.append("Action attempt: "+str(act._arr)+"\n")
-                    # task_str.append("The option failed in execution because: "+
-                                        # str(e) + '\n')
-                    # if nsrt_plan[0].ground_option_str()=="StickPressButton(robby_hand:hand, stick:stick, button0:button)":
-                    #     breakpoint()
-                    # self.fail_optn_dict[nsrt_plan[0].ground_option_str()
-                    #                     ].append((init_state, e))
                     g_nsrt = nsrt_plan[0]
                     gop_str = g_nsrt.ground_option_str()
                     if not self.fail_optn_dict[gop_str].has_states():
@@ -942,21 +913,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         )
                     self.fail_optn_dict[gop_str].append_state(
                         env.get_observation())
-                    # self.fail_optn_dict[gop_str].append_state(state)
                     break
-                    # self.fail_optn_dict[gop_str]['states'].append(state)
-                    # self.fail_optn_dict[gop_str]['errors'].append(e)
-                    # # assume unique grounding
-                    # self.fail_optn_dict[gop_str]['optn_objs'] =\
-                    #     g_nsrt.option_objs
-                    # self.fail_optn_dict[gop_str]['optn_vars'] =\
-                    #     g_nsrt.parent.option_vars
-                    # self.fail_optn_dict[gop_str]['option'] =\
-                    #     g_nsrt.option
-            # except AssertionError as e:
-            #     breakpoint()
-            # #     policy(state)
-            #     logging.info("error")
 
         return state
         # final_state = state

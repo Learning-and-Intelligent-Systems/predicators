@@ -14,7 +14,8 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, EnvironmentTask, Object, State
+from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
+    Predicate
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -25,8 +26,26 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
+    # Repeat for LLM predicates parsing
+    # Types
+    _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
+                                "color_r", "color_g", "color_b"])
+    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        # Repeat for LLM predicates parsing
+        # Predicates
+        self._On = Predicate("On", [self._block_type, self._block_type],
+                             self._On_holds)
+        self._OnTable = Predicate("OnTable", [self._block_type],
+                                  self._OnTable_holds)
+        self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
+                                      self._GripperOpen_holds)
+        self._Holding = Predicate("Holding", [self._block_type],
+                                  self._Holding_holds)
+        self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
 
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.

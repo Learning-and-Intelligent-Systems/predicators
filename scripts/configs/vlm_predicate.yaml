@@ -7,7 +7,9 @@ APPROACHES:
 ENVS:
   stick_button:
     # NAME: "stick_button"
-    NAME: "cover_place_hard"
+    # NAME: "cover_place_hard"
+    # NAME: "pybullet_cover"
+    NAME: "pybullet_blocks"
     # NAME: "blocks"
     # NAME: "doors"
     # NAME: "sokoban"
@@ -18,7 +20,6 @@ ENVS:
     # NAME: "tools"
     # NAME: "coffee"
     # NAME: "playroom_simple"
-    # NAME: "pybullet_cover"
     
 ARGS: 
   # []
@@ -29,7 +30,7 @@ ARGS:
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 20
+  num_train_tasks: 10
   num_test_tasks: 50
   # option_learner: direct_bc # So it doesn' include all oracle options in init
                             # when including all options, should also include
@@ -56,9 +57,9 @@ FLAGS:
   grammar_search_grammar_use_skip_grammar: False
 
   llm_predicator_use_grammar: False
-  llm_predicator_oracle_base: True
+  llm_predicator_oracle_base: False
   llm_predicator_oracle_learned: True
-  # vlm_predicator_render_option_state: True
+  vlm_predicator_render_option_state: True
 START_SEED: 2
 NUM_SEEDS: 1
 ...
