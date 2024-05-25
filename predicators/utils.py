@@ -1498,16 +1498,6 @@ class PyBulletState(State):
         simulator_state_copy = list(self.joint_positions)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
-@dataclass
-class PyBulletRenderedState(PyBulletState):
-    rendered_state: Dict[str, Image] = field(default_factory=dict)
-
-    def copy(self) -> State:
-        state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_positions)
-        rendered_state_copy = deepcopy(self.rendered_state)
-        return PyBulletRenderedState(state_dict_copy, simulator_state_copy, 
-                                     rendered_state_copy)
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for
