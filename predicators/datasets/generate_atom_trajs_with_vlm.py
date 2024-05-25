@@ -98,14 +98,40 @@ def _generate_prompt_for_scene_labelling(
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-    for atom_str in atoms_list:
-        prompt += f"\n{atom_str}"
-    for curr_imgs in traj.imgs:
-        # NOTE: we rip out just one img from each of the state
-        # images. This is fine/works for the case where we only
-        # have one camera view, but probably will need to be
-        # amended in the future!
-        ret_list.append((prompt, [curr_imgs[0]]))
+    if CFG.grammar_search_vlm_atom_label_prompt_type == "img_option_diffs":
+        # In this case, we need to load the 'per_scene_naive' prompt as well
+        # for the first timestep.
+        with open(filepath_prefix + "per_scene_naive.txt",
+                  "r",
+                  encoding="utf-8") as f:
+            init_prompt = f.read()
+        for atom_str in atoms_list:
+            init_prompt += f"\n{atom_str}"
+        ret_list.append((init_prompt, traj.imgs[0]))
+        # Now, we use actual difference-based prompting for the second timestep
+        # and beyond.
+        # The prompt ends with a section for 'Predicates', so list these.
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        for i in range(1, len(traj.imgs)):
+            curr_prompt = prompt[:]
+            # NOTE: we rip out just one img from each of the state
+            # images. This is fine/works for the case where we only
+            # have one camera view, but probably will need to be
+            # amended in the future!
+            curr_prompt_imgs = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
+            ]
+            curr_prompt += "\n\nSkill executed between states: "
+            curr_prompt += traj.actions[i - 1].name + str(
+                traj.actions[i - 1].objects)
+            ret_list.append((curr_prompt, curr_prompt_imgs))
+    else:
+        for atom_str in atoms_list:
+            prompt += f"\n{atom_str}"
+        for curr_imgs in traj.imgs:
+            # NOTE: same problem with ripping out images as in the above note.
+            ret_list.append((prompt, [curr_imgs[0]]))
     return ret_list
 
 

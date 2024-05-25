@@ -5,7 +5,9 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import matplotlib
 import numpy as np
+import PIL
 from gym.spaces import Box
+from PIL import ImageDraw
 
 try:
     import gymnasium as mujoco_kitchen_gym
@@ -183,8 +185,35 @@ README of that repo suggests!"
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: Image = self._gym_env.render()  # type: ignore
-        return [arr]
+        curr_img_arr: Image = self._gym_env.render()  # type: ignore
+        if CFG.kitchen_render_set_of_marks:
+            # Add text labels for the burners to the image. Useful for VLM-based
+            # predicate invention.
+            curr_img_pil = PIL.Image.fromarray(curr_img_arr)  # type: ignore
+            draw = ImageDraw.Draw(curr_img_pil)
+            # Specify the font size and type (default font is used here)
+            font = utils.get_scaled_default_font(draw, 3)
+            # Define the text and position
+            burner1_text = "burner1"
+            burner1_position = (300, 290)
+            burner2_text = "burner2"
+            burner2_position = (210, 310)
+            burner3_text = "burner3"
+            burner3_position = (260, 235)
+            burner4_text = "burner4"
+            burner4_position = (185, 245)
+            burner1_img = utils.add_text_to_draw_img(draw, burner1_position,
+                                                     burner1_text, font)
+            burner2_img = utils.add_text_to_draw_img(burner1_img,
+                                                     burner2_position,
+                                                     burner2_text, font)
+            burner3_img = utils.add_text_to_draw_img(burner2_img,
+                                                     burner3_position,
+                                                     burner3_text, font)
+            _ = utils.add_text_to_draw_img(burner3_img, burner4_position,
+                                           burner4_text, font)
+            curr_img_arr = np.array(curr_img_pil)
+        return [curr_img_arr]
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -276,7 +305,7 @@ README of that repo suggests!"
             self._gym_env.render()
         self._current_observation = {
             "state_info": self.get_object_centric_state_info(),
-            "obs_images": [self._gym_env.render()]
+            "obs_images": self.render()
         }
         return self._copy_observation(self._current_observation)
 
@@ -377,7 +406,7 @@ README of that repo suggests!"
         self._gym_env.reset(seed=seed)
         return {
             "state_info": self.get_object_centric_state_info(),
-            "obs_images": [self._gym_env.render()]
+            "obs_images": self.render()
         }
 
     @classmethod
@@ -559,7 +588,8 @@ README of that repo suggests!"
         """Predicate that's necessary for goal specification."""
         kettle, burner, knob = objects
         return cls.On_holds(state, [knob]) and cls._OnTop_holds(
-            state, [kettle, burner])
+            state, [kettle, burner]) and cls._KnobAndBurnerLinkedHolds(
+                state, [knob, burner])
 
     @classmethod
     def _KnobAndBurnerLinkedHolds(cls, state: State,

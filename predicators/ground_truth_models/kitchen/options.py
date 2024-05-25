@@ -143,7 +143,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # Create copies just to preserve one-to-one-ness with NSRTs.
         for suffix in ["PreTurnOn", "PreTurnOff"]:
-            nsrt = ParameterizedOption(
+            opt = ParameterizedOption(
                 f"MoveTo{suffix}",
                 types=[gripper_type, on_off_type],
                 # Parameter is a position to move to relative to the object.
@@ -152,7 +152,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 initiable=_MoveTo_initiable,
                 terminal=_MoveTo_terminal)
 
-            options.add(nsrt)
+            options.add(opt)
 
         # MoveToPrePushOnTop (different type)
         def _MoveToPrePushOnTop_initiable(state: State, memory: Dict,
@@ -271,6 +271,47 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_PushObjOnObjForward_terminal)
 
         options.add(PushObjOnObjForward)
+
+        # PushKettleOntoBurner
+        def _PushKettleOntoBurner_initiable(state: State, memory: Dict,
+                                            objects: Sequence[Object],
+                                            params: Array) -> bool:
+            gripper, obj, _ = objects
+            memory["gripper_infront_kettle"] = False
+            return _MoveTo_initiable(state, memory, [gripper, obj], params[:3])
+
+        def _PushKettleOntoBurner_policy(state: State, memory: Dict,
+                                         objects: Sequence[Object],
+                                         params: Array) -> Action:
+            gripper, obj, _ = objects
+            if not memory["gripper_infront_kettle"]:
+                # Check if the MoveTo option has terminated.
+                if _MoveTo_terminal(state, memory, [gripper, obj], params[:3]):
+                    memory["gripper_infront_kettle"] = True
+                else:
+                    return _MoveTo_policy(state, memory, [gripper, obj],
+                                          params[:3])
+            return _PushObjOnObjForward_policy(state, memory, objects,
+                                               params[3:])
+
+        def _PushKettleOntoBurner_terminal(state: State, memory: Dict,
+                                           objects: Sequence[Object],
+                                           params: Array) -> bool:
+            del memory, params  # unused
+            _, obj, obj2 = objects
+            return GroundAtom(OnTop, [obj, obj2]).holds(state)
+
+        PushKettleOntoBurner = ParameterizedOption(
+            "PushKettleOntoBurner",
+            types=[gripper_type, kettle_type, surface_type],
+            # Parameter is an angle for pushing forward.
+            params_space=Box(np.array([-5.0, -5.0, -5.0, -np.pi]),
+                             np.array([5.0, 5.0, 5.0, np.pi]), (4, )),
+            policy=_PushKettleOntoBurner_policy,
+            initiable=_PushKettleOntoBurner_initiable,
+            terminal=_PushKettleOntoBurner_terminal)
+
+        options.add(PushKettleOntoBurner)
 
         # PullKettle
         def _PullKettle_policy(state: State, memory: Dict,
@@ -407,6 +448,47 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_TurnOnKnob_terminal)
         options.add(TurnOnKnob)
+
+        # MoveAndTurnOnKnob
+        def _MoveAndTurnOnKnob_initiable(state: State, memory: Dict,
+                                         objects: Sequence[Object],
+                                         params: Array) -> bool:
+            gripper, obj = objects
+            memory["gripper_infront_knob"] = False
+            return _MoveTo_initiable(state, memory, [gripper, obj], params[:3])
+
+        def _MoveAndTurnOnKnob_policy(state: State, memory: Dict,
+                                      objects: Sequence[Object],
+                                      params: Array) -> Action:
+            gripper, obj = objects
+            if not memory["gripper_infront_knob"]:
+                # Check if the MoveTo option has terminated.
+                if _MoveTo_terminal(state, memory, [gripper, obj], params[:3]):
+                    memory["gripper_infront_knob"] = True
+                else:
+                    return _MoveTo_policy(state, memory, [gripper, obj],
+                                          params[:3])
+            return _TurnOnKnob_policy(state, memory, objects, params[3:])
+
+        def _MoveAndTurnOnKnob_terminal(state: State, memory: Dict,
+                                        objects: Sequence[Object],
+                                        params: Array) -> bool:
+            del memory, params  # unused
+            _, obj = objects
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.On_holds(state, [obj],
+                                       thresh_pad=cls.turn_knob_tol)
+
+        MoveAndTurnOnKnob = ParameterizedOption(
+            "MoveAndTurnOnKnob",
+            types=[gripper_type, knob_type],
+            # The parameter is a push direction angle with respect to x.
+            params_space=Box(np.array([-5.0, -5.0, -5.0, -np.pi]),
+                             np.array([5.0, 5.0, 5.0, np.pi]), (4, )),
+            policy=_MoveAndTurnOnKnob_policy,
+            initiable=_MoveAndTurnOnKnob_initiable,
+            terminal=_MoveAndTurnOnKnob_terminal)
+        options.add(MoveAndTurnOnKnob)
 
         # TurnOffKnob
         def _TurnOffKnob_policy(state: State, memory: Dict,

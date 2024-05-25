@@ -55,6 +55,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         TurnOnKnob = options["TurnOnKnob"]
         PushOpen = options["PushOpen"]
         PushClose = options["PushClose"]
+        PushKettleOntoBurner = options["PushKettleOntoBurner"]
+        MoveAndTurnOnKnob = options["MoveAndTurnOnKnob"]
 
         # Predicates
         AtPreTurnOn = predicates["AtPreTurnOn"]
@@ -99,7 +101,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                          delete_effects, ignore_effects,
                                          option, option_vars,
                                          moveto_preturnoff_sampler)
-        nsrts.add(move_to_pre_turn_off_nsrt)
 
         # MoveToPreTurnOn
         parameters = [gripper, on_off_obj]
@@ -125,7 +126,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                         preconditions, add_effects,
                                         delete_effects, ignore_effects, option,
                                         option_vars, moveto_preturnon_sampler)
-        nsrts.add(move_to_pre_turn_on_nsrt)
 
         # MoveToPrePushOnTop
         parameters = [gripper, kettle]
@@ -155,7 +155,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             delete_effects, ignore_effects,
                                             option, option_vars,
                                             moveto_prepushontop_sampler)
-        nsrts.add(move_to_pre_push_on_top_nsrt)
 
         # MoveToPrePullKettle
         parameters = [gripper, kettle]
@@ -184,7 +183,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             delete_effects, ignore_effects,
                                             option, option_vars,
                                             moveto_prepullkettle_sampler)
-        nsrts.add(move_to_pre_pull_kettle_nsrt)
 
         # PushObjOnObjForward
         parameters = [gripper, kettle, surface_from, surface_to]
@@ -219,7 +217,35 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             delete_effects, ignore_effects,
                                             option, option_vars,
                                             push_obj_on_obj_forward_sampler)
-        nsrts.add(push_obj_on_obj_forward_nsrt)
+
+        # PushKettleOntoBurner
+        def move_and_push_kettle_sampler(state: State, goal: Set[GroundAtom],
+                                         rng: np.random.Generator,
+                                         objs: Sequence[Object]) -> Array:
+            move_sample = moveto_prepushontop_sampler(state, goal, rng,
+                                                      objs[:2])
+            push_sample = push_obj_on_obj_forward_sampler(
+                state, goal, rng, objs)
+            return np.concatenate([move_sample, push_sample], axis=0)
+
+        parameters = [gripper, kettle, surface_from, surface_to]
+        preconditions = {
+            LiftedAtom(NotOnTop, [kettle, surface_to]),
+            LiftedAtom(BurnerAhead, [surface_to, surface_from]),
+            LiftedAtom(OnTop, [kettle, surface_from]),
+        }
+        add_effects = {LiftedAtom(OnTop, [kettle, surface_to])}
+        delete_effects = {LiftedAtom(NotOnTop, [kettle, surface_to])}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = PushKettleOntoBurner
+        option_vars = [gripper, kettle, surface_to]
+        push_kettle_onto_burner_nsrt = NSRT("PushKettleOntoBurner", parameters,
+                                            preconditions, add_effects,
+                                            delete_effects, ignore_effects,
+                                            option, option_vars,
+                                            move_and_push_kettle_sampler)
 
         # PushObjOnObjForwardToBoilKettle
         parameters = [gripper, kettle, surface_from, surface_to, knob]
@@ -241,13 +267,34 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         option = PushObjOnObjForward
         option_vars = [gripper, kettle, surface_to]
-        push_obj_on_obj_forward_nsrt = NSRT("PushObjOnObjForwardAndBoilKettle",
-                                            parameters, preconditions,
-                                            add_effects, delete_effects,
-                                            ignore_effects, option,
-                                            option_vars,
-                                            push_obj_on_obj_forward_sampler)
-        nsrts.add(push_obj_on_obj_forward_nsrt)
+        push_obj_on_obj_forward_and_boil_kettle_nsrt = NSRT(
+            "PushObjOnObjForwardAndBoilKettle", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            push_obj_on_obj_forward_sampler)
+
+        # PushKettleOntoBurnerAndBoil
+        parameters = [gripper, kettle, surface_from, surface_to, knob]
+        preconditions = {
+            LiftedAtom(NotOnTop, [kettle, surface_to]),
+            LiftedAtom(BurnerAhead, [surface_to, surface_from]),
+            LiftedAtom(OnTop, [kettle, surface_from]),
+            LiftedAtom(TurnedOn, [knob]),
+            LiftedAtom(KnobAndBurnerLinked, [knob, surface_to])
+        }
+        add_effects = {
+            LiftedAtom(OnTop, [kettle, surface_to]),
+            LiftedAtom(KettleBoiling, [kettle, surface_to, knob])
+        }
+        delete_effects = {LiftedAtom(NotOnTop, [kettle, surface_to])}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = PushKettleOntoBurner
+        option_vars = [gripper, kettle, surface_to]
+        push_kettle_onto_burner_and_boil_nsrt = NSRT(
+            "PushKettleOntoBurnerAndBoil", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            move_and_push_kettle_sampler)
 
         # PullKettle
         parameters = [gripper, kettle, surface_from, surface_to]
@@ -279,7 +326,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         pull_kettle_nsrt = NSRT("PullKettle", parameters, preconditions,
                                 add_effects, delete_effects, ignore_effects,
                                 option, option_vars, pull_kettle_sampler)
-        nsrts.add(pull_kettle_nsrt)
 
         # TurnOffSwitch
         parameters = [gripper, switch]
@@ -313,7 +359,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     add_effects, delete_effects,
                                     ignore_effects, option, option_vars,
                                     switch_turn_sampler)
-        nsrts.add(turn_off_switch_nsrt)
 
         # TurnOnSwitch
         parameters = [gripper, switch]
@@ -332,7 +377,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         turn_on_switch_nsrt = NSRT("TurnOnSwitch", parameters, preconditions,
                                    add_effects, delete_effects, ignore_effects,
                                    option, option_vars, switch_turn_sampler)
-        nsrts.add(turn_on_switch_nsrt)
 
         # TurnOnKnob
         parameters = [gripper, knob]
@@ -363,7 +407,30 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         turn_on_knob_nsrt = NSRT("TurnOnKnob", parameters, preconditions,
                                  add_effects, delete_effects, ignore_effects,
                                  option, option_vars, knob_turn_on_sampler)
-        nsrts.add(turn_on_knob_nsrt)
+
+        # MoveAndTurnOnKnob
+        parameters = [gripper, knob]
+        preconditions = {LiftedAtom(TurnedOff, [knob])}
+        add_effects = {LiftedAtom(TurnedOn, [knob])}
+        delete_effects = {LiftedAtom(TurnedOff, [knob])}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = MoveAndTurnOnKnob
+        option_vars = [gripper, knob]
+
+        def move_and_knob_turn_on_sampler(state: State, goal: Set[GroundAtom],
+                                          rng: np.random.Generator,
+                                          objs: Sequence[Object]) -> Array:
+            move_sample = moveto_preturnon_sampler(state, goal, rng, objs[:2])
+            turn_on_sample = knob_turn_on_sampler(state, goal, rng, objs)
+            return np.concatenate([move_sample, turn_on_sample], axis=0)
+
+        move_and_turn_on_knob_nsrt = NSRT("MoveAndTurnOnKnob", parameters,
+                                          preconditions, add_effects,
+                                          delete_effects, ignore_effects,
+                                          option, option_vars,
+                                          move_and_knob_turn_on_sampler)
 
         # TurnOnKnobAndBoilKettle
         parameters = [gripper, knob, surface_to, kettle]
@@ -383,11 +450,34 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         option = TurnOnKnob
         option_vars = [gripper, knob]
-        turn_on_knob_nsrt = NSRT("TurnOnKnobAndBoilKettle", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 ignore_effects, option, option_vars,
-                                 knob_turn_on_sampler)
-        nsrts.add(turn_on_knob_nsrt)
+        turn_on_knob_and_boil_kettle_nsrt = NSRT("TurnOnKnobAndBoilKettle",
+                                                 parameters, preconditions,
+                                                 add_effects, delete_effects,
+                                                 ignore_effects, option,
+                                                 option_vars,
+                                                 knob_turn_on_sampler)
+
+        # TurnOnKnobAndBoilKettle
+        parameters = [gripper, knob, surface_to, kettle]
+        preconditions = {
+            LiftedAtom(TurnedOff, [knob]),
+            LiftedAtom(OnTop, [kettle, surface_to]),
+            LiftedAtom(KnobAndBurnerLinked, [knob, surface_to])
+        }
+        add_effects = {
+            LiftedAtom(TurnedOn, [knob]),
+            LiftedAtom(KettleBoiling, [kettle, surface_to, knob])
+        }
+        delete_effects = {LiftedAtom(TurnedOff, [knob])}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = MoveAndTurnOnKnob
+        option_vars = [gripper, knob]
+        move_and_turn_on_knob_and_boil_kettle_nsrt = NSRT(
+            "MoveAndTurnOnKnobAndBoilKettle", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            move_and_knob_turn_on_sampler)
 
         # TurnOffKnob
         parameters = [gripper, knob]
@@ -417,7 +507,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         turn_off_knob_nsrt = NSRT("TurnOffKnob", parameters, preconditions,
                                   add_effects, delete_effects, ignore_effects,
                                   option, option_vars, knob_turn_off_sampler)
-        nsrts.add(turn_off_knob_nsrt)
 
         # PushOpenHingeDoor
         parameters = [gripper, hinge_door]
@@ -459,7 +548,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                          delete_effects, ignore_effects,
                                          option, option_vars,
                                          push_open_hinge_door_sampler)
-        nsrts.add(push_open_hinge_door_nsrt)
 
         # PushCloseHingeDoor
         parameters = [gripper, hinge_door]
@@ -499,6 +587,32 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                           delete_effects, ignore_effects,
                                           option, option_vars,
                                           push_close_hinge_door_sampler)
+
+        # Add the relevant NSRTs to the set to be returned.
+        # NOTE: if kitchen_use_combo_move_nsrts is set to true, we use NSRTs
+        # that couple moving with other actions implicitly (i.e., move NSRTs
+        # aren't separate in any way). This is useful for e.g. in VLM predicate
+        # invention since moving places doesn't really turn on any predicates
+        # that are easily-classified.
+        if not CFG.kitchen_use_combo_move_nsrts:
+            nsrts.add(move_to_pre_push_on_top_nsrt)
+            nsrts.add(push_obj_on_obj_forward_nsrt)
+            nsrts.add(push_obj_on_obj_forward_and_boil_kettle_nsrt)
+            nsrts.add(turn_on_knob_nsrt)
+            nsrts.add(turn_on_knob_and_boil_kettle_nsrt)
+        else:
+            nsrts.add(push_kettle_onto_burner_nsrt)
+            nsrts.add(push_kettle_onto_burner_and_boil_nsrt)
+            nsrts.add(move_and_turn_on_knob_and_boil_kettle_nsrt)
+            nsrts.add(move_and_turn_on_knob_nsrt)
+        nsrts.add(move_to_pre_pull_kettle_nsrt)
+        nsrts.add(pull_kettle_nsrt)
+        nsrts.add(turn_off_switch_nsrt)
+        nsrts.add(turn_on_switch_nsrt)
+        nsrts.add(turn_off_knob_nsrt)
+        nsrts.add(push_open_hinge_door_nsrt)
+        nsrts.add(move_to_pre_turn_on_nsrt)
+        nsrts.add(move_to_pre_turn_off_nsrt)
         nsrts.add(push_close_hinge_door_nsrt)
 
         return nsrts
