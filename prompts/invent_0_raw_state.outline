@@ -1,6 +1,6 @@
 You are an expert roboticist and AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
 
-Class definitions for `Predicate` and `State` are:
+Class definitions for `VPPredicate`, `RawState`, and `ImagePatch`  are:
 [STRUCT_DEFINITION]
 
 The environment includes the following object-type variables:
