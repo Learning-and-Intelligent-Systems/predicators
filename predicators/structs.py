@@ -388,8 +388,8 @@ class Predicate:
         return str(self) < str(other)
 
 @dataclass(frozen=True, repr=False, eq=False)
-class VPPredicate(Predicate):
-    """Visual Programmatic Predicate."""
+class NSPredicate(Predicate):
+    """Neuro-Symbolic Predicate."""
     _classifier: Callable[[RawState, Sequence[Object]],
                           bool] = field(compare=False)
 
