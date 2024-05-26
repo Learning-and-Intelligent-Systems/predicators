@@ -1,4 +1,4 @@
-class VPPredicate:
+class NSPredicate:
     """
     A class representing a predicate (a lifted classifier over states) in the 
     context of AI task planning.

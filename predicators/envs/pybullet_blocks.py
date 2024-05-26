@@ -15,8 +15,8 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
-    Predicate, VPPredicate
-
+    Predicate, NSPredicate, RawState
+from viper import ImagePatch
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
@@ -31,6 +31,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
                                 "color_r", "color_g", "color_b"])
     _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"])
+    _table_type = Type("table", [])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -47,19 +48,126 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
 
-        self._On_vpp = VPPredicate("On", [self._block_type, self._block_type],
-                                   self._On_holds_vpp)
+        # Neuro-Symbolic Predicates
+        self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
+                                   self._On_NSP_holds)
+        self._OnTable_NSP = NSPredicate("OnTable", [self._block_type],
+                                        self._OnTable_NSP_holds)
+        self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
+                                           self._GripperOpen_NSP_holds)
+        self._Holding_NSP = NSPredicate("Holding", [self._block_type],
+                                       self._Holding_NSP_holds)
+        self._Clear_NSP = NSPredicate("Clear", [self._block_type],
+                                     self._Clear_NSP_holds)
+
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
         self._block_id_to_block: Dict[int, Object] = {}
 
-    def _On_holds_vpp(self, state: State, objects: Sequence[Object]) -> bool:
-        '''state.rendered_state is a dictionary from object_name to its 
-        ImagePatch.
+    def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
+            bool:
+        '''
+        Is there no block on top of the block
+        '''
+        block, = objects
+
+        # Label the object in the scene image.
+        scene_image = ImagePatch(state.get_scene_image())
+        scene_image = scene_image.label(block, block.name)
+
+        # We only need to look at the object and the space on top of it to
+        # determine if it's clear.
+        attention_image = scene_image.crop_to_objects([block], left_margin=5, 
+            right_margin=5,rtop_margin=20)
+        
+        return attention_image.simple_query(
+            f"is {block.name} clear, i.e. no block on top of {block.name}?")
+        
+
+    def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
+            bool:
+        '''
+        Is the robot holding the block
+        '''
+        block, = objects
+
+        # The block can't be held if the robot's hand is open.
+        # We know there is only one robot in this environment.
+        robot = state.get_objects(self._robot_type)[0]
+        if self._GripperOpen_NSP_holds(state, [robot]):
+            return False
+
+        scene_image = ImagePatch(state.get_scene_image())
+        scene_image = scene_image.label(block, block.name)
+        attention_image = scene_image.crop_to_objects([block, robot])
+        return attention_image.simple_query(
+            f"is {block.name} held by the robot")
+
+    def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
+            bool:
+        '''
+        Is the robots gripper open
+        '''
+        robot, = objects
+        finger_state = state.get(robot, "fingers")
+        assert finger_state in (0.0, 1.0)
+        return finger_state == 1.0
+    
+    def _OnTable_NSP_holds(self, state: RawState, objects:Sequence[Object]) ->\
+            bool:
+        '''Determine if the block in objects is on the table in the scene image.
+        Attributes:
+        -----------
+        state : RawState
+        objects : Sequence[Object]
+            The block whose relationship with the table is to be determined.
+        '''
+        block = objects
+        block_name = block.name
+        scene_image = ImagePatch(state.get_scene_image())
+
+        # We know there is only one table in this environment.
+        table = state.get_objects(self._table_type)[0]
+
+        # Label the objects in the scene image to simply reasoning.
+        scene_image = scene_image.label(block, block_name)
+
+        # Crop the scene image to the smallest bounding box that include both
+        # objects.
+        attention_image = scene_image.crop_to_objects([block, table])
+        return attention_image.simple_query(f"is_{block_name}_on_table")
+
+    def _On_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> bool:
+        '''Determine if the first block in objects is on the second block in the 
+        scene image.
+        Attributes:
+        -----------
+        state : RawState
+        objects : Sequence[Object]
+            The two blocks whose relationship is to be determined.
         '''
         block1, block2 = objects
-        whole_image = ImagePatch(state.img_obs)
-        return whole_image.simple_query(f"is_{block1}_on_{block2}")
+        block1_name, block2_name = block1.name, block2.name
+        
+        scene_image = ImagePatch(state.get_scene_image())
+        # Label the objects in the scene image to simply reasoning.
+        scene_image = scene_image.label(block1, block1_name)
+        scene_image = scene_image.label(block2, block2_name)
+
+        # Use some simple heuristics to check if they are far away
+        block1_img = state.get_object_image(block1) 
+        block2_img = state.get_object_image(block2)
+        if (block1_img.lower < block2_img.lower) or \
+           (block1_img.left > block2_img.right) or \
+           (block1_img.right < block2_img.left) or \
+           (block1_img.upper < block2_img.upper):
+            return False
+
+        # Crop the scene image to the smallest bounding box that include both
+        # objects.
+        attention_image = scene_image.crop_to_objects([block1, block2])
+        return attention_image.simple_query(
+            f"is_{block1_name}_on_{block2_name}")
 
     @classmethod
     def initialize_pybullet(
