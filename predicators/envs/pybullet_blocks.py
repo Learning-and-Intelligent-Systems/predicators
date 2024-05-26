@@ -54,6 +54,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._block_id_to_block: Dict[int, Object] = {}
 
     def _On_holds_vpp(self, state: State, objects: Sequence[Object]) -> bool:
+        '''state.rendered_state is a dictionary from object_name to its 
+        ImagePatch.
+        '''
         block1, block2 = objects
         whole_image = ImagePatch(state.img_obs)
         return whole_image.simple_query(f"is_{block1}_on_{block2}")

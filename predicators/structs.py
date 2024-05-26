@@ -249,14 +249,32 @@ class State:
 DefaultState = State({})
 
 @dataclass
-class PyBulletRenderedState(PyBulletState):
-    rendered_state: Dict[str, Image] = field(default_factory=dict)
+class ImageWithBox:
+    """An PIL image of either a scene or object with it's bounding box 
+    coordicates"""
+    image: PIL.Image.Image
+    left: int
+    lower: int
+    right: int
+    upper: int
+
+@dataclass
+class RawState(PyBulletState):
+    obj_img_dict: Dict[str, ImageWithBox] = field(default_factory=dict)
+
+    def get_scene_image(self) -> ImageWithBox:
+        """Return the scene image."""
+        return self.obj_img_dict["scene"]
+
+    def get_object_image(self, object: Object) -> ImageWithBox:
+        """Return the image with bounding box for the object."""
+        return self.get_obj_image(object.name)
 
     def copy(self) -> State:
-        state_dict_copy = super().copy().data
+        state_dict_copy = super().super().copy().data
         simulator_state_copy = list(self.joint_positions)
-        rendered_state_copy = deepcopy(self.rendered_state)
-        return PyBulletRenderedState(state_dict_copy, simulator_state_copy, 
+        rendered_state_copy = copy.deepcopy(self.rendered_state)
+        return RawState(state_dict_copy, simulator_state_copy, 
                                      rendered_state_copy)
 
 @dataclass(frozen=True, order=False, repr=False)
@@ -372,6 +390,9 @@ class Predicate:
 @dataclass(frozen=True, repr=False, eq=False)
 class VPPredicate(Predicate):
     """Visual Programmatic Predicate."""
+    _classifier: Callable[[RawState, Sequence[Object]],
+                          bool] = field(compare=False)
+
 
 @dataclass(frozen=True, order=False, repr=False, eq=False)
 class VLMPredicate(Predicate):

@@ -10,6 +10,7 @@ import matplotlib
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
+from PIL import Image
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -19,7 +20,7 @@ from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Observation, \
-    State, Video, Image
+    State, Video, ImageWithBox, RawState
 
 
 class PyBulletEnv(BaseEnv):
@@ -242,7 +243,7 @@ class PyBulletEnv(BaseEnv):
 
     def render_segmented_obj(self,
                 action: Optional[Action] = None,
-                caption: Optional[str] = None) -> Dict[str, Image]: 
+                caption: Optional[str] = None) -> Dict[str, ImageWithBox]: 
         '''Render the scene and the segmented objects in the scene.
         '''
         # if not self.using_gui:
@@ -270,7 +271,7 @@ class PyBulletEnv(BaseEnv):
             physicsClientId=self._physics_client_id)
 
         # Initialize an empty dictionary
-        segmented_images = {}
+        img_dict: Dict[str, ImageWithBox] = {}
 
         # Get the original image and segmentation mask
         (_, _, rgbImg, _, segImg) = p.getCameraImage(
@@ -281,7 +282,6 @@ class PyBulletEnv(BaseEnv):
             renderer=p.ER_BULLET_HARDWARE_OPENGL,
             physicsClientId=self._physics_client_id)
 
-
         # Convert to numpy arrays
         original_image = np.array(rgbImg, dtype=np.uint8).reshape((height, 
                                                                    width, 4))
@@ -289,30 +289,40 @@ class PyBulletEnv(BaseEnv):
         # imageio.imsave(f'./prompts/og_image.png', original_image)
         # imageio.imsave(f'./prompts/seg_image.png', seg_image)
 
-        segmented_images['scene'] = original_image
+        img_dict['scene'] = ImageWithBox(
+            Image.fromarray(original_image), 0, height-1, 0, width-1)
 
         # Iterate over all bodies
         for bodyId in range(p.getNumBodies(self._physics_client_id)):
             # Create a mask for the current body using the segmentation mask
             mask = seg_image == bodyId
 
-            # Use the mask to crop the original image
-            cropped_image = np.where(mask[..., None], original_image, 0)
+            # Option 1: mask everything besides the object out
+            # obj_only_img = np.where(mask[..., None], original_image, 0)
 
-            # Save the cropped image
-            # imageio.imsave(f'./prompts/obj_{bodyId}.png', cropped_image)
+            # Get the indices of the pixels that belong to the object
+            y_indices, x_indices = np.where(mask)
+
+            # Get the bounding box
+            left = x_indices.min()
+            right = x_indices.max()
+            lower = y_indices.min()
+            upper = y_indices.max()
+            cropped_image = original_image[lower:upper+1, left:right+1]
 
             # Add the cropped image to the dictionary
-            segmented_images[str(bodyId)] = cropped_image
+            # img_dict[str(bodyId)] = Image.fromarray(cropped_image)
+            img_dict[str(bodyId)] = ImageWithBox(
+                Image.fromarray(cropped_image), left, lower, right, upper)
 
-        return segmented_images
+        return img_dict
 
     def get_observation(self) -> Observation:
         """Get the current observation of this environment."""
         assert isinstance(self._current_observation, State)
         state_copy = self._current_observation.copy()
         if CFG.vlm_predicator_render_option_state:
-            rendered_state = utils.PyBulletRenderedState(
+            rendered_state = RawState(
                 state_copy.data, state_copy.simulator_state,
                 self.render_segmented_obj()
             )
