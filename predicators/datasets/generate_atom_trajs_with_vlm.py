@@ -728,7 +728,7 @@ def create_ground_atom_data_from_generated_demos(
                 first_iteration = False
             else:
                 total_num_segment_states -= 1  # avoid double-counting states!
-        if total_num_segment_states != len(traj.states):
+        if total_num_segment_states != len(traj.states):  # pragma: no cover.
             logging.info(
                 ("WARNING: there are fewer total states after option-based "
                  "segmentation than there are in the original trajectory. "
