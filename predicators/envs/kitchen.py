@@ -105,7 +105,7 @@ class KitchenEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
-Install from https://github.com/SiddarGu/Gymnasium-Robotics.git. \
+Install from https://github.com/NishanthJKumar/Gymnasium-Robotics. \
 BE SURE TO INSTALL FROM GITHUB SOURCE THOUGH; do not blindly install as the \
 README of that repo suggests!"
 
@@ -404,6 +404,7 @@ README of that repo suggests!"
 
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
         self._gym_env.reset(seed=seed)
+        self._gym_env.set_body_position("kettle", [-0.269, 0.65, 1.626])
         return {
             "state_info": self.get_object_centric_state_info(),
             "obs_images": self.render()
