@@ -341,20 +341,11 @@ def _parse_structured_state_into_ground_atoms(
         assert goal_predicate.name == "DummyGoal"
         use_dummy_goal = True
 
-    # We also check whether there is precisely one "object" type that is
-    # a superset of all other object types.
-    obj_type = None
-    for t in env.types:
-        obj_type = t.oldest_ancestor
-        if obj_type.name != "object":
-            obj_type = None
-            break
-
     def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
         return pred_name + "(" + ", ".join(
             str(obj.name) for obj in objects) + ")"  # pragma: no cover
 
-    pred_name_to_pred = {}
+    pred_name_and_obj_types_to_pred = {}
     atoms_trajs = []
     # Loop through all trajectories in the structured_state_trajs and convert
     # each one to a sequence of sets of GroundAtoms.
@@ -378,6 +369,8 @@ def _parse_structured_state_into_ground_atoms(
             # reached or not.
             assert DUMMY_GOAL_OBJ_NAME in curr_obj_name_to_obj
 
+        # Now, start converting each structured state into a set of ground
+        # atoms.
         for j, structured_state in enumerate(traj):
 
             curr_ground_atoms_state = set()
@@ -387,67 +380,38 @@ def _parse_structured_state_into_ground_atoms(
                     state_trajs[i][j], known_predicates)
 
             for pred_name, objs_and_val_dict in structured_state.items():
-                # IMPORTANT NOTE: this currently assumes that the data is such
-                # that a predicate with a certain name (e.g. "Sliced")
-                # always appears with the same number of object arguments
-                # (e.g. Sliced(apple), and never
-                # Sliced(apple, cutting_tool)). We might want to explicitly
-                # check for this in the future.
-                if pred_name not in pred_name_to_pred:
-                    if len(objs_and_val_dict.keys()) == 1:
-                        # NOTE: this below code doesn't do the right thing
-                        # when there are multiple of the predicate that
-                        # are true with different objects of the same type
-                        # (e.g. Covers(obj1, targ1) and Covers(obj2, targ2)).
-                        # We might want to do something about this.
-                        # In this case, we make a predicate that takes in
-                        # exactly one types argument.
-                        for obj_args in objs_and_val_dict.keys():
-                            # We need to construct the types being
-                            # fed into this predicate.
-                            pred_types = []
-                            for obj_name in obj_args:
-                                curr_obj = curr_obj_name_to_obj[obj_name]
-                                pred_types.append(curr_obj.type)
-                            pred_name_to_pred[
-                                pred_name] = utils.create_vlm_predicate(
-                                    pred_name, pred_types,
+                for pred_i, (objs_strs, truth_val) in enumerate(
+                        sorted(objs_and_val_dict.items())):
+                    objs_types = [
+                        curr_obj_name_to_obj[obj_name].type
+                        for obj_name in objs_strs
+                    ]
+                    pred_name_and_obj_types_str = pred_name + "(" + ",".join(
+                        str(obj_type.name) for obj_type in objs_types) + ")"
+                    if pred_name_and_obj_types_str not in \
+                        pred_name_and_obj_types_to_pred:
+                        # NOTE: we use 'pred_i' here as a unique index such
+                        # that different predicates with the same name but
+                        # different object types (e.g. On(light) vs.
+                        # On(kettle, burner)) have a different name so that
+                        # the planner doesn't complain about this during
+                        # planning.
+                        pred_name_and_obj_types_to_pred[
+                            pred_name_and_obj_types_str] = \
+                                utils.create_vlm_predicate(pred_name +
+                                    str(pred_i), objs_types,
                                     partial(_get_vlm_query_str, pred_name))
-                    else:
-                        # In this case, we need to make a predicate that
-                        # takes in the generic 'object' type such that
-                        # multiple different objs could potentially be
-                        # subbed in.
-                        # Start by checking that the number of object
-                        # args are always the same
-                        num_args = 0
-                        for obj_args in objs_and_val_dict.keys():
-                            if num_args == 0:
-                                num_args = len(obj_args)
-                            else:
-                                assert num_args == len(obj_args)
-                        # Given this, add one new predicate with num_args
-                        # number of 'object' type arguments.
-                        assert obj_type is not None, (
-                            "VLM atom parsing "
-                            "failure; please add an 'object' type to your "
-                            "environment that is a supertype of all other "
-                            "types.")
-                        pred_name_to_pred[
-                            pred_name] = utils.create_vlm_predicate(
-                                pred_name, [obj_type for _ in range(num_args)],
-                                partial(_get_vlm_query_str, pred_name))
-
-                # Given that we've now built up predicates and object
-                # dictionaries. We can now convert the current state into
-                # ground atoms!
-                for obj_args, truth_value in objs_and_val_dict.items():
-                    if truth_value:
+                    # Given that we've now built up predicates and object
+                    # dictionaries. We can now convert the current state into
+                    # ground atoms!
+                    if truth_val:
                         curr_ground_atoms_state.add(
                             GroundAtom(
-                                pred_name_to_pred[pred_name],
-                                [curr_obj_name_to_obj[o] for o in obj_args]))
+                                pred_name_and_obj_types_to_pred[
+                                    pred_name_and_obj_types_str],
+                                [curr_obj_name_to_obj[o] for o in objs_strs]))
             curr_atoms_traj.append(curr_ground_atoms_state)
+        # Bookkeeping for the goal(s).
         if assume_goal_holds_at_end:
             curr_atoms_traj[-1] |= train_tasks[i].goal
         atoms_trajs.append(curr_atoms_traj)
@@ -594,6 +558,10 @@ def _parse_atoms_txt_into_structured_state(
             pattern_predicate, state_block_match)
         current_predicate_data: Dict[str, Dict[Tuple[str, ...], bool]] = {}
         for predicate_match in predicate_matches_within_state_block:
+            # Skip evaluating any predicate values that aren't explicitly
+            # labelled as one of the below.
+            if predicate_match[2] not in ["True", "False", "Unknown"]:
+                continue
             classifier_name = predicate_match[0]
             objects = tuple(map(str.strip, predicate_match[1].split(',')))
             truth_value = predicate_match[2] == 'True'
@@ -750,9 +718,21 @@ def create_ground_atom_data_from_generated_demos(
         segments = _segment_with_option_changes(traj, set(), None)
         curr_traj_states_for_vlm: List[State] = []
         curr_traj_actions_for_vlm: List[Action] = []
+        total_num_segment_states = 0
+        first_iteration = True
         for segment in segments:
             curr_traj_states_for_vlm.append(segment.states[0])
             curr_traj_actions_for_vlm.append(segment.actions[0])
+            total_num_segment_states += len(segment.states)
+            if first_iteration:
+                first_iteration = False
+            else:
+                total_num_segment_states -= 1  # avoid double-counting states!
+        if total_num_segment_states != len(traj.states):  # pragma: no cover.
+            logging.info(
+                ("WARNING: there are fewer total states after option-based "
+                 "segmentation than there are in the original trajectory. "
+                 "Likely there is an issue with segmentation!"))
         # We manually add the final two states (initial state and terminal
         # state of the final option).
         curr_traj_states_for_vlm.append(traj.states[-1])

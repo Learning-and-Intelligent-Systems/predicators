@@ -31,13 +31,6 @@ class Type:
         """Dimensionality of the feature vector of this object type."""
         return len(self.feature_names)
 
-    @property
-    def oldest_ancestor(self) -> Type:
-        """Crawl up all the parent types to return the one at the top."""
-        if self.parent is None:
-            return self
-        return self.parent.oldest_ancestor
-
     def __call__(self, name: str) -> _TypedEntity:
         """Convenience method for generating _TypedEntities."""
         if name.startswith("?"):

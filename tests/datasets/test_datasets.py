@@ -628,7 +628,7 @@ def test_loading_saved_vlm_img_demos_folder_dummy_goal(
         assert len(loaded_dataset.trajectories) == 1
         assert len(loaded_dataset.annotations) == 1
         assert len(loaded_dataset.annotations[0][0]) == 1
-        assert "Holding(spoon:spoon)" in str(loaded_dataset.annotations[0][0])
+        assert "Holding0(spoon:spoon)" in str(loaded_dataset.annotations[0][0])
         assert "DummyGoal" in str(loaded_dataset.annotations[0][-1])
     else:
         with pytest.raises(ValueError) as e:
