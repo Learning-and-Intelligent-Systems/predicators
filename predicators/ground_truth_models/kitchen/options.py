@@ -30,7 +30,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     # Keep pushing a bit even if the On classifier holds.
     push_lr_thresh_pad: ClassVar[float] = 0.02
     push_microhandle_thresh_pad: ClassVar[float] = 0.02
-    turn_knob_tol: ClassVar[float] = 0.01  # for twisting the knob
+    turn_knob_tol: ClassVar[float] = -0.03  # for twisting the knob
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
