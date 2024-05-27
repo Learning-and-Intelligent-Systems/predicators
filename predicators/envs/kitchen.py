@@ -88,7 +88,7 @@ class KitchenEnv(BaseEnv):
     obj_name_to_pre_push_dpos = {
         ("kettle", "on"): (-0.05, -0.3, -0.12),
         ("kettle", "off"): (0.0, 0.0, 0.08),
-        ("knob4", "on"): (-0.1, -0.15, 0.05),
+        ("knob4", "on"): (-0.1, -0.10, 0.05),
         ("knob4", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
         ("light", "off"): (-0.1, -0.05, -0.05),
@@ -195,13 +195,13 @@ README of that repo suggests!"
             font = utils.get_scaled_default_font(draw, 3)
             # Define the text and position
             burner1_text = "burner1"
-            burner1_position = (300, 290)
+            burner1_position = (300, 305)
             burner2_text = "burner2"
-            burner2_position = (210, 310)
+            burner2_position = (210, 325)
             burner3_text = "burner3"
-            burner3_position = (260, 235)
+            burner3_position = (260, 250)
             burner4_text = "burner4"
-            burner4_position = (185, 245)
+            burner4_position = (185, 260)
             burner1_img = utils.add_text_to_draw_img(draw, burner1_position,
                                                      burner1_text, font)
             burner2_img = utils.add_text_to_draw_img(burner1_img,
