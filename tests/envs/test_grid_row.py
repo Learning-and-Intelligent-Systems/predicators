@@ -137,7 +137,7 @@ def test_grid_row():
 
 
 def test_grid_row_door():
-    """Tests for the Grid Row environment."""
+    """Tests for the Grid Row Door environment."""
     utils.reset_config({
         "env": "grid_row_door",
         "num_train_tasks": 1,
