@@ -160,6 +160,8 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             del state, memory, objects, params  # unused
             return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
 
+
+    #COMMENT THIS OUT FOR NO JUMPTOLIGHT
         JumpToLight = utils.SingletonParameterizedOption(
             "JumpToLight",
             types=[robot_type, cell_type, cell_type, cell_type, light_type],
@@ -181,5 +183,7 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             policy=_toggle_door_policy,
             params_space=Box(0.0, 1.0, (1, )),
         )
+
+        #COMMENT THIS OUT (JUMPTOLIGHT)
 
         return {MoveRobot, TurnOnLight, TurnOffLight, JumpToLight, OpenDoor}

@@ -46,7 +46,7 @@ class DeliverySpecificApproach(BaseApproach):
             unpacked = predicates["unpacked"]
             carrying = predicates["carrying"]
             satisfied = predicates["satisfied"]
-            print(f'{ground_atoms=}')
+            # print(f'{ground_atoms=}')
             # print(f'{at=}')
             # print(f'{wants_paper=}')
             # print(f'{is_home_base=}')

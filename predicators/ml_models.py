@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Collection, Deque, Dict, FrozenSet, \
     Iterator, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
+import datetime
 
 import numpy as np
 import torch
@@ -30,12 +31,14 @@ from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
     State, _GroundNSRT, _Option
+import matplotlib as plt
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
 
 ################################ Base Classes #################################
 
+# plt.ion()
 
 class Regressor(abc.ABC):
     """ABC for regressor classes."""
@@ -1331,7 +1334,7 @@ class MapleQFunction(MLPRegressor):
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
                  n_iter_no_change: int = 10000000,
-                 discount: float = 0.99,
+                 discount: float = 0.95,
                  num_lookahead_samples: int = 5,
                  replay_buffer_max_size: int = 1000000,
                  replay_buffer_sample_with_replacement: bool = True) -> None:
@@ -1378,6 +1381,7 @@ class MapleQFunction(MLPRegressor):
                    epsilon: float = 0.0) -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
+        
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -1425,6 +1429,7 @@ class MapleQFunction(MLPRegressor):
                 [vectorized_state, vectorized_goal, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
+            # print(next_state, vectorized_next_state)
             if not terminal and self._y_dim != -1:
                 best_next_value = -np.inf
                 next_option_vecs: List[Array] = []
@@ -1442,12 +1447,35 @@ class MapleQFunction(MLPRegressor):
                     best_next_value = max(best_next_value, q_x_hat)
             else:
                 best_next_value = 0.0
+            
             Y_arr[i] = reward + self._discount * best_next_value
+            # print("REWARD",option, next_state ,reward, Y_arr[i])
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
         # number of iterations. It will also normalize all the data.
+
         self.fit(X_arr, Y_arr)
+
+        #CALL VISUALIZER HERE !!!!!!!!!!!!!!!!!!!
+        # plot_value_history
+
+    def plot_value_history(value_history):
+        row = col = int(np.sqrt(value_history[0].size))
+        images = [x.reshape(row, col) for x in value_history]
+
+        num_images = len(images)
+        cols = int(np.sqrt(num_images))
+        rows = int(np.ceil(num_images / cols))
+        fig = plt.figure(figsize=(5, 12))
+        for i, image in enumerate(images):
+            plt.subplot(rows + 1, cols, i + 1)
+            plt.imshow(image)
+            plt.xlabel(f'Iter: {i}')
+        fig.tight_layout()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'plot_{timestamp}.png'
+        fig.savefig(filename, dpi=300)
 
     def minibatch_generator(
             self, tensor_X: Tensor, tensor_Y: Tensor,
@@ -1503,6 +1531,7 @@ class MapleQFunction(MLPRegressor):
         for o in self._ordered_objects:
             try:
                 vec = state[o]
+                # print(o, state[o])
             except KeyError:
                 vec = np.zeros(o.type.dim, dtype=np.float32)
             vecs.append(vec)
@@ -1531,10 +1560,10 @@ class MapleQFunction(MLPRegressor):
         #     if x.option == option.parent and tuple(x.objects) == tuple(option.objects):
         #         print("nice")
 
-        try:
-            assert len(matches) == 1
-        except AssertionError:
-            import ipdb; ipdb.set_trace()
+        # try:
+        #     assert len(matches) == 1
+        # except AssertionError:
+            # import ipdb; ipdb.set_trace()
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
         discrete_vec[matches[0]] = 1.0
@@ -1549,6 +1578,7 @@ class MapleQFunction(MLPRegressor):
                         option: _Option) -> float:
         """Predict the Q value."""
         # Default value if not yet fit.
+        #DEFAULT IS 0
         if self._y_dim == -1:
             return 0.0
         x = np.concatenate([
@@ -1587,5 +1617,5 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
-        
+        # import ipdb; ipdb.set_trace()
         return sampled_options

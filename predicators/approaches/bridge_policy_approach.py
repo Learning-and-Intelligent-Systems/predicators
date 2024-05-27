@@ -58,6 +58,7 @@ from predicators.structs import Action, BridgeDataset, DefaultState, \
     InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
     Type, _Option, _GroundNSRT, LowLevelTrajectory
 from predicators.utils import OptionExecutionFailure
+from functools import reduce
 
 
 
@@ -126,9 +127,9 @@ class BridgePolicyApproach(OracleApproach):
                 failed_option = e.info["last_failed_option"]
                 if failed_option is not None:
                     all_failed_options.append(failed_option)
-                    logging.debug(f"Failed option: {failed_option.name}"
-                                  f"{failed_option.objects}.")
-                    logging.debug(f"Error: {e.args[0]}")
+                    # logging.debug(f"Failed option: {failed_option.name}"
+                    #               f"{failed_option.objects}.")
+                    # logging.debug(f"Error: {e.args[0]}")
                     self._bridge_policy.record_failed_option(failed_option)
 
             # Switch control from planner to bridge.
@@ -137,7 +138,7 @@ class BridgePolicyApproach(OracleApproach):
                 if failed_option is None:
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed on init state.")
-                logging.debug("Switching control from planner to bridge.")
+                # logging.debug("Switching control from planner to bridge.")
                 current_control = "bridge"
                 #TO DO change this to maple q . solve() to get a policy
                 option_policy = self._bridge_policy.get_option_policy()
@@ -241,6 +242,7 @@ class BridgePolicyApproach(OracleApproach):
                 return policy(s)
             
             except ApproachFailure as e:
+                
                 reached_stuck_state = True
                 all_failed_options = e.info["all_failed_options"]
                 # Approach failures not caught in interaction loop.
@@ -468,7 +470,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # import ipdb; ipdb.set_trace()
         self._mapleq._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
-        print("NSRTS", self._mapleq._q_function._ground_nsrt_to_idx)
+        # print("NSRTS", self._mapleq._q_function._ground_nsrt_to_idx)
         
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
@@ -477,7 +479,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         if not self._maple_initialized:
             self._mapleq=MapleQApproach(self._get_current_predicates(), self._initial_options, self._types, self._action_space, self._train_tasks)
             self._maple_initialized=True
-            print("mapleq inited")
+            # print("mapleq inited")
             self._init_nsrts()
             
         # Start by planning. Note that we cannot start with the bridge policy
@@ -497,15 +499,16 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy, last_bridge_policy_state
+            # print("current state:", s)
 
-            if time.perf_counter() - start_time > timeout:
-                raise ApproachTimeout("Bridge policy timed out.")
+            # if time.perf_counter() - start_time > timeout:
+            #     raise ApproachTimeout("Bridge policy timed out.")
 
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
             try:
                 action = current_policy(s)
-                # print(action.get_option())
+                # print("returned action",action.get_option())
                 return action
             except BridgePolicyDone:
                 assert current_control == "bridge"
@@ -514,9 +517,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 failed_option = e.info["last_failed_option"]
                 if failed_option is not None:
                     all_failed_options.append(failed_option)
-                    logging.debug(f"Failed option: {failed_option.name}"
-                                  f"{failed_option.objects}.")
-                    logging.debug(f"Error: {e.args[0]}")
+                    # logging.debug(f"Failed option: {failed_option.name}"
+                    #               f"{failed_option.objects}.")
+                    # logging.debug(f"Error: {e.args[0]}")
                     # self._bridge_policy.record_failed_option(failed_option)
 
             # Switch control from planner to bridge.
@@ -525,8 +528,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 if failed_option is None:
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed on init state.")
-                logging.debug("Switching control from planner to bridge.")
-                print("Switching control from planner to bridge.")
+                # logging.debug("Switching control from planner to bridge.")
+                # print("Switching control from planner to bridge.")
                 current_control = "bridge"
                 #TO DO change this to maple q . solve() to get a policy
                 self._bridge_policy=self._mapleq._solve(task, timeout)
@@ -542,7 +545,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 # step, then this approach would be performing MPC.
                 try:
                     action = current_policy(s)
-                    # print(action.get_option())
+                    # print("returned action by maple q",action.get_option())
+                    
                     return action            
                 except BridgePolicyDone:
                     if last_bridge_policy_state.allclose(s):
@@ -552,8 +556,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 last_bridge_policy_state = s
 
             # Switch control from bridge to planner.
-            logging.debug("Switching control from bridge to planner.")
-            print("Switching control from bridge to planner.")
+            # logging.debug("Switching control from bridge to planner.")
+            # print("Switching control from bridge to planner.")
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
@@ -568,7 +572,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             )
             try:
                 action = current_policy(s)
-                # print(action.get_option())
+                # print("returned action by planner", action.get_option())
                 return action
             except OptionExecutionFailure as e:
                 all_failed_options.append(e.info["last_failed_option"])
@@ -596,6 +600,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 raise OptionExecutionFailure(e.args[0], e.info)
 
         def _termination_fn(s: State) -> bool:
+            # if task.goal_holds(s):
+                # import ipdb; ipdb.set_trace()
             return task.goal_holds(s)
         # reached_stuck_state or task.goal_holds(s)
 
@@ -641,16 +647,25 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         
         #TO DO make trajectories within this loop!!
         #make sure u start from the start state
+        all_states=[]
+        all_actions=[]
 
         for result in results:
 
             new_traj=LowLevelTrajectory(result.states, result.actions)
             trajs.append(new_traj)
+            all_states.extend(result.states)
+            all_actions.extend(result.actions)
             actions = [action.get_option() for action in new_traj.actions]
-            print(actions)
+            # print(actions)
             
         self._mapleq.get_interaction_requests()
         self._mapleq._learn_nsrts(trajs, 0, []*len(trajs))
-        
         # return self._bridge_policy.learn_from_demos(self._bridge_dataset)
+        unique_states = reduce(lambda re, x: re+[x] if x not in re else re, all_states, [])
+        unique_actions = reduce(lambda re, x: re+[x] if x not in re else re, all_actions, [])
+        for state in all_states:
+            for action in all_actions:
+                q_value = self._approach._mapleq._q_function.predict_q_value(state, self._current_goal, action.get_option())
+                print("Q VALUE !!!!!!, observation, action, q val", state, action.get_option(), q_value)
 

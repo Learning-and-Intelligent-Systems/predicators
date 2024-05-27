@@ -44,6 +44,7 @@ from typing import List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import dill as pkl
+import matplotlib as plt
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -59,7 +60,7 @@ from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
     InteractionResult, Metrics, Observation, Response, Task, Video, _Option
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
-
+import numpy as np
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
 
@@ -220,6 +221,9 @@ def _run_pipeline(env: BaseEnv,
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
+            print("HEYASEIHASIFHIHAOIDF", i)
+            if results["solved"]:
+                raise ValueError
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, cogman)
@@ -228,7 +232,6 @@ def _run_pipeline(env: BaseEnv,
         results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
-
 
 def _generate_interaction_results(
         cogman: CogMan,
@@ -432,6 +435,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     metrics["num_solve_failures"] = total_num_solve_failures
     metrics["num_execution_timeouts"] = total_num_execution_timeouts
     metrics["num_execution_failures"] = total_num_execution_failures
+    metrics["solved"]=solved
     # Handle computing averages of total cogman metrics wrt the
     # number of found policies. Note: this is different from computing
     # an average wrt the number of solved tasks, which might be more
@@ -490,6 +494,8 @@ def _run_episode(
     exception_raised_in_step = False
     if not (terminate_on_goal_reached and env.goal_reached()):
         for _ in range(max_num_steps):
+            
+
             monitor_observed = False
             exception_raised_in_step = False
             try:
@@ -501,6 +507,9 @@ def _run_episode(
                 if act.has_option() and act.get_option() != curr_option:
                     curr_option = act.get_option()
                     metrics["num_options_executed"] += 1
+                    if train_or_test=="test":
+                        print(curr_option)
+                        
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env

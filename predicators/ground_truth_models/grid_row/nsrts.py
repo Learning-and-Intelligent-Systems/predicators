@@ -204,6 +204,7 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         MoveRobot = options["MoveRobot"]
         TurnOnLight = options["TurnOnLight"]
         TurnOffLight = options["TurnOffLight"]
+        #COMMENT THIS OUT
         JumpToLight = options["JumpToLight"]
         OpenDoor = options["OpenDoor"]
 
@@ -295,6 +296,8 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         light = Variable("?light", light_type)
         parameters = [robot, cell1, cell2, cell3, light]
         option_vars = parameters
+
+        #COMMENT THIS OUT
         option = JumpToLight
         preconditions = {
             LiftedAtom(RobotInCell, [robot, cell1]),

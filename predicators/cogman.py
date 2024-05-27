@@ -38,7 +38,7 @@ class CogMan:
 
     def reset(self, env_task: EnvironmentTask) -> None:
         """Start a new episode of environment interaction."""
-        logging.info("[CogMan] Reset called.")
+        # logging.info("[CogMan] Reset called.")
         task = self._perceiver.reset(env_task)
         self._current_goal = task.goal
         self._reset_policy(task)
@@ -58,7 +58,8 @@ class CogMan:
         else:
             self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
-            logging.info("[CogMan] Termination triggered.")
+            # import ipdb; ipdb.set_trace()
+            # logging.info("[CogMan] Termination triggered.")
             return None
         # Check if we should replan.
         if self._exec_monitor.step(state):
@@ -73,6 +74,8 @@ class CogMan:
         assert self._current_policy is not None
         # print (self._current_policy)
         act = self._current_policy(state)
+        q_value = self._approach._mapleq._q_function.predict_q_value(observation, self._current_goal, act.get_option())
+        # print("Q VALUE !!!!!!, observation, action, q val", observation, act.get_option(), q_value)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
         self._episode_action_history.append(act)
@@ -80,7 +83,7 @@ class CogMan:
 
     def finish_episode(self, observation: Observation) -> None:
         """Called at the end of an episode."""
-        logging.info("[CogMan] Finishing episode.")
+        # logging.info("[CogMan] Finishing episode.")
         if len(self._episode_state_history) == len(
                 self._episode_action_history):
             state = self._perceiver.step(observation)

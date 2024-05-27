@@ -233,6 +233,9 @@ class GridRowDoorEnv(GridRowEnv):
     def action_space(self) -> Box:
         # dx, dlight, ddoor
         return Box(-np.inf, np.inf, (3, ))
+    
+    # def state_space(self) -> List[State]:
+
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -258,6 +261,7 @@ class GridRowDoorEnv(GridRowEnv):
             for i, cell in enumerate(self._cells):
                 state_dict[cell] = {"x": i + 0.5}
             state = utils.create_state_from_dict(state_dict)
+            import ipdb; ipdb.set_trace()
             tasks.append(EnvironmentTask(state, goal))
         return tasks
     
@@ -270,10 +274,13 @@ class GridRowDoorEnv(GridRowEnv):
         # of a cell that has a door on it
         
         # add some action that allows the agent to open the door
+        print(self.action_space)
+
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dx, dlight, ddoor = action.arr
         door_pos = state.get(self._door, "x")
+        # print("doorrrrr", door_pos)
         robbot_pos = state.get(self._robot, "x")
         door_open = state.get(self._door, "open")
         robot_cells = [
@@ -302,7 +309,8 @@ class GridRowDoorEnv(GridRowEnv):
                 state.get(self._light, "level") + dlight, 0.0, 1.0)
             next_state.set(self._light, "level", new_light_level)
 
-        if door_open == 1.0 or (robbot_pos>=door_pos and robbot_pos + dx>=door_pos) or (robbot_pos<=door_pos and robbot_pos + dx<=door_pos):
+        if door_open == 1.0 or (robbot_pos<=door_pos and robbot_pos + dx<=door_pos):
+            # (robbot_pos>=door_pos and robbot_pos + dx>=door_pos) or
         # Apply dx to robot.
             # print("moved robot")
             new_x = np.clip(

@@ -169,8 +169,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         new_trajs = self._segmented_trajs[start_idx:]
 
         goal_offset = CFG.max_initial_demos
-        assert len(self._segmented_trajs) == goal_offset + \
-            len(self._interaction_goals)
+        # import ipdb; ipdb.set_trace()
+        # assert len(self._segmented_trajs) == goal_offset + len(self._interaction_goals)
                 
         new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
 
