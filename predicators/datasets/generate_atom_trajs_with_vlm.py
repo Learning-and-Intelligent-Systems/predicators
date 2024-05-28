@@ -641,7 +641,6 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     else:  # pragma: no cover.
         atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
-    import pdb; pdb.set_trace()
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
     # NOTE: we convert to a sorted list here to get rid of randomness from set
@@ -741,10 +740,11 @@ def create_ground_atom_data_from_generated_demos(
         # and that the image for each state is access by the key "image".
         state_imgs: List[List[PIL.Image.Image]] = []
         for state in curr_traj_states_for_vlm:
-            assert "image" in state.simulator_state
+            assert state.simulator_state is not None
+            assert "images" in state.simulator_state
             state_imgs.append([
                 PIL.Image.fromarray(img_arr)  # type: ignore
-                for img_arr in state.simulator_state["image"]
+                for img_arr in state.simulator_state["images"]
             ])
         img_option_trajs.append(
             ImageOptionTrajectory(
