@@ -6,22 +6,23 @@ Nicole Thean (https://github.com/nicolethean).
 """
 
 import copy
-import logging
 import io
+import logging
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 
-from PIL import Image
 import matplotlib
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
+from PIL import Image
 
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type, DefaultEnvironmentTask, Observation, Video
+from predicators.structs import Action, DefaultEnvironmentTask, \
+    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
+    Video
 
 
 class BurgerEnv(BaseEnv):
@@ -59,7 +60,7 @@ class BurgerEnv(BaseEnv):
     _station_type = Type("station", [], _object_type)
 
     _robot_type = Type("robot", ["row", "col", "z", "fingers", "dir"],
-        _object_type)
+                       _object_type)
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
     _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
@@ -191,8 +192,8 @@ class BurgerEnv(BaseEnv):
             state.simulator_state["state"] = hidden_state
             # A DefaultEnvironmentTask is a dummy environment task. Our render
             # function does not use the task argument, so this is ok.
-            state.simulator_state["images"] = self.render_state(state,
-                DefaultEnvironmentTask)
+            state.simulator_state["images"] = self.render_state(
+                state, DefaultEnvironmentTask)
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
             tasks.append(EnvironmentTask(state, goal))
@@ -248,15 +249,13 @@ class BurgerEnv(BaseEnv):
         patty, = objects
         assert state.simulator_state is not None
         assert "state" in state.simulator_state
-        return state.simulator_state["state"][patty][
-            "is_cooked"] > 0.5
+        return state.simulator_state["state"][patty]["is_cooked"] > 0.5
 
     def _IsSliced_holds(self, state: State, objects: Sequence[Object]) -> bool:
         tomato, = objects
         assert state.simulator_state is not None
         assert "state" in state.simulator_state
-        return state.simulator_state["state"][tomato][
-            "is_sliced"] > 0.5
+        return state.simulator_state["state"][tomato]["is_sliced"] > 0.5
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
@@ -447,10 +446,12 @@ class BurgerEnv(BaseEnv):
                                  [self._robot, item]) and interact > 0.5:
                 if item.is_instance(self._patty_type) and self._On_holds(
                         state, [item, self._grill]):
-                    next_state.simulator_state["state"][item]["is_cooked"] = 1.0
+                    next_state.simulator_state["state"][item][
+                        "is_cooked"] = 1.0
                 elif item.is_instance(self._tomato_type) and self._On_holds(
                         state, [item, self._cutting_board]):
-                    next_state.simulator_state["state"][item]["is_sliced"] = 1.0
+                    next_state.simulator_state["state"][item][
+                        "is_sliced"] = 1.0
 
         # Handle picking.
         if pickplace > 0.5 and self._HandEmpty_holds(state, [self._robot]):
@@ -495,8 +496,8 @@ class BurgerEnv(BaseEnv):
 
         # Update the image
         assert next_state.simulator_state is not None
-        next_state.simulator_state["images"] = self.render_state(next_state,
-            DefaultEnvironmentTask)
+        next_state.simulator_state["images"] = self.render_state(
+            next_state, DefaultEnvironmentTask)
 
         return next_state
 
@@ -645,7 +646,6 @@ class BurgerEnv(BaseEnv):
 
         buf.close()
         jpeg_buf.close()
-
         return [ret_arr]
 
     def _copy_observation(self, obs: Observation) -> Observation:
@@ -665,7 +665,7 @@ class BurgerEnv(BaseEnv):
         # Rather than have the observation be the state + the image, we just
         # package the image inside the state's simulator_state.
         self._current_observation = self.simulate(self._current_observation,
-            action)
+                                                  action)
         return self._copy_observation(self._current_observation)
 
     def get_event_to_action_fn(

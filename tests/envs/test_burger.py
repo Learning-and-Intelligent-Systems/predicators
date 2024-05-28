@@ -30,6 +30,7 @@ def test_burger():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
+
     assert len(env.predicates) == 12
     assert len(env.goal_predicates) == 3
     assert env.get_name() == "burger"
@@ -39,6 +40,7 @@ def test_burger():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     assert len(nsrts) == 15
     task = env.get_train_tasks()[0]
+
     MoveWhenFacingOneStack = [
         n for n in nsrts if n.name == "MoveWhenFacingOneStack"
     ][0]
@@ -72,7 +74,7 @@ def test_burger():
 
     grill = [obj for obj in task.init if obj.name == "grill"][0]
     patty = [obj for obj in task.init if obj.name == "patty"][0]
-    robot = [obj for obj in task.init if obj.name == "robby"][0]
+    robot = [obj for obj in task.init if obj.name == "robot"][0]
     tomato = [obj for obj in task.init if obj.name == "tomato"][0]
     cutting_board = [obj for obj in task.init
                      if obj.name == "cutting_board"][0]
