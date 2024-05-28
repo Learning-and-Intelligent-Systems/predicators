@@ -33,15 +33,19 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
+import PIL.Image
 from gym.spaces import Box
 from matplotlib import patches
 from numpy.typing import NDArray
+from PIL import ImageDraw, ImageFont
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
+from predicators.pretrained_model_interface import GoogleGeminiVLM, \
+    OpenAIVLM, VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -50,8 +54,8 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option, _TypedEntity
+    Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -1106,7 +1110,9 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
 
-    NOTE: this may be deprecated in the future in favor of run_episode.
+    NOTE: this may be deprecated in the future in favor of run_episode defined
+    in cogman.py. Ideally, we should consolidate both run_policy and
+    run_policy_with_simulator below into run_episode.
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
@@ -2208,17 +2214,103 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
     return Task(task.init, stripped_goal)
 
 
-def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
+def create_vlm_predicate(
+        name: str, types: Sequence[Type],
+        get_vlm_query_str: Callable[[Sequence[Object]], str]) -> VLMPredicate:
+    """Simple function that creates VLMPredicates with dummy classifiers, which
+    is the most-common way these need to be created."""
+
+    def _stripped_classifier(
+            state: State,
+            objects: Sequence[Object]) -> bool:  # pragma: no cover.
+        raise Exception("VLM predicate classifier should never be called!")
+
+    return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
+
+
+def create_vlm_by_name(
+        model_name: str) -> VisionLanguageModel:  # pragma: no cover
+    """Create particular vlm using a provided name."""
+    if "gemini" in model_name:
+        return GoogleGeminiVLM(model_name)
+    return OpenAIVLM(model_name)
+
+
+def query_vlm_for_atom_vals(
+        vlm_atoms: Collection[GroundAtom],
+        state: State,
+        vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
+    """Given a set of ground atoms, queries a VLM and gets the subset of these
+    atoms that are true."""
+    true_atoms: Set[GroundAtom] = set()
+    # This only works if state.simulator_state is some list of images that the
+    # vlm can be called on.
+    assert state.simulator_state is not None
+    assert isinstance(state.simulator_state, List)
+    imgs = state.simulator_state
+    vlm_atoms = sorted(vlm_atoms)
+    atom_queries_str = "\n* "
+    atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
+                                    for atom in vlm_atoms)
+    filepath_to_vlm_prompt = get_path_to_predicators_root() + \
+        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
+        "per_scene_naive.txt"
+    with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
+        vlm_query_str = f.read()
+    vlm_query_str += atom_queries_str
+    if vlm is None:
+        vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
+    vlm_input_imgs = \
+        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
+    vlm_output = vlm.sample_completions(vlm_query_str,
+                                        vlm_input_imgs,
+                                        0.0,
+                                        seed=CFG.seed,
+                                        num_completions=1)
+    assert len(vlm_output) == 1
+    vlm_output_str = vlm_output[0]
+    all_atom_queries = atom_queries_str.strip().split("\n")
+    all_vlm_responses = vlm_output_str.strip().split("\n")
+
+    # NOTE: this assumption is likely too brittle; if this is breaking, feel
+    # free to remove/adjust this and change the below parsing loop accordingly!
+    assert len(all_atom_queries) == len(all_vlm_responses)
+    for i, (atom_query, curr_vlm_output_line) in enumerate(
+            zip(all_atom_queries, all_vlm_responses)):
+        assert atom_query + ":" in curr_vlm_output_line
+        assert "." in curr_vlm_output_line
+        period_idx = curr_vlm_output_line.find(".")
+        if curr_vlm_output_line[len(atom_query +
+                                    ":"):period_idx].lower().strip() == "true":
+            true_atoms.add(vlm_atoms[i])
+    return true_atoms
+
+
+def abstract(state: State,
+             preds: Collection[Predicate],
+             vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
     Duplicate arguments in predicates are allowed.
     """
+    # Start by pulling out all VLM predicates.
+    vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+    # Next, classify all non-VLM predicates.
     atoms = set()
     for pred in preds:
-        for choice in get_object_combinations(list(state), pred.types):
-            if pred.holds(state, choice):
-                atoms.add(GroundAtom(pred, choice))
+        if pred not in vlm_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                if pred.holds(state, choice):
+                    atoms.add(GroundAtom(pred, choice))
+    if len(vlm_preds) > 0:
+        # Now, aggregate all the VLM predicates and make a single call to a
+        # VLM to get their values.
+        vlm_atoms = set()
+        for pred in vlm_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                vlm_atoms.add(GroundAtom(pred, choice))
+        atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
     return atoms
 
 
@@ -3166,6 +3258,19 @@ def save_video(outfile: str, video: Video) -> None:
     logging.info(f"Wrote out to {outpath}")
 
 
+def save_images(outfile_prefix: str, video: Video) -> None:
+    """Save the video as individual images to image_dir."""
+    outdir = CFG.image_dir
+    os.makedirs(outdir, exist_ok=True)
+    width = len(str(len(video)))
+    for i, image in enumerate(video):
+        image_number = str(i).zfill(width)
+        outfile = outfile_prefix + f"_image_{image_number}.png"
+        outpath = os.path.join(outdir, outfile)
+        imageio.imwrite(outpath, image)
+        logging.info(f"Wrote out to {outpath}")
+
+
 def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
     """Return the absolute path to env asset."""
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -3178,10 +3283,20 @@ def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
 
 def get_third_party_path() -> str:
     """Return the absolute path to the third party directory."""
-    module_path = Path(__file__)
-    predicators_dir = module_path.parent
-    third_party_dir_path = os.path.join(predicators_dir, "third_party")
+    third_party_dir_path = os.path.join(get_path_to_predicators_root(),
+                                        "predicators/third_party")
     return third_party_dir_path
+
+
+def get_path_to_predicators_root() -> str:
+    """Return the absolute path to the predicators root directory.
+
+    Specifically, this returns something that looks like:
+    '<installation-path>/predicators'. Note there is no '/' at the end.
+    """
+    module_path = Path(__file__)
+    predicators_dir = module_path.parent.parent
+    return str(predicators_dir)
 
 
 def import_submodules(path: List[str], name: str) -> None:
@@ -3525,11 +3640,32 @@ def find_all_balanced_expressions(s: str) -> List[str]:
     return exprs
 
 
-def f_range_intersection(lb1: float, ub1: float, lb2: float,
-                         ub2: float) -> bool:
-    """Given upper and lower bounds for two feature ranges, returns True iff
-    the ranges intersect."""
+def range_intersection(lb1: float, ub1: float, lb2: float, ub2: float) -> bool:
+    """Given upper and lower bounds for two ranges, returns True iff the ranges
+    intersect."""
     return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
+
+
+def compute_abs_range_given_two_ranges(lb1: float, ub1: float, lb2: float,
+                                       ub2: float) -> Tuple[float, float]:
+    """Given upper and lower bounds of two feature ranges, returns the upper.
+
+    and lower bound of |f1 - f2|.
+    """
+    # Now, we must compute the upper and lower bounds of
+    # the expression |t1.f1 - t2.f2|. If the intervals
+    # [lb1, ub1] and [lb2, ub2] overlap, then the lower
+    # bound of the expression is just 0. Otherwise, if
+    # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
+    # ub2 < lb1, the lower bound is |lb1 - ub2|.
+    if range_intersection(lb1, ub1, lb2, ub2):
+        lb = 0.0
+    else:
+        lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+    # The upper bound for the expression can be
+    # computed in a similar fashion.
+    ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+    return (lb, ub)
 
 
 def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
@@ -3656,3 +3792,45 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"
     return state
+
+
+def get_scaled_default_font(
+        draw: ImageDraw.ImageDraw,
+        size: int) -> ImageFont.FreeTypeFont:  # pragma: no cover
+    """Method that modifies the size of some provided PIL ImageDraw font.
+
+    Useful for scaling up font sizes when using PIL to insert text
+    directly into images.
+    """
+    # Determine the scaling factor
+    base_font = ImageFont.load_default()
+    width, height = draw.textbbox((0, 0), "A", font=base_font)[:2]
+    scale_factor = size / max(width, height)
+    # Scale the font using the factor
+    return base_font.font_variant(size=int(scale_factor *  # type: ignore
+                                           base_font.size))  # type: ignore
+
+
+def add_text_to_draw_img(
+        draw: ImageDraw.ImageDraw, position: Tuple[int, int], text: str,
+        font: ImageFont.FreeTypeFont
+) -> ImageDraw.ImageDraw:  # pragma: no cover
+    """Method that adds some text with a particular font at a particular pixel
+    position in an input PIL.ImageDraw.ImageDraw image.
+
+    Returns the modified ImageDraw.ImageDraw with the added text.
+    """
+    text_width, text_height = draw.textbbox((0, 0), text, font=font)[2:]
+    background_position = (position[0] - 5, position[1] - 5
+                           )  # Slightly larger than text
+    background_size = (text_width + 10, text_height + 10)
+    # Draw the background rectangle
+    draw.rectangle([
+        background_position,
+        (background_position[0] + background_size[0],
+         background_position[1] + background_size[1])
+    ],
+                   fill="black")
+    # Add the text to the image
+    draw.text(position, text, fill="red", font=font)
+    return draw

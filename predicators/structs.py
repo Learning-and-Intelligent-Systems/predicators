@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import itertools
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
@@ -10,6 +11,7 @@ from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
+import PIL.Image
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
@@ -154,7 +156,8 @@ class State:
         new_data = {}
         for obj in self:
             new_data[obj] = self._copy_state_value(self.data[obj])
-        return State(new_data, simulator_state=self.simulator_state)
+        return State(new_data,
+                     simulator_state=copy.deepcopy(self.simulator_state))
 
     def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):
@@ -201,7 +204,7 @@ class State:
 DefaultState = State({})
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=True, order=False, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states)."""
     name: str
@@ -292,6 +295,21 @@ class Predicate:
                             objects: Sequence[Object]) -> bool:
         # Separate this into a named function for pickling reasons.
         return not self._classifier(state, objects)
+
+    def __lt__(self, other: Predicate) -> bool:
+        return str(self) < str(other)
+
+
+@dataclass(frozen=True, order=False, repr=False, eq=False)
+class VLMPredicate(Predicate):
+    """Struct defining a predicate that calls a VLM as part of returning its
+    truth value.
+
+    NOTE: when instantiating a VLMPredicate, we typically pass in a 'Dummy'
+    classifier (i.e., one that returns simply raises some kind of error instead
+    of actually outputting a value of any kind).
+    """
+    get_vlm_query_str: Callable[[Sequence[Object]], str]
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -399,6 +417,12 @@ class GroundAtom(_Atom):
     def holds(self, state: State) -> bool:
         """Check whether this ground atom holds in the given state."""
         return self.predicate.holds(state, self.objects)
+
+    def get_vlm_query_str(self) -> str:
+        """If this GroundAtom is associated with a VLMPredicate, then get the
+        string that will be used to query the VLM."""
+        assert isinstance(self.predicate, VLMPredicate)
+        return self.predicate.get_vlm_query_str(self.objects)  # pylint:disable=no-member
 
 
 @dataclass(frozen=True, eq=False)
@@ -1101,6 +1125,59 @@ class LowLevelTrajectory:
         """The index of the train task."""
         assert self._train_task_idx is not None, \
             "This trajectory doesn't contain a train task idx!"
+        return self._train_task_idx
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class ImageOptionTrajectory:
+    """A structure similar to a LowLevelTrajectory where we record images at
+    every state (i.e., observations), as well as the option that was executed
+    to get between observation images. States are optionally included too.
+
+    Invariant 1: If this trajectory is a demonstration, it must contain
+    a train task idx and achieve the goal in the respective train task.
+    This invariant is checked upon creation of the trajectory (in
+    datasets) because the trajectory does not have a goal, it only has a
+    train task idx. Invariant 2: The length of the state images sequence
+    is always one greater than the length of the action sequence.
+    """
+    _objects: Collection[Object]
+    _state_imgs: List[List[PIL.Image.Image]]
+    _actions: List[_Option]
+    _states: Optional[List[State]] = field(default=None)
+    _is_demo: bool = field(default=False)
+    _train_task_idx: Optional[int] = field(default=None)
+
+    def __post_init__(self) -> None:
+        assert len(self._state_imgs) == len(self._actions) + 1
+        if self._is_demo:
+            assert self._train_task_idx is not None
+        if self._states is not None:
+            assert len(self._states) == len(self._state_imgs)
+
+    @property
+    def imgs(self) -> List[List[PIL.Image.Image]]:
+        """State images in the trajectory."""
+        return self._state_imgs
+
+    @property
+    def objects(self) -> Collection[Object]:
+        """Objects important to the trajectory."""
+        return self._objects
+
+    @property
+    def actions(self) -> List[_Option]:
+        """Actions in the trajectory."""
+        return self._actions
+
+    @property
+    def states(self) -> Optional[List[State]]:
+        """States in the trajectory, if they exist."""
+        return self._states
+
+    @property
+    def train_task_idx(self) -> Optional[int]:
+        """Returns the idx of the train task."""
         return self._train_task_idx
 
 

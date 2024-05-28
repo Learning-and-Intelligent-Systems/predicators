@@ -62,7 +62,9 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
     approach = create_approach("gnn_metacontroller", env.predicates,
                                get_gt_options(env.get_name()), env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()),
+                             predicates)
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
     approach.learn_from_offline_dataset(dataset)

@@ -74,6 +74,30 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             ground_atom_dataset = utils.create_ground_atom_dataset(
                 trajectories, self._get_current_predicates())
             utils.save_ground_atom_dataset(ground_atom_dataset, dataset_fname)
+        elif CFG.offline_data_method in [
+                "demo+labelled_atoms", "saved_vlm_img_demos_folder",
+                "demo_with_vlm_imgs"
+        ]:
+            # In this case, the annotations are basically ground atoms!
+            # We can use these to make GroundAtomTrajectories.
+            assert annotations is not None
+            assert len(annotations) == len(trajectories)
+            ground_atom_dataset = []
+            annotations_with_only_selected_preds = []
+            selected_preds = self._get_current_predicates()
+            for atoms_traj in annotations:
+                curr_selected_preds_atoms_traj = []
+                for atoms_set in atoms_traj:
+                    curr_selected_preds_atoms_set = set(
+                        atom for atom in atoms_set
+                        if atom.predicate in selected_preds)
+                    curr_selected_preds_atoms_traj.append(
+                        curr_selected_preds_atoms_set)
+                annotations_with_only_selected_preds.append(
+                    curr_selected_preds_atoms_traj)
+            for ll_traj, atoms in zip(trajectories,
+                                      annotations_with_only_selected_preds):
+                ground_atom_dataset.append((ll_traj, atoms))
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,
                                   self._train_tasks,
