@@ -209,12 +209,8 @@ def test_grid_row_door():
             ground_nsrt_plan.append(MoveRobot.ground([robot, cell, next_cell]))
         else:
             ground_nsrt_plan.append(MoveRobot.ground([robot, cell, next_cell]))
-    print(ground_nsrt_plan)
-    print(state.get(door, "x"))
     rng = np.random.default_rng(123)
     for ground_nsrt in ground_nsrt_plan:
-        print(state)
-        print(ground_nsrt.preconditions)
         assert all(a.holds(state) for a in ground_nsrt.preconditions)
         option = ground_nsrt.sample_option(state, set(), rng)
         assert option.initiable(state)

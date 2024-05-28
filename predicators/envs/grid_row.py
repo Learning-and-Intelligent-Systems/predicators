@@ -181,8 +181,7 @@ class GridRowDoorEnv(GridRowEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        # added a new type called 'door' and have it
-        # have two features: ['x', and 'open']
+        # type door with features ['x', and 'open']
         self._door_type = Type("door", ["x", 'open'])
         self._door = Object("door", self._door_type)
 
@@ -203,7 +202,6 @@ class GridRowDoorEnv(GridRowEnv):
 
     @property
     def types(self) -> Set[Type]:
-        # added the new door type to this below return list!
         return {
             self._robot_type, self._cell_type, self._light_type,
             self._door_type
@@ -264,9 +262,7 @@ class GridRowDoorEnv(GridRowEnv):
         if robot_cell == door_cell and not door_open and ddoor == 1.0:
             next_state.set(self._door, "open", 1.0)
         # Apply dlight if we're in the same cell as the light.
-
         assert len(robot_cells) == 1
-
         light_cells = [
             c for c in self._cells if self._In_holds(state, [self._light, c])
         ]

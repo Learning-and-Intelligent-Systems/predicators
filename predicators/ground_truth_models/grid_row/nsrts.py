@@ -150,7 +150,7 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
 
 class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
-    """Ground-truth NSRTs for the grid row environment."""
+    """Ground-truth NSRTs for the grid row door environment."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -265,8 +265,7 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Note: just return 0.0 to show door is closed
-
+            # Note: return 1.0 to show door is now open
             return np.array([rng.uniform(1.0, 1.0)], dtype=np.float32)
 
         robot = Variable("?robot", robot_type)
