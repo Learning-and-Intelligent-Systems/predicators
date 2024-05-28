@@ -661,9 +661,8 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     # by curly brackets.
     structured_state_trajs = []
     state_trajs: Optional[List[List[State]]] = []
-    # for atom_traj, io_traj in zip(atom_labels, image_option_trajs,
-    #                               strict=True):
-    for atom_traj, io_traj in zip(atom_labels, image_option_trajs):
+    for atom_traj, io_traj in zip(atom_labels, image_option_trajs,
+                                  strict=True):
         atoms_txt_strs = [
             '{' + curr_ts_atoms_txt + '}' for curr_ts_atoms_txt in atom_traj
         ]
