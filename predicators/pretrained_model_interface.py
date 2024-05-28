@@ -130,9 +130,8 @@ class PretrainedLargeModel(abc.ABC):
 
         logging.debug(f"Querying model {model_id} with new prompt.")
         # Query the model.
-        completions = self._sample_completions(prompt, imgs, temperature,
-                                               seed, stop_token,
-                                               num_completions)
+        completions = self._sample_completions(prompt, imgs, temperature, seed,
+                                               stop_token, num_completions)
         return completions
 
 
