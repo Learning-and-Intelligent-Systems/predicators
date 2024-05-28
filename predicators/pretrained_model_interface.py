@@ -85,9 +85,11 @@ class PretrainedLargeModel(abc.ABC):
             img_hash_list: List[str] = []
             for img in imgs:
                 img_hash_list.append(str(imagehash.phash(img)))
-            # NOTE: it's very possible that this string gets too long and this
-            # causes significant problems for us. We can fix this when it
-            # comes up by hashing this string to a shorter string, using e.g.
+            # NOTE: it's possible that this string (the concatenated hashes of
+            # each image) is very long. This would make the final cache
+            # foldername long. In many operating systems, the maximum folder
+            # name length is 255 characters. To shorten this foldername more, we
+            # can hash this string into a shorter string. For example, look at
             # https://stackoverflow.com/questions/57263436/hash-like-string-shortener-with-decoder  # pylint:disable=line-too-long
             imgs_id = hash("".join(img_hash_list))
             cache_foldername += f"{imgs_id}"
