@@ -737,7 +737,7 @@ def create_ground_atom_data_from_generated_demos(
         curr_traj_states_for_vlm.append(traj.states[-1])
         # Pull out the images within the states we've saved for the trajectory.
         # We assume that the state's simulator_state attribute is a dictionary,
-        # and that the image for each state is access by the key "image".
+        # and that the images for each state are accessed by the key "images".
         state_imgs: List[List[PIL.Image.Image]] = []
         for state in curr_traj_states_for_vlm:
             assert state.simulator_state is not None
