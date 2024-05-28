@@ -638,10 +638,10 @@ def _query_vlm_to_generate_ground_atoms_trajs(
         # We now parse and sanitize this set of atoms.
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
-        import pdb; pdb.set_trace()
     else:  # pragma: no cover.
         atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
+    import pdb; pdb.set_trace()
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
     # NOTE: we convert to a sorted list here to get rid of randomness from set
@@ -661,8 +661,9 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     # by curly brackets.
     structured_state_trajs = []
     state_trajs: Optional[List[List[State]]] = []
-    for atom_traj, io_traj in zip(atom_labels, image_option_trajs,
-                                  strict=True):
+    # for atom_traj, io_traj in zip(atom_labels, image_option_trajs,
+    #                               strict=True):
+    for atom_traj, io_traj in zip(atom_labels, image_option_trajs):
         atoms_txt_strs = [
             '{' + curr_ts_atoms_txt + '}' for curr_ts_atoms_txt in atom_traj
         ]
@@ -717,7 +718,6 @@ def create_ground_atom_data_from_generated_demos(
         # each action in the trajectory is linked to an option that isn't
         # None.
         segments = _segment_with_option_changes(traj, set(), None)
-        # import pdb; pdb.set_trace()
         curr_traj_states_for_vlm: List[State] = []
         curr_traj_actions_for_vlm: List[Action] = []
         total_num_segment_states = 0
@@ -735,8 +735,7 @@ def create_ground_atom_data_from_generated_demos(
                 ("WARNING: there are fewer total states after option-based "
                  "segmentation than there are in the original trajectory. "
                  "Likely there is an issue with segmentation!"))
-        # We manually add the final two states (initial state and terminal
-        # state of the final option).
+        # We manually add the final state of the final option.
         curr_traj_states_for_vlm.append(traj.states[-1])
         # Pull out the images within the states we've saved for the trajectory.
         # We assume that the state's simulator_state attribute is a dictionary,
@@ -748,7 +747,6 @@ def create_ground_atom_data_from_generated_demos(
                 PIL.Image.fromarray(img_arr)  # type: ignore
                 for img_arr in state.simulator_state["image"]
             ])
-            # state_imgs.append([img for img in state.simulator_state["image"]])
         img_option_trajs.append(
             ImageOptionTrajectory(
                 set(traj.states[0]), state_imgs,

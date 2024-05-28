@@ -58,7 +58,7 @@ class BurgerEnv(BaseEnv):
     _item_type = Type("item", [], _object_type)
     _station_type = Type("station", [], _object_type)
 
-    _robot_type = Type("robot", ["row", "col", "fingers", "dir"])
+    _robot_type = Type("robot", ["row", "col", "z", "fingers", "dir"], _object_type)
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
     _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
@@ -141,6 +141,7 @@ class BurgerEnv(BaseEnv):
         state_dict[self._robot] = {
             "row": 2,
             "col": 2,
+            "z": 0,
             "fingers": 0.0,
             "dir": 3
         }
@@ -415,6 +416,8 @@ class BurgerEnv(BaseEnv):
                     continue
             ox, oy = self.get_position(obj, state)
             if abs(new_rx - ox) < 1e-3 and abs(new_ry - oy) < 1e-3:
+
+                next_state.simulator_state["image"] = self.render_state(next_state, DefaultTask)
                 return next_state
 
         # No collision detected, so we can move the robot.
@@ -486,7 +489,7 @@ class BurgerEnv(BaseEnv):
                 next_state.set(held_item, "z", new_z)
 
         # Update the image
-        next_state.simulator_state["image"] = self.render_state(state, DefaultTask)
+        next_state.simulator_state["image"] = self.render_state(next_state, DefaultTask)
 
         return next_state
 
