@@ -69,62 +69,62 @@ class PretrainedLargeModel(abc.ABC):
         that does not expose the ability to set a random seed. Responses
         are saved to disk.
         """
-        # # Set up the cache file.
-        # assert _CACHE_SEP not in prompt
-        # os.makedirs(CFG.pretrained_model_prompt_cache_dir, exist_ok=True)
+        # Set up the cache file.
+        assert _CACHE_SEP not in prompt
+        os.makedirs(CFG.pretrained_model_prompt_cache_dir, exist_ok=True)
         model_id = self.get_id()
-        # prompt_id = hash(prompt)
-        # config_id = f"{temperature}_{seed}_{num_completions}_" + \
-        #             f"{stop_token}"
-        # # If the temperature is 0, the seed does not matter.
-        # if temperature == 0.0:
-        #     config_id = f"most_likely_{num_completions}_{stop_token}"
-        # cache_foldername = f"{model_id}_{config_id}_{prompt_id}"
-        # if imgs is not None:
-        #     # We also need to hash all the images in the prompt.
-        #     img_hash_list: List[str] = []
-        #     for img in imgs:
-        #         img_hash_list.append(str(imagehash.phash(img)))
-        #     # NOTE: it's very possible that this string gets too long and this
-        #     # causes significant problems for us. We can fix this when it
-        #     # comes up by hashing this string to a shorter string, using e.g.
-        #     # https://stackoverflow.com/questions/57263436/hash-like-string-shortener-with-decoder  # pylint:disable=line-too-long
-        #     imgs_id = "".join(img_hash_list)
-        #     cache_foldername += f"{imgs_id}"
-        # cache_folderpath = os.path.join(CFG.pretrained_model_prompt_cache_dir,
-        #                                 cache_foldername)
-        # os.makedirs(cache_folderpath, exist_ok=True)
-        # cache_filename = "prompt.txt"
-        # cache_filepath = os.path.join(CFG.pretrained_model_prompt_cache_dir,
-        #                               cache_foldername, cache_filename)
-        # if not os.path.exists(cache_filepath):
-        #     if CFG.llm_use_cache_only:
-        #         raise ValueError("No cached response found for prompt.")
-        #     logging.debug(f"Querying model {model_id} with new prompt.")
-        #     # Query the model.
-        #     completions = self._sample_completions(prompt, imgs, temperature,
-        #                                            seed, stop_token,
-        #                                            num_completions)
-        #     # Cache the completion.
-        #     cache_str = prompt + _CACHE_SEP + _CACHE_SEP.join(completions)
-        #     with open(cache_filepath, 'w', encoding='utf-8') as f:
-        #         f.write(cache_str)
-        #     if imgs is not None:
-        #         # Also save the images for easy debugging.
-        #         imgs_folderpath = os.path.join(cache_folderpath, "imgs")
-        #         os.makedirs(imgs_folderpath, exist_ok=True)
-        #         for i, img in enumerate(imgs):
-        #             filename_suffix = str(i) + ".jpg"
-        #             img.save(os.path.join(imgs_folderpath, filename_suffix))
-        #     logging.debug(f"Saved model response to {cache_filepath}.")
-        # # Load the saved completion.
-        # with open(cache_filepath, 'r', encoding='utf-8') as f:
-        #     cache_str = f.read()
-        # logging.debug(f"Loaded model response from {cache_filepath}.")
-        # assert cache_str.count(_CACHE_SEP) == num_completions
-        # cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
-        # assert cached_prompt == prompt
-        # completions = completion_strs.split(_CACHE_SEP)
+        prompt_id = hash(prompt)
+        config_id = f"{temperature}_{seed}_{num_completions}_" + \
+                    f"{stop_token}"
+        # If the temperature is 0, the seed does not matter.
+        if temperature == 0.0:
+            config_id = f"most_likely_{num_completions}_{stop_token}"
+        cache_foldername = f"{model_id}_{config_id}_{prompt_id}"
+        if imgs is not None:
+            # We also need to hash all the images in the prompt.
+            img_hash_list: List[str] = []
+            for img in imgs:
+                img_hash_list.append(str(imagehash.phash(img)))
+            # NOTE: it's very possible that this string gets too long and this
+            # causes significant problems for us. We can fix this when it
+            # comes up by hashing this string to a shorter string, using e.g.
+            # https://stackoverflow.com/questions/57263436/hash-like-string-shortener-with-decoder  # pylint:disable=line-too-long
+            imgs_id = hash("".join(img_hash_list))
+            cache_foldername += f"{imgs_id}"
+        cache_folderpath = os.path.join(CFG.pretrained_model_prompt_cache_dir,
+                                        cache_foldername)
+        os.makedirs(cache_folderpath, exist_ok=True)
+        cache_filename = "prompt.txt"
+        cache_filepath = os.path.join(CFG.pretrained_model_prompt_cache_dir,
+                                      cache_foldername, cache_filename)
+        if not os.path.exists(cache_filepath):
+            if CFG.llm_use_cache_only:
+                raise ValueError("No cached response found for prompt.")
+            logging.debug(f"Querying model {model_id} with new prompt.")
+            # Query the model.
+            completions = self._sample_completions(prompt, imgs, temperature,
+                                                   seed, stop_token,
+                                                   num_completions)
+            # Cache the completion.
+            cache_str = prompt + _CACHE_SEP + _CACHE_SEP.join(completions)
+            with open(cache_filepath, 'w', encoding='utf-8') as f:
+                f.write(cache_str)
+            if imgs is not None:
+                # Also save the images for easy debugging.
+                imgs_folderpath = os.path.join(cache_folderpath, "imgs")
+                os.makedirs(imgs_folderpath, exist_ok=True)
+                for i, img in enumerate(imgs):
+                    filename_suffix = str(i) + ".jpg"
+                    img.save(os.path.join(imgs_folderpath, filename_suffix))
+            logging.debug(f"Saved model response to {cache_filepath}.")
+        # Load the saved completion.
+        with open(cache_filepath, 'r', encoding='utf-8') as f:
+            cache_str = f.read()
+        logging.debug(f"Loaded model response from {cache_filepath}.")
+        assert cache_str.count(_CACHE_SEP) == num_completions
+        cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
+        assert cached_prompt == prompt
+        completions = completion_strs.split(_CACHE_SEP)
 
         logging.debug(f"Querying model {model_id} with new prompt.")
         # Query the model.
