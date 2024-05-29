@@ -174,3 +174,107 @@ class GridRowEnv(BaseEnv):
         # return abs(dist - 1.0) < 1e-3
         del state  # not used
         return obj1 in self._cell_to_neighbors[obj2]
+
+
+class GridRowDoorEnv(GridRowEnv):
+    """Simple variant on GridRow where there is also a door."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+        # type door with features ['x', and 'open']
+        self._door_type = Type("door", ["x", 'open'])
+        self._door = Object("door", self._door_type)
+
+        self._DoorInCell = Predicate("DoorInCell",
+                                     [self._door_type, self._cell_type],
+                                     self._In_holds)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "grid_row_door"
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            self._RobotInCell, self._LightInCell, self._LightOn,
+            self._LightOff, self._Adjacent, self._DoorInCell
+        }
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            self._robot_type, self._cell_type, self._light_type,
+            self._door_type
+        }
+
+    @property
+    def action_space(self) -> Box:
+        # dx, dlight, ddoor
+        return Box(-np.inf, np.inf, (3, ))
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        # There is only one goal in this environment: to turn the light on.
+        goal = {GroundAtom(self._LightOn, [self._light])}
+        # The only variation in the initial state is the light target level.
+        tasks: List[EnvironmentTask] = []
+        while len(tasks) < num:
+            state_dict = {
+                self._robot: {
+                    "x": 0.5,
+                },
+                self._light: {
+                    "x": len(self._cells) - 0.5,
+                    "level": 0.0,
+                    "target": rng.uniform(0.5, 1.0),
+                },
+                self._door: {
+                    "x": rng.choice(range(2, len(self._cells))) - 0.5,
+                    "open": 0.0
+                }
+            }
+            for i, cell in enumerate(self._cells):
+                state_dict[cell] = {"x": i + 0.5}
+            state = utils.create_state_from_dict(state_dict)
+            tasks.append(EnvironmentTask(state, goal))
+        return tasks
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        next_state = state.copy()
+        dx, dlight, ddoor = action.arr
+        door_pos = state.get(self._door, "x")
+        robbot_pos = state.get(self._robot, "x")
+        door_open = state.get(self._door, "open")
+        robot_cells = [
+            c for c in self._cells if self._In_holds(state, [self._robot, c])
+        ]
+        door_cells = [
+            c for c in self._cells if self._In_holds(state, [self._door, c])
+        ]
+        assert len(door_cells) == 1
+        # Apply ddoor if we're in same cell as door
+        door_cell = door_cells[0]
+        robot_cell = robot_cells[0]
+        if robot_cell == door_cell and not door_open and ddoor == 1.0:
+            next_state.set(self._door, "open", 1.0)
+        # Apply dlight if we're in the same cell as the light.
+        assert len(robot_cells) == 1
+        light_cells = [
+            c for c in self._cells if self._In_holds(state, [self._light, c])
+        ]
+        assert len(light_cells) == 1
+        light_cell = light_cells[0]
+        if robot_cell == light_cell:
+            new_light_level = np.clip(
+                state.get(self._light, "level") + dlight, 0.0, 1.0)
+            next_state.set(self._light, "level", new_light_level)
+
+        if door_open == 1.0 or (robbot_pos <= door_pos
+                                and robbot_pos + dx <= door_pos):
+            # Apply dx to robot.
+            new_x = np.clip(
+                state.get(self._robot, "x") + dx, 0.0, len(self._cells))
+            next_state.set(self._robot, "x", new_x)
+
+        return next_state
