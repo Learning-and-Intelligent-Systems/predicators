@@ -4,9 +4,9 @@ class RawState:
 
     Attributes:
     -----------
-    obj_img_dict : Dict[str, ImageWithBox]
-        A dictionary mapping object names to their corresponding ImageWithBox
-        including the key "scene" mapping to the full image.
+    state_image : PIL.Image.Image
+    obj_mask_dict : Dict[str, Mask]
+        A dictionary mapping object names to their corresponding Mask.
     
     Examples:
     ---------
@@ -22,9 +22,10 @@ class RawState:
             target1: np.array([0.0, 1.0, 0.05, 0.4])})
     >>> ...
     """
-    obj_img_dict : Dict[str, ImageWithBox]
+    state_image: PIL.Image.Image
+    obj_mask_dict: Dict[str, Mask] = field(default_factory=dict)
 
-    def get_scene_image(self) -> ImageWithBox:
+    def get_scene_image(self) -> PIL.Image.Image:
         """
         Get the full scene image.
 
@@ -34,15 +35,15 @@ class RawState:
             The full scene image.
         """
 
-    def get_object_image(self, obj: Object) -> ImageWithBox:
-        """
-        Return the ImageWithBox object correspond to that object
+#     def get_object_image(self, obj: Object) -> ImageWithBox:
+#         """
+#         Return the ImageWithBox object correspond to that object
 
-        Parameters:
-        -----------
-        obj : Object
-            The object whose image is to be retrieved.
-        """
+#         Parameters:
+#         -----------
+#         obj : Object
+#             The object whose image is to be retrieved.
+#         """
 
     def get_objects(self, object_type: Type) -> List[Object]:
         """

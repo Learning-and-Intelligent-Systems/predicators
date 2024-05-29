@@ -53,6 +53,7 @@ class BlocksEnv(BaseEnv):
     _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
                                 "color_r", "color_g", "color_b"])
     _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"])
+    _table_type = Type("table", [])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -71,6 +72,7 @@ class BlocksEnv(BaseEnv):
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        self._table = Object("table", self._table_type)
         # Hyperparameters from CFG.
         self._block_size = CFG.blocks_block_size
         self._num_blocks_train = CFG.blocks_num_blocks_train
@@ -204,7 +206,7 @@ class BlocksEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._block_type, self._robot_type}
+        return {self._block_type, self._robot_type, self._table_type}
 
     @property
     def action_space(self) -> Box:
@@ -344,6 +346,7 @@ class BlocksEnv(BaseEnv):
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
         rf = 1.0  # fingers start out open
         data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
+        data[self._table] = np.array([], dtype=np.float32)
         return State(data)
 
     def _sample_goal_from_piles(self, num_blocks: int,

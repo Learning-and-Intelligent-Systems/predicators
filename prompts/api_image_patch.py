@@ -60,15 +60,15 @@ class ImagePatch:
         self.horizontal_center = (self.left + self.right) / 2
         self.vertical_center = (self.lower + self.upper) / 2
 
-    @classmethod
-    def from_image_with_box(cls, image_with_box: ImageWithBox) -> ImagePatch:
-        return cls(
-            image_with_box.image, 
-            left=image_with_box.left, 
-            lower=image_with_box.lower, 
-            right=image_with_box.right, 
-            upper=image_with_box.upper
-        )
+    # @classmethod
+    # def from_image_with_box(cls, mask: Mask) -> ImagePatch:
+    #     return cls(
+    #         image_with_box.image, 
+    #         left=image_with_box.left, 
+    #         lower=image_with_box.lower, 
+    #         right=image_with_box.right, 
+    #         upper=image_with_box.upper
+    #     )
 
     def find(self, object_name: str) -> List[ImagePatch]:
         """Returns a list of ImagePatch objects matching object_name contained in the crop if any are found.

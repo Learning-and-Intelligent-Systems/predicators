@@ -321,6 +321,11 @@ def _generate_interaction_results(
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
+    # Check the tasks by saving the image of the tasks
+    for i, task in enumerate(test_tasks):
+        task.state_image.save(f"videos/test_rendering_{env.name}_test_task{i}"+
+                              ".png")
+    breakpoint()
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()

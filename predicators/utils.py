@@ -509,7 +509,8 @@ def append_classification_result_for_ops(result_str: List[str],
             obs_name, obs_path = vlm_option_obs_save_name(
                 g_optn, category, i)
             # save the state_obs to a jpg file at obs_name
-            imageio.imwrite(obs_path, state_obs)
+            state_obs.save(os.path.join(obs_path, obs_name))
+            # imageio.imwrite(obs_path, state_obs)
             result_str.append(obs_name+'\n')
     else:
         for i, state_str in enumerate(states_str): 
