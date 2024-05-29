@@ -11,6 +11,7 @@ from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 from inspect import getsource
 from pprint import PrettyPrinter, pformat
+from collections import namedtuple
 
 import numpy as np
 import PIL.Image
@@ -248,34 +249,50 @@ class State:
 
 DefaultState = State({})
 
-@dataclass
-class ImageWithBox:
-    """An PIL image of either a scene or object with it's bounding box 
-    coordicates"""
-    image: PIL.Image.Image
-    left: int
-    lower: int
-    right: int
-    upper: int
+# @dataclass
+# class ImageWithBox:
+#     """An PIL image of either a scene or object with it's bounding box 
+#     coordicates"""
+#     image: PIL.Image.Image
+#     left: int
+#     lower: int
+#     right: int
+#     upper: int
+
+# a bounding box named tuple with attribute left, lower, right, upper 
+# pixel idx within the state image
+BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
 
 @dataclass
 class RawState(PyBulletState):
-    obj_img_dict: Dict[str, ImageWithBox] = field(default_factory=dict)
+    state_image: PIL.Image.Image
+    obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
 
-    def get_scene_image(self) -> ImageWithBox:
-        """Return the scene image."""
-        return self.obj_img_dict["scene"]
+    # def get_object_image(self, object: Object) -> ImageWithBox:
+    #     """Return the image with bounding box for the object."""
+    #     return self.get_obj_image(object.name)
 
-    def get_object_image(self, object: Object) -> ImageWithBox:
-        """Return the image with bounding box for the object."""
-        return self.get_obj_image(object.name)
-
-    def copy(self) -> State:
+    def copy(self) -> RawState:
         state_dict_copy = super().super().copy().data
         simulator_state_copy = list(self.joint_positions)
-        rendered_state_copy = copy.deepcopy(self.rendered_state)
-        return RawState(state_dict_copy, simulator_state_copy, 
-                                     rendered_state_copy)
+        state_image_copy = copy.deepcopy(self.state_image)
+        obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
+        return RawState(state_dict_copy, simulator_state_copy, state_image_copy, 
+                        obj_mask_copy)
+
+    def get_obj_bbox(self, object: Object) -> BoundingBox:
+        '''
+        Get the bounding box of the object in the state image
+        '''
+        mask = self.obj_mask_dict[object]
+        y_indices, x_indices = np.where(mask)
+
+        # Get the bounding box
+        left = x_indices.min()
+        right = x_indices.max()
+        lower = y_indices.min()
+        upper = y_indices.max()
+        return BoundingBox(left, lower, right, upper)
 
 @dataclass(frozen=True, order=False, repr=False)
 class Predicate:
@@ -2062,6 +2079,7 @@ GoalDescription = Any
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
+Mask = NDArray[np.bool]
 ImageInput = NDArray[np.float32]
 Video = List[Image]
 Array = NDArray[np.float32]

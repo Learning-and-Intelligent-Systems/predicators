@@ -20,7 +20,7 @@ from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Observation, \
-    State, Video, ImageWithBox, RawState
+    State, Video, RawState, Mask, Object
 
 
 class PyBulletEnv(BaseEnv):
@@ -241,9 +241,8 @@ class PyBulletEnv(BaseEnv):
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
-    def render_segmented_obj(self,
-                action: Optional[Action] = None,
-                caption: Optional[str] = None) -> Dict[str, ImageWithBox]: 
+    def render_segmented_obj(self, action: Optional[Action] = None,
+        caption: Optional[str] = None) -> Tuple[Image.Image, Dict[Object, Mask]]: 
         '''Render the scene and the segmented objects in the scene.
         '''
         # if not self.using_gui:
@@ -271,7 +270,7 @@ class PyBulletEnv(BaseEnv):
             physicsClientId=self._physics_client_id)
 
         # Initialize an empty dictionary
-        img_dict: Dict[str, ImageWithBox] = {}
+        mask_dict: Dict[str, Mask] = {}
 
         # Get the original image and segmentation mask
         (_, _, rgbImg, _, segImg) = p.getCameraImage(
@@ -289,42 +288,45 @@ class PyBulletEnv(BaseEnv):
         # imageio.imsave(f'./prompts/og_image.png', original_image)
         # imageio.imsave(f'./prompts/seg_image.png', seg_image)
 
-        img_dict['scene'] = ImageWithBox(
-            Image.fromarray(original_image), 0, height-1, 0, width-1)
+        state_img = Image.fromarray(original_image)
+        # img_dict['scene'] = ImageWithBox(
+        #     Image.fromarray(original_image), 0, height-1, 0, width-1)
 
         # Iterate over all bodies
         for bodyId in range(p.getNumBodies(self._physics_client_id)):
             # Create a mask for the current body using the segmentation mask
             mask = seg_image == bodyId
+            mask_dict[self._obj_id_to_obj[bodyId]] = mask
 
             # Option 1: mask everything besides the object out
             # obj_only_img = np.where(mask[..., None], original_image, 0)
 
-            # Get the indices of the pixels that belong to the object
-            y_indices, x_indices = np.where(mask)
+            # # Get the indices of the pixels that belong to the object
+            # y_indices, x_indices = np.where(mask)
 
-            # Get the bounding box
-            left = x_indices.min()
-            right = x_indices.max()
-            lower = y_indices.min()
-            upper = y_indices.max()
-            cropped_image = original_image[lower:upper+1, left:right+1]
+            # # Get the bounding box
+            # left = x_indices.min()
+            # right = x_indices.max()
+            # lower = y_indices.min()
+            # upper = y_indices.max()
+            # cropped_image = original_image[lower:upper+1, left:right+1]
 
             # Add the cropped image to the dictionary
             # img_dict[str(bodyId)] = Image.fromarray(cropped_image)
-            img_dict[str(bodyId)] = ImageWithBox(
-                Image.fromarray(cropped_image), left, lower, right, upper)
+            # img_dict[str(bodyId)] = ImageWithBox(
+            #     Image.fromarray(cropped_image), left, lower, right, upper)
 
-        return img_dict
+        return state_img, mask_dict
 
     def get_observation(self) -> Observation:
         """Get the current observation of this environment."""
         assert isinstance(self._current_observation, State)
         state_copy = self._current_observation.copy()
-        if CFG.vlm_predicator_render_option_state:
+        if CFG.vlm_predicator_render_option_state or\
+            CFG.rgb_observation:
             rendered_state = RawState(
                 state_copy.data, state_copy.simulator_state,
-                self.render_segmented_obj()
+                *self.render_segmented_obj()
             )
             return rendered_state
         else:
@@ -380,17 +382,14 @@ class PyBulletEnv(BaseEnv):
             self._held_obj_id = None
 
         self._current_observation = self._get_state()
+
+        # Depending on the observation mode, either return object-centric state
+        # or object_centric + rgb observation
+        observation_copy = self.get_observation()
         
-        state_copy = self._current_observation.copy()
-        # Commenting this out because maybe only need to render when requested
-        # if CFG.rgb_observation:
-        #     rendered_state = utils.PyBulletRenderedState(
-        #         state_copy.data, state_copy.simulator_state,
-        #         self.render_segmented_obj()
-        #     )
-        #     return rendered_state
-        # else:
-        return state_copy
+        return observation_copy
+        # state_copy = self._current_observation.copy()
+        # return state_copy
 
     def _detect_held_object(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists.
@@ -486,16 +485,26 @@ class PyBulletEnv(BaseEnv):
 
     def _add_pybullet_state_to_tasks(
             self, tasks: List[EnvironmentTask]) -> List[EnvironmentTask]:
-        """Converts the task initial states into PyBulletStates."""
+        """Converts the task initial states into PyBulletStates.
+        This is used in generating tasks.
+        """
         pybullet_tasks = []
         for task in tasks:
             # Reset the robot.
             init = task.init
             # Extract the joints.
-            self._pybullet_robot.reset_state(self._extract_robot_state(init))
-            joint_positions = self._pybullet_robot.get_joints()
-            pybullet_init = utils.PyBulletState(
-                init.data.copy(), simulator_state=joint_positions)
+            # YC: Probably need to reset_state here so I can then get an 
+            # observation, would it work without the reset_state?
+            # Attempt 2: First reset it. 
+            self._reset_state(init)
+            # Attempt 1: Let's try to get a rendering directly first
+            pybullet_init = self.get_observation()
+            # # <Original code            
+            # self._pybullet_robot.reset_state(self._extract_robot_state(init))
+            # joint_positions = self._pybullet_robot.get_joints()
+            # pybullet_init = utils.PyBulletState(
+            #     init.data.copy(), simulator_state=joint_positions)
+            # # >
             pybullet_task = EnvironmentTask(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks
