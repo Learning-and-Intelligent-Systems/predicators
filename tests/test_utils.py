@@ -2390,7 +2390,7 @@ def test_create_pddl():
                                           "spanner")
     assert domain_str == """(define (domain spanner)
   (:requirements :typing)
-  (:types
+  (:types 
     man nut spanner - locatable
     monkey
     locatable location - object)
