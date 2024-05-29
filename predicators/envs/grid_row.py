@@ -240,9 +240,6 @@ class GridRowDoorEnv(GridRowEnv):
         return tasks
 
     def simulate(self, state: State, action: Action) -> State:
-        # don't allow the agent to move if it's currently in front
-        # of a cell that has a door on it
-        # added action that allows the agent to open the door
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dx, dlight, ddoor = action.arr
@@ -256,7 +253,7 @@ class GridRowDoorEnv(GridRowEnv):
             c for c in self._cells if self._In_holds(state, [self._door, c])
         ]
         assert len(door_cells) == 1
-        #apply ddoor if we're in same cell as door
+        # Apply ddoor if we're in same cell as door
         door_cell = door_cells[0]
         robot_cell = robot_cells[0]
         if robot_cell == door_cell and not door_open and ddoor == 1.0:

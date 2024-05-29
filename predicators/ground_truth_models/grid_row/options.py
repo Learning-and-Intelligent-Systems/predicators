@@ -138,7 +138,7 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             params_space=Box(-1.0, 1.0, (1, )),
         )
 
-        #OpenDoor
+        # OpenDoor
         def _toggle_door_policy(state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> Action:
