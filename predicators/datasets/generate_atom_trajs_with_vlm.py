@@ -7,7 +7,7 @@ import os
 import re
 from functools import partial
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple, Iterator
 
 import dill as pkl
 import numpy as np
@@ -78,7 +78,8 @@ def _generate_prompt_for_atom_proposals(
 
 def _generate_prompt_for_scene_labelling(
         traj: ImageOptionTrajectory,
-        atoms_list: List[str]) -> List[Tuple[str, List[PIL.Image.Image]]]:
+        atoms_list: List[str],
+        label_history: List[str]) -> Iterator[Tuple[str, List[PIL.Image.Image]]]:
     """Prompt for generating labels for an entire trajectory. Similar to the
     above prompting method, this outputs a list of prompts to label the state
     at each timestep of traj with atom values).
@@ -86,6 +87,9 @@ def _generate_prompt_for_scene_labelling(
     Note that all our prompts are saved as separate txt files under the
     'vlm_input_data_prompts/atom_labelling' folder.
     """
+    # import pdb; pdb.set_trace()
+    # print("ashay")
+
     ret_list = []
     filepath_prefix = utils.get_path_to_predicators_root() + \
         "/predicators/datasets/vlm_input_data_prompts/atom_labelling/"
@@ -98,7 +102,11 @@ def _generate_prompt_for_scene_labelling(
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-    if CFG.grammar_search_vlm_atom_label_prompt_type == "img_option_diffs":
+    # The prompt ends with a section for 'Predicates', so list these.
+    for atom_str in atoms_list:
+        prompt += f"\n{atom_str}"
+
+    if CFG.grammar_search_vlm_atom_label_prompt_type in ["img_option_diffs", "img_option_diffs_label_history"]:
         # In this case, we need to load the 'per_scene_naive' prompt as well
         # for the first timestep.
         with open(filepath_prefix + "per_scene_naive.txt",
@@ -107,33 +115,36 @@ def _generate_prompt_for_scene_labelling(
             init_prompt = f.read()
         for atom_str in atoms_list:
             init_prompt += f"\n{atom_str}"
-        ret_list.append((init_prompt, traj.imgs[0]))
+        if len(label_history) == 0:
+            yield (init_prompt, traj.imgs[0])
+
         # Now, we use actual difference-based prompting for the second timestep
         # and beyond.
-        # The prompt ends with a section for 'Predicates', so list these.
-        for atom_str in atoms_list:
-            prompt += f"\n{atom_str}"
         for i in range(1, len(traj.imgs)):
             curr_prompt = prompt[:]
-            # NOTE: we rip out just one img from each of the state
-            # images. This is fine/works for the case where we only
-            # have one camera view, but probably will need to be
-            # amended in the future!
+            # Here, we want to give the VLM the images corresponding to the
+            # states at timestep t-1 and timestep t. Note that in the general
+            # case, there can be multiple images associated with each state, but
+            # for now we assume that there is just a single image. So, here we
+            # give the VLM the image from the state at t-1, and the image from
+            # the state at t.
             curr_prompt_imgs = [
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
             curr_prompt += "\n\nSkill executed between states: "
             curr_prompt += traj.actions[i - 1].name + str(
                 traj.actions[i - 1].objects)
-            ret_list.append((curr_prompt, curr_prompt_imgs))
+
+            if CFG.grammar_search_vlm_atom_label_prompt_type == "img_option_diffs_label_history":
+                curr_prompt += "\n\nPredicate values in the first scene, before the skill was executed: \n"
+                curr_prompt += label_history[-1]
+            yield (curr_prompt, curr_prompt_imgs)
     else:
         for atom_str in atoms_list:
             prompt += f"\n{atom_str}"
         for curr_imgs in traj.imgs:
             # NOTE: same problem with ripping out images as in the above note.
-            ret_list.append((prompt, [curr_imgs[0]]))
-    return ret_list
-
+            yield (prompt, [curr_imgs[0]])
 
 def _sample_vlm_atom_proposals_from_trajectories(
         trajectories: List[ImageOptionTrajectory],
@@ -171,9 +182,9 @@ def _label_trajectories_with_vlm_atom_values(
     curr_scenes_labelled = 0
     output_labelled_atoms_txt_list = []
     for traj in trajectories:
-        prompts_for_traj = _generate_prompt_for_scene_labelling(
-            traj, atoms_list)
         curr_traj_txt_outputs = []
+        prompts_for_traj = _generate_prompt_for_scene_labelling(
+            traj, atoms_list, label_history=curr_traj_txt_outputs)
         for text_prompt, img_prompt in prompts_for_traj:
             # Sample VLM outputs with temperature 0 in an attempt to be
             # accurate.
@@ -641,6 +652,7 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     else:  # pragma: no cover.
         atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
+    import pdb; pdb.set_trace()
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
     # NOTE: we convert to a sorted list here to get rid of randomness from set
