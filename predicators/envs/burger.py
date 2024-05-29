@@ -178,10 +178,10 @@ class BurgerEnv(BaseEnv):
         goal = {
             GroundAtom(self._On, [patty, bottom_bun]),
             GroundAtom(self._On, [cheese, patty]),
-            # GroundAtom(self._On, [tomato, cheese]),
-            # GroundAtom(self._On, [top_bun, tomato]),
+            GroundAtom(self._On, [tomato, cheese]),
+            GroundAtom(self._On, [top_bun, tomato]),
             GroundAtom(self._IsCooked, [patty]),
-            # GroundAtom(self._IsSliced, [tomato]),
+            GroundAtom(self._IsSliced, [tomato]),
             # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
             #     top_bun])
         }

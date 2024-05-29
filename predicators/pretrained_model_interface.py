@@ -127,11 +127,6 @@ class PretrainedLargeModel(abc.ABC):
         cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
         assert cached_prompt == prompt
         completions = completion_strs.split(_CACHE_SEP)
-
-        logging.debug(f"Querying model {model_id} with new prompt.")
-        # Query the model.
-        completions = self._sample_completions(prompt, imgs, temperature, seed,
-                                               stop_token, num_completions)
         return completions
 
 

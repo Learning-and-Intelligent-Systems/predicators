@@ -30,7 +30,6 @@ def test_burger():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-
     assert len(env.predicates) == 12
     assert len(env.goal_predicates) == 3
     assert env.get_name() == "burger"
@@ -40,7 +39,6 @@ def test_burger():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     assert len(nsrts) == 15
     task = env.get_train_tasks()[0]
-
     MoveWhenFacingOneStack = [
         n for n in nsrts if n.name == "MoveWhenFacingOneStack"
     ][0]
