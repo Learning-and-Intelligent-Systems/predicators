@@ -40,6 +40,10 @@ _TRACKED_SITE_TO_JOINT = {
 }
 
 _TRACKED_BODIES = ["Burner 1", "Burner 2", "Burner 3", "Burner 4"]
+KETTLE_ON_BURNER1_POS = [0.169, 0.35, 1.626]
+KETTLE_ON_BURNER2_POS = [-0.269, 0.35, 1.626]
+KETTLE_ON_BURNER3_POS = [0.169, 0.65, 1.626]
+KETTLE_ON_BURNER4_POS = [-0.269, 0.65, 1.626]
 
 
 class KitchenEnv(BaseEnv):
@@ -404,7 +408,10 @@ README of that repo suggests!"
 
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
         self._gym_env.reset(seed=seed)
-        self._gym_env.set_body_position("kettle", [-0.269, 0.65, 1.626])
+        if CFG.kitchen_randomize_init_state:
+            rng = np.random.default_rng(seed)
+            kettle_coords = rng.choice([KETTLE_ON_BURNER1_POS, KETTLE_ON_BURNER2_POS, KETTLE_ON_BURNER3_POS, KETTLE_ON_BURNER4_POS])
+            self._gym_env.set_body_position("kettle", kettle_coords)
         return {
             "state_info": self.get_object_centric_state_info(),
             "obs_images": self.render()
