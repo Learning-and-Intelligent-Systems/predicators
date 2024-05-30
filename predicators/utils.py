@@ -2246,8 +2246,8 @@ def query_vlm_for_atom_vals(
     # This only works if state.simulator_state is some list of images that the
     # vlm can be called on.
     assert state.simulator_state is not None
-    assert isinstance(state.simulator_state, List)
-    imgs = state.simulator_state
+    assert isinstance(state.simulator_state["images"], List)
+    imgs = state.simulator_state["images"]
     vlm_atoms = sorted(vlm_atoms)
     atom_queries_str = "\n* "
     atom_queries_str += "\n* ".join(atom.get_vlm_query_str()

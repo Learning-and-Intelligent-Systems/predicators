@@ -5,21 +5,24 @@ This environment uses assets from robotouille that were designed by
 Nicole Thean (https://github.com/nicolethean).
 """
 
+import copy
+import io
 import logging
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-# import pygame
 import numpy as np
 from gym.spaces import Box
+from PIL import Image
 
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type
+from predicators.structs import Action, DefaultEnvironmentTask, \
+    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
+    Video
 
 
 class BurgerEnv(BaseEnv):
@@ -56,7 +59,8 @@ class BurgerEnv(BaseEnv):
     _item_type = Type("item", [], _object_type)
     _station_type = Type("station", [], _object_type)
 
-    _robot_type = Type("robot", ["row", "col", "fingers", "dir"])
+    _robot_type = Type("robot", ["row", "col", "z", "fingers", "dir"],
+                       _object_type)
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
     _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
@@ -111,7 +115,7 @@ class BurgerEnv(BaseEnv):
         ], self._GoalHack_holds)
 
         # Static objects (exist no matter the settings)
-        self._robot = Object("robby", self._robot_type)
+        self._robot = Object("robot", self._robot_type)
         self._grill = Object("grill", self._grill_type)
         self._cutting_board = Object("cutting_board", self._cutting_board_type)
 
@@ -132,13 +136,14 @@ class BurgerEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         del rng  # unused
         tasks = []
-
-        # Add robot, grill, and cutting board
         state_dict = {}
         hidden_state = {}
+
+        # Add robot, grill, and cutting board
         state_dict[self._robot] = {
             "row": 2,
             "col": 2,
+            "z": 0,
             "fingers": 0.0,
             "dir": 3
         }
@@ -177,13 +182,20 @@ class BurgerEnv(BaseEnv):
             GroundAtom(self._On, [top_bun, tomato]),
             GroundAtom(self._IsCooked, [patty]),
             GroundAtom(self._IsSliced, [tomato]),
+            # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
+            #     top_bun])
         }
 
         for _ in range(num):
             state = utils.create_state_from_dict(state_dict)
-            state.simulator_state = hidden_state
-            # Note: this takes in Observation, GoalDescription, whose types are
-            # Any
+            state.simulator_state = {}
+            state.simulator_state["state"] = hidden_state
+            # A DefaultEnvironmentTask is a dummy environment task. Our render
+            # function does not use the task argument, so this is ok.
+            state.simulator_state["images"] = self.render_state(
+                state, DefaultEnvironmentTask)
+            # Recall that a EnvironmentTask consists of an Observation and a
+            # GoalDescription, both of whose types are Any.
             tasks.append(EnvironmentTask(state, goal))
 
         return tasks
@@ -235,13 +247,15 @@ class BurgerEnv(BaseEnv):
 
     def _IsCooked_holds(self, state: State, objects: Sequence[Object]) -> bool:
         patty, = objects
-        return state.simulator_state[patty][  # type: ignore[index]
-            "is_cooked"] > 0.5
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
+        return state.simulator_state["state"][patty]["is_cooked"] > 0.5
 
     def _IsSliced_holds(self, state: State, objects: Sequence[Object]) -> bool:
         tomato, = objects
-        return state.simulator_state[tomato][  # type: ignore[index]
-            "is_sliced"] > 0.5
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
+        return state.simulator_state["state"][tomato]["is_sliced"] > 0.5
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
@@ -250,10 +264,10 @@ class BurgerEnv(BaseEnv):
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, item = objects
-        return not self._HandEmpty_holds(
-            state,
-            [robot]) and state.simulator_state[item][  # type: ignore[index]
-                "is_held"] > 0.5
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
+        return not self._HandEmpty_holds(state,[robot]) and \
+            state.simulator_state["state"][item]["is_held"] > 0.5
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         a, b = objects
@@ -321,6 +335,7 @@ class BurgerEnv(BaseEnv):
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return {self._On, self._IsCooked, self._IsSliced}
+        # return {self._On, self._GoalHack}
 
     @property
     def action_space(self) -> Box:
@@ -378,8 +393,12 @@ class BurgerEnv(BaseEnv):
         # We assume only one of <dcol, drow>, <direction>, <interact>,
         # <pickplace> is not "null" in each action.
         # If each one was null, the action would be <0, 0, -1, 0, 0>.
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
+        assert next_state.simulator_state is not None
+        assert "state" in next_state.simulator_state
         dcol, drow, dir_from_turning, interact, pickplace = action.arr
 
         rx, ry = self.get_position(self._robot, state)
@@ -403,11 +422,12 @@ class BurgerEnv(BaseEnv):
         ]
         for obj in other_objects:
             if obj in items:
-                if state.simulator_state[obj][  # type: ignore[index]
-                        "is_held"] > 0.5:
+                if state.simulator_state["state"][obj]["is_held"] > 0.5:
                     continue
             ox, oy = self.get_position(obj, state)
             if abs(new_rx - ox) < 1e-3 and abs(new_ry - oy) < 1e-3:
+                next_state.simulator_state["images"] = self.render_state(
+                    next_state, DefaultEnvironmentTask)
                 return next_state
 
         # No collision detected, so we can move the robot.
@@ -416,8 +436,7 @@ class BurgerEnv(BaseEnv):
 
         # If an object was held, move it with the robot.
         for item in items:
-            if state.simulator_state[item][  # type: ignore[index]
-                    "is_held"] > 0.5:
+            if state.simulator_state["state"][item]["is_held"] > 0.5:
                 next_state.set(item, "col", new_rx)
                 next_state.set(item, "row", new_ry)
 
@@ -427,11 +446,11 @@ class BurgerEnv(BaseEnv):
                                  [self._robot, item]) and interact > 0.5:
                 if item.is_instance(self._patty_type) and self._On_holds(
                         state, [item, self._grill]):
-                    next_state.simulator_state[item][  # type: ignore[index]
+                    next_state.simulator_state["state"][item][
                         "is_cooked"] = 1.0
                 elif item.is_instance(self._tomato_type) and self._On_holds(
                         state, [item, self._cutting_board]):
-                    next_state.simulator_state[item][  # type: ignore[index]
+                    next_state.simulator_state["state"][item][
                         "is_sliced"] = 1.0
 
         # Handle picking.
@@ -443,8 +462,7 @@ class BurgerEnv(BaseEnv):
             if len(facing_items) > 0:
                 # We'll pick up the item that is "on top".
                 on_top = max(facing_items, key=lambda x: x[1])[0]
-                next_state.simulator_state[on_top][  # type: ignore[index]
-                    "is_held"] = 1.0
+                next_state.simulator_state["state"][on_top]["is_held"] = 1.0
                 next_state.set(on_top, "col", rx)
                 next_state.set(on_top, "row", ry)
                 next_state.set(on_top, "z", 0)
@@ -454,15 +472,13 @@ class BurgerEnv(BaseEnv):
         if pickplace > 0.5 and not self._HandEmpty_holds(state, [self._robot]):
             held_item = [
                 item for item in items
-                if state.simulator_state[item]  # type: ignore[index]
-                ["is_held"] > 0.5
+                if state.simulator_state["state"][item]["is_held"] > 0.5
             ][0]
             px, py = self.get_cell_in_direction(
                 rx, ry, self.enum_to_dir[state.get(self._robot, "dir")])
             if 0 <= py <= self.num_rows and 0 <= px <= self.num_cols:
                 next_state.set(self._robot, "fingers", 0.0)
-                next_state.simulator_state[held_item][  # type: ignore[index]
-                    "is_held"] = 0.0
+                next_state.simulator_state["state"][held_item]["is_held"] = 0.0
                 next_state.set(held_item, "col", px)
                 next_state.set(held_item, "row", py)
                 # If any other objects are at this location, then this must go
@@ -477,6 +493,11 @@ class BurgerEnv(BaseEnv):
                 else:
                     new_z = 0
                 next_state.set(held_item, "z", new_z)
+
+        # Update the image
+        assert next_state.simulator_state is not None
+        next_state.simulator_state["images"] = self.render_state(
+            next_state, DefaultEnvironmentTask)
 
         return next_state
 
@@ -538,19 +559,20 @@ class BurgerEnv(BaseEnv):
         held_img_size = (0.3, 0.3)
         offset = held_img_size[1] * (1 / 3)
         items = [obj for obj in state if obj.is_instance(self._item_type)]
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
         for item in items:
             img = type_to_img[item.type]
-            if "is_cooked" in state.simulator_state[  # type: ignore[index]
+            if "is_cooked" in state.simulator_state["state"][
                     item] and self._IsCooked_holds(state, [item]):
                 img = mpimg.imread(
                     utils.get_env_asset_path("imgs/cooked_patty.png"))
-            elif "is_sliced" in state.simulator_state[  # type: ignore[index]
+            elif "is_sliced" in state.simulator_state["state"][
                     item] and self._IsSliced_holds(state, [item]):
                 img = mpimg.imread(
                     utils.get_env_asset_path("imgs/sliced_tomato.png"))
             zorder = state.get(item, "z")
-            is_held = state.simulator_state[item][  # type: ignore[index]
-                "is_held"] > 0.5
+            is_held = state.simulator_state["state"][item]["is_held"] > 0.5
             x, y = self.get_position(item, state)
             # If the item is held, make it smaller so that it does obstruct the
             # robot.
@@ -592,6 +614,59 @@ class BurgerEnv(BaseEnv):
         ax.axis("off")
         plt.tight_layout()
         return fig
+
+    def render_state(self,
+                     state: State,
+                     task: EnvironmentTask,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> Video:
+        fig = self.render_state_plt(state, task, action, caption)
+        # Create an in-memory binary stream.
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        # Rewind the stream to the beginning so that it can be read from.
+        buf.seek(0)
+        img = Image.open(buf)
+        plt.close(fig)
+
+        # Convert the image to RGB mode to save as JPEG, because
+        # JPEG format does not support images with an alpha channel
+        # (transparency).
+        img_rgb = img.convert("RGB")
+        jpeg_buf = io.BytesIO()
+        img_rgb.save(jpeg_buf, format="JPEG")
+        jpeg_buf.seek(0)
+        jpeg_img = Image.open(jpeg_buf)
+
+        # If we return jpeg_img, we get this error:
+        # `ValueError: I/O operation on closed file`, so we copy it before
+        # closing the buffers.
+        ret_img = copy.deepcopy(jpeg_img)
+        ret_arr = np.array(ret_img)
+
+        buf.close()
+        jpeg_buf.close()
+        return [ret_arr]
+
+    def _copy_observation(self, obs: Observation) -> Observation:
+        return copy.deepcopy(obs)
+
+    def get_observation(self) -> Observation:
+        return self._copy_observation(self._current_observation)
+
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
+        # Rather than have the observation be the state + the image, we just
+        # package the image inside the state's simulator_state.
+        self._current_task = self.get_task(train_or_test, task_idx)
+        self._current_observation = self._current_task.init_obs
+        return self._copy_observation(self._current_observation)
+
+    def step(self, action: Action) -> Observation:
+        # Rather than have the observation be the state + the image, we just
+        # package the image inside the state's simulator_state.
+        self._current_observation = self.simulate(self._current_observation,
+                                                  action)
+        return self._copy_observation(self._current_observation)
 
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:

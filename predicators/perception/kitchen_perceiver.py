@@ -52,7 +52,8 @@ class KitchenPerceiver(BasePerceiver):
 
     def _observation_to_state(self, obs: Observation) -> State:
         state = KitchenEnv.state_info_to_state(obs["state_info"])
-        state.simulator_state = obs["obs_images"]
+        assert state.simulator_state is not None
+        state.simulator_state["images"] = obs["obs_images"]
         return state
 
     def render_mental_images(self, observation: Observation,
