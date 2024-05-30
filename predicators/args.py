@@ -30,7 +30,6 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--make_demo_videos", action="store_true")
     parser.add_argument("--make_demo_images", action="store_true")
     # If used, will make video for each segmented object
-    parser.add_argument("--rgb_observation", action="store_true")
     parser.add_argument("--make_segmented_demo_videos", action="store_true")
     parser.add_argument("--make_cogman_videos", action="store_true")
     parser.add_argument("--load_approach", action="store_true")

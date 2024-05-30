@@ -28,7 +28,7 @@ ARGS:
   # - "use_gui"
 FLAGS:
   num_train_tasks: 20
-  num_test_tasks: 10
+  num_test_tasks: 1
   # option_learner: direct_bc # So it doesn' include all oracle options in init
                             # when including all options, should also include
                             # all predicates.
@@ -44,12 +44,13 @@ FLAGS:
   neural_gaus_regressor_max_itr: 50000
   vlm_model_name: "gpt-3.5-turbo-0125"
   timeout: 300
-  pybullet_camera_width: 1674 
+  pybullet_camera_width: 900 
   pybullet_camera_height: 900
   video_fps: 20
   sesame_max_skeletons_optimized: 200
-  
+
   rgb_observation: True
+  save_nsp_image_patch_before_query: True
 
 START_SEED: 2
 NUM_SEEDS: 1

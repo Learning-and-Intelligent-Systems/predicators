@@ -321,11 +321,14 @@ def _generate_interaction_results(
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
-    # Check the tasks by saving the image of the tasks
-    for i, task in enumerate(test_tasks):
-        task.state_image.save(f"videos/test_rendering_{env.name}_test_task{i}"+
-                              ".png")
+    # # Check rendering by saving the image of the init state of tasks
+    # for i, task in enumerate(test_tasks):
+    #     task.init.state_image.save(f"videos/test_rendering_{env.get_name()}_"+
+    #         f"test_task{i}.png")
+    # Check the processed image before performing simple query
+    ground_atoms = utils.abstract(test_tasks[0].init, env.NS_predicates)
     breakpoint()
+    # /Check
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()
