@@ -6,6 +6,7 @@ import abc
 import contextlib
 import functools
 import gc
+import copy
 import heapq as hq
 import importlib
 import io
@@ -18,7 +19,7 @@ import subprocess
 import sys
 import time
 from argparse import ArgumentParser
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
@@ -60,7 +61,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -1499,6 +1500,51 @@ class PyBulletState(State):
         simulator_state_copy = list(self.joint_positions)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
+# a bounding box named tuple with attribute left, lower, right, upper 
+# pixel idx within the state image
+BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
+
+@dataclass
+class RawState(PyBulletState):
+    state_image: PIL.Image.Image = field(default_factory=PIL.Image.new)
+    obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
+
+    # def get_object_image(self, object: Object) -> ImageWithBox:
+    #     """Return the image with bounding box for the object."""
+    #     return self.get_obj_image(object.name)
+
+    def copy(self) -> RawState:
+        state_dict_copy = super().super().copy().data
+        simulator_state_copy = list(self.joint_positions)
+        state_image_copy = copy.copy(self.state_image)
+        obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
+        return RawState(state_dict_copy, simulator_state_copy, state_image_copy, 
+                        obj_mask_copy)
+
+    def get_obj_mask(self, object: Object) -> Mask:
+        """Return the mask for the object."""
+        return self.obj_mask_dict[object]
+
+    def get_obj_bbox(self, object: Object) -> BoundingBox:
+        '''
+        Get the bounding box of the object in the state image
+        '''
+        mask = self.get_obj_mask(object)
+        y_indices, x_indices = np.where(mask)
+
+        # Get the bounding box
+        left = x_indices.min()
+        right = x_indices.max()
+        lower = y_indices.min()
+        upper = y_indices.max()
+        return BoundingBox(left, lower, right, upper)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class NSPredicate(Predicate):
+    """Neuro-Symbolic Predicate."""
+    _classifier: Callable[[RawState, Sequence[Object]],
+                          bool] = field(compare=False)
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for

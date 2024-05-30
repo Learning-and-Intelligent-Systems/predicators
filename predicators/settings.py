@@ -683,7 +683,7 @@ class GlobalSettings:
     grammar_search_clustering_gmm_num_components = 10
 
     # Have the pybullet env (for now) to render the states and save to RawState
-    rgb_observation = False
+    rgb_observation = True
     # LLM predicate invention algorithm parameters
     llm_predicator_use_grammar = True
     llm_predicator_oracle_base = True

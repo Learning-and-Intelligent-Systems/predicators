@@ -11,13 +11,96 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.colors as mcolors
 import matplotlib.figure as mplfigure
 
+class VisImage:
+    def __init__(self, img, scale=1.0):
+        """
+        Args:
+            img (ndarray): an RGB image of shape (H, W, 3) in range [0, 255].
+            scale (float): scale the input image
+        """
+        self.img = img
+        self.scale = scale
+        self.width, self.height = img.shape[1], img.shape[0]
+        self._setup_figure(img)
+
+    def _setup_figure(self, img):
+        """
+        Args:
+            Same as in :meth:`__init__()`.
+
+        Returns:
+            fig (matplotlib.pyplot.figure): top level container for all the 
+                image plot elements.
+            ax (matplotlib.pyplot.Axes): contains figure elements and sets the 
+                coordinate system.
+        """
+        fig = mplfigure.Figure(frameon=False)
+        self.dpi = fig.get_dpi()
+        # add a small 1e-2 to avoid precision lost due to matplotlib's 
+        # truncation (https://github.com/matplotlib/matplotlib/issues/15363)
+        fig.set_size_inches(
+            (self.width * self.scale + 1e-2) / self.dpi,
+            (self.height * self.scale + 1e-2) / self.dpi,
+        )
+        self.canvas = FigureCanvasAgg(fig)
+        # self.canvas = mpl.backends.backend_cairo.FigureCanvasCairo(fig)
+        ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])
+        ax.axis("off")
+        self.fig = fig
+        self.ax = ax
+        self.reset_image(img)
+
+    def reset_image(self, img):
+        """
+        Args:
+            img: same as in __init__
+        """
+        img = img.astype("uint8")
+        self.ax.imshow(img, extent=(0, self.width, self.height, 0), 
+                       interpolation="nearest")
+
+    def save(self, filepath):
+        """
+        Args:
+            filepath (str): a string that contains the absolute path, including 
+                the file name, where the visualized image will be saved.
+        """
+        self.fig.savefig(filepath)
+
+    def get_image(self):
+        """
+        Returns:
+            ndarray:
+                the visualized image of shape (H, W, 3) (RGB) in uint8 type.
+                The shape is scaled w.r.t the input image using the given 
+                `scale` argument.
+        """
+        canvas = self.canvas
+        s, (width, height) = canvas.print_to_buffer()
+        # buf = io.BytesIO()  # works for cairo backend
+        # canvas.print_rgba(buf)
+        # width, height = self.width, self.height
+        # s = buf.getvalue()
+
+        buffer = np.frombuffer(s, dtype="uint8")
+
+        img_rgba = buffer.reshape(height, width, 4)
+        rgb, alpha = np.split(img_rgba, [3], axis=2)
+        return rgb.astype("uint8")
+
+
+
 class ImagePatch(ViperImagePatch):
+# class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
     #     super().__init__(image, *args, **kwargs)
     #     css4_colors = mcolors.CSS4_COLORS
     #     self.color_proposals = [list(mcolors.hex2color(color)) for color in 
     #                             css4_colors.values()]
-
+    def save_patch(self, path: str):
+        # save the cropped_image, assuming it's of type PIL.Image.Image
+        self.cropped_image.save(path)
+    
     def label_object(self, mask: Mask, label: str, alpha: float = 0.1,
             anno_mode: List[str]=['Mark']):
         """
@@ -57,8 +140,8 @@ class ImagePatch(ViperImagePatch):
             color=color)
 
     def crop_to_objects(self, masks: Sequence[Mask], left_margin: int = 0,
-        lower_margin: int = 0, right_margin: int=0, top_margin: int=0) ->\
-            ImagePatch:
+        lower_margin: int = 0, right_margin: int=0, top_margin: int=0) -> \
+            'ImagePatch':
         """
         Crop the image patch to the smallest bounding box that contains all the
         masks of all the objects.
@@ -85,7 +168,7 @@ class ImagePatch(ViperImagePatch):
         # Crop the image
         return self.crop((left, lower, right, upper))
 
-    def crop(self, left: int, lower: int, right: int, upper: int) -> ImagePatch:
+    def crop(self, left: int, lower: int, right: int, upper: int) -> 'ImagePatch':
         """Returns a new ImagePatch containing a crop of the original image at 
         the given coordinates.
         Parameters
@@ -177,80 +260,3 @@ class ImagePatch(ViperImagePatch):
             rotation=rotation,
         )
         return self.img_as_mpl_fig.get_image()
-
-class VisImage:
-    def __init__(self, img, scale=1.0):
-        """
-        Args:
-            img (ndarray): an RGB image of shape (H, W, 3) in range [0, 255].
-            scale (float): scale the input image
-        """
-        self.img = img
-        self.scale = scale
-        self.width, self.height = img.shape[1], img.shape[0]
-        self._setup_figure(img)
-
-    def _setup_figure(self, img):
-        """
-        Args:
-            Same as in :meth:`__init__()`.
-
-        Returns:
-            fig (matplotlib.pyplot.figure): top level container for all the 
-                image plot elements.
-            ax (matplotlib.pyplot.Axes): contains figure elements and sets the 
-                coordinate system.
-        """
-        fig = mplfigure.Figure(frameon=False)
-        self.dpi = fig.get_dpi()
-        # add a small 1e-2 to avoid precision lost due to matplotlib's 
-        # truncation (https://github.com/matplotlib/matplotlib/issues/15363)
-        fig.set_size_inches(
-            (self.width * self.scale + 1e-2) / self.dpi,
-            (self.height * self.scale + 1e-2) / self.dpi,
-        )
-        self.canvas = FigureCanvasAgg(fig)
-        # self.canvas = mpl.backends.backend_cairo.FigureCanvasCairo(fig)
-        ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])
-        ax.axis("off")
-        self.fig = fig
-        self.ax = ax
-        self.reset_image(img)
-
-    def reset_image(self, img):
-        """
-        Args:
-            img: same as in __init__
-        """
-        img = img.astype("uint8")
-        self.ax.imshow(img, extent=(0, self.width, self.height, 0), 
-                       interpolation="nearest")
-
-    def save(self, filepath):
-        """
-        Args:
-            filepath (str): a string that contains the absolute path, including 
-                the file name, where the visualized image will be saved.
-        """
-        self.fig.savefig(filepath)
-
-    def get_image(self):
-        """
-        Returns:
-            ndarray:
-                the visualized image of shape (H, W, 3) (RGB) in uint8 type.
-                The shape is scaled w.r.t the input image using the given 
-                `scale` argument.
-        """
-        canvas = self.canvas
-        s, (width, height) = canvas.print_to_buffer()
-        # buf = io.BytesIO()  # works for cairo backend
-        # canvas.print_rgba(buf)
-        # width, height = self.width, self.height
-        # s = buf.getvalue()
-
-        buffer = np.frombuffer(s, dtype="uint8")
-
-        img_rgba = buffer.reshape(height, width, 4)
-        rgb, alpha = np.split(img_rgba, [3], axis=2)
-        return rgb.astype("uint8")

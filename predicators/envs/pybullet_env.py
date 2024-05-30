@@ -20,7 +20,8 @@ from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Observation, \
-    State, Video, RawState, Mask, Object
+    State, Video, Mask, Object
+from predicators.utils import RawState
 
 
 class PyBulletEnv(BaseEnv):
@@ -293,10 +294,17 @@ class PyBulletEnv(BaseEnv):
         #     Image.fromarray(original_image), 0, height-1, 0, width-1)
 
         # Iterate over all bodies
-        for bodyId in range(p.getNumBodies(self._physics_client_id)):
-            # Create a mask for the current body using the segmentation mask
+        for bodyId, obj in self._obj_id_to_obj.items():
             mask = seg_image == bodyId
-            mask_dict[self._obj_id_to_obj[bodyId]] = mask
+            mask_dict[obj] = mask
+
+        # for bodyId in range(1, p.getNumBodies(self._physics_client_id)):
+        #     # Create a mask for the current body using the segmentation mask
+        #     mask = seg_image == bodyId
+        #     try:
+        #         mask_dict[self._obj_id_to_obj[bodyId]] = mask
+        #     except:
+        #         breakpoint()
 
             # Option 1: mask everything besides the object out
             # obj_only_img = np.where(mask[..., None], original_image, 0)
@@ -496,6 +504,7 @@ class PyBulletEnv(BaseEnv):
             # YC: Probably need to reset_state here so I can then get an 
             # observation, would it work without the reset_state?
             # Attempt 2: First reset it. 
+            self._current_observation = init
             self._reset_state(init)
             # Attempt 1: Let's try to get a rendering directly first
             pybullet_init = self.get_observation()

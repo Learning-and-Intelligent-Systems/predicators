@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple, Sequence
+from typing import Any, ClassVar, Dict, List, Tuple, Sequence, Set
 
 import numpy as np
 import pybullet as p
@@ -15,7 +15,8 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
-    Predicate, NSPredicate, RawState
+    Predicate
+from predicators.utils import NSPredicate, RawState
 from predicators.image_patch_wrapper import ImagePatch
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -67,6 +68,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # which can be used to get the segmented image for the object
         self._obj_id_to_obj: Dict[int, Object] = {}
 
+    @property
+    def NS_predicates(self) -> Set[NSPredicate]:
+        return {self._On_NSP, self._OnTable_NSP, self._GripperOpen_NSP,
+                self._Holding_NSP, self._Clear_NSP}
+
     def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
         '''
@@ -84,6 +90,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # determine if it's clear.
         attention_image = state_ip.crop_to_objects([block_mask], left_margin=5, 
             right_margin=5, top_margin=20)
+        if CFG.save_nsp_image_patch_before_query:
+            attention_image.save(f"CFG.image_dir/clear({block_name}).png")
         return attention_image.simple_query(
             f"is {block_name} clear, i.e., no block on top of {block_name}?")
 
@@ -369,6 +377,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # pose_x, pose_y, pose_z, held
             state_dict[block] = np.array([bx, by, bz, held, r, g, b],
                                          dtype=np.float32)
+        
+        # Get table state.
+        state_dict[self._table] = np.array([], dtype=np.float32)
 
         state = utils.PyBulletState(state_dict,
                                     simulator_state=joint_positions)
