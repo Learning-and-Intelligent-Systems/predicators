@@ -733,19 +733,18 @@ def create_ground_atom_data_from_generated_demos(
                 ("WARNING: there are fewer total states after option-based "
                  "segmentation than there are in the original trajectory. "
                  "Likely there is an issue with segmentation!"))
-        # We manually add the final two states (initial state and terminal
-        # state of the final option).
+        # We manually add the final state of the final option.
         curr_traj_states_for_vlm.append(traj.states[-1])
         # Pull out the images within the states we've saved for the trajectory.
-        # We assume that images are saved in the state's simulator_state
-        # field.
+        # We assume that the state's simulator_state attribute is a dictionary,
+        # and that the images for each state are accessed by the key "images".
         state_imgs: List[List[PIL.Image.Image]] = []
         for state in curr_traj_states_for_vlm:
-            assert isinstance(state.simulator_state, List)
-            assert len(state.simulator_state) > 0
+            assert state.simulator_state is not None
+            assert "images" in state.simulator_state
             state_imgs.append([
                 PIL.Image.fromarray(img_arr)  # type: ignore
-                for img_arr in state.simulator_state
+                for img_arr in state.simulator_state["images"]
             ])
         img_option_trajs.append(
             ImageOptionTrajectory(

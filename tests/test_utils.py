@@ -1125,7 +1125,9 @@ def test_abstract():
     vlm_pred = VLMPredicate("IsFishy", [], lambda s, o: NotImplementedError,
                             lambda o: "is_fishy")
     vlm_state = state.copy()
-    vlm_state.simulator_state = [np.zeros((30, 30, 3), dtype=np.uint8)]
+    vlm_state.simulator_state = {
+        "images": [np.zeros((30, 30, 3), dtype=np.uint8)]
+    }
     vlm_atoms_set = utils.abstract(vlm_state, [vlm_pred], _DummyVLM())
     assert len(vlm_atoms_set) == 1
     assert "IsFishy" in str(vlm_atoms_set)

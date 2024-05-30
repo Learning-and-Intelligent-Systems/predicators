@@ -72,7 +72,7 @@ def test_burger():
 
     grill = [obj for obj in task.init if obj.name == "grill"][0]
     patty = [obj for obj in task.init if obj.name == "patty"][0]
-    robot = [obj for obj in task.init if obj.name == "robby"][0]
+    robot = [obj for obj in task.init if obj.name == "robot"][0]
     tomato = [obj for obj in task.init if obj.name == "tomato"][0]
     cutting_board = [obj for obj in task.init
                      if obj.name == "cutting_board"][0]
