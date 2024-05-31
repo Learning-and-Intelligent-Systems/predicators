@@ -533,7 +533,7 @@ class NeuralFeasibilityClassifier(DeviceTrackingModule, FeasibilityClassifier):
                         torch.save(self, os.path.join(
                             training_snapshot_directory, f"model-{itr}.pt"))
 
-                    if training_acc >= 0.9999: #validation_acc >= 0.95 and (itr - best_params["iter"]) >= 2000:
+                    if training_acc >= 0.99: #validation_acc >= 0.95 and (itr - best_params["iter"]) >= 2000:
                         break
 
         # Loading the best params

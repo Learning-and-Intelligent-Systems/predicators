@@ -355,6 +355,9 @@ class GlobalSettings:
     pybullet_packing_task_info = ''
     pybullet_packing_test_num_box_cols = 4
 
+    # pybullet_scale env parameters
+    pybullet_scale_test_num_blocks_per_side = 5
+
     # parameters for random options approach
     random_options_max_tries = 100
 

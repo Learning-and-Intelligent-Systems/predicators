@@ -214,14 +214,19 @@ class PyTorchRegressor(_NormalizingRegressor, DeviceTrackingModule):
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
             self.device)
-        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
+        tensor_y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
             self.device)
-        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
+        num_train_datapoints = tensor_X.shape[0] - int(0.2 * tensor_X.shape[0])
+        tensor_train_X, tensor_train_y = tensor_X[:num_train_datapoints], tensor_y[:num_train_datapoints]
+        tensor_test_X, tensor_test_y = tensor_X[num_train_datapoints:], tensor_y[num_train_datapoints:]
+
+        train_batch_generator = _single_batch_generator(tensor_train_X, tensor_train_y)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
                              optimizer,
-                             batch_generator,
+                             train_batch_generator=train_batch_generator,
+                             test_data=(tensor_test_X, tensor_test_y),
                              device=self.device,
                              print_every=self._train_print_every,
                              max_train_iters=self._max_train_iters,

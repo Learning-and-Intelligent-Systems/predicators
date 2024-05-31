@@ -392,7 +392,8 @@ class _RandomSampler:
     _param_option: ParameterizedOption
 
     def __call__(self, state: State, goal: Set[GroundAtom],
-                rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+                rng: np.random.Generator, objects: Sequence[Object],
+                skeleton: Sequence[_GroundNSRT] = []) -> Array:
         """A random sampler for this option.
 
         Ignores all arguments.

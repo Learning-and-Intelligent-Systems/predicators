@@ -6,16 +6,16 @@
 		</contact>
 		<visual>
 			<geometry>
-        <mesh filename="bounds.obj"/>
-      </geometry>
+        		<mesh filename="bounds.obj"/>
+			</geometry>
 			<material name="tan">
-        <color rgba="0.95 0.9 0.8 1"/>
-      </material>
+				<color rgba="0.95 0.9 0.8 1"/>
+			</material>
 		</visual>
 		<collision concave="yes">
 			<geometry>
-        <mesh filename="bounds.obj"/>
-      </geometry>
+        		<mesh filename="bounds-collision.obj"/>
+      		</geometry>
 		</collision>
 	</link>
 </robot>

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot name="bounds">
+	<link concave="yes" name="baseLink">
+		<contact>
+			<lateral_friction value="1"/>
+		</contact>
+		<visual>
+			<geometry>
+        		<mesh filename="scale.obj"/>
+			</geometry>
+			<material name="tan">
+				<color rgba="0.95 0.9 0.8 1"/>
+			</material>
+		</visual>
+		<collision concave="yes">
+			<geometry>
+        		<mesh filename="scale-collision.obj"/>
+      		</geometry>
+		</collision>
+	</link>
+</robot>

@@ -461,27 +461,14 @@ class PyBulletPackingEnv(PyBulletEnv):
     def _extract_robot_state(self, state: State) -> Array:
         raise NotImplementedError("Extracting the robot state not needed here")
 
-    def simulate(self, state: State, action: Action) -> State:
-        """Additionally check for collisions"""
-        logging.info("SIMULATE")
-
-        # Check if the env is running in a new process and needs a new pybullet instance
+    def step(self, action: Action) -> State:
+        was_block_grasped = self._held_obj_id is not None
+        state = self._current_observation
         self._restart_pybullet()
-
-        # Reset pybullet
-        self._current_observation = state
         self._reset_state(state)
 
-        # Remember whether an object was grasped to check later if we performed a grasp
-        was_block_grasped = self._held_obj_id is not None
+        next_state = super().step(action)
 
-        # Perform the action
-        next_state = self.step(action)
-
-        # Clean up afterwards for functions like run_motion_planning
-        self._remove_grasp_constraint()
-
-        # Run collision checking
         assert isinstance(self._pybullet_robot, PandaPyBulletRobot)
         collision, block_bounds_too_close = self.check_collisions(
             robot = self._pybullet_robot,
@@ -491,9 +478,18 @@ class PyBulletPackingEnv(PyBulletEnv):
             held_obj_id = self._held_obj_id,
             physics_client_id = self._physics_client_id
         )
+        self._remove_grasp_constraint()
+
         if CFG.pybullet_control_mode == "reset" and collision and not (block_bounds_too_close and not was_block_grasped):
+            print("COLLISION")
             return state
         return next_state
+
+    def simulate(self, state: State, action: Action) -> State:
+        """Additionally check for collisions"""
+        print("SIMULATE")
+        self._current_observation = state
+        return self.step(action)
 
     @classmethod
     def run_motion_planning(cls, state: State, target_joint_positions: JointPositions, use_gui: bool=False) -> Optional[Sequence[JointPositions]]:

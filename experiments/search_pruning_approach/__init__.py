@@ -24,7 +24,6 @@ import matplotlib.pyplot as plt
 from experiments.envs.utils import plot_geometry
 
 from experiments.envs.shelves2d.env import Shelves2DEnv
-from experiments.envs.wbox.env import WBox
 from experiments.search_pruning_approach.dataset import FeasibilityDataset
 from experiments.search_pruning_approach.learning import ConstFeasibilityClassifier, FeasibilityClassifier, NeuralFeasibilityClassifier
 from experiments.search_pruning_approach.low_level_planning import BacktrackingTree, run_backtracking_for_data_generation, run_low_level_search
@@ -182,120 +181,120 @@ def get_placement_coords(state: State, current_nsrt: _GroundNSRT, top_coords: bo
 #     return positive_report + '\n' + negative_report
 
 
-def visualize_wbox_placement(
-    skeleton: List[_GroundNSRT],
-    previous_states: List[State],
-    goal: Set[GroundAtom],
-    option_model: _OptionModelBase,
-    seed: int,
-    atoms_sequence: List[Set[GroundAtom]],
-    feasibility_classifier: FeasibilityClassifier,
-):
-    assert previous_states
-    current_state = previous_states[-1]
-    nsrt = skeleton[len(previous_states) - 1]
-    rng_sampler = np.random.default_rng(seed)
-    if nsrt.name.startswith("MoveTo"):
-        obj = nsrt.objects[0]
-    else:
-        obj = nsrt.objects[-1]
+# def visualize_wbox_placement(
+#     skeleton: List[_GroundNSRT],
+#     previous_states: List[State],
+#     goal: Set[GroundAtom],
+#     option_model: _OptionModelBase,
+#     seed: int,
+#     atoms_sequence: List[Set[GroundAtom]],
+#     feasibility_classifier: FeasibilityClassifier,
+# ):
+#     assert previous_states
+#     current_state = previous_states[-1]
+#     nsrt = skeleton[len(previous_states) - 1]
+#     rng_sampler = np.random.default_rng(seed)
+#     if nsrt.name.startswith("MoveTo"):
+#         obj = nsrt.objects[0]
+#     else:
+#         obj = nsrt.objects[-1]
 
-    datapoints: List[State] = []
+#     datapoints: List[State] = []
 
-    for _ in range(100):
-        option = nsrt.sample_option(
-            current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
-        next_state, _ = option_model.get_next_state_and_num_actions(
-            current_state, option)
-        if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
-            continue
+#     for _ in range(100):
+#         option = nsrt.sample_option(
+#             current_state, goal, rng_sampler, skeleton[len(previous_states) - 1:])
+#         next_state, _ = option_model.get_next_state_and_num_actions(
+#             current_state, option)
+#         if not all(a.holds(next_state) for a in atoms_sequence[len(previous_states)]):
+#             continue
 
-        datapoints.append(next_state)
+#         datapoints.append(next_state)
 
-    fig1 = WBox.render_state_plt(current_state, None)
-    ax1, = fig1.axes
-    for next_state in datapoints:
-        feasible, _ = feasibility_classifier.classify(
-            previous_states + [next_state], skeleton)
-        ax1.add_patch(WBox._get_obj_patch(next_state, obj, facecolor='none',
-                      edgecolor='darkgreen' if feasible else 'darkred', alpha=0.1))
+#     fig1 = WBox.render_state_plt(current_state, None)
+#     ax1, = fig1.axes
+#     for next_state in datapoints:
+#         feasible, _ = feasibility_classifier.classify(
+#             previous_states + [next_state], skeleton)
+#         ax1.add_patch(WBox._get_obj_patch(next_state, obj, facecolor='none',
+#                       edgecolor='darkgreen' if feasible else 'darkred', alpha=0.1))
 
-    fig2 = plt.figure()
-    ax2 = fig2.add_subplot()
-    ax2.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(
-        next_state, obj)[0] for next_state in datapoints])
+#     fig2 = plt.figure()
+#     ax2 = fig2.add_subplot()
+#     ax2.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(
+#         next_state, obj)[0] for next_state in datapoints])
 
-    fig3 = plt.figure()
-    ax3 = fig3.add_subplot()
-    ax3.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(
-        next_state, obj)[1] for next_state in datapoints])
+#     fig3 = plt.figure()
+#     ax3 = fig3.add_subplot()
+#     ax3.scatter(list(range(len(datapoints))), [WBox._get_unnormalized_coordinates(
+#         next_state, obj)[1] for next_state in datapoints])
 
-    return fig1, fig2, fig3
-
-
-def run_wbox_visualization_saving(
-    search_datapoints: List[SearchPruningDataGenerationDatapoint],
-    option_model: _OptionModelBase,
-    seed: int,
-    prefix_length: int,
-    visualization_directory: str,
-    feasibility_classifier: FeasibilityClassifier,
-) -> None:
-    logging_level = deepcopy(logging.getLogger().level)
-    os.makedirs(visualization_directory, exist_ok=True)
-    for idx, search_datapoint in zip(range(20), search_datapoints):
-        states, atoms_sequence, horizons, skeleton = search_datapoint
-
-        logging.getLogger().setLevel(logging.WARNING)
-        fig1, fig2, fig3 = visualize_wbox_placement(
-            skeleton=skeleton,
-            previous_states=states[:prefix_length],
-            goal=atoms_sequence[-1],
-            option_model=option_model,
-            seed=seed,
-            atoms_sequence=atoms_sequence,
-            feasibility_classifier=feasibility_classifier,
-        )
-        logging.getLogger().setLevel(logging_level)
-
-        filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
-        filepath2 = os.path.join(
-            visualization_directory, f"{idx}-scatter-x.pdf")
-        filepath3 = os.path.join(
-            visualization_directory, f"{idx}-scatter-y.pdf")
-        logging.info(f"Saving visualizations to files {filepath1}, {filepath2} and {filepath3} with "
-                     f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
-        fig1.savefig(filepath1)
-        fig2.savefig(filepath2)
-        fig3.savefig(filepath3)
-        plt.close(fig1)
-        plt.close(fig2)
-        plt.close(fig3)
+#     return fig1, fig2, fig3
 
 
-def run_wbox_ground_truth_saving(
-    segmented_trajs: List[List[Segment]],
-    seg_to_ground_nsrt: Dict[Segment, _GroundNSRT],
-    visualization_directory: str,
-) -> None:
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.set_xlim(0, 25)
-    ax.set_ylim(0, 25)
+# def run_wbox_visualization_saving(
+#     search_datapoints: List[SearchPruningDataGenerationDatapoint],
+#     option_model: _OptionModelBase,
+#     seed: int,
+#     prefix_length: int,
+#     visualization_directory: str,
+#     feasibility_classifier: FeasibilityClassifier,
+# ) -> None:
+#     logging_level = deepcopy(logging.getLogger().level)
+#     os.makedirs(visualization_directory, exist_ok=True)
+#     for idx, search_datapoint in zip(range(20), search_datapoints):
+#         states, atoms_sequence, horizons, skeleton = search_datapoint
 
-    for segmented_traj in segmented_trajs:
-        subfig = WBox.render_state_plt(segmented_traj[1].states[0], None)
-        subax, = subfig.axes
-        for patch in subax.patches:
-            patch.remove()
-            patch.set(alpha=0.01)
-            ax.add_patch(patch)
-        plt.close(subfig)
+#         logging.getLogger().setLevel(logging.WARNING)
+#         fig1, fig2, fig3 = visualize_wbox_placement(
+#             skeleton=skeleton,
+#             previous_states=states[:prefix_length],
+#             goal=atoms_sequence[-1],
+#             option_model=option_model,
+#             seed=seed,
+#             atoms_sequence=atoms_sequence,
+#             feasibility_classifier=feasibility_classifier,
+#         )
+#         logging.getLogger().setLevel(logging_level)
 
-    os.makedirs(visualization_directory, exist_ok=True)
-    filepath = os.path.join(visualization_directory, f"ground-truth-data.pdf")
-    fig.savefig(filepath)
-    plt.close(fig)
+#         filepath1 = os.path.join(visualization_directory, f"{idx}-env.pdf")
+#         filepath2 = os.path.join(
+#             visualization_directory, f"{idx}-scatter-x.pdf")
+#         filepath3 = os.path.join(
+#             visualization_directory, f"{idx}-scatter-y.pdf")
+#         logging.info(f"Saving visualizations to files {filepath1}, {filepath2} and {filepath3} with "
+#                      f"skeleton {[(nsrt.name, nsrt.objects) for nsrt in skeleton]}")
+#         fig1.savefig(filepath1)
+#         fig2.savefig(filepath2)
+#         fig3.savefig(filepath3)
+#         plt.close(fig1)
+#         plt.close(fig2)
+#         plt.close(fig3)
+
+
+# def run_wbox_ground_truth_saving(
+#     segmented_trajs: List[List[Segment]],
+#     seg_to_ground_nsrt: Dict[Segment, _GroundNSRT],
+#     visualization_directory: str,
+# ) -> None:
+#     fig = plt.figure()
+#     ax = fig.add_subplot()
+#     ax.set_xlim(0, 25)
+#     ax.set_ylim(0, 25)
+
+#     for segmented_traj in segmented_trajs:
+#         subfig = WBox.render_state_plt(segmented_traj[1].states[0], None)
+#         subax, = subfig.axes
+#         for patch in subax.patches:
+#             patch.remove()
+#             patch.set(alpha=0.01)
+#             ax.add_patch(patch)
+#         plt.close(subfig)
+
+#     os.makedirs(visualization_directory, exist_ok=True)
+#     filepath = os.path.join(visualization_directory, f"ground-truth-data.pdf")
+#     fig.savefig(filepath)
+#     plt.close(fig)
 
 
 class SearchPruningApproach(NSRTLearningApproach):
@@ -323,8 +322,11 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info(f"TRAINING NSRTS TOOK {time.perf_counter() - start}")
 
         # Make sure we have direct access to the regressors
-        assert all(type(nsrt.sampler) ==
-                   _LearnedSampler for nsrt in self._nsrts)
+        assert all(
+            isinstance(nsrt.sampler, _LearnedSampler) or \
+                nsrt.sampler._param_option.params_space.shape == (0,)
+            for nsrt in self._nsrts
+        )
 
         # Make sure the trajectories are entirely covered by the learned NSRTs (we can easily generate skeletons)
         assert all(
@@ -517,7 +519,8 @@ class SearchPruningApproach(NSRTLearningApproach):
             nsrts_dicts: List[Dict[str, NSRT]] = [
                 {str(nsrt): nsrt for nsrt in self._nsrts}]
             for nsrt in self._nsrts:
-                nsrt.sampler.to('cpu').share_memory()
+                if isinstance(nsrt.sampler, _LearnedSampler):
+                    nsrt.sampler.to('cpu').share_memory()
         else:
             nsrts_dicts: List[Dict[str, NSRT]] = [{str(nsrt): nsrt for nsrt in self._nsrts}] + \
                 [{str(nsrt): deepcopy(nsrt) for nsrt in self._nsrts}
@@ -525,11 +528,12 @@ class SearchPruningApproach(NSRTLearningApproach):
             for id, nsrts_dict in enumerate(nsrts_dicts):
                 device_name = f'cuda:{id}'
                 for nsrt in nsrts_dict.values():
-                    nsrt.sampler.to(device_name)
+                    if isinstance(nsrt.sampler, _LearnedSampler):
+                        nsrt.sampler.to(device_name)
 
         # Main data generation loop
-        logging.info(f"Generating data with interleaved learning from {len(search_datapoints)} datapoints "
-                     f"({len(training_search_datapoints)} for training and {len(validation_search_datapoints)} for validation)...")
+        logging.info(f"Generating data with interleaved learning from "
+                     f"{len(training_search_datapoints)} training and {len(validation_search_datapoints)} validation datapoints...")
 
         cfg = SearchPruningApproach._get_necessary_cfg_namespace()
 
@@ -751,7 +755,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             SearchPruningDataGenerationDatapoint(
                 states=[segment.states[0] for segment in segmented_traj] +
                 [segmented_traj[-1].states[-1]],
-                atoms_sequence=[segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms],
+                atoms_sequence=[segment.init_atoms for segment in segmented_traj] + [segmented_traj[-1].final_atoms], # TODO: this should be changed to use predicators.utils.compute_necessary_atoms_seq (to do so, I need to get the task goals based on the task ID from the LowLevelTrajectory)
                 horizons=CFG.horizon -
                 np.cumsum([len(segment.actions)
                           for segment in segmented_traj]),

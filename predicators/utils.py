@@ -910,6 +910,31 @@ class SingletonParameterizedOption(ParameterizedOption):
         * Params space defaults to Box(0, 1, (0, )).
     """
 
+    class InitiableWrapper:
+        """Wraps the given initiable so that we can track whether the action
+        has been executed yet.
+        """
+        def __init__(
+            self,
+            initiable: Optional[Callable[[State, Dict, Sequence[Object], Array], bool]]
+        ):
+            self.initiable = initiable
+
+        def __call__(
+            self,
+            state: State,
+            memory: Dict,
+            objects: Sequence[Object],
+            params: Array
+        ) -> bool:
+            if "start_state" in memory:
+                assert state.allclose(memory["start_state"])
+            # Always update the memory dict due to the "is" check in _terminal.
+            memory["start_state"] = state
+            if self.initiable is None:
+                return True
+            return self.initiable(state, memory, objects, params)
+
     def __init__(
         self,
         name: str,
@@ -923,33 +948,20 @@ class SingletonParameterizedOption(ParameterizedOption):
             types = []
         if params_space is None:
             params_space = Box(0, 1, (0, ))
-        if initiable is None:
-            def initiable(_1, _2, _3, _4): return True
-
-        # Wrap the given initiable so that we can track whether the action
-        # has been executed yet.
-        def _initiable(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> bool:
-            if "start_state" in memory:
-                assert state.allclose(memory["start_state"])
-            # Always update the memory dict due to the "is" check in _terminal.
-            memory["start_state"] = state
-            assert initiable is not None
-            return initiable(state, memory, objects, params)
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del objects, params  # unused
-            assert "start_state" in memory, \
-                "Must call initiable() before terminal()."
-            return state is not memory["start_state"]
 
         super().__init__(name,
                          types,
                          params_space,
                          policy=policy,
-                         initiable=_initiable,
-                         terminal=_terminal)
+                         initiable=self.InitiableWrapper(initiable),
+                         terminal=self._terminal)
+
+    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> bool:
+        del objects, params  # unused
+        assert "start_state" in memory, \
+            "Must call initiable() before terminal()."
+        return state is not memory["start_state"]
 
 
 class PyBulletState(State):
