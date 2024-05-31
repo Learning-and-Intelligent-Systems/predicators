@@ -532,7 +532,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 # print("Switching control from planner to bridge.")
                 current_control = "bridge"
                 #TO DO change this to maple q . solve() to get a policy
-                self._bridge_policy=self._mapleq._solve(task, timeout)
+                self._bridge_policy=self._mapleq._solve(task, timeout, eps=0.2)
                 option_policy = self._bridge_policy
                 current_policy=option_policy
                 # c = utils.option_policy_to_policy(
@@ -546,7 +546,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 try:
                     action = current_policy(s)
                     # print("returned action by maple q",action.get_option())
-                    
                     return action            
                 except BridgePolicyDone:
                     if last_bridge_policy_state.allclose(s):
@@ -662,10 +661,11 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self._mapleq.get_interaction_requests()
         self._mapleq._learn_nsrts(trajs, 0, []*len(trajs))
         # return self._bridge_policy.learn_from_demos(self._bridge_dataset)
-        unique_states = reduce(lambda re, x: re+[x] if x not in re else re, all_states, [])
-        unique_actions = reduce(lambda re, x: re+[x] if x not in re else re, all_actions, [])
-        for state in all_states:
-            for action in all_actions:
-                q_value = self._approach._mapleq._q_function.predict_q_value(state, self._current_goal, action.get_option())
-                print("Q VALUE !!!!!!, observation, action, q val", state, action.get_option(), q_value)
+        # unique_states = reduce(lambda re, x: re+[x] if x not in re else re, all_states, [])
+        # unique_actions = reduce(lambda re, x: re+[x] if x not in re else re, all_actions, [])
+        # for state in all_states:
+        #     for action in all_actions:
+        #         q_value = self._approach._mapleq._q_function.predict_q_value(state, self._current_goal, action.get_option())
+        #         print("Q VALUE !!!!!!, observation, action, q val", state, action.get_option(), q_value)
 
+        

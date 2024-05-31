@@ -10,6 +10,7 @@ from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
+
 class GridRowGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the grid row environment."""
 
@@ -81,24 +82,8 @@ class GridRowGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {MoveRobot, TurnOnLight, TurnOffLight, JumpToLight}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# TODO: copy this class and make a subclass called GridRowDoorGroundTruthOptionFactory.
-# You'll want all of these options, but also an option to open the door (and maybe one to close it too?).
-
 class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
-    """Ground-truth options for the grid row environment."""
+    """Ground-truth options for the grid row door environment."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -130,14 +115,13 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             policy=_MoveTo_policy,
         )
 
-        
         def _toggle_light_policy(state: State, memory: Dict,
                                  objects: Sequence[Object],
                                  params: Array) -> Action:
             del state, objects, memory  # unused
             dlight, = params
             return Action(np.array([0.0, dlight, 0.0], dtype=np.float32))
-        
+
         # TurnOnLight
         TurnOnLight = utils.SingletonParameterizedOption(
             "TurnOnLight",
@@ -154,29 +138,14 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             params_space=Box(-1.0, 1.0, (1, )),
         )
 
-        # Impossible
-        def _null_policy(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> Action:
-            del state, memory, objects, params  # unused
-            return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
-
-
-    #COMMENT THIS OUT FOR NO JUMPTOLIGHT
-        JumpToLight = utils.SingletonParameterizedOption(
-            "JumpToLight",
-            types=[robot_type, cell_type, cell_type, cell_type, light_type],
-            policy=_null_policy,
-            params_space=Box(-1.0, 1.0, (1, )),
-        )
-
-        #OpenDoor
+        # OpenDoor
         def _toggle_door_policy(state: State, memory: Dict,
-                                 objects: Sequence[Object],
-                                 params: Array) -> Action:
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
             del state, objects, memory  # unused
             ddoor, = params
             return Action(np.array([0.0, 0.0, ddoor], dtype=np.float32))
-        
+
         OpenDoor = utils.SingletonParameterizedOption(
             "OpenDoor",
             types=[robot_type, cell_type, door_type],
@@ -184,6 +153,4 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             params_space=Box(0.0, 1.0, (1, )),
         )
 
-        #COMMENT THIS OUT (JUMPTOLIGHT)
-
-        return {MoveRobot, TurnOnLight, TurnOffLight, JumpToLight, OpenDoor}
+        return {MoveRobot, TurnOnLight, TurnOffLight, OpenDoor}

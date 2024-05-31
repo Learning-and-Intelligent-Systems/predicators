@@ -1374,6 +1374,7 @@ class MapleQFunction(MLPRegressor):
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
 
+
     def get_option(self,
                    state: State,
                    goal: Set[GroundAtom],
@@ -1381,7 +1382,6 @@ class MapleQFunction(MLPRegressor):
                    epsilon: float = 0.0) -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
-        
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -1429,7 +1429,6 @@ class MapleQFunction(MLPRegressor):
                 [vectorized_state, vectorized_goal, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
-            # print(next_state, vectorized_next_state)
             if not terminal and self._y_dim != -1:
                 best_next_value = -np.inf
                 next_option_vecs: List[Array] = []
@@ -1449,7 +1448,6 @@ class MapleQFunction(MLPRegressor):
                 best_next_value = 0.0
             
             Y_arr[i] = reward + self._discount * best_next_value
-            # print("REWARD",option, next_state ,reward, Y_arr[i])
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
@@ -1551,19 +1549,6 @@ class MapleQFunction(MLPRegressor):
             and tuple(n.objects) == tuple(option.objects)
         ]
 
-        #code breaks here ;-;
-
-        # for (x,i) in  self._ground_nsrt_to_idx.items():
-
-        # import ipdb; ipdb.set_trace()
-            
-        #     if x.option == option.parent and tuple(x.objects) == tuple(option.objects):
-        #         print("nice")
-
-        # try:
-        #     assert len(matches) == 1
-        # except AssertionError:
-            # import ipdb; ipdb.set_trace()
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
         discrete_vec[matches[0]] = 1.0
@@ -1617,5 +1602,4 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
-        # import ipdb; ipdb.set_trace()
         return sampled_options

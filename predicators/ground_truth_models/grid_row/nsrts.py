@@ -9,6 +9,7 @@ from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
 
+
 class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the grid row environment."""
 
@@ -148,40 +149,13 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return nsrts
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# TODO: copy this class and make a subclass called GridRowDoorGroundTruthNSRTFactory.
-# You'll want all of these NSRTs, but also an NSRT that has no preconditions and no effects but
-# calls the option that opens the door (and maybe another one that closes the door).
-
 class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
-    """Ground-truth NSRTs for the grid row environment."""
+    """Ground-truth NSRTs for the grid row door environment."""
 
-
-    def get_env_names() -> Set[str]:
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
         return {"grid_row_door"}
-    
+
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],
                   predicates: Dict[str, Predicate],
@@ -204,8 +178,6 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         MoveRobot = options["MoveRobot"]
         TurnOnLight = options["TurnOnLight"]
         TurnOffLight = options["TurnOffLight"]
-        #COMMENT THIS OUT
-        JumpToLight = options["JumpToLight"]
         OpenDoor = options["OpenDoor"]
 
         nsrts = set()
@@ -288,44 +260,14 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
                                    option, option_vars, light_sampler)
         nsrts.add(turn_light_off_nsrt)
 
-        # JumpToLight (Impossible)
-        robot = Variable("?robot", robot_type)
-        cell1 = Variable("?cell1", cell_type)
-        cell2 = Variable("?cell2", cell_type)
-        cell3 = Variable("?cell3", cell_type)
-        light = Variable("?light", light_type)
-        parameters = [robot, cell1, cell2, cell3, light]
-        option_vars = parameters
-
-        #COMMENT THIS OUT
-        option = JumpToLight
-        preconditions = {
-            LiftedAtom(RobotInCell, [robot, cell1]),
-            LiftedAtom(Adjacent, [cell1, cell2]),
-            LiftedAtom(Adjacent, [cell2, cell3]),
-            LiftedAtom(LightInCell, [light, cell3]),
-        }
-        add_effects = {
-            LiftedAtom(RobotInCell, [robot, cell3]),
-        }
-        delete_effects = {
-            LiftedAtom(RobotInCell, [robot, cell1]),
-        }
-        ignore_effects = set()
-        impossible_nsrt = NSRT("JumpToLight", parameters, preconditions,
-                               add_effects, delete_effects, ignore_effects,
-                               option, option_vars, light_sampler)
-        nsrts.add(impossible_nsrt)
-
         # OpenDoor
-        #FIX THIS
         def door_sampler(state: State, goal: Set[GroundAtom],
-                          rng: np.random.Generator,
-                          objs: Sequence[Object]) -> Array:
+                         rng: np.random.Generator,
+                         objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Note: just return 0.0 to show door is closed
-            return np.array([1.0], dtype=np.float32)
-        
+            # Note: return 1.0 to show door is now open
+            return np.array([rng.uniform(1.0, 1.0)], dtype=np.float32)
+
         robot = Variable("?robot", robot_type)
         current_cell = Variable("?current_cell", cell_type)
         door = Variable("?door", door_type)
@@ -340,8 +282,8 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         delete_effects = set()
         ignore_effects = set()
         open_door_nsrt = NSRT("OpenDoor", parameters, preconditions,
-                                  add_effects, delete_effects, ignore_effects,
-                                  option, option_vars, door_sampler)
+                              add_effects, delete_effects, ignore_effects,
+                              option, option_vars, door_sampler)
         nsrts.add(open_door_nsrt)
 
         return nsrts

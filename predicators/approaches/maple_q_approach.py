@@ -61,14 +61,14 @@ class MapleQApproach(OnlineNSRTLearningApproach):
     def get_name(cls) -> str:
         return "maple_q"
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+    def _solve(self, task: Task, timeout: int, eps=0.0) -> Callable[[State], Action]:
 
         def _option_policy(state: State) -> _Option:
             return self._q_function.get_option(
                 state,
                 task.goal,
                 num_samples_per_ground_nsrt=CFG.
-                active_sampler_learning_num_samples)
+                active_sampler_learning_num_samples, epsilon=eps)
 
         return utils.option_policy_to_policy(
             _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
@@ -183,6 +183,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 ns = segment.states[-1]
                 #eventually improve this reward
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                # if reward == 1.0:
+                #     print(s,o)
+                # if reward !=0 and reward!=1:
+                #     print(reward)
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))

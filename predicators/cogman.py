@@ -50,7 +50,6 @@ class CogMan:
 
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
-        # print("observation", observation)
         state = self._perceiver.step(observation)
         # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
@@ -72,10 +71,7 @@ class CogMan:
                 self._approach.get_execution_monitoring_info())
             assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
-        # print (self._current_policy)
         act = self._current_policy(state)
-        q_value = self._approach._mapleq._q_function.predict_q_value(observation, self._current_goal, act.get_option())
-        # print("Q VALUE !!!!!!, observation, action, q val", observation, act.get_option(), q_value)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
         self._episode_action_history.append(act)

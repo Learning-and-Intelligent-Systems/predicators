@@ -176,43 +176,19 @@ class GridRowEnv(BaseEnv):
         return obj1 in self._cell_to_neighbors[obj2]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class GridRowDoorEnv(GridRowEnv):
-    """Simple variant on GridRow where there is also a door.
-    """
+    """Simple variant on GridRow where there is also a door."""
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        # TODO: you'll want to add a new type called 'door' and have it probably
-        # have two features: ['x', and 'open']
+        # type door with features ['x', and 'open']
         self._door_type = Type("door", ["x", 'open'])
         self._door = Object("door", self._door_type)
 
         self._DoorInCell = Predicate("DoorInCell",
-                                      [self._door_type, self._cell_type],
-                                      self._In_holds)
-        
+                                     [self._door_type, self._cell_type],
+                                     self._In_holds)
+
     @classmethod
     def get_name(cls) -> str:
         return "grid_row_door"
@@ -223,19 +199,18 @@ class GridRowDoorEnv(GridRowEnv):
             self._RobotInCell, self._LightInCell, self._LightOn,
             self._LightOff, self._Adjacent, self._DoorInCell
         }
-    
+
     @property
     def types(self) -> Set[Type]:
-        # TODO: add the new door type to this below return list!
-        return {self._robot_type, self._cell_type, self._light_type, self._door_type}
-    
+        return {
+            self._robot_type, self._cell_type, self._light_type,
+            self._door_type
+        }
+
     @property
     def action_space(self) -> Box:
         # dx, dlight, ddoor
         return Box(-np.inf, np.inf, (3, ))
-    
-    # def state_space(self) -> List[State]:
-
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -254,33 +229,21 @@ class GridRowDoorEnv(GridRowEnv):
                     "target": rng.uniform(0.5, 1.0),
                 },
                 self._door: {
-                    "x": rng.choice(range(2,len(self._cells)))-0.5,
+                    "x": rng.choice(range(2, len(self._cells))) - 0.5,
                     "open": 0.0
                 }
             }
             for i, cell in enumerate(self._cells):
                 state_dict[cell] = {"x": i + 0.5}
             state = utils.create_state_from_dict(state_dict)
-            import ipdb; ipdb.set_trace()
             tasks.append(EnvironmentTask(state, goal))
         return tasks
-    
-    def simulate(self, state: State, action: Action) -> State:
-        # TODO: you'll need to override the simulate function to
-        # include logic for the door. Basically, you'll want to copy
-        # most of the code from the simulate function of the superclass
-        # and add two new things:
-        # don't allow the agent to move if it's currently in front
-        # of a cell that has a door on it
-        
-        # add some action that allows the agent to open the door
-        print(self.action_space)
 
+    def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dx, dlight, ddoor = action.arr
         door_pos = state.get(self._door, "x")
-        # print("doorrrrr", door_pos)
         robbot_pos = state.get(self._robot, "x")
         door_open = state.get(self._door, "open")
         robot_cells = [
@@ -290,15 +253,13 @@ class GridRowDoorEnv(GridRowEnv):
             c for c in self._cells if self._In_holds(state, [self._door, c])
         ]
         assert len(door_cells) == 1
-        #apply ddoor if we're in same cell as door
+        # Apply ddoor if we're in same cell as door
         door_cell = door_cells[0]
         robot_cell = robot_cells[0]
         if robot_cell == door_cell and not door_open and ddoor == 1.0:
             next_state.set(self._door, "open", 1.0)
         # Apply dlight if we're in the same cell as the light.
-        
         assert len(robot_cells) == 1
-        
         light_cells = [
             c for c in self._cells if self._In_holds(state, [self._light, c])
         ]
@@ -309,15 +270,11 @@ class GridRowDoorEnv(GridRowEnv):
                 state.get(self._light, "level") + dlight, 0.0, 1.0)
             next_state.set(self._light, "level", new_light_level)
 
-        if door_open == 1.0 or (robbot_pos<=door_pos and robbot_pos + dx<=door_pos):
-            # (robbot_pos>=door_pos and robbot_pos + dx>=door_pos) or
-        # Apply dx to robot.
-            # print("moved robot")
+        if door_open == 1.0 or (robbot_pos <= door_pos
+                                and robbot_pos + dx <= door_pos):
+            # Apply dx to robot.
             new_x = np.clip(
                 state.get(self._robot, "x") + dx, 0.0, len(self._cells))
             next_state.set(self._robot, "x", new_x)
-
-        # print("state, action, next_state", state, action, next_state)
-        # print(dx)
 
         return next_state
