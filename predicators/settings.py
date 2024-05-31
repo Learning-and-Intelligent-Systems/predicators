@@ -521,6 +521,7 @@ class GlobalSettings:
     feasibility_search_device = 'cpu'
     feasibility_keep_model_params = False
     feasibility_num_data_collection_threads = 36
+    feasibility_do_backjumping = True
     # feasibility_featurizer_sizes = [64, 64, 32]
     feasibility_featurizer_sizes = [128, 128, 128]
     feasibility_embedding_size = feasibility_featurizer_sizes[-1]

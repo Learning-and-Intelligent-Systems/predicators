@@ -92,7 +92,7 @@ class PyBulletScaleEnv(PyBulletEnv):
 
     # Settings
     ## Task Generation
-    range_train_per_side_blocks: ClassVar[Tuple[int, int]] = (2, 3)
+    range_train_per_side_blocks: ClassVar[Tuple[int, int]] = (2, 5)
     box_front_margin: ClassVar[float] = 0.25
     block_margin: ClassVar[float] = 0.1
     block_vert_offset: ClassVar[float] = 1e-3

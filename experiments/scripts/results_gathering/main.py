@@ -18,6 +18,7 @@ max_num_objects_per_env = {
     'donuts': 15,
     'wbox': 25,
     'pybullet_packing': 12,
+    'pybullet_scale': 12,
 }
 env_size_var = {
     'shelves2d': '--shelves2d_test_num_boxes',
@@ -25,19 +26,32 @@ env_size_var = {
     'statue': '--statue_test_world_size',
     'wbox': '--wbox_test_num_containers',
     'pybullet_packing': '--pybullet_packing_test_num_box_cols',
+    'pybullet_scale': '--pybullet_scale_test_num_blocks_per_side',
 }
 base_env_size = {
     'shelves2d': 5,
     'donuts': 3,
     'statue': 4,
     'wbox': 2,
-    'pybullet_packing': 4,
+    'pybullet_packing': 5,
+    'pybullet_scale': 5,
+}
+
+approach = {
+    'oracle' : 'oracle',
+    'nsrt_learning_diffusion' : 'nsrt_learning',
+    'nsrt_learning_gaussian' : 'nsrt_learning',
+    'search_pruning' : 'search_pruning',
+    'gnn_action_policy' : 'gnn_action_policy',
+    'search_pruning_no_backjumping' : 'search_pruning',
+    'search_pruning_focal_loss' : 'search_pruning',
+    'search_pruning_last_action_negative' : 'search_pruning',
+    'search_pruning_all_actions_negative' : 'search_pruning',
 }
 
 def run_experiment(
     env: str,
-    approach: str,
-    sampler_regressor_model: str,
+    method: str,
     seed: int,
     num_train_tasks: int,
     env_size: int,
@@ -45,19 +59,24 @@ def run_experiment(
     load_approach: bool,
     results_dir: str = 'experiment-results',
 ) -> None:
-    assert env in {'shelves2d', 'statue', 'donuts', 'wbox', 'pybullet_packing'}
-    assert approach in {'nsrt_learning', 'search_pruning', 'gnn_action_policy', 'oracle'}
-    assert sampler_regressor_model in {'neural_gaussian', 'diffusion'}
+    assert env in {'shelves2d', 'statue', 'donuts', 'wbox', 'pybullet_packing',, 'pybullet_scale'}
+    assert method in {
+        'nsrt_learning_diffusion', 'nsrt_learning_gaussian', 'search_pruning', 'gnn_action_policy', 'oracle',
+        'search_pruning_no_backjumping', 'search_pruning_focal_loss',
+        'search_pruning_last_action_negative', 'search_pruning_all_actions_negative',
+    }
     assert seed >= 0
     assert num_train_tasks > 0
 
-    approach_dir = os.path.join(results_dir,
-                                  f'{env}-{approach}-{sampler_regressor_model}-{seed}-{num_train_tasks}-{base_env_size[env]}'
-                                  )
+    sampler_regressor_model = 'neural_gaussian' if method == 'nsrt_learning_gaussian' else 'diffusion'
 
-    results_prefix = os.path.join(results_dir,
-                                  f'{env}-{approach}-{sampler_regressor_model}-{seed}-{num_train_tasks}-{env_size}'
-                                  )
+    approach_dir = os.path.join(
+        results_dir, f'{env}-{approach[method]}-{sampler_regressor_model}-{seed}-{num_train_tasks}-{base_env_size[env]}'
+    )
+
+    results_prefix = os.path.join(
+        results_dir, f'{env}-{method if not method.startswith("nsrt_learning") else "nsrt_learning"}-{sampler_regressor_model}-{seed}-{num_train_tasks}-{env_size}'
+    )
     os.makedirs(results_prefix, exist_ok=True)
     if glob(os.path.join(results_prefix, "*.pkl")):
         print('='*20)
@@ -81,7 +100,7 @@ def run_experiment(
     variable_experiment_args = [
         # General parameters
         '--env', env,
-        '--approach', approach,
+        '--approach', approach[method],
         '--seed', str(seed),
         '--num_train_tasks', str(num_train_tasks),
         '--results_dir', results_prefix,
@@ -91,22 +110,28 @@ def run_experiment(
         # Gaussian + Diffusion Parameters
         '--learning_rate', {'diffusion': '0.0001', 'neural_gaussian': '0.001'}[sampler_regressor_model],
         '--sampler_learning_regressor_model', sampler_regressor_model,
-        '--sampler_disable_classifier', str(sampler_regressor_model == 'diffusion'),
+        '--sampler_disable_classifier', str(method != 'nsrt_learning_gaussian').lower(),
 
         # Feasibility Parameters
         '--feasibility_debug_directory', results_prefix,
         '--feasibility_max_object_count', str(max_num_objects_per_env[env]),
+        '--feasibility_do_backjumping', str(method != 'search_pruning_no_backjumping').lower(),
+        '--feasibility_learning_strategy', {
+            'search_pruning_no_backjumping': 'load_model',
+            'search_pruning_last_action_negative' : 'last_bad_action',
+            'search_pruning_all_actions_negative' : 'all_bad_actions',
+        }.get(method, 'backtracking'),
 
         # Rerunning Parameters
         # '--load_approach',
         # '--feasibility_load_path', '/dev/null',
         '--feasibility_load_path', os.path.join(approach_dir, "prefix-1", 'feasibility-classifier-model.pt'),
-    ] + (['--load_data'] if load_data else []) + (['--load_approach'] if load_approach and approach != 'search_pruning' else [])
+    ] + (['--load_data'] if load_data else []) + (['--load_approach'] if load_approach else [])
     static_experiment_args = [
         # General parameters
         '--num_test_tasks', '50',
-        '--option_model_terminate_on_repeat', 'true',
-        '--sesame_task_planner', 'fdsat',
+        '--option_model_terminate_on_repeat', 'false',
+        '--sesame_task_planner', 'fdopt',
         '--pybullet_max_vel_norm', '100000',
         '--pybullet_control_mode', 'reset',
         # '--make_failure_videos',
@@ -144,7 +169,6 @@ def run_experiment(
         '--diffusion_regressor_max_itr', '10000',
 
         # Feasibility Parameters
-        '--feasibility_learning_strategy', 'load_model' if load_approach else 'backtracking',
         '--feasibility_num_datapoints_per_iter', '4000',
         '--feasibility_featurizer_sizes', '[256,256,256]',
         '--feasibility_embedding_max_idx', '130',
@@ -178,26 +202,33 @@ load_data = '--load_data' in sys.argv[1:]
 def iterate_with_env_size(env: str, size_min: int, size_max: int):
     return zip(itertools.repeat(env), range(size_min, size_max + 1))
 
-for (env, env_size), (approach, sampler_regressor_model), seed, num_train_tasks in itertools.product(
+for (env, env_size), method, seed, num_train_tasks in itertools.product(
     itertools.chain(
-        iterate_with_env_size('shelves2d', 5, 5),
-        iterate_with_env_size('donuts', 3, 3),
-        iterate_with_env_size('statue', 4, 4),
+        # iterate_with_env_size('shelves2d', 5, 5),
+        # iterate_with_env_size('donuts', 3, 3),
+        # iterate_with_env_size('statue', 4, 4),
         # iterate_with_env_size('shelves2d', 5, 10),
         # iterate_with_env_size('statue', 4, 8),
-        # iterate_with_env_size('donuts', 3, 6),
-        # iterate_with_env_size('pybullet_packing', 4, 4),
+        # iterate_with_env_size('donuts', 4, 6),
+        # iterate_with_env_size('pybullet_packing', 5, 5),
+        iterate_with_env_size('pybullet_scale', 5, 5),
         # iterate_with_env_size('wbox', 2, 2),
         # iterate_with_env_size('wbox', 2, 4),
     ),  # ['shelves2d', 'statue', 'donuts', 'wbox'],
-    [('gnn_action_policy', 'diffusion'), ('nsrt_learning', 'neural_gaussian'), ('nsrt_learning', 'diffusion'), ('search_pruning', 'diffusion')],
-    # [('gnn_action_policy', 'diffusion'), ('nsrt_learning', 'neural_gaussian'), ('nsrt_learning', 'diffusion')],
-    # [('search_pruning', 'diffusion')],
-    # [('nsrt_learning', 'neural_gaussian')],
-    # [('nsrt_learning', 'diffusion'), ('gnn_action_policy', 'diffusion')],
+    # ['gnn_action_policy', 'nsrt_learning_gaussian', 'nsrt_learning_diffusion', 'search_pruning']
+    # ['gnn_action_policy', 'nsrt_learning_gaussian', 'nsrt_learning_diffusion', 'diffusion'],
+    # ['search_pruning_last_action_negative', 'search_pruning_all_actions_negative'],
+    # [('search_pruning_last_action_negative', 4000), ('search_pruning_all_actions_negative', 4000)]
+    ['search_pruning_last_action_negative', 'search_pruning_all_actions_negative'],
+    # ['search_pruning'],
+    # ['search_pruning_no_backjumping'],
+    # ['search_pruning_focal_loss'],
+    # ['nsrt_learning_gaussian'],
+    # ['nsrt_learning_diffusion', 'gnn_action_policy'],
     range(8),
-    [500, 1000, 1500],  # [400, 800, 1200, 1600, 2000],
+    [4000],
+    #[500, 1000, 1500],  # [400, 800, 1200, 1600, 2000],
 ):
     assert env_size >= base_env_size[env]
-    run_experiment(env, approach, sampler_regressor_model,
+    run_experiment(env, method,
                    seed, num_train_tasks, env_size, load_data, env_size > base_env_size[env])
