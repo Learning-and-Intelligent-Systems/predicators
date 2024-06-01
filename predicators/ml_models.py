@@ -1279,6 +1279,7 @@ def _train_pytorch_model(model: nn.Module,
     assert isinstance(max_iters, int)
     for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
+        # print("Y_hat v Y", Y_hat.view(-1), tensor_Y.view(-1))
         loss = loss_fn(Y_hat, tensor_Y)
         if loss.item() < best_loss:
             best_loss = loss.item()
@@ -1357,6 +1358,9 @@ class MapleQFunction(MLPRegressor):
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
             maxlen=self._replay_buffer_max_size)
+        self._epsilon = 0.2
+        self._min_epsilon = 0.05
+        self._ep_reduction = 10*(self._epsilon-self._min_epsilon)/(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request*CFG.interactive_num_requests_per_cycle)
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1379,9 +1383,13 @@ class MapleQFunction(MLPRegressor):
                    state: State,
                    goal: Set[GroundAtom],
                    num_samples_per_ground_nsrt: int,
-                   epsilon: float = 0.0) -> _Option:
+                   train_or_test="test") -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
+        epsilon = self._epsilon
+        if train_or_test=="test":
+            epsilon = 0.0
+
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -1399,7 +1407,16 @@ class MapleQFunction(MLPRegressor):
         # if epsilon==0.0:
         #     print(options)
         idx = np.argmax(scores)
+
+        #DECAY EPSILON
+        # self.decay_epsilon()
+
         return options[idx]
+
+
+    def decay_epsilon(self):
+        self._epsilon=max(self._epsilon-self._ep_reduction, self._min_epsilon)
+
 
     def add_datum_to_replay_buffer(self, datum: MapleQData) -> None:
         """Add one datapoint to the replay buffer.
@@ -1422,6 +1439,8 @@ class MapleQFunction(MLPRegressor):
         # Otherwise, start by vectorizing all data in the replay buffer.
         X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
         Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
+        good_index=[]
+        bad_index=[]
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
@@ -1453,9 +1472,18 @@ class MapleQFunction(MLPRegressor):
                 best_next_value = 0.0
             
             Y_arr[i] = reward + self._discount * best_next_value
-            if vectorized_action[-1]>0.98:
-                print("reward of turning the light and terminal, for BADDDDD state", reward, terminal)
-                print("our target", Y_arr[i])
+            
+            if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65 and terminal and vectorized_action[-2]==1.0:
+                # print("reward of turning the light and terminal, for GOOOOOOOOD state", reward, terminal)
+                # print("our target", Y_arr[i])
+                # print("i", i)
+                good_index.append(i)
+            if vectorized_action[-1]>0.98 and vectorized_action[-2]==1.0:
+                # print("reward of turning the light and terminal, for BADDDDD state", reward, terminal)
+                # print("our target", Y_arr[i])
+                # print("i", i)
+                bad_index.append(i)
+
             #     if not terminal:
             #         print(vectorized_action, vectorized_state, option)
             #         matches = [
@@ -1486,7 +1514,29 @@ class MapleQFunction(MLPRegressor):
         # This will implicitly sample mini batches and train for a certain
         # number of iterations. It will also normalize all the data.
 
+        # print("LENGTH", len(Y_arr))
         self.fit(X_arr, Y_arr)
+        for good in good_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[good])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            print(option)
+            print("after fitting, we predict a GOOD q value as ", self.predict(x), "but our Y_arr is: ", Y_arr[good])
+        for bad in bad_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[bad])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])  
+            print(option)      
+            print("after fitting, we predict a BAD q value as ", self.predict(x), "but our Y_arr is: ", Y_arr[bad])
+
 
         #CALL VISUALIZER HERE !!!!!!!!!!!!!!!!!!!
         # plot_value_history
@@ -1543,6 +1593,7 @@ class MapleQFunction(MLPRegressor):
         batch_generator = self.minibatch_generator(
             tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
         # Run training.
+
         _train_pytorch_model(self,
                              loss_fn,
                              optimizer,

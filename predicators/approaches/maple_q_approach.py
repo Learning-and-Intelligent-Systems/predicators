@@ -91,14 +91,13 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
         return q_values
     
-    def _solve(self, task: Task, timeout: int, eps=0.0) -> Callable[[State], Action]:
-
+    def _solve(self, task: Task, timeout: int, train_or_test) -> Callable[[State], Action]:
         def _option_policy(state: State) -> _Option:
             return self._q_function.get_option(
                 state,
                 task.goal,
                 num_samples_per_ground_nsrt=CFG.
-                active_sampler_learning_num_samples, epsilon=eps)
+                active_sampler_learning_num_samples, train_or_test=train_or_test)
 
         return utils.option_policy_to_policy(
             _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)

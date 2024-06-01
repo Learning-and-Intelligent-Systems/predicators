@@ -473,7 +473,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # print("NSRTS", self._mapleq._q_function._ground_nsrt_to_idx)
         
 
-    def _solve(self, task: Task, timeout: int, epsilon=0.0) -> Callable[[State], Action]:
+    def _solve(self, task: Task, timeout: int, train_or_test="test") -> Callable[[State], Action]:
         start_time = time.perf_counter()
         # self._bridge_policy.reset()
         if not self._maple_initialized:
@@ -536,7 +536,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 #     epsilon=0.2
                 # else:
                 #     epsilon=0
-                self._bridge_policy=self._mapleq._solve(task, timeout, epsilon)
+                self._bridge_policy=self._mapleq._solve(task, timeout, train_or_test)
                 option_policy = self._bridge_policy
                 current_policy=option_policy
                 # c = utils.option_policy_to_policy(
@@ -587,7 +587,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
     def _create_interaction_request(self,
                                     train_task_idx: int) -> InteractionRequest:
         task = self._train_tasks[train_task_idx]
-        policy = self._solve(task, timeout=CFG.timeout, epsilon=0.2)
+        policy = self._solve(task, timeout=CFG.timeout, train_or_test="train")
 
         reached_stuck_state = False
         all_failed_options = None
