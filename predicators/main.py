@@ -42,9 +42,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
+import datetime
 
 import dill as pkl
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -179,6 +180,11 @@ def _run_pipeline(env: BaseEnv,
         else:
             teacher = None
         already_loaded_approach = False
+        logs=[]
+        cumulative_logs=[]
+        learning_cycles=[]
+        q_values=[]
+        num_solved=0
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
@@ -215,6 +221,10 @@ def _run_pipeline(env: BaseEnv,
                 cogman.learn_from_interaction_results(interaction_results)
                 learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
+            if cogman._approach._mapleq._q_function._x_dims:
+                q_values.append(cogman._approach._mapleq.print_light_q_values())
+            else:
+                q_values.append([0,0,0,0,0,0, 0, 0])
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
@@ -222,9 +232,53 @@ def _run_pipeline(env: BaseEnv,
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
             print("HEYASEIHASIFHIHAOIDF", i)
-            if results["solved"]:
-                raise ValueError
+            num_solved+=results["num_solved"]
+            print("CUMULATIVE NUM SOLVED: ", num_solved)
+            print("fraction solved: ", num_solved/(i+1))
+            # if results["solved"]:
+            #     raise ValueError
+            if results["num_solved"]==1:
+                logs.append(1)
+            else:
+                logs.append(0)
+            learning_cycles.append(i+1)
+            cumulative_logs.append(num_solved)
             _save_test_results(results, online_learning_cycle=i)
+
+        plt.plot(learning_cycles, logs)
+        plt.show()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("Solves")
+        plt.title("Solves over Cycles", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.close
+        plt.clf()
+
+
+        plt.plot(learning_cycles, cumulative_logs)
+        plt.show()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'cumulative_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("Cumulative Solves")
+        plt.title("Cumulative Solves over Cycles", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.close
+        plt.clf()
+
+
+# FOR PLOTTING Q VALUES
+        plt.plot(learning_cycles, q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("Q value")
+        plt.legend(['-0.25', '0', '0.25', '0.5', '0.7', '0.75', '0.8', '1'])
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+
     else:
         results = _run_testing(env, cogman)
         results["num_offline_transitions"] = 0
@@ -509,7 +563,7 @@ def _run_episode(
                     metrics["num_options_executed"] += 1
                     if train_or_test=="test":
                         print(curr_option)
-                        
+
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env

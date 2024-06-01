@@ -1334,7 +1334,7 @@ class MapleQFunction(MLPRegressor):
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
                  n_iter_no_change: int = 10000000,
-                 discount: float = 0.95,
+                 discount: float = 0.9,
                  num_lookahead_samples: int = 5,
                  replay_buffer_max_size: int = 1000000,
                  replay_buffer_sample_with_replacement: bool = True) -> None:
@@ -1395,6 +1395,9 @@ class MapleQFunction(MLPRegressor):
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
+        # print(epsilon)
+        # if epsilon==0.0:
+        #     print(options)
         idx = np.argmax(scores)
         return options[idx]
 
@@ -1422,6 +1425,8 @@ class MapleQFunction(MLPRegressor):
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
+            # if reward==1.0:
+            #     print(state, option)
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
@@ -1435,9 +1440,9 @@ class MapleQFunction(MLPRegressor):
                 # We want to pick a total of num_lookahead_samples samples.
                 while len(next_option_vecs) < self._num_lookahead_samples:
                     # Sample 1 per NSRT until we reach the target number.
-                    for option in self._sample_applicable_options_from_state(
+                    for next_option in self._sample_applicable_options_from_state(
                             next_state):
-                        next_option_vecs.append(self._vectorize_option(option))
+                        next_option_vecs.append(self._vectorize_option(next_option))
                 for next_action_vec in next_option_vecs:
                     x_hat = np.concatenate([
                         vectorized_next_state, vectorized_goal, next_action_vec
@@ -1448,6 +1453,34 @@ class MapleQFunction(MLPRegressor):
                 best_next_value = 0.0
             
             Y_arr[i] = reward + self._discount * best_next_value
+            if vectorized_action[-1]>0.98:
+                print("reward of turning the light and terminal, for BADDDDD state", reward, terminal)
+                print("our target", Y_arr[i])
+            #     if not terminal:
+            #         print(vectorized_action, vectorized_state, option)
+            #         matches = [
+            #             i for (n, i) in self._ground_nsrt_to_idx.items()
+            #             if n.option == option.parent
+            #             and tuple(n.objects) == tuple(option.objects)
+            #         ]
+                    
+            #         for (n, i) in self._ground_nsrt_to_idx.items():
+            #             if n.option == option.parent and tuple(n.objects) == tuple(option.objects):
+            #                 print(i)
+
+            #         # Create discrete part.
+            #         discrete_vec = np.zeros(self._num_ground_nsrts)
+            #         discrete_vec[matches[0]] = 1.0
+            #         # Create continuous part.
+            #         continuous_vec = np.zeros(self._max_num_params)
+            #         continuous_vec[:len(option.params)] = option.params
+            #         vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
+            #         print(discrete_vec, continuous_vec,vec)
+
+
+            # if Y_arr[i]>0:
+            #     print(Y_arr[i], option, state)
+        # u might wanna insert some fake data here??
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
@@ -1549,12 +1582,20 @@ class MapleQFunction(MLPRegressor):
             and tuple(n.objects) == tuple(option.objects)
         ]
 
+        # for (n, i) in self._ground_nsrt_to_idx.items():
+        #     if n.option == option.parent and tuple(n.objects) == tuple(option.objects):
+        #         print(i)
+        #         import ipdb; ipdb.set_trace()
+
+
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
         discrete_vec[matches[0]] = 1.0
         # Create continuous part.
         continuous_vec = np.zeros(self._max_num_params)
         continuous_vec[:len(option.params)] = option.params
+        # if option.params:
+        #   print(option.params)
         # Concatenate.
         vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
         return vec
@@ -1565,7 +1606,7 @@ class MapleQFunction(MLPRegressor):
         # Default value if not yet fit.
         #DEFAULT IS 0
         if self._y_dim == -1:
-            return 0.0
+            return 1.0
         x = np.concatenate([
             self._vectorize_state(state),
             self._vectorize_goal(goal),
@@ -1602,4 +1643,5 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
+        # print("OUR OPTIONSSSS", sampled_options)
         return sampled_options

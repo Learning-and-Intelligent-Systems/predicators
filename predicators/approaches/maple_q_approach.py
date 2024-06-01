@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Callable, List, Optional, Set
 
 import dill as pkl
+import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
@@ -60,7 +61,36 @@ class MapleQApproach(OnlineNSRTLearningApproach):
     @classmethod
     def get_name(cls) -> str:
         return "maple_q"
+    
+    def print_light_q_values(self):
+        state = [0.5      , 1.5      , 2.5      , 1.5      , 1.0       , 0.       ,
+       0.75, 2.5      , 2.5      ]
+        
+        light_actions = [[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, -0.25], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, 0.], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, 0.25], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, 0.5], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, 0.7], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, 0.75], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, 0.8], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+        1.0, 1.0]]
 
+        print("Q VALUESSS")
+        q_values=[]
+        for option in light_actions:
+            
+            x = np.concatenate([
+            state,
+            [1],
+            option
+            ])
+            y = self._q_function.predict(x)[0]
+            print(y)
+            q_values.append(y)
+
+        return q_values
+    
     def _solve(self, task: Task, timeout: int, eps=0.0) -> Callable[[State], Action]:
 
         def _option_policy(state: State) -> _Option:
@@ -183,11 +213,18 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 ns = segment.states[-1]
                 #eventually improve this reward
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+                vectorized_action=self._q_function._vectorize_option(o)
+                vectorized_state=self._q_function._vectorize_state(s)
+
+                # if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
+                #     print("reward of turning the light and terminal?", reward, terminal)
+                #     if not terminal:
+                #         print(vectorized_action, vectorized_state, o, s, segment.final_atoms, segment)
                 # if reward == 1.0:
                 #     print(s,o)
                 # if reward !=0 and reward!=1:
                 #     print(reward)
-                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))
 

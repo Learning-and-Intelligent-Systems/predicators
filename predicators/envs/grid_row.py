@@ -226,7 +226,8 @@ class GridRowDoorEnv(GridRowEnv):
                 self._light: {
                     "x": len(self._cells) - 0.5,
                     "level": 0.0,
-                    "target": rng.uniform(0.5, 1.0),
+                    "target": 0.75,
+                    # rng.uniform(0.5, 1.0)
                 },
                 self._door: {
                     "x": rng.choice(range(2, len(self._cells))) - 0.5,
