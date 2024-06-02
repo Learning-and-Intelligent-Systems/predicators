@@ -72,7 +72,7 @@ def get_box_dimensions(
 @dataclass
 class PyBulletScaleState(PyBulletState):
     _block_id_to_block: Dict[BlockId, Object] = field(default_factory=dict)
-    _placement_offsets: List[Tuple[float, float, bool]] = field(default_factory=list)
+    _placement_offsets: List[Tuple[float, float, int]] = field(default_factory=list)
 
     def copy(self) -> State:
         super_copy = super().copy()
@@ -92,12 +92,13 @@ class PyBulletScaleEnv(PyBulletEnv):
 
     # Settings
     ## Task Generation
-    range_train_per_side_blocks: ClassVar[Tuple[int, int]] = (2, 5)
+    range_train_blocks: ClassVar[Tuple[int, int]] = (4, 11)
     box_front_margin: ClassVar[float] = 0.25
     block_margin: ClassVar[float] = 0.1
     block_vert_offset: ClassVar[float] = 1e-3
 
-    num_tries: ClassVar[int] = 100000
+    num_placement_tries: ClassVar[int] = 1000
+    num_task_tries: ClassVar[int] = 100
 
     ## Object Descriptors
     ### Blocks
@@ -114,16 +115,25 @@ class PyBulletScaleEnv(PyBulletEnv):
     robot_ee_init_pose: ClassVar[Pose] = Pose((0.4, .0, 0.5), (.0, 1.0, .0, .0))
     robot_finger_normals: ClassVar[Tuple[Pose3D, Pose3D]] = ((0, 1, 0), (0, -1, 0))
 
-    scale_poses: ClassVar[Tuple[Pose, Pose]] = (
-        Pose((0.4, 0.2, 0.0)),
-        Pose.from_rpy((0.4, -0.2, 0.0), (0, 0, np.pi)),
-    )
-    scale_valid_block_placements: ClassVar[Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]] = (
-        list(itertools.product(np.linspace(0.15, 0.65, 6), np.linspace(0.1, 0.35, 2)))[1:-1],
-        list(itertools.product(np.linspace(0.15, 0.65, 6), np.linspace(-0.1, -0.35, 2)))[1:-1],
-    )
+    scale_poses: ClassVar[List[Pose]] = [
+        Pose((0.4, -0.4, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, -0.3, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, -0.2, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, -0.1, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, 0, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, 0.1, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, 0.2, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, 0.3, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.4, 0.4, 0), (0, 0, 0.707, 0.707)),
+        Pose((0.6, 0.2, 0.0)),
+        Pose((0.6, -0.2, 0.0)),
+    ]
+    scale_valid_relative_placements: ClassVar[List[Pose]] = [
+        Pose((0, -0.1, 0.003)), Pose((0, 0.1, 0.003))
+    ]
 
-    scale_size: ClassVar[Tuple[float, float, float]] = (0.7, 0.4, 0.15)
+    scale_dimensions: ClassVar[Tuple[float, float, float]] = (0.1, 0.3, 0.05)
+    scale_thickness: ClassVar[float] = 3e-3
 
     ## Collision Thresholds
     bounds_min_distance: ClassVar[float] = 0.01
@@ -134,30 +144,30 @@ class PyBulletScaleEnv(PyBulletEnv):
     held_thresh: ClassVar[float] = 0.5
     scale_checked_thresh: ClassVar[float] = 0.5
 
+
     # Types
+    def _generate_use_fields(num_fields: int) -> List: # type: ignore
+        return [f"use{idx}" for idx in range(num_fields)]
+
     _robot_type: ClassVar[Type] = Type("robot", ["x", "y", "z", "qx", "qy", "qz", "qw", "fingers"])
     _block_type: ClassVar[Type] = Type("block", ["x", "y", "z", "d", "w", "h", "qx", "qy", "qz", "qw", "held"])
-    _scale_type: ClassVar[Type] = Type("scale", ["checked"])
+    _scale_type: ClassVar[Type] = Type("scale", ["checked"] + _generate_use_fields(len(scale_poses)))
 
     # Predicates
     ## ScaleChecked
     def _ScaleChecked_holds(state: State, objects: Sequence[Object]) -> bool: # type: ignore
         scale, = objects
         blocks = state.get_objects(PyBulletScaleEnv._block_type)
-        assert len(blocks) % 2 == 0
-        num_left_scale_blocks = len([
-            block
-            for block in blocks
-            if PyBulletScaleEnv._check_block_on_scale(state, block, True)
-        ])
-        num_right_scale_blocks = len([
-            block
-            for block in blocks
-            if PyBulletScaleEnv._check_block_on_scale(state, block, False)
-        ])
+
+        scales_used_onehot = np.zeros(len(PyBulletScaleEnv.scale_poses))
+        scales_used_onehot[[
+            scale_idx for block in blocks
+            for scale_idx in [PyBulletScaleEnv._check_block_which_scale(state, block)]
+            if scale_idx is not None
+        ]] = 1
 
         return state.get(scale, "checked") >= PyBulletScaleEnv.scale_checked_thresh and \
-            len(blocks) / 2 == num_left_scale_blocks == num_right_scale_blocks
+            np.allclose(scales_used_onehot, state[scale][1:])
 
     _ScaleChecked: ClassVar[Predicate] = Predicate("ScaleChecked", [_scale_type], _ScaleChecked_holds)
 
@@ -171,9 +181,7 @@ class PyBulletScaleEnv(PyBulletEnv):
     ## OnScale
     def _OnScale_holds(state: State, objects: Sequence[Object]) -> bool: # type: ignore
         block, _ = objects
-        return PyBulletScaleEnv._check_block_on_scale(state, block, True) or \
-            PyBulletScaleEnv._check_block_on_scale(state, block, False)
-
+        return PyBulletScaleEnv._check_block_which_scale(state, block) is not None
     _OnScale: ClassVar[Predicate] = Predicate("OnScale", [_block_type, _scale_type], _OnScale_holds)
 
     ## OnTable
@@ -195,8 +203,9 @@ class PyBulletScaleEnv(PyBulletEnv):
 
         # For keeping track of things in the active task and faster lookup
         self._block_id_to_block: Dict[BlockId, Object] = {}
-        self._placement_offsets: List[Tuple[float, float, bool]] = []
+        self._placement_offsets: List[Tuple[float, float, int]] = []
         self._scale_checked = False
+        self._scales_used = np.zeros(len(self.scale_poses))
 
     @classmethod
     def get_name(cls) -> str:
@@ -219,7 +228,7 @@ class PyBulletScaleEnv(PyBulletEnv):
             self._train_tasks = self._generate_tasks(
                 rng=self._train_rng,
                 num_tasks=CFG.num_train_tasks,
-                range_blocks_per_side=self.range_train_per_side_blocks,
+                range_blocks=self.range_train_blocks,
             )
         return self._train_tasks
 
@@ -228,7 +237,7 @@ class PyBulletScaleEnv(PyBulletEnv):
             self._test_tasks = self._generate_tasks(
                 rng=self._test_rng,
                 num_tasks=CFG.num_test_tasks,
-                range_blocks_per_side=(CFG.pybullet_scale_test_num_blocks_per_side, CFG.pybullet_scale_test_num_blocks_per_side),
+                range_blocks=(CFG.pybullet_scale_num_test_blocks, CFG.pybullet_scale_num_test_blocks),
             )
         return self._test_tasks
 
@@ -236,43 +245,47 @@ class PyBulletScaleEnv(PyBulletEnv):
         self,
         rng: np.random.Generator,
         num_tasks: int,
-        range_blocks_per_side: Tuple[int, int]
+        range_blocks: Tuple[int, int]
     ) -> List[EnvironmentTask]:
-        return [
-            self._generate_task(
-                rng,
-                range_blocks_per_side,
-            ) for _ in range(num_tasks)
-        ]
+        tasks = []
+        for _ in range(num_tasks):
+            for _ in range(self.num_task_tries):
+                try:
+                    tasks.append(self._generate_task(
+                        rng,
+                        range_blocks,
+                    ))
+                except ValueError as e:
+                    if e.args == ('Could not generate a task with given settings',):
+                        continue
+                    raise e
+                break
+            else:
+                raise ValueError('Could not generate a task with given settings')
+        return tasks
 
     def _generate_task(
         self,
         rng: np.random.Generator,
-        range_blocks_per_side: Tuple[int, int]
+        range_blocks: Tuple[int, int]
     ) -> EnvironmentTask:
-        num_blocks_per_side = rng.integers(*range_blocks_per_side, endpoint=True)
+        num_blocks = rng.integers(*range_blocks, endpoint=True)
 
         # Setting up the state
         ## Creating objects
         block_id_to_block = {
             block_id: Object(f"block{idx}", self._block_type)
-            for idx, block_id in enumerate(rng.choice(list(self.blocks_ids_to_dimensions.keys()), num_blocks_per_side * 2, replace=False))
+            for idx, block_id in enumerate(rng.choice(list(self.blocks_ids_to_dimensions.keys()), num_blocks, replace=False))
         }
 
         ## Setting up placement offsets
-        valid_block_placements = (np.asarray(self.scale_valid_block_placements, dtype=np.float32).transpose((1, 0, 2)) - [
-            self.scale_poses[0].position[:2], self.scale_poses[1].position[:2]
-        ])
-        rng.shuffle(valid_block_placements, axis=0)
+        placement_offsets = [
+            (dx, dy, scale_idx) for ((dx, dy, _), _), scale_idx
+                in zip(rng.choice(np.asarray(self.scale_valid_relative_placements, dtype=object), num_blocks), rng.choice(len(self.scale_poses), num_blocks, replace=False))
+        ]
 
-        sides = np.hstack([np.zeros(num_blocks_per_side, dtype=np.int64), np.ones(num_blocks_per_side, dtype=np.int64)])
-        rng.shuffle(sides)
-
-        side_indices = np.zeros((2, num_blocks_per_side * 2), dtype=np.int64)
-        side_indices[sides, np.arange(num_blocks_per_side * 2)] = 1
-        side_indices = np.cumsum(side_indices, axis=1)
-
-        placement_offsets = np.hstack([valid_block_placements[side_indices[sides, np.arange(num_blocks_per_side * 2)], sides], sides[:, None].astype(np.bool_)])
+        used_scales_onehot = np.zeros(len(self.scale_poses))
+        used_scales_onehot[[scale_idx for _, _, scale_idx in placement_offsets]] = 1
 
         ## Creating the state and goal
         data: Dict[Object, npt.NDArray] = {}
@@ -281,7 +294,12 @@ class PyBulletScaleEnv(PyBulletEnv):
 
         # Setting up object data
         ## Setting up the scale
-        data[self._scale] = np.array([0.0])
+        data[self._scale] = np.hstack([[0.0], used_scales_onehot])
+        scale_polys = MultiPolygon([ # This is not actually needed since it's bounded off in poses-margins, but it's just a safety measure
+            box(x-d/2, y-w/2, x+d/2, y+w/2)
+            for d, w, _ in [self.scale_dimensions]
+            for (x, y, _), _ in self.scale_poses
+        ])
 
         ## Setting up the robot and joint positions
         data[self._robot] = np.array(list(itertools.chain(
@@ -296,7 +314,7 @@ class PyBulletScaleEnv(PyBulletEnv):
         blocks_margins_poly = MultiPolygon()
         for block_id, block in block_id_to_block.items():
             block_d, block_w, block_h = self.blocks_ids_to_dimensions[block_id]
-            for _ in range(self.num_tries):
+            for _ in range(self.num_placement_tries):
                 block_x, block_y, block_rot = rng.uniform(
                     [block_x_min, block_y_min, -np.pi],
                     [block_x_max, block_y_max, np.pi]
@@ -306,7 +324,8 @@ class PyBulletScaleEnv(PyBulletEnv):
                 block_poly = block_transform(box(-block_d/2, -block_w/2, block_h/2, block_w/2))
                 block_poly_margins = block_poly.buffer(max(self.block_min_distance, self.block_margin))
                 if self.block_poses.contains(block_poly) and not self.block_poses_margins.intersects(block_poly_margins) and \
-                        not blocks_poly.intersects(block_poly_margins) and not blocks_margins_poly.intersects(block_poly):
+                        not blocks_poly.intersects(block_poly_margins) and not blocks_margins_poly.intersects(block_poly) and \
+                        not scale_polys.intersects(block_poly_margins):
                     break
             else:
                 raise ValueError('Could not generate a task with given settings')
@@ -343,15 +362,12 @@ class PyBulletScaleEnv(PyBulletEnv):
         p.setCollisionFilterPair(pybullet_robot.robot_id, bodies.bounds_obj_id, -1, -1, False, physicsClientId=physics_client_id)
 
         # Creating the scale objects
-        bodies.scale_obj_ids = (
-            p.loadURDF(get_asset_path("scale.urdf"), *cls.scale_poses[0]),
-            p.loadURDF(get_asset_path("scale.urdf"), *cls.scale_poses[1])
-        )
+        bodies.scale_obj_ids = [cls._create_scale(pose, physics_client_id) for pose in cls.scale_poses]
 
         # Creating the block objects
         assert max(
-            CFG.pybullet_scale_test_num_blocks_per_side, *cls.range_train_per_side_blocks
-        ) * 2 <= len(cls.blocks_ids_to_dimensions)
+            CFG.pybullet_scale_num_test_blocks, *cls.range_train_blocks
+        )  <= len(cls.blocks_ids_to_dimensions)
         bodies.block_id_to_obj_id = {
             block_id: cls._create_block(dimensions, color, physics_client_id)
             for color, (block_id, dimensions) in zip(np.linspace([1, 0, 0, 1], [0, 0, 1, 1], len(cls.blocks_ids_to_dimensions)), cls.blocks_ids_to_dimensions.items())
@@ -362,7 +378,7 @@ class PyBulletScaleEnv(PyBulletEnv):
         assert isinstance(bodies, DottedDict)
         self._robot_initial_joints: JointPositions = bodies.robot_initial_joints
         self._bounds_obj_id: int = bodies.bounds_obj_id
-        self._scale_obj_ids: Tuple[int, int] = bodies.scale_obj_ids
+        self._scale_obj_ids: List[int] = bodies.scale_obj_ids
         self._block_id_to_obj_id: Dict[BlockId, int] = bodies.block_id_to_obj_id
 
     @classmethod
@@ -515,6 +531,7 @@ class PyBulletScaleEnv(PyBulletEnv):
         self._block_id_to_block = state._block_id_to_block
         self._placement_offsets = state._placement_offsets
         self._scale_checked = state.get(self._scale, "checked") > self.scale_checked_thresh
+        self._scales_used = state[self._scale][1:]
 
         # Remove the old grasp constraint
         self._remove_grasp_constraint()
@@ -577,6 +594,7 @@ class PyBulletScaleEnv(PyBulletEnv):
 
         # Getting the scale state
         state.set(self._scale, "checked", self._scale_checked)
+        state.data[self._scale][1:] = self._scales_used
 
         # Getting the robot state
         rx, ry, rz, rqx, rqy, rqz, rqw, rf = self._pybullet_robot.get_state()
@@ -653,7 +671,7 @@ class PyBulletScaleEnv(PyBulletEnv):
         cls,
         robot: PandaPyBulletRobot,
         bounds_obj_id: int,
-        scale_obj_ids: Tuple[int, int],
+        scale_obj_ids: List[int],
         block_obj_ids: Iterable[int],
         held_obj_id: Optional[int],
         physics_client_id: int,
@@ -673,7 +691,7 @@ class PyBulletScaleEnv(PyBulletEnv):
             if obj_id == bounds_obj_id:
                 logging.info(f"ROBOT COLLISION WITH BOUNDS AT DISTANCE {distance}")
             elif obj_id in scale_obj_ids:
-                logging.info(f"ROBOT COLLISION WITH {'LEFT' if obj_id == scale_obj_ids[0] else 'RIGHT'} SCALE AT DISTANCE {distance}")
+                logging.info(f"ROBOT COLLISION WITH SCALE WITH ID {obj_id} AT DISTANCE {distance}")
             else:
                 logging.info(f"ROBOT COLLISION WITH BLOCK WITH ID {obj_id} AT DISTANCE {distance}")
         if collisions:
@@ -699,7 +717,7 @@ class PyBulletScaleEnv(PyBulletEnv):
         cls,
         obj_id: int,
         bounds_obj_id: int,
-        scale_obj_ids: Tuple[int, int],
+        scale_obj_ids: List[int],
         block_obj_ids: Iterable[int],
         physics_client_id: int,
         exclude_bounds_base_collision_check: bool = False
@@ -790,30 +808,83 @@ class PyBulletScaleEnv(PyBulletEnv):
         )
 
     @classmethod
-    def _get_box_corners(cls, state: State, block: Object) -> npt.NDArray[np.float32]:
-        pos = np.array([state.get(block, "x"), state.get(block, "y"), state.get(block, "z")])
-        dims = np.array([state.get(block, "d"), state.get(block, "w"), state.get(block, "h")])
-        return pos + np.vstack([
-            dims / 2 * mult for mult in itertools.product(*([[-1, 1]]*3))
-        ])
+    def _create_scale(
+        cls,
+        pose: Pose,
+        physics_client_id: int
+    ) -> int:
+        return create_pybullet_scale(
+            pose,
+            cls.scale_dimensions,
+            cls.scale_thickness,
+            cls._obj_colors[-1],
+            physics_client_id
+        )
 
     @classmethod
-    def _get_block_corners(cls, state: State, block: Object) -> npt.NDArray[np.float32]:
+    def _check_block_which_scale(cls, state: State, block: Object) -> Optional[int]:
         assert block.is_instance(cls._block_type)
-        pos = np.array([state.get(block, "x"), state.get(block, "y"), state.get(block, "z")])
-        dims = np.array([state.get(block, "d"), state.get(block, "w"), state.get(block, "h")])
-        quaternion = state.get(block, "qx"), state.get(block, "qy"), state.get(block, "qz"), state.get(block, "qw")
-        relative_corners = matrix_from_quat(quaternion) @ np.vstack([
-            dims / 2 * mult for mult in itertools.product(*([[-1, 1]]*3))
-        ]).T
-        return pos + relative_corners.T
+        bx, by, bz, _, _, _, brx, bry, brz, brw = state[block][0:10]
+        world_from_block = Pose((bx, by, bz), (brx, bry, brz, brw))
+        for scale_idx, world_from_scale in enumerate(cls.scale_poses):
+            scale_from_block = world_from_scale.invert().multiply(world_from_block)
+            if (np.abs(scale_from_block.position[:2]) <= np.array(cls.scale_dimensions[:2])/2).all() and scale_from_block.position[2] >= cls.scale_thickness:
+                return scale_idx
+        return None
 
-    @classmethod
-    def _check_block_on_scale(cls, state: State, block: Object, left: bool) -> bool:
-        assert block.is_instance(cls._block_type)
-        block_position = state[block][0:3]
-        block_height = state.get(block, 'h')
-        scale_position = (cls.scale_poses[0] if left else cls.scale_poses[1]).position
-        return (np.abs(np.subtract(block_position[:2], scale_position[:2])) * 2 <= cls.scale_size[:2]).all() and \
-            scale_position[2] + cls.scale_size[2] <= block_position[2] - block_height/2 # type: ignore
 
+def create_pybullet_scale(
+    pose: Pose,
+    dimensions: Tuple[float, float, float],
+    thickness: float,
+    color: Tuple[float, float, float, float],
+    physics_client_id: int,
+) -> int:
+    """A generic utility for creating a new block.
+
+    Returns the PyBullet ID of the newly created block.
+    """
+    mass = 0
+    friction = 1
+    d, w, h = dimensions
+    half_extents = [
+        (thickness/2, w/2, h/2), (thickness/2, w/2, h/2),
+        (d/2, thickness/2, h/2), (d/2, thickness/2, h/2),
+        (d/2, w/2, thickness/2),
+    ]
+    frame_positions = [
+        (-d/2 + thickness/2, 0, h/2), (d/2 - thickness/2, 0, h/2),
+        (0, -w/2 + thickness/2, h/2), (0, w/2 - thickness/2, h/2),
+        (0, 0, thickness/2),
+    ]
+
+    collision_id = p.createCollisionShapeArray(
+        shapeTypes = [p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX],
+        halfExtents = half_extents,
+        collisionFramePositions = frame_positions,
+        physicsClientId=physics_client_id,
+    )
+    visual_id = p.createVisualShapeArray(
+        shapeTypes = [p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX, p.GEOM_BOX],
+        halfExtents = half_extents,
+        visualFramePositions = frame_positions,
+        rgbaColors=[color, color, color, color, color],
+        physicsClientId=physics_client_id,
+    )
+
+    obj_id = p.createMultiBody(
+        baseMass=mass,
+        baseCollisionShapeIndex=collision_id,
+        baseVisualShapeIndex=visual_id,
+        basePosition=pose.position,
+        baseOrientation=pose.orientation,
+        physicsClientId=physics_client_id
+    )
+
+    p.changeDynamics(
+        obj_id,
+        linkIndex=-1,  # -1 for the base
+        lateralFriction=friction,
+        physicsClientId=physics_client_id)
+
+    return obj_id

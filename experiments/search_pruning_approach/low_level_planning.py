@@ -323,7 +323,7 @@ def _backtrack( # TODO: add comments and docstring
 
         tree.append_failed_try(option, next_tree)
 
-        if feasibility_classifier is not None and confidence > min_confidence: # Backjumping handling
+        if feasibility_classifier is not None and confidence > min_confidence and CFG.feasibility_do_backjumping: # Backjumping handling
             logging.info(f"Depth {current_depth}/{max_depth} Backjumping, Current Confidence {confidence}, Min Confidence {float(min_confidence)}")
             return tree, None
 

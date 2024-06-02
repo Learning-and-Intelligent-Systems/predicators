@@ -26,7 +26,7 @@ env_size_var = {
     'statue': '--statue_test_world_size',
     'wbox': '--wbox_test_num_containers',
     'pybullet_packing': '--pybullet_packing_test_num_box_cols',
-    'pybullet_scale': '--pybullet_scale_test_num_blocks_per_side',
+    'pybullet_scale': '--pybullet_scale_num_test_blocks',
 }
 base_env_size = {
     'shelves2d': 5,
@@ -34,7 +34,7 @@ base_env_size = {
     'statue': 4,
     'wbox': 2,
     'pybullet_packing': 5,
-    'pybullet_scale': 5,
+    'pybullet_scale': 10,
 }
 
 approach = {

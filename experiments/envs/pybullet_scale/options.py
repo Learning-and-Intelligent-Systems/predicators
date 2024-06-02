@@ -49,7 +49,7 @@ class OptionHelper:
         objects: Sequence[Object],
         params: Array
     ) -> Tuple[Pose, Pose, str]:
-        relative_block_angle, _, _, _ = params
+        relative_block_angle, _, _ = params[:3]
         robot, _, block = objects
 
         bx, by, bz = state[block][:3]
@@ -68,7 +68,7 @@ class OptionHelper:
         objects: Sequence[Object],
         params: Array
     ) -> Tuple[Pose, Pose, str]:
-        relative_block_angle, _, _, _ = params
+        relative_block_angle, _, _ = params[:3]
         robot, _, block = objects
 
         bx, by, bz = state[block][:3]
@@ -104,14 +104,15 @@ class OptionHelper:
         objects: Sequence[Object],
         params: Array
     ) -> Tuple[Pose, Pose, str]:
-        _, offset_x, offset_y, left_side_val = params
+        _, offset_x, offset_y = params[:3]
+        scale_id = np.argmax(params[3:])
         robot, _, block = objects
 
         rx, ry, rz, rqx, rqy, rqz, rqw = state[robot][:7]
         world_from_current_gripper: Pose = Pose((rx, ry, rz), (rqx, rqy, rqz, rqw))
 
         return world_from_current_gripper, self._compute_world_from_ee_put(
-            (offset_x, offset_y), left_side_val, state.get(block, "h"), False
+            (offset_x, offset_y), scale_id, state.get(block, "h"), False
         ), "closed"
 
     def post_put_block_guide(
@@ -133,13 +134,13 @@ class OptionHelper:
     def _compute_world_from_ee_put(
         self,
         block_offset: Tuple[float, float],
-        left_side_val: float,
+        scale_id: int,
         block_h: float,
         gripper_offset: bool,
     ) -> Pose:
-        world_from_scale_bottom = PyBulletScaleEnv.scale_poses[1 if left_side_val > self.left_side_thresh else 0]
-        scale_bottom_from_block_bottom = Pose((*block_offset, PyBulletScaleEnv.scale_size[2]))
-        block_bottom_from_block_top = Pose((0, 0, block_h + self.scale_offset))
+        world_from_scale_bottom = PyBulletScaleEnv.scale_poses[scale_id]
+        scale_bottom_from_block_bottom = Pose((*block_offset, PyBulletScaleEnv.scale_thickness + self.scale_offset))
+        block_bottom_from_block_top = Pose((0, 0, block_h))
         block_from_gripper = (self.block_top_from_ee_rot_offset if gripper_offset else self.block_top_from_ee_rot).multiply(Pose.identity())
         return multiply_poses(
             world_from_scale_bottom,
@@ -185,8 +186,8 @@ class PyBulletScaleGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # Option funcs
         params_space = Box(
-            np.array([0.0, -PyBulletScaleEnv.scale_size[0], -PyBulletScaleEnv.scale_size[1], 0.0]),
-            np.array([np.pi * 2, PyBulletScaleEnv.scale_size[0], PyBulletScaleEnv.scale_size[1], 1.0])
+            np.hstack([[0.0, -PyBulletScaleEnv.scale_dimensions[0]/2, -PyBulletScaleEnv.scale_dimensions[1]/2], np.zeros(len(PyBulletScaleEnv.scale_poses))]),
+            np.hstack([[np.pi*2, PyBulletScaleEnv.scale_dimensions[0]/2, PyBulletScaleEnv.scale_dimensions[1]/2], np.ones(len(PyBulletScaleEnv.scale_poses))]),
         )
         option_types = [robot_type, scale_type, block_type]
         close_fingers = create_change_fingers_option(

@@ -306,7 +306,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         self._validation_feasibility_dataset: Optional[FeasibilityDataset] = None
         self._feasibility_classifier = ConstFeasibilityClassifier()
         # self._test_tasks_ran = 0
-        assert CFG.feasibility_learning_strategy in {"backtracking", "load_data", "last_bad_action", "all_bad_actions"}
+        assert CFG.feasibility_learning_strategy in {"backtracking", "load_data", "load_model", "last_bad_action", "all_bad_actions"}
 
     @classmethod
     def get_name(cls) -> str:
@@ -349,6 +349,8 @@ class SearchPruningApproach(NSRTLearningApproach):
                 CFG.feasibility_debug_directory, 'loaded-data-training-snapshots')
             os.makedirs(snapshot_dir, exist_ok=True)
             self._learn_neural_feasibility_classifier(1, snapshot_dir)
+        elif CFG.feasibility_learning_strategy == "load_model":
+            self._feasibility_classifier = torch.load(CFG.feasibility_load_path)
         elif CFG.feasibility_learning_strategy == "last_bad_action":
             self._collect_data_last_bad_action(seed)
             self._save_data(dataset_path)

@@ -4,7 +4,7 @@ from typing import ClassVar, Dict, Sequence, Set, Tuple, cast
 
 import numpy as np
 
-from experiments.envs.pybullet_scale.env import PyBulletScaleState
+from experiments.envs.pybullet_scale.env import PyBulletScaleEnv, PyBulletScaleState
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.structs import NSRT, _GroundNSRT, Array, GroundAtom, Object, ParameterizedOption, Predicate, State, Type, Variable
@@ -60,10 +60,13 @@ class PyBulletScaleGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             relative_block_angle = (np.arctan2(world_from_block.position[1], world_from_block.position[0]) - world_from_block.rpy[2]) % (np.pi * 2)
 
-            offset_x, offset_y, left_side = state._placement_offsets[-len(skeleton) + 1]
+            offset_x, offset_y, scale_id = state._placement_offsets[-len(skeleton) + 1]
             dx, dy = rng.uniform(-offset_perturbation, offset_perturbation)
 
-            return np.array([relative_block_angle, offset_x + dx, offset_y + dy, 1.0 if left_side else 0.0])
+            scale_id_onehot = np.zeros(len(PyBulletScaleEnv.scale_poses))
+            scale_id_onehot[scale_id] = 1
+
+            return np.hstack([[relative_block_angle, offset_x + dx, offset_y + dy], scale_id_onehot])
 
         robot = Variable("?robot", robot_type)
         scale = Variable("?scale", scale_type)

@@ -287,7 +287,6 @@ class PyBulletEnv(BaseEnv):
             logging.info("FINGERS CLOSING")
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
-            logging.info(self._held_obj_id)
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
