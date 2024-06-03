@@ -135,16 +135,16 @@ def _generate_prompt_for_scene_labelling(
                 traj.actions[i - 1].objects)
             curr_prompt += skill_name
 
-            before_img, after_img = curr_prompt_imgs
-            from matplotlib import font_manager
-            from PIL import ImageDraw, ImageFont
-            font_path = font_manager.findSystemFonts(fontpaths=None, fontext='ttf')[0]
-            font_size = 20
-            font = ImageFont.truetype(font_path, font_size)
-            draw_before = ImageDraw.Draw(before_img)
-            draw_before.text((0, 0), f"BEFORE {skill_name}", fill='red', font=font)
-            draw_after = ImageDraw.Draw(after_img)
-            draw_after.text((0, 0), f"AFTER {skill_name}", fill='red', font=font)
+            # before_img, after_img = curr_prompt_imgs
+            # from matplotlib import font_manager
+            # from PIL import ImageDraw, ImageFont
+            # font_path = font_manager.findSystemFonts(fontpaths=None, fontext='ttf')[0]
+            # font_size = 20
+            # font = ImageFont.truetype(font_path, font_size)
+            # draw_before = ImageDraw.Draw(before_img)
+            # draw_before.text((0, 0), f"BEFORE {skill_name}", fill='red', font=font)
+            # draw_after = ImageDraw.Draw(after_img)
+            # draw_after.text((0, 0), f"AFTER {skill_name}", fill='red', font=font)
 
             if CFG.grammar_search_vlm_atom_label_prompt_type == \
                 "img_option_diffs_label_history":
