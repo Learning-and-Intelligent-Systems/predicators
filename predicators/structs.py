@@ -430,6 +430,12 @@ class Task:
     """Struct defining a task, which is an initial state and goal."""
     init: State
     goal: Set[GroundAtom]
+    # Sometimes we want the task presented to the agent to have goals described
+    # in terms of predicates that are different than those describing the goal
+    # of the task presented to the demonstrator. In these cases, we will store
+    # an "alternative goal" in this field and replace the goal with the
+    # alternative goal before giving the task to the agent.
+    _alt_goal: Optional[Set[GroundAtom]] = frozenset()
 
     def __post_init__(self) -> None:
         # Verify types.
@@ -440,6 +446,12 @@ class Task:
         """Return whether the goal of this task holds in the given state."""
         return all(goal_atom.holds(state) for goal_atom in self.goal)
 
+    def replace_goal_with_alt_goal(self) -> Task:
+        """Return a Task with the goal replaced with the alternative goal."""
+        # We may not want the agent to access the goal predicates given to the
+        # demonstrator. To prevent leakage of this information, we discard the
+        # original goal.
+        return Task(self.init, goal=self._alt_goal, _alt_goal=frozenset())
 
 DefaultTask = Task(DefaultState, set())
 
@@ -456,11 +468,13 @@ class EnvironmentTask:
     """
     init_obs: Observation
     goal_description: GoalDescription
+    # See Task._alt_goal for the reason for this field.
+    _alt_goal_desc: Optional[GoalDescription] = None
 
     @cached_property
     def task(self) -> Task:
         """Convenience method for environment tasks that are fully observed."""
-        return Task(self.init, self.goal)
+        return Task(self.init, self.goal, _alt_goal=self._alt_goal_desc)
 
     @cached_property
     def init(self) -> State:
@@ -476,6 +490,13 @@ class EnvironmentTask:
             next(iter(self.goal_description)), GroundAtom)
         return self.goal_description
 
+    def replace_goal_with_alt_goal(self) -> EnvironmentTask:
+        """Return an EnvironmentTask with the goal description replaced with the
+        alternative goal description.
+
+        See Task.replace_goal_with_alt_goal for the reason for this function.
+        """
+        return EnvironmentTask(self.init_obs, goal_description=self._alt_goal_desc, _alt_goal_desc=None)
 
 DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())
 

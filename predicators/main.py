@@ -107,11 +107,21 @@ def main() -> None:
     # information in training.
     perceiver = create_perceiver(CFG.perceiver)
     train_tasks = [perceiver.reset(t) for t in env_train_tasks]
-    # If train tasks have goals that involve excluded predicates, strip those
-    # predicate classifiers to prevent leaking information to the approaches.
-    stripped_train_tasks = [
-        utils.strip_task(task, preds) for task in train_tasks
+    if CFG.strip_train_tasks:
+        # If train tasks have goals that involve excluded predicates, strip those
+        # predicate classifiers to prevent leaking information to the approaches.
+        stripped_train_tasks = [
+            utils.strip_task(task, preds) for task in train_tasks
+        ]
+    # If the goals of the tasks that the approaches solve need to be described
+    # using predicates that differ from those in the goals of the tasks that the
+    # demonstrator solves, then replace those predicates accordingly. This is
+    # used in VLM predicate invention where we want to invent certain goal
+    # predicates that the demonstrator needed to solve the task.
+    approach_train_tasks = [
+        task.replace_goal_with_alt_goal() for task in train_tasks
     ]
+
     if CFG.option_learner == "no_learning":
         # If we are not doing option learning, pass in all the environment's
         # oracle options.

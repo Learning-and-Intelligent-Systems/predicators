@@ -46,6 +46,8 @@ class GlobalSettings:
     # your call to utils.reset_config().
     render_state_dpi = 150
     approach_wrapper = None
+    allow_exclude_goal_predicates = True
+    strip_train_tasks = False
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
