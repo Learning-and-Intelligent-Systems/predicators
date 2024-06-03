@@ -130,8 +130,9 @@ def _generate_prompt_for_scene_labelling(
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
             curr_prompt += "\n\nSkill executed between states: "
-            curr_prompt += traj.actions[i - 1].name + str(
+            skill_name = traj.actions[i - 1].name + str(
                 traj.actions[i - 1].objects)
+            curr_prompt += skill_name
 
             if CFG.grammar_search_vlm_atom_label_prompt_type == \
                 "img_option_diffs_label_history":
