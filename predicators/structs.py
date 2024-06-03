@@ -6,7 +6,7 @@ import abc
 import copy
 import textwrap
 import itertools
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
@@ -57,7 +57,7 @@ class Type:
         return f"Type `{self.name}` has features: {features_str}"
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class _TypedEntity:
     """Struct defining an entity with some type, either an object (e.g.,
     block3) or a variable (e.g., ?block).
@@ -66,6 +66,11 @@ class _TypedEntity:
     """
     name: str
     type: Type
+    id: Optional[int] = None # pybullet id; used when labeling the objects
+
+    @cached_property
+    def id_name(self) -> str:
+        return f"{self.type.name}{self.id}"
 
     @cached_property
     def _str(self) -> str:
@@ -92,7 +97,7 @@ class _TypedEntity:
         return False
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class Object(_TypedEntity):
     """Struct defining an Object, which is just a _TypedEntity whose name does
     not start with "?"."""
@@ -106,7 +111,7 @@ class Object(_TypedEntity):
         return self._hash
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class Variable(_TypedEntity):
     """Struct defining a Variable, which is just a _TypedEntity whose name
     starts with "?"."""

@@ -42,15 +42,17 @@ FLAGS:
   min_perc_data_for_nsrt: 1
   segmenter: "contacts"
   neural_gaus_regressor_max_itr: 50000
-  vlm_model_name: "gpt-3.5-turbo-0125"
   timeout: 300
   pybullet_camera_width: 900 
   pybullet_camera_height: 900
   video_fps: 20
   sesame_max_skeletons_optimized: 200
 
-  rgb_observation: True
-  save_nsp_image_patch_before_query: True
+  # rgb_observation: True
+  # save_nsp_image_patch_before_query: True
+  # vlm_model_name: "gemini-1.5-flash"
+  # vlm_temperature: 0
+  # vlm_use_chat_mode: True
 
 START_SEED: 2
 NUM_SEEDS: 1

@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Dict, List, Tuple, Sequence, Set
 
 import numpy as np
 import pybullet as p
+from PIL import Image
 
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv
@@ -67,11 +68,41 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Mapping from pybullet object id to Object instances
         # which can be used to get the segmented image for the object
         self._obj_id_to_obj: Dict[int, Object] = {}
+        self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
+
+    def evaluate_simple_assertion(self, assertion: str, image: Image.Image):
+
+        response = self.vlm.sample_completions(prompt=assertion,
+                                           imgs=[image],
+                                           temperature=CFG.vlm_temperature,
+                                           seed=CFG.seed)
+        assert len(response) == 1, "The VLM should return only one completion."
+        response = response[0].lower()
+        if "true" in response:
+            return True
+        elif "false" in response:
+            return False
+        else:
+            logging.warning(f"VLM didn't response neither true/false, "
+                            f"response: {response}")
+            # Default to false
+            return False
 
     @property
     def NS_predicates(self) -> Set[NSPredicate]:
-        return {self._On_NSP, self._OnTable_NSP, self._GripperOpen_NSP,
-                self._Holding_NSP, self._Clear_NSP}
+        return {
+            self._On_NSP, 
+            self._OnTable_NSP, 
+            self._GripperOpen_NSP,
+            self._Holding_NSP, 
+            self._Clear_NSP
+            }
+    
+    @property
+    def ns_predicates_to_predicates(self) -> Dict[NSPredicate, Predicate]:
+        return {self._On_NSP: self._On, self._OnTable_NSP: self._OnTable,
+                self._GripperOpen_NSP: self._GripperOpen,
+                self._Holding_NSP: self._Holding, self._Clear_NSP: self._Clear}
 
     def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -81,19 +112,23 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         block, = objects
 
         # Label the object in the scene image.
-        block_name = block.name
-        block_mask = state.get_object_mask(block)
-        state_ip = ImagePatch(state.state_image)
-        state_ip.label_with_text(block_mask, block_name)
+        block_name = block.id_name
+        block_mask = state.get_obj_mask(block)
+        state_ip = ImagePatch(state.labeled_image)
+        # state_ip.label_object(block_mask, block_name[-1])
 
         # We only need to look at the object and the space on top of it to
         # determine if it's clear.
-        attention_image = state_ip.crop_to_objects([block_mask], left_margin=5, 
-            right_margin=5, top_margin=20)
+        attention_image = state_ip.crop_to_objects([block_mask], top_margin=20, 
+                                                   lower_margin=5)
         if CFG.save_nsp_image_patch_before_query:
-            attention_image.save(f"CFG.image_dir/clear({block_name}).png")
-        return attention_image.simple_query(
-            f"is {block_name} clear, i.e., no block on top of {block_name}?")
+            # Image.fromarray(block_mask).save(f"{CFG.image_dir}/clear({block_name})_mask.png")
+            attention_image.save(f"{CFG.image_dir}/clear({block_name}).png")
+            # return False
+        return self.evaluate_simple_assertion(
+            f"there is no block directly on top of {block_name}.",
+            # f"there is no block directly on top of block labeled with {block.id}.",
+            attention_image.cropped_image_in_PIL)
 
     def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -108,14 +143,20 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         if self._GripperOpen_NSP_holds(state, [robot]):
             return False
 
-        block_name = block.name
-        block_mask = state.get_object_mask(block)
-        state_ip = ImagePatch(state.state_image)
-        state_ip.label_with_text(block_mask, block_name)
-        robot_mask = state.get_object_mask(robot)
+        block_name = block.id_name
+        block_mask = state.get_obj_mask(block)
+        state_ip = ImagePatch(state.labeled_image)
+        # state_ip.label_object(block_mask, block_name[-1])
+        robot_mask = state.get_obj_mask(robot)
         attention_image = state_ip.crop_to_objects([block_mask, robot_mask])
-        return attention_image.simple_query(
-            f"is {block_name} held by the robot")
+
+        if CFG.save_nsp_image_patch_before_query:
+            attention_image.save(f"{CFG.image_dir}/holding({block_name}).png")
+            # return False
+
+        return self.evaluate_simple_assertion(
+            f"{block_name} is held by the robot",
+            attention_image.cropped_image_in_PIL)
 
     def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -137,21 +178,31 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             The block whose relationship with the table is to be determined.
         '''
         block, = objects
-        state_ip = ImagePatch(state.state_image())
+        state_ip = ImagePatch(state.labeled_image)
 
         # Label the objects in the scene image to simply reasoning.
-        block_name = block.name
-        block_mask = state.get_object_mask(block)
-        state_ip.label_with_text(block_mask, block_name)
+        block_name = block.id_name
+        # block_label = block_name[-1]
+        block_mask = state.get_obj_mask(block)
+        # state_ip.label_object(block_mask, block_label)
 
         # Crop the scene image to the smallest bounding box that include both
         # objects.
         # We know there is only one table in this environment.
         table = state.get_objects(self._table_type)[0]
-        table_bbox = state.get_obj_bbox(table)
-        block_bbox = state.get_obj_bbox(block)
-        attention_image = state_ip.crop_to_objects([block_bbox, table_bbox])
-        return attention_image.simple_query(f"is {block_name} on the table")
+        table_name = table.id_name
+        table_mask = state.get_obj_mask(table)
+        # state_ip.label_object(table_mask, "table")
+        # Image.fromarray(table_mask).save(f"{CFG.image_dir}/OnTable({block_name})_t_mask.png")
+        attention_image = state_ip.crop_to_objects([block_mask, table_mask])
+
+        if CFG.save_nsp_image_patch_before_query:
+            attention_image.save(f"{CFG.image_dir}/OnTable({block_name}).png")
+            # return False
+
+        return self.evaluate_simple_assertion(
+            f"{block_name} is directly resting on {table_name}'s surface.",
+            attention_image.cropped_image_in_PIL)
 
     def _On_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> bool:
         '''Determine if the first block in objects is on the second block in the 
@@ -162,15 +213,18 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         objects : Sequence[Object]
             The two blocks whose relationship is to be determined.
         '''
-        state_ip = ImagePatch(state.state_image)
+        state_ip = ImagePatch(state.labeled_image)
         block1, block2 = objects
 
         # Label the objects in the scene image to simply reasoning.
-        block1_mask = state.get_object_mask(block1)
-        block2_mask = state.get_object_mask(block2)
-        block1_name, block2_name = block1.name, block2.name
-        state_ip.label_with_text(block1_mask, block1_name)
-        state_ip.label_with_text(block2_mask, block2_name)
+        block1_mask = state.get_obj_mask(block1)
+        block2_mask = state.get_obj_mask(block2)
+        block1_name, block2_name = block1.id_name, block2.id_name
+        # Heuristics: we know a block can't be on top of itself.
+        if block1_name == block2_name:
+            return False
+        # state_ip.label_object(block1_mask, block1_name[-1])
+        # state_ip.label_object(block2_mask, block2_name[-1])
 
         # Using simple heuristics to check if they are far away
         block1_bbox = state.get_obj_bbox(block1) 
@@ -183,9 +237,18 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Crop the scene image to the smallest bounding box that include both
         # objects.
-        attention_image = state_ip.crop_to_objects([block1_bbox, block2_bbox])
-        return attention_image.simple_query(
-            f"is_{block1_name}_on_{block2_name}")
+        attention_image = state_ip.crop_to_objects([block1_mask, block2_mask])
+
+        if CFG.save_nsp_image_patch_before_query:
+            # print(f"evaluating: On({block1_name}, {block2_name})")
+            attention_image.save(f"{CFG.image_dir}/On({block1_name}, "+
+                                 f"{block2_name}).png")
+            # return False
+
+        return self.evaluate_simple_assertion(
+            f"{block1_name} is directly on top of {block2_name} with no blocks"+
+             " in between.",
+             attention_image.cropped_image_in_PIL)
 
     @classmethod
     def initialize_pybullet(

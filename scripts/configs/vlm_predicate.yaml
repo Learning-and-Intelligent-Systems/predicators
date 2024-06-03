@@ -60,6 +60,7 @@ FLAGS:
   llm_predicator_oracle_base: False
   llm_predicator_oracle_learned: True
   vlm_predicator_render_option_state: True
+  vlm_use_chat_mode
 START_SEED: 2
 NUM_SEEDS: 1
 ...
