@@ -394,6 +394,7 @@ class PyBulletScaleEnv(PyBulletEnv):
         if check_scale:
             next_state = state.copy()
             next_state.set(self._scale, "checked", 1.0)
+            self._current_observation = next_state
             return next_state
 
         was_block_grasped = self._held_obj_id is not None

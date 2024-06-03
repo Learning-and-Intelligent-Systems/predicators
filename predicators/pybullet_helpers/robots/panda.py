@@ -22,6 +22,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     """Franka Emika Panda which we assume is fixed on some base."""
 
     def __init__(self, *args, **kwargs) -> None:
+        logging.info("NEW PANDA ROBOT CREATED")
         super().__init__(*args, **kwargs)
 
     @cached_property
@@ -83,18 +84,21 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         )
 
     def _ikfast_inverse_kinematics(self,
-                                   end_effector_pose: Pose) -> JointPositions:
+                                   end_effector_pose: Pose
+                                   ) -> JointPositions:
         """IK using IKFast.
 
         Returns the joint positions.
         """
+        # Store current joint positions so we can reset
+        initial_joint_states = self.get_joints()
+        if "initial_joint_positions" in self.__dict__:
+            self.set_joints(self.initial_joint_positions)
+
         ik_solutions = ikfast_closest_inverse_kinematics(
             self,
             world_from_target=end_effector_pose,
         )
-
-        # Store current joint positions so we can reset
-        initial_joint_states = self.get_joints()
 
         filtered_joint_positions = filter(
             lambda j: not self.check_self_collision(j, revert_joints=False),
