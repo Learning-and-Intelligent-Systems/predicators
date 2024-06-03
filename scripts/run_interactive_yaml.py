@@ -2,7 +2,10 @@
 Run the code by taking in a YAML config file, in an interactive
 mode, as opposed to submitting a slurm job.
 """
+import os
 import sys
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 
+#                                                 '..')))
 import shlex
 import argparse
 import subprocess

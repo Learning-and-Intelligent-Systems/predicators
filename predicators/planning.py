@@ -642,6 +642,7 @@ def run_low_level_search(
                         if cur_idx == len(skeleton):
                             plan_found = True
                     else:
+                        logging.debug("Failed in exepected atoms check!")
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to

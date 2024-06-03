@@ -58,6 +58,7 @@ from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Response, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from predicators.image_patch_wrapper import ImagePatch
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
@@ -337,9 +338,37 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
+<<<<<<< HEAD
     test_tasks = [
         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
     ]
+=======
+    test_tasks = env.get_test_tasks()
+    # # Check rendering by saving the image of the init state of tasks
+    # for i, task in enumerate(test_tasks):
+    #     task.init.state_image.save(f"videos/test_rendering_{env.get_name()}_"+
+    #         f"test_task{i}.png")
+
+    # Check the processed image before performing simple query
+    # ground_atoms = utils.abstract(test_tasks[0].init, env.NS_predicates)
+
+    # Label all the objects in the state and save the image
+    # state_ip = ImagePatch(task.init.state_image)
+    # for obj in list(task.init):
+
+
+    # Compare accuracy
+    # test_tasks[0].init.state_image.save("images/test_task0_init.png")
+    # utils.compare_abstract_accuracy(env,
+    #                                 [test_tasks[0].init], 
+    #                                 env.ns_predicates_to_predicates)
+    # utils.compare_abstract_accuracy(env,
+    #                                 [t.init for t in test_tasks], 
+    #                                 env.ns_predicates_to_predicates)
+    
+    # breakpoint()
+    # /Check
+>>>>>>> 5cd89e4a (add state labelling before individual predicate evaluation)
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()

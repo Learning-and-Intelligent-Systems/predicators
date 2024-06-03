@@ -73,7 +73,7 @@ class PretrainedLargeModel(abc.ABC):
         assert _CACHE_SEP not in prompt
         os.makedirs(CFG.pretrained_model_prompt_cache_dir, exist_ok=True)
         model_id = self.get_id()
-        prompt_id = hash(prompt)
+        prompt_id = hash(CFG.vlm_system_instruction + prompt)
         config_id = f"{temperature}_{seed}_{num_completions}_" + \
                     f"{stop_token}"
         # If the temperature is 0, the seed does not matter.
@@ -102,7 +102,7 @@ class PretrainedLargeModel(abc.ABC):
         if not os.path.exists(cache_filepath):
             if CFG.llm_use_cache_only:
                 raise ValueError("No cached response found for prompt.")
-            logging.debug(f"Querying model {model_id} with new prompt.")
+            logging.debug(f"\nQuerying model {model_id} with new prompt.")
             # Query the model.
             completions = self._sample_completions(prompt, imgs, temperature,
                                                    seed, stop_token,
@@ -248,7 +248,12 @@ class GoogleGeminiVLM(VisionLanguageModel):
         self._model_name = model_name
         assert "GOOGLE_API_KEY" in os.environ
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        self._model = genai.GenerativeModel(self._model_name)  # pylint:disable=no-member
+        # pylint:disable=no-member
+        self._model = genai.GenerativeModel(
+            model_name=self._model_name,
+            system_instruction=CFG.vlm_system_instruction)  
+        if CFG.vlm_use_chat_mode:
+            self.chat_session = self._model.start_chat()
 
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
@@ -265,14 +270,23 @@ class GoogleGeminiVLM(VisionLanguageModel):
             num_completions: int = 1) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is not None
-        generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
+        # pylint:disable=no-member
+        generation_config = genai.types.GenerationConfig(  
             candidate_count=num_completions,
             temperature=temperature)
-        response = self._model.generate_content(
-            [prompt] + imgs,
-            generation_config=generation_config)  # type: ignore
+        if CFG.vlm_use_chat_mode:
+            logging.debug("Using chat mode instead of sample completions.")
+            response = self.chat_session.send_message(
+                [prompt] + imgs,
+                generation_config=generation_config)  # type: ignore
+        else:
+            response = self._model.generate_content(
+                [prompt] + imgs,
+                generation_config=generation_config)  # type: ignore
         response.resolve()
         return [response.text]
+    
+
 
 
 class OpenAIVLM(VisionLanguageModel, OpenAIModel):

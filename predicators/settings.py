@@ -409,13 +409,15 @@ class GlobalSettings:
     llm_openai_max_response_tokens = 700
     llm_use_cache_only = False
     llm_model_name = "text-curie-001"  # "text-davinci-002"
-    vlm_model_name = "text-curie-001"  # "text-davinci-002"
     llm_temperature = 0.5
     llm_num_completions = 1
 
     # parameters for vision language models
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
     vlm_model_name = "gemini-pro-vision"
+    vlm_temperature = 0.5
+    vlm_system_instruction = "You are an AI researcher who will answer whether an assertion is True or False in a scene. Answer either 'True' or 'False' but nothing else."
+    vlm_use_chat_mode = False
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
@@ -684,6 +686,8 @@ class GlobalSettings:
 
     # Have the pybullet env (for now) to render the states and save to RawState
     rgb_observation = True
+    # For debug 
+    save_nsp_image_patch_before_query = False
     # LLM predicate invention algorithm parameters
     llm_predicator_use_grammar = True
     llm_predicator_oracle_base = True

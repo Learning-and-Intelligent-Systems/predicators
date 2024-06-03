@@ -1,12 +1,18 @@
 from typing import List, Sequence
 import random
+import os
+import logging
 
 import cv2
+import torch as th
+from torchvision.transforms import ToPILImage
 import numpy as np
 from numpy.typing import NDArray
 
 from viper.image_patch import ImagePatch as ViperImagePatch
 from predicators.structs import Object, Mask
+from predicators import utils
+from predicators.settings import CFG
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.colors as mcolors
 import matplotlib.figure as mplfigure
@@ -55,7 +61,7 @@ class VisImage:
         Args:
             img: same as in __init__
         """
-        img = img.astype("uint8")
+        # img = img.astype("uint8")
         self.ax.imshow(img, extent=(0, self.width, self.height, 0), 
                        interpolation="nearest")
 
@@ -89,19 +95,45 @@ class VisImage:
         return rgb.astype("uint8")
 
 
-
 class ImagePatch(ViperImagePatch):
 # class ImagePatch:
-    # def __init__(self, image: np.ndarray, *args, **kwargs):
-    #     super().__init__(image, *args, **kwargs)
-    #     css4_colors = mcolors.CSS4_COLORS
-    #     self.color_proposals = [list(mcolors.hex2color(color)) for color in 
-    #                             css4_colors.values()]
-    def save_patch(self, path: str):
+    def __init__(self, image: np.ndarray, *args, **kwargs):
+        super().__init__(image, *args, **kwargs)
+        self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
+        # css4_colors = mcolors.CSS4_COLORS
+        # self.color_proposals = [list(mcolors.hex2color(color)) for color in 
+        #                         css4_colors.values()]
+
+    def evaluate_simple_assertion(self, assertion: str):
+
+        response = self.vlm.sample_completions(prompt=assertion,
+                                           imgs=[self.cropped_image_in_PIL],
+                                           temperature=CFG.vlm_temperature,
+                                           seed=CFG.seed)
+        assert len(response) == 1, "The VLM should return only one completion."
+        response = response[0].lower()
+        if "true" in response:
+            return True
+        elif "false" in response:
+            return False
+        else:
+            logging.warning(f"VLM didn't response neither true/false, "
+                            f"response: {response}")
+            # Default to false
+            return False
+
+    @property
+    def cropped_image_in_PIL(self):
+        return ToPILImage()(self.cropped_image)
+
+    def save(self, path: str):
         # save the cropped_image, assuming it's of type PIL.Image.Image
-        self.cropped_image.save(path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        pil_image = self.cropped_image_in_PIL
+        pil_image.save(path)
     
-    def label_object(self, mask: Mask, label: str, alpha: float = 0.1,
+    def label_object(self, mask: Mask, label: str, 
+            alpha: float = 0.1,
             anno_mode: List[str]=['Mark']):
         """
         Label an object, as indicated by mask, on the image.
@@ -121,30 +153,40 @@ class ImagePatch(ViperImagePatch):
         anno_mode : List[str]
             Weather to use text marker or mask overlay, or both.
         """
-        assert self.cropped_image.shape == mask.shape
+        # cropped_image: [4, 900, 900]
+        assert len(self.cropped_image.shape) == 3
+        assert self.cropped_image.shape[1:] == mask.shape
         # Draw a color
         # randint = random.randint(0, len(self.color_proposals)-1)
         # color = self.color_proposals[randint]
         # color = mcolors.to_rgb(color)
-        color = [1,1,1]
+        color = np.array([1,1,1])
 
         mask = mask.astype(np.uint8)
         mask = np.pad(mask, ((1, 1), (1, 1)), 'constant')
+        # The distance from each pixel to the nearest 0 pixel.
         mask_dt = cv2.distanceTransform(mask, cv2.DIST_L2, 0)
         mask_dt = mask_dt[1:-1, 1:-1]
         max_dist = np.max(mask_dt)
         coords_y, coords_x = np.where(mask_dt == max_dist)  
 
-        self.cropped_image = self.draw_text(VisImage(self.cropped_image), label, 
-            (coords_x[len(coords_x)//2] + 2, coords_y[len(coords_y)//2] - 6), 
-            color=color)
+        # try:
+        img_np = self.cropped_image.permute(1, 2, 0).numpy()
+        img_np = self.draw_text(VisImage(img_np), label, 
+            (coords_x[len(coords_x)//2], coords_y[len(coords_y)//2] - 8), 
+        color=color)
+        self.cropped_image = th.tensor(img_np).permute(2, 0, 1)
+        # except Exception as e:
+        #     print(str(e))
+        #     breakpoint()
 
-    def crop_to_objects(self, masks: Sequence[Mask], left_margin: int = 0,
-        lower_margin: int = 0, right_margin: int=0, top_margin: int=0) -> \
+    def crop_to_objects(self, masks: Sequence[Mask], left_margin: int = 5,
+        lower_margin: int=10, right_margin: int=10, top_margin: int=5) -> \
             'ImagePatch':
         """
         Crop the image patch to the smallest bounding box that contains all the
         masks of all the objects.
+        The BBox origin (0, 0) is at the bottom-left corner.
 
         Parameters:
         -----------
@@ -161,12 +203,15 @@ class ImagePatch(ViperImagePatch):
 
             # Update the bounding box
             left = min(left, x_indices.min() - left_margin)
-            lower = min(lower, y_indices.min() - lower_margin)
+            lower = min(lower, self.height - y_indices.max() - lower_margin - 1)
             right = max(right, x_indices.max() + right_margin)
-            upper = max(upper, y_indices.max() + top_margin)
+            upper = max(upper, self.height - y_indices.min() + top_margin - 1)
 
         # Crop the image
-        return self.crop((left, lower, right, upper))
+        # try:
+        return self.crop(left, lower, right, upper)
+        # except:
+        #     breakpoint()
 
     def crop(self, left: int, lower: int, right: int, upper: int) -> 'ImagePatch':
         """Returns a new ImagePatch containing a crop of the original image at 
@@ -210,7 +255,7 @@ class ImagePatch(ViperImagePatch):
         
 
     def draw_text(self, fig: VisImage, text: str, position: Sequence[int], 
-        color: Sequence[float], font_size: int=18, 
+        color: Sequence[float], font_size: int=14, 
         horizontal_alignment: str="center", rotation: float=0) ->\
             NDArray[np.uint8]:
         """
@@ -249,7 +294,7 @@ class ImagePatch(ViperImagePatch):
             x,
             y,
             text,
-            size=font_size * self.output.scale,
+            size=font_size * fig.scale,
             family="sans-serif",
             bbox={"facecolor": bbox_background, "alpha": 0.8, "pad": 0.7, 
                   "edgecolor": "none"},
@@ -259,4 +304,4 @@ class ImagePatch(ViperImagePatch):
             zorder=10,
             rotation=rotation,
         )
-        return self.img_as_mpl_fig.get_image()
+        return fig.get_image()

@@ -295,6 +295,9 @@ class PyBulletEnv(BaseEnv):
 
         # Iterate over all bodies
         for bodyId, obj in self._obj_id_to_obj.items():
+            # Can I change the object name here to obj_id?
+            # original_obj = obj
+            obj.id = bodyId
             mask = seg_image == bodyId
             mask_dict[obj] = mask
 

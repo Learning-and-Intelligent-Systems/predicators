@@ -64,6 +64,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
+from predicators.image_patch_wrapper import ImagePatch
 
 if TYPE_CHECKING:
     from predicators.envs import BaseEnv
@@ -1508,10 +1509,17 @@ BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
 class RawState(PyBulletState):
     state_image: PIL.Image.Image = field(default_factory=PIL.Image.new)
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
+    labeled_image: Optional[PIL.Image.Image] = None
 
     # def get_object_image(self, object: Object) -> ImageWithBox:
     #     """Return the image with bounding box for the object."""
     #     return self.get_obj_image(object.name)
+
+    def label_all_objects(self):
+        state_ip = ImagePatch(self.state_image)
+        for obj, mask in self.obj_mask_dict.items():
+            state_ip.label_object(mask, obj.id)
+        self.labeled_image = state_ip.cropped_image_in_PIL
 
     def copy(self) -> RawState:
         state_dict_copy = super().super().copy().data
@@ -1528,15 +1536,17 @@ class RawState(PyBulletState):
     def get_obj_bbox(self, object: Object) -> BoundingBox:
         '''
         Get the bounding box of the object in the state image
+        The origin is bottom left corner--(0, 0)
         '''
         mask = self.get_obj_mask(object)
         y_indices, x_indices = np.where(mask)
+        height = mask.shape[0]
 
         # Get the bounding box
         left = x_indices.min()
         right = x_indices.max()
-        lower = y_indices.min()
-        upper = y_indices.max()
+        lower = height - (y_indices.max() + 1)
+        upper = height - (y_indices.min() + 1)
         return BoundingBox(left, lower, right, upper)
 
 
@@ -2844,6 +2854,27 @@ def abstract(state: State,
         atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
     return atoms
 
+def compare_abstract_accuracy(env: BaseEnv, states: List[State],
+    est_preds_to_gt_preds: Dict[NSPredicate, Predicate]):
+
+    num_evals, num_correct = 0, 0
+    for i, state in enumerate(states):
+        logging.info(f"Evaluating task {i}")
+        # Label all its objects
+        state.label_all_objects()
+        env.vlm = create_vlm_by_name(CFG.vlm_model_name)
+        for est_pred, gt_pred in est_preds_to_gt_preds.items():
+            for choice in get_object_combinations(list(state), gt_pred.types):
+                num_evals += 1
+                gt_pred_holds = gt_pred.holds(state, choice)
+                est_pred_holds = est_pred.holds(state, choice)
+                if gt_pred_holds == est_pred_holds:
+                    num_correct += 1
+                else:
+                    logging.info(f"{est_pred}({choice})={est_pred_holds} vs "+
+                                f"{gt_pred}({choice})={gt_pred_holds}")
+    logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. "+
+                 f"Accuracy: {num_correct/num_evals}.")
 
 def all_ground_operators(
         operator: STRIPSOperator,
