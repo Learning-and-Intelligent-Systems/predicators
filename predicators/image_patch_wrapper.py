@@ -97,9 +97,11 @@ class VisImage:
 
 class ImagePatch(ViperImagePatch):
 # class ImagePatch:
-    def __init__(self, image: np.ndarray, *args, **kwargs):
-        super().__init__(image, *args, **kwargs)
-        self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
+    # def __init__(self, image: np.ndarray, *args, **kwargs):
+    def __init__(self, state: utils.RawState, *args, **kwargs):
+        super().__init__(state.labeled_image, *args, **kwargs)
+        self.state = state
+        # self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         # css4_colors = mcolors.CSS4_COLORS
         # self.color_proposals = [list(mcolors.hex2color(color)) for color in 
         #                         css4_colors.values()]
@@ -181,9 +183,11 @@ class ImagePatch(ViperImagePatch):
         #     print(str(e))
         #     breakpoint()
 
-    def crop_to_objects(self, masks: Sequence[Mask], left_margin: int = 5,
-        lower_margin: int=10, right_margin: int=10, top_margin: int=5) -> \
-            'ImagePatch':
+    def crop_to_objects(self, objects: Sequence[Object], 
+                        left_margin: int = 5,
+                        lower_margin: int=10, 
+                        right_margin: int=10, 
+                        top_margin: int=5) -> 'ImagePatch':
         """
         Crop the image patch to the smallest bounding box that contains all the
         masks of all the objects.
@@ -194,6 +198,7 @@ class ImagePatch(ViperImagePatch):
         objects : List[Object]
             The objects whose bounding box is to be used for cropping.
         """
+        masks = [self.state.get_obj_mask(obj) for obj in objects]
         bboxes = [utils.mask_to_bbox(mask) for mask in masks]
         
             # left = min(left, x_indices.min() - left_margin)
