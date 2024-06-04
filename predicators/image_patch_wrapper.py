@@ -104,23 +104,24 @@ class ImagePatch(ViperImagePatch):
         # self.color_proposals = [list(mcolors.hex2color(color)) for color in 
         #                         css4_colors.values()]
 
-    def evaluate_simple_assertion(self, assertion: str):
+    # Moved to elsewhere
+    # def evaluate_simple_assertion(self, assertion: str):
 
-        response = self.vlm.sample_completions(prompt=assertion,
-                                           imgs=[self.cropped_image_in_PIL],
-                                           temperature=CFG.vlm_temperature,
-                                           seed=CFG.seed)
-        assert len(response) == 1, "The VLM should return only one completion."
-        response = response[0].lower()
-        if "true" in response:
-            return True
-        elif "false" in response:
-            return False
-        else:
-            logging.warning(f"VLM didn't response neither true/false, "
-                            f"response: {response}")
-            # Default to false
-            return False
+    #     response = self.vlm.sample_completions(prompt=assertion,
+    #                                        imgs=[self.cropped_image_in_PIL],
+    #                                        temperature=CFG.vlm_temperature,
+    #                                        seed=CFG.seed)
+    #     assert len(response) == 1, "The VLM should return only one completion."
+    #     response = response[0].lower()
+    #     if "true" in response:
+    #         return True
+    #     elif "false" in response:
+    #         return False
+    #     else:
+    #         logging.warning(f"VLM didn't response neither true/false, "
+    #                         f"response: {response}")
+    #         # Default to false
+    #         return False
 
     @property
     def cropped_image_in_PIL(self):
@@ -193,25 +194,29 @@ class ImagePatch(ViperImagePatch):
         objects : List[Object]
             The objects whose bounding box is to be used for cropping.
         """
-        # Initialize the bounding box coordinates
-        left, lower, right, upper = np.inf, np.inf, -np.inf, -np.inf
-
-        # Iterate over all masks
-        for mask in masks:
-            # Get the indices of the pixels that belong to the object
-            y_indices, x_indices = np.where(mask)
-
-            # Update the bounding box
-            left = min(left, x_indices.min() - left_margin)
-            lower = min(lower, self.height - y_indices.max() - lower_margin - 1)
-            right = max(right, x_indices.max() + right_margin)
-            upper = max(upper, self.height - y_indices.min() + top_margin - 1)
-
+        bboxes = [utils.mask_to_bbox(mask) for mask in masks]
+        
+            # left = min(left, x_indices.min() - left_margin)
+            # lower = min(lower, self.height - y_indices.max() - lower_margin - 1)
+            # right = max(right, x_indices.max() + right_margin)
+            # upper = max(upper, self.height - y_indices.min() + top_margin - 1)
+        bbox = utils.smallest_bbox_from_bboxes(bboxes)
         # Crop the image
-        # try:
-        return self.crop(left, lower, right, upper)
-        # except:
-        #     breakpoint()
+        return self.crop(bbox.left - left_margin, 
+                         bbox.lower - lower_margin, 
+                         bbox.right + right_margin, 
+                         bbox.upper + top_margin)
+    
+    def crop_to_bboxes(self, bboxes: Sequence[utils.BoundingBox
+                                              ]) -> 'ImagePatch':
+        bbox = utils.smallest_bbox_from_bboxes(bboxes)
+        return self.crop(bbox.left,
+                         bbox.lower,
+                         bbox.right, 
+                         bbox.upper)
+    
+
+
 
     def crop(self, left: int, lower: int, right: int, upper: int) -> 'ImagePatch':
         """Returns a new ImagePatch containing a crop of the original image at 

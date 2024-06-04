@@ -17,7 +17,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
 from predicators.settings import CFG
 from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
     Predicate
-from predicators.utils import NSPredicate, RawState
+from predicators.utils import NSPredicate, RawState, BoundingBox
 from predicators.image_patch_wrapper import ImagePatch
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -70,23 +70,32 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._obj_id_to_obj: Dict[int, Object] = {}
         self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
 
-    def evaluate_simple_assertion(self, assertion: str, image: Image.Image):
+    def evaluate_simple_assertion(self, assertion: str, image: ImagePatch):
 
-        response = self.vlm.sample_completions(prompt=assertion,
-                                           imgs=[image],
-                                           temperature=CFG.vlm_temperature,
-                                           seed=CFG.seed)
-        assert len(response) == 1, "The VLM should return only one completion."
-        response = response[0].lower()
-        if "true" in response:
-            return True
-        elif "false" in response:
-            return False
+        # logging.info(f"{assertion}")
+        # return False
+        if CFG.query_vlm_for_each_assertion:
+            image = image.cropped_image_in_PIL
+            response = self.vlm.sample_completions(prompt=assertion,
+                                            imgs=[image],
+                                            temperature=CFG.vlm_temperature,
+                                            seed=CFG.seed)
+            assert len(response) == 1, "The VLM should return only one completion."
+            response = response[0].lower()
+            if "true" in response:
+                return True
+            elif "false" in response:
+                return False
+            else:
+                logging.warning(f"VLM didn't response neither true/false, "
+                                f"response: {response}")
+                # Default to false
+                return False
         else:
-            logging.warning(f"VLM didn't response neither true/false, "
-                            f"response: {response}")
-            # Default to false
-            return False
+            utils.VLMQuery(assertion, BoundingBox(image.left,
+                                                image.lower,
+                                                image.right,
+                                                image.upper))
 
     @property
     def NS_predicates(self) -> Set[NSPredicate]:
@@ -128,7 +137,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return self.evaluate_simple_assertion(
             f"there is no block directly on top of {block_name}.",
             # f"there is no block directly on top of block labeled with {block.id}.",
-            attention_image.cropped_image_in_PIL)
+            attention_image)
 
     def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -156,7 +165,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         return self.evaluate_simple_assertion(
             f"{block_name} is held by the robot",
-            attention_image.cropped_image_in_PIL)
+            attention_image)
 
     def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -202,7 +211,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         return self.evaluate_simple_assertion(
             f"{block_name} is directly resting on {table_name}'s surface.",
-            attention_image.cropped_image_in_PIL)
+            attention_image)
 
     def _On_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> bool:
         '''Determine if the first block in objects is on the second block in the 
@@ -248,7 +257,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return self.evaluate_simple_assertion(
             f"{block1_name} is directly on top of {block2_name} with no blocks"+
              " in between.",
-             attention_image.cropped_image_in_PIL)
+             attention_image)
 
     @classmethod
     def initialize_pybullet(

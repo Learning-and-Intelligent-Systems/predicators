@@ -56,7 +56,7 @@ from predicators.ground_truth_models import get_gt_options, \
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Response, Task, Video
+    InteractionResult, Metrics, Response, Task, Video, EnvironmentTask
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 from predicators.image_patch_wrapper import ImagePatch
 
@@ -328,7 +328,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     #         f"test_task{i}.png")
 
     # Check the processed image before performing simple query
-    # ground_atoms = utils.abstract(test_tasks[0].init, env.NS_predicates)
+    ground_atoms = utils.abstract(test_tasks[0].init, env.NS_predicates)
 
     # Label all the objects in the state and save the image
     # state_ip = ImagePatch(task.init.state_image)
@@ -336,15 +336,15 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
 
 
     # Compare accuracy
-    # test_tasks[0].init.state_image.save("images/test_task0_init.png")
-    # utils.compare_abstract_accuracy(env,
-    #                                 [test_tasks[0].init], 
-    #                                 env.ns_predicates_to_predicates)
+    test_tasks[0].init.state_image.save("images/test_task0_init.png")
+    utils.compare_abstract_accuracy(env,
+                                    [test_tasks[0].init], 
+                                    env.ns_predicates_to_predicates)
     # utils.compare_abstract_accuracy(env,
     #                                 [t.init for t in test_tasks], 
     #                                 env.ns_predicates_to_predicates)
     
-    # breakpoint()
+    breakpoint()
     # /Check
     num_found_policy = 0
     num_solved = 0
@@ -367,6 +367,13 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             # so that we can log planning failures, timeouts, etc. This is
             # mostly for legacy reasons (before cogman existed separately
             # from approaches).
+            # Temporary: 
+            #   1. modify the task to inlcude object labels
+            #   2. reset the vlm chat history
+            if CFG.rgb_observation:
+                env_task.init.label_all_objects()
+                env_task = EnvironmentTask(env_task.init, env_task.goal)
+                env.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
             cogman.reset(env_task)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "

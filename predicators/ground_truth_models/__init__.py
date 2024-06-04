@@ -101,7 +101,8 @@ def get_gt_nsrts(env_name: str, predicates_to_keep: Set[Predicate],
     """Create ground truth options for an env."""
     env = get_or_create_env(env_name)
     env_options = get_gt_options(env_name)
-    assert predicates_to_keep.issubset(env.predicates)
+    if not CFG.rgb_observation:
+        assert predicates_to_keep.issubset(env.predicates)
     assert options_to_keep.issubset(env_options)
     for cls in utils.get_all_subclasses(GroundTruthNSRTFactory):
         if not cls.__abstractmethods__ and env_name in cls.get_env_names():
