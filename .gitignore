@@ -21,6 +21,7 @@ saved_approaches
 saved_datasets
 scripts/results
 pretrained_model_cache
+pretrained_model_cache_backup
 machines.txt
 *_vision_data
 tests/_fake_trajs
