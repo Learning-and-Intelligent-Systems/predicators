@@ -54,7 +54,9 @@ FLAGS:
   vlm_temperature: 0
   vlm_use_chat_mode: True
   sesame_check_expected_atoms: False
-  query_vlm_for_each_assertion: True
+  query_vlm_for_each_assertion: False
+  query_vlm_for_each_predicate: True
+
 
 START_SEED: 2
 NUM_SEEDS: 1

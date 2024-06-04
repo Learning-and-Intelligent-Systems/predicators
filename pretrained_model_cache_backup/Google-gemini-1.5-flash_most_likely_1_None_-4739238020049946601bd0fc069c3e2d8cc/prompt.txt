@@ -1,0 +1,3 @@
+block8 is directly on top of block7 with no blocks in between.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+True

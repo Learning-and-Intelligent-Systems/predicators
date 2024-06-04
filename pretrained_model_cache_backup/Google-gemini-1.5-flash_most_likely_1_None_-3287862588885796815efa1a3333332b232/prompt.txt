@@ -1,0 +1,5 @@
+block labeled with 8 is directly resting on table labeled with 2's surface.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+False
+
+

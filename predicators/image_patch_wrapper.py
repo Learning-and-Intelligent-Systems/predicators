@@ -100,7 +100,10 @@ class ImagePatch(ViperImagePatch):
 # class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
     def __init__(self, state: State, *args, **kwargs):
-        super().__init__(state.labeled_image, *args, **kwargs)
+        if state.labeled_image is None:
+            super().__init__(state.state_image, *args, **kwargs)
+        else:
+            super().__init__(state.labeled_image, *args, **kwargs)
         self.state = state
         # self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         # css4_colors = mcolors.CSS4_COLORS
@@ -256,7 +259,7 @@ class ImagePatch(ViperImagePatch):
         right = min(self.width, right)
         upper = min(self.height, upper)
 
-        return ImagePatch(self.cropped_image, left, lower, right, upper, 
+        return ImagePatch(self.state, left, lower, right, upper, 
                           self.left, self.lower, queues=self.queues,
                           parent_img_patch=self)
         

@@ -1,0 +1,5 @@
+there is no block directly on top of block labeled with 5.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+True
+
+

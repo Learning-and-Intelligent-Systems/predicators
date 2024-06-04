@@ -1,0 +1,5 @@
+block7 is directly on top of block6 with no blocks in between.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+True
+
+

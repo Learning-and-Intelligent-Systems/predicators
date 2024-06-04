@@ -1,0 +1,7 @@
+block labeled with 7 is directly resting on table labeled with 2's surface.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+False
+
+
+
+
