@@ -77,14 +77,6 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @property
-    def goal_predicates_for_agent(self) -> Set[Predicate]:
-        """Get the subset of self.predicates that are used in goals for the
-        agent."""
-        # By default, task goals are described in terms of the same goal
-        # predicates for both the demonstrator and the agent.
-        return self.goal_predicates
-
-    @property
     @abc.abstractmethod
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment."""
