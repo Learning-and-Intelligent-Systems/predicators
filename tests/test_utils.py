@@ -1028,7 +1028,7 @@ def test_strip_task():
     """Test for strip_task()."""
     env = CoverEnv()
     Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     block0, _, _, target0, _ = list(task.init)
     # Goal is Covers(block0, target0)
     assert len(task.goal) == 1
@@ -2390,7 +2390,7 @@ def test_create_pddl():
                                           "spanner")
     assert domain_str == """(define (domain spanner)
   (:requirements :typing)
-  (:types 
+  (:types
     man nut spanner - locatable
     monkey
     locatable location - object)

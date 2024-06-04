@@ -50,7 +50,7 @@ class GlobalSettings:
     # there is no goal for the agent to plan towards. This is intended to be
     # used by VLM predicate invention, where we want to invent goal predicates
     # and different task goals are provided to the agent and the demonstrator.
-    allow_exclude_goal_predicates = True
+    allow_exclude_goal_predicates = False
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
