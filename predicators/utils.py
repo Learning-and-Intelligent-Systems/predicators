@@ -1522,12 +1522,16 @@ class RawState(PyBulletState):
         self.labeled_image = state_ip.cropped_image_in_PIL
 
     def copy(self) -> RawState:
-        state_dict_copy = super().super().copy().data
-        simulator_state_copy = list(self.joint_positions)
+        pybullet_state_copy = super().copy()
+        # simulator_state_copy = list(self.joint_positions)
         state_image_copy = copy.copy(self.state_image)
         obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
-        return RawState(state_dict_copy, simulator_state_copy, state_image_copy, 
-                        obj_mask_copy)
+        labeled_image_copy = copy.copy(self.labeled_image)
+        return RawState(pybullet_state_copy.data, 
+                        pybullet_state_copy.simulator_state, 
+                        state_image_copy, 
+                        obj_mask_copy,
+                        labeled_image_copy)
 
     def get_obj_mask(self, object: Object) -> Mask:
         """Return the mask for the object."""
@@ -1539,15 +1543,31 @@ class RawState(PyBulletState):
         The origin is bottom left corner--(0, 0)
         '''
         mask = self.get_obj_mask(object)
-        y_indices, x_indices = np.where(mask)
-        height = mask.shape[0]
+        return mask_to_bbox(mask)
 
-        # Get the bounding box
-        left = x_indices.min()
-        right = x_indices.max()
-        lower = height - (y_indices.max() + 1)
-        upper = height - (y_indices.min() + 1)
-        return BoundingBox(left, lower, right, upper)
+def mask_to_bbox(mask: Mask) -> BoundingBox:
+    y_indices, x_indices = np.where(mask)
+    height = mask.shape[0]
+
+    # Get the bounding box
+    left = x_indices.min()
+    right = x_indices.max()
+    lower = height - (y_indices.max() + 1)
+    upper = height - (y_indices.min() + 1)
+    return BoundingBox(left, lower, right, upper)
+
+def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
+
+    # Initialize the bounding box coordinates
+    left, lower, right, upper = np.inf, np.inf, -np.inf, -np.inf
+    # Iterate over all masks
+    for bbox in bboxes:
+        # Update the bounding box
+        left = min(left, bbox.left)
+        lower = min(lower, bbox.lower)
+        right = max(right, bbox.right)
+        upper = max(upper, bbox.upper)
+    return BoundingBox(left, lower, right, upper)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -2837,10 +2857,11 @@ def abstract(state: State,
     """
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+    ns_preds = set(pred for pred in preds if isinstance(pred, NSPredicate))
     # Next, classify all non-VLM predicates.
     atoms = set()
     for pred in preds:
-        if pred not in vlm_preds:
+        if pred not in vlm_preds | ns_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 if pred.holds(state, choice):
                     atoms.add(GroundAtom(pred, choice))
@@ -2852,7 +2873,63 @@ def abstract(state: State,
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
         atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+
+    if len(ns_preds) > 0:
+        # Now, aggregate all the NS predicates and make a single call to a
+        # NS to get their values.
+        ns_atoms = set()
+        vlm_queries = []
+        for pred in ns_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                eval_result = pred.holds(state, choice)
+                # If the ground predicate returns true -> add it to atoms
+                ground_atom = GroundAtom(pred, choice)
+                if isinstance(eval_result) and eval_result == True:
+                    atoms.add(ground_atom)
+                # If pred evalation return query request->add it query list
+                elif isinstance(eval_result, VLMQuery):
+                    query = eval_result
+                    query.ground_atom = ground_atom
+                    vlm_queries.append(query)
+        # Make the query and add the ones that holds to the result.
+        atoms |= query_vlm_for_atom_vals_with_VLMQuerys(vlm_queries, state)
     return atoms
+
+def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
+        state: RawState, 
+        vlm: Optional[VisionLanguageModel] = None) -> Sequence[GroundAtom]:
+    true_atom: Set[GroundAtom] = set()
+    state_ip = ImagePatch(state.labled_image)
+    # Todo: add this method to ImagePatch
+    attention_image = state_ip.crop_to_bboxes(
+        [query.attention_box for query in queries])
+    attention_image = attention_image.cropped_image_in_PIL
+    prompts = "\n".join([f"{i}. {query.query_str}" for i, query in
+        enumerate(queries)])
+    vlm_output = vlm.sample_completions(prompt=prompts,
+                                        images=[attention_image],
+                                        temperature=CFG.vlm_temperature,
+                                        seed=CFG.seed,
+                                        num_completions=1)
+    assert len(vlm_output) == 1
+    vlm_output_str = vlm_output[0].lower()
+    all_vlm_responses = vlm_output_str.strip().split("\n")
+
+    assert len(queries) == len(all_vlm_responses)
+    for query, response in zip(queries, all_vlm_responses):
+        if "true" in response:
+            true_atom.add(query.ground_atom)
+        elif "false" not in response:
+            logging.warning(f"VLM didn't response neither true/false, "
+                            f"response: {response}")
+    return true_atom
+
+@dataclass
+class VLMQuery:
+    """A class to represent a query to a VLM."""
+    query_str: str
+    attention_box: BoundingBox
+    ground_atom: Optional[GroundAtom]
 
 def compare_abstract_accuracy(env: BaseEnv, states: List[State],
     est_preds_to_gt_preds: Dict[NSPredicate, Predicate]):
@@ -2871,8 +2948,8 @@ def compare_abstract_accuracy(env: BaseEnv, states: List[State],
                 if gt_pred_holds == est_pred_holds:
                     num_correct += 1
                 else:
-                    logging.info(f"{est_pred}({choice})={est_pred_holds} vs "+
-                                f"{gt_pred}({choice})={gt_pred_holds}")
+                    logging.info(f"The correct value is {gt_pred}({choice})="+
+                                 f"{gt_pred_holds}")
     logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. "+
                  f"Accuracy: {num_correct/num_evals}.")
 
@@ -4139,7 +4216,10 @@ def parse_config_excluded_predicates(
                     "Can't exclude a goal predicate!"
     else:
         excluded_names = set()
-        included = env.predicates
+        if CFG.rgb_observation:
+            included = env.NS_predicates
+        else:
+            included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
 

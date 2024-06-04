@@ -101,6 +101,11 @@ class Object(_TypedEntity):
         # By default, the dataclass generates a new __hash__ method when
         # frozen=True and eq=True, so we need to override it.
         return self._hash
+    
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Object):
+            return self.name == other.name and self.type == other.type
+        return False
 
 
 @dataclass(frozen=False, order=True, repr=False)
@@ -140,7 +145,11 @@ class State:
     def get(self, obj: Object, feature_name: str) -> Any:
         """Look up an object feature by name."""
         idx = obj.type.feature_names.index(feature_name)
-        val = self.data[obj][idx]
+        try:
+            val = self.data[obj][idx]
+        except Exception as e:
+            print(str(e))
+            breakpoint()
         return val
 
     def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
@@ -290,10 +299,15 @@ class Predicate:
 
     @cached_property
     def _hash(self) -> int:
-        return hash(str(self))
+        # return hash(str(self))
+        return hash(self.name + str(self.types))
 
     def __hash__(self) -> int:
         return self._hash
+    
+    def __eq__(self, other) -> bool:
+        # equal by name
+        return self.name == other.name and self.types == other.types
 
     @cached_property
     def arity(self) -> int:
@@ -573,7 +587,8 @@ class EnvironmentTask:
     @cached_property
     def init(self) -> State:
         """Convenience method for environment tasks that are fully observed."""
-        assert isinstance(self.init_obs, State)
+        assert isinstance(self.init_obs, State), "self.init_obs has type "+\
+            f"{type(self.init_obs)}"
         return self.init_obs
 
     @cached_property

@@ -685,7 +685,7 @@ class GlobalSettings:
     grammar_search_clustering_gmm_num_components = 10
 
     # Have the pybullet env (for now) to render the states and save to RawState
-    rgb_observation = True
+    rgb_observation = False
     # For debug 
     save_nsp_image_patch_before_query = False
     # LLM predicate invention algorithm parameters

@@ -509,6 +509,10 @@ class PyBulletEnv(BaseEnv):
             # Attempt 2: First reset it. 
             self._current_observation = init
             self._reset_state(init)
+            # Cast _current_observation from type State to PybulletState
+            joint_positions = self._pybullet_robot.get_joints()
+            self._current_observation = utils.PyBulletState(init.data.copy(), 
+                                            simulator_state=joint_positions)
             # Attempt 1: Let's try to get a rendering directly first
             pybullet_init = self.get_observation()
             # # <Original code            
