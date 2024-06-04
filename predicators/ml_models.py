@@ -1281,6 +1281,14 @@ def _train_pytorch_model(model: nn.Module,
         Y_hat = model(tensor_X)
         # print("Y_hat v Y", Y_hat.view(-1), tensor_Y.view(-1))
         loss = loss_fn(Y_hat, tensor_Y)
+
+        # weights = torch.ones_like(tensor_Y)
+        # important_indices= [i for i, x in enumerate(tensor_Y) if x>0.98]
+        # weights[important_indices] = 10.0  # For example, important actions have higher weight
+
+        # criterion = nn.SmoothL1Loss(reduction='none')  # Using Huber loss with no reduction
+        # loss = torch.mean(weights * criterion(Y_hat, tensor_Y))
+
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_itr = itr
@@ -1358,7 +1366,7 @@ class MapleQFunction(MLPRegressor):
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
             maxlen=self._replay_buffer_max_size)
-        self._epsilon = 0.2
+        self._epsilon = 0.5
         self._min_epsilon = 0.05
         self._ep_reduction = 10*(self._epsilon-self._min_epsilon)/(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request*CFG.interactive_num_requests_per_cycle)
 
@@ -1409,7 +1417,7 @@ class MapleQFunction(MLPRegressor):
         idx = np.argmax(scores)
 
         #DECAY EPSILON
-        # self.decay_epsilon()
+        self.decay_epsilon()
 
         return options[idx]
 
@@ -1478,7 +1486,7 @@ class MapleQFunction(MLPRegressor):
                 # print("our target", Y_arr[i])
                 # print("i", i)
                 good_index.append(i)
-            if vectorized_action[-1]>0.98 and vectorized_action[-2]==1.0:
+            elif vectorized_action[-2]==1.0:
                 # print("reward of turning the light and terminal, for BADDDDD state", reward, terminal)
                 # print("our target", Y_arr[i])
                 # print("i", i)
@@ -1534,10 +1542,10 @@ class MapleQFunction(MLPRegressor):
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
                     [vectorized_state, vectorized_goal, vectorized_action])  
-            print(option)      
-            print("after fitting, we predict a BAD q value as ", self.predict(x), "but our Y_arr is: ", Y_arr[bad])
+            # print(option)      
+            # print("after fitting, we predict a BAD q value as ", self.predict(x), "but our Y_arr is: ", Y_arr[bad])
 
-
+        print("num good actions", len(good_index), "num bad actions", len(bad_index))
         #CALL VISUALIZER HERE !!!!!!!!!!!!!!!!!!!
         # plot_value_history
 
@@ -1576,6 +1584,9 @@ class MapleQFunction(MLPRegressor):
                 iterable_loader = iter(train_dataloader)
                 X_batch, Y_batch = next(iterable_loader)
             yield X_batch, Y_batch
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.MSELoss()
 
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
@@ -1655,9 +1666,8 @@ class MapleQFunction(MLPRegressor):
                         option: _Option) -> float:
         """Predict the Q value."""
         # Default value if not yet fit.
-        #DEFAULT IS 0
         if self._y_dim == -1:
-            return 1.0
+            return 0.0
         x = np.concatenate([
             self._vectorize_state(state),
             self._vectorize_goal(goal),
