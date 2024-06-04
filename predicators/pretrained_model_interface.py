@@ -248,9 +248,20 @@ class GoogleGeminiVLM(VisionLanguageModel):
         self._model_name = model_name
         assert "GOOGLE_API_KEY" in os.environ
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT",
+        "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_NONE"},
+        ]
         # pylint:disable=no-member
         self._model = genai.GenerativeModel(
             model_name=self._model_name,
+            safety_settings=safety_settings,
             system_instruction=CFG.vlm_system_instruction)  
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()

@@ -1,0 +1,5 @@
+block labeled with 8 is directly on top of block labeled with 7 with no blocks in between.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+True
+
+

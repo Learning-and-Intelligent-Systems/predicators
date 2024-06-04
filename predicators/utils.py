@@ -1516,7 +1516,7 @@ class RawState(PyBulletState):
     #     return self.get_obj_image(object.name)
 
     def label_all_objects(self):
-        state_ip = ImagePatch(self.state_image)
+        state_ip = ImagePatch(self)
         for obj, mask in self.obj_mask_dict.items():
             state_ip.label_object(mask, obj.id)
         self.labeled_image = state_ip.cropped_image_in_PIL
@@ -2882,15 +2882,17 @@ def abstract(state: State,
         for pred in ns_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 eval_result = pred.holds(state, choice)
-                # If the ground predicate returns true -> add it to atoms
                 ground_atom = GroundAtom(pred, choice)
-                if isinstance(eval_result) and eval_result == True:
+                if eval_result == True:
+                # If the ground predicate returns true -> add it to atoms
                     atoms.add(ground_atom)
-                # If pred evalation return query request->add it query list
                 elif isinstance(eval_result, VLMQuery):
+                # If pred evalation return query request->add it query list
                     query = eval_result
                     query.ground_atom = ground_atom
                     vlm_queries.append(query)
+                elif eval_result != False:
+                    logging.error(f"invalid evaluation result: {eval_result}")
 
         # Make the query and add the ones that holds to the result.
         if len(vlm_queries) > 0:
@@ -2898,8 +2900,8 @@ def abstract(state: State,
                                                             vlm)
     return atoms
 
-def evaluate_simple_assertion(assertion: str, image: ImagePatch, 
-        vlm: VisionLanguageModel) -> Union[bool, VLMQuery]:
+def evaluate_simple_assertion(assertion: str, image: ImagePatch
+                              ) -> Union[bool, VLMQuery]:
     """Given an assertion and an image, queries a VLM and returns whether the
     assertion is true or false.
     """
@@ -2940,7 +2942,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
     atoms that are true.
     """
     true_atom: Set[GroundAtom] = set()
-    state_ip = ImagePatch(state.labled_image)
+    state_ip = ImagePatch(state)
 
     # Init or reset vlm
     if vlm is None:
@@ -2954,7 +2956,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
             attention_image = state_ip.crop_to_bboxes([query.attention_box])
             attention_image = attention_image.cropped_image_in_PIL
             vlm_output = vlm.sample_completions(prompt=query.query_str,
-                                                images=[attention_image],
+                                                imgs=[attention_image],
                                                 temperature=CFG.vlm_temperature,
                                                 seed=CFG.seed,
                                                 num_completions=1)
@@ -2966,55 +2968,94 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
                 logging.warning(f"VLM didn't response neither true/false, "
                                 f"response: {vlm_output_str}")
     else:
-        attention_image = state_ip.crop_to_bboxes(
-            [query.attention_box for query in queries])
-        attention_image = attention_image.cropped_image_in_PIL
-        prompts = "\n".join([f"{i}. {query.query_str}" for i, query in
-            enumerate(queries)])
-        vlm_output = vlm.sample_completions(prompt=prompts,
-                                            images=[attention_image],
-                                            temperature=CFG.vlm_temperature,
-                                            seed=CFG.seed,
-                                            num_completions=1)
-        assert len(vlm_output) == 1
-        vlm_output_str = vlm_output[0].lower()
-        all_vlm_responses = vlm_output_str.strip().split("\n")
+        pred_name_to_queries = defaultdict(list)
+        if CFG.query_vlm_for_each_predicate:
+            # group querys by their lifted predicates
+            for query in queries:
+                pred_name_to_queries[query.ground_atom.predicate.name].append(query)
+        else:
+            # If evaluate all queries at once
+            pred_name_to_queries["all"].extend(queries)
 
-        assert len(queries) == len(all_vlm_responses)
-        for query, response in zip(queries, all_vlm_responses):
-            if "true" in response:
-                true_atom.add(query.ground_atom)
-            elif "false" not in response:
-                logging.warning(f"VLM didn't response neither true/false, "
-                                f"response: {response}")
-        return true_atom
+        for queries in pred_name_to_queries.values():
+            attention_image = state_ip.crop_to_bboxes(
+                [query.attention_box for query in queries])
+            attention_image = attention_image.cropped_image_in_PIL
+            prompts = "\n".join([f"{i+1}. {query.query_str}" for i, query in
+                enumerate(queries)])
+            vlm_output = vlm.sample_completions(prompt=prompts,
+                                                imgs=[attention_image],
+                                                temperature=CFG.vlm_temperature,
+                                                seed=CFG.seed,
+                                                num_completions=1)
+            assert len(vlm_output) == 1
+            vlm_output_str = vlm_output[0].lower()
+            all_vlm_responses = vlm_output_str.strip().split("\n")
+
+            assert len(queries) == len(all_vlm_responses)
+            for query, response in zip(queries, all_vlm_responses):
+                if "true" in response:
+                    true_atom.add(query.ground_atom)
+                elif "false" not in response:
+                    logging.warning(f"VLM didn't response neither true/false, "
+                                    f"response: {response}")
+    # else:
+    #     attention_image = state_ip.crop_to_bboxes(
+    #         [query.attention_box for query in queries])
+    #     attention_image = attention_image.cropped_image_in_PIL
+    #     prompts = "\n".join([f"{i+1}. {query.query_str}" for i, query in
+    #         enumerate(queries)])
+    #     vlm_output = vlm.sample_completions(prompt=prompts,
+    #                                         imgs=[attention_image],
+    #                                         temperature=CFG.vlm_temperature,
+    #                                         seed=CFG.seed,
+    #                                         num_completions=1)
+    #     assert len(vlm_output) == 1
+    #     vlm_output_str = vlm_output[0].lower()
+    #     all_vlm_responses = vlm_output_str.strip().split("\n")
+
+    #     assert len(queries) == len(all_vlm_responses)
+    #     for query, response in zip(queries, all_vlm_responses):
+    #         if "true" in response:
+    #             true_atom.add(query.ground_atom)
+    #         elif "false" not in response:
+    #             logging.warning(f"VLM didn't response neither true/false, "
+    #                             f"response: {response}")
+    return true_atom
 
 @dataclass
 class VLMQuery:
     """A class to represent a query to a VLM."""
     query_str: str
     attention_box: BoundingBox
-    ground_atom: Optional[GroundAtom]
+    ground_atom: Optional[GroundAtom] = None
 
 def compare_abstract_accuracy(env: BaseEnv, states: List[State],
-    est_preds_to_gt_preds: Dict[NSPredicate, Predicate]):
-
+    est_preds_to_gt_preds: Dict[NSPredicate, Predicate]) -> None:
     num_evals, num_correct = 0, 0
+
     for i, state in enumerate(states):
         logging.info(f"Evaluating task {i}")
-        # Label all its objects
-        state.label_all_objects()
-        # env.vlm = create_vlm_by_name(CFG.vlm_model_name)
+        est_ground_atoms = abstract(state, env.NS_predicates)
+
         for est_pred, gt_pred in est_preds_to_gt_preds.items():
             for choice in get_object_combinations(list(state), gt_pred.types):
                 num_evals += 1
                 gt_pred_holds = gt_pred.holds(state, choice)
-                est_pred_holds = est_pred.holds(state, choice)
-                if gt_pred_holds == est_pred_holds:
-                    num_correct += 1
+                # est_pred_holds = est_pred.holds(state, choice)
+                nsp_ground_atom = GroundAtom(est_pred, choice)
+                if gt_pred_holds:
+                    if nsp_ground_atom in est_ground_atoms:
+                        num_correct += 1
+                    else:
+                        logging.info(f"The correct value is "+
+                            f"{gt_pred}({choice})={gt_pred_holds}")
                 else:
-                    logging.info(f"The correct value is {gt_pred}({choice})="+
-                                 f"{gt_pred_holds}")
+                    if nsp_ground_atom not in est_ground_atoms:
+                        num_correct += 1
+                    else:
+                        logging.info(f"The correct value is "+
+                            f"{gt_pred}({choice})={gt_pred_holds}")
     logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. "+
                  f"Accuracy: {num_correct/num_evals}.")
 

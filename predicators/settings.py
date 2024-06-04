@@ -416,10 +416,11 @@ class GlobalSettings:
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
     vlm_model_name = "gemini-pro-vision"
     vlm_temperature = 0.5
-    vlm_system_instruction = "You are an AI researcher who will answer whether an assertion is True or False in a scene. Answer either 'True' or 'False' but nothing else."
-    # vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, only answer either 'True' or 'False'."
+    # vlm_system_instruction = "You are an AI researcher who will answer whether an assertion is True or False in a scene. Answer either 'True' or 'False' but nothing else."
+    vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, only answer either 'True' or 'False'."
     vlm_use_chat_mode = False
     query_vlm_for_each_assertion = False
+    query_vlm_for_each_predicate = False
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"

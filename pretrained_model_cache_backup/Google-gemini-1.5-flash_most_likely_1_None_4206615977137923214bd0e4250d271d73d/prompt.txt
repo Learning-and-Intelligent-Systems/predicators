@@ -1,0 +1,3 @@
+block labeled with 5 is directly on top of block labeled with 3 with no blocks in between.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+False

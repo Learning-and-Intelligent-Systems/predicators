@@ -124,7 +124,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return False
 
         block_name = block.id_name
-        state_ip = ImagePatch(state.labeled_image)
+        state_ip = ImagePatch(state)
         attention_image = state_ip.crop_to_objects([block, robot])
 
         if CFG.save_nsp_image_patch_before_query:
@@ -154,7 +154,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         '''
         block, = objects
         block_name = block.id_name
-        state_ip = ImagePatch(state.labeled_image)
+        state_ip = ImagePatch(state)
 
         # Crop the scene image to the smallest bounding box that include both
         # objects.
@@ -179,7 +179,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         objects : Sequence[Object]
             The two blocks whose relationship is to be determined.
         '''
-        state_ip = ImagePatch(state.labeled_image)
+        state_ip = ImagePatch(state)
         block1, block2 = objects
         block1_name, block2_name = block1.id_name, block2.id_name
 
