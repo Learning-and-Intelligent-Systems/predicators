@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
+from PIL import Image
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -328,6 +329,10 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             f"test_task{i}.png")
         task.init.labeled_image.save(f"images/{env.get_name()}_"+
             f"test_task{i}_labeled.png")
+        # Save all the masks
+        # for obj, mask in task.init.obj_mask_dict.items():
+        #     Image.fromarray(mask).save(
+        #         f"images/test_task{i}_mask{obj.id}.png")
 
     # Check the processed image before performing simple query
     # ground_atoms = utils.abstract(test_tasks[0].init, env.NS_predicates)
@@ -339,11 +344,11 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
 
     # Compare accuracy
     # test_tasks[0].init.state_image.save("images/test_task0_init.png")
+    breakpoint()
     utils.compare_abstract_accuracy(env,
                                     [t.init for t in test_tasks], 
                                     env.ns_predicates_to_predicates)
     
-    breakpoint()
     # /Check
     num_found_policy = 0
     num_solved = 0

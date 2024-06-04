@@ -45,26 +45,28 @@ class VisImage:
         self.dpi = fig.get_dpi()
         # add a small 1e-2 to avoid precision lost due to matplotlib's 
         # truncation (https://github.com/matplotlib/matplotlib/issues/15363)
-        fig.set_size_inches(
-            (self.width * self.scale + 1e-2) / self.dpi,
-            (self.height * self.scale + 1e-2) / self.dpi,
-        )
+        # fig.set_size_inches(
+        #     (self.width * self.scale + 1e-2) / self.dpi,
+        #     (self.height * self.scale + 1e-2) / self.dpi,
+        # )
+        fig.set_size_inches(self.width / self.dpi, self.height / self.dpi)
+
         self.canvas = FigureCanvasAgg(fig)
         # self.canvas = mpl.backends.backend_cairo.FigureCanvasCairo(fig)
         ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])
         ax.axis("off")
         self.fig = fig
         self.ax = ax
-        self.reset_image(img)
-
-    def reset_image(self, img):
-        """
-        Args:
-            img: same as in __init__
-        """
-        # img = img.astype("uint8")
-        self.ax.imshow(img, extent=(0, self.width, self.height, 0), 
+        # self.reset_image(img)
+        self.ax.imshow(img, #extent=(0, self.width-1, self.height-1, 0), 
                        interpolation="nearest")
+
+    # def reset_image(self, img):
+    #     """
+    #     Args:
+    #         img: same as in __init__
+    #     """
+    #     # img = img.astype("uint8")
 
     def save(self, filepath):
         """
@@ -139,9 +141,11 @@ class ImagePatch(ViperImagePatch):
         pil_image = self.cropped_image_in_PIL
         pil_image.save(path)
     
-    def label_object(self, mask: Mask, label: str, 
-            alpha: float = 0.1,
-            anno_mode: List[str]=['Mark']):
+    def label_all_objects(self, 
+                    masks: Sequence[Mask], 
+                    labels: Sequence[str], 
+                    alpha: float = 0.1,
+                    anno_mode: List[str]=['Mark']):
         """
         Label an object, as indicated by mask, on the image.
 
@@ -162,30 +166,34 @@ class ImagePatch(ViperImagePatch):
         """
         # cropped_image: [4, 900, 900]
         assert len(self.cropped_image.shape) == 3
-        assert self.cropped_image.shape[1:] == mask.shape
+        for mask in masks:
+            assert self.cropped_image.shape[1:] == mask.shape
         # Draw a color
         # randint = random.randint(0, len(self.color_proposals)-1)
         # color = self.color_proposals[randint]
         # color = mcolors.to_rgb(color)
         color = np.array([1,1,1])
 
-        mask = mask.astype(np.uint8)
-        mask = np.pad(mask, ((1, 1), (1, 1)), 'constant')
-        # The distance from each pixel to the nearest 0 pixel.
-        mask_dt = cv2.distanceTransform(mask, cv2.DIST_L2, 0)
-        mask_dt = mask_dt[1:-1, 1:-1]
-        max_dist = np.max(mask_dt)
-        coords_y, coords_x = np.where(mask_dt == max_dist)  
-
-        # try:
         img_np = self.cropped_image.permute(1, 2, 0).numpy()
-        img_np = self.draw_text(VisImage(img_np), label, 
-            (coords_x[len(coords_x)//2], coords_y[len(coords_y)//2] - 8), 
-        color=color)
+        vis_image = VisImage(img_np)
+        # vis_image.save(f"images/vis_image_{label}.png")
+
+        for mask, label in zip(masks, labels):
+            mask = mask.astype(np.uint8)
+            mask = np.pad(mask, ((1, 1), (1, 1)), 'constant')
+            # The distance from each pixel to the nearest 0 pixel.
+            mask_dt = cv2.distanceTransform(mask, cv2.DIST_L2, 0)
+            mask_dt = mask_dt[1:-1, 1:-1]
+            max_dist = np.max(mask_dt)
+            coords_y, coords_x = np.where(mask_dt == max_dist)  
+
+            # try:
+            img_np = self.draw_text(vis_image, label, 
+                (coords_x[len(coords_x)//2], coords_y[len(coords_y)//2] - 8), 
+            color=color)
+
+        img_np = vis_image.get_image()
         self.cropped_image = th.tensor(img_np).permute(2, 0, 1)
-        # except Exception as e:
-        #     print(str(e))
-        #     breakpoint()
 
     def crop_to_objects(self, objects: Sequence[Object], 
                         left_margin: int = 5,
@@ -314,4 +322,3 @@ class ImagePatch(ViperImagePatch):
             zorder=10,
             rotation=rotation,
         )
-        return fig.get_image()
