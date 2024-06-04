@@ -3236,13 +3236,21 @@ def test_parse_config_excluded_predicates():
         "HandEmpty", "Holding", "IsBlock", "IsTarget"
     ]
     assert sorted(p.name for p in excluded) == ["Covers"]
-    # Cannot exclude goal predicates otherwise..
+    # Cannot exclude goal predicates.
     utils.reset_config({
         "offline_data_method": "demo",
         "excluded_predicates": "Covers",
     })
     with pytest.raises(AssertionError):
         utils.parse_config_excluded_predicates(env)
+    # Can exclude goal predicates if allowed per the settings.
+    utils.reset_config({
+        "offline_data_method": "demo",
+        "excluded_predicates": "Covers",
+        "allow_exclude_goal_predicates": True
+    })
+    included, excluded = utils.parse_config_excluded_predicates(env)
+    assert [p.name for p in excluded] == ["Covers"]
 
 
 def test_null_sampler():

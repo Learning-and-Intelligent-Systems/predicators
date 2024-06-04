@@ -479,8 +479,9 @@ class EnvironmentTask:
     def task(self) -> Task:
         """Convenience method for environment tasks that are fully observed."""
         # If the environment task's goal is replaced with the alternative goal
-        # before turning the environment task into a task, then there's nothing
-        # particular to set the task's alt_goal field to.
+        # before turning the environment task into a task, or no alternative
+        # goal exists, then there's nothing particular to set the task's
+        # alt_goal field to.
         if self.alt_goal_desc is None:
             return Task(self.init, self.goal)
         # If we turn the environment task into a task before replacing the goal

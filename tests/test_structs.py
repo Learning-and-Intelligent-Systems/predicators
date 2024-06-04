@@ -10,7 +10,8 @@ from predicators.structs import NSRT, PNAD, Action, DefaultState, \
     InteractionRequest, InteractionResult, LDLRule, LiftedAtom, \
     LiftedDecisionList, LowLevelTrajectory, Macro, Object, \
     ParameterizedOption, Predicate, Query, Segment, State, STRIPSOperator, \
-    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
+    EnvironmentTask
 
 
 def test_object_type():
@@ -300,6 +301,31 @@ def test_task(state):
     assert task2.init.allclose(state)
     assert task2.goal == goal2
     assert not task2.goal_holds(task.init)
+    # Test replacing goal with alternative goal.
+    pred3 = Predicate("AlternativeOn", [cup_type, plate_type], lambda s, o: True)
+    goal3 = {pred3([cup, plate])}
+    task3 = Task(state, goal=goal, alt_goal=goal3)
+    alt_task = task3.replace_goal_with_alt_goal()
+    assert alt_task.goal == goal3
+
+
+def test_environment_task(state):
+    """Tests for EnvironmentTask class."""
+    # Test replacing goal with alternative goal.
+    cup_type = Type("cup_type", ["feat1"])
+    cup = cup_type("cup")
+    plate_type = Type("plate_type", ["feat1"])
+    plate = plate_type("plate")
+    pred = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("AlternativeOn", [cup_type, plate_type], lambda s, o: True)
+    goal = {pred([cup, plate])}
+    alt_goal = {pred2([cup, plate])}
+    env_task = EnvironmentTask(state, goal_description=goal, alt_goal_desc=alt_goal)
+    task = env_task.task
+    assert task.alt_goal == alt_goal
+    alt_env_task = env_task.replace_goal_with_alt_goal()
+    assert alt_env_task.goal_description == alt_goal
+    assert alt_env_task.alt_goal_desc is None
 
 
 def test_option(state):
