@@ -1517,8 +1517,12 @@ class RawState(PyBulletState):
 
     def label_all_objects(self):
         state_ip = ImagePatch(self)
-        for obj, mask in self.obj_mask_dict.items():
-            state_ip.label_object(mask, obj.id)
+        # state_ip.cropped_image_in_PIL.save(f"images/obs_before_label_all.png")
+        labels = [obj.id for obj in self.obj_mask_dict.keys()]
+        masks = self.obj_mask_dict.values()
+        state_ip.label_all_objects(masks, labels)
+            # state_ip.label_object(mask, obj.id)
+        # state_ip.cropped_image_in_PIL.save(f"images/obs_after_label_all.png")
         self.labeled_image = state_ip.cropped_image_in_PIL
 
     def copy(self) -> RawState:
