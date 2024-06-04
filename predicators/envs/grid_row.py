@@ -297,6 +297,8 @@ class GridRowDoorEnv(GridRowEnv):
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
+        #Note: the light and door positions are fixed for consistincy
+        #across train and test tasks
         # There is only one goal in this environment: to turn the light on.
         goal = {GroundAtom(self._LightOn, [self._light])}
         # The only variation in the initial state is the light target level.

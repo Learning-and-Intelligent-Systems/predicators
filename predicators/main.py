@@ -222,8 +222,8 @@ def _run_pipeline(env: BaseEnv,
                 cogman.learn_from_interaction_results(interaction_results)
                 learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
-            # if cogman._approach._mapleq._q_function._x_dims:
-            #     q_values.append(cogman._approach._mapleq.print_light_q_values())
+            # if cogman._approach.mapleq._q_function._x_dims:
+            #     q_values.append(cogman._approach.mapleq.print_light_q_values())
             # else:
             #     q_values.append([0,0,0,0,0,0, 0, 0])
             results = _run_testing(env, cogman)
@@ -236,13 +236,6 @@ def _run_pipeline(env: BaseEnv,
             num_solved+=results["num_solved"]
             print("CUMULATIVE NUM SOLVED: ", num_solved)
             print("fraction solved: ", num_solved/(i+1))
-            current_seg_traj = cogman._approach._mapleq._segmented_trajs
-            if current_seg_traj == last_seg_traj:
-                print("uh oh")
-                raise ValueError
-            last_seg_traj = current_seg_traj.copy()
-            # if results["solved"]:
-            #     raise ValueError
             if results["num_solved"]==1:
                 logs.append(1)
             else:

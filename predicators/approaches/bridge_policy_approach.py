@@ -415,18 +415,17 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                          action_space, train_tasks, task_planning_heuristic,
                          max_skeletons_optimized)
         self._maple_initialized=False
-        self._mapleq=()
+    #might first be initialized in solve
 
     @classmethod
     def get_name(cls) -> str:
         return "rl_bridge_policy"
     
+    @property
     def is_learning_based(self) -> bool:
         return False
     # TO DO create a Maple Q object whenever the following are first instantiated
-    #self._bridge_policy = create_bridge_policy(CFG.bridge_policy, types,
-    #predicates, options, nsrts)
-    #might first be initialized in solve
+    
     #create a class variable maple_initialized
     #set to false initially
     #then implement maple
@@ -450,34 +449,34 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     utils.all_ground_nsrts(nsrt, all_objects))
         elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
             all_objects = set()
-            for t in self._mapleq._train_tasks:
+            for t in self.mapleq._train_tasks:
                 curr_task_objects = set(t.init)
                 curr_task_types = {o.type for o in t.init}
                 curr_init_atoms = utils.abstract(
-                    t.init, self._mapleq._get_current_predicates())
+                    t.init, self.mapleq._get_current_predicates())
                 all_ground_nsrts.update(
                     utils.all_ground_nsrts_fd_translator(
-                        self._mapleq._nsrts, curr_task_objects,
-                        self._mapleq._get_current_predicates(), curr_task_types,
+                        self.mapleq._nsrts, curr_task_objects,
+                        self.mapleq._get_current_predicates(), curr_task_types,
                         curr_init_atoms, t.goal))
                 all_objects.update(curr_task_objects)
         else:  # pragma: no cover
             raise ValueError(
                 f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
         #eventually change the goal to good state
-        goals = [t.goal for t in self._mapleq._train_tasks]
+        goals = [t.goal for t in self.mapleq._train_tasks]
         #initing the input vector
-        # import ipdb; ipdb.set_trace()
-        self._mapleq._q_function.set_grounding(all_objects, goals,
+        self.mapleq._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
-        # print("NSRTS", self._mapleq._q_function._ground_nsrt_to_idx)
         
 
     def _solve(self, task: Task, timeout: int, train_or_test="test") -> Callable[[State], Action]:
         start_time = time.perf_counter()
         # self._bridge_policy.reset()
         if not self._maple_initialized:
-            self._mapleq=MapleQApproach(self._get_current_predicates(), self._initial_options, self._types, self._action_space, self._train_tasks)
+            # self._bridge_policy.mapleq=MapleQApproach(self._get_current_predicates(), self._initial_options, self._types, self._action_space, self._train_tasks)
+            self.mapleq=MapleQApproach(self._get_current_predicates(), self._initial_options, self._types, self._action_space, self._train_tasks)
+
             self._maple_initialized=True
             # print("mapleq inited")
             self._init_nsrts()
@@ -499,8 +498,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy, last_bridge_policy_state
-            # print("current state:", s)
-
             # if time.perf_counter() - start_time > timeout:
             #     raise ApproachTimeout("Bridge policy timed out.")
 
@@ -508,7 +505,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             # switch to the next option if it has terminated.
             try:
                 action = current_policy(s)
-                # print("returned action",action.get_option())
                 return action
             except BridgePolicyDone:
                 assert current_control == "bridge"
@@ -532,24 +528,13 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 # print("Switching control from planner to bridge.")
                 current_control = "bridge"
                 #TO DO change this to maple q . solve() to get a policy
-                # if train_or_test=="train":
-                #     epsilon=0.2
-                # else:
-                #     epsilon=0
-                self._bridge_policy=self._mapleq._solve(task, timeout, train_or_test)
-                option_policy = self._bridge_policy
-                current_policy=option_policy
-                # c = utils.option_policy_to_policy(
-                #     option_policy,
-                #     max_option_steps=CFG.max_num_steps_option_rollout,
-                #     raise_error_on_repeated_state=True,
-                # )
+                
+                current_policy = self.mapleq._solve(task, timeout, train_or_test)
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
                 # step, then this approach would be performing MPC.
                 try:
                     action = current_policy(s)
-                    # print("returned action by maple q",action.get_option())
                     return action            
                 except BridgePolicyDone:
                     if last_bridge_policy_state.allclose(s):
@@ -560,7 +545,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
             # Switch control from bridge to planner.
             # logging.debug("Switching control from bridge to planner.")
-            # print("Switching control from bridge to planner.")
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
@@ -575,7 +559,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             )
             try:
                 action = current_policy(s)
-                # print("returned action by planner", action.get_option())
                 return action
             except OptionExecutionFailure as e:
                 all_failed_options.append(e.info["last_failed_option"])
@@ -603,8 +586,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 raise OptionExecutionFailure(e.args[0], e.info)
 
         def _termination_fn(s: State) -> bool:
-            # if task.goal_holds(s):
-                # import ipdb; ipdb.set_trace()
             return task.goal_holds(s)
         # reached_stuck_state or task.goal_holds(s)
 
@@ -617,7 +598,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         #the request's act policy is mapleq, so the trajectory is from maple q's sampling
         request = InteractionRequest(train_task_idx, _act_policy,
                                      lambda s: None, _termination_fn)
-        # print("request: ",request.train_task_idx)
         return request
 
 
@@ -626,16 +606,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             self, results: Sequence[InteractionResult]) -> None:
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        print("OK SO WE CALLED LEARN FROM INTERACTION REQUESTS")
         #turn state action things from results into trajectory
 
         # TO DO call learn nsrts on mapleq object after trajectories are created
-
-        # mapleq = MapleQApproach(self._get_current_predicates(),
-        #          self._initial_options, self._types,
-        #         self._action_space, self._train_tasks)
-                    
-
         # If we haven't collected any new results on this cycle, skip learning
         # for efficiency.
 
@@ -662,14 +635,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             actions = [action.get_option() for action in new_traj.actions]
             # print(actions)
             
-        self._mapleq.get_interaction_requests()
-        self._mapleq._learn_nsrts(trajs, 0, []*len(trajs))
-        # return self._bridge_policy.learn_from_demos(self._bridge_dataset)
-        # unique_states = reduce(lambda re, x: re+[x] if x not in re else re, all_states, [])
-        # unique_actions = reduce(lambda re, x: re+[x] if x not in re else re, all_actions, [])
-        # for state in all_states:
-        #     for action in all_actions:
-        #         q_value = self._approach._mapleq._q_function.predict_q_value(state, self._current_goal, action.get_option())
-        #         print("Q VALUE !!!!!!, observation, action, q val", state, action.get_option(), q_value)
-
-        
+        self.mapleq.get_interaction_requests()
+        self.mapleq._learn_nsrts(trajs, 0, []*len(trajs))
+  

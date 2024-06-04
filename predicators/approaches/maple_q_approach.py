@@ -91,7 +91,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
         return q_values
     
-    def _solve(self, task: Task, timeout: int, train_or_test) -> Callable[[State], Action]:
+    def _solve(self, task: Task, timeout: int, train_or_test="train") -> Callable[[State], Action]:
         def _option_policy(state: State) -> _Option:
             return self._q_function.get_option(
                 state,

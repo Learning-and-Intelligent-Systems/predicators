@@ -1391,7 +1391,7 @@ class MapleQFunction(MLPRegressor):
                    state: State,
                    goal: Set[GroundAtom],
                    num_samples_per_ground_nsrt: int,
-                   train_or_test="test") -> _Option:
+                   train_or_test: str = "test") -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
         epsilon = self._epsilon
@@ -1422,7 +1422,7 @@ class MapleQFunction(MLPRegressor):
         return options[idx]
 
 
-    def decay_epsilon(self):
+    def decay_epsilon(self) -> None:
         self._epsilon=max(self._epsilon-self._ep_reduction, self._min_epsilon)
 
 
@@ -1519,23 +1519,6 @@ class MapleQFunction(MLPRegressor):
             # print("after fitting, we predict a BAD q value as ", self.predict(x), "but our Y_arr is: ", Y_arr[bad])
 
         print("num good actions", len(good_index), "num bad actions", len(bad_index))
-
-    def plot_value_history(value_history):
-        row = col = int(np.sqrt(value_history[0].size))
-        images = [x.reshape(row, col) for x in value_history]
-
-        num_images = len(images)
-        cols = int(np.sqrt(num_images))
-        rows = int(np.ceil(num_images / cols))
-        fig = plt.figure(figsize=(5, 12))
-        for i, image in enumerate(images):
-            plt.subplot(rows + 1, cols, i + 1)
-            plt.imshow(image)
-            plt.xlabel(f'Iter: {i}')
-        fig.tight_layout()
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'plot_{timestamp}.png'
-        fig.savefig(filename, dpi=300)
 
     def minibatch_generator(
             self, tensor_X: Tensor, tensor_Y: Tensor,
