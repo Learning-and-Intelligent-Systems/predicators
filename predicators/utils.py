@@ -2895,12 +2895,45 @@ def abstract(state: State,
         atoms |= query_vlm_for_atom_vals_with_VLMQuerys(vlm_queries, state)
     return atoms
 
+def evaluate_simple_assertion(assertion: str, image: ImagePatch, 
+        vlm: VisionLanguageModel) -> Union[bool, VLMQuery]:
+    """Given an assertion and an image, queries a VLM and returns whether the
+    assertion is true or false.
+    """
+
+    # logging.info(f"{assertion}")
+    # return False
+    if CFG.query_vlm_for_each_assertion:
+        image = image.cropped_image_in_PIL
+        response = vlm.sample_completions(prompt=assertion,
+                                        imgs=[image],
+                                        temperature=CFG.vlm_temperature,
+                                        seed=CFG.seed)
+        assert len(response) == 1, "The VLM should return only one completion."
+        response = response[0].lower()
+        if "true" in response:
+            return True
+        elif "false" in response:
+            return False
+        else:
+            logging.warning(f"VLM didn't response neither true/false, "
+                            f"response: {response}")
+            # Default to false
+            return False
+    else:
+        return VLMQuery(assertion, BoundingBox(image.left,
+                                                image.lower,
+                                                image.right,
+                                                image.upper))
+
 def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
         state: RawState, 
         vlm: Optional[VisionLanguageModel] = None) -> Sequence[GroundAtom]:
+    """Given a set of ground atoms, queries a VLM and gets the subset of these
+    atoms that are true.
+    """
     true_atom: Set[GroundAtom] = set()
     state_ip = ImagePatch(state.labled_image)
-    # Todo: add this method to ImagePatch
     attention_image = state_ip.crop_to_bboxes(
         [query.attention_box for query in queries])
     attention_image = attention_image.cropped_image_in_PIL
