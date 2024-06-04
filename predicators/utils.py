@@ -2877,7 +2877,7 @@ def abstract(state: State,
     if len(ns_preds) > 0:
         # Now, aggregate all the NS predicates and make a single call to a
         # NS to get their values.
-        ns_atoms = set()
+
         vlm_queries = []
         for pred in ns_preds:
             for choice in get_object_combinations(list(state), pred.types):
@@ -2891,8 +2891,11 @@ def abstract(state: State,
                     query = eval_result
                     query.ground_atom = ground_atom
                     vlm_queries.append(query)
+
         # Make the query and add the ones that holds to the result.
-        atoms |= query_vlm_for_atom_vals_with_VLMQuerys(vlm_queries, state)
+        if len(vlm_queries) > 0:
+            atoms |= query_vlm_for_atom_vals_with_VLMQuerys(vlm_queries, state, 
+                                                            vlm)
     return atoms
 
 def evaluate_simple_assertion(assertion: str, image: ImagePatch, 
@@ -2903,28 +2906,32 @@ def evaluate_simple_assertion(assertion: str, image: ImagePatch,
 
     # logging.info(f"{assertion}")
     # return False
-    if CFG.query_vlm_for_each_assertion:
-        image = image.cropped_image_in_PIL
-        response = vlm.sample_completions(prompt=assertion,
-                                        imgs=[image],
-                                        temperature=CFG.vlm_temperature,
-                                        seed=CFG.seed)
-        assert len(response) == 1, "The VLM should return only one completion."
-        response = response[0].lower()
-        if "true" in response:
-            return True
-        elif "false" in response:
-            return False
-        else:
-            logging.warning(f"VLM didn't response neither true/false, "
-                            f"response: {response}")
-            # Default to false
-            return False
-    else:
-        return VLMQuery(assertion, BoundingBox(image.left,
-                                                image.lower,
-                                                image.right,
-                                                image.upper))
+    return VLMQuery(assertion, BoundingBox(image.left,
+                                            image.lower,
+                                            image.right,
+                                            image.upper))
+    # if CFG.query_vlm_for_each_assertion:
+    #     image = image.cropped_image_in_PIL
+    #     response = vlm.sample_completions(prompt=assertion,
+    #                                     imgs=[image],
+    #                                     temperature=CFG.vlm_temperature,
+    #                                     seed=CFG.seed)
+    #     assert len(response) == 1, "The VLM should return only one completion."
+    #     response = response[0].lower()
+    #     if "true" in response:
+    #         return True
+    #     elif "false" in response:
+    #         return False
+    #     else:
+    #         logging.warning(f"VLM didn't response neither true/false, "
+    #                         f"response: {response}")
+    #         # Default to false
+    #         return False
+    # else:
+    #     return VLMQuery(assertion, BoundingBox(image.left,
+    #                                             image.lower,
+    #                                             image.right,
+    #                                             image.upper))
 
 def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
         state: RawState, 
@@ -2934,28 +2941,53 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
     """
     true_atom: Set[GroundAtom] = set()
     state_ip = ImagePatch(state.labled_image)
-    attention_image = state_ip.crop_to_bboxes(
-        [query.attention_box for query in queries])
-    attention_image = attention_image.cropped_image_in_PIL
-    prompts = "\n".join([f"{i}. {query.query_str}" for i, query in
-        enumerate(queries)])
-    vlm_output = vlm.sample_completions(prompt=prompts,
-                                        images=[attention_image],
-                                        temperature=CFG.vlm_temperature,
-                                        seed=CFG.seed,
-                                        num_completions=1)
-    assert len(vlm_output) == 1
-    vlm_output_str = vlm_output[0].lower()
-    all_vlm_responses = vlm_output_str.strip().split("\n")
 
-    assert len(queries) == len(all_vlm_responses)
-    for query, response in zip(queries, all_vlm_responses):
-        if "true" in response:
-            true_atom.add(query.ground_atom)
-        elif "false" not in response:
-            logging.warning(f"VLM didn't response neither true/false, "
-                            f"response: {response}")
-    return true_atom
+    # Init or reset vlm
+    if vlm is None:
+        vlm = create_vlm_by_name(CFG.vlm_model_name)
+    else:
+        if CFG.vlm_use_chat_mode:
+            vlm.reset_chat_history()
+
+    if CFG.query_vlm_for_each_assertion:
+        for query in queries:
+            attention_image = state_ip.crop_to_bboxes([query.attention_box])
+            attention_image = attention_image.cropped_image_in_PIL
+            vlm_output = vlm.sample_completions(prompt=query.query_str,
+                                                images=[attention_image],
+                                                temperature=CFG.vlm_temperature,
+                                                seed=CFG.seed,
+                                                num_completions=1)
+            assert len(vlm_output) == 1
+            vlm_output_str = vlm_output[0].lower()
+            if "true" in vlm_output_str:
+                true_atom.add(query.ground_atom)
+            elif "false" not in vlm_output_str:
+                logging.warning(f"VLM didn't response neither true/false, "
+                                f"response: {vlm_output_str}")
+    else:
+        attention_image = state_ip.crop_to_bboxes(
+            [query.attention_box for query in queries])
+        attention_image = attention_image.cropped_image_in_PIL
+        prompts = "\n".join([f"{i}. {query.query_str}" for i, query in
+            enumerate(queries)])
+        vlm_output = vlm.sample_completions(prompt=prompts,
+                                            images=[attention_image],
+                                            temperature=CFG.vlm_temperature,
+                                            seed=CFG.seed,
+                                            num_completions=1)
+        assert len(vlm_output) == 1
+        vlm_output_str = vlm_output[0].lower()
+        all_vlm_responses = vlm_output_str.strip().split("\n")
+
+        assert len(queries) == len(all_vlm_responses)
+        for query, response in zip(queries, all_vlm_responses):
+            if "true" in response:
+                true_atom.add(query.ground_atom)
+            elif "false" not in response:
+                logging.warning(f"VLM didn't response neither true/false, "
+                                f"response: {response}")
+        return true_atom
 
 @dataclass
 class VLMQuery:
@@ -2972,7 +3004,7 @@ def compare_abstract_accuracy(env: BaseEnv, states: List[State],
         logging.info(f"Evaluating task {i}")
         # Label all its objects
         state.label_all_objects()
-        env.vlm = create_vlm_by_name(CFG.vlm_model_name)
+        # env.vlm = create_vlm_by_name(CFG.vlm_model_name)
         for est_pred, gt_pred in est_preds_to_gt_preds.items():
             for choice in get_object_combinations(list(state), gt_pred.types):
                 num_evals += 1

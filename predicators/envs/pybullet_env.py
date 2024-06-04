@@ -339,6 +339,7 @@ class PyBulletEnv(BaseEnv):
                 state_copy.data, state_copy.simulator_state,
                 *self.render_segmented_obj()
             )
+            rendered_state.label_all_objects()
             return rendered_state
         else:
             return state_copy

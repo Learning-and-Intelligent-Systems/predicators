@@ -255,6 +255,12 @@ class GoogleGeminiVLM(VisionLanguageModel):
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()
 
+    def reset_chat_session(self) -> None:
+        """Reset the chat session."""
+        # make sure the instance has the chat_seesion attribute
+        assert hasattr(self, "chat_session")
+        self.chat_session = self._model.start_chat()
+
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
 

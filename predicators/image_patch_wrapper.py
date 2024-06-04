@@ -10,8 +10,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from viper.image_patch import ImagePatch as ViperImagePatch
-from predicators.structs import Object, Mask
+from predicators.structs import Object, Mask, State
 from predicators import utils
+# from predicators.utils import BoundingBox
 from predicators.settings import CFG
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.colors as mcolors
@@ -98,7 +99,7 @@ class VisImage:
 class ImagePatch(ViperImagePatch):
 # class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
-    def __init__(self, state: utils.RawState, *args, **kwargs):
+    def __init__(self, state: State, *args, **kwargs):
         super().__init__(state.labeled_image, *args, **kwargs)
         self.state = state
         # self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
@@ -212,16 +213,12 @@ class ImagePatch(ViperImagePatch):
                          bbox.right + right_margin, 
                          bbox.upper + top_margin)
     
-    def crop_to_bboxes(self, bboxes: Sequence[utils.BoundingBox
-                                              ]) -> 'ImagePatch':
+    def crop_to_bboxes(self, bboxes) -> 'ImagePatch':
         bbox = utils.smallest_bbox_from_bboxes(bboxes)
         return self.crop(bbox.left,
                          bbox.lower,
                          bbox.right, 
                          bbox.upper)
-    
-
-
 
     def crop(self, left: int, lower: int, right: int, upper: int) -> 'ImagePatch':
         """Returns a new ImagePatch containing a crop of the original image at 

@@ -358,10 +358,10 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
 
 
     # Compare accuracy
-    test_tasks[0].init.state_image.save("images/test_task0_init.png")
-    utils.compare_abstract_accuracy(env,
-                                    [test_tasks[0].init], 
-                                    env.ns_predicates_to_predicates)
+    # test_tasks[0].init.state_image.save("images/test_task0_init.png")
+    # utils.compare_abstract_accuracy(env,
+    #                                 [test_tasks[0].init], 
+    #                                 env.ns_predicates_to_predicates)
     # utils.compare_abstract_accuracy(env,
     #                                 [t.init for t in test_tasks], 
     #                                 env.ns_predicates_to_predicates)
@@ -393,10 +393,6 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             # Temporary: 
             #   1. modify the task to inlcude object labels
             #   2. reset the vlm chat history
-            if CFG.rgb_observation:
-                env_task.init.label_all_objects()
-                env_task = EnvironmentTask(env_task.init, env_task.goal)
-                env.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
             cogman.reset(env_task)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
