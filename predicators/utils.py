@@ -3499,7 +3499,7 @@ def parse_config_excluded_predicates(
             }
             if CFG.offline_data_method != "demo+ground_atoms":
                 if CFG.allow_exclude_goal_predicates:
-                    if env.goal_predicates.issubset(included):
+                    if not env.goal_predicates.issubset(included):
                         logging.info("Note: excluding goal predicates!")
                 else:
                     assert env.goal_predicates.issubset(included), \
