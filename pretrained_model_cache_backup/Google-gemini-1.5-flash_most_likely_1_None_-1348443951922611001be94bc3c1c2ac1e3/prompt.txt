@@ -1,5 +1,0 @@
-block3 is directly resting on table2's surface.
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-False
-
-

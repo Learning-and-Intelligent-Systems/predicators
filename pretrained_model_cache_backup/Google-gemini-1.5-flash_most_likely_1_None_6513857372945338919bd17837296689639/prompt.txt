@@ -1,3 +1,0 @@
-block6 is directly on top of block3 with no blocks in between.
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-False

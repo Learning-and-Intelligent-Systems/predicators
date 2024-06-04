@@ -1,5 +1,0 @@
-block labeled with 3 is directly resting on table labeled with 2's surface.
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-False
-
-
