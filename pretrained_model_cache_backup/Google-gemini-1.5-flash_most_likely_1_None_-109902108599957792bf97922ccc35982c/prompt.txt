@@ -1,5 +1,0 @@
-there is no block directly on top of block5.
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-False
-
-
