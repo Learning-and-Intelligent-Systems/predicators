@@ -346,9 +346,9 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
     # # Check rendering by saving the image of the init state of tasks
     for i, task in enumerate(test_tasks):
-        task.init.state_image.save(f"images/test_rendering_{env.get_name()}_"+
+        task.init.state_image.save(f"images/{env.get_name()}_"+
             f"test_task{i}.png")
-        task.init.labeled_image.save(f"images/test_rendering_{env.get_name()}_"+
+        task.init.labeled_image.save(f"images/{env.get_name()}_"+
             f"test_task{i}_labeled.png")
 
     # Check the processed image before performing simple query
