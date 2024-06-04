@@ -107,21 +107,19 @@ def main() -> None:
     # information in training.
     perceiver = create_perceiver(CFG.perceiver)
     train_tasks = [perceiver.reset(t) for t in env_train_tasks]
-    if CFG.strip_train_tasks:
-        # If train tasks have goals that involve excluded predicates, strip those
-        # predicate classifiers to prevent leaking information to the approaches.
-        stripped_train_tasks = [
-            utils.strip_task(task, preds) for task in train_tasks
-        ]
+    # If train tasks have goals that involve excluded predicates, strip those
+    # predicate classifiers to prevent leaking information to the approaches.
+    stripped_train_tasks = [
+        utils.strip_task(task, preds) for task in train_tasks
+    ]
     # If the goals of the tasks that the approaches solve need to be described
     # using predicates that differ from those in the goals of the tasks that the
     # demonstrator solves, then replace those predicates accordingly. This is
     # used in VLM predicate invention where we want to invent certain goal
     # predicates that the demonstrator needed to solve the task.
     approach_train_tasks = [
-        task.replace_goal_with_alt_goal() for task in train_tasks
+        task.replace_goal_with_alt_goal() for task in stripped_train_tasks
     ]
-
     if CFG.option_learner == "no_learning":
         # If we are not doing option learning, pass in all the environment's
         # oracle options.
@@ -134,7 +132,7 @@ def main() -> None:
     if CFG.approach_wrapper:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
     approach = create_approach(approach_name, preds, options, env.types,
-                               env.action_space, stripped_train_tasks)
+                               env.action_space, approach_train_tasks)
     if approach.is_learning_based:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
@@ -146,7 +144,7 @@ def main() -> None:
     execution_monitor = create_execution_monitor(CFG.execution_monitor)
     cogman = CogMan(approach, perceiver, execution_monitor)
     # Run the full pipeline.
-    _run_pipeline(env, cogman, stripped_train_tasks, offline_dataset)
+    _run_pipeline(env, cogman, approach_train_tasks, offline_dataset)
     script_time = time.perf_counter() - script_start
     logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
@@ -319,7 +317,7 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
-    test_tasks = env.get_test_tasks()
+    test_tasks = [task.replace_goal_with_alt_goal() for task in env.get_test_tasks()]
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()

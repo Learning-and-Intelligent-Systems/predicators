@@ -435,7 +435,7 @@ class Task:
     # of the task presented to the demonstrator. In these cases, we will store
     # an "alternative goal" in this field and replace the goal with the
     # alternative goal before giving the task to the agent.
-    _alt_goal: Optional[Set[GroundAtom]] = frozenset()
+    alt_goal: Optional[Set[GroundAtom]] = frozenset()
 
     def __post_init__(self) -> None:
         # Verify types.
@@ -447,11 +447,13 @@ class Task:
         return all(goal_atom.holds(state) for goal_atom in self.goal)
 
     def replace_goal_with_alt_goal(self) -> Task:
-        """Return a Task with the goal replaced with the alternative goal."""
+        """Return a Task with the goal replaced with the alternative goal if it exists."""
         # We may not want the agent to access the goal predicates given to the
         # demonstrator. To prevent leakage of this information, we discard the
         # original goal.
-        return Task(self.init, goal=self._alt_goal, _alt_goal=frozenset())
+        if self.alt_goal:
+            return Task(self.init, goal=self.alt_goal, alt_goal=frozenset())
+        return self
 
 DefaultTask = Task(DefaultState, set())
 
@@ -469,12 +471,20 @@ class EnvironmentTask:
     init_obs: Observation
     goal_description: GoalDescription
     # See Task._alt_goal for the reason for this field.
-    _alt_goal_desc: Optional[GoalDescription] = None
+    alt_goal_desc: Optional[GoalDescription] = None
 
     @cached_property
     def task(self) -> Task:
         """Convenience method for environment tasks that are fully observed."""
-        return Task(self.init, self.goal, _alt_goal=self._alt_goal_desc)
+        # If the environment task can be converted to a task, then alt_goal_desc
+        # will be a set. In the case where replace_goal_with_alt_goal() is
+        # called before a perceiver turns this environment task into a task,
+        # then alt_goal_desc will be an empty frozenset -- this happens in
+        # _run_testing() in main.py.
+        assert isinstance(self.alt_goal_desc, (set, frozenset))
+        for atom in self.alt_goal_desc:
+            assert isinstance(atom, GroundAtom)
+        return Task(self.init, self.goal, alt_goal=self.alt_goal_desc)
 
     @cached_property
     def init(self) -> State:
@@ -492,11 +502,13 @@ class EnvironmentTask:
 
     def replace_goal_with_alt_goal(self) -> EnvironmentTask:
         """Return an EnvironmentTask with the goal description replaced with the
-        alternative goal description.
+        alternative goal description if it exists.
 
         See Task.replace_goal_with_alt_goal for the reason for this function.
         """
-        return EnvironmentTask(self.init_obs, goal_description=self._alt_goal_desc, _alt_goal_desc=None)
+        if self.alt_goal_desc is not None:
+            return EnvironmentTask(self.init_obs, goal_description=self.alt_goal_desc, alt_goal_desc=frozenset())
+        return self
 
 DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())
 

@@ -2209,7 +2209,7 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
         stripped_pred = strip_predicate(atom.predicate)
         stripped_atom = GroundAtom(stripped_pred, atom.objects)
         stripped_goal.add(stripped_atom)
-    return Task(task.init, stripped_goal)
+    return Task(task.init, stripped_goal, alt_goal=task.alt_goal)
 
 
 def create_vlm_predicate(
@@ -3498,9 +3498,11 @@ def parse_config_excluded_predicates(
                 for pred in env.predicates if pred.name not in excluded_names
             }
             if CFG.offline_data_method != "demo+ground_atoms":
-                if CFG.allow_exclude_goal_predicates and not env.goal_predicates.issubset(included):
-                    logging.info(f"Note: excluding goal predicates!")
-                assert env.goal_predicates.issubset(included), \
+                if CFG.allow_exclude_goal_predicates:
+                    if env.goal_predicates.issubset(included):
+                        logging.info(f"Note: excluding goal predicates!")
+                else:
+                    assert env.goal_predicates.issubset(included), \
                     "Can't exclude a goal predicate!"
     else:
         excluded_names = set()

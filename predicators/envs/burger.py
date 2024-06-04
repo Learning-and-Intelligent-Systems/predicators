@@ -207,7 +207,7 @@ class BurgerEnv(BaseEnv):
                 state, DefaultEnvironmentTask)
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
-            tasks.append(EnvironmentTask(state, goal, _alt_goal_desc=alt_goal))
+            tasks.append(EnvironmentTask(state, goal, alt_goal_desc=alt_goal))
 
         return tasks
 
