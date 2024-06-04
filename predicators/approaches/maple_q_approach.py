@@ -178,7 +178,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
-        print("SEGMENTED TRAJJAJJAAJJ", len(self._segmented_trajs))
         self._update_maple_data()
         # Re-learn Q function.
         self._q_function.train_q_function()
@@ -199,10 +198,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         new_trajs = self._segmented_trajs
 
         goal_offset = CFG.max_initial_demos
-        # import ipdb; ipdb.set_trace()
         # assert len(self._segmented_trajs) == goal_offset + len(self._interaction_goals)
                 
-        new_traj_goals = self._interaction_goals[goal_offset:]
+        new_traj_goals = self._interaction_goals
 
         for traj_i, segmented_traj in enumerate(new_trajs):
             self._last_seen_segment_traj_idx += 1
@@ -217,22 +215,13 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 vectorized_action=self._q_function._vectorize_option(o)
                 vectorized_state=self._q_function._vectorize_state(s)
 
-                if vectorized_action[-2]==1 and reward == 0:
-                    reward = -1
-
-                # print(o,s,reward)
-
                 # if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
                 #     print("reward of turning the light and terminal?", reward, terminal)
                 #     if not terminal:
                 #         print(vectorized_action, vectorized_state, o, s, segment.final_atoms, segment)
-                # if reward == 1.0:
-                #     print(s,o)
-                # if reward !=0 and reward!=1:
-                #     print(reward)
+
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))
-                # print("heyooooo", len(self._q_function._replay_buffer))
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         # Save the goals for each interaction request so we can later associate

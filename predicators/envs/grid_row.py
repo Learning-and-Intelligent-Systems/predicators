@@ -11,6 +11,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
+import matplotlib.pyplot as plt
 
 
 class GridRowEnv(BaseEnv):
@@ -179,6 +180,12 @@ class GridRowEnv(BaseEnv):
 class GridRowDoorEnv(GridRowEnv):
     """Simple variant on GridRow where there is also a door."""
 
+    #properties for rendering
+    cell_width = 1
+    robot_width = 0.5
+    robot_height = 0.75
+    light_width = 0.25
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         # type door with features ['x', and 'open']
@@ -193,6 +200,82 @@ class GridRowDoorEnv(GridRowEnv):
     def get_name(cls) -> str:
         return "grid_row_door"
 
+
+    def render_state_plt(
+            self,
+            state: State,
+            task: EnvironmentTask,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        
+        fig, ax = plt.subplots(1, 1)
+        plt.xlim([
+            0,
+            len(self._cells)
+        ])
+        plt.ylim([0, 1])
+
+
+        # Draw the cells.
+
+        for i in range(len(self._cells)):
+            rect = plt.Rectangle((i,
+                                  0),
+                                 self.cell_width,
+                                 self.cell_width,
+                                 edgecolor="gray",
+                                 facecolor="gray")
+            ax.add_patch(rect)
+            
+
+        # Draw light, door, and robot.
+
+        if self._LightOn_holds(state, (self._light,)):
+            light = plt.Rectangle((len(self._cells)-(self.cell_width+self.light_width)/2.0,
+                                  1-self.light_width),
+                                 self.light_width,
+                                 self.light_width,
+                                 edgecolor="yellow",
+                                 facecolor="yellow")
+        else:
+            light = plt.Rectangle((len(self._cells)-(self.cell_width+self.light_width)/2.0,
+                                  1-self.light_width),
+                                 self.light_width,
+                                 self.light_width,
+                                 edgecolor="white",
+                                 facecolor="white")
+        ax.add_patch(light)
+
+        door_pos = state.get(self._door, "x")
+
+        if state.get(self._door, "open"):
+            door = plt.Rectangle((door_pos-self.cell_width/2.0,
+                                  0),
+                                 self.cell_width,
+                                 self.cell_width,
+                                 edgecolor="gray",
+                                 facecolor="gray")
+        else:
+            door = plt.Rectangle((door_pos-self.cell_width/2.0,
+                                  0),
+                                 self.cell_width,
+                                 self.cell_width,
+                                 edgecolor="darkgoldenrod",
+                                 facecolor="darkgoldenrod")
+        ax.add_patch(door)
+
+        robot_pos = state.get(self._robot, "x")
+
+        robot = plt.Rectangle((robot_pos-self.robot_width/2.0,
+                                  0),
+                                 self.robot_width,
+                                 self.robot_height,
+                                 edgecolor="red",
+                                 facecolor="red")
+        ax.add_patch(robot)
+
+        return fig
+    
     @property
     def predicates(self) -> Set[Predicate]:
         return {
@@ -230,8 +313,9 @@ class GridRowDoorEnv(GridRowEnv):
                     # rng.uniform(0.5, 1.0)
                 },
                 self._door: {
-                    "x": rng.choice(range(2, len(self._cells))) - 0.5,
+                    "x": len(self._cells) // 2 - 0.5,
                     "open": 0.0
+                    #rng.choice(range(2, len(self._cells)))
                 }
             }
             for i, cell in enumerate(self._cells):

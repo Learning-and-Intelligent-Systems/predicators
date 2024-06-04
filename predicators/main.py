@@ -222,10 +222,10 @@ def _run_pipeline(env: BaseEnv,
                 cogman.learn_from_interaction_results(interaction_results)
                 learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
-            if cogman._approach._mapleq._q_function._x_dims:
-                q_values.append(cogman._approach._mapleq.print_light_q_values())
-            else:
-                q_values.append([0,0,0,0,0,0, 0, 0])
+            # if cogman._approach._mapleq._q_function._x_dims:
+            #     q_values.append(cogman._approach._mapleq.print_light_q_values())
+            # else:
+            #     q_values.append([0,0,0,0,0,0, 0, 0])
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
@@ -276,14 +276,14 @@ def _run_pipeline(env: BaseEnv,
 
 
 # FOR PLOTTING Q VALUES
-        plt.plot(learning_cycles, q_values)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'qvalues_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("Q value")
-        plt.legend(['-0.25', '0', '0.25', '0.5', '0.7', '0.75', '0.8', '1'])
-        plt.title("Q-values", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
+        # plt.plot(learning_cycles, q_values)
+        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # filename = f'qvalues_plot_{timestamp}.png'
+        # plt.xlabel("num_online_learning_cycles")
+        # plt.ylabel("Q value")
+        # plt.legend(['-0.25', '0', '0.25', '0.5', '0.7', '0.75', '0.8', '1'])
+        # plt.title("Q-values", fontsize=16, fontweight='bold')
+        # plt.savefig(filename, dpi=300)
 
     else:
         results = _run_testing(env, cogman)
