@@ -185,6 +185,7 @@ def _run_pipeline(env: BaseEnv,
         learning_cycles=[]
         q_values=[]
         num_solved=0
+        last_seg_traj=[]
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
@@ -235,6 +236,11 @@ def _run_pipeline(env: BaseEnv,
             num_solved+=results["num_solved"]
             print("CUMULATIVE NUM SOLVED: ", num_solved)
             print("fraction solved: ", num_solved/(i+1))
+            current_seg_traj = cogman._approach._mapleq._segmented_trajs
+            if current_seg_traj == last_seg_traj:
+                print("uh oh")
+                raise ValueError
+            last_seg_traj = current_seg_traj.copy()
             # if results["solved"]:
             #     raise ValueError
             if results["num_solved"]==1:

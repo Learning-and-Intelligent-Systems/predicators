@@ -626,7 +626,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             self, results: Sequence[InteractionResult]) -> None:
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        
+        print("OK SO WE CALLED LEARN FROM INTERACTION REQUESTS")
         #turn state action things from results into trajectory
 
         # TO DO call learn nsrts on mapleq object after trajectories are created

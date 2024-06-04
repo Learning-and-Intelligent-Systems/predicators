@@ -472,8 +472,8 @@ class GlobalSettings:
     weight_decay = 0
     mlp_regressor_max_itr = 10000
     mlp_regressor_hid_sizes = [32, 32]
-    mlp_regressor_clip_gradients = False
-    mlp_regressor_gradient_clip_value = 5
+    mlp_regressor_clip_gradients = True
+    mlp_regressor_gradient_clip_value = 2
     mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_balance_data = True
     cnn_regressor_max_itr = 500
