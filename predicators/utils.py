@@ -3500,7 +3500,7 @@ def parse_config_excluded_predicates(
             if CFG.offline_data_method != "demo+ground_atoms":
                 if CFG.allow_exclude_goal_predicates:
                     if env.goal_predicates.issubset(included):
-                        logging.info(f"Note: excluding goal predicates!")
+                        logging.info("Note: excluding goal predicates!")
                 else:
                     assert env.goal_predicates.issubset(included), \
                     "Can't exclude a goal predicate!"
@@ -3827,12 +3827,10 @@ def add_text_to_draw_img(
                            )  # Slightly larger than text
     background_size = (text_width + 10, text_height + 10)
     # Draw the background rectangle
-    draw.rectangle([
-        background_position,
-        (background_position[0] + background_size[0],
-         background_position[1] + background_size[1])
-    ],
-                   fill="black")
+    draw.rectangle(
+        (background_position, (background_position[0] + background_size[0],
+                               background_position[1] + background_size[1])),
+        fill="black")
     # Add the text to the image
     draw.text(position, text, fill="red", font=font)
     return draw

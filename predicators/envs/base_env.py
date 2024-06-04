@@ -77,7 +77,7 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @property
-    def goal_predicates_for_agent(self) ->Set[Predicate]:
+    def goal_predicates_for_agent(self) -> Set[Predicate]:
         """Get the subset of self.predicates that are used in goals for the
         agent."""
         # By default, task goals are described in terms of the same goal

@@ -184,7 +184,6 @@ class BurgerEnv(BaseEnv):
             # GroundAtom(self._IsSliced, [tomato]),
             # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
             #     top_bun])
-
             GroundAtom(self._On, [patty, bottom_bun]),
             GroundAtom(self._On, [cheese, patty]),
             GroundAtom(self._IsCooked, [patty]),
@@ -193,8 +192,8 @@ class BurgerEnv(BaseEnv):
         alt_goal = {
             GroundAtom(self._On, [patty, bottom_bun]),
             GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
-                top_bun])
+            GroundAtom(self._GoalHack,
+                       [bottom_bun, patty, cheese, tomato, top_bun])
         }
 
         for _ in range(num):
@@ -308,7 +307,8 @@ class BurgerEnv(BaseEnv):
         return True
 
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        bottom, patty, cheese, tomato, top = objects
+        # bottom, patty, cheese, tomato, top = objects
+        bottom, patty, cheese, _, _ = objects
         atoms = [
             self._On_holds(state, [patty, bottom]),
             self._On_holds(state, [cheese, patty]),

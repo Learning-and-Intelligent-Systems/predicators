@@ -317,7 +317,9 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
-    test_tasks = [task.replace_goal_with_alt_goal() for task in env.get_test_tasks()]
+    test_tasks = [
+        task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
+    ]
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()
