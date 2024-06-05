@@ -2199,19 +2199,17 @@ def strip_predicate(predicate: Predicate) -> Predicate:
 
 
 def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
-    """Create a new task where any excluded predicates have their classifiers
-    removed."""
+    """Create a new task where any excluded goal predicates have their
+    classifiers removed."""
     stripped_goal: Set[GroundAtom] = set()
     for atom in task.goal:
-        # The atom's goal is known.
         if atom.predicate in included_predicates:
             stripped_goal.add(atom)
             continue
-        # The atom's goal is unknown.
         stripped_pred = strip_predicate(atom.predicate)
         stripped_atom = GroundAtom(stripped_pred, atom.objects)
         stripped_goal.add(stripped_atom)
-    return Task(task.init, stripped_goal)
+    return Task(task.init, stripped_goal, alt_goal=task.alt_goal)
 
 
 def create_vlm_predicate(
@@ -3500,7 +3498,11 @@ def parse_config_excluded_predicates(
                 for pred in env.predicates if pred.name not in excluded_names
             }
             if CFG.offline_data_method != "demo+ground_atoms":
-                assert env.goal_predicates.issubset(included), \
+                if CFG.allow_exclude_goal_predicates:
+                    if not env.goal_predicates.issubset(included):
+                        logging.info("Note: excluding goal predicates!")
+                else:
+                    assert env.goal_predicates.issubset(included), \
                     "Can't exclude a goal predicate!"
     else:
         excluded_names = set()
@@ -3825,12 +3827,10 @@ def add_text_to_draw_img(
                            )  # Slightly larger than text
     background_size = (text_width + 10, text_height + 10)
     # Draw the background rectangle
-    draw.rectangle([
-        background_position,
-        (background_position[0] + background_size[0],
-         background_position[1] + background_size[1])
-    ],
-                   fill="black")
+    draw.rectangle(
+        (background_position, (background_position[0] + background_size[0],
+                               background_position[1] + background_size[1])),
+        fill="black")
     # Add the text to the image
     draw.text(position, text, fill="red", font=font)
     return draw

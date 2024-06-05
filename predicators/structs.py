@@ -430,6 +430,12 @@ class Task:
     """Struct defining a task, which is an initial state and goal."""
     init: State
     goal: Set[GroundAtom]
+    # Sometimes we want the task presented to the agent to have goals described
+    # in terms of predicates that are different than those describing the goal
+    # of the task presented to the demonstrator. In these cases, we will store
+    # an "alternative goal" in this field and replace the goal with the
+    # alternative goal before giving the task to the agent.
+    alt_goal: Optional[Set[GroundAtom]] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         # Verify types.
@@ -439,6 +445,16 @@ class Task:
     def goal_holds(self, state: State) -> bool:
         """Return whether the goal of this task holds in the given state."""
         return all(goal_atom.holds(state) for goal_atom in self.goal)
+
+    def replace_goal_with_alt_goal(self) -> Task:
+        """Return a Task with the goal replaced with the alternative goal if it
+        exists."""
+        # We may not want the agent to access the goal predicates given to the
+        # demonstrator. To prevent leakage of this information, we discard the
+        # original goal.
+        if self.alt_goal:
+            return Task(self.init, goal=self.alt_goal)
+        return self
 
 
 DefaultTask = Task(DefaultState, set())
@@ -456,11 +472,28 @@ class EnvironmentTask:
     """
     init_obs: Observation
     goal_description: GoalDescription
+    # See Task._alt_goal for the reason for this field.
+    alt_goal_desc: Optional[GoalDescription] = field(default=None)
 
     @cached_property
     def task(self) -> Task:
         """Convenience method for environment tasks that are fully observed."""
-        return Task(self.init, self.goal)
+        # If the environment task's goal is replaced with the alternative goal
+        # before turning the environment task into a task, or no alternative
+        # goal exists, then there's nothing particular to set the task's
+        # alt_goal field to.
+        if self.alt_goal_desc is None:
+            return Task(self.init, self.goal)
+        # If we turn the environment task into a task before replacing the goal
+        # with the alternative goal, we have to set the task's alt_goal field
+        # accordingly to leave open the possibility of doing that replacement
+        # later.
+        # Assumption: we currently assume the alternative goal description is
+        # always a set of ground atoms.
+        assert isinstance(self.alt_goal_desc, set)
+        for atom in self.alt_goal_desc:
+            assert isinstance(atom, GroundAtom)
+        return Task(self.init, self.goal, alt_goal=self.alt_goal_desc)
 
     @cached_property
     def init(self) -> State:
@@ -475,6 +508,18 @@ class EnvironmentTask:
         assert not self.goal_description or isinstance(
             next(iter(self.goal_description)), GroundAtom)
         return self.goal_description
+
+    def replace_goal_with_alt_goal(self) -> EnvironmentTask:
+        """Return an EnvironmentTask with the goal description replaced with
+        the alternative goal description if it exists.
+
+        See Task.replace_goal_with_alt_goal for the reason for this
+        function.
+        """
+        if self.alt_goal_desc is not None:
+            return EnvironmentTask(self.init_obs,
+                                   goal_description=self.alt_goal_desc)
+        return self
 
 
 DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())
