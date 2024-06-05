@@ -3039,7 +3039,7 @@ def compare_abstract_accuracy(env: BaseEnv, states: List[State],
     num_evals, num_correct = 0, 0
 
     for i, state in enumerate(states):
-        logging.info(f"Evaluating task {i}")
+        logging.info(f"\nEvaluating task {i}")
         est_ground_atoms = abstract(state, env.NS_predicates)
 
         for est_pred, gt_pred in est_preds_to_gt_preds.items():

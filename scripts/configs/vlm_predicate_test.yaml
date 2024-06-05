@@ -28,7 +28,7 @@ ARGS:
   # - "use_gui"
 FLAGS:
   num_train_tasks: 20
-  num_test_tasks: 1
+  num_test_tasks: 5
   # option_learner: direct_bc # So it doesn' include all oracle options in init
                             # when including all options, should also include
                             # all predicates.
@@ -50,12 +50,12 @@ FLAGS:
 
   rgb_observation: True
   save_nsp_image_patch_before_query: True
-  vlm_model_name: "gemini-1.5-flash"
+  vlm_model_name: "gemini-1.5-pro"
   vlm_temperature: 0
   vlm_use_chat_mode: True
   sesame_check_expected_atoms: False
   query_vlm_for_each_assertion: False
-  query_vlm_for_each_predicate: True
+  query_vlm_for_each_predicate: False
 
 
 START_SEED: 2

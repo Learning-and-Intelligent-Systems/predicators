@@ -108,6 +108,7 @@ class PretrainedLargeModel(abc.ABC):
                                                    seed, stop_token,
                                                    num_completions)
             # Cache the completion.
+            # cache_str = f"System instructions: {CFG.vlm_system_instruction}\n"+\
             cache_str = prompt + _CACHE_SEP + _CACHE_SEP.join(completions)
             with open(cache_filepath, 'w', encoding='utf-8') as f:
                 f.write(cache_str)
