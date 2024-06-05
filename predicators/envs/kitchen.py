@@ -90,7 +90,7 @@ class KitchenEnv(BaseEnv):
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
-        ("kettle", "on"): (-0.05, -0.3, -0.12),
+        ("kettle", "on"): (-0.05, -0.25, 0.00),
         ("kettle", "off"): (0.0, 0.0, 0.08),
         ("knob4", "on"): (-0.1, -0.10, 0.05),
         ("knob4", "off"): (0.05, -0.12, -0.05),
@@ -410,7 +410,9 @@ README of that repo suggests!"
         self._gym_env.reset(seed=seed)
         if CFG.kitchen_randomize_init_state:
             rng = np.random.default_rng(seed)
-            kettle_coords = rng.choice([KETTLE_ON_BURNER1_POS, KETTLE_ON_BURNER2_POS, KETTLE_ON_BURNER3_POS, KETTLE_ON_BURNER4_POS])
+            # kettle_coords = rng.choice([KETTLE_ON_BURNER1_POS, KETTLE_ON_BURNER2_POS, KETTLE_ON_BURNER3_POS, KETTLE_ON_BURNER4_POS])
+            kettle_coords = (rng.uniform(-0.25, 0.069, 1), rng.uniform(0.4, 0.55), 1.626)
+            # kettle_coords = KETTLE_ON_BURNER1_POS
             self._gym_env.set_body_position("kettle", kettle_coords)
         return {
             "state_info": self.get_object_centric_state_info(),

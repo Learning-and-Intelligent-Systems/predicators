@@ -143,6 +143,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                         objs: Sequence[Object]) -> Array:
             del state, goal  # unused
             _, obj = objs
+            import ipdb; ipdb.set_trace()
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "on"),
                               dtype=np.float32)
             if not CFG.kitchen_use_perfect_samplers:
@@ -232,7 +233,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(NotOnTop, [kettle, surface_to]),
             LiftedAtom(BurnerAhead, [surface_to, surface_from]),
-            LiftedAtom(OnTop, [kettle, surface_from]),
+            # LiftedAtom(OnTop, [kettle, surface_from]),
         }
         add_effects = {LiftedAtom(OnTop, [kettle, surface_to])}
         delete_effects = {LiftedAtom(NotOnTop, [kettle, surface_to])}
