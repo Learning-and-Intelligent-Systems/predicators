@@ -324,11 +324,11 @@ def _generate_interaction_results(
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
     # # Check rendering by saving the image of the init state of tasks
-    for i, task in enumerate(test_tasks):
-        task.init.state_image.save(f"images/{env.get_name()}_"+
-            f"test_task{i}.png")
-        task.init.labeled_image.save(f"images/{env.get_name()}_"+
-            f"test_task{i}_labeled.png")
+    # for i, task in enumerate(test_tasks):
+    #     task.init.state_image.save(f"images/{env.get_name()}_"+
+    #         f"test_task{i}.png")
+    #     task.init.labeled_image.save(f"images/{env.get_name()}_"+
+    #         f"test_task{i}_labeled.png")
         # Save all the masks
         # for obj, mask in task.init.obj_mask_dict.items():
         #     Image.fromarray(mask).save(
@@ -344,10 +344,10 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
 
     # Compare accuracy
     # test_tasks[0].init.state_image.save("images/test_task0_init.png")
-    breakpoint()
     utils.compare_abstract_accuracy(env,
                                     [t.init for t in test_tasks], 
                                     env.ns_predicates_to_predicates)
+    breakpoint()
     
     # /Check
     num_found_policy = 0
