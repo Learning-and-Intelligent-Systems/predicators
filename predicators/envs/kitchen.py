@@ -410,9 +410,10 @@ README of that repo suggests!"
         self._gym_env.reset(seed=seed)
         if CFG.kitchen_randomize_init_state:
             rng = np.random.default_rng(seed)
-            # kettle_coords = rng.choice([KETTLE_ON_BURNER1_POS, KETTLE_ON_BURNER2_POS, KETTLE_ON_BURNER3_POS, KETTLE_ON_BURNER4_POS])
-            kettle_coords = (rng.uniform(-0.25, 0.069, 1), rng.uniform(0.4, 0.55), 1.626)
-            # kettle_coords = KETTLE_ON_BURNER1_POS
+            # For now, we only randomize the state such that the kettle
+            # is anywhere between burners 2 and 4. Later, we might add
+            # even more variation.
+            kettle_coords = (-0.269, rng.uniform(0.4, 0.55), 1.626)
             self._gym_env.set_body_position("kettle", kettle_coords)
         return {
             "state_info": self.get_object_centric_state_info(),
