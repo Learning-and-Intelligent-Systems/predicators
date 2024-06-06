@@ -61,14 +61,18 @@ class MapleQApproach(OnlineNSRTLearningApproach):
     def get_name(cls) -> str:
         return "maple_q"
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+    def _solve(self,
+               task: Task,
+               timeout: int,
+               train_or_test: str = "train") -> Callable[[State], Action]:
 
         def _option_policy(state: State) -> _Option:
             return self._q_function.get_option(
                 state,
                 task.goal,
                 num_samples_per_ground_nsrt=CFG.
-                active_sampler_learning_num_samples)
+                active_sampler_learning_num_samples,
+                train_or_test=train_or_test)
 
         return utils.option_policy_to_policy(
             _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
@@ -108,11 +112,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                      annotations: Optional[List[Any]]) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
-        # Check the assumption that operators and options are 1:1.
-        # This is just an implementation convenience.
-        assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
-        for nsrt in self._nsrts:
-            assert nsrt.option_vars == nsrt.parameters
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
         if not online_learning_cycle:

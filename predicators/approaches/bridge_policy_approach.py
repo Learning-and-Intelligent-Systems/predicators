@@ -48,6 +48,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
+from predicators.approaches.maple_q_approach import MapleQApproach
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -55,8 +56,8 @@ from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, BridgeDataset, DefaultState, \
     DemonstrationQuery, DemonstrationResponse, InteractionRequest, \
-    InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
-    Type, _Option
+    InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
+    Query, State, Task, Type, _GroundNSRT, _Option
 from predicators.utils import OptionExecutionFailure
 
 
@@ -346,3 +347,176 @@ class BridgePolicyApproach(OracleApproach):
                 ))
 
         return self._bridge_policy.learn_from_demos(self._bridge_dataset)
+
+
+class RLBridgePolicyApproach(BridgePolicyApproach):
+    """A simulator-free bilevel planning approach that uses a Deep RL (Maple Q)
+    bridge policy."""
+
+    def __init__(self,
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption],
+                 types: Set[Type],
+                 action_space: Box,
+                 train_tasks: List[Task],
+                 task_planning_heuristic: str = "default",
+                 max_skeletons_optimized: int = -1) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks, task_planning_heuristic,
+                         max_skeletons_optimized)
+        self._maple_initialized = False
+        self._trajs: List[LowLevelTrajectory] = []
+        self.mapleq = None
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "rl_bridge_policy"
+
+    @property
+    def is_learning_based(self) -> bool:
+        return True
+
+    def _init_nsrts(self) -> None:
+        """Initializing nsrts for MAPLE Q"""
+        nsrts = self._get_current_nsrts()
+        predicates = self._get_current_predicates()
+        all_ground_nsrts: Set[_GroundNSRT] = set()
+        if CFG.sesame_grounder == "naive":
+            for nsrt in nsrts:
+                all_objects = {o for t in self._train_tasks for o in t.init}
+                all_ground_nsrts.update(
+                    utils.all_ground_nsrts(nsrt, all_objects))
+        elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
+            all_objects = set()
+            for t in self.mapleq._train_tasks:  # pylint: disable=protected-access
+                curr_task_objects = set(t.init)
+                curr_task_types = {o.type for o in t.init}
+                curr_init_atoms = utils.abstract(t.init, predicates)
+                all_ground_nsrts.update(
+                    utils.all_ground_nsrts_fd_translator(
+                        nsrts, curr_task_objects, predicates, curr_task_types,
+                        curr_init_atoms, t.goal))
+                all_objects.update(curr_task_objects)
+        else:  # pragma: no cover
+            raise ValueError(
+                f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+        goals = [t.goal for t in self.mapleq._train_tasks] # pylint: disable=protected-access
+        self.mapleq._q_function.set_grounding(all_objects, goals, # pylint: disable=protected-access
+                                              all_ground_nsrts)
+
+    def _solve(self,
+               task: Task,
+               timeout: int,
+               train_or_test: str = "test") -> Callable[[State], Action]:
+        if not self._maple_initialized:
+            self.mapleq = MapleQApproach(self._get_current_predicates(),
+                                         self._initial_options, self._types,
+                                         self._action_space, self._train_tasks)
+            self._maple_initialized = True
+            self._init_nsrts()
+
+        # Start by planning. Note that we cannot start with the bridge policy
+        # because the bridge policy takes as input the last failed NSRT.
+        current_control = "planner"
+        option_policy = self._get_option_policy_by_planning(task, timeout)
+        current_policy = utils.option_policy_to_policy(
+            option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout,
+            raise_error_on_repeated_state=True,
+        )
+        all_failed_options: List[_Option] = []
+
+        # Prevent infinite loops by detecting if the bridge policy is called
+        # twice with the same state.
+        last_bridge_policy_state = DefaultState
+
+        def _policy(s: State) -> Action:
+            nonlocal current_control, current_policy, last_bridge_policy_state
+
+            # Normal execution. Either keep executing the current option, or
+            # switch to the next option if it has terminated.
+            try:
+                action = current_policy(s)
+                return action
+            except OptionExecutionFailure as e:
+                failed_option = e.info["last_failed_option"]
+                if failed_option is not None:
+                    all_failed_options.append(failed_option)
+
+            # Switch control from planner to bridge.
+            if current_control == "planner":
+                # Planning failed on the first time step.
+                if failed_option is None:
+                    assert s.allclose(task.init)
+                    raise ApproachFailure("Planning failed on init state.")
+                current_control = "bridge"
+
+                current_policy = self.mapleq._solve(task, timeout, # pylint: disable=protected-access
+                                                    train_or_test)
+                # Special case: bridge policy passes control immediately back
+                # to the planner. For example, if this happened on every time
+                # step, then this approach would be performing MPC.
+                try:
+                    action = current_policy(s)
+                    return action
+                except BridgePolicyDone:
+                    if last_bridge_policy_state.allclose(s):
+                        raise ApproachFailure(
+                            "Loop detected, giving up.",
+                            info={"all_failed_options": all_failed_options})
+                last_bridge_policy_state = s            
+        return _policy
+
+    def _create_interaction_request(self,
+                                    train_task_idx: int) -> InteractionRequest:
+        task = self._train_tasks[train_task_idx]
+        policy = self._solve(task, timeout=CFG.timeout, train_or_test="train")
+
+        reached_stuck_state = False
+        all_failed_options = None
+
+        def _act_policy(s: State) -> Action:
+            nonlocal reached_stuck_state, all_failed_options
+            try:
+                return policy(s)
+            except ApproachFailure as e:
+                reached_stuck_state = True
+                all_failed_options = e.info["all_failed_options"]
+                # Approach failures not caught in interaction loop.
+                raise OptionExecutionFailure(e.args[0], e.info)
+
+        def _termination_fn(s: State) -> bool:
+            return task.goal_holds(s)
+
+        def _query_policy(s: State) -> Optional[Query]:
+            if not reached_stuck_state or task.goal_holds(s):
+                return None
+            assert all_failed_options is not None
+            return DemonstrationQuery(
+                train_task_idx, {"all_failed_options": all_failed_options})
+
+        # The request's act policy is from mapleq
+        # The trajectory is from maple q's sampling
+        request = InteractionRequest(train_task_idx, _act_policy,
+                                     lambda s: None, _termination_fn)
+        return request
+
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        # Turn state action pairs from results into trajectories
+        # If we haven't collected any new results on this cycle, skip learning
+        # for efficiency.
+        if not results:
+            return None
+        all_states = []
+        all_actions = []
+
+        for result in results:
+            new_traj = LowLevelTrajectory(result.states, result.actions)
+            self._trajs.append(new_traj)
+            all_states.extend(result.states)
+            all_actions.extend(result.actions)
+
+        self.mapleq.get_interaction_requests()
+        self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs)) # pylint: disable=protected-access
+        return None

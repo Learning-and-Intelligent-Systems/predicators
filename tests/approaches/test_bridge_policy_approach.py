@@ -10,13 +10,14 @@ import predicators.bridge_policies.oracle_bridge_policy
 import predicators.teacher
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
-from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
+from predicators.approaches.bridge_policy_approach import \
+    BridgePolicyApproach, RLBridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
 from predicators.cogman import CogMan
 from predicators.envs import get_or_create_env
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
-from predicators.main import _generate_interaction_results
+from predicators.main import _generate_interaction_results, _run_testing
 from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DemonstrationResponse, DummyOption, \
@@ -233,3 +234,70 @@ def test_bridge_policy_approach():
                                            task.goal_holds,
                                            max_num_steps=CFG.horizon)
     assert task.goal_holds(traj.states[-1])
+
+
+def test_rl_bridge_policy_approach():
+    """Tests for RLBridgePolicyApproach class."""
+    # Test oracle bridge policy in grid_row_door.
+    args = {
+        "approach": "rl_bridge_policy",
+        "env": "grid_row_door",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "grid_row_num_cells": 3,
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+        "explorer": "maple_q",
+        "interactive_num_requests_per_cycle": 10,
+        "online_nsrt_learning_requests_per_cycle": 10,
+        "max_initial_demos": 0
+    }
+    utils.reset_config(args)
+    env = get_or_create_env(CFG.env)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = RLBridgePolicyApproach(env.predicates,
+                                      get_gt_options(env.get_name()),
+                                      env.types, env.action_space, train_tasks)
+    assert approach.get_name() == "rl_bridge_policy"
+    assert approach.is_learning_based
+    # interaction_requests = approach.get_interaction_requests()
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    num_online_transitions = 0
+    total_query_cost = 0
+    old_data_buffer = 0
+    for i in range(5):
+        # Run online interaction.
+        interaction_requests = cogman.get_interaction_requests()
+        interaction_results, query_cost = _generate_interaction_results(
+            cogman,
+            env,
+            teacher=None,
+            requests=interaction_requests,
+            cycle_num=i)
+        num_online_transitions += sum(
+            len(result.actions) for result in interaction_results)
+        total_query_cost += query_cost
+        # Learn from online interaction results, unless we are loading
+        # and not restarting learning.
+        if not CFG.load_approach or CFG.restart_learning:
+            cogman.learn_from_interaction_results(interaction_results)
+        # We should be adding more data to replay buffer
+        assert len(
+            approach.mapleq._q_function._replay_buffer) > old_data_buffer # pylint: disable=protected-access
+        old_data_buffer = len(approach.mapleq._q_function._replay_buffer) # pylint: disable=protected-access
+
+    # Evaluate approach after 5 online learning cycles.
+    # We should have learned correct policy by now
+    results = _run_testing(env, cogman)
+    results["num_online_transitions"] = num_online_transitions
+    assert results["num_solved"] == 1
+    #more test cases for solve??
+    #ig u can straight up just run 3 grid cells !?
+    #like get interaction requests from cogman and stuff
+
+    #test Make sure learn_from_interaction_results
+    #correctly segments trajectories
+    #so like confirm that there are an increasing
+    #number of trajectories each cycle
