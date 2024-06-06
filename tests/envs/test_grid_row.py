@@ -4,10 +4,11 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.envs.grid_row import GridRowDoorEnv, GridRowEnv
-from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.envs import get_or_create_env
+from predicators.envs.grid_row import GridRowEnv
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
+
 
 def test_grid_row():
     """Tests for the Grid Row environment."""
