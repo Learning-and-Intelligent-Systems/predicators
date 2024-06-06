@@ -379,7 +379,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         return True
 
     def _init_nsrts(self) -> None:
-        """Initializing nsrts for MAPLE Q"""
+        """Initializing nsrts for MAPLE Q."""
         nsrts = self._get_current_nsrts()
         predicates = self._get_current_predicates()
         all_ground_nsrts: Set[_GroundNSRT] = set()
@@ -402,9 +402,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         else:  # pragma: no cover
             raise ValueError(
                 f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
-        goals = [t.goal for t in self.mapleq._train_tasks] # pylint: disable=protected-access
-        self.mapleq._q_function.set_grounding(all_objects, goals, # pylint: disable=protected-access
-                                              all_ground_nsrts)
+        goals = [t.goal for t in self.mapleq._train_tasks]  # pylint: disable=protected-access
+        self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
+            all_objects, goals, all_ground_nsrts)
 
     def _solve(self,
                task: Task,
@@ -453,8 +453,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     raise ApproachFailure("Planning failed on init state.")
                 current_control = "bridge"
 
-                current_policy = self.mapleq._solve(task, timeout, # pylint: disable=protected-access
-                                                    train_or_test)
+                current_policy = self.mapleq._solve(  # pylint: disable=protected-access
+                    task, timeout, train_or_test)
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
                 # step, then this approach would be performing MPC.
@@ -466,7 +466,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                         raise ApproachFailure(
                             "Loop detected, giving up.",
                             info={"all_failed_options": all_failed_options})
-                last_bridge_policy_state = s    
+                last_bridge_policy_state = s
 
             # Switch control from bridge to planner.
             # This is not used for rl_bridge_appraoch yet
@@ -488,6 +488,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 all_failed_options.append(e.info["last_failed_option"])
                 raise ApproachFailure(
                     e.args[0], info={"all_failed_options": all_failed_options})
+
         return _policy
 
     def _create_interaction_request(self,
@@ -541,5 +542,5 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             all_actions.extend(result.actions)
 
         self.mapleq.get_interaction_requests()
-        self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs)) # pylint: disable=protected-access
+        self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs))  # pylint: disable=protected-access
         return None

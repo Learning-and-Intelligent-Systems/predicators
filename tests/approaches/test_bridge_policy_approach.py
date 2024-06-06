@@ -285,8 +285,8 @@ def test_rl_bridge_policy_approach():
             cogman.learn_from_interaction_results(interaction_results)
         # We should be adding more data to replay buffer
         assert len(
-            approach.mapleq._q_function._replay_buffer) > old_data_buffer # pylint: disable=protected-access
-        old_data_buffer = len(approach.mapleq._q_function._replay_buffer) # pylint: disable=protected-access
+            approach.mapleq._q_function._replay_buffer) > old_data_buffer  # pylint: disable=protected-access
+        old_data_buffer = len(approach.mapleq._q_function._replay_buffer)  # pylint: disable=protected-access
 
     # Evaluate approach after 5 online learning cycles.
     # We should have learned correct policy by now
