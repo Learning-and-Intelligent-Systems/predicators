@@ -281,8 +281,7 @@ def test_rl_bridge_policy_approach():
     assert len(approach.mapleq._q_function._replay_buffer) > 0  # pylint: disable=protected-access
     # Test that reward is positive for some trial
     gets_reward = False
-    for (_, _, _, _, reward,
-         _) in approach.mapleq._q_function._replay_buffer: # pylint: disable=protected-access
+    for (_, _, _, _, reward, _) in approach.mapleq._q_function._replay_buffer:  # pylint: disable=protected-access
         if reward > 0:
             gets_reward = True
     assert gets_reward
