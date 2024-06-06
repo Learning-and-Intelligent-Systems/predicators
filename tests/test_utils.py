@@ -1028,7 +1028,7 @@ def test_strip_task():
     """Test for strip_task()."""
     env = CoverEnv()
     Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     block0, _, _, target0, _ = list(task.init)
     # Goal is Covers(block0, target0)
     assert len(task.goal) == 1
@@ -1125,7 +1125,9 @@ def test_abstract():
     vlm_pred = VLMPredicate("IsFishy", [], lambda s, o: NotImplementedError,
                             lambda o: "is_fishy")
     vlm_state = state.copy()
-    vlm_state.simulator_state = [np.zeros((30, 30, 3), dtype=np.uint8)]
+    vlm_state.simulator_state = {
+        "images": [np.zeros((30, 30, 3), dtype=np.uint8)]
+    }
     vlm_atoms_set = utils.abstract(vlm_state, [vlm_pred], _DummyVLM())
     assert len(vlm_atoms_set) == 1
     assert "IsFishy" in str(vlm_atoms_set)
@@ -3234,13 +3236,21 @@ def test_parse_config_excluded_predicates():
         "HandEmpty", "Holding", "IsBlock", "IsTarget"
     ]
     assert sorted(p.name for p in excluded) == ["Covers"]
-    # Cannot exclude goal predicates otherwise..
+    # Cannot exclude goal predicates.
     utils.reset_config({
         "offline_data_method": "demo",
         "excluded_predicates": "Covers",
     })
     with pytest.raises(AssertionError):
         utils.parse_config_excluded_predicates(env)
+    # Can exclude goal predicates if allowed per the settings.
+    utils.reset_config({
+        "offline_data_method": "demo",
+        "excluded_predicates": "Covers",
+        "allow_exclude_goal_predicates": True
+    })
+    included, excluded = utils.parse_config_excluded_predicates(env)
+    assert [p.name for p in excluded] == ["Covers"]
 
 
 def test_null_sampler():

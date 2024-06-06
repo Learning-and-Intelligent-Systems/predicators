@@ -347,6 +347,7 @@ README of that repo suggests!"
                     "angle": angle
                 }
         state = utils.create_state_from_dict(state_dict)
+        state.simulator_state = {}
         return state
 
     def goal_reached(self) -> bool:
