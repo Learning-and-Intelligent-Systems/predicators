@@ -40,6 +40,10 @@ _TRACKED_SITE_TO_JOINT = {
 }
 
 _TRACKED_BODIES = ["Burner 1", "Burner 2", "Burner 3", "Burner 4"]
+KETTLE_ON_BURNER1_POS = [0.169, 0.35, 1.626]
+KETTLE_ON_BURNER2_POS = [-0.269, 0.35, 1.626]
+KETTLE_ON_BURNER3_POS = [0.169, 0.65, 1.626]
+KETTLE_ON_BURNER4_POS = [-0.269, 0.65, 1.626]
 
 
 class KitchenEnv(BaseEnv):
@@ -86,9 +90,9 @@ class KitchenEnv(BaseEnv):
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
-        ("kettle", "on"): (-0.05, -0.3, -0.12),
+        ("kettle", "on"): (-0.05, -0.25, 0.00),
         ("kettle", "off"): (0.0, 0.0, 0.08),
-        ("knob4", "on"): (-0.1, -0.10, 0.05),
+        ("knob4", "on"): (-0.1, -0.12, 0.05),
         ("knob4", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
         ("light", "off"): (-0.1, -0.05, -0.05),
@@ -105,7 +109,7 @@ class KitchenEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
-Install from https://github.com/SiddarGu/Gymnasium-Robotics.git. \
+Install from https://github.com/NishanthJKumar/Gymnasium-Robotics. \
 BE SURE TO INSTALL FROM GITHUB SOURCE THOUGH; do not blindly install as the \
 README of that repo suggests!"
 
@@ -405,6 +409,13 @@ README of that repo suggests!"
 
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
         self._gym_env.reset(seed=seed)
+        if CFG.kitchen_randomize_init_state:
+            rng = np.random.default_rng(seed)
+            # For now, we only randomize the state such that the kettle
+            # is anywhere between burners 2 and 4. Later, we might add
+            # even more variation.
+            kettle_coords = (-0.269, rng.uniform(0.4, 0.55), 1.626)
+            self._gym_env.set_body_position("kettle", kettle_coords)
         return {
             "state_info": self.get_object_centric_state_info(),
             "obs_images": self.render()

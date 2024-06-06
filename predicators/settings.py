@@ -329,6 +329,7 @@ class GlobalSettings:
     kitchen_goals = "all"
     kitchen_render_set_of_marks = False
     kitchen_use_combo_move_nsrts = False
+    kitchen_randomize_init_state = False
 
     # sticky table env parameters
     sticky_table_num_tables = 5
