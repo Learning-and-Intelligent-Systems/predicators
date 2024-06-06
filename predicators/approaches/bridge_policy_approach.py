@@ -366,7 +366,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                          max_skeletons_optimized)
         self._maple_initialized = False
         self._trajs: List[LowLevelTrajectory] = []
-        self.mapleq = None
+        self.mapleq=MapleQApproach(self._get_current_predicates(), \
+                                   self._initial_options, self._types, \
+                                    self._action_space, self._train_tasks)
 
     @classmethod
     def get_name(cls) -> str:
@@ -464,7 +466,28 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                         raise ApproachFailure(
                             "Loop detected, giving up.",
                             info={"all_failed_options": all_failed_options})
-                last_bridge_policy_state = s            
+                last_bridge_policy_state = s    
+
+            # Switch control from bridge to planner.
+            # This is not used for rl_bridge_appraoch yet
+            # but satisfies checking
+            assert current_control == "bridge"
+            current_task = Task(s, task.goal)
+            current_control = "planner"
+            option_policy = self._get_option_policy_by_planning(
+                current_task, 5.0)
+            current_policy = utils.option_policy_to_policy(
+                option_policy,
+                max_option_steps=CFG.max_num_steps_option_rollout,
+                raise_error_on_repeated_state=True,
+            )
+            try:
+                action = current_policy(s)
+                return action
+            except OptionExecutionFailure as e:
+                all_failed_options.append(e.info["last_failed_option"])
+                raise ApproachFailure(
+                    e.args[0], info={"all_failed_options": all_failed_options})
         return _policy
 
     def _create_interaction_request(self,
