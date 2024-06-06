@@ -458,15 +458,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
                 # step, then this approach would be performing MPC.
-                try:
-                    action = current_policy(s)
-                    return action
-                except BridgePolicyDone:
-                    if last_bridge_policy_state.allclose(s):
-                        raise ApproachFailure(
-                            "Loop detected, giving up.",
-                            info={"all_failed_options": all_failed_options})
-                last_bridge_policy_state = s
+                action = current_policy(s)
+                return action
 
             # Switch control from bridge to planner.
             # This is not used for rl_bridge_appraoch yet
@@ -501,23 +494,10 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
         def _act_policy(s: State) -> Action:
             nonlocal reached_stuck_state, all_failed_options
-            try:
-                return policy(s)
-            except ApproachFailure as e:
-                reached_stuck_state = True
-                all_failed_options = e.info["all_failed_options"]
-                # Approach failures not caught in interaction loop.
-                raise OptionExecutionFailure(e.args[0], e.info)
+            return policy(s)
 
         def _termination_fn(s: State) -> bool:
             return task.goal_holds(s)
-
-        def _query_policy(s: State) -> Optional[Query]:
-            if not reached_stuck_state or task.goal_holds(s):
-                return None
-            assert all_failed_options is not None
-            return DemonstrationQuery(
-                train_task_idx, {"all_failed_options": all_failed_options})
 
         # The request's act policy is from mapleq
         # The trajectory is from maple q's sampling

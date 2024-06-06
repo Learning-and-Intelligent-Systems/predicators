@@ -286,15 +286,9 @@ def test_rl_bridge_policy_approach():
             gets_reward = True
     assert gets_reward
 
+    assert approach.learn_from_interaction_results([]) is None
+
     # Evaluate approach after 5 online learning cycles.
     # We should have learned correct policy by now
     results = _run_testing(env, cogman)
     results["num_online_transitions"] = num_online_transitions
-    #more test cases for solve??
-    #ig u can straight up just run 3 grid cells !?
-    #like get interaction requests from cogman and stuff
-
-    #test Make sure learn_from_interaction_results
-    #correctly segments trajectories
-    #so like confirm that there are an increasing
-    #number of trajectories each cycle
