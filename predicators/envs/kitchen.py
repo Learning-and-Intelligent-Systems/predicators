@@ -92,7 +92,7 @@ class KitchenEnv(BaseEnv):
     obj_name_to_pre_push_dpos = {
         ("kettle", "on"): (-0.05, -0.25, 0.00),
         ("kettle", "off"): (0.0, 0.0, 0.08),
-        ("knob4", "on"): (-0.1, -0.10, 0.05),
+        ("knob4", "on"): (-0.1, -0.12, 0.05),
         ("knob4", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
         ("light", "off"): (-0.1, -0.05, -0.05),

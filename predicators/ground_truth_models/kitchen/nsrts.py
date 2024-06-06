@@ -276,7 +276,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(NotOnTop, [kettle, surface_to]),
             LiftedAtom(BurnerAhead, [surface_to, surface_from]),
-            LiftedAtom(OnTop, [kettle, surface_from]),
             LiftedAtom(TurnedOn, [knob]),
             LiftedAtom(KnobAndBurnerLinked, [knob, surface_to])
         }
@@ -286,7 +285,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(NotOnTop, [kettle, surface_to])}
         ignore_effects = {
-            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle, OnTop
         }
         option = PushKettleOntoBurner
         option_vars = [gripper, kettle, surface_to]
