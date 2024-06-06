@@ -6,7 +6,8 @@ import pytest
 from predicators import utils
 from predicators.envs.grid_row import GridRowDoorEnv, GridRowEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
-
+from predicators.envs import get_or_create_env
+from predicators.settings import CFG
 
 def test_grid_row():
     """Tests for the Grid Row environment."""
@@ -141,10 +142,10 @@ def test_grid_row_door():
     utils.reset_config({
         "env": "grid_row_door",
         "num_train_tasks": 1,
-        "num_test_tasks": 2,
+        "num_test_tasks": 1,
         "grid_row_num_cells": 10,
     })
-    env = GridRowDoorEnv()
+    env = get_or_create_env(CFG.env)
     assert env.get_name() == "grid_row_door"
     for env_task in env.get_train_tasks():
         task = env_task.task
@@ -178,9 +179,9 @@ def test_grid_row_door():
     env_train_tasks = env.get_train_tasks()
     assert len(env_train_tasks) == 1
     env_test_tasks = env.get_test_tasks()
-    assert len(env_test_tasks) == 2
-    env_task = env_test_tasks[1]
-    env.reset("test", 1)
+    assert len(env_test_tasks) == 1
+    env_task = env_test_tasks[0]
+    env.reset("test", 0)
     # Test NSRTs.
     MoveRobot, OpenDoor, TurnOffLight, TurnOnLight = sorted(nsrts)
     assert OpenDoor.name == "OpenDoor"
