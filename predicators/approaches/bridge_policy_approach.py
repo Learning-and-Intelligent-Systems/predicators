@@ -446,42 +446,13 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     all_failed_options.append(failed_option)
 
             # Switch control from planner to bridge.
-            if current_control == "planner":
-                # Planning failed on the first time step.
-                if failed_option is None:
-                    assert s.allclose(task.init)
-                    raise ApproachFailure("Planning failed on init state.")
-                current_control = "bridge"
+            assert current_control == "planner"
+            current_control = "bridge"
 
-                current_policy = self.mapleq._solve(  # pylint: disable=protected-access
-                    task, timeout, train_or_test)
-                # Special case: bridge policy passes control immediately back
-                # to the planner. For example, if this happened on every time
-                # step, then this approach would be performing MPC.
-                action = current_policy(s)
-                return action
-
-            # Switch control from bridge to planner.
-            # This is not used for rl_bridge_appraoch yet
-            # but satisfies checking
-            assert current_control == "bridge"
-            current_task = Task(s, task.goal)
-            current_control = "planner"
-            option_policy = self._get_option_policy_by_planning(
-                current_task, 5.0)
-            current_policy = utils.option_policy_to_policy(
-                option_policy,
-                max_option_steps=CFG.max_num_steps_option_rollout,
-                raise_error_on_repeated_state=True,
-            )
-            try:
-                action = current_policy(s)
-                return action
-            except OptionExecutionFailure as e:
-                all_failed_options.append(e.info["last_failed_option"])
-                raise ApproachFailure(
-                    e.args[0], info={"all_failed_options": all_failed_options})
-
+            current_policy = self.mapleq._solve(  # pylint: disable=protected-access
+                task, timeout, train_or_test)
+            action = current_policy(s)
+            return action
         return _policy
 
     def _create_interaction_request(self,
