@@ -180,7 +180,7 @@ class GridRowEnv(BaseEnv):
 class GridRowDoorEnv(GridRowEnv):
     """Simple variant on GridRow where there is also a door."""
 
-    #Properties for rendering
+    # Properties for rendering
     cell_width = 1
     robot_width = 0.5
     robot_height = 0.75
@@ -286,13 +286,14 @@ class GridRowDoorEnv(GridRowEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment: to turn the light on.
         goal = {GroundAtom(self._LightOn, [self._light])}
-        # The only variation in the initial state is the light target level.
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             state_dict = {
                 self._robot: {
                     "x": 0.5,
                 },
+                # Note: light level and door locations are fixed for now
+                # in order to maintain consistency across train and test
                 self._light: {
                     "x": len(self._cells) - 0.5,
                     "level": 0.0,

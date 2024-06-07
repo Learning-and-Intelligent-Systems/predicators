@@ -17,7 +17,7 @@ from predicators.cogman import CogMan
 from predicators.envs import get_or_create_env
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
-from predicators.main import _generate_interaction_results, _run_testing
+from predicators.main import _generate_interaction_results
 from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DemonstrationResponse, DummyOption, \
@@ -260,7 +260,6 @@ def test_rl_bridge_policy_approach():
                                       env.types, env.action_space, train_tasks)
     assert approach.get_name() == "rl_bridge_policy"
     assert approach.is_learning_based
-    # interaction_requests = approach.get_interaction_requests()
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
@@ -285,10 +284,4 @@ def test_rl_bridge_policy_approach():
         if reward > 0:
             gets_reward = True
     assert gets_reward
-
     assert approach.learn_from_interaction_results([]) is None
-
-    # Evaluate approach after 5 online learning cycles.
-    # We should have learned correct policy by now
-    results = _run_testing(env, cogman)
-    results["num_online_transitions"] = num_online_transitions

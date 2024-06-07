@@ -471,8 +471,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         def _termination_fn(s: State) -> bool:
             return task.goal_holds(s)
 
-        # The request's act policy is from mapleq
-        # The trajectory is from maple q's sampling
+        # The request's acting policy is from mapleq
+        # The resulting trajectory is from maple q's sampling
         request = InteractionRequest(train_task_idx, _act_policy,
                                      lambda s: None, _termination_fn)
         return request

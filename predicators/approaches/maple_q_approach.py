@@ -61,10 +61,11 @@ class MapleQApproach(OnlineNSRTLearningApproach):
     def get_name(cls) -> str:
         return "maple_q"
 
+    # pylint: disable=arguments-differ
     def _solve(self,
                task: Task,
                timeout: int,
-               train_or_test: str = "train") -> Callable[[State], Action]:
+               train_or_test: str = "") -> Callable[[State], Action]:
 
         def _option_policy(state: State) -> _Option:
             return self._q_function.get_option(
@@ -112,6 +113,15 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                      annotations: Optional[List[Any]]) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
+        if CFG.approach == "active_sampler_learning":
+            # Check the assumption that operators and options are 1:1.
+            # This is just an implementation convenience.
+            assert len({
+                nsrt.option  # pragma: no cover.
+                for nsrt in self._nsrts
+            }) == len(self._nsrts)  # pragma: no cover.
+            for nsrt in self._nsrts:  # pragma: no cover.
+                assert nsrt.option_vars == nsrt.parameters  # pragma: no cover.
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
         if not online_learning_cycle:

@@ -218,7 +218,7 @@ def test_grid_row_door():
         assert option.terminal(state)
         assert all(a.holds(state) for a in ground_nsrt.add_effects)
         assert not any(a.holds(state) for a in ground_nsrt.delete_effects)
-        env.render_state(state, task)
+        assert isinstance(env.render_state(state, task), list)
     # Now repeatedly turn on the light until it succeeds.
     ground_nsrt = TurnOnLight.ground([robot, cell_order[-1], light])
     for _ in range(100):
@@ -230,7 +230,7 @@ def test_grid_row_door():
         assert option.terminal(state)
         if all(a.holds(state) for a in ground_nsrt.add_effects):
             break
-    env.render_state(state, task)
+    assert isinstance(env.render_state(state, task), list)
     assert all(a.holds(state) for a in ground_nsrt.add_effects)
     assert not any(a.holds(state) for a in ground_nsrt.delete_effects)
     # Now repeatedly turn off the light until it succeeds.
@@ -244,6 +244,6 @@ def test_grid_row_door():
         assert option.terminal(state)
         if all(a.holds(state) for a in ground_nsrt.add_effects):
             break
-    env.render_state(state, task)
+    assert isinstance(env.render_state(state, task), list)
     assert all(a.holds(state) for a in ground_nsrt.add_effects)
     assert not any(a.holds(state) for a in ground_nsrt.delete_effects)

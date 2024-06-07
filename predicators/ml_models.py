@@ -1354,8 +1354,9 @@ class MapleQFunction(MLPRegressor):
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
             maxlen=self._replay_buffer_max_size)
-        self._epsilon = 0.5
-        self._min_epsilon = 0.05
+        self._epsilon = CFG.active_sampler_learning_exploration_epsilon
+        self._min_epsilon = CFG.min_epsilon
+        self._use_epsilon_annealing = CFG.use_epsilon_annealing
         self._ep_reduction = 10*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
@@ -1400,7 +1401,8 @@ class MapleQFunction(MLPRegressor):
         ]
         idx = np.argmax(scores)
         # Decay epsilon
-        self.decay_epsilon()
+        if self._use_epsilon_annealing:
+            self.decay_epsilon()
         return options[idx]
 
     def decay_epsilon(self) -> None:
