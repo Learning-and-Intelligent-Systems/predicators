@@ -453,6 +453,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                 task, timeout, train_or_test)
             action = current_policy(s)
             return action
+
         return _policy
 
     def _create_interaction_request(self,
