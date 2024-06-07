@@ -30,11 +30,8 @@ ARGS:
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 10
-  num_test_tasks: 50
-  # option_learner: direct_bc # So it doesn' include all oracle options in init
-                            # when including all options, should also include
-                            # all predicates.
+  num_train_tasks: 1
+  num_test_tasks: 1
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
   strips_learner: "cluster_and_intersect"
@@ -45,22 +42,38 @@ FLAGS:
   min_perc_data_for_nsrt: 3
   segmenter: "option_changes"
   neural_gaus_regressor_max_itr: 50000
-  vlm_model_name: "gpt-3.5-turbo-0125"
   timeout: 300
-  pybullet_camera_width: 1674 
+  pybullet_camera_width: 900
   pybullet_camera_height: 900
   video_fps: 20
-  # grammar_search_search_algorithm: "hill_climbing"
+
+  # Env settings
+  rgb_observation: True
+
+  # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"
+  # grammar_search_search_algorithm: "hill_climbing"
   painting_raise_environment_failure: False
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
+  load_llm_pred_invent_dataset: True
+  save_llm_pred_invent_dataset: True
 
+  # NSP (using VLMs) setting
+  save_nsp_image_patch_before_query: False
+  vlm_model_name: "gemini-1.5-flash"
+  vlm_temperature: 0
+  vlm_use_chat_mode: True
+  sesame_check_expected_atoms: False
+  query_vlm_for_each_assertion: False
+  query_vlm_for_each_predicate: False
+  llm_openai_max_response_tokens: 4096
   llm_predicator_use_grammar: False
-  llm_predicator_oracle_base: False
-  llm_predicator_oracle_learned: True
+  llm_predicator_oracle_base: True
+  llm_predicator_oracle_learned: False
   vlm_predicator_render_option_state: True
-  vlm_use_chat_mode
+  # Test
+  grammar_search_prune_redundant_preds: False
 START_SEED: 2
 NUM_SEEDS: 1
 ...

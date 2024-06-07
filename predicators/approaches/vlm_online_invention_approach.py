@@ -58,6 +58,8 @@ PlanningResult = namedtuple("PlanningResult",
                                  'info'])
 
 def print_confusion_matrix(tp: float, tn: float, fp: float, fn: float) -> None:
+    '''Compate and print the confusion matrix
+    '''
     precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
     recall = round(tp / (tp + fn), 2) if tp + fn > 0 else 0
     specificity = round(tn / (tn + fp), 2) if tn + fp > 0 else 0
@@ -85,6 +87,7 @@ def d2s(dict_with_arrays: Dict) -> str:
     # Convert State data with numpy arrays to lists, and to string
     return str({k: [round(i, 2) for i in v.tolist()] for k, v in 
             dict_with_arrays.items()})
+
 
 class VlmInventionApproach(NSRTLearningApproach):
     """Predicate Invention with VLMs"""
@@ -124,7 +127,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     self._initial_predicates)
 
     def _solve_tasks(self, env: BaseEnv, tasks: List[Task]) -> \
-        Tuple[List, Dataset]:
+        Tuple[List[PlanningResult], Dataset]:
         '''When return_trajctories is True, return the dataset of trajectories
         otherwise, return the results of solving the tasks (succeeded/failed 
         plans).
@@ -146,7 +149,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 )
             else:
                 # logging.info(f"--> Succeeded")
-                policy = utils.option_plan_to_policy(self._last_plan)
+                # policy = utils.option_plan_to_policy(self._last_plan)
                 
                 result = PlanningResult(
                     succeeded=True,
@@ -186,8 +189,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         base_candidates = set()
         manual_prompt = True
         regenerate_response = False
-        load_llm_pred_invent_dataset = True
-        save_llm_pred_invent_dataset = True
+        # load_llm_pred_invent_dataset = True # moved to CFG
+        # save_llm_pred_invent_dataset = True # moved to CFG
         solve_rate, prev_solve_rate = 0.0, np.inf # init to inf
         best_solve_rate, best_ite, clf_acc = 0.0, 0.0, 0.0
         clf_acc_at_best_solve_rate = 0.0
@@ -196,25 +199,12 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._init_nsrts = deepcopy(self._nsrts)
         no_improvement = False
 
-        # init data collection
-        ds_fname = utils.llm_pred_dataset_save_name(0)
-        if load_llm_pred_invent_dataset and os.path.exists(ds_fname):
-            with open(ds_fname, 'rb') as f:
-                results, dataset = dill.load(f) 
-            logging.info(f"Loaded dataset from {ds_fname}\n")
-        else:
-            # Ask it to solve the tasks
-            results, dataset = self._solve_tasks(env, tasks)
-            if save_llm_pred_invent_dataset:
-                os.makedirs(os.path.dirname(ds_fname), exist_ok=True)
-                with open(ds_fname, 'wb') as f:
-                    dill.dump((results, dataset), f)
-                logging.info(f"Saved dataset to {ds_fname}\n")
-
+        # Init data collection
+        results, dataset = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
-        prev_solve_rate = num_solved / num_tasks
-        logging.info(f"===ite {0}; "
-                f"no invent solve rate {num_solved / num_tasks}\n")
+        solve_rate = prev_solve_rate = num_solved / num_tasks
+        logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
+
         self.succ_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
@@ -316,22 +306,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                     self._nsrts.add(p_nsrts)
             print("All NSRTS after learning", pformat(self._nsrts))
 
-            ### Collect Data again
+            # Collect Data again
             # Set up load/save filename for interaction dataset
-            ds_fname = utils.llm_pred_dataset_save_name(ite)
-            if load_llm_pred_invent_dataset and os.path.exists(ds_fname):
-                # Load from dataset_fname
-                with open(ds_fname, 'rb') as f:
-                    results, dataset = dill.load(f) 
-                logging.info(f"Loaded dataset from {ds_fname}\n")
-            else:
-                # Ask it to try to solve the tasks
-                results, dataset = self._solve_tasks(env, tasks)
-                if save_llm_pred_invent_dataset:
-                    with open(ds_fname, 'wb') as f:
-                        dill.dump((results, dataset), f)
-                    logging.info(f"Saved dataset to {ds_fname}\n")
-
+            results, dataset = self.collect_dataset(ite, env, tasks)
             num_solved = sum([r.succeeded for r in results])
             solve_rate= num_solved / num_tasks
             no_improvement = not(solve_rate > prev_solve_rate)
@@ -367,6 +344,24 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._learned_predicates = best_preds
         return
     
+    def collect_dataset(self, ite: int, env: BaseEnv, tasks: List[Task]
+                        ) -> Tuple[List[PlanningResult], Dataset]:
+
+        ds_fname = utils.llm_pred_dataset_save_name(ite)
+        if CFG.load_llm_pred_invent_dataset and os.path.exists(ds_fname):
+            with open(ds_fname, 'rb') as f:
+                results, dataset = dill.load(f) 
+            logging.info(f"Loaded dataset from {ds_fname}\n")
+        else:
+            # Ask it to solve the tasks
+            results, dataset = self._solve_tasks(env, tasks)
+            if CFG.save_llm_pred_invent_dataset:
+                os.makedirs(os.path.dirname(ds_fname), exist_ok=True)
+                with open(ds_fname, 'wb') as f:
+                    dill.dump((results, dataset), f)
+                logging.info(f"Saved dataset to {ds_fname}\n")
+        return results, dataset
+
     def _get_llm_predictions(self, prompt: str, response_file: str,
                              manual_prompt: bool=False,
                              regenerate_response: bool=False) -> Set[Predicate]:
@@ -773,7 +768,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         return '\n'.join(new_predicate_str)
 
     def _process_interaction_result(self, env: BaseEnv,
-                                results: Dict, 
+                                results: List[PlanningResult], 
                                 tasks: List[Task],
                                 ite: int,
                                 log_when_first_success: bool,
@@ -815,6 +810,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 option_plan = result.info['option_plan'].copy()
                 if log_when_first_success:
                     if self.solve_log[i]:
+                        # continue to logging the next task
                         continue
                     else:
                         self.solve_log[i] = True
@@ -843,15 +839,16 @@ class VlmInventionApproach(NSRTLearningApproach):
                         nsrt_plan[failed_opt_idx:], option_plan[-1:], 
                         add_intermediate_details, failed_opt=True)
 
-        # Add the abstract states
-        # maybe should be optimized?
-        for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
-            for g_optn in optn_dict.keys():
-                atom_states = []
-                for state in optn_dict[g_optn].states:
-                    atom_states.append(utils.abstract(
-                        state, self._get_current_predicates()))
-                optn_dict[g_optn].abstract_states = atom_states
+        # Add the abstract states.
+        # This is used later when creating the predicate invention prompt
+        # Can we get the same thing from _plan_to_str? -> Yes, moved to there
+        # for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+        #     for g_optn in optn_dict.keys():
+        #         atom_states = []
+        #         for state in optn_dict[g_optn].states:
+        #             atom_states.append(utils.abstract(
+        #                 state, self._get_current_predicates()))
+        #         optn_dict[g_optn].abstract_states = atom_states
     
     def _plan_to_str(self, init_state: State, env: BaseEnv, 
                              nsrt_plan: List, option_plan: List, 
@@ -885,34 +882,32 @@ class VlmInventionApproach(NSRTLearningApproach):
                     #         state.dict_str() + "\n")
                     try:
                         option = option_plan.pop(0)
+                    except IndexError: 
+                        break
+                    else:
                         policy = utils.option_plan_to_policy(
                             [option], raise_error_on_repeated_state=True)
-                    except IndexError: break
-                    else:
                         if not failed_opt:
                             g_nsrt = nsrt_plan[nsrt_counter]
                             gop_str = g_nsrt.ground_option_str()
-                            if not self.succ_optn_dict[gop_str].has_states():
-                                self.succ_optn_dict[gop_str].assign_values(
-                                    g_nsrt.option_objs,
-                                    g_nsrt.parent.option_vars,
-                                    g_nsrt.option
-                                )
                             self.succ_optn_dict[gop_str].append_state(
-                                env.get_observation())
+                                env.get_observation(),
+                                utils.abstract(state, 
+                                               self._get_current_predicates()),
+                                g_nsrt.option_objs,
+                                g_nsrt.parent.option_vars,
+                                g_nsrt.option)
                             nsrt_counter += 1
                 else:
                     g_nsrt = nsrt_plan[0]
                     gop_str = g_nsrt.ground_option_str()
-                    if not self.fail_optn_dict[gop_str].has_states():
-                        self.fail_optn_dict[gop_str].assign_values(
-                            g_nsrt.option_objs,
-                            g_nsrt.parent.option_vars,
-                            g_nsrt.option,
-                            error=e
-                        )
                     self.fail_optn_dict[gop_str].append_state(
-                        env.get_observation())
+                        env.get_observation(),
+                        utils.abstract(state, self._get_current_predicates()),
+                        g_nsrt.option_objs,
+                        g_nsrt.parent.option_vars,
+                        g_nsrt.option,
+                        e)
                     break
 
         return state

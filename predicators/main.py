@@ -164,6 +164,9 @@ def _run_pipeline(env: BaseEnv,
                   cogman: CogMan,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
+    utils.test_derived_predicates(env, [t.init for t in train_tasks],
+                                  env.NS_predicates)
+    breakpoint()
     # If agent is learning-based, allow the agent to learn from the generated
     # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
@@ -366,9 +369,11 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
 
     # Compare accuracy
     # test_tasks[0].init.state_image.save("images/test_task0_init.png")
-    utils.compare_abstract_accuracy(env,
-                                    [t.init for t in test_tasks], 
-                                    env.ns_predicates_to_predicates)
+    # utils.compare_abstract_accuracy(env,
+    #                                 [t.init for t in test_tasks], 
+    #                                 env.ns_predicates_to_predicates)
+    utils.test_derived_predicates(env, [t.init for t in test_tasks],
+                                  env.NS_predicates)
     breakpoint()
     
     # /Check

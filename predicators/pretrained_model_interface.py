@@ -357,6 +357,18 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         if suffix:
             content.append({"text": suffix, "type": "text"})
         return [{"role": "user", "content": content}]
+    
+    def prepare_system_message(self):
+        system_message = []
+        if CFG.vlm_system_instruction:
+            system_message.append({
+                "role": "system",
+                "content": [{
+                    "type": "text",
+                    "text": CFG.vlm_system_instruction
+                    }]})
+        return system_message
+
 
     def get_id(self) -> str:
         """Get an identifier for the model."""
@@ -375,11 +387,12 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         del seed, stop_token  # unused.
         if imgs is None:
             raise ValueError("images cannot be None")
+        system_message = self.prepare_system_message()
         messages = self.prepare_vision_messages(prefix=prompt,
                                                 images=imgs,
                                                 detail="auto")
         responses = [
-            self.call_openai_api(messages,
+            self.call_openai_api(system_message + messages,
                                  model=self.model_name,
                                  max_tokens=self._max_tokens,
                                  temperature=temperature)

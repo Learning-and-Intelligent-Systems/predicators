@@ -702,6 +702,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     llm_predicator_oracle_base = True
     llm_predicator_oracle_learned = False
     vlm_predicator_render_option_state = False
+    load_llm_pred_invent_dataset = True
+    save_llm_pred_invent_dataset = True
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms

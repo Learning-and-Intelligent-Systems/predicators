@@ -130,6 +130,7 @@ class State:
     # this field is provided.
     simulator_state: Optional[Any] = None
 
+
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
         for obj in self:
@@ -387,6 +388,9 @@ class Predicate:
     def __lt__(self, other: Predicate) -> bool:
         return str(self) < str(other)
 
+@dataclass(frozen=True, repr=False, eq=False)
+class DerivedPredicate(Predicate):
+    pass
 
 
 @dataclass(frozen=True, order=False, repr=False, eq=False)
@@ -1384,23 +1388,36 @@ class GroundOptionRecord:
     optn_objs: List[Object] = field(default_factory=list)
     optn_vars: List[Variable] = field(default_factory=list)
     option: ParameterizedOption = field(default=None)
-    error: Exception = field(default=None)
+    error: Optional[Exception] = field(default=None)
 
     def has_states(self) -> bool:
         """Check if the states list is non-empty"""
         return bool(self.states)
     
-    def append_state(self, state: State, 
-                     rendered_state: Image=None) -> None:
+    def append_state(self, 
+                     state: State, 
+                     abstract_state: Set[GroundAtom],
+                     optn_objs: List[Object], 
+                     optn_vars: List[Variable], 
+                     option: ParameterizedOption, 
+                     error: Optional[Exception]=None) -> None:
         """Append a state to the states list"""
+        if not self.has_states:
+            self.optn_objs = optn_objs
+            self.optn_vars = optn_vars
+            self.option = option
+            self.error = error
         self.states.append(state)
+        self.abstract_states.append(abstract_state)
 
-        if rendered_state:
-            self.rendered_states.append(rendered_state)
+        # if rendered_state:
+        #     self.rendered_states.append(rendered_state)
 
-    def assign_values(self, optn_objs: List[Object], optn_vars: List[Variable], 
+    def assign_values(self, 
+                      optn_objs: List[Object], optn_vars: List[Variable], 
                       option: ParameterizedOption, 
-                      error: Optional[Exception] = None) -> None:
+                      error: Optional[Exception] = None
+                      ) -> None:
         """Assign new values to optn_objs, optn_vars, option, and error"""
         self.optn_objs = optn_objs
         self.optn_vars = optn_vars

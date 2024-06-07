@@ -61,7 +61,8 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask, \
+    DerivedPredicate
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 from predicators.image_patch_wrapper import ImagePatch
@@ -1482,7 +1483,6 @@ class SingletonParameterizedOption(ParameterizedOption):
                          initiable=_initiable,
                          terminal=_terminal)
 
-
 class PyBulletState(State):
     """A PyBullet state that stores the robot joint positions in addition to
     the features that are exposed in the object-centric state."""
@@ -1514,6 +1514,17 @@ class RawState(PyBulletState):
     # def get_object_image(self, object: Object) -> ImageWithBox:
     #     """Return the image with bounding box for the object."""
     #     return self.get_obj_image(object.name)
+
+    def __hash__(self):
+        # Convert the dictionary to a tuple of key-value pairs and hash it
+        # data_hash = hash(tuple(sorted(self.data.items())))
+        data_hash = hash(tuple((k, tuple(v)) for k, v in 
+                        sorted(self.data.items())))
+        # # Hash the simulator_state
+        # simulator_state_hash = hash(self.simulator_state)
+        # Combine the two hashes
+        # return hash((data_hash, simulator_state_hash))
+        return data_hash
 
     def label_all_objects(self):
         state_ip = ImagePatch(self)
@@ -2861,11 +2872,17 @@ def abstract(state: State,
     """
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
-    ns_preds = set(pred for pred in preds if isinstance(pred, NSPredicate))
+    # For NSPredicates, first evaluate the base NSPs, then cache the values,
+    #   then evaluate the derived NSPs.
+    derived_preds = set(pred for pred in preds if isinstance(pred, 
+                        DerivedPredicate))
+    base_ns_preds = set(pred for pred in preds if isinstance(pred, NSPredicate)
+                        ) - derived_preds
+
     # Next, classify all non-VLM predicates.
-    atoms = set()
+    atoms: Set[GroundAtom] = set()
     for pred in preds:
-        if pred not in vlm_preds | ns_preds:
+        if pred not in vlm_preds | base_ns_preds | derived_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 if pred.holds(state, choice):
                     atoms.add(GroundAtom(pred, choice))
@@ -2878,12 +2895,11 @@ def abstract(state: State,
                 vlm_atoms.add(GroundAtom(pred, choice))
         atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
 
-    if len(ns_preds) > 0:
+    if len(base_ns_preds) > 0:
         # Now, aggregate all the NS predicates and make a single call to a
-        # NS to get their values.
-
+        # VLM to get their values.
         vlm_queries = []
-        for pred in ns_preds:
+        for pred in base_ns_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 eval_result = pred.holds(state, choice)
                 ground_atom = GroundAtom(pred, choice)
@@ -2898,46 +2914,31 @@ def abstract(state: State,
                 elif eval_result != False:
                     logging.error(f"invalid evaluation result: {eval_result}")
 
-        # Make the query and add the ones that holds to the result.
+        # Make the query, cache the results and add the ones that holds.
         if len(vlm_queries) > 0:
-            atoms |= query_vlm_for_atom_vals_with_VLMQuerys(vlm_queries, state, 
-                                                            vlm)
+            vlm_atoms = query_vlm_for_atom_vals_with_VLMQuerys(vlm_queries, 
+                                                                state, 
+                                                                vlm)
+            atoms |= set(vlm_atoms)
+
+    breakpoint()
+    if len(derived_preds) > 0:
+        for pred in derived_preds:
+            for choice in get_object_combinations(list(state), pred.types):
+                if pred.holds(state, choice):
+                    atoms.add(GroundAtom(pred, choice))
+    breakpoint()
     return atoms
 
 def evaluate_simple_assertion(assertion: str, image: ImagePatch
-                              ) -> Union[bool, VLMQuery]:
+                              ) -> VLMQuery:
     """Given an assertion and an image, queries a VLM and returns whether the
     assertion is true or false.
     """
-
-    # logging.info(f"{assertion}")
-    # return False
     return VLMQuery(assertion, BoundingBox(image.left,
                                             image.lower,
                                             image.right,
                                             image.upper))
-    # if CFG.query_vlm_for_each_assertion:
-    #     image = image.cropped_image_in_PIL
-    #     response = vlm.sample_completions(prompt=assertion,
-    #                                     imgs=[image],
-    #                                     temperature=CFG.vlm_temperature,
-    #                                     seed=CFG.seed)
-    #     assert len(response) == 1, "The VLM should return only one completion."
-    #     response = response[0].lower()
-    #     if "true" in response:
-    #         return True
-    #     elif "false" in response:
-    #         return False
-    #     else:
-    #         logging.warning(f"VLM didn't response neither true/false, "
-    #                         f"response: {response}")
-    #         # Default to false
-    #         return False
-    # else:
-    #     return VLMQuery(assertion, BoundingBox(image.left,
-    #                                             image.lower,
-    #                                             image.right,
-    #                                             image.upper))
 
 def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
         state: RawState, 
@@ -2998,11 +2999,18 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
 
             assert len(queries) == len(all_vlm_responses)
             for query, response in zip(queries, all_vlm_responses):
+                ground_atom = query.ground_atom
                 if "true" in response:
-                    true_atom.add(query.ground_atom)
+                    true_atom.add(ground_atom)
+                    ground_atom.predicate._classifier.cache_truth_value(
+                        state, ground_atom.objects, True)
                 elif "false" not in response:
                     logging.warning(f"VLM didn't response neither true/false, "
                                     f"response: {response}")
+                else:
+                    ground_atom.predicate._classifier.cache_truth_value(
+                        state, ground_atom.objects, False)
+
     # else:
     #     attention_image = state_ip.crop_to_bboxes(
     #         [query.attention_box for query in queries])
@@ -3033,6 +3041,44 @@ class VLMQuery:
     query_str: str
     attention_box: BoundingBox
     ground_atom: Optional[GroundAtom] = None
+    
+@dataclass
+class _MemoizedClassifier():
+    classifier: Callable[[State, Sequence[Object]], Union[bool, VLMQuery]]
+    cache: Dict = field(default_factory=dict)
+
+    def cache_truth_value(self, state: State, objects: Sequence[Object], 
+        truth_value: bool) -> None:
+        """Cache the boolean value after querying the VLM and obtaining
+        the result
+        """
+        objects_tuple = tuple(objects)
+        self.cache[(state.__hash__(), objects_tuple)] = truth_value
+
+    def has_classified(self, state: State, objects: Sequence[Object]) -> bool:
+        """Check if the state, object pair has been stored in the cache
+        """
+        objects_tuple = tuple(objects)
+        return (state, objects_tuple) in self.cache
+
+    def __call__(self, state: State, objects: Sequence[Object]) -> \
+        Union[bool, VLMQuery]:
+        """When the classifier is called, return the cached value if it 
+        exists otherwise call self.classifier
+        """
+        # if state, object exist in cache, return the value
+        # else compute the truth value using the classifier
+        objects_tuple = tuple(objects)
+        # truth_value = self.cache.get((state.__hash__(), objects_tuple))
+        # if truth_value is not None:
+        #     return truth_value
+        # else:
+        #     return self.classifier(state, objects)
+
+        return self.cache.get((hash(state), objects_tuple), 
+                              self.classifier(state, objects))
+        # except:
+        #     breakpoint()
 
 def compare_abstract_accuracy(env: BaseEnv, states: List[State],
     est_preds_to_gt_preds: Dict[NSPredicate, Predicate]) -> None:
@@ -3062,6 +3108,20 @@ def compare_abstract_accuracy(env: BaseEnv, states: List[State],
                             f"{gt_pred}({choice})={gt_pred_holds}")
     logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. "+
                  f"Accuracy: {num_correct/num_evals}.")
+
+def test_derived_predicates(env: BaseEnv, states: List[State],
+    base_ns_preds: Set[NSPredicate]):
+
+    from predicators.approaches.grammar_search_invention_approach import _create_grammar
+    grammar = _create_grammar(dataset=None, given_predicates=base_ns_preds)
+    candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
+    logging.info(f"Generated candidates: {candidates}")
+
+    for i, state in enumerate(states):
+        logging.info(f"\nEvaluating task {i}")
+        est_ground_atoms = abstract(state, candidates)
+        logging.info(est_ground_atoms)
+
 
 def all_ground_operators(
         operator: STRIPSOperator,
@@ -4308,6 +4368,8 @@ def parse_config_excluded_predicates(
             }
             logging.info(f"All non-goal predicates excluded: {excluded_names}")
             included = env.goal_predicates
+            if CFG.rgb_observation:
+                included |= env.NS_predicates
         else:
             excluded_names = set(CFG.excluded_predicates.split(","))
             assert excluded_names.issubset(

@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple, Sequence, Set
+from typing import Any, ClassVar, Dict, List, Tuple, Sequence, Set, Union
 
 import numpy as np
 import pybullet as p
@@ -18,7 +18,7 @@ from predicators.settings import CFG
 from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
     Predicate
 from predicators.utils import NSPredicate, RawState, BoundingBox,\
-    evaluate_simple_assertion
+    evaluate_simple_assertion, VLMQuery, _MemoizedClassifier
 from predicators.image_patch_wrapper import ImagePatch
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -53,15 +53,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Neuro-Symbolic Predicates
         self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
-                                   self._On_NSP_holds)
+                            _MemoizedClassifier(self._On_NSP_holds))
         self._OnTable_NSP = NSPredicate("OnTable", [self._block_type],
-                                        self._OnTable_NSP_holds)
+                            _MemoizedClassifier(self._OnTable_NSP_holds))
         self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
-                                           self._GripperOpen_NSP_holds)
+                            _MemoizedClassifier(self._GripperOpen_NSP_holds))
         self._Holding_NSP = NSPredicate("Holding", [self._block_type],
-                                       self._Holding_NSP_holds)
+                            _MemoizedClassifier(self._Holding_NSP_holds))
         self._Clear_NSP = NSPredicate("Clear", [self._block_type],
-                                     self._Clear_NSP_holds)
+                            _MemoizedClassifier(self._Clear_NSP_holds))
 
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
@@ -76,10 +76,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def NS_predicates(self) -> Set[NSPredicate]:
         return {
             self._On_NSP, 
-            self._OnTable_NSP, 
-            self._GripperOpen_NSP,
-            self._Holding_NSP, 
-            self._Clear_NSP
+            # self._OnTable_NSP, 
+            # self._GripperOpen_NSP,
+            # self._Holding_NSP, 
+            # self._Clear_NSP
             }
     
     @property
@@ -88,8 +88,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 self._GripperOpen_NSP: self._GripperOpen,
                 self._Holding_NSP: self._Holding, self._Clear_NSP: self._Clear}
 
-    def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
-            bool:
+    # @staticmethod
+    def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> \
+            Union[bool, VLMQuery]:
         '''
         Is there no block on top of the block
         '''
