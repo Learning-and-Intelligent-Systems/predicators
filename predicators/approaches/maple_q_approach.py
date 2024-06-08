@@ -77,12 +77,13 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
         return utils.option_policy_to_policy(
             _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
-
+    
     def _create_explorer(self) -> BaseExplorer:
         """Create a new explorer at the beginning of each interaction cycle."""
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
-        max_steps = b**(1 + self._online_learning_cycle)
+        # max_steps = b**(1 + self._online_learning_cycle)
+        max_steps = CFG.max_num_steps_interaction_request
         preds = self._get_current_predicates()
         assert CFG.explorer == "maple_q"
         explorer = create_explorer(CFG.explorer,

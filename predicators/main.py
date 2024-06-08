@@ -43,6 +43,8 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
+import matplotlib.pyplot as plt
+import datetime
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -189,6 +191,23 @@ def _run_pipeline(env: BaseEnv,
             teacher = None
         load_approach = CFG.load_approach
         # The online learning loop.
+        logs = []
+        cumulative_logs = []
+        learning_cycles = []
+        q_values = []
+        num_solved = 0.0
+        good_light_q_values =[]
+        bad_light_q_values =[]
+        #good open door, like when we actually wanna open the door and we open it
+        good_open_door_q_values = []
+        #bad open door, when we wanna open door but move forward instead RIPP
+        bad_open_door_q_values = []
+        #good move, like when we actually wanna move forward and we do
+        good_move_q_values = []
+        #bad move, when we wanna move forward but open door instead RIPP
+        bad_move_q_values = []
+
+
         for i in range(CFG.num_online_learning_cycles):
 
             if i < CFG.skip_until_cycle:
@@ -234,13 +253,110 @@ def _run_pipeline(env: BaseEnv,
                 learning_time += time.perf_counter() - learning_start
 
             # Evaluate approach after every online learning cycle.
+            # if cogman._approach.mapleq._q_function._x_dims:
+            #     a,b,c,d,e,f =(cogman._approach.mapleq._q_function.get_q_values())
+            #     good_light_q_values.append(a)
+            #     bad_light_q_values.append(b)
+            #     good_open_door_q_values.append(c)
+            #     bad_open_door_q_values.append(d)
+            #     good_move_q_values.append(e)
+            #     bad_move_q_values.append(f)
+            # else:
+            #     q_values.append([0]*20)
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
+            print("HEYASEIHASIFHIHAOIDF", i)
+            num_solved += results["num_solved"]
+            print("CUMULATIVE NUM SOLVED: ", num_solved)
+            print("fraction solved: ", num_solved / (i + 1))
+            if results["num_solved"] == 1:
+                logs.append(1)
+            else:
+                logs.append(0)
+            learning_cycles.append(i + 1)
+            cumulative_logs.append(num_solved)
             _save_test_results(results, online_learning_cycle=i)
+
+        plt.plot(learning_cycles, logs)
+        plt.show()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("Solves")
+        plt.title("Solves over Cycles", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
+
+        plt.plot(learning_cycles, cumulative_logs)
+        plt.show()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'cumulative_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("Cumulative Solves")
+        plt.title("Cumulative Solves over Cycles",
+                fontsize=16,
+                fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
+
+        # # FOR PLOTTING Q VALUES
+        # plt.plot(learning_cycles, good_light_q_values)
+        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
+        # plt.xlabel("num_online_learning_cycles")
+        # plt.ylabel("GOOD LIGHT q values")
+        # plt.title("Q-values", fontsize=16, fontweight='bold')
+        # plt.savefig(filename, dpi=300)
+        # plt.clf()
+
+        # plt.plot(learning_cycles, bad_light_q_values)
+        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
+        # plt.xlabel("num_online_learning_cycles")
+        # plt.ylabel("BAD LIGHT q values")
+        # plt.title("Q-values", fontsize=16, fontweight='bold')
+        # plt.savefig(filename, dpi=300)
+        # plt.clf()
+
+        # plt.plot(learning_cycles, good_open_door_q_values)
+        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
+        # plt.xlabel("num_online_learning_cycles")
+        # plt.ylabel("GOOD DOOR q values")
+        # plt.title("Q-values", fontsize=16, fontweight='bold')
+        # plt.savefig(filename, dpi=300)
+        # plt.clf()
+
+        # plt.plot(learning_cycles, bad_open_door_q_values)
+        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # filename = f'BAD DOOR qvalues_plot_{timestamp}.png'
+        # plt.xlabel("num_online_learning_cycles")
+        # plt.ylabel("BAD DOOR q values")
+        # plt.title("Q-values", fontsize=16, fontweight='bold')
+        # plt.savefig(filename, dpi=300)
+        # plt.clf()
+
+        # plt.plot(learning_cycles, good_move_q_values)
+        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # filename = f'GOOD MOVE qvalues_plot_{timestamp}.png'
+        # plt.xlabel("num_online_learning_cycles")
+        # plt.ylabel("GOOD MOVE q values")
+        # plt.title("Q-values", fontsize=16, fontweight='bold')
+        # plt.savefig(filename, dpi=300)
+        # plt.clf()
+
+        # plt.plot(learning_cycles, bad_move_q_values)
+        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # filename = f'BAD MOVE qvalues_plot_{timestamp}.png'
+        # plt.xlabel("num_online_learning_cycles")
+        # plt.ylabel("BAD MOVE q values")
+        # plt.title("Q-values", fontsize=16, fontweight='bold')
+        # plt.savefig(filename, dpi=300)
+        # plt.clf()
     else:
         results = _run_testing(env, cogman)
         results["num_offline_transitions"] = 0

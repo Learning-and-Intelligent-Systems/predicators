@@ -16,6 +16,7 @@ from typing import Type as TypingType
 
 from predicators import utils
 from predicators.approaches import BaseApproach
+
 from predicators.envs import BaseEnv
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
@@ -45,7 +46,7 @@ class CogMan:
 
     def reset(self, env_task: EnvironmentTask) -> None:
         """Start a new episode of environment interaction."""
-        logging.info("[CogMan] Reset called.")
+        # logging.info("[CogMan] Reset called.")
         self._episode_num += 1
         task = self._perceiver.reset(env_task)
         self._current_env_task = env_task
@@ -75,7 +76,7 @@ class CogMan:
         else:
             self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
-            logging.info("[CogMan] Termination triggered.")
+            # logging.info("[CogMan] Termination triggered.")
             return None
         # Check if we should replan.
         if self._exec_monitor.step(state):
@@ -100,7 +101,7 @@ class CogMan:
 
     def finish_episode(self, observation: Observation) -> None:
         """Called at the end of an episode."""
-        logging.info("[CogMan] Finishing episode.")
+        # logging.info("[CogMan] Finishing episode.")
         if len(self._episode_state_history) == len(
                 self._episode_action_history):
             state = self._perceiver.step(observation)
@@ -227,6 +228,8 @@ def run_episode_and_get_observations(
                 if act.has_option() and act.get_option() != curr_option:
                     curr_option = act.get_option()
                     metrics["num_options_executed"] += 1
+                    if train_or_test == "test":
+                        print(curr_option)
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env

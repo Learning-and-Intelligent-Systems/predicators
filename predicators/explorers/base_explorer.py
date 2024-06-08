@@ -62,12 +62,12 @@ class BaseExplorer(abc.ABC):
             actual_remaining_steps = min(
                 remaining_steps,
                 CFG.max_num_steps_interaction_request - steps_taken)
-            if actual_remaining_steps <= 0:
-                logging.info("[Base Explorer] terminating due to max steps")
+            if actual_remaining_steps <= 0 or self._train_tasks[train_task_idx].goal_holds(state):
+                # logging.info("[Base Explorer] terminating due to max steps")
                 return True
-            logging.info(
-                "[Base Explorer] not yet terminating (remaining steps: "
-                f"{actual_remaining_steps})")
+            # logging.info(
+                # "[Base Explorer] not yet terminating (remaining steps: "
+                # f"{actual_remaining_steps})")
             remaining_steps -= 1
             return False
 
