@@ -211,7 +211,10 @@ class ImagePatch(ViperImagePatch):
             The objects whose bounding box is to be used for cropping.
         """
         masks = [self.state.get_obj_mask(obj) for obj in objects]
-        bboxes = [utils.mask_to_bbox(mask) for mask in masks]
+        try:
+            bboxes = [utils.mask_to_bbox(mask) for mask in masks]
+        except Exception as e:
+            breakpoint()
         
             # left = min(left, x_indices.min() - left_margin)
             # lower = min(lower, self.height - y_indices.max() - lower_margin - 1)

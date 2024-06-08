@@ -43,6 +43,12 @@ class BaseApproach(abc.ABC):
         """Does the approach learn from the training tasks?"""
         raise NotImplementedError("Override me!")
 
+    @property
+    @abc.abstractmethod
+    def is_offline_learning_based(self) -> bool:
+        """Does the approach learn from the training tasks?"""
+        raise NotImplementedError("Override me!")
+
     @abc.abstractmethod
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Return a policy for the given task, within the given number of

@@ -37,6 +37,7 @@ setup(
         "ImageHash",
         "google-generativeai",
         "tenacity",
+        "colorlog==6.8.2"
     ],
     include_package_data=True,
     extras_require={

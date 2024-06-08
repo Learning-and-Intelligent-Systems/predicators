@@ -46,7 +46,6 @@ from predicators.utils import option_plan_to_policy, OptionExecutionFailure, \
 from predicators.predicate_search_score_functions import \
     _ClassificationErrorScoreFunction
 
-
 import_str = """
 from typing import Sequence
 import numpy as np
@@ -136,6 +135,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         trajectories = []
         for idx, task in enumerate(tasks):
             logging.info(f"Solving Task {idx}")
+            # task.init.labeled_image.save(f"images/trn_{idx}_init_pre_solving.png")
             try:
                 policy = self.solve(task, timeout=CFG.timeout) 
             except (ApproachTimeout, ApproachFailure) as e:
@@ -149,6 +149,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 )
             else:
                 # logging.info(f"--> Succeeded")
+                # This is essential, otherwise would cause errors
                 # policy = utils.option_plan_to_policy(self._last_plan)
                 
                 result = PlanningResult(
@@ -159,13 +160,18 @@ class VlmInventionApproach(NSRTLearningApproach):
                         "partial_refinements": self._last_partial_refinements,
                         "policy": policy})
                 # Collect trajectory
+                # try:
                 traj, _ = utils.run_policy(policy,
-                    env,
-                    "train",
-                    idx,
-                    termination_function=lambda s: False,
-                    max_num_steps=CFG.horizon,
-                    exceptions_to_break_on={utils.OptionExecutionFailure,})
+                        env,
+                        "train",
+                        idx,
+                        termination_function=lambda s: False,
+                        max_num_steps=CFG.horizon,
+                        exceptions_to_break_on={utils.OptionExecutionFailure,
+                                                ApproachFailure
+                                                })
+                # except:
+                #     breakpoint()
                 traj = LowLevelTrajectory(traj.states,
                                         traj.actions,
                                         _is_demo=True,
@@ -196,10 +202,13 @@ class VlmInventionApproach(NSRTLearningApproach):
         clf_acc_at_best_solve_rate = 0.0
         best_nsrt, best_preds = deepcopy(self._nsrts), set()
         self._learned_predicates = set()
+        # Keep a copy in case it doesn't learn it from data.
         self._init_nsrts = deepcopy(self._nsrts)
         no_improvement = False
 
         # Init data collection
+        logging.debug(f"Initial predicates: {self._get_current_predicates()}")
+        logging.debug(f"Initial operators: {pformat(self._init_nsrts)}")
         results, dataset = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
@@ -228,7 +237,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                 #   Create prompt to inspect the execution
                 if CFG.llm_predicator_oracle_base:
                     # If using the oracle predicates
-                    new_candidates = env.predicates - self._initial_predicates
+                    if CFG.neu_sym_predicate:
+                        new_candidates = env.ns_predicates -\
+                                            self._initial_predicates
+                    else:
+                        new_candidates = env.predicates -\
+                                            self._initial_predicates
                 else:
                     # Use the results to prompt the llm
                     prompt = self._create_prompt(env, ite)
@@ -262,6 +276,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                         all_candidates.update({p: 0 for p in base_candidates})
                     # Add a atomic states for succ_optn_dict and fail_optn_dict
                     logging.info("Applying predicates to data...")
+                    # Abstract here because it's used in the score function
+                    # Evaluate the newly proposed predicates; the values for 
+                    # previous proposed should have been cached by the previous
+                    # abstract calls.
                     for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
                         for g_optn in optn_dict.keys():
                             atom_states = []
@@ -270,10 +288,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 state, 
                                 set(all_candidates) | self._initial_predicates))
                             optn_dict[g_optn].abstract_states = atom_states
+                    sparse_dataset = utils.remove_intermediate_states(dataset)
+                    breakpoint()
                     # Apply the candidate predicates to the data.
                     atom_dataset: List[GroundAtomTrajectory] =\
                         utils.create_ground_atom_dataset(
-                            dataset.trajectories, 
+                            sparse_dataset.trajectories, 
                             set(all_candidates) | self._initial_predicates)
                     logging.info("Done.")
                     score_function = _ClassificationErrorScoreFunction(
@@ -293,11 +313,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                 propose_ite += 1
 
             # Finally, learn NSRTs via superclass, using all the kept predicates.
-            annotations = None
-            if dataset.has_annotations:
-                annotations = dataset.annotations
-            self._learn_nsrts(dataset.trajectories, online_learning_cycle=None,
-                annotations=annotations)
+            self._learn_nsrts(sparse_dataset.trajectories, 
+                            online_learning_cycle=None,
+                            annotations=sparse_dataset.annotations)
 
             # Add init_nsrts whose option isn't in the current nsrts to 
             cur_options = [nsrt.option for nsrt in self._nsrts]
@@ -773,7 +791,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 ite: int,
                                 log_when_first_success: bool,
                                 add_intermediate_details: bool=False) -> None:    
-        '''When add_intermediate_details == True, detailed interaction 
+        '''
+        Process the data obtained in solving the tasks into ground truth 
+        positive and negative states for the ground options.
+        Deprecated: 
+        When add_intermediate_details == True, detailed interaction 
         trajectories are added to the return string
         '''
 
@@ -808,6 +830,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Only log
                 nsrt_plan = result.info['nsrt_plan']
                 option_plan = result.info['option_plan'].copy()
+                logging.debug(f"Processing succeeded plan {option_plan}")
                 if log_when_first_success:
                     if self.solve_log[i]:
                         # continue to logging the next task
@@ -816,32 +839,35 @@ class VlmInventionApproach(NSRTLearningApproach):
                         self.solve_log[i] = True
                 # Add the Plan Execution Trajectory
                 init_state = env.reset(train_or_test='train', task_idx=i)
-                _ = self._plan_to_str(init_state, env, 
+                # init_state.labeled_image.save(f"images/trn_{i}_init_pre_proc_succ.png")
+                _ = self._execute_plan_and_track_state(init_state, env, 
                     nsrt_plan, option_plan, add_intermediate_details)
 
-            # The failed refinement
+            # The failed refinements (negative samples)
             # This result is either a Result tuple or an exception
             # todo: Maybe should unify them in _solve_tasks?
-            for p_ref in result.info['partial_refinements']:
+            for p_idx, p_ref in enumerate(result.info['partial_refinements']):
                 nsrt_plan = p_ref[0]
                 # longest option refinement
                 option_plan = p_ref[1].copy()
+                logging.debug(f"Processing failed plan {option_plan}")
                 failed_opt_idx = len(option_plan) - 1
 
                 state = env.reset(train_or_test='train', task_idx=i)
+                # state.labeled_image.save(f"images/trn_{i}_init_pre_proc_fail{p_idx}.png")
                 # Successful part
                 if failed_opt_idx > 0:
-                    state = self._plan_to_str(
+                    state = self._execute_plan_and_track_state(
                         state, env, nsrt_plan, option_plan[:-1], 
                         add_intermediate_details)
                 # Failed part
-                _ = self._plan_to_str(state, env, 
+                _ = self._execute_plan_and_track_state(state, env, 
                         nsrt_plan[failed_opt_idx:], option_plan[-1:], 
                         add_intermediate_details, failed_opt=True)
 
         # Add the abstract states.
         # This is used later when creating the predicate invention prompt
-        # Can we get the same thing from _plan_to_str? -> Yes, moved to there
+        # Can we get the same thing from _execute_plan_and_track_state? -> Yes, moved to there
         # for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
         #     for g_optn in optn_dict.keys():
         #         atom_states = []
@@ -850,11 +876,13 @@ class VlmInventionApproach(NSRTLearningApproach):
         #                 state, self._get_current_predicates()))
         #         optn_dict[g_optn].abstract_states = atom_states
     
-    def _plan_to_str(self, init_state: State, env: BaseEnv, 
+    def _execute_plan_and_track_state(self, init_state: State, env: BaseEnv, 
                              nsrt_plan: List, option_plan: List, 
                              add_intermediate_details: bool=False,
                              failed_opt: bool=False) -> State:
-
+        """Adding the abstract states to the optn_dict is important here for
+        creating the predicate invention prompt.
+        """
         # Executing the plan
         # task_str = []
         state = init_state
@@ -862,9 +890,11 @@ class VlmInventionApproach(NSRTLearningApproach):
         nsrt_counter = 0
         for _ in range(CFG.horizon):
             try:
-                if policy is None:
+                # if policy is None:
+                if not callable(policy):
                     raise OptionExecutionFailure("placeholder policy")
-                act = policy(state)
+                else:
+                    act = policy(state)
                 state = env.step(act)
                 # if add_intermediate_details:
                 #     task_str.append("Action: " + str(act._arr) + "\n")
@@ -887,11 +917,15 @@ class VlmInventionApproach(NSRTLearningApproach):
                     else:
                         policy = utils.option_plan_to_policy(
                             [option], raise_error_on_repeated_state=True)
+                        option_start_state = env.get_observation(
+                                render=CFG.vlm_predicator_render_option_state)
                         if not failed_opt:
                             g_nsrt = nsrt_plan[nsrt_counter]
                             gop_str = g_nsrt.ground_option_str()
+                            raw_state = env.get_observation(
+                                render=CFG.vlm_predicator_render_option_state)
                             self.succ_optn_dict[gop_str].append_state(
-                                env.get_observation(),
+                                raw_state,
                                 utils.abstract(state, 
                                                self._get_current_predicates()),
                                 g_nsrt.option_objs,
@@ -902,8 +936,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     g_nsrt = nsrt_plan[0]
                     gop_str = g_nsrt.ground_option_str()
                     self.fail_optn_dict[gop_str].append_state(
-                        env.get_observation(),
-                        utils.abstract(state, self._get_current_predicates()),
+                        option_start_state,
+                        utils.abstract(option_start_state, self._get_current_predicates()),
                         g_nsrt.option_objs,
                         g_nsrt.parent.option_vars,
                         g_nsrt.option,

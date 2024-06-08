@@ -2,7 +2,8 @@
 ---
 APPROACHES:
   learn_all:
-    NAME: "oracle"
+    # NAME: "oracle"
+    # NAME: "grammar_search_invention"
     FLAGS: []
 ENVS:
   stick_button:
@@ -27,7 +28,7 @@ ARGS:
   # - "make_demo_videos" 
   # - "use_gui"
 FLAGS:
-  num_train_tasks: 20
+  num_train_tasks: 5
   num_test_tasks: 5
   option_learner: no_learning # include all options by flagging no learning
   # included_options: "HandPressButton"
