@@ -102,7 +102,7 @@ class PretrainedLargeModel(abc.ABC):
         if not os.path.exists(cache_filepath):
             if CFG.llm_use_cache_only:
                 raise ValueError("No cached response found for prompt.")
-            logging.debug(f"\nQuerying model {model_id} with new prompt.")
+            logging.debug(f"Querying model {model_id} with new prompt.")
             # Query the model.
             completions = self._sample_completions(prompt, imgs, temperature,
                                                    seed, stop_token,

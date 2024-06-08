@@ -929,6 +929,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def get_name(cls) -> str:
         return "grammar_search_invention"
 
+    @property
+    def is_offline_learning_based(self) -> bool:
+        return True
+
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 

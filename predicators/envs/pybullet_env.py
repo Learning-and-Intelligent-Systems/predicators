@@ -185,12 +185,14 @@ class PyBulletEnv(BaseEnv):
         raise NotImplementedError("A PyBullet environment cannot render "
                                   "arbitrary states.")
 
-    def reset(self, train_or_test: str, task_idx: int) -> Observation:
+    def reset(self, train_or_test: str, task_idx: int, render:bool=False) -> Observation:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
         # Converts the State into a PyBulletState.
         self._current_observation = self._get_state()
-        return self._current_observation.copy()
+        observation_copy = self.get_observation(render=render)
+        return observation_copy
+        # return self._current_observation.copy()
 
     def _reset_state(self, state: State) -> None:
         """Helper for reset and testing."""
@@ -329,12 +331,11 @@ class PyBulletEnv(BaseEnv):
 
         return state_img, mask_dict
 
-    def get_observation(self) -> Observation:
+    def get_observation(self, render: bool = False) -> Observation:
         """Get the current observation of this environment."""
         assert isinstance(self._current_observation, State)
         state_copy = self._current_observation.copy()
-        if CFG.vlm_predicator_render_option_state or\
-            CFG.rgb_observation:
+        if render:
             rendered_state = RawState(
                 state_copy.data, state_copy.simulator_state,
                 *self.render_segmented_obj()
@@ -397,7 +398,7 @@ class PyBulletEnv(BaseEnv):
 
         # Depending on the observation mode, either return object-centric state
         # or object_centric + rgb observation
-        observation_copy = self.get_observation()
+        observation_copy = self.get_observation(render=CFG.rgb_observation)
         
         return observation_copy
         # state_copy = self._current_observation.copy()
@@ -515,7 +516,7 @@ class PyBulletEnv(BaseEnv):
             self._current_observation = utils.PyBulletState(init.data.copy(), 
                                             simulator_state=joint_positions)
             # Attempt 1: Let's try to get a rendering directly first
-            pybullet_init = self.get_observation()
+            pybullet_init = self.get_observation(render=CFG.render_init_state)
             # # <Original code            
             # self._pybullet_robot.reset_state(self._extract_robot_state(init))
             # joint_positions = self._pybullet_robot.get_joints()

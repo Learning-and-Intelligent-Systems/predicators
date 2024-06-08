@@ -44,6 +44,7 @@ from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
 from PIL import Image
+import colorlog
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -73,7 +74,21 @@ def main() -> None:
     utils.update_config(args)
     str_args = " ".join(sys.argv)
     # Log to stderr.
-    handlers: List[logging.Handler] = [logging.StreamHandler()]
+    colorlog_handler = colorlog.StreamHandler()
+    colorlog_handler.setFormatter(colorlog.ColoredFormatter(
+    '%(log_color)s%(levelname)s: %(message)s',
+    log_colors={
+        'DEBUG':    'cyan',
+        'INFO':     'green',
+        'WARNING':  'yellow',
+        'ERROR':    'red',
+        'CRITICAL': 'red,bg_white',
+    },
+    reset=True,
+    style='%'
+    ))
+    # handlers: List[logging.Handler] = [logging.StreamHandler()]
+    handlers: List[logging.Handler] = [colorlog_handler]
     if CFG.log_file:
         handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
@@ -164,9 +179,9 @@ def _run_pipeline(env: BaseEnv,
                   cogman: CogMan,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
-    utils.test_derived_predicates(env, [t.init for t in train_tasks],
-                                  env.NS_predicates)
-    breakpoint()
+    # utils.test_derived_predicates(env, [t.init for t in train_tasks],
+    #                               env.ns_predicates)
+
     # If agent is learning-based, allow the agent to learn from the generated
     # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
@@ -179,14 +194,16 @@ def _run_pipeline(env: BaseEnv,
             num_offline_transitions = 0
         num_online_transitions = 0
         total_query_cost = 0.0
+
         if CFG.load_approach:
             cogman.load(online_learning_cycle=None)
             learning_time = 0.0  # ignore loading time
         else:
             # Offline learning.
-            learning_start = time.perf_counter()
-            cogman.learn_from_offline_dataset(offline_dataset)
-            learning_time = time.perf_counter() - learning_start
+            if cogman.is_offline_learning_based:
+                learning_start = time.perf_counter()
+                cogman.learn_from_offline_dataset(offline_dataset)
+                learning_time = time.perf_counter() - learning_start
 
             # Self Online Learning.
             if CFG.approach == "vlm_online_invention":
@@ -360,7 +377,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
         #         f"images/test_task{i}_mask{obj.id}.png")
 
     # Check the processed image before performing simple query
-    # ground_atoms = utils.abstract(test_tasks[0].init, env.NS_predicates)
+    # ground_atoms = utils.abstract(test_tasks[0].init, env.ns_predicates)
 
     # Label all the objects in the state and save the image
     # state_ip = ImagePatch(task.init.state_image)
@@ -372,9 +389,9 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     # utils.compare_abstract_accuracy(env,
     #                                 [t.init for t in test_tasks], 
     #                                 env.ns_predicates_to_predicates)
-    utils.test_derived_predicates(env, [t.init for t in test_tasks],
-                                  env.NS_predicates)
-    breakpoint()
+    # utils.test_derived_predicates(env, [t.init for t in test_tasks],
+    #                               env.ns_predicates)
+    # breakpoint()
     
     # /Check
 >>>>>>> 5cd89e4a (add state labelling before individual predicate evaluation)

@@ -287,7 +287,7 @@ class BlocksEnv(BaseEnv):
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
-        for _ in range(num_tasks):
+        for idx in range(num_tasks):
             num_blocks = rng.choice(possible_num_blocks)
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
@@ -295,6 +295,7 @@ class BlocksEnv(BaseEnv):
                 goal = self._sample_goal_from_piles(num_blocks, piles, rng)
                 if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
+            # if idx == 0:
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 

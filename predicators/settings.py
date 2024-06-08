@@ -694,7 +694,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     grammar_search_clustering_gmm_num_components = 10
 
     # Have the pybullet env (for now) to render the states and save to RawState
-    rgb_observation = False
+    rgb_observation = False # Render every state
+    render_init_state = False # Render only the init state for planning
     # For debug 
     save_nsp_image_patch_before_query = False
     # LLM predicate invention algorithm parameters
@@ -704,6 +705,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_predicator_render_option_state = False
     load_llm_pred_invent_dataset = True
     save_llm_pred_invent_dataset = True
+    neu_sym_predicate = False
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms

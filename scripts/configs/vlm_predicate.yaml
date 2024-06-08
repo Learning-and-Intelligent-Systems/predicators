@@ -30,7 +30,7 @@ ARGS:
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 1
+  num_train_tasks: 2
   num_test_tasks: 1
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -48,7 +48,8 @@ FLAGS:
   video_fps: 20
 
   # Env settings
-  rgb_observation: True
+  rgb_observation: False
+  render_init_state: True
 
   # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"
@@ -56,10 +57,11 @@ FLAGS:
   painting_raise_environment_failure: False
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
-  load_llm_pred_invent_dataset: True
-  save_llm_pred_invent_dataset: True
+  load_llm_pred_invent_dataset: False
+  save_llm_pred_invent_dataset: False # can't pickle rendered states
 
   # NSP (using VLMs) setting
+  neu_sym_predicate: True
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-flash"
   vlm_temperature: 0

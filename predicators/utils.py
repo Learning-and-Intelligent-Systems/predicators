@@ -62,7 +62,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
     _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask, \
-    DerivedPredicate
+    DerivedPredicate, Dataset
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 from predicators.image_patch_wrapper import ImagePatch
@@ -1629,6 +1629,32 @@ class LoggingMonitor(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+def remove_intermediate_states(dataset: Dataset) -> Dataset:
+    """For each trajectories in the dataset, only keep the states before
+    executing each ground option (assume given in trajectory._actions) and
+    the final state
+    """
+    new_trajectories = []
+    for traj in dataset.trajectories:
+        new_states = []
+        new_actions = []
+        prev_ground_option = None
+        for i in range(len(traj._actions)):
+            cur_ground_option = traj._actions[i].get_option()
+            # Only adding the state when the ground option changes
+            if prev_ground_option != cur_ground_option:
+                logging.debug(f"ground_option at step {i}: {cur_ground_option} is different from the prev ground option")
+                new_states.append(traj._states[i])
+                new_actions.append(traj._actions[i])
+                prev_ground_option = cur_ground_option
+        new_states.append(traj._states[-1])
+
+        # Update the trajectory to the sparse states and actions
+        new_trajectories.append(LowLevelTrajectory(new_states, 
+                                                    new_actions,
+                                                    traj.is_demo,
+                                                    traj.train_task_idx))
+    return Dataset(new_trajectories)
 
 def run_policy(
     policy: Callable[[State], Action],
@@ -2921,13 +2947,11 @@ def abstract(state: State,
                                                                 vlm)
             atoms |= set(vlm_atoms)
 
-    breakpoint()
     if len(derived_preds) > 0:
         for pred in derived_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 if pred.holds(state, choice):
                     atoms.add(GroundAtom(pred, choice))
-    breakpoint()
     return atoms
 
 def evaluate_simple_assertion(assertion: str, image: ImagePatch
@@ -3086,7 +3110,7 @@ def compare_abstract_accuracy(env: BaseEnv, states: List[State],
 
     for i, state in enumerate(states):
         logging.info(f"\nEvaluating task {i}")
-        est_ground_atoms = abstract(state, env.NS_predicates)
+        est_ground_atoms = abstract(state, env.ns_predicates)
 
         for est_pred, gt_pred in est_preds_to_gt_preds.items():
             for choice in get_object_combinations(list(state), gt_pred.types):
@@ -4368,8 +4392,6 @@ def parse_config_excluded_predicates(
             }
             logging.info(f"All non-goal predicates excluded: {excluded_names}")
             included = env.goal_predicates
-            if CFG.rgb_observation:
-                included |= env.NS_predicates
         else:
             excluded_names = set(CFG.excluded_predicates.split(","))
             assert excluded_names.issubset(
@@ -4388,10 +4410,7 @@ def parse_config_excluded_predicates(
                     "Can't exclude a goal predicate!"
     else:
         excluded_names = set()
-        if CFG.rgb_observation:
-            included = env.NS_predicates
-        else:
-            included = env.predicates
+        included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
 

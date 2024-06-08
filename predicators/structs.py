@@ -751,7 +751,7 @@ class STRIPSOperator:
         self,
         option: ParameterizedOption,
         option_vars: Sequence[Variable],
-        sampler: NSRTSampler = field(repr=False)
+        sampler: NSRTSampler
     ) -> NSRT:
         """Make an NSRT out of this STRIPSOperator object, given the necessary
         additional fields."""
