@@ -253,16 +253,17 @@ def _run_pipeline(env: BaseEnv,
                 learning_time += time.perf_counter() - learning_start
 
             # Evaluate approach after every online learning cycle.
-            # if cogman._approach.mapleq._q_function._x_dims:
-            #     a,b,c,d,e,f =(cogman._approach.mapleq._q_function.get_q_values())
-            #     good_light_q_values.append(a)
-            #     bad_light_q_values.append(b)
-            #     good_open_door_q_values.append(c)
-            #     bad_open_door_q_values.append(d)
-            #     good_move_q_values.append(e)
-            #     bad_move_q_values.append(f)
-            # else:
-            #     q_values.append([0]*20)
+            #CHANGE THIS TO HAVE MAPLEQ IF UR RUNNING BRIDGE POLICY
+            if cogman._approach.mapleq._q_function._x_dims:
+                a,b,c,d,e,f =(cogman._approach.mapleq._q_function.get_q_values())
+                good_light_q_values.append(a)
+                bad_light_q_values.append(b)
+                good_open_door_q_values.append(c)
+                bad_open_door_q_values.append(d)
+                good_move_q_values.append(e)
+                bad_move_q_values.append(f)
+            else:
+                q_values.append([0]*20)
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
@@ -303,60 +304,60 @@ def _run_pipeline(env: BaseEnv,
         plt.savefig(filename, dpi=300)
         plt.clf()
 
-        # # FOR PLOTTING Q VALUES
-        # plt.plot(learning_cycles, good_light_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("GOOD LIGHT q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        # FOR PLOTTING Q VALUES
+        plt.plot(learning_cycles, good_light_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("GOOD LIGHT q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, bad_light_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("BAD LIGHT q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, bad_light_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("BAD LIGHT q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, good_open_door_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("GOOD DOOR q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, good_open_door_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("GOOD DOOR q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, bad_open_door_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'BAD DOOR qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("BAD DOOR q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, bad_open_door_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'BAD DOOR qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("BAD DOOR q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, good_move_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'GOOD MOVE qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("GOOD MOVE q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, good_move_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'GOOD MOVE qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("GOOD MOVE q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, bad_move_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'BAD MOVE qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("BAD MOVE q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, bad_move_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'BAD MOVE qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("BAD MOVE q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
     else:
         results = _run_testing(env, cogman)
         results["num_offline_transitions"] = 0

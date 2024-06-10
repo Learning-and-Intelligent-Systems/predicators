@@ -1333,7 +1333,7 @@ class MapleQFunction(MLPRegressor):
                  n_iter_no_change: int = 10000000,
                  discount: float = 0.8,
                  num_lookahead_samples: int = 5,
-                 replay_buffer_max_size: int = 1000000,
+                 replay_buffer_max_size: int = 25000, #1000000,
                  replay_buffer_sample_with_replacement: bool = True) -> None:
         super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
                          clip_value, learning_rate, weight_decay,
@@ -1409,7 +1409,7 @@ class MapleQFunction(MLPRegressor):
             epsilon = self._epsilon
         # if train_or_test == "test":
         #     epsilon = 0.0
-        print(epsilon)
+        # print(epsilon)
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -1470,6 +1470,8 @@ class MapleQFunction(MLPRegressor):
             X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_goal, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
+            if reward > 0:
+                print("reward > 0 reached")
             vectorized_next_state = self._vectorize_state(next_state)
             if not terminal and self._y_dim != -1:
                 best_next_value = -np.inf
@@ -1493,20 +1495,23 @@ class MapleQFunction(MLPRegressor):
             Y_arr[i] = reward + self._discount * best_next_value
 
             #door is the 6th cell for 10 total cells
+            door_pos = CFG.grid_row_num_cells//2+0.5
+            door_open_index = CFG.grid_row_num_cells+1
+            good_move = CFG.grid_row_num_cells*(CFG.grid_row_num_cells//2)+CFG.grid_row_num_cells//2+1
             if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65 and terminal and vectorized_action[-2]==1.0:
                 good_light_index.append(i)
             elif vectorized_action[-2]==1.0:
                 bad_light_index.append(i)
-            if vectorized_state[-1]==5.5 and vectorized_state[11]==0 and vectorized_action[105]==1:
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_action[CFG.grid_row_num_cells**2+CFG.grid_row_num_cells//2]==1:
                 #good door is if we're in the 6th cell and door is not open and we try to open door
                 good_door_index.append(i)
-            elif vectorized_state[-1]==5.5 and vectorized_state[11]==0:
+            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0:
                 #we did not try to open the door...
                 bad_door_index.append(i)
-            if vectorized_state[-1]==5.5 and vectorized_state[11]==1 and vectorized_action[56]==1:
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1 and vectorized_action[good_move]==1:
                 #good move if we're in 6th cell, door is open, and we move to 7th
                 good_move_index.append(i)
-            elif vectorized_state[-1]==5.5 and vectorized_state[11]==1:
+            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1:
                 bad_move_index.append(i)
 
         # Finally, pass all this vectorized data to the training function.
