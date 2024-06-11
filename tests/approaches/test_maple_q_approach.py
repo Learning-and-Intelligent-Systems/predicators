@@ -51,6 +51,7 @@ def test_maple_q_approach(cover_num_blocks, cover_num_targets):
     approach = MapleQApproach(env.predicates, options, env.types,
                               env.action_space, train_tasks)
     assert approach.is_learning_based
+    assert approach.get_name() == "maple_q"
     approach.learn_from_offline_dataset(Dataset([]))
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
