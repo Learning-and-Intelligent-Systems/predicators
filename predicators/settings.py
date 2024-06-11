@@ -350,6 +350,7 @@ class GlobalSettings:
     # burger env parameters
     gridworld_num_rows = 4
     gridworld_num_cols = 4
+    allow_state_allclose_comparison_with_simulator_state = True
 
     # parameters for random options approach
     random_options_max_tries = 100

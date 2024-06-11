@@ -1003,7 +1003,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
                 dataset)
         elif CFG.offline_data_method == "geo_and_vlm":
-            pass
+            atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
+                dataset)
+            import pdb; pdb.set_trace()
         else:
             # In this case, we're inventing over already-labelled atoms.
             atom_dataset, candidates = \
