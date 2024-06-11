@@ -352,8 +352,8 @@ class GlobalSettings:
 
     # burger env parameters
     burger_render_set_of_marks = True
-    gridworld_num_rows = 4
-    gridworld_num_cols = 4
+    gridworld_num_rows = 5
+    gridworld_num_cols = 5
 
     # parameters for random options approach
     random_options_max_tries = 100
