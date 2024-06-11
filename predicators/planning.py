@@ -130,6 +130,7 @@ def _sesame_plan_with_astar(
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
+    logging.debug(f"Solving task w. \nInit: {init_atoms} \nGoals: {task.goal}")
     objects = list(task.init)
     start_time = time.perf_counter()
     ground_nsrts = sesame_ground_nsrts(task, init_atoms, nsrts, objects,
@@ -205,6 +206,7 @@ def _sesame_plan_with_astar(
                         "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})
         except _DiscoveredFailureException as e:
+            logging.debug("Discovered Failure: " + str(e))
             metrics["num_failures_discovered"] += 1
             new_predicates, ground_nsrts = _update_nsrts_with_failure(
                 e.discovered_failure, ground_nsrts)
@@ -423,6 +425,9 @@ def _skeleton_generator(
             # If this skeleton satisfies the goal, yield it.
             if progress_bar:
                 pbar.update(1)
+            num_skeleton_optimized = int(metrics["num_skeletons_optimized"])
+            logging.debug(f"Start optimizing skeleton {num_skeleton_optimized} "
+                f"{[g_nsrt.ground_option_str() for g_nsrt in node.skeleton]}")
             metrics["num_skeletons_optimized"] += 1
             yield node.skeleton, node.atoms_sequence
         else:

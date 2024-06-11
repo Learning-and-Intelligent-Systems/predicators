@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import abc
 from typing import Callable, Set, Tuple
+import logging
+
 
 import numpy as np
 
@@ -111,8 +113,8 @@ class _OracleOptionModel(_OptionModelBase):
                     return True
                 if last_state is not DefaultState and last_state.allclose(s):
                     raise utils.OptionExecutionFailure(
-                        f"Option got stuck in option model after " +\
-                        f"{call_counter} calls.")
+                        f"Option {option_copy} encounter repeated state in "
+                        f"option model after {call_counter} terminal calls.")
                 last_state = s
                 return False
         else:
@@ -137,6 +139,7 @@ class _OracleOptionModel(_OptionModelBase):
                 _terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
         except utils.OptionExecutionFailure as e:
+            # logging.debug(f"Option model faillure: {str(e)}")
             # If there is a failure during the execution of the option, treat
             # this as a noop.
             return state, 0

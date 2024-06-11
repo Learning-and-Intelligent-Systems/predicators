@@ -67,7 +67,8 @@ def _create_grammar(dataset: Dataset,
     # Now, the grammar will undergo a series of transformations.
     # For each predicate enumerated by the grammar, we also
     # enumerate the negation of that predicate.
-    grammar = _NegationPredicateGrammarWrapper(grammar)
+    if CFG.grammar_search_grammar_includes_negation:
+        grammar = _NegationPredicateGrammarWrapper(grammar)
     # For each predicate enumerated, we also optionally enumerate foralls
     # for that predicate, along with appropriate negations.
     if CFG.grammar_search_grammar_includes_foralls:
@@ -855,10 +856,11 @@ class _NegationPredicateGrammarWrapper(_PredicateGrammar):
         for (predicate, cost) in self.base_grammar.enumerate():
             yield (predicate, cost)
             classifier = _NegationClassifier(predicate)
-            negated_predicate = DerivedPredicate(str(classifier), predicate.types,
+            negated_predicate = DerivedPredicate(
+                str(classifier), predicate.types,
                                           classifier)
             # No change to costs when negating.
-            yield (negated_predicate, cost)
+            yield (negated_predicate, cost)#+1)
 
 
 @dataclass(frozen=True, eq=False, repr=False)

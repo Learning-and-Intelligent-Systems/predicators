@@ -27,10 +27,11 @@ ARGS:
   # - "rgb_observation" # stick_button doesn't support rendering
   # - "make_segmented_demo_videos"
   # - "make_demo_videos" 
+  # - "make_failure_videos"
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 30
+  num_train_tasks: 40
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -42,26 +43,29 @@ FLAGS:
   min_perc_data_for_nsrt: 3
   segmenter: "option_changes"
   neural_gaus_regressor_max_itr: 50000
-  timeout: 300
+  timeout: 30 #300
   pybullet_camera_width: 900
   pybullet_camera_height: 900
   video_fps: 20
 
   # Env settings
   rgb_observation: False
-  render_init_state: True # True for NSP
+  render_init_state: False # True for NSP
 
   # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"
+  grammar_search_predicate_cost_upper_bound: 10
   # grammar_search_search_algorithm: "hill_climbing"
   painting_raise_environment_failure: False
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
+  grammar_search_grammar_includes_negation: True
+  grammar_search_grammar_includes_foralls: True
   load_llm_pred_invent_dataset: False
   save_llm_pred_invent_dataset: False # can't pickle rendered states
 
   # NSP (using VLMs) setting
-  neu_sym_predicate: True # True for NSP
+  neu_sym_predicate: False # True for NSP
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"
   vlm_temperature: 0
@@ -72,8 +76,8 @@ FLAGS:
   llm_openai_max_response_tokens: 4096
   llm_predicator_use_grammar: True
   llm_predicator_oracle_base: True
-  llm_predicator_oracle_learned: False
-  vlm_predicator_render_option_state: True # True for NSP
+  llm_predicator_oracle_learned: False # when True 17/20; False 3/20
+  vlm_predicator_render_option_state: False # True for NSP
   # Test
   grammar_search_prune_redundant_preds: False
 START_SEED: 2
