@@ -270,12 +270,12 @@ class BurgerEnv(BaseEnv):
         hidden_state = {}
 
         spots_for_objects = self.get_accessible_edge_cells(rng)
-        num_tasks = num
-        if num == 1:
-            num_tasks += 1
+        # num_tasks = num
+        # if num == 1:
+        #     num_tasks += 1
 
-        # for _ in range(num):
-        for _ in range(num_tasks):
+        for _ in range(num):
+        # for _ in range(num_tasks):
             shuffled_spots = spots_for_objects.copy()
             rng.shuffle(shuffled_spots)
 
@@ -358,8 +358,8 @@ class BurgerEnv(BaseEnv):
 
             # img = Image.fromarray(state.simulator_state["images"][0])
             # import pdb; pdb.set_trace()
-        if num == 1:
-            return [tasks[0]]
+        # if num == 1:
+        #     return [tasks[0]]
         return tasks
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
