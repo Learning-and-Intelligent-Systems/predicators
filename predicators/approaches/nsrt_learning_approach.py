@@ -112,8 +112,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   sampler_learner=CFG.sampler_learner,
                                   annotations=annotations)
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            pkl.dump(self._nsrts, f)
+        # NS predicates currently doesn't support saving
+        # if not CFG.neu_sym_predicate:
+        #     with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
+        #         pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
             self._compute_sidelining_objective_value(trajectories)
 

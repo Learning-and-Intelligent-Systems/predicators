@@ -481,8 +481,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 "trajectory": traj,
                 "pybullet_robot": CFG.pybullet_robot
             }
-            with open(traj_file_path, "wb") as f:
-                pkl.dump(traj_data, f)
+            # with open(traj_file_path, "wb") as f:
+            #     pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True

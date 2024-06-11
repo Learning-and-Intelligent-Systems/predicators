@@ -144,7 +144,11 @@ def count_classification_result_for_ops(
                 # Get all consistent ground operators
                 optn = succ_optn_dict[g_optn].option
                 # Assume the g_optn is unique in each task
-                env_objects = set(succ_states[0])
+                # Definitely shouldn't do this, b/c env have different number
+                # objects
+                env_objects = set()
+                for s in succ_states:
+                    env_objects |= set(s)
                 optn_objs = succ_optn_dict[g_optn].optn_objs
                 # optn_vars = succ_optn_dict[g_optn]['optn_vars']
 
@@ -182,7 +186,7 @@ def count_classification_result_for_ops(
                 # Flatten the list of lists
                 ground_nsrts = [nsrt for nsrt_list in ground_nsrtss 
                                     for nsrt in nsrt_list]
-                for state, atom_state in zip(succ_states, succ_abs_states):
+                for i, (state, atom_state) in enumerate(zip(succ_states, succ_abs_states)):
                     # atom_state = abstract(state, 
                     #                             self._get_current_predicates())
                     if any([gnsrt.preconditions.issubset(atom_state) for gnsrt 
@@ -190,6 +194,11 @@ def count_classification_result_for_ops(
                         tp_states.append(state)
                         tp_state_dict[str(optn)][g_optn]['states'].append(state)
                     else:
+                        # if i == 9 and g_optn == "Stack(robby:robot, block0:block)":
+                            # logging.debug(f"Relevant ground nsrts: {ground_nsrts}")
+                        logging.debug(f"FN state {i} for {g_optn}: "+
+                                        f"{state.pretty_str()}")
+                        logging.debug(f"FN atom state: {atom_state}")
                         fn_states.append(state)
                         fn_state_dict[str(optn)][g_optn]['states'].append(state)
             # filter out the tn, fp states
@@ -197,7 +206,10 @@ def count_classification_result_for_ops(
                 # Get all consistent ground operators
                 optn = fail_optn_dict[g_optn].option
                 # Assume the g_optn is unique in each task
-                env_objects = set(fail_states[0])
+                # env_objects = set(fail_states[0])
+                env_objects = set()
+                for s in fail_states:
+                    env_objects |= set(s)
                 optn_objs = fail_optn_dict[g_optn].optn_objs
                 # optn_vars = fail_optn_dict[g_optn]['optn_vars']
 
@@ -1643,7 +1655,7 @@ def remove_intermediate_states(dataset: Dataset) -> Dataset:
             cur_ground_option = traj._actions[i].get_option()
             # Only adding the state when the ground option changes
             if prev_ground_option != cur_ground_option:
-                logging.debug(f"ground_option at step {i}: {cur_ground_option} is different from the prev ground option")
+                # logging.debug(f"ground_option at step {i}: {cur_ground_option} is different from the prev ground option")
                 new_states.append(traj._states[i])
                 new_actions.append(traj._actions[i])
                 prev_ground_option = cur_ground_option
@@ -1651,6 +1663,32 @@ def remove_intermediate_states(dataset: Dataset) -> Dataset:
 
         # Update the trajectory to the sparse states and actions
         new_trajectories.append(LowLevelTrajectory(new_states, 
+                                                    new_actions,
+                                                    traj.is_demo,
+                                                    traj.train_task_idx))
+    return Dataset(new_trajectories)
+
+def sparse_dataset_from_dataset_and_states(dataset: Dataset, 
+                                suc_state_trajs: List[List[State]]) -> Dataset:
+    """Make a sparse dataset that has states before executing each ground option
+    and the final state, assuming the state trajectories are given.
+    The actions here are not very important because they are not used."""
+    # This doesn't work because only newly successful states are passed in.
+    # assert len(dataset.trajectories) == len(suc_state_trajs),\
+    #     "The number of trajectories need to be the same."
+    new_trajectories = []
+    for traj, suc_state_traj in zip(dataset.trajectories, suc_state_trajs):
+        new_actions = []
+        prev_ground_option = None
+        for i in range(len(traj._actions)):
+            cur_ground_option = traj._actions[i].get_option()
+            # Only adding the state when the ground option changes
+            if prev_ground_option != cur_ground_option:
+                logging.debug(f"ground_option at step {i}: {cur_ground_option} is different from the prev ground option")
+                new_actions.append(traj._actions[i])
+                prev_ground_option = cur_ground_option
+        # Update the trajectory to the sparse states and actions
+        new_trajectories.append(LowLevelTrajectory(suc_state_traj, 
                                                     new_actions,
                                                     traj.is_demo,
                                                     traj.train_task_idx))
@@ -3093,16 +3131,9 @@ class _MemoizedClassifier():
         # if state, object exist in cache, return the value
         # else compute the truth value using the classifier
         objects_tuple = tuple(objects)
-        # truth_value = self.cache.get((state.__hash__(), objects_tuple))
-        # if truth_value is not None:
-        #     return truth_value
-        # else:
-        #     return self.classifier(state, objects)
 
         return self.cache.get((hash(state), objects_tuple), 
                               self.classifier(state, objects))
-        # except:
-        #     breakpoint()
 
 def compare_abstract_accuracy(env: BaseEnv, states: List[State],
     est_preds_to_gt_preds: Dict[NSPredicate, Predicate]) -> None:

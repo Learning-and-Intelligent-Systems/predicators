@@ -2,7 +2,7 @@
 ---
 APPROACHES:
   learn_all:
-    # NAME: "oracle"
+    NAME: "oracle"
     # NAME: "grammar_search_invention"
     FLAGS: []
 ENVS:

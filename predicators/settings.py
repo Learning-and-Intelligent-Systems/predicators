@@ -76,7 +76,7 @@ class GlobalSettings:
     regional_bumpy_cover_include_impossible_nsrt = False
 
     # blocks env parameters
-    blocks_num_blocks_train = [2, 3, 4]
+    blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
@@ -653,6 +653,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # grammar search invention parameters
     grammar_search_grammar_use_single_feature = True
     grammar_search_grammar_includes_givens = True
+    grammar_search_grammar_includes_negation = True
     grammar_search_grammar_includes_foralls = True
     grammar_search_grammar_use_diff_features = False
     grammar_search_grammar_use_euclidean_dist = False
@@ -747,6 +748,13 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
+                })[args.get("env", "")],
+            online_learn_horizon=defaultdict(
+                lambda: 100,
+                {
+                    # For certain environments, actions are lower level, so
+                    # tasks take more actions to complete.
+                    "pybullet_blocks": 100,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.

@@ -306,9 +306,9 @@ class Predicate:
     def __hash__(self) -> int:
         return self._hash
     
-    def __eq__(self, other) -> bool:
-        # equal by name
-        return self.name == other.name and self.types == other.types
+    # def __eq__(self, other) -> bool:
+    #     # equal by name
+    #     return self.name == other.name and self.types == other.types
 
     @cached_property
     def arity(self) -> int:
@@ -666,9 +666,9 @@ class ParameterizedOption:
     def __hash__(self) -> int:
         return self._hash
 
-    # def __str__(self) -> str:
-    #     variables = ", ".join(t.name for t in self.types)
-    #     return f"{self.name}({variables})"
+    def __str__(self) -> str:
+        variables = ", ".join(t.name for t in self.types)
+        return f"{self.name}({variables})"
 
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
@@ -722,6 +722,11 @@ class _Option:
     
     def clear_memory(self):
         self.memory: Dict = {}
+    
+    def __str__(self) -> str:
+        objects = ", ".join(o.name for o in self.objects)
+        params = ", ".join(str(round(p, 2)) for p in self.params)
+        return f"{self.name}({objects}, {params})"
 
 
 DummyOption: _Option = ParameterizedOption(
@@ -1255,7 +1260,10 @@ class LowLevelTrajectory:
     _train_task_idx: Optional[int] = field(default=None)
 
     def __post_init__(self) -> None:
-        assert len(self._states) == len(self._actions) + 1
+        try:
+            assert len(self._states) == len(self._actions) + 1
+        except:
+            breakpoint()
         if self._is_demo:
             assert self._train_task_idx is not None
 
@@ -1390,6 +1398,7 @@ class GroundOptionRecord:
     option: ParameterizedOption = field(default=None)
     error: Optional[Exception] = field(default=None)
 
+    @property
     def has_states(self) -> bool:
         """Check if the states list is non-empty"""
         return bool(self.states)
@@ -1413,16 +1422,16 @@ class GroundOptionRecord:
         # if rendered_state:
         #     self.rendered_states.append(rendered_state)
 
-    def assign_values(self, 
-                      optn_objs: List[Object], optn_vars: List[Variable], 
-                      option: ParameterizedOption, 
-                      error: Optional[Exception] = None
-                      ) -> None:
-        """Assign new values to optn_objs, optn_vars, option, and error"""
-        self.optn_objs = optn_objs
-        self.optn_vars = optn_vars
-        self.option = option
-        self.error = error
+    # def assign_values(self, 
+    #                   optn_objs: List[Object], optn_vars: List[Variable], 
+    #                   option: ParameterizedOption, 
+    #                   error: Optional[Exception] = None
+    #                   ) -> None:
+    #     """Assign new values to optn_objs, optn_vars, option, and error"""
+    #     self.optn_objs = optn_objs
+    #     self.optn_vars = optn_vars
+    #     self.option = option
+    #     self.error = error
 
 @dataclass(eq=False)
 class Segment:

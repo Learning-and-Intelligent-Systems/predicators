@@ -127,8 +127,11 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     """A score function that learns operators given the set of predicates."""
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
-        total_cost = sum(self._candidates[pred]
+        try:
+            total_cost = sum(self._candidates[pred]
                          for pred in candidate_predicates)
+        except:
+            breakpoint()
         logging.debug(f"Evaluating predicates: {candidate_predicates}, with "
                      f"total cost {total_cost}")
         start_time = time.perf_counter()
@@ -159,12 +162,12 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                 "Warning: Operator Learning timed out! Skipping evaluation.")
             return float('inf')
 
-        logging.debug(
-            f"Learned {len(pnads)} operators for this predicate set.")
-        for pnad in pnads:
-            logging.debug(
-                f"Operator {pnad.op.name} has {len(pnad.datastore)} datapoints."
-            )
+        # logging.debug(
+        #     f"Learned {len(pnads)} operators for this predicate set.")
+        # for pnad in pnads:
+        #     logging.debug(
+        #         f"Operator {pnad.op.name} has {len(pnad.datastore)} datapoints."
+        #     )
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
@@ -177,6 +180,17 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         total_score = op_score + pred_penalty + op_penalty
         logging.debug(f"\tTotal score: {total_score} computed in "
                      f"{time.perf_counter()-start_time:.3f} seconds")
+        # pre_str = [p.name for p in candidate_predicates]
+        # if sorted(pre_str) == sorted(["Clear", "Holding", "On", "OnTable", 
+        #                               "GripperOpen"]) or\
+        #    sorted(pre_str) == sorted(["Clear", "NOT-GripperOpen", "On", "OnTable", 
+        #                               "GripperOpen"]):
+        #     print(f"Learned operators: {pnads}")
+        #     print(pre_str)
+            #  ite 1: -99.9989 vs -99.9988, second appeared first
+            # ite 2: -99.9988 vs. -95.9989
+            # -100 + 0.0012000000000000001 + 0.0 vs -96 + 0.0011
+            # breakpoint()
         return total_score
 
     def evaluate_with_operators(self,
@@ -218,6 +232,7 @@ class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
         )
         accuracy = round((tp + tn) / (tp + tn + fp + fn), 
                      2) if tp + tn + fp + fn > 0 else 0
+        logging.debug(f"tp: {tp}, tn: {tn}, fp: {fp}, fn: {fn}, accuracy: {accuracy}")
         return -accuracy*100
 
 @dataclass(frozen=True, eq=False, repr=False)
