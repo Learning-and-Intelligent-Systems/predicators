@@ -475,10 +475,12 @@ def test_maple_q_function():
     # Test grounding.
     model.set_grounding(objects, [task.goal], ground_nsrts)
     # Test getting a random option.
-    sampled_option = model.get_option(task.init, task.goal, 1, epsilon=1.0)
+    sampled_option = model.get_option(task.init, task.goal, 1, \
+                                      train_or_test="test")
     assert sampled_option.initiable(task.init)
     # Test getting a non-random option.
-    sampled_option = model.get_option(task.init, task.goal, 1, epsilon=0.0)
+    sampled_option = model.get_option(task.init, task.goal, 1, \
+                                      train_or_test="test")
     assert sampled_option.initiable(task.init)
     # Test learning.
     data = (task.init, task.goal, option, task.init, 1.0, False)
