@@ -37,7 +37,8 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.structs import Dataset, LowLevelTrajectory, Predicate, \
     ParameterizedOption, Type, Task, Optional, GroundAtomTrajectory, \
-    AnnotatedPredicate, State, Object, _TypedEntity, GroundOptionRecord, Action
+    AnnotatedPredicate, State, Object, _TypedEntity, GroundOptionRecord, \
+    Action, _Option
 from predicators.approaches.grammar_search_invention_approach import \
     create_score_function, _create_grammar, _GivenPredicateGrammar 
 from predicators.envs import BaseEnv
@@ -55,6 +56,13 @@ from predicators.structs import State, Object, Predicate, Type
 PlanningResult = namedtuple("PlanningResult", 
                                 ['succeeded', 
                                  'info'])
+
+def are_equal_by_obj(list1: List[_Option], list2: List[_Option]) -> bool:
+    if len(list1) != len(list2):
+        return False
+
+    return all(option1.eq_by_obj(option2) for option1, option2 in 
+               zip(list1, list2))
 
 def print_confusion_matrix(tp: float, tn: float, fp: float, fn: float) -> None:
     '''Compate and print the confusion matrix
@@ -128,7 +136,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._learned_predicates = (set(preds.values()) -
                                     self._initial_predicates)
 
-    def _solve_tasks(self, env: BaseEnv, tasks: List[Task]) -> \
+    def _solve_tasks(self, env: BaseEnv, tasks: List[Task], ite: int) -> \
         Tuple[List[PlanningResult], Dataset]:
         '''When return_trajctories is True, return the dataset of trajectories
         otherwise, return the results of solving the tasks (succeeded/failed 
@@ -137,7 +145,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         results = []
         trajectories = []
         for idx, task in enumerate(tasks):
-            logging.info(f"Solving Task {idx}")
+            logging.info(f"Ite {ite}. Solving Task {idx}")
             # task.init.labeled_image.save(f"images/trn_{idx}_init_pre_solving.png")
             try:
                 policy = self.solve(task, timeout=CFG.timeout) 
@@ -175,14 +183,15 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                 })
                 # except:
                 #     breakpoint()
-                traj = LowLevelTrajectory(traj.states,
-                                        traj.actions,
-                                        _is_demo=True,
-                                        _train_task_idx=idx)
-                trajectories.append(traj)
+                self.task_to_latest_traj[idx] = LowLevelTrajectory(
+                                                            traj.states,
+                                                            traj.actions,
+                                                            _is_demo=True,
+                                                            _train_task_idx=idx)
+                # trajectories.append(traj)
             results.append(result)
-        dataset = Dataset(trajectories)
-        return results, dataset
+        # dataset = Dataset(trajectories)
+        return results
 
 
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
@@ -209,7 +218,17 @@ class VlmInventionApproach(NSRTLearningApproach):
         logging.debug(f"Initial predicates: {self._get_current_predicates()}")
         logging.debug(f"Initial operators: {pformat(self._init_nsrts)}")
         
-        results, dataset = self.collect_dataset(0, env, tasks)
+        # For storing the results found at every iteration
+        self.task_to_latest_traj: Dict[int, LowLevelTrajectory] = dict()
+        # For help checking if a new plan is unique
+        self.task_to_plans: Dict[int, List[_Option]] = defaultdict(list)
+        # Organize a dataset for operator learning. This becomes the operator 
+        # learning dataset when the trajectories are put together.
+        self.task_to_trajs: Dict[int, List[LowLevelTrajectory]] = \
+            defaultdict(list)
+
+        # Return the results and populate self.task_to_latest_traj
+        results = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
@@ -219,15 +238,15 @@ class VlmInventionApproach(NSRTLearningApproach):
             defaultdict(GroundOptionRecord)
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
-        self.task_idx_to_states: Dict[int, List[State]] = defaultdict(list)
 
         for ite in range(1, max_invent_ite+1):
             logging.info(f"===Starting iteration {ite}...")
             # Reset at every iteration
             # self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
             # self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
-            sparse_dataset = self._process_interaction_result(env, results, 
-                            dataset, tasks, ite, log_when_first_success=True)
+            # This will update self.task_to_tasjs
+            self._process_interaction_result(env, results, tasks, ite, 
+                                             use_only_first_solution=False)
             #### End of data collection
 
             # Invent when no improvement in solve rate
@@ -259,6 +278,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                     regenerate_response)
                 logging.info(f"Done: created {len(new_candidates)} candidates:")
 
+                # Apply the candidate predicates to the data.
+                all_trajs = []
+                for _, trajs in self.task_to_trajs.items():
+                    for traj in trajs: all_trajs.append(traj)
+
                 if CFG.llm_predicator_oracle_learned:
                     self._learned_predicates = new_candidates
                 else:
@@ -269,8 +293,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # Optionally add grammar to the candidates
                     all_candidates: Dict[Predicate, float] = {}
                     if CFG.llm_predicator_use_grammar:
-                        grammar = _create_grammar(dataset=dataset, 
-                            given_predicates=base_candidates)
+                        grammar = _create_grammar(dataset=Dataset(all_trajs), 
+                                            given_predicates=base_candidates)
                     else:
                         # Assign cost 0 for every candidate, for now.
                         # Update: Also use simple grammar
@@ -295,11 +319,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 state, 
                                 set(all_candidates) | self._initial_predicates))
                             optn_dict[g_optn].abstract_states = atom_states
-                    # sparse_dataset = utils.remove_intermediate_states(dataset)
-                    # Apply the candidate predicates to the data.
+
                     atom_dataset: List[GroundAtomTrajectory] =\
                         utils.create_ground_atom_dataset(
-                            sparse_dataset.trajectories, 
+                            all_trajs, 
                             set(all_candidates) | self._initial_predicates)
                     logging.info("[Finish] Applying predicates to data....")
 
@@ -322,9 +345,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             # breakpoint()
 
             # Finally, learn NSRTs via superclass, using all the kept predicates.
-            self._learn_nsrts(sparse_dataset.trajectories, 
-                            online_learning_cycle=None,
-                            annotations=sparse_dataset._annotations)
+            self._learn_nsrts(all_trajs, online_learning_cycle=None, 
+                              annotations=None)
 
             # Add init_nsrts whose option isn't in the current nsrts to 
             cur_options = [nsrt.option for nsrt in self._nsrts]
@@ -336,7 +358,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # Collect Data again
             # Set up load/save filename for interaction dataset
-            results, dataset = self.collect_dataset(ite, env, tasks)
+            results = self.collect_dataset(ite, env, tasks)
             num_solved = sum([r.succeeded for r in results])
             solve_rate= num_solved / num_tasks
             no_improvement = not(solve_rate > prev_solve_rate)
@@ -375,11 +397,9 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def _process_interaction_result(self, env: BaseEnv,
                             results: List[PlanningResult], 
-                            dataset: Dataset,
                             tasks: List[Task],
                             ite: int,
-                            log_when_first_success: bool,
-                            add_intermediate_details: bool=False) -> Dataset:    
+                            use_only_first_solution: bool) -> Dataset:    
         '''
         Process the data obtained in solving the tasks into ground truth 
         positive and negative states for the ground options.
@@ -403,43 +423,76 @@ class VlmInventionApproach(NSRTLearningApproach):
                          desc="Processing Interaction results"):
             # Planning Results
             result = results[i]
-            try:
-                num_skeletons_optimized = result.info['metrics'][
-                    'num_skeletons_optimized']
-                # When would this happen?
-                # if num_skeletons_optimized == 0:
-                #     continue
-            except Exception as e:
-                logging.info(f"Task {i}: is not dr-reachable.")
-                continue
+            # try:
+            #     num_skeletons_optimized = result.info['metrics'][
+            #         'num_skeletons_optimized']
+            #     # When would this happen?
+            #     # if num_skeletons_optimized == 0:
+            #     #     continue
+            # except Exception as e:
+            #     logging.info(f"Task {i}: is not dr-reachable.")
+            #     continue
 
-            # if isinstance(result, tuple):
             if result.succeeded:
                 # Found a successful plan
                 # logging.info(f"Task {i}: planning succeeded.")
-                # Only log
                 nsrt_plan = result.info['nsrt_plan']
                 option_plan = result.info['option_plan'].copy()
-                # logging.debug(f"Processing succeeded plan {option_plan}")
                 logging.debug(f"Processing succeeded plan " + 
                 f"{[op.name + str(op.objects) for op in option_plan]}")
-                if log_when_first_success:
+
+                # if i in self.task_idx_to_plans:
+                #     # When a plan has previously been found for task i.
+                #     existing_plan = self.task_idx_to_plans[i]
+                #     # find a different plan for the same task
+                #     if not are_equal_by_obj(existing_plan, option_plan):
+                #         logging.debug(f"The existing plan: {existing_plan} is "
+                #             f"different from the new plan {option_plan}")
+                #         breakpoint()
+                # else:
+                #     # When a plan is first found for task i
+                #     self.task_idx_to_plans[i] = option_plan.copy()
+                #     # todo: Add the sparse traj to the dataset
+
+                # Check before processing for some efficiency gain
+                if use_only_first_solution:
                     if self.solve_log[i]:
+                        # If the task has previously been solved
                         continue # continue to logging the next task
                     else:
+                        # Otherwise, update the log
                         self.solve_log[i] = True
-                # Add the Plan Execution Trajectory
-                init_state = env.reset(train_or_test='train', task_idx=i)
-                # init_state.labeled_image.save(f"images/trn_{i}_init_pre_proc_succ.png")
-                suc_state_traj = self._execute_succ_plan_and_track_state(
-                    init_state, env, nsrt_plan, option_plan)
+                
+                # Check if the current plan is novel from before
+                if i in self.task_to_plans:
+                    # Has solved before
+                    if any(are_equal_by_obj(option_plan, plan) for plan in 
+                        self.task_to_plans[i]):
+                        # If the current plan is the same as any previous one
+                        continue
+                    else:
+                        # Add the novel plan to the storage
+                        logging.warning(f"Found a novel plan for task {i}")
+                        breakpoint()
+                        self.task_to_plans[i].append(option_plan.copy())
+                else:
+                    # If the task haven't been solved before, add it directly
+                    self.task_to_plans[i].append(option_plan.copy())
 
-                # Save the images to debug
-                # for traj_idx, state in enumerate(suc_state_traj):
-                #     state.labeled_image.save(f"images/traj_state{traj_idx}.png")
-                # breakpoint()
-                self.task_idx_to_states[i] = suc_state_traj
-                # suc_state_trajs.append(suc_state_traj)
+                # If the code has got here:
+                # it's the 1st time solving task i or we've found a new plan.
+                suc_state_traj = self._execute_succ_plan_and_track_state(
+                    env.reset(train_or_test='train', task_idx=i), env, 
+                    nsrt_plan, option_plan)
+                
+                # Add it to the trajectory dictionary
+                dense_traj = self.task_to_latest_traj[i]
+                self.task_to_trajs[i].append(LowLevelTrajectory(
+                    suc_state_traj,
+                    utils.sparse_actions_from_dense_traj(suc_state_traj,
+                                                         dense_traj),
+                    _is_demo=dense_traj.is_demo, 
+                    _train_task_idx=dense_traj.train_task_idx))
 
             # Currently, the unsuccessful experience is accumulated
             # The failed refinements (negative samples)
@@ -465,11 +518,16 @@ class VlmInventionApproach(NSRTLearningApproach):
                 _ = self._execute_succ_plan_and_track_state(state, env, 
                         nsrt_plan[failed_opt_idx:], option_plan[-1:], 
                         failed_opt=True)
+        
+        # task_idx_to_states is only updated when a task is first solved
+        # so it's not updated if a different plan is found for the same task
+        # which might break the __post_init__ condition.
+        # This makes the assumption that the plan doesn't change as it learns.
         # sparse_dataset = utils.sparse_dataset_from_dataset_and_states(
         #                                                     dataset,
         #         [v for k, v in sorted(self.task_idx_to_states.items()) if v])
-        sparse_dataset = dataset
-        return sparse_dataset
+        # sparse_dataset = dataset
+        # return sparse_dataset
         # Add the abstract states.
         # This is used later when creating the predicate invention prompt
         # Can we get the same thing from _execute_plan_and_track_state? -> Yes, moved to there
@@ -542,8 +600,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 # [option], raise_error_on_repeated_state=True)
                             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-                            logging.info("Start new option at step "+
-                                            f"{env_step_counter}")
+                            # logging.info("Start new option at step "+
+                            #                 f"{env_step_counter}")
                             g_nsrt = nsrt_plan[nsrt_counter]
                             gop_str = g_nsrt.ground_option_str()
                             states.append(option_start_state)
@@ -561,7 +619,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     state = env.step(act)
                     env_step_counter += 1
 
-        logging.debug(f"Finish executing after {env_step_counter} steps.")
+        # logging.debug(f"Finish executing after {env_step_counter} steps.")
         return states
 
     def _execute_plan_and_track_state(self, init_state: State, env: BaseEnv, 
@@ -654,17 +712,17 @@ class VlmInventionApproach(NSRTLearningApproach):
         ds_fname = utils.llm_pred_dataset_save_name(ite)
         if CFG.load_llm_pred_invent_dataset and os.path.exists(ds_fname):
             with open(ds_fname, 'rb') as f:
-                results, dataset = dill.load(f) 
+                results = dill.load(f) 
             logging.info(f"Loaded dataset from {ds_fname}\n")
         else:
             # Ask it to solve the tasks
-            results, dataset = self._solve_tasks(env, tasks)
+            results = self._solve_tasks(env, tasks, ite)
             if CFG.save_llm_pred_invent_dataset:
                 os.makedirs(os.path.dirname(ds_fname), exist_ok=True)
                 with open(ds_fname, 'wb') as f:
-                    dill.dump((results, dataset), f)
+                    dill.dump(results, f)
                 logging.info(f"Saved dataset to {ds_fname}\n")
-        return results, dataset
+        return results
 
     def _get_llm_predictions(self, prompt: str, response_file: str,
                              manual_prompt: bool=False,

@@ -232,7 +232,9 @@ class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
         )
         accuracy = round((tp + tn) / (tp + tn + fp + fn), 
                      2) if tp + tn + fp + fn > 0 else 0
-        logging.debug(f"tp: {tp}, tn: {tn}, fp: {fp}, fn: {fn}, accuracy: {accuracy}")
+        num = tp + tn + fp + fn
+        logging.debug(f"num: {num}. tp: {tp}, tn: {tn}, fp: {fp}, fn: {fn}, "+\
+                    f"accuracy: {accuracy}")
         return -accuracy*100
 
 @dataclass(frozen=True, eq=False, repr=False)
