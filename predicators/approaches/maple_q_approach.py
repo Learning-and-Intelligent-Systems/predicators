@@ -28,9 +28,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task]) -> None:
+                 action_space: Box, train_tasks: List[Task], _skeleton_atom_seqs) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
+        self._skeleton_atom_seqs = None
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
@@ -55,8 +56,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             train_print_every=CFG.pytorch_train_print_every,
             n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
             num_lookahead_samples=CFG.
-            active_sampler_learning_num_lookahead_samples)
-
+            active_sampler_learning_num_lookahead_samples,)
+        self._skeleton_atom_seqs = _skeleton_atom_seqs
+        
     @classmethod
     def get_name(cls) -> str:
         return "maple_q"
@@ -125,35 +127,35 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 assert nsrt.option_vars == nsrt.parameters  # pragma: no cover.
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
-        if not online_learning_cycle:
-            all_ground_nsrts: Set[_GroundNSRT] = set()
-            if CFG.sesame_grounder == "naive":
-                for nsrt in self._nsrts:
-                    all_objects = {
-                        o
-                        for t in self._train_tasks for o in t.init
-                    }
-                    all_ground_nsrts.update(
-                        utils.all_ground_nsrts(nsrt, all_objects))
-            elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
-                all_objects = set()
-                for t in self._train_tasks:
-                    curr_task_objects = set(t.init)
-                    curr_task_types = {o.type for o in t.init}
-                    curr_init_atoms = utils.abstract(
-                        t.init, self._get_current_predicates())
-                    all_ground_nsrts.update(
-                        utils.all_ground_nsrts_fd_translator(
-                            self._nsrts, curr_task_objects,
-                            self._get_current_predicates(), curr_task_types,
-                            curr_init_atoms, t.goal))
-                    all_objects.update(curr_task_objects)
-            else:  # pragma: no cover
-                raise ValueError(
-                    f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
-            goals = [t.goal for t in self._train_tasks]
-            self._q_function.set_grounding(all_objects, goals,
-                                           all_ground_nsrts)
+            if not online_learning_cycle:
+                all_ground_nsrts: Set[_GroundNSRT] = set()
+                if CFG.sesame_grounder == "naive":
+                    for nsrt in self._nsrts:
+                        all_objects = {
+                            o
+                            for t in self._train_tasks for o in t.init
+                        }
+                        all_ground_nsrts.update(
+                            utils.all_ground_nsrts(nsrt, all_objects))
+                elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
+                    all_objects = set()
+                    for t in self._train_tasks:
+                        curr_task_objects = set(t.init)
+                        curr_task_types = {o.type for o in t.init}
+                        curr_init_atoms = utils.abstract(
+                            t.init, self._get_current_predicates())
+                        all_ground_nsrts.update(
+                            utils.all_ground_nsrts_fd_translator(
+                                self._nsrts, curr_task_objects,
+                                self._get_current_predicates(), curr_task_types,
+                                curr_init_atoms, t.goal))
+                        all_objects.update(curr_task_objects)
+                else:  # pragma: no cover
+                    raise ValueError(
+                        f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+                goals = [t.goal for t in self._train_tasks]
+                self._q_function.set_grounding(all_objects, goals,
+                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.
@@ -187,7 +189,20 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
-                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+                # float(CFG.max_num_steps_interaction_request/2)
+                # for i in range(len(self._skeleton_atom_seqs)):
+                #     atoms = self._skeleton_atom_seqs[i]
+                #     if reward == 0.0 and atoms.issubset(segment.final_atoms):
+                #         reward = 1/(len(self._skeleton_atom_seqs)-i)
+
+                terminal = reward == 1.0 or seg_i == len(segmented_traj) - 1
+
+                #TRY  PRINGINT OUT WHEN WE CALLPLANNER + GET +1 REWARD
+
+
+                # if reward > 0:
+                # print(s, o, reward, terminal)
+                # reward = reward - 1
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))
 

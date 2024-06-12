@@ -1165,6 +1165,7 @@ def _sesame_plan_with_fast_downward(
 
 
 def run_task_plan_once(
+        init,
         task: Task,
         nsrts: Set[NSRT],
         preds: Set[Predicate],
@@ -1182,8 +1183,10 @@ def run_task_plan_once(
 
     The sequence of ground atom sets returned represent NECESSARY atoms.
     """
-
-    init_atoms = utils.abstract(task.init, preds)
+    if init is None:
+        init_atoms = utils.abstract(task.init, preds)
+    else:
+        init_atoms = init
     goal = task.goal
     objects = set(task.init)
 

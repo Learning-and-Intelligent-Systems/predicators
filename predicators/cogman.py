@@ -133,9 +133,9 @@ class CogMan:
         return self._approach.get_interaction_requests()
 
     def learn_from_interaction_results(
-            self, results: Sequence[InteractionResult]) -> None:
+            self, results: Sequence[InteractionResult], policy_logs) -> None:
         """See BaseApproach docstring."""
-        return self._approach.learn_from_interaction_results(results)
+        return self._approach.learn_from_interaction_results(results, policy_logs)
 
     @property
     def metrics(self) -> Metrics:
@@ -175,6 +175,15 @@ class CogMan:
         else:
             self._current_policy = self._approach.solve(task,
                                                         timeout=CFG.timeout)
+            
+        print("NEW EPISODE")
+        self._approach._current_control = "planner"
+        _skeleton_atom_seqs, option_policy = self._approach._get_option_policy_by_planning(None, task, 1000)
+        self._approach._current_policy = utils.option_policy_to_policy(
+            option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout,
+            raise_error_on_repeated_state=True,
+        )
 
 
 def run_episode_and_get_observations(
@@ -215,6 +224,7 @@ def run_episode_and_get_observations(
     metrics["policy_call_time"] = 0.0
     metrics["num_options_executed"] = 0.0
     exception_raised_in_step = False
+    policy_log = []
     if not (terminate_on_goal_reached and env.goal_reached()):
         for _ in range(max_num_steps):
             monitor_observed = False
@@ -230,6 +240,8 @@ def run_episode_and_get_observations(
                     metrics["num_options_executed"] += 1
                     if train_or_test == "test":
                         print(curr_option)
+                    # else:
+                    #     print("TRAIN", curr_option, cogman._approach._current_control)
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env
@@ -242,6 +254,7 @@ def run_episode_and_get_observations(
                 obs = env.step(act)
                 actions.append(act)
                 observations.append(obs)
+                policy_log.append(cogman._approach._current_control)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    any(issubclass(type(e), c) for c in exceptions_to_break_on):
@@ -258,7 +271,7 @@ def run_episode_and_get_observations(
     cogman.finish_episode(obs)
     traj = (observations, actions)
     solved = env.goal_reached()
-    return traj, solved, metrics
+    return traj, solved, metrics, policy_log
 
 
 def run_episode_and_get_states(

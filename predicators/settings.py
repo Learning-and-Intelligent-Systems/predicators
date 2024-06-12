@@ -18,11 +18,11 @@ class GlobalSettings:
     num_test_tasks = 50
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.
-    num_online_learning_cycles = 10
+    num_online_learning_cycles = 100 #10
     online_learning_max_transitions = float("inf")
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
-    max_initial_demos = float("inf")
+    max_initial_demos = 0 #float("inf")
     # If this is False, then environment interactions can only take place
     # on tasks that have no demonstrations.
     allow_interaction_in_demo_tasks = True
@@ -547,7 +547,7 @@ class GlobalSettings:
     interactive_score_function = "entropy"
     interactive_score_threshold = 0.05
     interactive_random_query_prob = 0.5  # for query policy random
-    interactive_num_requests_per_cycle = 10
+    interactive_num_requests_per_cycle = 5 #10
     predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 100000
     predicate_mlp_classifier_n_reinitialize_tries = 1
@@ -555,7 +555,7 @@ class GlobalSettings:
     predicate_knn_classifier_n_neighbors = 1
 
     # online NSRT learning parameters
-    online_nsrt_learning_requests_per_cycle = 10
+    online_nsrt_learning_requests_per_cycle = 5 #10
     online_learning_max_novelty_count = 0
 
     # active sampler learning parameters
@@ -709,6 +709,7 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
+                    "grid_row_door": cls.grid_row_num_cells + 5
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.

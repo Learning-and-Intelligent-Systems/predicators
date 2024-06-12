@@ -198,6 +198,7 @@ def _run_pipeline(env: BaseEnv,
         num_solved = 0.0
         good_light_q_values =[]
         bad_light_q_values =[]
+        best_move_q_values = []
         #good open door, like when we actually wanna open the door and we open it
         good_open_door_q_values = []
         #bad open door, when we wanna open door but move forward instead RIPP
@@ -237,7 +238,7 @@ def _run_pipeline(env: BaseEnv,
                 logging.info("Did not receive any interaction requests, "
                              "terminating")
                 break  # agent doesn't want to learn anything more; terminate
-            interaction_results, query_cost = _generate_interaction_results(
+            interaction_results, query_cost, policy_logs = _generate_interaction_results(
                 cogman, env, teacher, interaction_requests, i)
             num_online_transitions += sum(
                 len(result.actions) for result in interaction_results)
@@ -249,20 +250,21 @@ def _run_pipeline(env: BaseEnv,
             if not CFG.load_approach or CFG.restart_learning:
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
-                cogman.learn_from_interaction_results(interaction_results)
+                cogman.learn_from_interaction_results(interaction_results, policy_logs)
                 learning_time += time.perf_counter() - learning_start
 
             # Evaluate approach after every online learning cycle.
-            # if cogman._approach.mapleq._q_function._x_dims:
-            #     a,b,c,d,e,f =(cogman._approach.mapleq._q_function.get_q_values())
-            #     good_light_q_values.append(a)
-            #     bad_light_q_values.append(b)
-            #     good_open_door_q_values.append(c)
-            #     bad_open_door_q_values.append(d)
-            #     good_move_q_values.append(e)
-            #     bad_move_q_values.append(f)
-            # else:
-            #     q_values.append([0]*20)
+            if cogman._approach.mapleq._q_function._x_dims:
+                a,b,c,d,e,f,g =(cogman._approach.mapleq._q_function.get_q_values())
+                good_light_q_values.append(a)
+                bad_light_q_values.append(b)
+                good_open_door_q_values.append(c)
+                bad_open_door_q_values.append(d)
+                good_move_q_values.append(e)
+                bad_move_q_values.append(f)
+                best_move_q_values.append(g)
+            else:
+                q_values.append([0]*20)
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
@@ -303,60 +305,69 @@ def _run_pipeline(env: BaseEnv,
         plt.savefig(filename, dpi=300)
         plt.clf()
 
-        # # FOR PLOTTING Q VALUES
-        # plt.plot(learning_cycles, good_light_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("GOOD LIGHT q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        # FOR PLOTTING Q VALUES
+        plt.plot(learning_cycles, good_light_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("GOOD LIGHT q values")
+        plt.title("GOOD LIGHT Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, bad_light_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("BAD LIGHT q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, bad_light_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("BAD LIGHT q values")
+        plt.title("BAD LIGHT Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, good_open_door_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("GOOD DOOR q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, good_open_door_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("GOOD DOOR q values")
+        plt.title("GOOD DOOR Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, bad_open_door_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'BAD DOOR qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("BAD DOOR q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, bad_open_door_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'BAD DOOR qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("BAD DOOR q values")
+        plt.title("BAD DOOR Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, good_move_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'GOOD MOVE qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("GOOD MOVE q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, good_move_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'GOOD MOVE qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("GOOD MOVE q values")
+        plt.title("GOOD MOVE Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
-        # plt.plot(learning_cycles, bad_move_q_values)
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # filename = f'BAD MOVE qvalues_plot_{timestamp}.png'
-        # plt.xlabel("num_online_learning_cycles")
-        # plt.ylabel("BAD MOVE q values")
-        # plt.title("Q-values", fontsize=16, fontweight='bold')
-        # plt.savefig(filename, dpi=300)
-        # plt.clf()
+        plt.plot(learning_cycles, bad_move_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'BAD MOVE qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("BAD MOVE q values")
+        plt.title("BAD MOVE  Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
+
+        plt.plot(learning_cycles, best_move_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'BEST MOVE qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("BEST MOVE q values")
+        plt.title("BEST MOVE Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
     else:
         results = _run_testing(env, cogman)
         results["num_offline_transitions"] = 0
@@ -378,6 +389,7 @@ def _generate_interaction_results(
     logging.info("Generating interaction results...")
     results = []
     query_cost = 0.0
+    policy_logs = []
     if CFG.make_interaction_videos:
         video: Video = []
     for request in requests:
@@ -395,7 +407,7 @@ def _generate_interaction_results(
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
         cogman.reset(env_task)
-        observed_traj, _, _ = run_episode_and_get_observations(
+        observed_traj, _, _, policy_log = run_episode_and_get_observations(
             cogman,
             env,
             "train",
@@ -408,6 +420,7 @@ def _generate_interaction_results(
                 utils.RequestActPolicyFailure,
             },
             monitor=monitor)
+        policy_logs.append(policy_log)
         cogman.unset_override_policy()
         cogman.unset_termination_function()
         traj = cogman.get_current_history()
@@ -429,7 +442,7 @@ def _generate_interaction_results(
         save_prefix = utils.get_config_path_str()
         outfile = f"{save_prefix}__cycle{cycle_num}.mp4"
         utils.save_video(outfile, video)
-    return results, query_cost
+    return results, query_cost, policy_logs
 
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
@@ -495,7 +508,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            traj, solved, execution_metrics = run_episode_and_get_observations(
+            traj, solved, execution_metrics, _ = run_episode_and_get_observations(
                 cogman,
                 env,
                 "test",

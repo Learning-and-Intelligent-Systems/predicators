@@ -121,12 +121,13 @@ class BilevelPlanningApproach(BaseApproach):
         return option_plan, nsrt_plan, metrics
 
     def _run_task_plan(
-        self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+        self, init, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
 
         try:
             plan, atoms_seq, metrics = run_task_plan_once(
+                init,
                 task,
                 nsrts,
                 preds,

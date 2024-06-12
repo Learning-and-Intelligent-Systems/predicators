@@ -1333,7 +1333,7 @@ class MapleQFunction(MLPRegressor):
                  n_iter_no_change: int = 10000000,
                  discount: float = 0.8,
                  num_lookahead_samples: int = 5,
-                 replay_buffer_max_size: int = 1000000,
+                 replay_buffer_max_size: int = 100000, #1000000
                  replay_buffer_sample_with_replacement: bool = True) -> None:
         super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
                          clip_value, learning_rate, weight_decay,
@@ -1388,6 +1388,7 @@ class MapleQFunction(MLPRegressor):
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
+        print("NUMBER", len(ground_nsrts), len(self._ground_nsrt_to_idx))
 
     def get_q_values(self):
         return self._good_light_q_values[:20] + [0] * max(0, 20 - len(self._good_light_q_values)), \
@@ -1395,7 +1396,8 @@ class MapleQFunction(MLPRegressor):
             self._good_open_door_q_values[:20] + [0] * max(0, 20 - len(self._good_open_door_q_values)), \
             self._bad_open_door_q_values[:20] + [0] * max(0, 20 - len(self._bad_open_door_q_values)), \
             self._good_move_q_values[:20] + [0] * max(0, 20 - len(self._good_move_q_values)), \
-            self._bad_move_q_values[:20] + [0] * max(0, 20 - len(self._bad_move_q_values))
+            self._bad_move_q_values[:20] + [0] * max(0, 20 - len(self._bad_move_q_values)), \
+            self._best_move_q_values[:20] + [0] * max(0, 20 - len(self._best_move_q_values))
 
     def get_option(self,
                    state: State,
@@ -1409,7 +1411,7 @@ class MapleQFunction(MLPRegressor):
             epsilon = self._epsilon
         # if train_or_test == "test":
         #     epsilon = 0.0
-        print(epsilon)
+        # print(epsilon)
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -1458,9 +1460,10 @@ class MapleQFunction(MLPRegressor):
         bad_light_index=[]
         good_door_index=[]
         bad_door_index=[]
+        best_move_index = []
         good_move_index=[]
         bad_move_index=[]
-
+        call_planner_index = []
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
@@ -1492,21 +1495,33 @@ class MapleQFunction(MLPRegressor):
                 best_next_value = 0.0
             Y_arr[i] = reward + self._discount * best_next_value
 
+            if vectorized_action[0]==1.0 and vectorized_state[CFG.grid_row_num_cells +1]==1.0:
+                call_planner_index.append(i)
+                
+            # if reward == 1:
+            #     print("rewarded")
+                
             #door is the 6th cell for 10 total cells
+            door_pos = CFG.grid_row_num_cells//2+0.5
+            door_open_index = CFG.grid_row_num_cells+1
+            good_move = CFG.grid_row_num_cells*(CFG.grid_row_num_cells//2)+CFG.grid_row_num_cells//2+1+1
             if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65 and terminal and vectorized_action[-2]==1.0:
                 good_light_index.append(i)
             elif vectorized_action[-2]==1.0:
                 bad_light_index.append(i)
-            if vectorized_state[-1]==5.5 and vectorized_state[11]==0 and vectorized_action[105]==1:
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_action[CFG.grid_row_num_cells**2+CFG.grid_row_num_cells//2+1]==1:
                 #good door is if we're in the 6th cell and door is not open and we try to open door
                 good_door_index.append(i)
-            elif vectorized_state[-1]==5.5 and vectorized_state[11]==0:
+            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0:
                 #we did not try to open the door...
                 bad_door_index.append(i)
-            if vectorized_state[-1]==5.5 and vectorized_state[11]==1 and vectorized_action[56]==1:
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1 and vectorized_action[good_move]==1:
                 #good move if we're in 6th cell, door is open, and we move to 7th
                 good_move_index.append(i)
-            elif vectorized_state[-1]==5.5 and vectorized_state[11]==1:
+            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1 and vectorized_action[0]==1:
+                best_move_index.append(i)
+                # print("CALLING PLANNER IN STATE", state, "HAS THE NEXT BEST VALUE:", best_next_value, next_state)
+            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1:
                 bad_move_index.append(i)
 
         # Finally, pass all this vectorized data to the training function.
@@ -1520,6 +1535,28 @@ class MapleQFunction(MLPRegressor):
         self._bad_open_door_q_values = []
         self._good_move_q_values = []
         self._bad_move_q_values = []
+        self._best_move_q_values = []
+
+        # for callp in call_planner_index:
+        #     (state, goal, option, next_state, reward,
+        #             terminal) = (self._replay_buffer[callp])
+        #     vectorized_state = self._vectorize_state(state)
+        #     vectorized_goal = self._vectorize_goal(goal)
+        #     vectorized_action = self._vectorize_option(option)
+        #     x = np.concatenate(
+        #             [vectorized_state, vectorized_goal, vectorized_action])
+            # print("q value of callplanner in state ", state , "is: ", self.predict(x)[0])
+
+        for best_move in best_move_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[best_move])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._best_move_q_values.append(self.predict(x)[0])
+            # print("call planner q value and target", self._best_move_q_values[-1], Y_arr[best_move])
 
         for good_light in good_light_index:
             (state, goal, option, next_state, reward,
@@ -1575,6 +1612,8 @@ class MapleQFunction(MLPRegressor):
                     [vectorized_state, vectorized_goal, vectorized_action])
             self._good_move_q_values.append(self.predict(x)[0])
             # ,Y_arr[good_move]
+            # print("move forward q value and target", self._good_move_q_values[-1], Y_arr[good_move])
+
 
         for bad_move in bad_move_index:
             (state, goal, option, next_state, reward,
