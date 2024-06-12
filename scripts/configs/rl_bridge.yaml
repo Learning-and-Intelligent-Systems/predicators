@@ -28,4 +28,4 @@ FLAGS:
   sampler_learner: "oracle"
   strips_learner: "oracle"
 START_SEED: 0
-NUM_SEEDS: 10
+NUM_SEEDS: 3
