@@ -31,6 +31,7 @@ from copy import deepcopy
 from tabulate import tabulate
 from pprint import pprint
 import shutil
+from functools import cached_property
 
 from tqdm import tqdm
 import dill as pkl
@@ -1597,11 +1598,19 @@ def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
     return BoundingBox(left, lower, right, upper)
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=True, repr=False)
 class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
     _classifier: Callable[[RawState, Sequence[Object]],
                           bool] = field(compare=False)
+
+    @cached_property
+    def _hash(self) -> int:
+        # return hash(str(self))
+        return hash(self.name + str(self.types))
+
+    def __hash__(self) -> int:
+        return self._hash
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for

@@ -239,6 +239,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
 
+        base_candidates: Set[Predicate] = self._initial_predicates
+
         for ite in range(1, max_invent_ite+1):
             logging.info(f"===Starting iteration {ite}...")
             # Reset at every iteration
@@ -257,13 +259,19 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Invent only when there is no improvement in solve rate
                 # Or when invent_at_every_ite is True
                 #   Create prompt to inspect the execution
-                if CFG.llm_predicator_oracle_base:
-                    # If using the oracle predicates
+                # base_candidates: candidates to be unioned with the init set
+                if CFG.vlm_predicator_oracle_base_grammar:
                     if CFG.neu_sym_predicate:
-                        new_candidates = env.ns_predicates -\
-                                            self._initial_predicates
+                        # If using the oracle predicates
+                        # With NSP, we only want the GT NSPs besides the initial
+                        # predicates
+                        # Want to remove the predicates of the same name
+                        # Currently assume this is correct
+                        breakpoint()
+                        new_proposals = env.ns_predicates -\
+                            self._initial_predicates
                     else:
-                        new_candidates = env.predicates -\
+                        new_proposals = env.predicates -\
                                             self._initial_predicates
                 else:
                     # Use the results to prompt the llm
@@ -272,11 +280,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                     f'./prompts/invent_{self.env_name}_1.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
                     breakpoint()
-                    new_candidates = self._get_llm_predictions(prompt,
+                    new_proposals = self._get_llm_predictions(prompt,
                                                     response_file, 
                                                     manual_prompt,
                                                     regenerate_response)
-                logging.info(f"Done: created {len(new_candidates)} candidates:")
+                logging.info(f"Done: created {len(new_proposals)} candidates:")
 
                 # Apply the candidate predicates to the data.
                 all_trajs = []
@@ -284,21 +292,23 @@ class VlmInventionApproach(NSRTLearningApproach):
                     for traj in trajs: all_trajs.append(traj)
 
                 if CFG.llm_predicator_oracle_learned:
-                    self._learned_predicates = new_candidates
+                    self._learned_predicates = new_proposals
                 else:
                     # Select a subset candidates by score optimization    
-                    base_candidates |= new_candidates | self._initial_predicates
+                    base_candidates |= new_proposals
 
                     ### Predicate Search
                     # Optionally add grammar to the candidates
                     all_candidates: Dict[Predicate, float] = {}
                     if CFG.llm_predicator_use_grammar:
                         grammar = _create_grammar(dataset=Dataset(all_trajs), 
-                                            given_predicates=base_candidates)
+                                                given_predicates=\
+                                    base_candidates|self._initial_predicates)
                     else:
                         # Assign cost 0 for every candidate, for now.
                         # Update: Also use simple grammar
-                        grammar = _GivenPredicateGrammar(base_candidates)
+                        grammar = _GivenPredicateGrammar(
+                                    base_candidates|self._initial_predicates)
                     all_candidates.update(grammar.generate(
                         max_num=CFG.grammar_search_max_predicates))
                         # all_candidates.update({p: 0 for p in base_candidates})
@@ -317,13 +327,13 @@ class VlmInventionApproach(NSRTLearningApproach):
                             for state in optn_dict[g_optn].states:
                                 atom_states.append(utils.abstract(
                                 state, 
-                                set(all_candidates) | self._initial_predicates))
+                                set(all_candidates)))
                             optn_dict[g_optn].abstract_states = atom_states
 
                     atom_dataset: List[GroundAtomTrajectory] =\
                         utils.create_ground_atom_dataset(
                             all_trajs, 
-                            set(all_candidates) | self._initial_predicates)
+                            set(all_candidates))
                     logging.info("[Finish] Applying predicates to data....")
 
                     logging.info("[Start] Predicate search...")
@@ -336,7 +346,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         self._select_predicates_by_score_hillclimbing(
                             all_candidates, 
                             score_function, 
-                            self._initial_predicates)
+                            initial_predicates = self._initial_predicates)
                     logging.info("[Finish] Predicate search.")
                     logging.info(
                     f"Total search time {time.perf_counter()-start_time:.2f} "

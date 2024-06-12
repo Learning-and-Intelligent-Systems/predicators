@@ -701,7 +701,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     save_nsp_image_patch_before_query = False
     # LLM predicate invention algorithm parameters
     llm_predicator_use_grammar = True
-    llm_predicator_oracle_base = True
+    vlm_predicator_oracle_base_grammar = True
     llm_predicator_oracle_learned = False
     vlm_predicator_render_option_state = False
     load_llm_pred_invent_dataset = True

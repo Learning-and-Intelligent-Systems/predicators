@@ -306,9 +306,10 @@ class Predicate:
     def __hash__(self) -> int:
         return self._hash
     
-    # def __eq__(self, other) -> bool:
-    #     # equal by name
-    #     return self.name == other.name and self.types == other.types
+    def __eq__(self, other) -> bool:
+        # equal by name
+        assert isinstance(other, Predicate)
+        return self.name == other.name and self.types == other.types
 
     @cached_property
     def arity(self) -> int:
