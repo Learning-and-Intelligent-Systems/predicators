@@ -108,6 +108,9 @@ def main() -> None:
     os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
+    # print(hash(env._On))
+    # print(hash(env._On_NSP))
+    # breakpoint()
     # The action space needs to be seeded externally, because env.action_space
     # is often created during env __init__().
     env.action_space.seed(CFG.seed)

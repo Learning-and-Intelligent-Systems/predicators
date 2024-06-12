@@ -30,7 +30,7 @@ ARGS:
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 40
+  num_train_tasks: 2
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -53,6 +53,7 @@ FLAGS:
 
   # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"
+  grammar_search_predicate_cost_upper_bound: 10
   # grammar_search_search_algorithm: "hill_climbing"
   painting_raise_environment_failure: False
   grammar_search_grammar_use_single_feature: False
@@ -73,7 +74,7 @@ FLAGS:
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
   llm_predicator_use_grammar: True
-  llm_predicator_oracle_base: True
+  vlm_predicator_oracle_base_grammar: True
   llm_predicator_oracle_learned: False
   vlm_predicator_render_option_state: True # True for NSP
   # Test
