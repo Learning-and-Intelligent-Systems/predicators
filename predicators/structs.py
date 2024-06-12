@@ -727,6 +727,17 @@ class _Option:
         objects = ", ".join(o.name for o in self.objects)
         params = ", ".join(str(round(p, 2)) for p in self.params)
         return f"{self.name}({objects}, {params})"
+    
+    def eq_by_obj(self, other: _Option) -> bool:
+        try:
+            assert isinstance(other, _Option)
+        except:
+            breakpoint()
+        self_obj = ", ".join(o.name for o in self.objects)
+        self_name = self.name
+        other_obj = ", ".join(o.name for o in other.objects)
+        other_name = other.name
+        return self_name == other_name and self_obj == other_obj
 
 
 DummyOption: _Option = ParameterizedOption(

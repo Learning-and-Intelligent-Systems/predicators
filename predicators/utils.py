@@ -1668,6 +1668,24 @@ def remove_intermediate_states(dataset: Dataset) -> Dataset:
                                                     traj.train_task_idx))
     return Dataset(new_trajectories)
 
+def sparse_actions_from_dense_traj(sparse_states: List[State], 
+                                   traj: LowLevelTrajectory)-> List[Action]: 
+    new_actions = []
+    prev_ground_option = DummyOption
+    for i in range(len(traj._actions)):
+        cur_action = traj._actions[i]
+        cur_ground_option = cur_action.get_option()
+        # Only adding the state when the ground option changes
+        if prev_ground_option != cur_ground_option:
+            logging.debug(f"ground_option at step {i}: {cur_ground_option} is "+
+                          "different from the prev ground option")
+            new_actions.append(cur_action)
+            prev_ground_option = cur_ground_option
+    assert len(sparse_states) == len(new_actions) + 1, \
+        "States should be 1 step longer" 
+    return new_actions
+    
+
 def sparse_dataset_from_dataset_and_states(dataset: Dataset, 
                                 suc_state_trajs: List[List[State]]) -> Dataset:
     """Make a sparse dataset that has states before executing each ground option
@@ -1679,13 +1697,14 @@ def sparse_dataset_from_dataset_and_states(dataset: Dataset,
     new_trajectories = []
     for traj, suc_state_traj in zip(dataset.trajectories, suc_state_trajs):
         new_actions = []
-        prev_ground_option = None
+        prev_ground_option = DummyOption
         for i in range(len(traj._actions)):
-            cur_ground_option = traj._actions[i].get_option()
+            cur_action = traj._actions[i]
+            cur_ground_option = cur_action.get_option()
             # Only adding the state when the ground option changes
             if prev_ground_option != cur_ground_option:
                 logging.debug(f"ground_option at step {i}: {cur_ground_option} is different from the prev ground option")
-                new_actions.append(traj._actions[i])
+                new_actions.append(cur_action)
                 prev_ground_option = cur_ground_option
         # Update the trajectory to the sparse states and actions
         new_trajectories.append(LowLevelTrajectory(suc_state_traj, 
