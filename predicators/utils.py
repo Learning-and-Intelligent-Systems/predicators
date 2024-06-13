@@ -3529,11 +3529,14 @@ def parse_config_excluded_predicates(
     return included, excluded
 
 
-def replace_goals_with_agent_specific_goals(predicates: Set[Predicate],
-                                            env: BaseEnv) -> Set[Predicate]:
+def replace_goals_with_agent_specific_goals(
+        included_predicates: Set[Predicate],
+        excluded_predicates: Set[Predicate], env: BaseEnv) -> Set[Predicate]:
     """Replace original goal predicates with agent-specific goal predicates if
     the environment defines them."""
-    return predicates - env.goal_predicates | env.agent_goal_predicates
+    preds = included_predicates - env.goal_predicates \
+        | env.agent_goal_predicates - excluded_predicates
+    return preds
 
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
