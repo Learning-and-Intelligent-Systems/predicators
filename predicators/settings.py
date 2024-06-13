@@ -27,7 +27,7 @@ class GlobalSettings:
     # on tasks that have no demonstrations.
     allow_interaction_in_demo_tasks = True
     # Maximum number of steps to run an InteractionRequest policy.
-    max_num_steps_interaction_request = 100
+    max_num_steps_interaction_request = 300
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
