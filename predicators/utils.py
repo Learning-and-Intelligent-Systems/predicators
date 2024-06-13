@@ -2723,11 +2723,11 @@ def merge_ground_atom_datasets(
     assert len(gad1) == len(
         gad2), "Ground atom datasets must be of the same length to merge them."
     merged_ground_atom_dataset = []
-    for i, gats in enumerate(zip(gad1, gad2)):
-        gat1, gat2 = gats  # ground atom trajectories
-        ll_traj1, ga_list1 = gat1
-        ll_traj2, ga_list2 = gat2
-        assert ll_traj1 == ll_traj2, "Ground atom trajectories must share the same low-level trajectory in order to merge them."
+    for ground_atom_traj1, ground_atom_traj2 in zip(gad1, gad2):
+        ll_traj1, ga_list1 = ground_atom_traj1
+        ll_traj2, ga_list2 = ground_atom_traj2
+        assert ll_traj1 == ll_traj2, "Ground atom trajectories must share " \
+            "the same low-level trajectory to be able to merge them."
         merged_ga_list = [ga1 | ga2 for ga1, ga2 in zip(ga_list1, ga_list2)]
         merged_ground_atom_dataset.append((ll_traj1, merged_ga_list))
     return merged_ground_atom_dataset

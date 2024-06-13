@@ -790,7 +790,7 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             for traj in self.dataset.trajectories:
                 # The init_atoms and final_atoms are not used.
                 seg_traj = segment_trajectory(traj, predicates=set())
-                state_seq = utils.segment_trajectory_to_start_end_state_sequence(
+                state_seq = utils.segment_trajectory_to_start_end_state_sequence(  # pylint:disable=line-too-long
                     seg_traj)
                 self._state_sequences.append(state_seq)
 
