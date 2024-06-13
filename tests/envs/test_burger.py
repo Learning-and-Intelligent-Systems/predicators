@@ -32,6 +32,7 @@ def test_burger():
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 12
     assert len(env.goal_predicates) == 3
+    assert len(env.agent_goal_predicates) == 2
     assert env.get_name() == "burger"
     assert len(env.types) == 11
     options = get_gt_options(env.get_name())

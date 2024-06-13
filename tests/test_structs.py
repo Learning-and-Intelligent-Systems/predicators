@@ -184,6 +184,16 @@ obj9                11       12       13
     state_with_sim = State({}, "simulator_state")
     assert state_with_sim.simulator_state == "simulator_state"
     assert state.simulator_state is None
+
+    # Can use allclose with non-None simulator_state if explicitly allowed via
+    # settings.
+    utils.reset_config(
+        {"allow_state_allclose_comparison_despite_simulator_state": "True"})
+    state5 = state4.copy()
+    assert state4.allclose(state5)
+    state5.simulator_state = "not dummy"
+    assert not state4.allclose(state5)
+
     return state
 
 
