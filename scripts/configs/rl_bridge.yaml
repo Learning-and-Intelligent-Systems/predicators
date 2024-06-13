@@ -16,7 +16,7 @@ ENVS:
       max_num_steps_interaction_request: 100
       interactive_num_requests_per_cycle: 5
       online_nsrt_learning_requests_per_cycle: 5
-      num_online_learning_cycles: 10
+      num_online_learning_cycles: 100
       num_test_tasks: 1
       num_train_tasks: 1
       grid_row_num_cells: 25
@@ -28,4 +28,4 @@ FLAGS:
   sampler_learner: "oracle"
   strips_learner: "oracle"
 START_SEED: 0
-NUM_SEEDS: 3
+NUM_SEEDS: 10
