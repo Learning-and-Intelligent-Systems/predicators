@@ -1951,6 +1951,70 @@ def test_create_ground_atom_dataset():
     assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
 
 
+def test_merge_ground_atom_datasets():
+    """Tests for merge_ground_atom_datasets()."""
+    utils.reset_config({
+        "env": "test_env",
+    })
+    cup_type = Type("cup_type", ["feat1", "color"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type],
+                   lambda s, o: s.get(o[0], "feat1") > s.get(o[1], "feat1"))
+    dark = Predicate("Dark", [cup_type],
+                     lambda s, o: s.get(o[0], "color") > 0.5)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    states = [
+        State({
+            cup1: np.array([0.5, 0.2]),
+            cup2: np.array([0.1, 0.6]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
+        }),
+        State({
+            cup1: np.array([1.1, 0.2]),
+            cup2: np.array([0.1, 0.6]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
+        }),
+        State({
+            cup1: np.array([1.1, 0.7]),
+            cup2: np.array([0.1, 0.6]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
+        })
+    ]
+    actions = [
+        Action(np.array([0.0]), DummyOption),
+        Action(np.array([0.0]), DummyOption)
+    ]
+    dataset = [LowLevelTrajectory(states, actions)]
+    gad1 = utils.create_ground_atom_dataset(dataset, {on})
+    gad2 = utils.create_ground_atom_dataset(dataset, {dark})
+    ground_atom_dataset = utils.merge_ground_atom_datasets(gad1, gad2)
+    assert len(ground_atom_dataset) == 1
+    assert len(ground_atom_dataset[0]) == 2
+    assert len(ground_atom_dataset[0][0].states) == len(states)
+    assert all(gs.allclose(s) for gs, s in \
+               zip(ground_atom_dataset[0][0].states, states))
+    assert len(ground_atom_dataset[0][0].actions) == len(actions)
+    assert all(ga == a
+               for ga, a in zip(ground_atom_dataset[0][0].actions, actions))
+    assert len(ground_atom_dataset[0][1]) == len(states) == 3
+    assert ground_atom_dataset[0][1][0] == {GroundAtom(dark, [cup2])}
+    assert ground_atom_dataset[0][1][1] == {
+        GroundAtom(dark, [cup2]),
+        GroundAtom(on, [cup1, plate1])
+    }
+    assert ground_atom_dataset[0][1][2] == {
+        GroundAtom(dark, [cup2]),
+        GroundAtom(on, [cup1, plate1]),
+        GroundAtom(dark, [cup1])
+    }
+
+
 def test_get_reachable_atoms():
     """Tests for get_reachable_atoms()."""
     cup_type = Type("cup_type", ["feat1"])
