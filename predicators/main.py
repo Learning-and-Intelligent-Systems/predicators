@@ -110,7 +110,6 @@ def main() -> None:
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
     # print(hash(env._On))
     # print(hash(env._On_NSP))
-    # breakpoint()
     # The action space needs to be seeded externally, because env.action_space
     # is often created during env __init__().
     env.action_space.seed(CFG.seed)
