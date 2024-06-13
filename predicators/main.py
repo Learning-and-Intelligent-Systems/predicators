@@ -273,8 +273,10 @@ def _run_pipeline(env: BaseEnv,
             results.update(offline_learning_metrics)
             print("HEYASEIHASIFHIHAOIDF", i)
             num_solved += results["num_solved"]
-            logging.info("CUMULATIVE NUM SOLVED: ", num_solved)
+            logging.info("CUMULATIVE NUM SOLVED: " + str(num_solved))
             logging.info("fraction solved: " + str(num_solved / (i + 1)))
+            print("CUMULATIVE NUM SOLVED: " + str(num_solved))
+            print("fraction solved: " + str(num_solved / (i + 1)))
             if results["num_solved"] == 1:
                 logs.append(1)
             else:
@@ -284,6 +286,7 @@ def _run_pipeline(env: BaseEnv,
             _save_test_results(results, online_learning_cycle=i)
 
         logging.info("SOLVES", logs)
+        print("SOLVES", logs)
 
         plt.plot(learning_cycles, logs)
         plt.show()
