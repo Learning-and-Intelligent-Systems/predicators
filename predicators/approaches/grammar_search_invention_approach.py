@@ -790,7 +790,7 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             for traj in self.dataset.trajectories:
                 # The init_atoms and final_atoms are not used.
                 seg_traj = segment_trajectory(traj, predicates=set())
-                state_seq = utils.segment_trajectory_to_state_sequence(
+                state_seq = utils.segment_trajectory_to_start_end_state_sequence(
                     seg_traj)
                 self._state_sequences.append(state_seq)
 
@@ -1001,8 +1001,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 self._generate_atom_dataset_via_grammar(dataset)
             atom_dataset_from_vlm, candidates_from_vlm = \
                 self._parse_atom_dataset_from_annotated_dataset(dataset)
-            merged_atom_dataset = utils.merge_ground_atom_datasets(
+            atom_dataset = utils.merge_ground_atom_datasets(
                 atom_dataset_from_grammar, atom_dataset_from_vlm)
+            candidates = candidates_from_grammar | candidates_from_vlm
         elif not CFG.offline_data_method in [
                 "demo+labelled_atoms", "saved_vlm_img_demos_folder",
                 "demo_with_vlm_imgs"

@@ -149,7 +149,7 @@ def count_branching_factor(strips_ops: List[STRIPSOperator],
     return total_branching_factor
 
 
-def segment_trajectory_to_state_sequence(
+def segment_trajectory_to_start_end_state_sequence(
         seg_traj: List[Segment]) -> List[State]:
     """Convert a trajectory of segments into a trajectory of states, made up of
     only the initial/final states of the segments.

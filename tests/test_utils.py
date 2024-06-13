@@ -103,7 +103,7 @@ def test_count_positives_for_ops(max_groundings, exp_num_true, exp_num_false):
 
 
 def test_segment_trajectory_to_state_and_atoms_sequence():
-    """Tests for segment_trajectory_to_state_sequence() and
+    """Tests for segment_trajectory_to_start_end_state_sequence() and
     segment_trajectory_to_atoms_sequence()."""
     # Set up the segments.
     cup_type = Type("cup_type", ["feat1"])
@@ -125,21 +125,21 @@ def test_segment_trajectory_to_state_and_atoms_sequence():
     final_atoms = {not_on([cup, plate])}
     segment1 = Segment(traj1, init_atoms, final_atoms)
     segment2 = Segment(traj2, final_atoms, init_atoms)
-    # Test segment_trajectory_to_state_sequence().
-    state_seq = utils.segment_trajectory_to_state_sequence([segment1])
+    # Test segment_trajectory_to_start_end_state_sequence().
+    state_seq = utils.segment_trajectory_to_start_end_state_sequence([segment1])
     assert state_seq == [state0, state2]
-    state_seq = utils.segment_trajectory_to_state_sequence(
+    state_seq = utils.segment_trajectory_to_start_end_state_sequence(
         [segment1, segment2])
     assert state_seq == [state0, state2, state0]
-    state_seq = utils.segment_trajectory_to_state_sequence(
+    state_seq = utils.segment_trajectory_to_start_end_state_sequence(
         [segment1, segment2, segment1, segment2])
     assert state_seq == [state0, state2, state0, state2, state0]
     with pytest.raises(AssertionError):
         # Need at least one segment in the trajectory.
-        utils.segment_trajectory_to_state_sequence([])
+        utils.segment_trajectory_to_start_end_state_sequence([])
     with pytest.raises(AssertionError):
         # Segments don't chain together correctly.
-        utils.segment_trajectory_to_state_sequence([segment1, segment1])
+        utils.segment_trajectory_to_start_end_state_sequence([segment1, segment1])
     # Test segment_trajectory_to_atoms_sequence().
     atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
     assert atoms_seq == [init_atoms, final_atoms]
