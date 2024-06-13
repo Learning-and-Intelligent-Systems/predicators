@@ -2715,11 +2715,13 @@ def save_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
         pkl.dump(ground_atom_dataset_to_pkl, f)
 
 
-def merge_ground_atom_datasets(gad1: List[GroundAtomTrajectory], gad2: List[GroundAtomTrajectory]) -> List[GroundAtomTrajectory]:
+def merge_ground_atom_datasets(
+        gad1: List[GroundAtomTrajectory],
+        gad2: List[GroundAtomTrajectory]) -> List[GroundAtomTrajectory]:
     """Merges two ground atom datasets sharing the same underlying low-level
-    trajectory via the union of ground atoms at each state.
-    """
-    assert len(gad1) == len(gad2), "Ground atom datasets must be of the same length to merge them."
+    trajectory via the union of ground atoms at each state."""
+    assert len(gad1) == len(
+        gad2), "Ground atom datasets must be of the same length to merge them."
     merged_ground_atom_dataset = []
     for i, gats in enumerate(zip(gad1, gad2)):
         gat1, gat2 = gats  # ground atom trajectories
@@ -3526,11 +3528,13 @@ def parse_config_excluded_predicates(
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
 
-def replace_goals_with_agent_specific_goals(predicates: Set[Predicate], env: BaseEnv) -> Set[Predicate]:
+
+def replace_goals_with_agent_specific_goals(predicates: Set[Predicate],
+                                            env: BaseEnv) -> Set[Predicate]:
     """Replace original goal predicates with agent-specific goal predicates if
-    the environment defines them.
-    """
+    the environment defines them."""
     return predicates - env.goal_predicates | env.agent_goal_predicates
+
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
                  objs: Sequence[Object]) -> Array:

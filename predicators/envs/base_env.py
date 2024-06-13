@@ -81,8 +81,8 @@ class BaseEnv(abc.ABC):
         """Get the goal predicates that we want the agent to use, which may be
         different than the ones the demonstrator uses.
 
-        This is used when inventing VLM predicates. Unless overridden, these are
-        the same as the original goal predicates.
+        This is used when inventing VLM predicates. Unless overridden,
+        these are the same as the original goal predicates.
         """
         return self.goal_predicates
 

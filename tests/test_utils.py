@@ -126,7 +126,8 @@ def test_segment_trajectory_to_state_and_atoms_sequence():
     segment1 = Segment(traj1, init_atoms, final_atoms)
     segment2 = Segment(traj2, final_atoms, init_atoms)
     # Test segment_trajectory_to_start_end_state_sequence().
-    state_seq = utils.segment_trajectory_to_start_end_state_sequence([segment1])
+    state_seq = utils.segment_trajectory_to_start_end_state_sequence(
+        [segment1])
     assert state_seq == [state0, state2]
     state_seq = utils.segment_trajectory_to_start_end_state_sequence(
         [segment1, segment2])
@@ -139,7 +140,8 @@ def test_segment_trajectory_to_state_and_atoms_sequence():
         utils.segment_trajectory_to_start_end_state_sequence([])
     with pytest.raises(AssertionError):
         # Segments don't chain together correctly.
-        utils.segment_trajectory_to_start_end_state_sequence([segment1, segment1])
+        utils.segment_trajectory_to_start_end_state_sequence(
+            [segment1, segment1])
     # Test segment_trajectory_to_atoms_sequence().
     atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
     assert atoms_seq == [init_atoms, final_atoms]
