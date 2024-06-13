@@ -30,7 +30,7 @@ ARGS:
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 2
+  num_train_tasks: 1
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -39,10 +39,10 @@ FLAGS:
   # excluded_predicates: "'Grasped,StickAboveButton'"
   excluded_predicates: "all"
   sesame_max_samples_per_step: 10
-  min_perc_data_for_nsrt: 3
+  min_perc_data_for_nsrt: 10
   segmenter: "option_changes"
   neural_gaus_regressor_max_itr: 50000
-  timeout: 300
+  timeout: 30 #300
   pybullet_camera_width: 900
   pybullet_camera_height: 900
   video_fps: 20
@@ -58,8 +58,8 @@ FLAGS:
   painting_raise_environment_failure: False
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
-  grammar_search_grammar_includes_negation: True
-  grammar_search_grammar_includes_foralls: True
+  grammar_search_grammar_includes_negation: False # relaxation 2
+  grammar_search_grammar_includes_foralls: False  # relaxation 2
   load_llm_pred_invent_dataset: False
   save_llm_pred_invent_dataset: False # can't pickle rendered states
 
@@ -73,9 +73,9 @@ FLAGS:
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
-  llm_predicator_use_grammar: True
+  llm_predicator_use_grammar: True # always true?
   vlm_predicator_oracle_base_grammar: True
-  llm_predicator_oracle_learned: False
+  llm_predicator_oracle_learned: False # relaxation 1
   vlm_predicator_render_option_state: True # True for NSP
   # Test
   grammar_search_prune_redundant_preds: False

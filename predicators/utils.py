@@ -197,9 +197,9 @@ def count_classification_result_for_ops(
                     else:
                         # if i == 9 and g_optn == "Stack(robby:robot, block0:block)":
                             # logging.debug(f"Relevant ground nsrts: {ground_nsrts}")
-                        logging.debug(f"FN state {i} for {g_optn}: "+
-                                        f"{state.pretty_str()}")
-                        logging.debug(f"FN atom state: {atom_state}")
+                        # logging.debug(f"FN state {i} for {g_optn}: "+
+                        #                 f"{state.pretty_str()}")
+                        # logging.debug(f"FN atom state: {atom_state}")
                         fn_states.append(state)
                         fn_state_dict[str(optn)][g_optn]['states'].append(state)
             # filter out the tn, fp states
@@ -1712,7 +1712,9 @@ def sparse_dataset_from_dataset_and_states(dataset: Dataset,
             cur_ground_option = cur_action.get_option()
             # Only adding the state when the ground option changes
             if prev_ground_option != cur_ground_option:
-                logging.debug(f"ground_option at step {i}: {cur_ground_option} is different from the prev ground option")
+                logging.debug(f"[sparsifying actions] ground_option at step "+
+                f"{i}: {cur_ground_option} is different from the prev ground "+
+                f"option")
                 new_actions.append(cur_action)
                 prev_ground_option = cur_ground_option
         # Update the trajectory to the sparse states and actions

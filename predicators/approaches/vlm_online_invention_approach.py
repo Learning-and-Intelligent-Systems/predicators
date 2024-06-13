@@ -151,11 +151,17 @@ class VlmInventionApproach(NSRTLearningApproach):
                 policy = self.solve(task, timeout=CFG.timeout) 
             except (ApproachTimeout, ApproachFailure) as e:
                 logging.info(f"Planning failed: {str(e)}")
+                if "metrics" not in e.info:
+                    # In the case of not dr-reachable
+                    metrics, p_ref = None, []
+                else:
+                    metrics = e.info["metrics"], 
+                    p_ref = e.info["partial_refinements"]
                 result = PlanningResult(
                     succeeded=False,
                     info={
-                        "metrics": e.info["metrics"],
-                        "partial_refinements": e.info["partial_refinements"],
+                        "metrics": metrics,
+                        "partial_refinements": p_ref,
                         "error": str(e)}
                 )
             else:
@@ -200,7 +206,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
-        max_invent_ite = 5
+        max_invent_ite = 20
         invent_at_every_ite = True # Invent at every iterations
         base_candidates = set()
         manual_prompt = True
@@ -239,7 +245,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
 
-        base_candidates: Set[Predicate] = self._initial_predicates
+        base_candidates: Set[Predicate] = self._initial_predicates.copy()
 
         for ite in range(1, max_invent_ite+1):
             logging.info(f"===Starting iteration {ite}...")
@@ -267,7 +273,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                         # predicates
                         # Want to remove the predicates of the same name
                         # Currently assume this is correct
-                        breakpoint()
                         new_proposals = env.ns_predicates -\
                             self._initial_predicates
                     else:
@@ -284,7 +289,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                     response_file, 
                                                     manual_prompt,
                                                     regenerate_response)
-                logging.info(f"Done: created {len(new_proposals)} candidates:")
+                logging.info(f"Done: created {len(new_proposals)} candidates:"+
+                            f"{new_proposals}")
+
 
                 # Apply the candidate predicates to the data.
                 all_trajs = []
@@ -326,8 +333,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                             atom_states = []
                             for state in optn_dict[g_optn].states:
                                 atom_states.append(utils.abstract(
-                                state, 
-                                set(all_candidates)))
+                                state, set(all_candidates)))
                             optn_dict[g_optn].abstract_states = atom_states
 
                     atom_dataset: List[GroundAtomTrajectory] =\
@@ -336,7 +342,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             set(all_candidates))
                     logging.info("[Finish] Applying predicates to data....")
 
-                    logging.info("[Start] Predicate search...")
+                    logging.info("[Start] Predicate search from "+
+                                f"{self._initial_predicates}...")
                     score_function = _ClassificationErrorScoreFunction(
                         self._initial_predicates, atom_dataset, all_candidates,
                         self._train_tasks, self.succ_optn_dict, 
@@ -431,38 +438,15 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Add a progress bar
         for i, _ in tqdm(enumerate(tasks), total=num_tasks, 
                          desc="Processing Interaction results"):
-            # Planning Results
             result = results[i]
-            # try:
-            #     num_skeletons_optimized = result.info['metrics'][
-            #         'num_skeletons_optimized']
-            #     # When would this happen?
-            #     # if num_skeletons_optimized == 0:
-            #     #     continue
-            # except Exception as e:
-            #     logging.info(f"Task {i}: is not dr-reachable.")
-            #     continue
-
+            
             if result.succeeded:
                 # Found a successful plan
                 # logging.info(f"Task {i}: planning succeeded.")
                 nsrt_plan = result.info['nsrt_plan']
                 option_plan = result.info['option_plan'].copy()
-                logging.debug(f"Processing succeeded plan " + 
-                f"{[op.name + str(op.objects) for op in option_plan]}")
-
-                # if i in self.task_idx_to_plans:
-                #     # When a plan has previously been found for task i.
-                #     existing_plan = self.task_idx_to_plans[i]
-                #     # find a different plan for the same task
-                #     if not are_equal_by_obj(existing_plan, option_plan):
-                #         logging.debug(f"The existing plan: {existing_plan} is "
-                #             f"different from the new plan {option_plan}")
-                #         breakpoint()
-                # else:
-                #     # When a plan is first found for task i
-                #     self.task_idx_to_plans[i] = option_plan.copy()
-                #     # todo: Add the sparse traj to the dataset
+                logging.debug(f"[ite {ite} task {i}] Processing succeeded "+
+                    f"plan {[op.name + str(op.objects) for op in option_plan]}")
 
                 # Check before processing for some efficiency gain
                 if use_only_first_solution:
@@ -483,7 +467,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     else:
                         # Add the novel plan to the storage
                         logging.warning(f"Found a novel plan for task {i}")
-                        breakpoint()
+                        # comment for for running overnight
+                        # breakpoint()
                         self.task_to_plans[i].append(option_plan.copy())
                 else:
                     # If the task haven't been solved before, add it directly
@@ -512,8 +497,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                 nsrt_plan = p_ref[0]
                 # longest option refinement
                 option_plan = p_ref[1].copy()
-                logging.debug(f"Processing failed plan " + 
-                f"{[op.name + str(op.objects) for op in option_plan]}")
+                logging.debug(f"[ite {ite} task {i}] Processing failed plan "+
+                f"{p_idx} {[op.name + str(op.objects) for op in option_plan]}")
                 failed_opt_idx = len(option_plan) - 1
 
                 state = env.reset(train_or_test='train', task_idx=i)
@@ -529,26 +514,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                         nsrt_plan[failed_opt_idx:], option_plan[-1:], 
                         failed_opt=True)
         
-        # task_idx_to_states is only updated when a task is first solved
-        # so it's not updated if a different plan is found for the same task
-        # which might break the __post_init__ condition.
-        # This makes the assumption that the plan doesn't change as it learns.
-        # sparse_dataset = utils.sparse_dataset_from_dataset_and_states(
-        #                                                     dataset,
-        #         [v for k, v in sorted(self.task_idx_to_states.items()) if v])
-        # sparse_dataset = dataset
-        # return sparse_dataset
-        # Add the abstract states.
-        # This is used later when creating the predicate invention prompt
-        # Can we get the same thing from _execute_plan_and_track_state? -> Yes, moved to there
-        # for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
-        #     for g_optn in optn_dict.keys():
-        #         atom_states = []
-        #         for state in optn_dict[g_optn].states:
-        #             atom_states.append(utils.abstract(
-        #                 state, self._get_current_predicates()))
-        #         optn_dict[g_optn].abstract_states = atom_states
-    
     def _execute_succ_plan_and_track_state(self, init_state: State, 
                             env: BaseEnv, 
                              nsrt_plan: List, option_plan: List, 
@@ -632,89 +597,6 @@ class VlmInventionApproach(NSRTLearningApproach):
         # logging.debug(f"Finish executing after {env_step_counter} steps.")
         return states
 
-    def _execute_plan_and_track_state(self, init_state: State, env: BaseEnv, 
-                             nsrt_plan: List, option_plan: List, 
-                             add_intermediate_details: bool=False,
-                             failed_opt: bool=False) -> List[State]:
-        """Adding the abstract states to the optn_dict is important here for
-        creating the predicate invention prompt.
-
-        Return for successful plans, states before executing each option and
-        the final state; and for failed plans,
-        """
-        state = init_state
-        def policy(_: State) -> Action:
-            raise OptionExecutionFailure("placeholder policy")
-        nsrt_counter = 0
-        env_step_counter = 0
-        states = []
-        for _ in range(CFG.horizon):
-            try:
-                act = policy(state)
-            except OptionExecutionFailure as e:
-                # When the one-option policy reaches terminal state
-                # we're cetain the plan is successfully terminated 
-                # because this is a successful plan.
-                if str(e) == "placeholder policy" or\
-                (str(e) == "Option plan exhausted!" and not failed_opt) or\
-                (str(e) == "Encountered repeated state." and not failed_opt):
-                    logging.debug(f"option fail because: {str(e)}")
-                    # if nsrt_counter > 0:
-                    #     task_str.append(
-                    #         "The option successfully terminated in state: \n" +
-                    #         state.dict_str() + "\n")
-                    try:
-                        option = option_plan.pop(0)
-                    except IndexError: 
-                        # When the option_plan is exhausted
-                        # Rendering the final state for success traj
-                        if not failed_opt:
-                            option_start_state = env.get_observation(
-                                render=CFG.vlm_predicator_render_option_state)
-                            # For debugging incomplete options
-                            states.append(option_start_state)
-                        break
-                    else:
-                        # raise_error_on_repeated_state is set to true in simple
-                        # environments, but causes the option to not finish in 
-                        # the pybullet environment, hence are disabled in 
-                        # testing neu-sym-predicates.
-                        policy = utils.option_plan_to_policy(
-                            [option], raise_error_on_repeated_state=False)
-                            # [option], raise_error_on_repeated_state=True)
-                        option_start_state = env.get_observation(
-                                render=CFG.vlm_predicator_render_option_state)
-                        logging.info("Start new option at step "+
-                                        f"{env_step_counter}")
-                        if not failed_opt:
-                            g_nsrt = nsrt_plan[nsrt_counter]
-                            gop_str = g_nsrt.ground_option_str()
-                            states.append(option_start_state)
-                            self.succ_optn_dict[gop_str].append_state(
-                                option_start_state,
-                                utils.abstract(option_start_state, 
-                                               self._get_current_predicates()),
-                                g_nsrt.option_objs,
-                                g_nsrt.parent.option_vars,
-                                g_nsrt.option)
-                            nsrt_counter += 1
-                else:
-                    g_nsrt = nsrt_plan[0]
-                    gop_str = g_nsrt.ground_option_str()
-                    self.fail_optn_dict[gop_str].append_state(
-                        option_start_state,
-                        utils.abstract(option_start_state, self._get_current_predicates()),
-                        g_nsrt.option_objs,
-                        g_nsrt.parent.option_vars,
-                        g_nsrt.option,
-                        e)
-                    break
-            else:
-                state = env.step(act)
-                env_step_counter += 1
-
-        logging.debug(f"Finish executing after {env_step_counter} steps.")
-        return states
     
     def collect_dataset(self, ite: int, env: BaseEnv, tasks: List[Task]
                         ) -> Tuple[List[PlanningResult], Dataset]:
@@ -1140,358 +1022,3 @@ class VlmInventionApproach(NSRTLearningApproach):
             "'NOT' or 'Forall' are defined by taking the negation or adding"+
             "universal quantifiers over other existing predicates.")
         return '\n'.join(new_predicate_str)
-
-        # final_state = state
-        # return final_state, task_str
-
-
-    # def _create_interpretation_prompt(self, pred: AnnotatedPredicate, idx: int) -> str:
-    #     with open('./prompts/interpret_0.prompt', 'r') as file:
-    #         template = file.read()
-    #     text_prompt = template.replace('[INSERT_QUERY_HERE]', pred.__str__())
-
-    #     # Save the text prompt
-    #     with open(f'./prompts/interpret_1_cover_{idx}_{pred.name}_text.prompt', 'w') \
-    #         as file:
-    #         file.write(text_prompt)
-        
-    #     text_entry = {
-    #         "type": "text",
-    #         "text": text_prompt
-    #     }
-    #     prompt = [{
-    #         "role": "user",
-    #         "content": text_entry
-    #     }]
-
-    #     # Convert the prompt to JSON string
-    #     prompt_json = json.dumps(prompt, indent=2)
-    #     with open(f'./prompts/interpret_2_cover_{idx}_{pred.name}.prompt', 'w') \
-    #         as file:
-    #         file.write(str(prompt_json))
-    #     return prompt
-
-    # def _parse_classifier_response(self, response: str) -> str:
-    #     # Define the regex pattern to match Python code block
-    #     pattern = r'```python(.*?)```'
-        
-    #     # Use regex to find the Python code block in the response
-    #     match = re.search(pattern, response, re.DOTALL)
-        
-    #     # If a match is found, return the Python code block
-    #     if match:
-    #         return match.group(1).strip()
-        
-    #     # If no match is found, return an empty string
-    #     return ''
-
-    # def _parse_predicate_signature_predictions(self, response: str) -> Set[Predicate]:
-
-    #     # Regular expression to match the predicate format
-    #     pattern = r"`(.*?)` -- (.*?)\n"
-    #     matches = re.findall(pattern, response)
-
-    #     # Create a list of AnnotatedPredicate instances
-    #     predicates = []
-    #     for match in matches:
-    #         pred_str = match[0]
-    #         description = match[1]
-    #         name = pred_str.split('(')[0]
-    #         args = pred_str.split('(')[1].replace(')', '').split(', ')
-    #         types = [self._type_dict[arg.split(':')[1]] for arg in args]
-    #         predicate = AnnotatedPredicate(name=name, types=types, 
-    #                                        description=description,
-    #                                        _classifier=None)
-    #         predicates.append(predicate)
-    #     for pred in predicates: 
-    #         logging.info(pred)
-    #     return predicates
-
-    # def option_positive_negative_states_str(self,
-    #                       succ_option_dict: Dict, 
-    #                       fail_option_dict: Dict,
-    #                     ) -> str:
-    #     # Set the print options
-    #     np.set_printoptions(precision=1)
-
-    #     # a "success" dictionary of NSRT: List[executable states]
-    #     # a "failure" dictionary of NSRT, List[(non-executable state, error)]
-    #     task_str = []
-    #     for ground_opt, obj_states in succ_option_dict.items():
-    #         # task_str.append(
-    #         #     f"The precondition of {str(nsrt)} \nwas satisfied on the " +
-    #         #     "following states and the corresponding option was " +
-    #         #     "successfully executed until termination:\n")
-    #         task_str.append(
-    #             f"The ground option {ground_opt} was initilized successfully"+
-    #             " by a ground NSRT on the following states and was executed "+
-    #             "successfully until termination:\n")
-    #         states = obj_states['states']
-    #         for state in states:
-    #             task_str.append(state.dict_str() + "\n")
-
-    #     task_str.append("But some options failed to execute.")
-    #     # task_str.append("The agent failed to solve the following NSRTs:")
-    #     for ground_opt, obj_states in fail_option_dict.items():
-    #         # task_str.append(
-    #         #     f"The precondition of {str(nsrt)} \n was satisfied on the " +
-    #         #     "following states but the corresponding option " +
-    #         #     "failed to execute due to these errors: \n")
-    #         task_str.append(
-    #             f"The ground option {ground_opt} was initialized according "+
-    #              "to the task plan on the following states but failed to "+
-    #              "execute until successful termination due errors (listed "+
-    #              "under the initial state: \n")
-    #         states = obj_states['states']
-    #         for state, error in states:
-    #             task_str.append("The option was initialized on:\n"+
-    #                             state.dict_str() + "\n" +
-    #                             "Error Encountered: " + str(error) + "\n")
-
-    #     return '\n'.join(task_str)
-
-    # def _get_option_states_str(self, succ_optn_dict: Dict, fail_optn_dict: Dict,
-    #                                     init: bool=False) -> str:
-    #     result_str = []
-    #     max_examples_num = 5
-    #     sum_tp, sum_fn, sum_tn, sum_fp = 0, 0, 0, 0
-    #     ground_options =\
-    #         set(succ_optn_dict.keys()) | set(fail_optn_dict.keys())
-
-    #     for g_optn in ground_options:
-    #         succ_states = succ_optn_dict[g_optn]['states']
-    #         fail_states = fail_optn_dict[g_optn]['states']
-    #         n_succ_states, n_fail_states = len(succ_states), len(fail_states)
-    #         n_tot = n_succ_states + n_fail_states
-
-    #         # Get the tp, fn, tn, fp states for each ground_option
-    #         tp_states, fn_states, tn_states, fp_states = [], [], [], []
-    #         if init:
-    #             # Initially, all the succ states are true positives by the 
-    #             # classification of the preconditions; while all the fail states
-    #             # are false positives.
-    #             tp_states = succ_states
-    #             fp_states = fail_states
-    #         else:
-    #             # Filter out the tp, fn states from succ_option_dict
-    #             if succ_states:
-    #                 optn = succ_optn_dict[g_optn]['option']
-    #                 grounding = succ_optn_dict[g_optn]['grounding']
-    #                 ground_nsrts = [utils.all_ground_nsrts(nsrt, grounding)
-    #                                 for nsrt in self._nsrts if nsrt.option==optn]
-    #                 ground_nsrts = [nsrt for nsrt_list in ground_nsrts 
-    #                                 for nsrt in nsrt_list]
-    #                 for state in succ_states:
-    #                     atom_state = utils.abstract(state, 
-    #                                                 self._get_current_predicates())
-    #                     if any([nsrt.preconditions.issubset(atom_state) for nsrt in 
-    #                                 ground_nsrts]):
-    #                         tp_states.append(state)
-    #                     else:
-    #                         fn_states.append(state)
-    #             # filter out the tn, fp states
-    #             if fail_states:
-    #                 optn = fail_optn_dict[g_optn]['option']
-    #                 grounding = fail_optn_dict[g_optn]['grounding']
-    #                 ground_nsrts = [utils.all_ground_nsrts(nsrt, grounding)
-    #                                 for nsrt in self._nsrts if nsrt.option==optn]
-    #                 ground_nsrts = [nsrt for nsrt_list in ground_nsrts
-    #                                 for nsrt in nsrt_list]
-    #                 for state in fail_states:
-    #                     atom_state = utils.abstract(state,
-    #                                                 self._get_current_predicates())
-    #                     if any([nsrt.preconditions.issubset(atom_state) for nsrt in 
-    #                                 ground_nsrts]):
-    #                         fp_states.append(state)
-    #                     else:
-    #                         tn_states.append(state)
-                
-    #         # Convert the states to string
-    #         n_tp, n_fn = len(tp_states), len(fn_states)
-    #         n_tn, n_fp = len(tn_states), len(fp_states)
-    #         sum_tp, sum_fn = sum_tp+n_tp, sum_fn+n_fn
-    #         sum_tn, sum_fp = sum_tn+n_tn, sum_fp+n_fp
-    #         tp_state_str = set([s.dict_str() for s in tp_states])
-    #         fn_state_str = set([s.dict_str() for s in fn_states])
-    #         tn_state_str = set([s.dict_str() for s in tn_states])
-    #         fp_state_str = set([s.dict_str() for s in fp_states])
-    #         uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
-    #         uniq_n_tn, uniq_n_fp = len(tn_state_str), len(fp_state_str)
-
-    #         # GT Positive
-    #         if n_succ_states:
-    #             result_str.append(
-    #             f"Ground option {g_optn} was applied on {n_tot} states and "+
-    #             f"*successfully* executed on {n_succ_states}/{n_tot} states "+
-    #             "(ground truth positive states).")
-    #             # True Positive
-    #             if n_tp:
-    #                 result_str.append(
-    #                 f"Out of the {n_succ_states} GT positive states, "+
-    #                 f"with the current predicates and operators, "+
-    #                 f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
-    #                 "operators' precondition (true positives)"+
-    #                 (f", to list {max_examples_num}:" if 
-    #                     uniq_n_tp > max_examples_num else ":"))
-    #                 for i, state_str in enumerate(tp_state_str): 
-    #                     if i == max_examples_num: break
-    #                     result_str.append(state_str+'\n')
-    #                 # result_str.append("\n")
-
-    #             # False Negative
-    #             if n_fn:
-    #                 result_str.append(
-    #                 f"Out of the {n_succ_states} GT positive states, "+
-    #                 f"with the current predicates and operators, "+
-    #                 f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
-    #                 "operators' precondition (false negatives)"+
-    #                 (f", to list {max_examples_num}:" if 
-    #                     uniq_n_fn > max_examples_num else ":"))
-    #                 for i, state_str in enumerate(fn_state_str): 
-    #                     if i == max_examples_num: break
-    #                     result_str.append(state_str+'\n')
-    #                 # result_str.append("\n")
-
-    #         # GT Negative
-    #         if n_fail_states:
-    #             result_str.append(
-    #             f"Ground option {g_optn} was applied on {n_tot} states and "+
-    #             f"*failed* to executed on {n_fail_states}/{n_tot} states "+
-    #             "(ground truth negative states).")
-    #             if n_fp:
-    #                 # False Positive
-    #                 result_str.append(
-    #                 f"Out of the {n_fail_states} GT negative states, "+
-    #                 f"with the current predicates and operators, "+
-    #                 f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
-    #                 "operators' precondition (false positives)"+
-    #                 (f", to list {max_examples_num}:" if 
-    #                     uniq_n_fp > max_examples_num else ":"))
-    #                 for i, state_str in enumerate(fp_state_str):
-    #                     if i == max_examples_num: break
-    #                     result_str.append(state_str+'\n')
-    #                 # result_str.append("\n")
-
-    #             if n_tn:
-    #                 # True Negative
-    #                 result_str.append(
-    #                 f"Out of the {n_fail_states} GT negative states, "+
-    #                 f"with the current predicates and operators, "+
-    #                 f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
-    #                 "operators' precondition (true negatives)"+
-    #                 (f", to list {max_examples_num}:" if 
-    #                     uniq_n_tn > max_examples_num else ":"))
-    #                 for i, state_str in enumerate(tn_state_str):
-    #                     if i == max_examples_num: break
-    #                     result_str.append(state_str+'\n')
-    #                 # result_str.append("\n")
-
-    #     print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
-    #     return '\n'.join(result_str)
-
-    # def _interaction_summary_str(self, 
-    #                              succ_optn_dict, 
-    #                              fail_optn_dict, 
-    #                              include_traj_str: bool) -> str:
-    #     result_str = []
-    #     max_example_num = 5
-    #     sum_tp, sum_fp = 0, 0
-    #     ground_options =\
-    #         set(succ_optn_dict.keys()) | set(fail_optn_dict.keys())
-
-    #     for g_optn in ground_options:
-    #         # Get the tp, fn, tn, fp states for each ground_option
-    #         succ_states = succ_optn_dict[g_optn]['states']
-    #         fail_states = fail_optn_dict[g_optn]['states']
-    #         n_succ_states, n_fail_states = len(succ_states), len(fail_states)
-
-    #         tp_states, fp_states = succ_states, fail_states
-    #         n_tp, n_fp = n_succ_states, n_fail_states
-            
-    #         sum_tp += n_tp
-    #         sum_fp += n_fp
-    #         tp_state_str = set([s.dict_str() for s in tp_states])
-    #         fp_state_str = set([s.dict_str() for s in fp_states])
-
-    #         if not include_traj_str and tp_states:
-    #             result_str.append(
-    #                 f"Ground option {g_optn} successfully executed on "+
-    #                 f"{n_succ_states} states (true positives)" +
-    #                 f", to list {max_example_num}:" if n_tp > max_example_num 
-    #                     else ":")
-    #             for i, state_str in enumerate(tp_state_str):
-    #                 if i == max_example_num: break
-    #                 result_str.append(f"{state_str}\n")
-    #         if fp_states:
-    #             result_str.append(f"Ground option {g_optn} was initialized "+
-    #                 f"but failed to execute on {n_fail_states} states (false positives)"+
-    #                 f", to list {max_example_num}:" if n_fp > max_example_num 
-    #                     else ":")
-    #             for i, state_str in enumerate(fp_state_str):
-    #                 if i == max_example_num: break
-    #                 result_str.append(f"{state_str}\n")
-
-    #     # Print a confusion matrix table based on sum_tp and sum_fp
-    #     print_confusion_matrix(sum_tp, 0, sum_fp, 0)
-    #     return '\n'.join(result_str)
-
-    # def _create_refinement_prompt(self, env: BaseEnv,
-    #                               ite: int,
-    #                               ) -> str:
-    #     # Read the template
-    #     with open(f'./prompts/invent_1.outline', 'r') as file:
-    #         template = file.read()
-
-    #     #### Meta
-    #     # Structure classes
-    #     with open('./prompts/class_definitions.py', 'r') as f:
-    #         struct_str = f.read()
-    #     template = template.replace('[STRUCT_DEFINITION]',
-    #                                 add_python_quote(struct_str))
-
-    #     #### Environment
-    #     # self.env_source_code = getsource(env.__class__)
-    #     # Type Initialization
-    #     type_init_str = add_python_quote(
-    #         self._env_type_str(self.env_source_code))
-    #     template = template.replace("[TYPES_IN_ENV]",  type_init_str)
-
-    #     # Initial Predicates
-    #     init_predicate_str = self._init_predicate_str(self.env_source_code)
-    #     template = template.replace("[PREDICATES_IN_ENV]", init_predicate_str)
-
-    #     # Previously Invented Predicates
-    #     new_predicate_str = self._invented_predicate_str(ite)
-    #     template = template.replace("[INVENTED_PREDICATES]", new_predicate_str)
-
-    #     # Options
-    #     options_str = set()
-    #     for nsrt in self._nsrts:
-    #         options_str.add(nsrt.option_str())
-    #     options_str = '\n'.join(list(options_str))
-    #     template = template.replace("[OPTIONS_IN_ENV]", options_str)
-
-    #     # NSRTS
-    #     nsrt_str = []
-    #     for nsrt in self._nsrts:
-    #         nsrt_str.append(str(nsrt).replace("NSRT-", ""))
-    #     template = template.replace("[NSRTS_IN_ENV]", '\n'.join(nsrt_str))
-
-    #     # Interaction result
-    #     # Add a atomic states for succ_optn_dict and fail_optn_dict
-    #     _, _, _, _, summary_str = utils.count_classification_result_for_ops(
-    #                                     self._nsrts,
-    #                                     self.succ_optn_dict,
-    #                                     self.fail_optn_dict,
-    #                                     return_str=True,
-    #                                     print_cm=True,
-    #                                 )
-    #     template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
-
-    #     # Save the text prompt
-    #     with open(f'./prompts/invent_{self.env_name}_{ite}.prompt', 'w') as\
-    #         file:
-    #         file.write(template)
-
-    #     prompt = template
-    #     return prompt
