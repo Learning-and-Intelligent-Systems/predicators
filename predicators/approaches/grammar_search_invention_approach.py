@@ -996,16 +996,19 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return (atom_dataset, candidates)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        if not CFG.offline_data_method in [
+        if CFG.offline_data_method == "geo_and_vlm":
+            atom_dataset_from_grammar, candidates_from_grammar = \
+                self._generate_atom_dataset_via_grammar(dataset)
+            atom_dataset_from_vlm, candidates_from_vlm = \
+                self._parse_atom_dataset_from_annotated_dataset(dataset)
+            merged_atom_dataset = utils.merge_ground_atom_datasets(
+                atom_dataset_from_grammar, atom_dataset_from_vlm)
+        elif not CFG.offline_data_method in [
                 "demo+labelled_atoms", "saved_vlm_img_demos_folder",
                 "demo_with_vlm_imgs"
         ]:
             atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
                 dataset)
-        elif CFG.offline_data_method == "geo_and_vlm":
-            atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
-                dataset)
-            import pdb; pdb.set_trace()
         else:
             # In this case, we're inventing over already-labelled atoms.
             atom_dataset, candidates = \

@@ -77,6 +77,16 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @property
+    def agent_goal_predicates(self) -> Set[Predicate]:
+        """Get the goal predicates that we want the agent to use, which may be
+        different than the ones the demonstrator uses.
+
+        This is used when inventing VLM predicates. Unless overridden, these are
+        the same as the original goal predicates.
+        """
+        return self.goal_predicates
+
+    @property
     @abc.abstractmethod
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment."""

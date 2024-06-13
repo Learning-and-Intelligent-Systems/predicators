@@ -349,6 +349,10 @@ class BurgerEnv(BaseEnv):
         # return {self._On, self._GoalHack}
 
     @property
+    def agent_goal_predicates(self) -> Set[Predicate]:
+        return {self._On, self._GoalHack}
+
+    @property
     def action_space(self) -> Box:
         # dx (column), dy (row), direction, cut/cook, pick/place
         # We expect dx and dy to be one of -1, 0, or 1.
