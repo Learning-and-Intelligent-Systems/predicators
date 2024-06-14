@@ -45,7 +45,9 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         n = int(CFG.teacher_dataset_num_examples)
         assert n >= 1, "Must have at least 1 example of each predicate"
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
-    if CFG.offline_data_method in ["demo_with_vlm_imgs", "geo_and_vlm"]:  # pragma: no cover  # pylint:disable=line-too-long
+    if CFG.offline_data_method in [
+            "demo_with_vlm_imgs", "geo_and_demo_with_vlm_imgs"
+    ]:
         # NOTE: this below method is tested separately; it's just that testing
         # it by calling the above function is painful because a VLM is
         # instantiated and called from inside this method, but when testing,
@@ -71,10 +73,14 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         # a VLM.
         return create_ground_atom_data_from_generated_demos(
             demo_data, env, known_predicates, train_tasks)
-    if CFG.offline_data_method == "demo+labelled_atoms":
+    if CFG.offline_data_method in [
+            "demo+labelled_atoms", "geo_and_demo+labelled_atoms"
+    ]:
         return create_ground_atom_data_from_labelled_txt(
             env, train_tasks, known_options)
-    if CFG.offline_data_method == "saved_vlm_img_demos_folder":  # pragma: no cover  # pylint:disable=line-too-long
+    if CFG.offline_data_method in [
+            "saved_vlm_img_demos_folder", "geo_and_saved_vlm_img_demos_folder"
+    ]:
         # NOTE: this below method is tested separately; it's just that testing
         # it by calling the above function is painful because a VLM is
         # instantiated and called from inside this method, but when testing,

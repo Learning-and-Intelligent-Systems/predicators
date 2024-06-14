@@ -996,7 +996,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return (atom_dataset, candidates)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        if CFG.offline_data_method == "geo_and_vlm":
+        if CFG.offline_data_method in [
+                "geo_and_demo_with_vlm_imgs", "geo_and_demo+labelled_atoms",
+                "geo_and_saved_vlm_img_demos_folder"
+        ]:
             atom_dataset_from_grammar, candidates_from_grammar = \
                 self._generate_atom_dataset_via_grammar(dataset)
             atom_dataset_from_vlm, candidates_from_vlm = \
