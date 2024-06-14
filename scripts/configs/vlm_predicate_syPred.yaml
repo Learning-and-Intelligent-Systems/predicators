@@ -31,7 +31,7 @@ ARGS:
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 40
+  num_train_tasks: 1
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -75,7 +75,7 @@ FLAGS:
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
   llm_predicator_use_grammar: True
-  vlm_predicator_oracle_base_grammar: True
+  vlm_predicator_oracle_base_grammar: False
   llm_predicator_oracle_learned: False # when True 17/20; False 3/20
   vlm_predicator_render_option_state: False # True for NSP
   # Test

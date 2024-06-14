@@ -199,7 +199,8 @@ class ImagePatch(ViperImagePatch):
                         left_margin: int = 5,
                         lower_margin: int=10, 
                         right_margin: int=10, 
-                        top_margin: int=5) -> 'ImagePatch':
+                        top_margin: int=5
+                        ) -> 'ImagePatch':
         """
         Crop the image patch to the smallest bounding box that contains all the
         masks of all the objects.

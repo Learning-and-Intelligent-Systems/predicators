@@ -221,8 +221,8 @@ class ImagePatch:
         return ImagePatch(self.cropped_image, left, lower, right, upper)
 
     def overlaps_with(self, left, lower, right, upper):
-        """Returns True if a crop with the given coordinates overlaps with this one,
-        else False.
+        """Returns True if a crop with the given coordinates overlaps with this 
+        one, else False.
         Parameters
         ----------
         left, lower, right, upper : int

@@ -282,7 +282,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # Use the results to prompt the llm
                     prompt = self._create_prompt(env, ite)
                     response_file =\
-                    f'./prompts/invent_{self.env_name}_1.response'
+                        f'./prompts/invent_{self.env_name}_1.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
                     breakpoint()
                     new_proposals = self._get_llm_predictions(prompt,
@@ -757,24 +757,47 @@ class VlmInventionApproach(NSRTLearningApproach):
         '''Compose a prompt for VLM for predicate invention
         '''
         # Read the template
-        with open('./prompts/invent_.outline', 'r') as file:
+        # if CFG.neu_sym_predicate:
+        #     suffix = "raw_state"
+        # else:
+        #     suffix = "oo_state"
+        with open(f'./prompts/invent_0.outline', 'r') as file:
             template = file.read()
 
         ##### Meta Environment
         # Structure classes
-        with open('./prompts/class_definitions.py', 'r') as f:
-            struct_str = f.read()
+
+        # with open('./prompts/class_definitions.py', 'r') as f:
+        #     struct_str = f.read()
+        if CFG.neu_sym_predicate:
+            with open('./prompts/api_raw_state.py', 'r') as f:
+                state_str = f.read()
+            with open('./prompts/api_nesy_predicate.py', 'r') as f:
+                pred_str = f.read()
+        else:
+            with open('./prompts/api_oo_state.py', 'r') as f:
+                state_str = f.read()
+            with open('./prompts/api_sym_predicate.py', 'r') as f:
+                pred_str = f.read()
+        
         template = template.replace('[STRUCT_DEFINITION]',
-                                    add_python_quote(struct_str))
+            add_python_quote(state_str + '\n\n' + pred_str))
 
         ##### Environment
         self.env_source_code = getsource(env.__class__)
-        # Type Instantiation
-        type_instan_str = add_python_quote(
-                            self._env_type_str(self.env_source_code))
+        # Type Instances
+        if CFG.neu_sym_predicate:
+            # New version: just read from a file
+            with open(f"./prompts/types_{self.env_name}.py", 'r') as f:
+                type_instan_str = f.read()
+        else:
+            # Old version: extract directly from the source code
+            type_instan_str = self._env_type_str(self.env_source_code)
+        type_instan_str = add_python_quote(type_instan_str)
         template = template.replace("[TYPES_IN_ENV]", type_instan_str)
 
         # Predicates
+        # If NSP, provide the GT goal NSPs, although they are never used.
         pred_str_lst = []
         pred_str_lst.append(self._init_predicate_str(self.env_source_code))
         if ite > 1:
@@ -810,55 +833,6 @@ class VlmInventionApproach(NSRTLearningApproach):
             f.write(template)
         prompt = template
 
-        # if CFG.rgb_observation:
-        #     # Visual observation
-        #     images = []
-        #     for i, trajectory in enumerate(dataset.trajectories):
-        #         # Get the init observation in the trajectory
-        #         img_save_path = f'./prompts/init_obs_{i}.png'
-        #         observation = trajectory.states[0].rendered_state['scene'][0]
-        #         imageio.imwrite(img_save_path, observation)
-
-        #         # Encode the image
-        #         image_str = encode_image(img_save_path)
-        #         # Add the image to the images list
-        #         images.append(image_str)
-
-        # ########### Make the prompt ###########
-        # # Create the text entry
-        # text_entry = {
-        #     "type": "text",
-        #     "text": text_prompt
-        # }
-        
-        # prompt = [text_entry]
-        # if CFG.rgb_observation:
-        #     # Create the image entries
-        #     image_entries = []
-        #     for image_str in images:
-        #         image_entry = {
-        #             "type": "image_url",
-        #             "image_url": {
-        #                 "url": f"data:image/png;base64,{image_str}"
-        #             }
-        #         }
-        #         image_entries.append(image_entry)
-
-        #     # Combine the text entry and image entries and Create the final prompt
-        #     prompt += image_entries
-
-        # prompt = [{
-        #         "role": "user",
-        #         "content": prompt
-        #     }]
-
-        # # Convert the prompt to JSON string
-        # prompt_json = json.dumps(prompt, indent=2)
-        # with open('./prompts/invent_2_cover_final.prompt', 'w') as file:
-        #     file.write(str(prompt_json))
-        # # Can be loaded with:
-        # # with open('./prompts/2_invention_cover_final.prompt', 'r') as file:
-        # #     prompt = json.load(file)
         return prompt
 
     def _parse_predicate_predictions(self, prediction_file: str
@@ -954,6 +928,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def _init_predicate_str(self, source_code: str) -> str:
         '''Extract the initial predicates from the environment source code
+        If NSP, provide the GT goal NSPs, although they are never used.
         '''
         init_pred_str = []
         init_pred_str.append(str({p.pretty_str()[1] for p 
@@ -976,7 +951,11 @@ class VlmInventionApproach(NSRTLearningApproach):
             for p in self._initial_predicates:
                 p_name = p.name
                 # Get the instatiation code for p from the code block
-                p_instan_pattern = r"(self\._" + re.escape(p_name) +\
+                if CFG.neu_sym_predicate:
+                    p_instan_pattern = r"(self\._" + re.escape(p_name) +\
+                                    r"_NSP = NSPredicate\(.*?\n.*?\))"
+                else:
+                    p_instan_pattern = r"(self\._" + re.escape(p_name) +\
                                     r" = Predicate\(.*?\n.*?\))"
                 block = re.search(p_instan_pattern, pred_instantiation_str, 
                                   re.DOTALL)
