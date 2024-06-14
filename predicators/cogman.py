@@ -178,7 +178,7 @@ class CogMan:
             
         print("NEW EPISODE")
         self._approach._current_control = "planner"
-        _skeleton_atom_seqs, option_policy = self._approach._get_option_policy_by_planning(None, task, 1000)
+        _skeleton_atom_seqs, option_policy = self._approach._get_option_policy_by_planning(None, task, CFG.timeout)
         self._approach._current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,

@@ -133,10 +133,10 @@ def learn_nsrts_from_data(
         for (seg, _) in pnad.datastore:
             assert seg not in seg_to_nsrt
             seg_to_nsrt[seg] = nsrt
-    logging.info("\nLearned NSRTs:")
-    for nsrt in nsrts:
-        logging.info(nsrt)
-    logging.info("")
+    # logging.info("\nLearned NSRTs:")
+    # for nsrt in nsrts:
+        # logging.info(nsrt)
+    # logging.info("")
 
     return set(nsrts), segmented_trajs, seg_to_nsrt
 
