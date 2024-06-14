@@ -19,7 +19,6 @@ from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
     Predicate
 from predicators.utils import NSPredicate, RawState, BoundingBox,\
     evaluate_simple_assertion, VLMQuery, _MemoizedClassifier
-from predicators.image_patch_wrapper import ImagePatch
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
@@ -40,18 +39,17 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         super().__init__(use_gui)
 
         # Repeat for LLM predicates parsing
-        # Predicates
-        self._On = Predicate("On", [self._block_type, self._block_type],
-                             self._On_holds)
-        self._OnTable = Predicate("OnTable", [self._block_type],
-                                  self._OnTable_holds)
-        self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
-                                      self._GripperOpen_holds)
-        self._Holding = Predicate("Holding", [self._block_type],
-                                  self._Holding_holds)
-        self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+        # self._On = Predicate("On", [self._block_type, self._block_type],
+        #                             self._On_holds)
+        # self._OnTable = Predicate("OnTable", [self._block_type],
+        #                             self._OnTable_holds)
+        # self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
+        #                             self._GripperOpen_holds)
+        # self._Holding = Predicate("Holding", [self._block_type],
+        #                             self._Holding_holds)
+        # self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
 
-        # Neuro-Symbolic Predicates
+        # Predicates
         self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
                             _MemoizedClassifier(self._On_NSP_holds))
         self._OnTable_NSP = NSPredicate("OnTable", [self._block_type],
@@ -98,11 +96,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Label the object in the scene image.
         block_name = block.id_name
-        state_ip = ImagePatch(state)
 
         # We only need to look at the object and the space on top of it to
         # determine if it's clear.
-        attention_image = state_ip.crop_to_objects([block], top_margin=20, 
+        attention_image = state.crop_to_objects([block], top_margin=20, 
                                                    lower_margin=5)
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/clear({block_name}).png")
@@ -124,9 +121,17 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         if self._GripperOpen_NSP_holds(state, [robot]):
             return False
 
+        # Using simple heuristics to check if they have overlap
+        block_bbox = state.get_obj_bbox(block) 
+        robot_bbox = state.get_obj_bbox(robot)
+        if block_bbox.right < robot_bbox.left or \
+            block_bbox.left > robot_bbox.right or\
+            block_bbox.upper < robot_bbox.lower or\
+            block_bbox.lower > robot_bbox.upper:
+            return False
+
         block_name = block.id_name
-        state_ip = ImagePatch(state)
-        attention_image = state_ip.crop_to_objects([block, robot])
+        attention_image = state.crop_to_objects([block, robot])
 
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/holding({block_name}).png")
@@ -146,23 +151,38 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     
     def _OnTable_NSP_holds(self, state: RawState, objects:Sequence[Object]) ->\
             bool:
-        '''Determine if the block in objects is on the table in the scene image.
-        Attributes:
+        '''Determine if the block in objects is directly resting on the table's 
+        surface in the scene image.
+        This method uses simple heuristics and image processing techniques to 
+        determine the spatial relationship between the block and the table. 
+        It first identifies the table in the scene, then crops the scene image 
+        to the smallest bounding box that includes both the block and the table, 
+        and finally evaluates a simple assertion about their relative positions.
+
+        Parameters:
         -----------
         state : RawState
+            The current state of the world, represented as an image.
         objects : Sequence[Object]
-            The block whose relationship with the table is to be determined.
+            A sequence containing a single block whose relationship with the 
+            table is to be determined.
+
+        Returns:
+        --------
+        bool
+            True if the block is directly resting on the table's surface, False 
+            otherwise.
         '''
         block, = objects
         block_name = block.id_name
-        state_ip = ImagePatch(state)
+        
 
         # Crop the scene image to the smallest bounding box that include both
         # objects.
         # We know there is only one table in this environment.
         table = state.get_objects(self._table_type)[0]
         table_name = table.id_name
-        attention_image = state_ip.crop_to_objects([block, table])
+        attention_image = state.crop_to_objects([block, table])
 
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/OnTable({block_name}).png")
@@ -172,15 +192,32 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             attention_image)
 
     def _On_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> bool:
-        '''Determine if the first block in objects is on the second block in the 
-        scene image.
-        Attributes:
+        '''
+        Determine if the first block in objects is directly on top of the second 
+        block in the scene image.
+
+        This method uses simple heuristics and image processing techniques to 
+        determine the spatial relationship between the two blocks. It first 
+        checks if the blocks are the same or if they are far away from each 
+        other. If neither condition is met, it crops the scene image to the 
+        smallest bounding box that includes both blocks and evaluates a simple 
+        assertion about their relative positions.
+
+        Parameters:
         -----------
         state : RawState
+            The current state of the world, represented as an image.
         objects : Sequence[Object]
-            The two blocks whose relationship is to be determined.
+            A sequence of two blocks whose relationship is to be determined. The 
+            first block is the one that is potentially on top.
+
+        Returns:
+        --------
+        bool
+            True if the first block is directly on top of the second block with 
+            no blocks in between, False otherwise.
         '''
-        state_ip = ImagePatch(state)
+        
         block1, block2 = objects
         block1_name, block2_name = block1.id_name, block2.id_name
 
@@ -199,7 +236,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Crop the scene image to the smallest bounding box that include both
         # objects.
-        attention_image = state_ip.crop_to_objects([block1, block2])
+        attention_image = state.crop_to_objects([block1, block2])
 
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/On({block1_name}, "+

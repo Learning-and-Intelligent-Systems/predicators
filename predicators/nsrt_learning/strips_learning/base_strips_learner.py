@@ -70,7 +70,7 @@ class BaseSTRIPSLearner(abc.ABC):
             # logging.debug(f"Learned {len(learned_pnads)} operators before "+
             #               f"pruning: {learned_pnads}")
             # Printing for debug
-            for pnad in learned_pnads:
+            # for pnad in learned_pnads:
                 # logging.debug(f"PNAD: {pnad.op.name} \n"
                 # f"Total segments: {self._num_segments} "
                 # f"Percentage: {len(pnad.datastore)/float(self._num_segments)}")

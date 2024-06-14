@@ -43,7 +43,7 @@ FLAGS:
   segmenter: "option_changes"
   neural_gaus_regressor_max_itr: 50000
   timeout: 30 #300
-  pybullet_camera_width: 900
+  pybullet_camera_width: 800
   pybullet_camera_height: 900
   video_fps: 20
 
@@ -74,8 +74,8 @@ FLAGS:
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
   llm_predicator_use_grammar: True # always true?
-  vlm_predicator_oracle_base_grammar: True
-  llm_predicator_oracle_learned: False # relaxation 1
+  vlm_predicator_oracle_base_grammar: False
+  llm_predicator_oracle_learned: False            # relaxation 1
   vlm_predicator_render_option_state: True # True for NSP
   # Test
   grammar_search_prune_redundant_preds: False

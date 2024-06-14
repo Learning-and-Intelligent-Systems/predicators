@@ -30,4 +30,3 @@ class Predicate:
     # representing the arguments. These objects should be the only ones
     # treated "specially" by the classifier.
     _classifier: Callable[[State, Sequence[Object]], bool]
-

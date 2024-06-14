@@ -325,21 +325,24 @@ def count_classification_result_for_ops(
 
                 # rgb perception states representation
                 if CFG.vlm_predicator_render_option_state:
-                    tp_state_obs = [s.rendered_state['scene'] for s
+                    tp_state_obs = [s.labeled_image for s
                         in tp_state_str_dict.values()]
-                    fn_state_obs = [s.rendered_state['scene'] for s
+                    fn_state_obs = [s.labeled_image for s
                         in fn_state_str_dict.values()]
-                    tn_state_obs = [s.rendered_state['scene'] for s
+                    tn_state_obs = [s.labeled_image for s
                         in tn_state_str_dict.values()]
-                    fp_state_obs = [s.rendered_state['scene'] for s
+                    fp_state_obs = [s.labeled_image for s
                         in fp_state_str_dict.values()]
-                    # tp_state_obs = set([s.rendered_state['scene'] for s
+                else:
+                    tp_state_obs, fn_state_obs, tn_state_obs, fp_state_obs =\
+                        [], [], [], []
+                    # tp_state_obs = set([s.labeled_image for s
                     #     in tp_state_dict[optn_str][g_optn]['states']])
-                    # fn_state_obs = set([s.rendered_state['scene'] for s
+                    # fn_state_obs = set([s.labeled_image for s
                     #     in fn_state_dict[optn_str][g_optn]['states']])
-                    # tn_state_obs = set([s.rendered_state['scene'] for s
+                    # tn_state_obs = set([s.labeled_image for s
                     #     in tn_state_dict[optn_str][g_optn]['states']])
-                    # fp_state_obs = set([s.rendered_state['scene'] for s
+                    # fp_state_obs = set([s.labeled_image for s
                     #     in fp_state_dict[optn_str][g_optn]['states']])
                 
                 uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
@@ -522,10 +525,10 @@ def append_classification_result_for_ops(result_str: List[str],
         for i, state_obs in enumerate(states_obs): 
             if i == max_num_examples: break
             # obs_name = f"{g_optn}_{category}_{str(i)}.png"
-            obs_name, obs_path = vlm_option_obs_save_name(
+            obs_name, obs_dir = vlm_option_obs_save_name(
                 g_optn, category, i)
             # save the state_obs to a jpg file at obs_name
-            state_obs.save(os.path.join(obs_path, obs_name))
+            state_obs.save(os.path.join(obs_dir, obs_name))
             # imageio.imwrite(obs_path, state_obs)
             result_str.append(obs_name+'\n')
     else:
@@ -1524,10 +1527,6 @@ class RawState(PyBulletState):
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
 
-    # def get_object_image(self, object: Object) -> ImageWithBox:
-    #     """Return the image with bounding box for the object."""
-    #     return self.get_obj_image(object.name)
-
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
         # data_hash = hash(tuple(sorted(self.data.items())))
@@ -1572,6 +1571,16 @@ class RawState(PyBulletState):
         '''
         mask = self.get_obj_mask(object)
         return mask_to_bbox(mask)
+    
+    def crop_to_objects(self, objects: Collection[Object],
+                        left_margin: int = 5,
+                        lower_margin: int=10, 
+                        right_margin: int=10, 
+                        top_margin: int=5
+                        ) -> ImagePatch:
+        state_ip = ImagePatch(self)
+        return state_ip.crop_to_objects(objects, left_margin, lower_margin,
+                                        right_margin, top_margin)
 
 def mask_to_bbox(mask: Mask) -> BoundingBox:
     y_indices, x_indices = np.where(mask)
@@ -1800,7 +1809,7 @@ def run_policy(
         video = monitor._seg_video['scene']
         for i, (rend_s, images) in enumerate(zip(states, video)):
             try:
-                assert (rend_s.rendered_state['scene'][0] == images).all()
+                assert (rend_s.labeled_image[0] == images).all()
             except:
                 print(f"frmae {i} is different")
                 breakpoint()
@@ -3522,8 +3531,8 @@ def vlm_option_obs_save_name(g_optn_str: str, category: str, obs_idx: int) ->\
     img_fname = f"{CFG.env}_{g_optn_str}_{category}_{obs_idx}" + suffix_str
     img_dir = "./prompts/images"
     os.makedirs(img_dir, exist_ok=True)
-    img_path = os.path.join(img_dir, img_fname)
-    return img_fname, img_path
+    # img_path = os.path.join(img_dir, img_fname)
+    return img_fname, img_dir
 
 def create_dataset_filename_str(
         saving_ground_atoms: bool,
