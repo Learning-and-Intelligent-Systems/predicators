@@ -1417,6 +1417,8 @@ class MapleQFunction(MLPRegressor):
                 state, num_samples_per_applicable_nsrt=1)
             # Note that this assumes that the output of sampling is completely
             # random, including in the order of ground NSRTs.
+            if self._use_epsilon_annealing:
+                self.decay_epsilon()
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
