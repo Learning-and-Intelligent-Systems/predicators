@@ -575,7 +575,7 @@ class GlobalSettings:
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
-    active_sampler_learning_exploration_epsilon = 0.5
+    active_sampler_learning_exploration_epsilon = 1.0
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
 
