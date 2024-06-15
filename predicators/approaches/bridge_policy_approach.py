@@ -71,7 +71,7 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
     DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, Array, LiftedAtom
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, Array, LiftedAtom, Variable
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
     Optional, Sequence, Set, Tuple
@@ -396,30 +396,35 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             policy = self.call_planner_policy,
             params_space = Box(0,len(train_tasks),(1,)),
             )
-        
-        self._initial_options = initial_options.add(self.CallPlanner)
+        initial_options.add(self.CallPlanner)
+        self._initial_options = initial_options
         self.mapleq=MapleQApproach(self._get_current_predicates(), \
                                    self._initial_options, self._types, \
                                     self._action_space, self._train_tasks)
         self._current_control = ""
-        self._current_policy = None
-        self._bridge_called_state = None
-        self._policy_logs = []
+        option_policy = self._get_option_policy_by_planning(None,self._train_tasks[0], CFG.timeout)
+        self._current_policy = utils.option_policy_to_policy(
+            option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout,
+            raise_error_on_repeated_state=True,
+        )
+        self._bridge_called_state = State()
+        self._policy_logs: List[str] = []
 
-    def _Can_plan(self, state , objects):
+    def _Can_plan(self, state: State, objects: Sequence[Object]) -> bool:
         if (self.mapleq._q_function._vectorize_state(state) != self.mapleq._q_function._vectorize_state(self._bridge_called_state)).any():
             return True
         return False
 
-    def call_planner_policy(self, state: State, memory,
-                                objects,
-                                params):
+    def call_planner_policy(self, state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
         #u probably need to set like self._current_policy = get policy from planning or smth
 
         #return action that does nothing !
         self._current_control = "planner"
         init_atoms = utils.abstract(state, self._get_current_predicates())
-        option_policy = self._get_option_policy_by_planning(init_atoms,self._train_tasks[int(params[0])], 10000)
+        option_policy = self._get_option_policy_by_planning(init_atoms,self._train_tasks[int(params[0])], CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
@@ -428,14 +433,14 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
          
         return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
 
-    def call_planner_nsrt(self):
+    def call_planner_nsrt(self) -> NSRT:
         # CallPlanner
-        parameters = []
+        parameters: Sequence[Variable] = []
         option_vars = parameters
         option = self.CallPlanner
         preconditions = {LiftedAtom(self.CanPlan, [])}
-        add_effects = set()
-        delete_effects = set()
+        add_effects: Set[LiftedAtom] = set()
+        delete_effects: Set[LiftedAtom] = set()
 
         ignore_effects: Set[Predicate] = set()
         call_planner_nsrt = NSRT("CallPlanner", parameters, preconditions,
@@ -705,7 +710,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
     
 
     def _get_option_policy_by_planning(
-            self, init, task: Task, timeout: float) -> Callable[[State], _Option]:
+            self, init: Set[GroundAtom], task: Task, timeout: float) -> Callable[[State], _Option]:
         """Raises an OptionExecutionFailure with the last_failed_option in its
         info dict in the case where execution fails."""
 
@@ -724,7 +729,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             necessary_atoms_seq=atoms_seq)
     
     def _run_task_plan(
-        self, init, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+        self, init: Set[GroundAtom], task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
 
@@ -749,104 +754,3 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             raise ApproachTimeout(e.args[0], e.info)
 
         return plan, atoms_seq, metrics
-    
-
-    def run_task_plan_once(self,
-        init,
-        task: Task,
-        nsrts: Set[NSRT],
-        preds: Set[Predicate],
-        types: Set[Type],
-        timeout: float,
-        seed: int,
-        task_planning_heuristic: Optional[str] = None,
-        ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
-        default_cost: float = 1.0,
-        cost_precision: int = 3,
-        max_horizon: float = np.inf,
-        **kwargs: Any
-) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
-        """Get a single abstract plan for a task.
-
-        The sequence of ground atom sets returned represent NECESSARY atoms.
-        """
-        if init is None:
-            init_atoms = utils.abstract(task.init, preds)
-        else:
-            init_atoms = init
-        goal = task.goal
-        objects = set(task.init)
-
-        start_time = time.perf_counter()
-
-        if CFG.sesame_task_planner == "astar":
-            ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, nsrts)
-            assert task_planning_heuristic is not None
-            heuristic = utils.create_task_planning_heuristic(
-                task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
-                objects)
-            duration = time.perf_counter() - start_time
-            timeout -= duration
-            plan, atoms_seq, metrics = next(
-                task_plan(init_atoms,
-                        goal,
-                        ground_nsrts,
-                        reachable_atoms,
-                        heuristic,
-                        seed,
-                        timeout,
-                        max_skeletons_optimized=1,
-                        use_visited_state_set=True,
-                        **kwargs))
-            if len(plan) > max_horizon:
-                raise PlanningFailure(
-                    "Skeleton produced by A-star exceeds horizon!")
-        elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
-            fd_exec_path = os.environ["FD_EXEC_PATH"]
-            exec_str = os.path.join(fd_exec_path, "fast-downward.py")
-            timeout_cmd = "gtimeout" if sys.platform == "darwin" \
-                else "timeout"
-            # Run Fast Downward followed by cleanup. Capture the output.
-            assert "FD_EXEC_PATH" in os.environ, \
-                "Please follow instructions in the docstring of the" +\
-                "_sesame_plan_with_fast_downward method in planning.py"
-
-            sesame_task_planner = CFG.sesame_task_planner
-            if sesame_task_planner.endswith("-costs"):
-                use_costs = True
-                sesame_task_planner = sesame_task_planner[:-len("-costs")]
-            else:
-                use_costs = False
-
-            if sesame_task_planner == "fdopt":
-                alias_flag = "--alias seq-opt-lmcut"
-            elif sesame_task_planner == "fdsat":
-                alias_flag = "--alias lama-first"
-            else:
-                raise ValueError("Unrecognized sesame_task_planner: "
-                                f"{CFG.sesame_task_planner}")
-
-            sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
-                                                timeout_cmd, alias_flag, exec_str,
-                                                list(objects), init_atoms)
-
-            if use_costs:
-                assert ground_op_costs is not None
-                assert all(c >= 0 for c in ground_op_costs.values())
-                _update_sas_file_with_costs(sas_file,
-                                            ground_op_costs,
-                                            default_ground_op_cost=default_cost,
-                                            cost_precision=cost_precision)
-
-            plan, atoms_seq, metrics = fd_plan_from_sas_file(
-                sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
-                list(objects), init_atoms, nsrts, float(max_horizon))
-        else:
-            raise ValueError("Unrecognized sesame_task_planner: "
-                            f"{CFG.sesame_task_planner}")
-
-        necessary_atoms_seq = utils.compute_necessary_atoms_seq(
-            plan, atoms_seq, goal)
-
-        return plan, necessary_atoms_seq, metrics
