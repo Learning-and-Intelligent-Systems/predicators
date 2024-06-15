@@ -31,15 +31,6 @@ class NSPredicate:
     _classifier:  Callable[[RawState, Sequence[Object]], bool]
 
 def evaluate_simple_assertion(assertion: str, image: Image) -> bool:
-    """A helper function that can be used in writing _classifier functions for 
-    NSPredicates that evaluates a simple assertion with respect to the
-    image by querying a vision language model (VLM). Querying the VLM is cost 
-    expensive and the VLM has limited understandings of the world, so this
-    function should be used sparingly and the assertaion should be clear, 
-    ambiguous and relatively simple. On the other hand, also don't write 
-    heuristics or rules that are not always true.
-    """
-def evaluate_simple_assertion(assertion: str, image: Image) -> bool:
     """
     Evaluate a simple assertion about an image by querying a vision language 
     model (VLM).

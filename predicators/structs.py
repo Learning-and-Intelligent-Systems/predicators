@@ -232,16 +232,20 @@ class State:
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
     
-    def dict_str(self, indent: int = 0) -> str:
+    def dict_str(self, indent: int = 0, object_features: bool = True,
+                use_object_id: bool = False) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:
             obj_dict = {}
-            for attribute, value in zip(obj.type.feature_names, self[obj]):
-                if isinstance(value, (float, int, np.float32)):
-                    value = round(float(value), 1)
-                obj_dict[attribute] = value
-            state_dict[f"{obj.name}:{obj.type.name}"] = obj_dict
+            if obj.type.name == "robot" or object_features:
+                for attribute, value in zip(obj.type.feature_names, self[obj]):
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
+            if use_object_id: obj_name = obj.id_name
+            else: obj_name = obj.name
+            state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
 
         # Create a string of n_space spaces
         spaces = " " * indent
@@ -1128,8 +1132,12 @@ class _GroundNSRT:
     Option: {self.option}
     Option Objects: {self.option_objs}"""
 
-    def ground_option_str(self) -> str:
-        var_str = ", ".join([str(v) for v in self.option_objs])
+    def ground_option_str(self, use_object_id: bool = False) -> str:
+        if use_object_id:
+            var_str = ", ".join([o.id_name+":"+o.type.name for o in 
+                                    self.option_objs])
+        else:
+            var_str = ", ".join([str(o) for o in self.option_objs])
         return f"{self.option.name}({var_str})"
 
     @cached_property

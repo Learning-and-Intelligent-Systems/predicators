@@ -531,7 +531,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
             g_nsrt = nsrt_plan[0]
-            gop_str = g_nsrt.ground_option_str()
+            gop_str = g_nsrt.ground_option_str(
+                use_object_id=CFG.neu_sym_predicate)
             self.fail_optn_dict[gop_str].append_state(
                 option_start_state,
                 utils.abstract(option_start_state, 
@@ -578,7 +579,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             # logging.info("Start new option at step "+
                             #                 f"{env_step_counter}")
                             g_nsrt = nsrt_plan[nsrt_counter]
-                            gop_str = g_nsrt.ground_option_str()
+                            gop_str = g_nsrt.ground_option_str(
+                                use_object_id=CFG.neu_sym_predicate)
                             states.append(option_start_state)
                             self.succ_optn_dict[gop_str].append_state(
                                 option_start_state,
@@ -799,7 +801,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Predicates
         # If NSP, provide the GT goal NSPs, although they are never used.
         pred_str_lst = []
-        pred_str_lst.append(self._init_predicate_str(self.env_source_code))
+        # pred_str_lst.append(self._init_predicate_str(env, self.env_source_code))
         if ite > 1:
             pred_str_lst.append("The previously invented predicates are:")
             pred_str_lst.append(self._invented_predicate_str(ite))
@@ -926,7 +928,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         return constants_str
 
 
-    def _init_predicate_str(self, source_code: str) -> str:
+    def _init_predicate_str(self, env: BaseEnv, source_code: str) -> str:
         '''Extract the initial predicates from the environment source code
         If NSP, provide the GT goal NSPs, although they are never used.
         '''
@@ -948,7 +950,14 @@ class VlmInventionApproach(NSRTLearningApproach):
         if predicate_block is not None:
             pred_instantiation_str = predicate_block.group()
 
-            for p in self._initial_predicates:
+            if CFG.neu_sym_predicate:
+                init_pred = [p for p in env.ns_predicates if p in 
+                             self._initial_predicates]
+            else:
+                init_pred = self._initial_predicates                    
+
+            for p in init_pred:
+
                 p_name = p.name
                 # Get the instatiation code for p from the code block
                 if CFG.neu_sym_predicate:

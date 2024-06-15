@@ -103,21 +103,26 @@ def count_classification_result_for_ops(
         fail_optn_dict: Dict[str, GroundOptionRecord],
         return_str: bool = False,
         initial_ite: bool = False,
-        print_cm: bool = False) -> Tuple[int, int, int, int, str]:
+        print_cm: bool = False
+        ) -> Tuple[int, int, int, int, str]:
 
     np.set_printoptions(precision=1)
     result_str = []
     max_num_examples = 3
     max_num_groundings = 3
-    # Make a {option_str: {ground_option_str: states}} dictionary and only list 
-    # the top max_num_grounds ground option: states examples with the most 
-    # examples
+
+    # Dictionary of {option_str: {ground_option_str: states}}
+    # These are used when only listing states of the top max_num_grounds ground 
+    # option: ground options with the most examples
     tp_state_dict, fn_state_dict, tn_state_dict, fp_state_dict =\
         [defaultdict(lambda: defaultdict(lambda: defaultdict(list))) for _ 
-         in range(4)]
+            in range(4)]
+
+    # Dictionary of {option_str: {ground_option_str: classification accuracy}}
     accuracy_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     sum_tp, sum_fn, sum_tn, sum_fp = 0, 0, 0, 0
     ground_options = set(succ_optn_dict.keys()) | set(fail_optn_dict.keys())
+
 
     for g_optn in ground_options:
         # Use atom states directly 
@@ -263,278 +268,220 @@ def count_classification_result_for_ops(
         accuracy_dict[str(optn)][g_optn]['tot'] = n_tot
         accuracy_dict[str(optn)][g_optn]['acc'] = (n_tp + n_tn) / n_tot
     
+    result_str = ""
     if return_str:
-        # What how to simplify the prompt?
-        # 1. The g_opt with the highest non-1 accuracy, based on repeated states
-        # 2. ''                                       , based on unique states
-        # 3. ......
-
-        # For each option, sort the g_options based on some metrics, currently
-        # based on accuracy
-        # Create a new dict of form: {option: (g_option, accuracy)}
-        option_dict = defaultdict(list)
-        for option_str, ground_options in accuracy_dict.items():
-            for ground_option_str, data in ground_options.items():
-                acc = data['acc']
-                option_dict[option_str].append((ground_option_str, acc))
-        for option_str, ground_options in option_dict.items():
-            sorted_ground_options = sorted(ground_options, 
-                                           key=lambda x: x[1], reverse=True)
-            option_dict[option_str] = sorted_ground_options
-        # pprint(option_dict)
-        
-        for optn_str in option_dict.keys():
-            n_g_optn_shown = 0
-            for (g_optn, acc) in option_dict[optn_str]:
-                if n_g_optn_shown == max_num_groundings: break
-                if acc < 1: 
-                    n_g_optn_shown += 1
-                # else:
-                #     continue
-
-                n_tp = tp_state_dict[optn_str][g_optn]['n_tp']
-                n_fp = fp_state_dict[optn_str][g_optn]['n_fp']
-                n_tn = tn_state_dict[optn_str][g_optn]['n_tn']
-                n_fn = fn_state_dict[optn_str][g_optn]['n_fn']
-                n_tot = accuracy_dict[optn_str][g_optn]['tot']
-                n_succ_states = tp_state_dict[optn_str][g_optn]['n_succ']
-                n_fail_states = tn_state_dict[optn_str][g_optn]['n_fail']
-
-                # The following is similar to before
-                # object-centric states representation
-                tp_state_str_dict = {s.dict_str(indent=2): s for s
-                    in tp_state_dict[optn_str][g_optn]['states']}
-                tp_state_str = set(tp_state_str_dict.keys())
-                fn_state_str_dict = {s.dict_str(indent=2): s for s
-                    in fn_state_dict[optn_str][g_optn]['states']}
-                fn_state_str = set(fn_state_str_dict.keys())
-                tn_state_str_dict = {s.dict_str(indent=2): s for s
-                    in tn_state_dict[optn_str][g_optn]['states']}
-                tn_state_str = set(tn_state_str_dict.keys())
-                fp_state_str_dict = {s.dict_str(indent=2): s for s
-                    in fp_state_dict[optn_str][g_optn]['states']}
-                fp_state_str = set(fp_state_str_dict.keys())
-                # tp_state_str = set([s.dict_str(indent=2) for s 
-                #     in tp_state_dict[optn_str][g_optn]['states']])
-                # fn_state_str = set([s.dict_str(indent=2) for s 
-                #     in fn_state_dict[optn_str][g_optn]['states']])
-                # tn_state_str = set([s.dict_str(indent=2) for s 
-                #     in tn_state_dict[optn_str][g_optn]['states']])
-                # fp_state_str = set([s.dict_str(indent=2) for s 
-                #     in fp_state_dict[optn_str][g_optn]['states']])
-
-                # rgb perception states representation
-                if CFG.vlm_predicator_render_option_state:
-                    tp_state_obs = [s.labeled_image for s
-                        in tp_state_str_dict.values()]
-                    fn_state_obs = [s.labeled_image for s
-                        in fn_state_str_dict.values()]
-                    tn_state_obs = [s.labeled_image for s
-                        in tn_state_str_dict.values()]
-                    fp_state_obs = [s.labeled_image for s
-                        in fp_state_str_dict.values()]
-                else:
-                    tp_state_obs, fn_state_obs, tn_state_obs, fp_state_obs =\
-                        [], [], [], []
-                    # tp_state_obs = set([s.labeled_image for s
-                    #     in tp_state_dict[optn_str][g_optn]['states']])
-                    # fn_state_obs = set([s.labeled_image for s
-                    #     in fn_state_dict[optn_str][g_optn]['states']])
-                    # tn_state_obs = set([s.labeled_image for s
-                    #     in tn_state_dict[optn_str][g_optn]['states']])
-                    # fp_state_obs = set([s.labeled_image for s
-                    #     in fp_state_dict[optn_str][g_optn]['states']])
-                
-                uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
-                uniq_n_tn, uniq_n_fp = len(tn_state_str), len(fp_state_str)
-
-                if n_succ_states:
-                    result_str.append(
-                    f"Ground option {g_optn} was applied on {n_tot} states and "+
-                    f"*successfully* executed on {n_succ_states}/{n_tot} states "+
-                    "(ground truth positive states).")
-                    # True Positive
-                    if n_tp:# and (n_succ_states/n_tot) < 1:
-                        result_str.append(
-                        f"  Out of the {n_succ_states} GT positive states, "+
-                        f"with the current predicates and operators, "+
-                        f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
-                        "operators' precondition (true positives)"+
-                        (f", to list {max_num_examples}:" if 
-                            uniq_n_tp > max_num_examples else ":"))
-                        result_str = append_classification_result_for_ops(
-                            result_str, g_optn, tp_state_obs, tp_state_str, 
-                            max_num_examples, "tp")
-                        # if CFG.vlm_predicator_render_option_state:
-                        #     for i, state_obs in enumerate(tp_state_obs): 
-                        #         if i == max_num_examples: break
-                        #         obs_name = f"{g_optn}+_tp_{str(i)}.jpg"
-                        #         obs_name, obs_path = vlm_option_obs_save_name(
-                        #             g_optn, i)
-                        #         # save the state_obs to a jpg file at obs_name
-                        #         imageio.imwrite(obs_path, state_obs)
-                        #         result_str.append(obs_name+'\n')
-                        # else:
-                        #     for i, state_str in enumerate(tp_state_str): 
-                        #         if i == max_num_examples: break
-                        #         result_str.append(state_str+'\n')
-
-                    # False Negative
-                    if n_fn:
-                        result_str.append(
-                        f"  Out of the {n_succ_states} GT positive states, "+
-                        f"with the current predicates and operators, "+
-                        f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
-                        "operators' precondition (false negatives)"+
-                        (f", to list {max_num_examples}:" if 
-                            uniq_n_fn > max_num_examples else ":"))
-                        result_str = append_classification_result_for_ops(
-                            result_str, g_optn, fn_state_obs, fn_state_str, 
-                            max_num_examples, "fn")
-                        # for i, state_str in enumerate(fn_state_str): 
-                        #     if i == max_num_examples: break
-                        #     result_str.append(state_str+'\n')
-                        # result_str.append("\n")
-
-                # GT Negative
-                if n_fail_states:
-                    result_str.append(
-                    f"Ground option {g_optn} was applied on {n_tot} states and "+
-                    f"*failed* to executed on {n_fail_states}/{n_tot} states "+
-                    "(ground truth negative states).")
-                    if n_fp:
-                        # False Positive
-                        result_str.append(
-                        f"  Out of the {n_fail_states} GT negative states, "+
-                        f"with the current predicates and operators, "+
-                        f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
-                        "operators' precondition (false positives)"+
-                        (f", to list {max_num_examples}:" if 
-                            uniq_n_fp > max_num_examples else ":"))
-                        result_str = append_classification_result_for_ops(
-                            result_str, g_optn, fp_state_obs, fp_state_str, 
-                            max_num_examples, "fp")
-                        # for i, state_str in enumerate(fp_state_str):
-                        #     if i == max_num_examples: break
-                        #     result_str.append(state_str+'\n')
-                        # result_str.append("\n")
-
-                    if n_tn:# and (n_tn/n_fail_states) < 1:
-                        # True Negative
-                        result_str.append(
-                        f"  Out of the {n_fail_states} GT negative states, "+
-                        f"with the current predicates and operators, "+
-                        f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
-                        "operators' precondition (true negatives)"+
-                        (f", to list {max_num_examples}:" if 
-                            uniq_n_tn > max_num_examples else ":"))
-                        result_str = append_classification_result_for_ops(
-                            result_str, g_optn, tn_state_obs, tn_state_str, 
-                            max_num_examples, "tn")
-                        # for i, state_str in enumerate(tn_state_str):
-                        #     if i == max_num_examples: break
-                        #     result_str.append(state_str+'\n')
-                        # result_str.append("\n")
+        result_str = summarize_results_in_str(accuracy_dict,
+                                                tp_state_dict,
+                                                fp_state_dict,
+                                                tn_state_dict,
+                                                fn_state_dict,
+                                                max_num_examples,
+                                                max_num_groundings)
 
     if print_cm:
         print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
 
-        # # GT Positive
-        # if return_str:
-        #     tp_state_str = set([s.dict_str(indent=2) for s in tp_states])
-        #     fn_state_str = set([s.dict_str(indent=2) for s in fn_states])
-        #     tn_state_str = set([s.dict_str(indent=2) for s in tn_states])
-        #     fp_state_str = set([s.dict_str(indent=2) for s in fp_states])
-        #     uniq_n_tp, uniq_n_fn = len(tp_state_str), len(fn_state_str)
-        #     uniq_n_tn, uniq_n_fp = len(tn_state_str), len(fp_state_str)
-        #     if n_succ_states:
-        #         result_str.append(
-        #         f"Ground option {g_optn} was applied on {n_tot} states and "+
-        #         f"*successfully* executed on {n_succ_states}/{n_tot} states "+
-        #         "(ground truth positive states).")
-        #         # True Positive
-        #         if n_tp and (n_succ_states/n_tot) < 1:
-        #             result_str.append(
-        #             f"  Out of the {n_succ_states} GT positive states, "+
-        #             f"with the current predicates and operators, "+
-        #             f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
-        #             "operators' precondition (true positives)"+
-        #             (f", to list {max_num_examples}:" if 
-        #                 uniq_n_tp > max_num_examples else ":"))
-        #             for i, state_str in enumerate(tp_state_str): 
-        #                 if i == max_num_examples: break
-        #                 result_str.append(state_str+'\n')
+    return sum_tp, sum_tn, sum_fp, sum_fn, result_str
 
-        #         # False Negative
-        #         if n_fn:
-        #             result_str.append(
-        #             f"  Out of the {n_succ_states} GT positive states, "+
-        #             f"with the current predicates and operators, "+
-        #             f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
-        #             "operators' precondition (false negatives)"+
-        #             (f", to list {max_num_examples}:" if 
-        #                 uniq_n_fn > max_num_examples else ":"))
-        #             for i, state_str in enumerate(fn_state_str): 
-        #                 if i == max_num_examples: break
-        #                 result_str.append(state_str+'\n')
-        #             # result_str.append("\n")
+def summarize_results_in_str(accuracy_dict,
+                             tp_state_dict,
+                             fp_state_dict,
+                             tn_state_dict,
+                             fn_state_dict,
+                             max_num_examples,
+                             max_num_groundings,
+                             ) -> str:
+    result_str = []
+    # What how to simplify the prompt?
+    # 1. The g_opt with the highest non-1 accuracy, based on repeated states
+    # 2. ''                                       , based on unique states
+    # 3. ......
 
-        #     # GT Negative
-        #     if n_fail_states:
-        #         result_str.append(
-        #         f"Ground option {g_optn} was applied on {n_tot} states and "+
-        #         f"*failed* to executed on {n_fail_states}/{n_tot} states "+
-        #         "(ground truth negative states).")
-        #         if n_fp:
-        #             # False Positive
-        #             result_str.append(
-        #             f"  Out of the {n_fail_states} GT negative states, "+
-        #             f"with the current predicates and operators, "+
-        #             f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
-        #             "operators' precondition (false positives)"+
-        #             (f", to list {max_num_examples}:" if 
-        #                 uniq_n_fp > max_num_examples else ":"))
-        #             for i, state_str in enumerate(fp_state_str):
-        #                 if i == max_num_examples: break
-        #                 result_str.append(state_str+'\n')
-        #             # result_str.append("\n")
 
-        #         if n_tn and (n_tn/n_fail_states) < 1:
-        #             # True Negative
-        #             result_str.append(
-        #             f"  Out of the {n_fail_states} GT negative states, "+
-        #             f"with the current predicates and operators, "+
-        #             f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
-        #             "operators' precondition (true negatives)"+
-        #             (f", to list {max_num_examples}:" if 
-        #                 uniq_n_tn > max_num_examples else ":"))
-        #             for i, state_str in enumerate(tn_state_str):
-        #                 if i == max_num_examples: break
-        #                 result_str.append(state_str+'\n')
-        #             # result_str.append("\n")
+    # For each option, sort the g_options based on some metrics, currently
+    # based on accuracy
+    # Create a new dict of form: {option: (g_option, accuracy)}
+    option_dict = defaultdict(list)
 
-    return sum_tp, sum_tn, sum_fp, sum_fn, '\n'.join(result_str)
+    # dict mapping state hash to int
+    state_hash_to_id: Dict[str, int] = {}
+
+    for option_str, ground_options in accuracy_dict.items():
+        for ground_option_str, data in ground_options.items():
+            acc = data['acc']
+            option_dict[option_str].append((ground_option_str, acc))
+    for option_str, ground_options in option_dict.items():
+        sorted_ground_options = sorted(ground_options, 
+                                        key=lambda x: x[1], reverse=True)
+        option_dict[option_str] = sorted_ground_options
+    # pprint(option_dict)
+    
+    for optn_str in option_dict.keys():
+        n_g_optn_shown = 0
+        for (g_optn, acc) in option_dict[optn_str]:
+            if n_g_optn_shown == max_num_groundings: break
+            if acc < 1: 
+                n_g_optn_shown += 1
+            # else:
+            #     continue
+
+            n_tp = tp_state_dict[optn_str][g_optn]['n_tp']
+            n_fp = fp_state_dict[optn_str][g_optn]['n_fp']
+            n_tn = tn_state_dict[optn_str][g_optn]['n_tn']
+            n_fn = fn_state_dict[optn_str][g_optn]['n_fn']
+            n_tot = accuracy_dict[optn_str][g_optn]['tot']
+            n_succ_states = tp_state_dict[optn_str][g_optn]['n_succ']
+            n_fail_states = tn_state_dict[optn_str][g_optn]['n_fail']
+
+            # New: instead of having a set of str, list of images, will have a
+            #   set of states.
+            tp_states = set(tp_state_dict[optn_str][g_optn]['states'])
+            fn_states = set(fn_state_dict[optn_str][g_optn]['states'])
+            tn_states = set(tn_state_dict[optn_str][g_optn]['states'])
+            fp_states = set(fp_state_dict[optn_str][g_optn]['states'])
+
+
+            # Assign a unique id to each state as hash
+            for s in tp_states | fn_states | tn_states | fp_states:
+                state_hash = hash(s)
+                if state_hash not in state_hash_to_id:
+                    state_hash_to_id[state_hash] = len(state_hash_to_id)
+
+            # # Old:
+            # # The following is similar to before
+            # # object-centric states representation
+            # tp_state_str_dict = {s.dict_str(indent=2): s for s
+            #     in tp_state_dict[optn_str][g_optn]['states']}
+            # fn_state_str_dict = {s.dict_str(indent=2): s for s
+            #     in fn_state_dict[optn_str][g_optn]['states']}
+            # tn_state_str_dict = {s.dict_str(indent=2): s for s
+            #     in tn_state_dict[optn_str][g_optn]['states']}
+            # fp_state_str_dict = {s.dict_str(indent=2): s for s
+            #     in fp_state_dict[optn_str][g_optn]['states']}
+
+            # # object-centric states representation
+            # tp_state_str = set(tp_state_str_dict.keys())
+            # fn_state_str = set(fn_state_str_dict.keys())
+            # tn_state_str = set(tn_state_str_dict.keys())
+            # fp_state_str = set(fp_state_str_dict.keys())
+
+            # # rgb perception states representation
+            # tp_state_obs, fn_state_obs, tn_state_obs, fp_state_obs =\
+            #     [], [], [], []
+            # if CFG.vlm_predicator_render_option_state:
+            #     tp_state_obs = [s.labeled_image for s
+            #         in tp_state_str_dict.values()]
+            #     fn_state_obs = [s.labeled_image for s
+            #         in fn_state_str_dict.values()]
+            #     tn_state_obs = [s.labeled_image for s
+            #         in tn_state_str_dict.values()]
+            #     fp_state_obs = [s.labeled_image for s
+            #         in fp_state_str_dict.values()]
+            # # End Old
+            
+            uniq_n_tp, uniq_n_fn = len(tp_states), len(fn_states)
+            uniq_n_tn, uniq_n_fp = len(tn_states), len(fp_states)
+
+            if n_succ_states:
+                result_str.append(
+                f"Ground option {g_optn} was applied on {n_tot} states and "+
+                f"*successfully* executed on {n_succ_states}/{n_tot} states "+
+                "(ground truth positive states).")
+                # True Positive
+                if n_tp:# and (n_succ_states/n_tot) < 1:
+                    result_str.append(
+                    f"  Out of the {n_succ_states} GT positive states, "+
+                    f"with the current predicates and operators, "+
+                    f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
+                    "operators' precondition (true positives)"+
+                    (f", to list {max_num_examples}:" if 
+                        uniq_n_tp > max_num_examples else ":"))
+                    result_str = append_classification_result_for_ops(
+                        result_str, g_optn, tp_states,
+                        max_num_examples, "tp", state_hash_to_id)
+
+                # False Negative
+                if n_fn:
+                    result_str.append(
+                    f"  Out of the {n_succ_states} GT positive states, "+
+                    f"with the current predicates and operators, "+
+                    f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
+                    "operators' precondition (false negatives)"+
+                    (f", to list {max_num_examples}:" if 
+                        uniq_n_fn > max_num_examples else ":"))
+                    result_str = append_classification_result_for_ops(
+                        result_str, g_optn, fn_states,
+                        max_num_examples, "fn", state_hash_to_id)
+
+            # GT Negative
+            if n_fail_states:
+                result_str.append(
+                f"Ground option {g_optn} was applied on {n_tot} states and "+
+                f"*failed* to executed on {n_fail_states}/{n_tot} states "+
+                "(ground truth negative states).")
+                if n_fp:
+                    # False Positive
+                    result_str.append(
+                    f"  Out of the {n_fail_states} GT negative states, "+
+                    f"with the current predicates and operators, "+
+                    f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
+                    "operators' precondition (false positives)"+
+                    (f", to list {max_num_examples}:" if 
+                        uniq_n_fp > max_num_examples else ":"))
+                    result_str = append_classification_result_for_ops(
+                        result_str, g_optn, fp_states,
+                        max_num_examples, "fp", state_hash_to_id)
+
+                if n_tn:# and (n_tn/n_fail_states) < 1:
+                    # True Negative
+                    result_str.append(
+                    f"  Out of the {n_fail_states} GT negative states, "+
+                    f"with the current predicates and operators, "+
+                    f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
+                    "operators' precondition (true negatives)"+
+                    (f", to list {max_num_examples}:" if 
+                        uniq_n_tn > max_num_examples else ":"))
+                    result_str = append_classification_result_for_ops(
+                        result_str, g_optn, tn_states,
+                        max_num_examples, "tn", state_hash_to_id)
+    return '\n'.join(result_str)
 
 def append_classification_result_for_ops(result_str: List[str],
                                          g_optn: str,
-                                         states_obs: Set[Image],
-                                         states_str: Set[str],
+                                         states: Set[State],
                                          max_num_examples: int,
-                                         category: str) -> List[str]:
-    if CFG.vlm_predicator_render_option_state:
-        for i, state_obs in enumerate(states_obs): 
-            if i == max_num_examples: break
-            # obs_name = f"{g_optn}_{category}_{str(i)}.png"
-            obs_name, obs_dir = vlm_option_obs_save_name(
-                g_optn, category, i)
-            # save the state_obs to a jpg file at obs_name
-            state_obs.save(os.path.join(obs_dir, obs_name))
-            # imageio.imwrite(obs_path, state_obs)
-            result_str.append(obs_name+'\n')
-    else:
-        for i, state_str in enumerate(states_str): 
-            if i == max_num_examples: break
-            result_str.append(state_str+'\n')
+                                         category: str,
+                                         state_hash_to_id) -> List[str]:
+    # # Old
+    # if CFG.vlm_predicator_render_option_state:
+    #     for i, state_obs in enumerate(states_obs): 
+    #         if i == max_num_examples: break
+    #         # obs_name = f"{g_optn}_{category}_{str(i)}.png"
+    #         obs_name, obs_dir = vlm_option_obs_save_name(
+    #             g_optn, category, i)
+    #         # save the state_obs to a jpg file at obs_name
+    #         state_obs.save(os.path.join(obs_dir, obs_name))
+    #         # imageio.imwrite(obs_path, state_obs)
+    #         result_str.append(obs_name+'\n')
+    # else:
+    #     for i, state_str in enumerate(states_str): 
+    #         if i == max_num_examples: break
+    #         result_str.append(state_str+'\n')
+    
+    # New
+    for i, state in enumerate(states):
+        if i == max_num_examples: break
+
+        if CFG.vlm_predicator_render_option_state:
+            obs_name = "state_" + str(state_hash_to_id[hash(state)]) + ".png"
+            _, obs_dir = vlm_option_obs_save_name(g_optn, category, i)
+            state.labeled_image.save(os.path.join(obs_dir, obs_name))
+            result_str.append("  As shown in " + obs_name + " with state:")
+            # Should add proprio state
+        result_str.append(state.dict_str(indent=2, 
+            object_features=not CFG.vlm_predicator_render_option_state,
+            use_object_id=CFG.vlm_predicator_render_option_state)+'\n')
+
     return result_str
 
 def count_positives_for_ops(
@@ -1527,6 +1474,20 @@ class RawState(PyBulletState):
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
 
+    def __eq__(self, other):
+        # Compare the data and simulator_state
+        assert isinstance(other, RawState)
+
+        if len(self.data) != len(other.data):
+            return False
+
+        for key, value in self.data.items():
+            if key not in other.data or not np.array_equal(value, 
+            other.data[key]):
+                return False
+
+        return self.simulator_state == other.simulator_state
+        
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
         # data_hash = hash(tuple(sorted(self.data.items())))
@@ -1612,6 +1573,10 @@ class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
     _classifier: Callable[[RawState, Sequence[Object]],
                           bool] = field(compare=False)
+
+    def __init__(self, name: str, types: Sequence[Type], 
+            _classifier: Callable[[RawState, Sequence[Object]], bool]):
+        super().__init__(name, types, _MemoizedClassifier(_classifier))
 
     @cached_property
     def _hash(self) -> int:

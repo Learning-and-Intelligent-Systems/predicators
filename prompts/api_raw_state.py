@@ -47,14 +47,8 @@ class RawState:
         >>>     -> bool:
         >>>     '''
         >>>     Determine if the first block in objects is directly on top of the second 
-        >>>     block in the scene image.
-        >>>
-        >>>     This method uses simple heuristics and image processing techniques to 
-        >>>     determine the spatial relationship between the two blocks. It first 
-        >>>     checks if the blocks are the same or if they are far away from each 
-        >>>     other. If neither condition is met, it crops the scene image to the 
-        >>>     smallest bounding box that includes both blocks and evaluates a simple 
-        >>>     assertion about their relative positions.
+        >>>     block in the scene image, by using simple heuristics and image processing 
+        >>>     techniques.
         >>>
         >>>     Parameters:
         >>>     -----------
@@ -137,11 +131,6 @@ class RawState:
         >>>         bool:
         >>>     '''Determine if the block in objects is directly resting on the table's 
         >>>     surface in the scene image.
-        >>>     This method uses simple heuristics and image processing techniques to 
-        >>>     determine the spatial relationship between the block and the table. 
-        >>>     It first identifies the table in the scene, then crops the scene image 
-        >>>     to the smallest bounding box that includes both the block and the table, 
-        >>>     and finally evaluates a simple assertion about their relative positions.
 
         >>>     Parameters:
         >>>     -----------
@@ -160,7 +149,6 @@ class RawState:
         >>>     block, = objects
         >>>     block_name = block.id_name
         >>>     
-
         >>>     # Crop the scene image to the smallest bounding box that include both
         >>>     # objects.
         >>>     # We know there is only one table in this environment.
@@ -173,4 +161,62 @@ class RawState:
         >>>         attention_image)
         >>> _OnTable_NSP = NSPredicate("OnTable", [_block_type], 
         >>>                 _OnTable_NSP_holds)
+        """
+
+    def get(self, obj: Object, feature_name: str) -> Any:
+        """
+        Look up an object feature by name.
+
+        Parameters:
+        -----------
+        obj : Object
+            The object whose feature value is to be retrieved.
+        feature_name : str
+            The name of the feature to be retrieved.
+
+        Returns:
+        --------
+        Any
+            The value of the specified feature for the given object.
+
+        Raises:
+        -------
+        ValueError
+            If the specified feature name is not found in the object's type feature names.
+        
+        Examples:
+        ---------
+        >>> _robot_type = Type("robot", ["x", "y", "tilt", "wrist", "fingers"])
+        >>> def _HandOpen_holds(self, state: State, objects: Sequence[Object]
+        >>>                     ) -> bool:
+        >>>     robot, = objects
+        >>>     return state.get(robot, "fingers") == 1.0
+        >>> _HandOpen = NSPredicate("HandOpen", [_robot_type], _HandOpen_holds)
+        """
+
+    def get_objects(self, object_type: Type) -> List[Object]:
+        """
+        Return objects of the given type in the state
+
+        Parameters:
+        -----------
+        object_type : Type
+            The type of the objects to be retrieved.
+
+        Returns:
+        --------
+        List[Object]
+            A list of objects of the specified type, in the order they are 
+            iterated over in the state.
+
+        Examples:
+        ---------
+        >>> def _HandNotAboveCup_holds(state: State,
+        >>>                        objects: Sequence[Object]) -> bool:
+        >>>     for cup in state.get_objects(_cup_type):
+        >>>         if _robot_hand_above_cup(state, cup):
+        >>>             return False
+        >>>     return True
+        >>> _HandNotAboveCup = NSPredicate("HandNotAboveCup", [], 
+        >>>                              _HandNotAboveCup_holds)
         """
