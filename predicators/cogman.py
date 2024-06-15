@@ -233,6 +233,8 @@ def run_episode_and_get_observations(
                 # state. If we instead called env.step() first, we would
                 # mistakenly record images of the next time step instead of
                 # the current one.
+                if train_or_test == "test":
+                    print(curr_option)
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True

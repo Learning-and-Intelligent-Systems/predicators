@@ -38,12 +38,11 @@ class MapleQExplorer(BaseExplorer):
     def _get_exploration_strategy(self, train_task_idx: int,
                                   timeout: int) -> ExplorationStrategy:
 
-        eps = CFG.active_sampler_learning_exploration_epsilon
         num_samples = CFG.active_sampler_learning_num_samples
         goal = self._train_tasks[train_task_idx].goal
 
         def _option_policy(state: State) -> _Option:
-            return self._q_function.get_option(state, goal, num_samples, eps)
+            return self._q_function.get_option(state, goal, num_samples, "train")
 
         policy = utils.option_policy_to_policy(
             _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
