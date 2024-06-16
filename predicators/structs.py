@@ -134,7 +134,8 @@ class State:
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
         for obj in self:
-            assert len(self[obj]) == obj.type.dim
+            assert len(self[obj]) == obj.type.dim or\
+            len(self[obj])+4 == obj.type.dim # a hack for adding bbox features
 
     def __iter__(self) -> Iterator[Object]:
         """An iterator over the state's objects, in sorted order."""
@@ -355,6 +356,18 @@ class Predicate:
             for i in range(self.arity))
         body_str = f"{self.name}({vars_str_no_types})"
         return vars_str, body_str
+    
+    def pretty_str_with_types(self) -> str:
+        if hasattr(self._classifier, "pretty_str"):
+            # This is an invented predicate, from the predicate grammar.
+            pretty_str_f = getattr(self._classifier, "pretty_str")
+            return pretty_str_f()
+        # This is a known predicate, not from the predicate grammar.
+        vars_str = ", ".join(
+            f"{CFG.grammar_search_classifier_pretty_str_names[i]}:{t.name}"
+            for i, t in enumerate(self.types))
+        body_str = f"{self.name}({vars_str})"
+        return body_str
 
     def pddl_str(self) -> str:
         """Get a string representation suitable for writing out to a PDDL

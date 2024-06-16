@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import time
+import textwrap
 from argparse import ArgumentParser
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
@@ -32,6 +33,8 @@ from tabulate import tabulate
 from pprint import pprint
 import shutil
 from functools import cached_property
+from inspect import getsource
+from pprint import pformat
 
 from tqdm import tqdm
 import dill as pkl
@@ -108,8 +111,9 @@ def count_classification_result_for_ops(
 
     np.set_printoptions(precision=1)
     result_str = []
-    max_num_examples = 3
-    max_num_groundings = 3
+    max_num_options = 1 # Number of options to show
+    max_num_groundings = 3 # Number of ground options per option.3
+    max_num_examples = 3 # Number of examples per ground option.
 
     # Dictionary of {option_str: {ground_option_str: states}}
     # These are used when only listing states of the top max_num_grounds ground 
@@ -275,8 +279,10 @@ def count_classification_result_for_ops(
                                                 fp_state_dict,
                                                 tn_state_dict,
                                                 fn_state_dict,
+                                                max_num_options,
+                                                max_num_groundings,
                                                 max_num_examples,
-                                                max_num_groundings)
+                                                )
 
     if print_cm:
         print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
@@ -288,8 +294,9 @@ def summarize_results_in_str(accuracy_dict,
                              fp_state_dict,
                              tn_state_dict,
                              fn_state_dict,
-                             max_num_examples,
+                             max_num_options,
                              max_num_groundings,
+                             max_num_examples,
                              ) -> str:
     result_str = []
     # What how to simplify the prompt?
@@ -310,16 +317,20 @@ def summarize_results_in_str(accuracy_dict,
         for ground_option_str, data in ground_options.items():
             acc = data['acc']
             option_dict[option_str].append((ground_option_str, acc))
+
+    # Sorting the ground options in decreasing accuracy
     for option_str, ground_options in option_dict.items():
         sorted_ground_options = sorted(ground_options, 
                                         key=lambda x: x[1], reverse=True)
         option_dict[option_str] = sorted_ground_options
-    # pprint(option_dict)
+    logging.debug(pformat(option_dict))
     
-    for optn_str in option_dict.keys():
+    for optn_idx, optn_str in enumerate(option_dict.keys()):
+        if optn_idx == max_num_options: break
         n_g_optn_shown = 0
         for (g_optn, acc) in option_dict[optn_str]:
             if n_g_optn_shown == max_num_groundings: break
+            # Show max_num_groundins whose accuracy are less than 1.
             if acc < 1: 
                 n_g_optn_shown += 1
             # else:
@@ -347,38 +358,6 @@ def summarize_results_in_str(accuracy_dict,
                 if state_hash not in state_hash_to_id:
                     state_hash_to_id[state_hash] = len(state_hash_to_id)
 
-            # # Old:
-            # # The following is similar to before
-            # # object-centric states representation
-            # tp_state_str_dict = {s.dict_str(indent=2): s for s
-            #     in tp_state_dict[optn_str][g_optn]['states']}
-            # fn_state_str_dict = {s.dict_str(indent=2): s for s
-            #     in fn_state_dict[optn_str][g_optn]['states']}
-            # tn_state_str_dict = {s.dict_str(indent=2): s for s
-            #     in tn_state_dict[optn_str][g_optn]['states']}
-            # fp_state_str_dict = {s.dict_str(indent=2): s for s
-            #     in fp_state_dict[optn_str][g_optn]['states']}
-
-            # # object-centric states representation
-            # tp_state_str = set(tp_state_str_dict.keys())
-            # fn_state_str = set(fn_state_str_dict.keys())
-            # tn_state_str = set(tn_state_str_dict.keys())
-            # fp_state_str = set(fp_state_str_dict.keys())
-
-            # # rgb perception states representation
-            # tp_state_obs, fn_state_obs, tn_state_obs, fp_state_obs =\
-            #     [], [], [], []
-            # if CFG.vlm_predicator_render_option_state:
-            #     tp_state_obs = [s.labeled_image for s
-            #         in tp_state_str_dict.values()]
-            #     fn_state_obs = [s.labeled_image for s
-            #         in fn_state_str_dict.values()]
-            #     tn_state_obs = [s.labeled_image for s
-            #         in tn_state_str_dict.values()]
-            #     fp_state_obs = [s.labeled_image for s
-            #         in fp_state_str_dict.values()]
-            # # End Old
-            
             uniq_n_tp, uniq_n_fn = len(tp_states), len(fn_states)
             uniq_n_tn, uniq_n_fp = len(tn_states), len(fp_states)
 
@@ -452,31 +431,23 @@ def append_classification_result_for_ops(result_str: List[str],
                                          max_num_examples: int,
                                          category: str,
                                          state_hash_to_id) -> List[str]:
-    # # Old
-    # if CFG.vlm_predicator_render_option_state:
-    #     for i, state_obs in enumerate(states_obs): 
-    #         if i == max_num_examples: break
-    #         # obs_name = f"{g_optn}_{category}_{str(i)}.png"
-    #         obs_name, obs_dir = vlm_option_obs_save_name(
-    #             g_optn, category, i)
-    #         # save the state_obs to a jpg file at obs_name
-    #         state_obs.save(os.path.join(obs_dir, obs_name))
-    #         # imageio.imwrite(obs_path, state_obs)
-    #         result_str.append(obs_name+'\n')
-    # else:
-    #     for i, state_str in enumerate(states_str): 
-    #         if i == max_num_examples: break
-    #         result_str.append(state_str+'\n')
-    
-    # New
     for i, state in enumerate(states):
         if i == max_num_examples: break
 
         if CFG.vlm_predicator_render_option_state:
-            obs_name = "state_" + str(state_hash_to_id[hash(state)]) + ".png"
+            obs_name = "state_" + str(state_hash_to_id[hash(state)])
+            f_suffix = ".png"
             _, obs_dir = vlm_option_obs_save_name(g_optn, category, i)
-            state.labeled_image.save(os.path.join(obs_dir, obs_name))
-            result_str.append("  As shown in " + obs_name + " with state:")
+
+            # Write state name to the image for easy identification
+            draw = ImageDraw.Draw(state.labeled_image)
+            font = ImageFont.load_default().font_variant(size=50)
+            text_color = (0, 0, 0)  # white
+            draw.text((0, 0), obs_name, fill=text_color, font=font)
+
+            state.labeled_image.save(os.path.join(obs_dir, obs_name+f_suffix))
+            logging.debug(f"Saved Image {obs_name}")
+            result_str.append("  In " + obs_name + " with additional info:")
             # Should add proprio state
         result_str.append(state.dict_str(indent=2, 
             object_features=not CFG.vlm_predicator_render_option_state,
@@ -1474,6 +1445,62 @@ class RawState(PyBulletState):
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
 
+    def add_bbox_features(self) -> None:
+        '''Add the features about the bounding box to the objects'''
+        for obj, mask in self.obj_mask_dict.items():
+            bbox = mask_to_bbox(mask)
+            for name, value in bbox._asdict().items():
+                self.set(obj, f"bbox_{name}", value)
+
+    def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
+        """Set the value of an object feature by name."""
+        idx = obj.type.feature_names.index(feature_name)
+        if idx >= len(self.data[obj]):
+            # When setting the bounding box features for the first time
+            # So we'd first append 4 dimension and try to set again
+            self.data[obj] = np.append(self.data[obj], [0]*4)
+            self.set(obj, feature_name, feature_val)
+        else:
+            self.data[obj][idx] = feature_val
+
+    def dict_str(self, indent: int = 0, object_features: bool = True,
+                use_object_id: bool = False) -> str:
+        """Return a dictionary representation of the state."""
+        state_dict = {}
+        for obj in self:
+            obj_dict = {}
+            for attribute, value in zip(obj.type.feature_names, self[obj]):
+                # include if it's proprioception feature, or position/bbox 
+                # feature, or object_features is True
+                if obj.type.name == "robot" or\
+                   attribute in ["pose_x", "pose_y", "pose_z", "bbox_left", 
+                    "bbox_right", "bbox_upper", "bbox_lower"] or\
+                    object_features:
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
+            if use_object_id: obj_name = obj.id_name
+            else: obj_name = obj.name
+            state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
+
+        # Create a string of n_space spaces
+        spaces = " " * indent
+
+        # Create a PrettyPrinter with a large width
+        dict_str = spaces + "{"
+        n_keys = len(state_dict.keys())
+        for i, (key, value) in enumerate(state_dict.items()):
+            value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+            if i == 0:
+                dict_str += f"'{key}': {{{value_str}}},\n"
+            elif i == n_keys-1: 
+                dict_str += spaces + f" '{key}': {{{value_str}}}"
+            else:
+                dict_str += spaces + f" '{key}': {{{value_str}}},\n"
+        dict_str += "}"
+        return dict_str
+            
+
     def __eq__(self, other):
         # Compare the data and simulator_state
         assert isinstance(other, RawState)
@@ -1568,14 +1595,13 @@ def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
     return BoundingBox(left, lower, right, upper)
 
 
-@dataclass(frozen=True, repr=False)
+# @dataclass(frozen=True, repr=False)
 class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
-    _classifier: Callable[[RawState, Sequence[Object]],
-                          bool] = field(compare=False)
 
     def __init__(self, name: str, types: Sequence[Type], 
             _classifier: Callable[[RawState, Sequence[Object]], bool]):
+        self._original_classifier = _classifier
         super().__init__(name, types, _MemoizedClassifier(_classifier))
 
     @cached_property
@@ -1585,6 +1611,13 @@ class NSPredicate(Predicate):
 
     def __hash__(self) -> int:
         return self._hash
+
+    def classifier_str(self) -> str:
+        """Get a string representation of the classifier."""
+        clf_str = getsource(self._original_classifier)
+        clf_str = textwrap.dedent(clf_str)
+        clf_str = clf_str.replace("@staticmethod\n", "")
+        return clf_str
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for
