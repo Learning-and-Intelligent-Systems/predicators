@@ -20,6 +20,7 @@ from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
 from predicators.utils import NSPredicate, RawState, BoundingBox,\
     evaluate_simple_assertion, VLMQuery, _MemoizedClassifier
 
+
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
@@ -30,10 +31,13 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Repeat for LLM predicates parsing
     # Types
+    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
     _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
-                                "color_r", "color_g", "color_b"])
-    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"])
-    _table_type = Type("table", [])
+                                "color_r", "color_g", "color_b"] + bbox_features)
+    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] + 
+                    bbox_features)
+    _table_type = Type("table", bbox_features)
+    _known_features = ["pose_x", "pose_y", "pose_z", "fingers"] + bbox_features
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -86,8 +90,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 self._GripperOpen_NSP: self._GripperOpen,
                 self._Holding_NSP: self._Holding, self._Clear_NSP: self._Clear}
 
-    # @staticmethod
-    def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> \
+    @staticmethod
+    def _Clear_NSP_holds(state: RawState, objects: Sequence[Object]) -> \
             Union[bool, VLMQuery]:
         '''
         Is there no block on top of the block
@@ -117,7 +121,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # The block can't be held if the robot's hand is open.
         # We know there is only one robot in this environment.
-        robot = state.get_objects(self._robot_type)[0]
+        robot = state.get_objects(_robot_type)[0]
         if self._GripperOpen_NSP_holds(state, [robot]):
             return False
 
@@ -149,7 +153,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         assert finger_state in (0.0, 1.0)
         return finger_state == 1.0
     
-    def _OnTable_NSP_holds(self, state: RawState, objects:Sequence[Object]) ->\
+
+    def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
             bool:
         '''Determine if the block in objects is directly resting on the table's 
         surface in the scene image.
@@ -180,18 +185,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Crop the scene image to the smallest bounding box that include both
         # objects.
         # We know there is only one table in this environment.
-        table = state.get_objects(self._table_type)[0]
+        table = state.get_objects(_table_type)[0]
         table_name = table.id_name
         attention_image = state.crop_to_objects([block, table])
-
-        if CFG.save_nsp_image_patch_before_query:
-            attention_image.save(f"{CFG.image_dir}/OnTable({block_name}).png")
 
         return evaluate_simple_assertion(
             f"{block_name} is directly resting on {table_name}'s surface.",
             attention_image)
 
-    def _On_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> bool:
+    def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
         '''
         Determine if the first block in objects is directly on top of the second 
         block in the scene image.
@@ -224,32 +226,26 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Heuristics: we know a block can't be on top of itself.
         if block1_name == block2_name:
             return False
-
-        # Using simple heuristics to check if they are far away
-        block1_bbox = state.get_obj_bbox(block1) 
-        block2_bbox = state.get_obj_bbox(block2)
-        if (block1_bbox.lower < block2_bbox.lower) or \
-           (block1_bbox.left > block2_bbox.right) or \
-           (block1_bbox.right < block2_bbox.left) or \
-           (block1_bbox.upper < block2_bbox.upper):
+        
+        # repeat the above
+        if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower")or\
+           state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
+           state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
+           state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
+           state.get(block1, "pose_z") < state.get(block2, "pose_z"):
             return False
 
         # Crop the scene image to the smallest bounding box that include both
         # objects.
         attention_image = state.crop_to_objects([block1, block2])
 
-        if CFG.save_nsp_image_patch_before_query:
-            attention_image.save(f"{CFG.image_dir}/On({block1_name}, "+
-                                 f"{block2_name}).png")
-
         return evaluate_simple_assertion(
             f"{block1_name} is directly on top of {block2_name} with no blocks"+
              " in between.", attention_image)
 
     @classmethod
-    def initialize_pybullet(
-            cls, using_gui: bool
-    ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
+    def initialize_pybullet(cls, using_gui: bool
+        ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle blocks-specific initialization."""
         physics_client_id, pybullet_robot, bodies = super(
         ).initialize_pybullet(using_gui)

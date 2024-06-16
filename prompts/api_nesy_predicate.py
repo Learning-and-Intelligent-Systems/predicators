@@ -23,12 +23,6 @@ class NSPredicate:
         classifier returns True if the predicate holds for those objects in that 
         state, and False otherwise.
     """    
-    name: str
-    types: Sequence[Type]
-    # The classifier takes in a complete state and a sequence of objects
-    # representing the arguments. These objects should be the only ones
-    # treated "specially" by the classifier.
-    _classifier:  Callable[[RawState, Sequence[Object]], bool]
 
 def evaluate_simple_assertion(assertion: str, image: Image) -> bool:
     """
@@ -40,12 +34,10 @@ def evaluate_simple_assertion(assertion: str, image: Image) -> bool:
     input, and returns a boolean value indicating whether the assertion holds 
     true for the image according to the VLM.
 
-    Note that querying the VLM is computationally expensive and the VLM has 
-    limited understanding of the world. Therefore, this function should be used 
-    carefully--the assertion should be clear, unambiguous, and relatively 
-    simple, and the image should have been cropped to only the relavant objects.
-    On the other hand, avoid writing heuristics or rules that are not always 
-    true.
+    Note that VLM has limited visual understanding so the assertion should be 
+    clear, unambiguous, and relatively simple, and the image should have been 
+    cropped to only the relavant objects.
+    Moreover, don't write heuristics or rules that are not always true.
 
     Parameters:
     -----------

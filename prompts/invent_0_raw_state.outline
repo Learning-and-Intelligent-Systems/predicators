@@ -1,39 +1,13 @@
-You are an expert roboticist and AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
-
-Class definitions for `VPPredicate`, `RawState`, and `ImagePatch`  are:
-[STRUCT_DEFINITION]
-
-The environment includes the following object-type variables:
-[TYPES_IN_ENV]
-
-The initial set of predicates used to describe goals includes:
-[PREDICATES_IN_ENV]
-
-The set of parameterized options includes:
-[OPTIONS_IN_ENV]
-
-The existing abstract action operators utilizing these options are:
-[NSRTS_IN_ENV]
-
-The agent attempted the training tasks by bilevel planning (first plan with the ground action operators then execute its corresponding ground options), collecting these results:
-[INTERACTION_RESULTS]
-
-Your objective is to invent all necessary predicates for this domain, so they can be added to the action operators' preconditions or effects to facilitate effective and efficient planning. Define predicates in python blocks as follows:
-```python
-def classifier(state: State, objects: Sequence[Object]) -> bool:
-    # Implement the boolean classifier function here
-    
-name: str = # Define the predicate name here
-types: Sequence[Type] = # Write a list of object types variables exist in the environment here
-predicate_name = Predicate(name, types, classifier)
+<predicate_name> = NSPredicate(name, param_types, classifier)
 ```
-More specifically, this means when the invented predicates are added to the preconditions, the states where the ground option fail to execute (GT negative states) should not satisfy any of its ground operators' precondition, while the states where the ground option successfully executed (GT positive states) should satisfy at least one of its operators' precondition.
-That is, in future planning, the operators with the invented predicates should help to maximize the number of true positive and negative states while minimizing the number of false positive and negative states.
 
 Ensure that:
-- Take the predefined predicate definition for reference;
-- Only object-type variables defined in the environment are used for `types`.
-- Predicates are distinct and do not introduce new constants.
-- When needed, use only predefined methods from the State class such as `get` and `get_objects`;
+- Take the predefined predicate definition as reference;
+- Use only object-type variables defined in the environment when defining  `param_types`.
+- The proposed predicates are semantically distinct from each other and from the existing predicates.
+- Don't use any constant that is not defined.
+- Make use of the helper method `evaluate_simple_assertion` in classifers that can't perfectly defined with just bounding boxes.
+- Make use of the helper methods from the State class such as `crop_to_objects`, `get` and `get_objects` or other helper function that you have defined;
 - The object feature names used in classifier definitions are present in the states and object type instantiations;
-- Type declarations in the provided template are strictly followed.
+- Strictly follow the type hints in the predicate definition template.
+You don't need to write out the new operators.

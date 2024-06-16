@@ -13,85 +13,17 @@ class RawState:
 
     Methods:
     --------
-    get_obj_bbox(self, object: Object) -> BoundingBox:
-        Returns the bounding box of the object in the state image.
     crop_to_objects(self, objects: Collection[Object],
                     left_margin: int = 5, lower_margin: int=10, 
                     right_margin: int=10, top_margin: int=5) -> Image:
         Crops the labeled image to only focus on the objects in the input.
+    get(self, obj: Object, feature_name: str) -> Any:
+        This method looks up an object feature by name. It returns the value of 
+        the feature.
+    get_objects(self, object_type: Type) -> List[Object]:
+        This method returns objects of the given type in the order of 
+        __iter__().
     """
-    def get_obj_bbox(self, object: Object) -> BoundingBox:
-        """
-        Get the bounding box of the specified object in the labeled image.
-        The bounding box is defined by the column and row indices of the 
-        object's boundaries in the state image. The (0, 0) index starts from the
-        bottom left corner of the original image.
-
-        Parameters:
-        -----------
-        object : Object
-            The object for which to get the bounding box.
-
-        Returns:
-        --------
-        BoundingBox
-            The bounding box of the specified object, with attribute `left`
-            `lower`, `right`, and `top` representing the column and row indices
-            of the object's boundaries in the labeled image.
-
-        Example:
-        --------
-        >>> # An example for predicate On
-        >>> _block_type = Type("block", [])
-        >>> def _On_NSP_holds(self, state: RawState, objects: Sequence[Object])\
-        >>>     -> bool:
-        >>>     '''
-        >>>     Determine if the first block in objects is directly on top of the second 
-        >>>     block in the scene image, by using simple heuristics and image processing 
-        >>>     techniques.
-        >>>
-        >>>     Parameters:
-        >>>     -----------
-        >>>     state : RawState
-        >>>     The current state of the world, represented as an image.
-        >>>     objects : Sequence[Object]
-        >>>     A sequence of two blocks whose relationship is to be determined. The 
-        >>>     first block is the one that is potentially on top.
-        >>>
-        >>>     Returns:
-        >>>     --------
-        >>>     bool
-        >>>     True if the first block is directly on top of the second block with 
-        >>>     no blocks in between, False otherwise.
-        >>>     '''
-        >>>
-        >>>     block1, block2 = objects
-        >>>     block1_name, block2_name = block1.id_name, block2.id_name
-        >>>
-        >>>     # Heuristics: we know a block can't be on top of itself.
-        >>>     if block1_name == block2_name:
-        >>>         return False
-        >>>
-        >>>     # Using simple heuristics to check if they are far away
-        >>>     block1_bbox = state.get_obj_bbox(block1) 
-        >>>     block2_bbox = state.get_obj_bbox(block2)
-        >>>     if (block1_bbox.lower < block2_bbox.lower) or \
-        >>>        (block1_bbox.left > block2_bbox.right) or \
-        >>>        (block1_bbox.right < block2_bbox.left) or \
-        >>>        (block1_bbox.upper < block2_bbox.upper):
-        >>>         return False
-        >>>
-        >>>     # Crop the scene image to the smallest bounding box that include both
-        >>>     # objects.
-        >>>     attention_image = state.crop_to_objects([block1, block2])
-        >>>
-        >>>     return evaluate_simple_assertion(
-        >>>      f"{block1_name} is directly on top of {block2_name} with no blocks"+
-        >>>      " in between.", attention_image)
-        >>> _On_NSP = NSPredicate("On", [_block_type, _block_type],
-        >>>                         _On_NSP_holds)
-        """
-
     def crop_to_objects(self, objects: Collection[Object],
                         left_margin: int = 5,
                         lower_margin: int=10, 
@@ -122,29 +54,31 @@ class RawState:
         Image
             The cropped image.
         
-        Example:
+        Example 1:
         --------
+        >>> An example for classifying Covers
+        >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
+        >>>                         ) -> bool:
+        >>>     '''
+        >>>     Determine if the block is covering (directly on top of) the target 
+        >>>     region.
+        >>>     '''
+        >>>     block, target = objects
+        >>>
+        >>>     # Necessary but not sufficient condition for covering: no part of the 
+        >>>     # target region is outside the block.
+        >>>     if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
+                   state.get(target, "bbox_right") > state.get(block, "bbox_right"):
+        >>>         return False
+        >>>     ...
+        >>>     return evaluate_simple_assertion(...)
+        Example 2: 
+        ----------
         >>> # An example for predicate OnTable
-        >>> _block_type = Type("block", [])
-        >>> _table_type = Type("table", [])
         >>> def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
         >>>         bool:
         >>>     '''Determine if the block in objects is directly resting on the table's 
         >>>     surface in the scene image.
-
-        >>>     Parameters:
-        >>>     -----------
-        >>>     state : RawState
-        >>>         The current state of the world, represented as an image.
-        >>>     objects : Sequence[Object]
-        >>>         A sequence containing a single block whose relationship with the 
-        >>>         table is to be determined.
-
-        >>>     Returns:
-        >>>     --------
-        >>>     bool
-        >>>         True if the block is directly resting on the table's surface, False 
-        >>>         otherwise.
         >>>     '''
         >>>     block, = objects
         >>>     block_name = block.id_name
@@ -159,8 +93,6 @@ class RawState:
         >>>     return evaluate_simple_assertion(
         >>>         f"{block_name} is directly resting on {table_name}'s surface.",
         >>>         attention_image)
-        >>> _OnTable_NSP = NSPredicate("OnTable", [_block_type], 
-        >>>                 _OnTable_NSP_holds)
         """
 
     def get(self, obj: Object, feature_name: str) -> Any:
@@ -184,14 +116,34 @@ class RawState:
         ValueError
             If the specified feature name is not found in the object's type feature names.
         
-        Examples:
+        Example 1:
         ---------
         >>> _robot_type = Type("robot", ["x", "y", "tilt", "wrist", "fingers"])
-        >>> def _HandOpen_holds(self, state: State, objects: Sequence[Object]
+        >>> def _WristBent_holds(state: State, objects: Sequence[Object]
         >>>                     ) -> bool:
         >>>     robot, = objects
-        >>>     return state.get(robot, "fingers") == 1.0
-        >>> _HandOpen = NSPredicate("HandOpen", [_robot_type], _HandOpen_holds)
+        >>>     return state.get(robot, "wrist") >= 0.5
+        >>> _WristBent = NSPredicate("WristBent", [_robot_type], _WristBent_holds)
+
+        Example 2:
+        ----------
+        >>> # An example for predicate On
+        >>> def _On_NSP_holds(state: RawState, objects: Sequence[Object])\
+        >>>     -> bool:
+        >>>     '''
+        >>>     Determine if the first block in objects is directly on top of the second 
+        >>>     block in the scene image, by using simple heuristics and image processing 
+        >>>     techniques.
+        >>>     '''
+        >>>     block1, block2 = objects
+        >>>
+        >>>     if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower")or\
+        >>>      state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
+        >>>      state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
+        >>>      state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
+        >>>      state.get(block1, "pose_z") < state.get(block2, "pose_z"):
+        >>>       return False
+        >>>     ...
         """
 
     def get_objects(self, object_type: Type) -> List[Object]:
@@ -211,8 +163,11 @@ class RawState:
 
         Examples:
         ---------
+        >>> def _robot_hand_above_cup(state: State, cup: Object) -> bool:
+        >>>     ...
+        >>>
         >>> def _HandNotAboveCup_holds(state: State,
-        >>>                        objects: Sequence[Object]) -> bool:
+        >>>                            objects: Sequence[Object]) -> bool:
         >>>     for cup in state.get_objects(_cup_type):
         >>>         if _robot_hand_above_cup(state, cup):
         >>>             return False

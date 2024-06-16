@@ -530,6 +530,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         if failed_opt:
             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
+            option_start_state.add_bbox_features()
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
                 use_object_id=CFG.neu_sym_predicate)
@@ -563,6 +564,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                             # Rendering the final state for success traj
                             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
+                            option_start_state.add_bbox_features()
                             # For debugging incomplete options
                             states.append(option_start_state)
                             break
@@ -576,6 +578,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 # [option], raise_error_on_repeated_state=True)
                             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
+                            option_start_state.add_bbox_features()
                             # logging.info("Start new option at step "+
                             #                 f"{env_step_counter}")
                             g_nsrt = nsrt_plan[nsrt_counter]
@@ -632,6 +635,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                 input("Press Enter when you have pasted the "+
                         "response.")
             else:
+                raise NotImplementedError("Automatic prompt generation not "+\
+                                          "updated")
                 self._vlm.sample_completions(prompt,
                     temperature=CFG.llm_temperature,
                     seed=CFG.seed,
@@ -758,13 +763,17 @@ class VlmInventionApproach(NSRTLearningApproach):
     def _create_prompt(self, env: BaseEnv, ite: int) -> str:
         '''Compose a prompt for VLM for predicate invention
         '''
-        # Read the template
-        # if CFG.neu_sym_predicate:
-        #     suffix = "raw_state"
-        # else:
-        #     suffix = "oo_state"
+        # Read the shared template
         with open(f'./prompts/invent_0.outline', 'r') as file:
             template = file.read()
+        # Get the different parts of the prompt
+        if CFG.neu_sym_predicate:
+            instr_fn = "raw"
+        else:
+            instr_fn = "oo"
+        with open(f'./prompts/invent_0_{instr_fn}_state.outline', 'r') as f:
+            instruction = f.read()
+        template += instruction
 
         ##### Meta Environment
         # Structure classes
@@ -801,7 +810,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Predicates
         # If NSP, provide the GT goal NSPs, although they are never used.
         pred_str_lst = []
-        # pred_str_lst.append(self._init_predicate_str(env, self.env_source_code))
+        pred_str_lst.append(self._init_predicate_str(env, self.env_source_code))
         if ite > 1:
             pred_str_lst.append("The previously invented predicates are:")
             pred_str_lst.append(self._invented_predicate_str(ite))
@@ -809,16 +818,18 @@ class VlmInventionApproach(NSRTLearningApproach):
         template = template.replace("[PREDICATES_IN_ENV]", pred_str)
         
         # Options
-        options_str_set = set()
-        for nsrt in self._nsrts:
-            options_str_set.add(nsrt.option_str())
-        options_str = '\n'.join(list(options_str_set))
-        template = template.replace("[OPTIONS_IN_ENV]", options_str)
+        '''Template: The set of options the robot has are:
+        [OPTIONS_IN_ENV]'''
+        # options_str_set = set()
+        # for nsrt in self._nsrts:
+        #     options_str_set.add(nsrt.option_str())
+        # options_str = '\n'.join(list(options_str_set))
+        # template = template.replace("[OPTIONS_IN_ENV]", options_str)
         
         # NSRTS
         nsrt_str = []
         for nsrt in self._nsrts:
-            nsrt_str.append(str(nsrt).replace("NSRT-", ""))
+            nsrt_str.append(str(nsrt).replace("NSRT-", "Operator-"))
         template = template.replace("[NSRTS_IN_ENV]", '\n'.join(nsrt_str))
 
         _, _, _, _, summary_str = utils.count_classification_result_for_ops(
@@ -933,7 +944,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         If NSP, provide the GT goal NSPs, although they are never used.
         '''
         init_pred_str = []
-        init_pred_str.append(str({p.pretty_str()[1] for p 
+        init_pred_str.append(str({p.pretty_str_with_types() for p 
                                     in self._initial_predicates}) + "\n")
         
         # Print the variable definitions
@@ -971,7 +982,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 if block is not None:
                     p_instan_str = block.group()
                     pred_str = "Predicate " + p.pretty_str()[1] +\
-                                " is defined by\n" +\
+                                " is defined by:\n" +\
                                 add_python_quote(p.classifier_str() +\
                                 p_instan_str)
                     init_pred_str.append(pred_str.replace("self.", ""))
