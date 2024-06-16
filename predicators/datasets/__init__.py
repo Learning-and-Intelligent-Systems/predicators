@@ -47,7 +47,7 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
     if CFG.offline_data_method in [
             "demo_with_vlm_imgs", "geo_and_demo_with_vlm_imgs"
-    ]:
+    ]:  # pragma: no cover.
         # NOTE: this below method is tested separately; it's just that testing
         # it by calling the above function is painful because a VLM is
         # instantiated and called from inside this method, but when testing,
@@ -80,7 +80,7 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
             env, train_tasks, known_options)
     if CFG.offline_data_method in [
             "saved_vlm_img_demos_folder", "geo_and_saved_vlm_img_demos_folder"
-    ]:
+    ]:  # pragma: no cover.
         # NOTE: this below method is tested separately; it's just that testing
         # it by calling the above function is painful because a VLM is
         # instantiated and called from inside this method, but when testing,
