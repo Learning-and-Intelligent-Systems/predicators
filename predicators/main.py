@@ -95,7 +95,16 @@ def main() -> None:
     # is often created during env __init__().
     env.action_space.seed(CFG.seed)
     assert env.goal_predicates.issubset(env.predicates)
-    preds, _ = utils.parse_config_excluded_predicates(env)
+    included_preds, excluded_preds = utils.parse_config_excluded_predicates(
+        env)
+    # The known predicates are passed into the approach and into dataset
+    # creation. In some cases, like when inventing geometric and VLM predicates,
+    # we want to hide certain goal predicates from the agent by replacing them
+    # with agent-specific goal predicates that the environment defines.
+    # Note that inside dataset creation, the known predicates are only used to
+    # create a VLM dataset, so we can just overwrite the variable `preds`.
+    preds = utils.replace_goals_with_agent_specific_goals(
+        included_preds, excluded_preds, env)
     # Create the train tasks.
     env_train_tasks = env.get_train_tasks()
     # We assume that a train Task can be constructed from a EnvironmentTask.

@@ -149,7 +149,7 @@ def count_branching_factor(strips_ops: List[STRIPSOperator],
     return total_branching_factor
 
 
-def segment_trajectory_to_state_sequence(
+def segment_trajectory_to_start_end_state_sequence(
         seg_traj: List[Segment]) -> List[State]:
     """Convert a trajectory of segments into a trajectory of states, made up of
     only the initial/final states of the segments.
@@ -2715,6 +2715,24 @@ def save_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
         pkl.dump(ground_atom_dataset_to_pkl, f)
 
 
+def merge_ground_atom_datasets(
+        gad1: List[GroundAtomTrajectory],
+        gad2: List[GroundAtomTrajectory]) -> List[GroundAtomTrajectory]:
+    """Merges two ground atom datasets sharing the same underlying low-level
+    trajectory via the union of ground atoms at each state."""
+    assert len(gad1) == len(
+        gad2), "Ground atom datasets must be of the same length to merge them."
+    merged_ground_atom_dataset = []
+    for ground_atom_traj1, ground_atom_traj2 in zip(gad1, gad2):
+        ll_traj1, ga_list1 = ground_atom_traj1
+        ll_traj2, ga_list2 = ground_atom_traj2
+        assert ll_traj1 == ll_traj2, "Ground atom trajectories must share " \
+            "the same low-level trajectory to be able to merge them."
+        merged_ga_list = [ga1 | ga2 for ga1, ga2 in zip(ga_list1, ga_list2)]
+        merged_ground_atom_dataset.append((ll_traj1, merged_ga_list))
+    return merged_ground_atom_dataset
+
+
 def extract_preds_and_types(
     ops: Collection[NSRTOrSTRIPSOperator]
 ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:
@@ -3509,6 +3527,16 @@ def parse_config_excluded_predicates(
         included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
+
+
+def replace_goals_with_agent_specific_goals(
+        included_predicates: Set[Predicate],
+        excluded_predicates: Set[Predicate], env: BaseEnv) -> Set[Predicate]:
+    """Replace original goal predicates with agent-specific goal predicates if
+    the environment defines them."""
+    preds = included_predicates - env.goal_predicates \
+        | env.agent_goal_predicates - excluded_predicates
+    return preds
 
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
