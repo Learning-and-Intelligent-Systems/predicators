@@ -41,10 +41,8 @@ Learned bridge policy in stick button:
 """
 
 import logging
-import os
-import sys
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -56,15 +54,12 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.option_model import _OptionModelBase
-from predicators.planning import PlanningFailure, PlanningTimeout, \
-    _update_sas_file_with_costs, fd_plan_from_sas_file, \
-    generate_sas_file_for_fd, task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, BridgeDataset, \
     DefaultState, DemonstrationQuery, DemonstrationResponse, GroundAtom, \
     InteractionRequest, InteractionResult, LiftedAtom, LowLevelTrajectory, \
-    Metrics, Object, ParameterizedOption, Predicate, Query, State, Task, \
-    Type, Variable, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    Object, ParameterizedOption, Predicate, Query, State, Task, \
+    Type, Variable, _GroundNSRT, _Option
 
 
 class BridgePolicyApproach(OracleApproach):
@@ -389,7 +384,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                     self._action_space, self._train_tasks)
         self._current_control = ""
         option_policy = self._get_option_policy_by_planning(
-            self._train_tasks[0], CFG.timeout, set())
+            self._train_tasks[0], CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
@@ -409,10 +404,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                             params: Array) -> Action:
         """policy for CallPlanner option."""
         self._current_control = "planner"
-        init_atoms = utils.abstract(state, \
-                                    self._get_current_predicates())
+        current_task = Task(state, self._train_tasks[int(params[0])].goal)
         option_policy = self._get_option_policy_by_planning(
-            self._train_tasks[int(params[0])], CFG.timeout, init_atoms)
+            current_task, CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
@@ -491,7 +485,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # because the bridge policy takes as input the last failed NSRT.
         self._current_control = "planner"
         option_policy = self._get_option_policy_by_planning(
-            task, timeout, set())
+            task, timeout)
         self._current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
@@ -594,158 +588,3 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs))  # pylint: disable=protected-access
         self._policy_logs = []
         return None
-
-    def run_task_plan_once(  #pylint: disable=dangerous-default-value
-        self,
-        task: Task,
-        nsrts: Set[NSRT],
-        preds: Set[Predicate],
-        types: Set[Type],
-        timeout: float,
-        seed: int,
-        task_planning_heuristic: Optional[str] = None,
-        ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
-        default_cost: float = 1.0,
-        cost_precision: int = 3,
-        max_horizon: float = np.inf,
-        init: Set[GroundAtom] = set(),
-        **kwargs: Any) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]],
-                                Metrics]:
-        """Get a single abstract plan for a task.
-
-        The sequence of ground atom sets returned represent NECESSARY
-        atoms.
-        """
-        if init:
-            init_atoms: Set[GroundAtom] = init
-        else:
-            init_atoms = utils.abstract(task.init, preds)
-            print(task)
-        goal = task.goal
-        objects = set(task.init)
-
-        start_time = time.perf_counter()
-
-        if CFG.sesame_task_planner == "astar":
-            ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, nsrts)
-            assert task_planning_heuristic is not None
-            heuristic = utils.create_task_planning_heuristic(
-                task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
-                objects)
-            duration = time.perf_counter() - start_time
-            timeout -= duration
-            plan, atoms_seq, metrics = next(
-                task_plan(init_atoms,
-                          goal,
-                          ground_nsrts,
-                          reachable_atoms,
-                          heuristic,
-                          seed,
-                          timeout,
-                          max_skeletons_optimized=1,
-                          use_visited_state_set=True,
-                          **kwargs))
-            if len(plan) > max_horizon:
-                raise PlanningFailure(
-                    "Skeleton produced by A-star exceeds horizon!")
-        elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
-            fd_exec_path = os.environ["FD_EXEC_PATH"]
-            exec_str = os.path.join(fd_exec_path, "fast-downward.py")
-            timeout_cmd = "gtimeout" if sys.platform == "darwin" \
-                else "timeout"
-            # Run Fast Downward followed by cleanup. Capture the output.
-            assert "FD_EXEC_PATH" in os.environ, \
-                "Please follow instructions in the docstring of the" +\
-                "_sesame_plan_with_fast_downward method in planning.py"
-
-            sesame_task_planner = CFG.sesame_task_planner
-            if sesame_task_planner.endswith("-costs"):
-                use_costs = True
-                sesame_task_planner = sesame_task_planner[:-len("-costs")]
-            else:
-                use_costs = False
-
-            if sesame_task_planner == "fdopt":
-                alias_flag = "--alias seq-opt-lmcut"
-            elif sesame_task_planner == "fdsat":
-                alias_flag = "--alias lama-first"
-            else:
-                raise ValueError("Unrecognized sesame_task_planner: "
-                                 f"{CFG.sesame_task_planner}")
-
-            sas_file = generate_sas_file_for_fd(task, nsrts, preds, types,
-                                                timeout, timeout_cmd,
-                                                alias_flag, exec_str,
-                                                list(objects), init_atoms)
-
-            if use_costs:
-                assert ground_op_costs is not None
-                assert all(c >= 0 for c in ground_op_costs.values())
-                _update_sas_file_with_costs(
-                    sas_file,
-                    ground_op_costs,
-                    default_ground_op_cost=default_cost,
-                    cost_precision=cost_precision)
-
-            plan, atoms_seq, metrics = fd_plan_from_sas_file(
-                sas_file, timeout_cmd, timeout, exec_str,
-                alias_flag, start_time, list(objects), init_atoms, nsrts,
-                float(max_horizon))
-        else:
-            raise ValueError("Unrecognized sesame_task_planner: "
-                             f"{CFG.sesame_task_planner}")
-
-        necessary_atoms_seq = utils.compute_necessary_atoms_seq(
-            plan, atoms_seq, goal)
-
-        return plan, necessary_atoms_seq, metrics
-
-    def _get_option_policy_by_planning( #pylint: disable=dangerous-default-value
-            self, task: Task,
-            timeout: float, init: Set[GroundAtom] = set()) \
-                -> Callable[[State], _Option]:
-        """Raises an OptionExecutionFailure with the last_failed_option in its
-        info dict in the case where execution fails."""
-
-        # Ensure random over successive calls.
-        self._num_calls += 1
-        seed = self._seed + self._num_calls
-        nsrts = self._get_current_nsrts()
-        preds = self._get_current_predicates()
-
-        nsrt_plan, atoms_seq, _ = self._run_task_plan(task, nsrts, preds,
-                                                      timeout, seed, init)
-        return utils.nsrt_plan_to_greedy_option_policy(
-            nsrt_plan,
-            goal=task.goal,
-            rng=self._rng,
-            necessary_atoms_seq=atoms_seq)
-
-    def _run_task_plan( #pylint: disable=dangerous-default-value
-        self, task: Task, nsrts: Set[NSRT],
-        preds: Set[Predicate], timeout: float, seed: int, \
-            init: Set[GroundAtom] = set(), **kwargs: Any
-    ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
-
-        try:
-            plan, atoms_seq, metrics = self.run_task_plan_once(
-                task,
-                nsrts,
-                preds,
-                self._types,
-                timeout,
-                seed,
-                task_planning_heuristic=self._task_planning_heuristic,
-                ground_op_costs=None,
-                default_cost=1.0,
-                cost_precision=3,
-                max_horizon=float(CFG.horizon),
-                init=init,
-                **kwargs)
-        except PlanningFailure as e:
-            raise ApproachFailure(e.args[0], e.info)
-        except PlanningTimeout as e:
-            raise ApproachTimeout(e.args[0], e.info)
-
-        return plan, atoms_seq, metrics
