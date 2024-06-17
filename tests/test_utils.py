@@ -103,7 +103,7 @@ def test_count_positives_for_ops(max_groundings, exp_num_true, exp_num_false):
 
 
 def test_segment_trajectory_to_state_and_atoms_sequence():
-    """Tests for segment_trajectory_to_state_sequence() and
+    """Tests for segment_trajectory_to_start_end_state_sequence() and
     segment_trajectory_to_atoms_sequence()."""
     # Set up the segments.
     cup_type = Type("cup_type", ["feat1"])
@@ -125,21 +125,23 @@ def test_segment_trajectory_to_state_and_atoms_sequence():
     final_atoms = {not_on([cup, plate])}
     segment1 = Segment(traj1, init_atoms, final_atoms)
     segment2 = Segment(traj2, final_atoms, init_atoms)
-    # Test segment_trajectory_to_state_sequence().
-    state_seq = utils.segment_trajectory_to_state_sequence([segment1])
+    # Test segment_trajectory_to_start_end_state_sequence().
+    state_seq = utils.segment_trajectory_to_start_end_state_sequence(
+        [segment1])
     assert state_seq == [state0, state2]
-    state_seq = utils.segment_trajectory_to_state_sequence(
+    state_seq = utils.segment_trajectory_to_start_end_state_sequence(
         [segment1, segment2])
     assert state_seq == [state0, state2, state0]
-    state_seq = utils.segment_trajectory_to_state_sequence(
+    state_seq = utils.segment_trajectory_to_start_end_state_sequence(
         [segment1, segment2, segment1, segment2])
     assert state_seq == [state0, state2, state0, state2, state0]
     with pytest.raises(AssertionError):
         # Need at least one segment in the trajectory.
-        utils.segment_trajectory_to_state_sequence([])
+        utils.segment_trajectory_to_start_end_state_sequence([])
     with pytest.raises(AssertionError):
         # Segments don't chain together correctly.
-        utils.segment_trajectory_to_state_sequence([segment1, segment1])
+        utils.segment_trajectory_to_start_end_state_sequence(
+            [segment1, segment1])
     # Test segment_trajectory_to_atoms_sequence().
     atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
     assert atoms_seq == [init_atoms, final_atoms]
@@ -1947,6 +1949,70 @@ def test_create_ground_atom_dataset():
     assert len(ground_atom_dataset[0][1]) == len(states) == 2
     assert ground_atom_dataset[0][1][0] == set()
     assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
+
+
+def test_merge_ground_atom_datasets():
+    """Tests for merge_ground_atom_datasets()."""
+    utils.reset_config({
+        "env": "test_env",
+    })
+    cup_type = Type("cup_type", ["feat1", "color"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type],
+                   lambda s, o: s.get(o[0], "feat1") > s.get(o[1], "feat1"))
+    dark = Predicate("Dark", [cup_type],
+                     lambda s, o: s.get(o[0], "color") > 0.5)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    states = [
+        State({
+            cup1: np.array([0.5, 0.2]),
+            cup2: np.array([0.1, 0.6]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
+        }),
+        State({
+            cup1: np.array([1.1, 0.2]),
+            cup2: np.array([0.1, 0.6]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
+        }),
+        State({
+            cup1: np.array([1.1, 0.7]),
+            cup2: np.array([0.1, 0.6]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
+        })
+    ]
+    actions = [
+        Action(np.array([0.0]), DummyOption),
+        Action(np.array([0.0]), DummyOption)
+    ]
+    dataset = [LowLevelTrajectory(states, actions)]
+    gad1 = utils.create_ground_atom_dataset(dataset, {on})
+    gad2 = utils.create_ground_atom_dataset(dataset, {dark})
+    ground_atom_dataset = utils.merge_ground_atom_datasets(gad1, gad2)
+    assert len(ground_atom_dataset) == 1
+    assert len(ground_atom_dataset[0]) == 2
+    assert len(ground_atom_dataset[0][0].states) == len(states)
+    assert all(gs.allclose(s) for gs, s in \
+               zip(ground_atom_dataset[0][0].states, states))
+    assert len(ground_atom_dataset[0][0].actions) == len(actions)
+    assert all(ga == a
+               for ga, a in zip(ground_atom_dataset[0][0].actions, actions))
+    assert len(ground_atom_dataset[0][1]) == len(states) == 3
+    assert ground_atom_dataset[0][1][0] == {GroundAtom(dark, [cup2])}
+    assert ground_atom_dataset[0][1][1] == {
+        GroundAtom(dark, [cup2]),
+        GroundAtom(on, [cup1, plate1])
+    }
+    assert ground_atom_dataset[0][1][2] == {
+        GroundAtom(dark, [cup2]),
+        GroundAtom(on, [cup1, plate1]),
+        GroundAtom(dark, [cup1])
+    }
 
 
 def test_get_reachable_atoms():

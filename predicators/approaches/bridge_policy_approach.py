@@ -288,7 +288,7 @@ class BridgePolicyApproach(OracleApproach):
                 states = [traj.states[0]]
                 atoms = atom_traj
             else:
-                states = utils.segment_trajectory_to_state_sequence(
+                states = utils.segment_trajectory_to_start_end_state_sequence(
                     segmented_traj)
                 atoms = utils.segment_trajectory_to_atoms_sequence(
                     segmented_traj)

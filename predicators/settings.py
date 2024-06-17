@@ -51,6 +51,9 @@ class GlobalSettings:
     # used by VLM predicate invention, where we want to invent goal predicates
     # and different task goals are provided to the agent and the demonstrator.
     allow_exclude_goal_predicates = False
+    # Normally, State.allclose() raises an error if the simulator state of
+    # either of its arguments is not None.
+    allow_state_allclose_comparison_despite_simulator_state = False
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
