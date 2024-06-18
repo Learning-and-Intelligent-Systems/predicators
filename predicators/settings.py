@@ -27,7 +27,7 @@ class GlobalSettings:
     # on tasks that have no demonstrations.
     allow_interaction_in_demo_tasks = True
     # Maximum number of steps to run an InteractionRequest policy.
-    max_num_steps_interaction_request = 100
+    max_num_steps_interaction_request = 300
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
@@ -574,7 +574,7 @@ class GlobalSettings:
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
-    active_sampler_learning_exploration_epsilon = 0.5
+    active_sampler_learning_exploration_epsilon = 1.0
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
 
@@ -709,6 +709,7 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
+                    "grid_row_door": cls.grid_row_num_cells + 5,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.

@@ -51,6 +51,7 @@ class CogMan:
         self._current_env_task = env_task
         self._current_goal = task.goal
         self._reset_policy(task)
+        print("OUR CURRENT CONTROL", self._approach._current_control)
         self._exec_monitor.reset(task)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
@@ -147,6 +148,7 @@ class CogMan:
 
     def set_override_policy(self, policy: Callable[[State], Action]) -> None:
         """Used during online interaction."""
+        print("setting override policy, our current control", self._approach._current_control)
         self._override_policy = policy
 
     def unset_override_policy(self) -> None:
@@ -227,8 +229,8 @@ def run_episode_and_get_observations(
                 if act.has_option() and act.get_option() != curr_option:
                     curr_option = act.get_option()
                     metrics["num_options_executed"] += 1
-                    if train_or_test == "test":
-                        print(curr_option)
+                    # if train_or_test == "test":
+                    print(curr_option, cogman._approach._current_control)
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env
