@@ -106,14 +106,14 @@ def count_classification_result_for_ops(
         fail_optn_dict: Dict[str, GroundOptionRecord],
         return_str: bool = False,
         initial_ite: bool = False,
-        print_cm: bool = False
+        print_cm: bool = False,
+        max_num_options: int = 10, # Number of options to show
+        max_num_groundings: int = 2, # Number of ground options per option.3
+        max_num_examples: int = 2, # Number of examples per ground option.
         ) -> Tuple[int, int, int, int, str]:
 
     np.set_printoptions(precision=1)
     result_str = []
-    max_num_options = 1 # Number of options to show
-    max_num_groundings = 3 # Number of ground options per option.3
-    max_num_examples = 3 # Number of examples per ground option.
 
     # Dictionary of {option_str: {ground_option_str: states}}
     # These are used when only listing states of the top max_num_grounds ground 
@@ -440,12 +440,13 @@ def append_classification_result_for_ops(result_str: List[str],
             _, obs_dir = vlm_option_obs_save_name(g_optn, category, i)
 
             # Write state name to the image for easy identification
-            draw = ImageDraw.Draw(state.labeled_image)
+            img_copy = state.labeled_image.copy()
+            draw = ImageDraw.Draw(img_copy)
             font = ImageFont.load_default().font_variant(size=50)
             text_color = (0, 0, 0)  # white
             draw.text((0, 0), obs_name, fill=text_color, font=font)
 
-            state.labeled_image.save(os.path.join(obs_dir, obs_name+f_suffix))
+            img_copy.save(os.path.join(obs_dir, obs_name+f_suffix))
             logging.debug(f"Saved Image {obs_name}")
             result_str.append("  In " + obs_name + " with additional info:")
             # Should add proprio state
@@ -1472,10 +1473,9 @@ class RawState(PyBulletState):
             for attribute, value in zip(obj.type.feature_names, self[obj]):
                 # include if it's proprioception feature, or position/bbox 
                 # feature, or object_features is True
-                if obj.type.name == "robot" or\
-                   attribute in ["pose_x", "pose_y", "pose_z", "bbox_left", 
-                    "bbox_right", "bbox_upper", "bbox_lower"] or\
-                    object_features:
+                if obj.type.name == "robot" or object_features:
+                #    attribute in ["pose_x", "pose_y", "pose_z", "bbox_left", 
+                    # "bbox_right", "bbox_upper", "bbox_lower"] or\
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
                     obj_dict[attribute] = value
