@@ -538,12 +538,20 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                     train_task_idx: int) -> InteractionRequest:
         task = self._train_tasks[train_task_idx]
         policy = self._solve(task, timeout=CFG.timeout, train_or_test="train")
-
-        reached_stuck_state = False
-        all_failed_options = None
+        just_starting = True
 
         def _act_policy(s: State) -> Action:
-            nonlocal reached_stuck_state, all_failed_options
+            nonlocal just_starting
+            if just_starting:
+                self._current_control = "planner"
+                option_policy = self._get_option_policy_by_planning(
+                task, CFG.timeout)
+                self._current_policy = utils.option_policy_to_policy(
+                option_policy,
+                max_option_steps=CFG.max_num_steps_option_rollout,
+                raise_error_on_repeated_state=True,
+                )
+                just_starting = False
             return policy(s)
 
         def _termination_fn(s: State) -> bool:

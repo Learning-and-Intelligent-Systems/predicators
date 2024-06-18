@@ -51,7 +51,6 @@ class CogMan:
         self._current_env_task = env_task
         self._current_goal = task.goal
         self._reset_policy(task)
-        print("OUR CURRENT CONTROL", self._approach._current_control)
         self._exec_monitor.reset(task)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
