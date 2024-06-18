@@ -4,12 +4,9 @@ class RawState:
 
     Attributes:
     -----------
-    labeled_image : PIL.Image.Image
-        An observation of the state of the world annotated with an unique label 
+    labeled_image : Image
+        An observation of the state of the world annotated with a unique label 
         for each object.
-    obj_mask_dict : Dict[str, Mask]
-        A dictionary mapping object names to their corresponding segmentation 
-        mask.
 
     Methods:
     --------
@@ -53,25 +50,24 @@ class RawState:
         --------
         Image
             The cropped image.
-        
         Example 1:
-        --------
-        >>> An example for classifying Covers
-        >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
-        >>>                         ) -> bool:
+        ----------
+        >>> # An example for predicate On
+        >>> def _On_NSP_holds(state: RawState, objects: Sequence[Object])\
+        >>>     -> bool:
         >>>     '''
-        >>>     Determine if the block is covering (directly on top of) the target 
-        >>>     region.
+        >>>     Determine if the first block in objects is directly on top of the second 
+        >>>     block in the scene image, by using simple heuristics and image processing 
+        >>>     techniques.
         >>>     '''
-        >>>     block, target = objects
-        >>>
-        >>>     # Necessary but not sufficient condition for covering: no part of the 
-        >>>     # target region is outside the block.
-        >>>     if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
-                   state.get(target, "bbox_right") > state.get(block, "bbox_right"):
-        >>>         return False
+        >>>     block1, block2 = objects
         >>>     ...
-        >>>     return evaluate_simple_assertion(...)
+        >>>     # Crop the scene image to the smallest bounding box that include both objects.
+        >>>     attention_image = state.crop_to_objects([block1, block2])
+        >>>
+        >>>     return evaluate_simple_assertion(
+        >>>         f"{block1_name} is directly on top of {block2_name} with no blocks in between.", attention_image)
+        
         Example 2: 
         ----------
         >>> # An example for predicate OnTable
@@ -83,8 +79,7 @@ class RawState:
         >>>     block, = objects
         >>>     block_name = block.id_name
         >>>     
-        >>>     # Crop the scene image to the smallest bounding box that include both
-        >>>     # objects.
+        >>>     # Crop the scene image to the smallest bounding box that include both objects.
         >>>     # We know there is only one table in this environment.
         >>>     table = state.get_objects(_table_type)[0]
         >>>     table_name = table.id_name
@@ -126,24 +121,23 @@ class RawState:
         >>> _WristBent = NSPredicate("WristBent", [_robot_type], _WristBent_holds)
 
         Example 2:
-        ----------
-        >>> # An example for predicate On
-        >>> def _On_NSP_holds(state: RawState, objects: Sequence[Object])\
-        >>>     -> bool:
+        --------
+        >>> An example for classifying Covers
+        >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
+        >>>                         ) -> bool:
         >>>     '''
-        >>>     Determine if the first block in objects is directly on top of the second 
-        >>>     block in the scene image, by using simple heuristics and image processing 
-        >>>     techniques.
+        >>>     Determine if the block is covering (directly on top of) the target 
+        >>>     region.
         >>>     '''
-        >>>     block1, block2 = objects
+        >>>     block, target = objects
         >>>
-        >>>     if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower")or\
-        >>>      state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
-        >>>      state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
-        >>>      state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
-        >>>      state.get(block1, "pose_z") < state.get(block2, "pose_z"):
-        >>>       return False
+        >>>     # Necessary but not sufficient condition for covering: no part of the 
+        >>>     # target region is outside the block.
+        >>>     if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
+                   state.get(target, "bbox_right") > state.get(block, "bbox_right"):
+        >>>         return False
         >>>     ...
+        >>>     return evaluate_simple_assertion(...)
         """
 
     def get_objects(self, object_type: Type) -> List[Object]:

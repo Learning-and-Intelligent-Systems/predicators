@@ -1,13 +1,12 @@
 <predicate_name> = NSPredicate(name, param_types, classifier)
 ```
 
-Ensure that:
-- Take the predefined predicate definition as reference;
+In writing the proposals, ensure the following:
+- **When defining classifier functions, first use rules based on object features to identify scenarios where the predicate is *clearly* False (the robot can't be holding anything if its hand is open). Then, use the `evaluate_simple_assertion` method to address potential remaining cases.** Reference the format of predefined predicates;
 - Use only object-type variables defined in the environment when defining  `param_types`.
-- The proposed predicates are semantically distinct from each other and from the existing predicates.
-- Don't use any constant that is not defined.
-- Make use of the helper method `evaluate_simple_assertion` in classifers that can't perfectly defined with just bounding boxes.
-- Make use of the helper methods from the State class such as `crop_to_objects`, `get` and `get_objects` or other helper function that you have defined;
-- The object feature names used in classifier definitions are present in the states and object type instantiations;
-- Strictly follow the type hints in the predicate definition template.
-You don't need to write out the new operators.
+- Each proposed predicates are semantically from the existing predicates.
+- Don't use any undefined constants;
+- The object-feature names used are consistent with those available in state and object type definitions;
+- Strictly adhere to the type hints in the predicate definition template.
+- You don't need to write out the new operators.
+- Make use of the helper methods such as `evaluate_simple_assertion`, `crop_to_objects`, `get` and `get_objects` or other defined helper functions.

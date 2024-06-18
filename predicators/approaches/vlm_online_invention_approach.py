@@ -280,7 +280,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                             self._initial_predicates
                 else:
                     # Use the results to prompt the llm
-                    prompt = self._create_prompt(env, ite)
+                    prompt = self._create_prompt(env, ite,
+                                                    max_num_options=10,
+                                                    max_num_groundings=2,
+                                                    max_num_examples=2)
                     response_file =\
                         f'./prompts/invent_{self.env_name}_1.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
@@ -530,7 +533,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         if failed_opt:
             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-            option_start_state.add_bbox_features()
+            # if CFG.neu_sym_predicate:
+            #     option_start_state.add_bbox_features()
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
                 use_object_id=CFG.neu_sym_predicate)
@@ -564,7 +568,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             # Rendering the final state for success traj
                             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-                            option_start_state.add_bbox_features()
+                            # if CFG.neu_sym_predicate:
+                            #     option_start_state.add_bbox_features()
                             # For debugging incomplete options
                             states.append(option_start_state)
                             break
@@ -578,7 +583,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 # [option], raise_error_on_repeated_state=True)
                             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-                            option_start_state.add_bbox_features()
+                            # if CFG.neu_sym_predicate:
+                            #     option_start_state.add_bbox_features()
                             # logging.info("Start new option at step "+
                             #                 f"{env_step_counter}")
                             g_nsrt = nsrt_plan[nsrt_counter]
@@ -760,9 +766,13 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         return set(kept_predicates)        
 
-    def _create_prompt(self, env: BaseEnv, ite: int) -> str:
+    def _create_prompt(self, env: BaseEnv, ite: int,
+            max_num_options: int = 10, # Number of options to show
+            max_num_groundings: int = 2, # Number of ground options per option.3
+            max_num_examples: int = 2, # Number of examples per ground option.
+            seperate_prompt_per_option: bool = False) -> str:
         '''Compose a prompt for VLM for predicate invention
-        '''
+        ''' 
         # Read the shared template
         with open(f'./prompts/invent_0.outline', 'r') as file:
             template = file.read()
@@ -838,7 +848,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                         self.fail_optn_dict,
                                         return_str=True,
                                         initial_ite=(ite==0),
-                                        print_cm=True)
+                                        print_cm=True,
+                                        max_num_options=max_num_options,
+                                        max_num_groundings=max_num_groundings,
+                                        max_num_examples=max_num_examples)
         template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
         # Save the text prompt

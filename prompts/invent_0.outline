@@ -18,12 +18,12 @@ The existing abstract action operators utilizing the predicates are:
 The robot tried to excute its options and got the following results:
 [OPERATOR_PERFORMACE]
 
-Your objective is to invent all necessary predicates such that when they are added to the action operators' precondition, the states where the ground option fail to execute (GT negative states) no longer satisfy any of its ground operators' precondition, while the states where the ground option successfully executed (GT positive state) still satisfy at least one of its operators' precondition. 
+Your objective is to design essential predicates so that, when they are integrated into the preconditions of action operators, the states where the ground option fail to execute (GT negative states) no longer satisfy any of its ground operators' precondition, while the states where the ground option successfully executed (GT positive state) still satisfy at least one of its operators' precondition. 
 That is, in future planning, the operators with the invented predicates should help to maximize the number of true positive and negative states while minimizing the number of false positive and negative states.
 
-In your answer, carefully examine and analyze the differences between the GT positive and negative states that could affect the success or failure of executing the ground option.
-Then propose predicates in paragraphs as follows. For each predicate:
-- Briefly explain which aspect in the negative states for the ground option does it identify while it's satisfied by the GT positive states.
+In your answer, first thoroughly examine and analyze the given states for each ground option. *What properties are present in the GT positive states that are absent in the GT negative states?*
+Then propose predicates in paragraphs as follows. For each proposal:
+- Identify which property from above does it correspond to.
 - Define predicate in a python block as follows:
 ```python
 def classifier(state: State, objects: Sequence[Object]) -> bool:

@@ -10,12 +10,9 @@ class RawState:
 
     Attributes:
     -----------
-    labeled_image : PIL.Image.Image
-        An observation of the state of the world annotated with an unique label 
+    labeled_image : Image
+        An observation of the state of the world annotated with a unique label 
         for each object.
-    obj_mask_dict : Dict[str, Mask]
-        A dictionary mapping object names to their corresponding segmentation 
-        mask.
 
     Methods:
     --------
@@ -59,25 +56,24 @@ class RawState:
         --------
         Image
             The cropped image.
-        
         Example 1:
-        --------
-        >>> An example for classifying Covers
-        >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
-        >>>                         ) -> bool:
+        ----------
+        >>> # An example for predicate On
+        >>> def _On_NSP_holds(state: RawState, objects: Sequence[Object])\
+        >>>     -> bool:
         >>>     '''
-        >>>     Determine if the block is covering (directly on top of) the target 
-        >>>     region.
+        >>>     Determine if the first block in objects is directly on top of the second 
+        >>>     block in the scene image, by using simple heuristics and image processing 
+        >>>     techniques.
         >>>     '''
-        >>>     block, target = objects
-        >>>
-        >>>     # Necessary but not sufficient condition for covering: no part of the 
-        >>>     # target region is outside the block.
-        >>>     if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
-                   state.get(target, "bbox_right") > state.get(block, "bbox_right"):
-        >>>         return False
+        >>>     block1, block2 = objects
         >>>     ...
-        >>>     return evaluate_simple_assertion(...)
+        >>>     # Crop the scene image to the smallest bounding box that include both objects.
+        >>>     attention_image = state.crop_to_objects([block1, block2])
+        >>>
+        >>>     return evaluate_simple_assertion(
+        >>>         f"{block1_name} is directly on top of {block2_name} with no blocks in between.", attention_image)
+        
         Example 2: 
         ----------
         >>> # An example for predicate OnTable
@@ -89,8 +85,7 @@ class RawState:
         >>>     block, = objects
         >>>     block_name = block.id_name
         >>>     
-        >>>     # Crop the scene image to the smallest bounding box that include both
-        >>>     # objects.
+        >>>     # Crop the scene image to the smallest bounding box that include both objects.
         >>>     # We know there is only one table in this environment.
         >>>     table = state.get_objects(_table_type)[0]
         >>>     table_name = table.id_name
@@ -132,24 +127,23 @@ class RawState:
         >>> _WristBent = NSPredicate("WristBent", [_robot_type], _WristBent_holds)
 
         Example 2:
-        ----------
-        >>> # An example for predicate On
-        >>> def _On_NSP_holds(state: RawState, objects: Sequence[Object])\
-        >>>     -> bool:
+        --------
+        >>> An example for classifying Covers
+        >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
+        >>>                         ) -> bool:
         >>>     '''
-        >>>     Determine if the first block in objects is directly on top of the second 
-        >>>     block in the scene image, by using simple heuristics and image processing 
-        >>>     techniques.
+        >>>     Determine if the block is covering (directly on top of) the target 
+        >>>     region.
         >>>     '''
-        >>>     block1, block2 = objects
+        >>>     block, target = objects
         >>>
-        >>>     if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower")or\
-        >>>      state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
-        >>>      state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
-        >>>      state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
-        >>>      state.get(block1, "pose_z") < state.get(block2, "pose_z"):
-        >>>       return False
+        >>>     # Necessary but not sufficient condition for covering: no part of the 
+        >>>     # target region is outside the block.
+        >>>     if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
+                   state.get(target, "bbox_right") > state.get(block, "bbox_right"):
+        >>>         return False
         >>>     ...
+        >>>     return evaluate_simple_assertion(...)
         """
 
     def get_objects(self, object_type: Type) -> List[Object]:
@@ -182,12 +176,13 @@ class RawState:
         >>>                              _HandNotAboveCup_holds)
         """
 
+
 class NSPredicate:
     """
     A class representing a predicate, a classifier that characterizes properties 
     of states in the context of AI task planning.
     A predicate is a function that takes a state and a sequence of objects as 
-    input, and returns a boolean value indicating whether a certain  property 
+    input, and returns a boolean value indicating whether a certain property 
     holds for those objects in that state.
 
     Parameters:
@@ -218,10 +213,9 @@ def evaluate_simple_assertion(assertion: str, image: Image) -> bool:
     input, and returns a boolean value indicating whether the assertion holds 
     true for the image according to the VLM.
 
-    Note that VLM has limited visual understanding so the assertion should be 
+    Note the VLM has limited visual understanding so the assertion should be 
     clear, unambiguous, and relatively simple, and the image should have been 
     cropped to only the relavant objects.
-    Moreover, don't write heuristics or rules that are not always true.
 
     Parameters:
     -----------
@@ -244,9 +238,9 @@ def evaluate_simple_assertion(assertion: str, image: Image) -> bool:
 # The Environment
 The environment includes the following object-type variables:
 ```python
-_block_type = Type("block", [])
-_robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"])
-_table_type = Type("table", [])
+_block_type = Type("block", ["pose_x", "pose_y", "pose_z", "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
+_robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers", "bbox_right", "bbox_upper", "bbox_lower"])
+_table_type = Type("table", ["bbox_right", "bbox_upper", "bbox_lower"])
 ```
 
 
@@ -384,107 +378,120 @@ Operator-Stack:
     Option Spec: Stack(?robot:robot, ?otherblock:block)
 
 The robot tried to excute its options and got the following results:
-Ground option Stack(robot1:robot, block4:block) was applied on 68 states and *successfully* executed on 1/68 states (ground truth positive states).
+Ground option Stack(robot1:robot, block5:block) was applied on 136 states and *successfully* executed on 1/136 states (ground truth positive states).
   Out of the 1 GT positive states, with the current predicates and operators, 1/1 states *satisfy* at least one of its operators' precondition (true positives):
-  In state_32 with additional info:
-  {'block3:block': {'pose_x': 1.3, 'pose_y': 1.0, 'pose_z': 0.2, 'bbox_left': 557.0, 'bbox_right': 595.0, 'bbox_upper': 434.0, 'bbox_lower': 397.0},
-   'block4:block': {'pose_x': 1.3, 'pose_y': 1.0, 'pose_z': 0.3, 'bbox_left': 560.0, 'bbox_right': 598.0, 'bbox_upper': 463.0, 'bbox_lower': 424.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'bbox_left': 457.0, 'bbox_right': 497.0, 'bbox_upper': 761.0, 'bbox_lower': 721.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 0.0, 'bbox_left': 267.0, 'bbox_right': 628.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
+  In state_44 with additional info:
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.4, 'pose_z': 0.7, 'fingers': 0.0},
+   'table2:table': {}}
 
-Ground option Stack(robot1:robot, block4:block) was applied on 68 states and *failed* to executed on 67/68 states (ground truth negative states).
-  Out of the 67 GT negative states, with the current predicates and operators, 67/67 states *satisfy* at least one of its operators' precondition (false positives), to list 3:
+Ground option Stack(robot1:robot, block5:block) was applied on 136 states and *failed* to executed on 135/136 states (ground truth negative states).
+  Out of the 135 GT negative states, with the current predicates and operators, 135/135 states *satisfy* at least one of its operators' precondition (false positives), to list 1:
   In state_0 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.9, 'pose_z': 0.2, 'bbox_left': 510.0, 'bbox_right': 547.0, 'bbox_upper': 427.0, 'bbox_lower': 387.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 189.0, 'bbox_right': 228.0, 'bbox_upper': 429.0, 'bbox_lower': 390.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 185.0, 'bbox_right': 225.0, 'bbox_upper': 457.0, 'bbox_lower': 417.0},
-   'block6:block': {'pose_x': 1.4, 'pose_y': 0.6, 'pose_z': 0.2, 'bbox_left': 297.0, 'bbox_right': 331.0, 'bbox_upper': 426.0, 'bbox_lower': 385.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
 
-  In state_1 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 193.0, 'bbox_right': 233.0, 'bbox_upper': 425.0, 'bbox_lower': 385.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 190.0, 'bbox_right': 230.0, 'bbox_upper': 452.0, 'bbox_lower': 413.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 186.0, 'bbox_right': 227.0, 'bbox_upper': 482.0, 'bbox_lower': 442.0},
-   'block6:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.4, 'bbox_left': 182.0, 'bbox_right': 224.0, 'bbox_upper': 512.0, 'bbox_lower': 471.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
-
-  In state_2 with additional info:
-  {'block3:block': {'pose_x': 1.3, 'pose_y': 0.9, 'pose_z': 0.2, 'bbox_left': 507.0, 'bbox_right': 542.0, 'bbox_upper': 434.0, 'bbox_lower': 394.0},
-   'block4:block': {'pose_x': 1.3, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 212.0, 'bbox_right': 250.0, 'bbox_upper': 432.0, 'bbox_lower': 393.0},
-   'block5:block': {'pose_x': 1.3, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 209.0, 'bbox_right': 248.0, 'bbox_upper': 460.0, 'bbox_lower': 420.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
-
-Ground option Stack(robot1:robot, block3:block) was applied on 86 states and *successfully* executed on 1/86 states (ground truth positive states).
+Ground option Stack(robot1:robot, block4:block) was applied on 162 states and *successfully* executed on 1/162 states (ground truth positive states).
   Out of the 1 GT positive states, with the current predicates and operators, 1/1 states *satisfy* at least one of its operators' precondition (true positives):
-  In state_43 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.6, 'pose_z': 0.2, 'bbox_left': 255.0, 'bbox_right': 291.0, 'bbox_upper': 424.0, 'bbox_lower': 384.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'bbox_left': 426.0, 'bbox_right': 465.0, 'bbox_upper': 761.0, 'bbox_lower': 721.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 1.0, 'pose_z': 0.2, 'bbox_left': 556.0, 'bbox_right': 595.0, 'bbox_upper': 424.0, 'bbox_lower': 383.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 0.0, 'bbox_left': 267.0, 'bbox_right': 609.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
+  In state_93 with additional info:
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 0.0},
+   'table2:table': {}}
 
-Ground option Stack(robot1:robot, block3:block) was applied on 86 states and *failed* to executed on 85/86 states (ground truth negative states).
-  Out of the 85 GT negative states, with the current predicates and operators, 85/85 states *satisfy* at least one of its operators' precondition (false positives), to list 3:
+Ground option Stack(robot1:robot, block4:block) was applied on 162 states and *failed* to executed on 161/162 states (ground truth negative states).
+  Out of the 161 GT negative states, with the current predicates and operators, 161/161 states *satisfy* at least one of its operators' precondition (false positives), to list 1:
   In state_0 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.9, 'pose_z': 0.2, 'bbox_left': 510.0, 'bbox_right': 547.0, 'bbox_upper': 427.0, 'bbox_lower': 387.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 189.0, 'bbox_right': 228.0, 'bbox_upper': 429.0, 'bbox_lower': 390.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 185.0, 'bbox_right': 225.0, 'bbox_upper': 457.0, 'bbox_lower': 417.0},
-   'block6:block': {'pose_x': 1.4, 'pose_y': 0.6, 'pose_z': 0.2, 'bbox_left': 297.0, 'bbox_right': 331.0, 'bbox_upper': 426.0, 'bbox_lower': 385.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
 
-  In state_1 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 193.0, 'bbox_right': 233.0, 'bbox_upper': 425.0, 'bbox_lower': 385.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 190.0, 'bbox_right': 230.0, 'bbox_upper': 452.0, 'bbox_lower': 413.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 186.0, 'bbox_right': 227.0, 'bbox_upper': 482.0, 'bbox_lower': 442.0},
-   'block6:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.4, 'bbox_left': 182.0, 'bbox_right': 224.0, 'bbox_upper': 512.0, 'bbox_lower': 471.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
+Ground option Pick(robot1:robot, block6:block) was applied on 2 states and *successfully* executed on 2/2 states (ground truth positive states).
+  Out of the 2 GT positive states, with the current predicates and operators, 2/2 states *satisfy* at least one of its operators' precondition (true positives), to list 1:
+  In state_15 with additional info:
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
 
+Ground option Pick(robot1:robot, block5:block) was applied on 14 states and *successfully* executed on 6/14 states (ground truth positive states).
+  Out of the 6 GT positive states, with the current predicates and operators, 6/6 states *satisfy* at least one of its operators' precondition (true positives), to list 1:
+  In state_19 with additional info:
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
+
+Ground option Pick(robot1:robot, block5:block) was applied on 14 states and *failed* to executed on 8/14 states (ground truth negative states).
+  Out of the 8 GT negative states, with the current predicates and operators, 8/8 states *satisfy* at least one of its operators' precondition (false positives), to list 1:
+  In state_18 with additional info:
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
+
+Ground option Pick(robot1:robot, block4:block) was applied on 24 states and *successfully* executed on 2/24 states (ground truth positive states).
+  Out of the 2 GT positive states, with the current predicates and operators, 2/2 states *satisfy* at least one of its operators' precondition (true positives), to list 1:
+  In state_94 with additional info:
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
+
+Ground option Pick(robot1:robot, block4:block) was applied on 24 states and *failed* to executed on 22/24 states (ground truth negative states).
+  Out of the 22 GT negative states, with the current predicates and operators, 22/22 states *satisfy* at least one of its operators' precondition (false positives), to list 1:
   In state_2 with additional info:
-  {'block3:block': {'pose_x': 1.3, 'pose_y': 0.9, 'pose_z': 0.2, 'bbox_left': 507.0, 'bbox_right': 542.0, 'bbox_upper': 434.0, 'bbox_lower': 394.0},
-   'block4:block': {'pose_x': 1.3, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 212.0, 'bbox_right': 250.0, 'bbox_upper': 432.0, 'bbox_lower': 393.0},
-   'block5:block': {'pose_x': 1.3, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 209.0, 'bbox_right': 248.0, 'bbox_upper': 460.0, 'bbox_lower': 420.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
 
-Ground option Stack(robot1:robot, block6:block) was applied on 30 states and *failed* to executed on 30/30 states (ground truth negative states).
-  Out of the 30 GT negative states, with the current predicates and operators, 30/30 states *satisfy* at least one of its operators' precondition (false positives), to list 3:
+Ground option PutOnTable(robot1:robot) was applied on 231 states and *successfully* executed on 6/231 states (ground truth positive states).
+  Out of the 6 GT positive states, with the current predicates and operators, 6/6 states *satisfy* at least one of its operators' precondition (true positives), to list 1:
+  In state_100 with additional info:
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.3, 'pose_y': 0.6, 'pose_z': 0.7, 'fingers': 0.0},
+   'table2:table': {}}
+
+Ground option PutOnTable(robot1:robot) was applied on 231 states and *failed* to executed on 225/231 states (ground truth negative states).
+  Out of the 225 GT negative states, with the current predicates and operators, 225/225 states *satisfy* at least one of its operators' precondition (false positives), to list 1:
   In state_0 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.9, 'pose_z': 0.2, 'bbox_left': 510.0, 'bbox_right': 547.0, 'bbox_upper': 427.0, 'bbox_lower': 387.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 189.0, 'bbox_right': 228.0, 'bbox_upper': 429.0, 'bbox_lower': 390.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 185.0, 'bbox_right': 225.0, 'bbox_upper': 457.0, 'bbox_lower': 417.0},
-   'block6:block': {'pose_x': 1.4, 'pose_y': 0.6, 'pose_z': 0.2, 'bbox_left': 297.0, 'bbox_right': 331.0, 'bbox_upper': 426.0, 'bbox_lower': 385.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
-
-  In state_1 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.2, 'bbox_left': 193.0, 'bbox_right': 233.0, 'bbox_upper': 425.0, 'bbox_lower': 385.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 190.0, 'bbox_right': 230.0, 'bbox_upper': 452.0, 'bbox_lower': 413.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.3, 'bbox_left': 186.0, 'bbox_right': 227.0, 'bbox_upper': 482.0, 'bbox_lower': 442.0},
-   'block6:block': {'pose_x': 1.4, 'pose_y': 0.5, 'pose_z': 0.4, 'bbox_left': 182.0, 'bbox_right': 224.0, 'bbox_upper': 512.0, 'bbox_lower': 471.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
-
-  In state_3 with additional info:
-  {'block3:block': {'pose_x': 1.4, 'pose_y': 0.9, 'pose_z': 0.2, 'bbox_left': 491.0, 'bbox_right': 526.0, 'bbox_upper': 426.0, 'bbox_lower': 389.0},
-   'block4:block': {'pose_x': 1.4, 'pose_y': 0.9, 'pose_z': 0.3, 'bbox_left': 493.0, 'bbox_right': 529.0, 'bbox_upper': 456.0, 'bbox_lower': 416.0},
-   'block5:block': {'pose_x': 1.4, 'pose_y': 0.9, 'pose_z': 0.3, 'bbox_left': 494.0, 'bbox_right': 531.0, 'bbox_upper': 485.0, 'bbox_lower': 445.0},
-   'block6:block': {'pose_x': 1.3, 'pose_y': 0.4, 'pose_z': 0.2, 'bbox_left': 172.0, 'bbox_right': 212.0, 'bbox_upper': 435.0, 'bbox_lower': 395.0},
-   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0, 'bbox_left': 267.0, 'bbox_right': 542.0, 'bbox_upper': 899.0, 'bbox_lower': 463.0},
-   'table2:table': {'bbox_left': 26.0, 'bbox_right': 774.0, 'bbox_upper': 462.0, 'bbox_lower': 63.0}}
+  {'block3:block': {},
+   'block4:block': {},
+   'block5:block': {},
+   'block6:block': {},
+   'robot1:robot': {'pose_x': 1.4, 'pose_y': 0.8, 'pose_z': 0.7, 'fingers': 1.0},
+   'table2:table': {}}
 
 
-Your objective is to invent all necessary predicates such that when they are added to the action operators' precondition, the states where the ground option fail to execute (GT negative states) no longer satisfy any of its ground operators' precondition, while the states where the ground option successfully executed (GT positive state) still satisfy at least one of its operators' precondition. 
+Your objective is to design essential predicates so that, when they are integrated into the preconditions of action operators, the states where the ground option fail to execute (GT negative states) no longer satisfy any of its ground operators' precondition, while the states where the ground option successfully executed (GT positive state) still satisfy at least one of its operators' precondition. 
 That is, in future planning, the operators with the invented predicates should help to maximize the number of true positive and negative states while minimizing the number of false positive and negative states.
 
-In your answer, carefully examine and analyze the differences between the GT positive and negative states that could affect the success or failure of executing the ground option.
-Then propose predicates in paragraphs as follows. For each predicate:
-- Briefly explain which aspect in the negative states for the ground option does it identify while it's satisfied by the GT positive states.
+In your answer, first thoroughly examine and analyze the given states for each ground option. *What properties are present in the GT positive states that are absent in the GT negative states?*
+Then propose predicates in paragraphs as follows. For each proposal:
+- Identify which property from above does it correspond to.
 - Define predicate in a python block as follows:
 ```python
 def classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -495,13 +502,12 @@ name: str = ... # Define the predicate name here
 param_types: Sequence[Type] = ... # A list of object-type variables for the predicate, using the ones defined in the environment<predicate_name> = NSPredicate(name, param_types, classifier)
 ```
 
-Ensure that:
-- Take the predefined predicate definition as reference;
+In writing the proposals, ensure the following:
+- **When defining classifier functions, first use rules based on object features to identify scenarios where the predicate is *clearly* False (the robot can't be holding anything if its hand is open). Then, use the `evaluate_simple_assertion` method to address potential remaining cases.** Reference the format of predefined predicates;
 - Use only object-type variables defined in the environment when defining  `param_types`.
-- The proposed predicates are semantically distinct from each other and from the existing predicates.
-- Don't use any constant that is not defined.
-- Make use of the helper method `evaluate_simple_assertion` in classifers that can't perfectly defined with just bounding boxes.
-- Make use of the helper methods from the State class such as `crop_to_objects`, `get` and `get_objects` or other helper function that you have defined;
-- The object feature names used in classifier definitions are present in the states and object type instantiations;
-- Strictly follow the type hints in the predicate definition template.
-You don't need to write out the new operators.
+- Each proposed predicates are semantically from the existing predicates.
+- Don't use any undefined constants;
+- The object-feature names used are consistent with those available in state and object type definitions;
+- Strictly adhere to the type hints in the predicate definition template.
+- You don't need to write out the new operators.
+- Make use of the helper methods such as `evaluate_simple_assertion`, `crop_to_objects`, `get` and `get_objects` or other defined helper functions.

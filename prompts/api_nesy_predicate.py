@@ -3,7 +3,7 @@ class NSPredicate:
     A class representing a predicate, a classifier that characterizes properties 
     of states in the context of AI task planning.
     A predicate is a function that takes a state and a sequence of objects as 
-    input, and returns a boolean value indicating whether a certain  property 
+    input, and returns a boolean value indicating whether a certain property 
     holds for those objects in that state.
 
     Parameters:
@@ -34,10 +34,9 @@ def evaluate_simple_assertion(assertion: str, image: Image) -> bool:
     input, and returns a boolean value indicating whether the assertion holds 
     true for the image according to the VLM.
 
-    Note that VLM has limited visual understanding so the assertion should be 
+    Note the VLM has limited visual understanding so the assertion should be 
     clear, unambiguous, and relatively simple, and the image should have been 
     cropped to only the relavant objects.
-    Moreover, don't write heuristics or rules that are not always true.
 
     Parameters:
     -----------
