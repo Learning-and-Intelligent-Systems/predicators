@@ -18,7 +18,7 @@ from predicators.settings import CFG
 from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
     Predicate
 from predicators.utils import NSPredicate, RawState, BoundingBox,\
-    evaluate_simple_assertion, VLMQuery, _MemoizedClassifier
+    VLMQuery, _MemoizedClassifier
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -108,7 +108,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/clear({block_name}).png")
             # return False
-        return evaluate_simple_assertion(
+        return state.evaluate_simple_assertion(
             f"there is no block directly on top of {block_name}.",
             attention_image)
 
@@ -140,7 +140,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/holding({block_name}).png")
 
-        return evaluate_simple_assertion(f"{block_name} is held by the robot",
+        return state.evaluate_simple_assertion(f"{block_name} is held by the robot",
             attention_image)
 
     def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
@@ -157,9 +157,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
             bool:
         '''Determine if the block in objects is directly resting on the table's 
-        surface in the scene image.
-        This method uses simple heuristics and image processing techniques to 
-        determine the spatial relationship between the block and the table. 
+        surface in the scene image, using both rules and VLMs.
         It first identifies the table in the scene, then crops the scene image 
         to the smallest bounding box that includes both the block and the table, 
         and finally evaluates a simple assertion about their relative positions.
@@ -181,27 +179,23 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         block, = objects
         block_name = block.id_name
         
-
-        # Crop the scene image to the smallest bounding box that include both
-        # objects.
+        # Crop the image to the smallest bounding box that include both objects.
         # We know there is only one table in this environment.
         table = state.get_objects(_table_type)[0]
         table_name = table.id_name
         attention_image = state.crop_to_objects([block, table])
 
-        return evaluate_simple_assertion(
+        return state.evaluate_simple_assertion(
             f"{block_name} is directly resting on {table_name}'s surface.",
             attention_image)
 
     def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
         '''
         Determine if the first block in objects is directly on top of the second 
-        block in the scene image.
+        block in the scene image, by using a combination of rules and VLMs.
 
-        This method uses simple heuristics and image processing techniques to 
-        determine the spatial relationship between the two blocks. It first 
-        checks if the blocks are the same or if they are far away from each 
-        other. If neither condition is met, it crops the scene image to the 
+        It first checks if the blocks are the same or if they are far away from 
+        each other. If neither condition is met, it crops the scene image to the 
         smallest bounding box that includes both blocks and evaluates a simple 
         assertion about their relative positions.
 
@@ -239,7 +233,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # objects.
         attention_image = state.crop_to_objects([block1, block2])
 
-        return evaluate_simple_assertion(
+        return state.evaluate_simple_assertion(
             f"{block1_name} is directly on top of {block2_name} with no blocks"+
              " in between.", attention_image)
 
