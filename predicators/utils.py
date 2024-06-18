@@ -289,14 +289,14 @@ def count_classification_result_for_ops(
 
     return sum_tp, sum_tn, sum_fp, sum_fn, result_str
 
-def summarize_results_in_str(accuracy_dict,
-                             tp_state_dict,
-                             fp_state_dict,
-                             tn_state_dict,
-                             fn_state_dict,
-                             max_num_options,
-                             max_num_groundings,
-                             max_num_examples,
+def summarize_results_in_str(accuracy_dict: Dict,
+                             tp_state_dict: Dict,
+                             fp_state_dict: Dict,
+                             tn_state_dict: Dict,
+                             fn_state_dict: Dict,
+                             max_num_options: int,
+                             max_num_groundings: int,
+                             max_num_examples: int,
                              ) -> str:
     result_str = []
     # What how to simplify the prompt?
@@ -363,66 +363,85 @@ def summarize_results_in_str(accuracy_dict,
 
             if n_succ_states:
                 result_str.append(
-                f"Ground option {g_optn} was applied on {n_tot} states and "+
+                f"Option {g_optn} was applied on {n_tot} states and "+
                 f"*successfully* executed on {n_succ_states}/{n_tot} states "+
                 "(ground truth positive states).")
-                # True Positive
+
                 if n_tp:# and (n_succ_states/n_tot) < 1:
-                    result_str.append(
-                    f"  Out of the {n_succ_states} GT positive states, "+
-                    f"with the current predicates and operators, "+
-                    f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
-                    "operators' precondition (true positives)"+
-                    (f", to list {max_num_examples}:" if 
-                        uniq_n_tp > max_num_examples else ":"))
+                    # [Detailed] True Positive
+                    # result_str.append(
+                    # f"  Out of the {n_succ_states} GT positive states, "+
+                    # f"with the current predicates and operators, "+
+                    # f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
+                    # "operators' precondition (true positives)"+
+                    # (f", to list {max_num_examples}:" if 
+                    #     uniq_n_tp > max_num_examples else ":"))
+                    # result_str = append_classification_result_for_ops(
+                    #     result_str, g_optn, tp_states,
+                    #     max_num_examples, "tp", state_hash_to_id)
+
+                    # [Simplified] True Positive
+                    result_str.append("To list {max_num_examples}:" if 
+                                      uniq_n_tp > max_num_examples else
+                                      "They are:")    
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, tp_states,
                         max_num_examples, "tp", state_hash_to_id)
 
-                # False Negative
-                if n_fn:
-                    result_str.append(
-                    f"  Out of the {n_succ_states} GT positive states, "+
-                    f"with the current predicates and operators, "+
-                    f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
-                    "operators' precondition (false negatives)"+
-                    (f", to list {max_num_examples}:" if 
-                        uniq_n_fn > max_num_examples else ":"))
-                    result_str = append_classification_result_for_ops(
-                        result_str, g_optn, fn_states,
-                        max_num_examples, "fn", state_hash_to_id)
+                # Ignored in the simplified prompt
+                # # False Negative
+                # if n_fn:
+                #     result_str.append(
+                #     f"  Out of the {n_succ_states} GT positive states, "+
+                #     f"with the current predicates and operators, "+
+                #     f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
+                #     "operators' precondition (false negatives)"+
+                #     (f", to list {max_num_examples}:" if 
+                #         uniq_n_fn > max_num_examples else ":"))
+                #     result_str = append_classification_result_for_ops(
+                #         result_str, g_optn, fn_states,
+                #         max_num_examples, "fn", state_hash_to_id)
 
             # GT Negative
             if n_fail_states:
                 result_str.append(
-                f"Ground option {g_optn} was applied on {n_tot} states and "+
+                f"Option {g_optn} was applied on {n_tot} states and "+
                 f"*failed* to executed on {n_fail_states}/{n_tot} states "+
                 "(ground truth negative states).")
                 if n_fp:
-                    # False Positive
-                    result_str.append(
-                    f"  Out of the {n_fail_states} GT negative states, "+
-                    f"with the current predicates and operators, "+
-                    f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
-                    "operators' precondition (false positives)"+
-                    (f", to list {max_num_examples}:" if 
-                        uniq_n_fp > max_num_examples else ":"))
+                    # [Detailed] False Positive
+                    # result_str.append(
+                    # f"  Out of the {n_fail_states} GT negative states, "+
+                    # f"with the current predicates and operators, "+
+                    # f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
+                    # "operators' precondition (false positives)"+
+                    # (f", to list {max_num_examples}:" if 
+                    #     uniq_n_fp > max_num_examples else ":"))
+                    # result_str = append_classification_result_for_ops(
+                    #     result_str, g_optn, fp_states,
+                    #     max_num_examples, "fp", state_hash_to_id)
+
+                    # [Simplified] False Positive
+                    result_str.append("To list {max_num_examples}:" if 
+                                      uniq_n_fp > max_num_examples else
+                                      "They are:")    
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, fp_states,
                         max_num_examples, "fp", state_hash_to_id)
 
-                if n_tn:# and (n_tn/n_fail_states) < 1:
-                    # True Negative
-                    result_str.append(
-                    f"  Out of the {n_fail_states} GT negative states, "+
-                    f"with the current predicates and operators, "+
-                    f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
-                    "operators' precondition (true negatives)"+
-                    (f", to list {max_num_examples}:" if 
-                        uniq_n_tn > max_num_examples else ":"))
-                    result_str = append_classification_result_for_ops(
-                        result_str, g_optn, tn_states,
-                        max_num_examples, "tn", state_hash_to_id)
+                # Ignored in the simplified prompt
+                # if n_tn:# and (n_tn/n_fail_states) < 1:
+                #     # True Negative
+                #     result_str.append(
+                #     f"  Out of the {n_fail_states} GT negative states, "+
+                #     f"with the current predicates and operators, "+
+                #     f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
+                #     "operators' precondition (true negatives)"+
+                #     (f", to list {max_num_examples}:" if 
+                #         uniq_n_tn > max_num_examples else ":"))
+                #     result_str = append_classification_result_for_ops(
+                #         result_str, g_optn, tn_states,
+                #         max_num_examples, "tn", state_hash_to_id)
     return '\n'.join(result_str)
 
 def append_classification_result_for_ops(result_str: List[str],
@@ -430,7 +449,7 @@ def append_classification_result_for_ops(result_str: List[str],
                                          states: Set[State],
                                          max_num_examples: int,
                                          category: str,
-                                         state_hash_to_id) -> List[str]:
+                                         state_hash_to_id: Dict) -> List[str]:
     for i, state in enumerate(states):
         if i == max_num_examples: break
 
@@ -448,7 +467,7 @@ def append_classification_result_for_ops(result_str: List[str],
 
             img_copy.save(os.path.join(obs_dir, obs_name+f_suffix))
             logging.debug(f"Saved Image {obs_name}")
-            result_str.append("  In " + obs_name + " with additional info:")
+            result_str.append("  " + obs_name + " with additional info:")
             # Should add proprio state
         result_str.append(state.dict_str(indent=2, 
             object_features=not CFG.vlm_predicator_render_option_state,
@@ -1446,6 +1465,16 @@ class RawState(PyBulletState):
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
 
+    def evaluate_simple_assertion(self, assertion: str, image: ImagePatch
+                                ) -> VLMQuery:
+        """Given an assertion and an image, queries a VLM and returns whether the
+        assertion is true or false.
+        """
+        return VLMQuery(assertion, BoundingBox(image.left,
+                                                image.lower,
+                                                image.right,
+                                                image.upper))
+
     def add_bbox_features(self) -> None:
         '''Add the features about the bounding box to the objects'''
         for obj, mask in self.obj_mask_dict.items():
@@ -1473,7 +1502,10 @@ class RawState(PyBulletState):
             for attribute, value in zip(obj.type.feature_names, self[obj]):
                 # include if it's proprioception feature, or position/bbox 
                 # feature, or object_features is True
-                if obj.type.name == "robot" or object_features:
+                if (obj.type.name == "robot" and \
+                    attribute not in ["bbox_left", "bbox_right", "bbox_upper", 
+                                      "pose_x", "pose_y", "pose_z",
+                                      "bbox_lower"]) or object_features:
                 #    attribute in ["pose_x", "pose_y", "pose_z", "bbox_left", 
                     # "bbox_right", "bbox_upper", "bbox_lower"] or\
                     if isinstance(value, (float, int, np.float32)):
@@ -1491,12 +1523,16 @@ class RawState(PyBulletState):
         n_keys = len(state_dict.keys())
         for i, (key, value) in enumerate(state_dict.items()):
             value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
-            if i == 0:
-                dict_str += f"'{key}': {{{value_str}}},\n"
-            elif i == n_keys-1: 
-                dict_str += spaces + f" '{key}': {{{value_str}}}"
+            if value_str == "":
+                content_str = f"'{key}'"
             else:
-                dict_str += spaces + f" '{key}': {{{value_str}}},\n"
+                content_str = f"'{key}': {{{value_str}}}"
+            if i == 0:
+                dict_str += f"{content_str},\n"
+            elif i == n_keys-1: 
+                dict_str += spaces + f" {content_str}"
+            else:
+                dict_str += spaces + f" {content_str},\n"
         dict_str += "}"
         return dict_str
             
@@ -3029,15 +3065,6 @@ def abstract(state: State,
                     atoms.add(GroundAtom(pred, choice))
     return atoms
 
-def evaluate_simple_assertion(assertion: str, image: ImagePatch
-                              ) -> VLMQuery:
-    """Given an assertion and an image, queries a VLM and returns whether the
-    assertion is true or false.
-    """
-    return VLMQuery(assertion, BoundingBox(image.left,
-                                            image.lower,
-                                            image.right,
-                                            image.upper))
 
 def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
         state: RawState, 

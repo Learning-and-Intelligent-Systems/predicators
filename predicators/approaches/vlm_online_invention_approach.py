@@ -533,8 +533,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         if failed_opt:
             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-            # if CFG.neu_sym_predicate:
-            #     option_start_state.add_bbox_features()
+            if CFG.neu_sym_predicate:
+                option_start_state.add_bbox_features()
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
                 use_object_id=CFG.neu_sym_predicate)
@@ -568,8 +568,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             # Rendering the final state for success traj
                             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-                            # if CFG.neu_sym_predicate:
-                            #     option_start_state.add_bbox_features()
+                            if CFG.neu_sym_predicate:
+                                option_start_state.add_bbox_features()
                             # For debugging incomplete options
                             states.append(option_start_state)
                             break
@@ -583,8 +583,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 # [option], raise_error_on_repeated_state=True)
                             option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-                            # if CFG.neu_sym_predicate:
-                            #     option_start_state.add_bbox_features()
+                            if CFG.neu_sym_predicate:
+                                option_start_state.add_bbox_features()
                             # logging.info("Start new option at step "+
                             #                 f"{env_step_counter}")
                             g_nsrt = nsrt_plan[nsrt_counter]
@@ -774,14 +774,14 @@ class VlmInventionApproach(NSRTLearningApproach):
         '''Compose a prompt for VLM for predicate invention
         ''' 
         # Read the shared template
-        with open(f'./prompts/invent_0.outline', 'r') as file:
+        with open(f'./prompts/invent_0_simple.outline', 'r') as file:
             template = file.read()
         # Get the different parts of the prompt
         if CFG.neu_sym_predicate:
             instr_fn = "raw"
         else:
             instr_fn = "oo"
-        with open(f'./prompts/invent_0_{instr_fn}_state.outline', 'r') as f:
+        with open(f'./prompts/invent_0_{instr_fn}_state_simple.outline', 'r') as f:
             instruction = f.read()
         template += instruction
 

@@ -13,8 +13,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, State,\
     Type
-from predicators.utils import NSPredicate, RawState, BoundingBox,\
-    evaluate_simple_assertion, VLMQuery
+from predicators.utils import NSPredicate, RawState, BoundingBox, VLMQuery
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):

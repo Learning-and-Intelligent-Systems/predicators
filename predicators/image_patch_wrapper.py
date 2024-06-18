@@ -1,4 +1,4 @@
-from typing import List, Sequence
+from typing import List, Sequence, Tuple
 import random
 import os
 import logging
@@ -6,10 +6,12 @@ import logging
 import cv2
 import torch as th
 from torchvision.transforms import ToPILImage
+from torchvision import transforms
 import numpy as np
 from numpy.typing import NDArray
+from PIL import Image
 
-from viper.image_patch import ImagePatch as ViperImagePatch
+# from viper.image_patch import ImagePatch as ViperImagePatch
 from predicators.structs import Object, Mask, State
 from predicators import utils
 # from predicators.utils import BoundingBox
@@ -98,38 +100,59 @@ class VisImage:
         return rgb.astype("uint8")
 
 
-class ImagePatch(ViperImagePatch):
+class ImagePatch:
 # class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
-    def __init__(self, state: State, *args, **kwargs):
+    def __init__(self, state: State, left: int = None, lower: int = None,
+                 right: int = None, upper: int = None, parent_left: int=0, 
+                 parent_lower:int=0, queues: Tuple=None, 
+                 parent_img_patch: 'ImagePatch'=None) -> None:
         if state.labeled_image is None:
-            super().__init__(state.state_image, *args, **kwargs)
+            image = state.state_image
+            # super().__init__(state.state_image, *args, **kwargs)
         else:
-            super().__init__(state.labeled_image, *args, **kwargs)
+            image = state.labeled_image
+            # super().__init__(state.labeled_image, *args, **kwargs)
         self.state = state
         # self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         # css4_colors = mcolors.CSS4_COLORS
         # self.color_proposals = [list(mcolors.hex2color(color)) for color in 
         #                         css4_colors.values()]
+        # ViperGPT init stuff
+        if isinstance(image, Image.Image):
+            image = transforms.ToTensor()(image)
+        elif isinstance(image, np.ndarray):
+            image = th.tensor(image).permute(1, 2, 0)
+        elif isinstance(image, th.Tensor) and image.dtype == th.uint8:
+            image = image / 255
 
-    # Moved to elsewhere
-    # def evaluate_simple_assertion(self, assertion: str):
+        if left is None and right is None and upper is None and lower is None:
+            self.cropped_image = image
+            self.left = 0
+            self.lower = 0
+            self.right = image.shape[2]  # width
+            self.upper = image.shape[1]  # height
+        else:
+            self.cropped_image = image[:, image.shape[1]-upper:image.shape[1]-lower, left:right]
+            self.left = left + parent_left
+            self.upper = upper + parent_lower
+            self.right = right + parent_left
+            self.lower = lower + parent_lower
 
-    #     response = self.vlm.sample_completions(prompt=assertion,
-    #                                        imgs=[self.cropped_image_in_PIL],
-    #                                        temperature=CFG.vlm_temperature,
-    #                                        seed=CFG.seed)
-    #     assert len(response) == 1, "The VLM should return only one completion."
-    #     response = response[0].lower()
-    #     if "true" in response:
-    #         return True
-    #     elif "false" in response:
-    #         return False
-    #     else:
-    #         logging.warning(f"VLM didn't response neither true/false, "
-    #                         f"response: {response}")
-    #         # Default to false
-    #         return False
+        self.height = self.cropped_image.shape[1]
+        self.width = self.cropped_image.shape[2]
+
+        self.cache = {}
+        self.queues = (None, None) if queues is None else queues
+
+        self.parent_img_patch = parent_img_patch
+
+        self.horizontal_center = (self.left + self.right) / 2
+        self.vertical_center = (self.lower + self.upper) / 2
+
+        if self.cropped_image.shape[1] == 0 or self.cropped_image.shape[2] == 0:
+            raise Exception("ImagePatch has no area")
+
 
     @property
     def cropped_image_in_PIL(self):

@@ -1,0 +1,29 @@
+You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
+
+I will describe the API you should use for writing predicates and the environment the robot is in.
+# API for Defining Predicates
+Class definitions for `Predicate` and `State` are:
+[STRUCT_DEFINITION]
+
+# The Environment
+The environment includes the following object-type variables:
+[TYPES_IN_ENV]
+
+The existing set of predicates are:
+[PREDICATES_IN_ENV]
+
+The robot tried to excute its options and got the following results:
+[OPERATOR_PERFORMACE]
+
+Your task is to identify the key differences between the positive and negative states for each option, and propose predicates that can be used to differentiate between positive and negative states.
+
+Propose predicates in paragraphs as follows. For each proposal:
+- Identify which differentiating property from above it corresponds to.
+- Define predicate in a Python block as follows:
+```python
+def classifier(state: State, objects: Sequence[Object]) -> bool:
+    # Implement the boolean classifier function here
+    ...
+    
+name: str = ... # Define the predicate name here
+param_types: Sequence[Type] = ... # A list of object-type variables for the predicate, using the ones defined in the environment

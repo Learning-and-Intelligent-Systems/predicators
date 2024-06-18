@@ -2,8 +2,7 @@ class Predicate:
     """
     A class representing a predicate (a lifted classifier over states) in the 
     context of AI task planning.
-    A predicate is mainly a function that describes a property or characteristic 
-    of states. The function takes a state and a sequence of objects as input, 
+    The function takes a state and a sequence of objects as input, 
     and returns a boolean value indicating whether the property holds for those 
     objects in that state.
 
@@ -26,7 +25,4 @@ class Predicate:
     """    
     name: str
     types: Sequence[Type]
-    # The classifier takes in a complete state and a sequence of objects
-    # representing the arguments. These objects should be the only ones
-    # treated "specially" by the classifier.
     _classifier: Callable[[State, Sequence[Object]], bool]
