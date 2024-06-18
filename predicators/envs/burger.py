@@ -324,18 +324,14 @@ class BurgerEnv(BaseEnv):
             hidden_state[bottom_bun] = {"is_held": 0.0}
 
             goal = {
-                # GroundAtom(self._On, [patty, bottom_bun]),
-                # GroundAtom(self._On, [cheese, patty]),
+                GroundAtom(self._On, [patty, bottom_bun]),
+                GroundAtom(self._On, [cheese, patty]),
                 # GroundAtom(self._On, [tomato, cheese]),
                 # GroundAtom(self._On, [top_bun, tomato]),
-                # GroundAtom(self._IsCooked, [patty]),
+                GroundAtom(self._IsCooked, [patty]),
                 # GroundAtom(self._IsSliced, [tomato]),
                 # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
                 #     top_bun])
-                GroundAtom(self._On, [patty, bottom_bun]),
-                GroundAtom(self._On, [cheese, patty]),
-                GroundAtom(self._IsCooked, [patty]),
-                GroundAtom(self._IsSliced, [tomato]),
             }
 
             alt_goal = {
@@ -460,14 +456,14 @@ class BurgerEnv(BaseEnv):
 
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # bottom, patty, cheese, tomato, top = objects
-        bottom, patty, cheese, tomato, _ = objects
+        bottom, patty, cheese, _, _ = objects
         atoms = [
             self._On_holds(state, [patty, bottom]),
             self._On_holds(state, [cheese, patty]),
             # self._On_holds(state, [tomato, cheese]),
             # self._On_holds(state, [top, tomato]),
             self._IsCooked_holds(state, [patty]),
-            self._IsSliced_holds(state, [tomato])
+            # self._IsSliced_holds(state, [tomato])
         ]
         return all(atoms)
 
