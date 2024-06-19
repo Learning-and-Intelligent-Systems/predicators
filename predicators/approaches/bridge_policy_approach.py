@@ -375,7 +375,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             "CallPlanner",
             types=None,
             policy=self.call_planner_policy,
-            params_space=Box(low=np.array([]), high=np.array([]), shape=(0,)),
+            params_space=Box(low=np.array([]), high=np.array([]), shape=(0, )),
         )
         initial_options.add(self.CallPlanner)
         self._initial_options = initial_options
@@ -401,7 +401,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         return False
 
     def call_planner_policy(self, state: State, _: Dict, __: Sequence[Object],
-                            params: Array) -> Action:
+                            ___: Array) -> Action:
         """policy for CallPlanner option."""
         self._current_control = "planner"
         # create a new task where the init state is our current state
@@ -498,8 +498,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     self._policy_logs.append(self._current_control)
                 return action
             except utils.OptionExecutionFailure:
-                print("failed", self._current_control)
-
+                logging.debug(f"Failed control: {self._current_control}")
             # Switch control from planner to bridge.
             assert self._current_control == "planner"
             self._current_control = "bridge"
