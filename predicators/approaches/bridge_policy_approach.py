@@ -549,8 +549,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # for efficiency.
         if not results:
             return None
-        all_states = []
-        all_actions = []
         policy_logs = self._policy_logs
         for i in range(len(results)):
             result = results[i]
@@ -568,8 +566,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             mapleq_states.append(result.states[-1])
             new_traj = LowLevelTrajectory(mapleq_states, mapleq_actions)
             self._trajs.append(new_traj)
-            all_states.extend(mapleq_states)
-            all_actions.extend(mapleq_actions)
             policy_logs = policy_logs[len(result.states) - 1:]
 
         self.mapleq.get_interaction_requests()
