@@ -56,7 +56,7 @@ from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, BridgeDataset, \
-    DefaultState, DemonstrationQuery, DemonstrationResponse, GroundAtom, \
+    DefaultState, DemonstrationQuery, DemonstrationResponse, \
     InteractionRequest, InteractionResult, LiftedAtom, LowLevelTrajectory, \
     Object, ParameterizedOption, Predicate, Query, State, Task, Type, \
     Variable, _GroundNSRT, _Option
