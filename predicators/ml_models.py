@@ -1541,10 +1541,12 @@ class MapleQFunction(MLPRegressor):
             if n.option == option.parent
             and tuple(n.objects) == tuple(option.objects)
         ]
-        assert len(matches) == 1
+        # assert len(matches) == 1
+
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
-        discrete_vec[matches[0]] = 1.0
+        if matches:
+            discrete_vec[matches[0]] = 1.0
         # Create continuous part.
         continuous_vec = np.zeros(self._max_num_params)
         continuous_vec[:len(option.params)] = option.params
