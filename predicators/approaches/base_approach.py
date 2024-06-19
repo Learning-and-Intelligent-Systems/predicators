@@ -72,6 +72,8 @@ class BaseApproach(abc.ABC):
         def _policy(state: State) -> Action:
             assert isinstance(state, State)
             act = pi(state)
+            if not self._action_space.contains(act.arr):
+                import ipdb; ipdb.set_trace()
             assert self._action_space.contains(act.arr)
             return act
 

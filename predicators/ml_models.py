@@ -1360,6 +1360,16 @@ class MapleQFunction(MLPRegressor):
         self._ep_reduction = 10*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
+        self._good_light_q_values =[]
+        self._bad_light_q_values =[]
+        #good open door, like when we actually wanna open the door and we open it
+        self._good_open_door_q_values = []
+        #bad open door, when we wanna open door but move forward instead RIPP
+        self._bad_open_door_q_values = []
+        #good move, like when we actually wanna move forward and we do
+        self._good_move_q_values = []
+        #bad move, when we wanna move forward but open door instead RIPP
+        self._bad_move_q_values = []
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1376,6 +1386,13 @@ class MapleQFunction(MLPRegressor):
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
+
+    
+    def get_q_values(self):
+        return self._good_light_q_values[:20] + [0] * max(0, 20 - len(self._good_light_q_values)), \
+            self._bad_light_q_values[:20] + [0] * max(0, 20 - len(self._bad_light_q_values)),\
+            self._good_open_door_q_values[:20] + [0] * max(0, 20 - len(self._good_open_door_q_values)), \
+            self._bad_open_door_q_values[:20] + [0] * max(0, 20 - len(self._bad_open_door_q_values)), \
 
     def get_option(self,
                    state: State,
@@ -1433,6 +1450,12 @@ class MapleQFunction(MLPRegressor):
         # Otherwise, start by vectorizing all data in the replay buffer.
         X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
         Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
+        good_light_index=[]
+        bad_light_index=[]
+        good_door_index=[]
+        bad_door_index=[]
+        good_move_index=[]
+        bad_move_index=[]
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
@@ -1443,10 +1466,12 @@ class MapleQFunction(MLPRegressor):
                 [vectorized_state, vectorized_goal, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
+            next_best_action = 0
             if not terminal and self._y_dim != -1:
                 best_next_value = -np.inf
                 next_option_vecs: List[Array] = []
                 # We want to pick a total of num_lookahead_samples samples.
+                actions_to_vectors = {}
                 while len(next_option_vecs) < self._num_lookahead_samples:
                     # Sample 1 per NSRT until we reach the target number.
                     for next_option in \
@@ -1454,20 +1479,99 @@ class MapleQFunction(MLPRegressor):
                             next_state):
                         next_option_vecs.append(
                             self._vectorize_option(next_option))
-                for next_action_vec in next_option_vecs:
+                        actions_to_vectors[next_option] = self._vectorize_option(next_option)
+                for next_option in \
+                        self._sample_applicable_options_from_state(
+                            next_state):
                     x_hat = np.concatenate([
-                        vectorized_next_state, vectorized_goal, next_action_vec
+                        vectorized_next_state, vectorized_goal, self._vectorize_option(next_option)
                     ])
                     q_x_hat = self.predict(x_hat)[0]
-                    best_next_value = max(best_next_value, q_x_hat)
+                    # best_next_value = max(best_next_value, q_x_hat)
+                    if best_next_value<q_x_hat:
+                        best_next_value=q_x_hat
+                        next_best_action = next_option
             else:
                 best_next_value = 0.0
             Y_arr[i] = reward + self._discount * best_next_value
+
+            door_pos = CFG.grid_row_num_cells//2+0.5
+            door_open_index = CFG.grid_row_num_cells+1
+            good_move = CFG.grid_row_num_cells*(CFG.grid_row_num_cells//2)+CFG.grid_row_num_cells//2+1
+            if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65 and terminal and vectorized_action[-2]==1.0:
+                good_light_index.append(i)
+            elif vectorized_action[-2]==1.0:
+                bad_light_index.append(i)
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[2]==1 and vectorized_action[-1]<0.6 and vectorized_action[-1]>0.4:
+                #good door is if we're in the 2nd cell and door is not open and we try to MoveKey
+                good_door_index.append(i)
+                print("GOOD DOOR predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
+                #good door is if we're in the 2nd cell and door is not open and we try to TurnKey
+                good_door_index.append(i)
+            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0:
+                #we did not try to open the door...
+                bad_door_index.append(i)
+            # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1 and vectorized_action[good_move]==1:
+            #     #good move if we're in 6th cell, door is open, and we move to 7th
+            #     good_move_index.append(i)
+            # elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1:
+            #     bad_move_index.append(i)
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
         # number of iterations. It will also normalize all the data.
         self.fit(X_arr, Y_arr)
+        self._good_light_q_values = []
+        self._bad_light_q_values = []
+        self._good_open_door_q_values = []
+        self._bad_open_door_q_values = []
+        self._good_move_q_values = []
+        self._bad_move_q_values = []
+        
+        for good_light in good_light_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[good_light])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._good_light_q_values.append(self.predict(x)[0])
+            print("GOOD LIGHT", self.predict(x)[0], Y_arr[good_light])
+        
+        for bad_light in bad_light_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[bad_light])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._bad_light_q_values.append(self.predict(x)[0])
+            # print("BAD LIGHT", self.predict(x)[0], Y_arr[bad_light])
+
+        for good_door in good_door_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[good_door])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._good_open_door_q_values.append(self.predict(x)[0])
+            print("GOOD DOOR", self.predict(x)[0], Y_arr[good_door])
+
+        for bad_door in bad_door_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[bad_door])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._bad_open_door_q_values.append(self.predict(x)[0])
+            # print("BAD DOOR", self.predict(x)[0], Y_arr[bad_door])
 
     def minibatch_generator(
             self, tensor_X: Tensor, tensor_Y: Tensor,

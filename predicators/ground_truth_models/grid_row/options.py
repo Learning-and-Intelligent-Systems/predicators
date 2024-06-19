@@ -107,7 +107,7 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             rob_x = state.get(robot, "x")
             target_x = state.get(target_cell, "x")
             dx = target_x - rob_x
-            return Action(np.array([dx, 0.0, 0.0], dtype=np.float32))
+            return Action(np.array([dx, 0.0, 0.0, 0.0], dtype=np.float32))
 
         MoveRobot = utils.SingletonParameterizedOption(
             "MoveRobot",
@@ -120,7 +120,7 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
                                  params: Array) -> Action:
             del state, objects, memory  # unused
             dlight, = params
-            return Action(np.array([0.0, dlight, 0.0], dtype=np.float32))
+            return Action(np.array([0.0, dlight, 0.0, 0.0], dtype=np.float32))
 
         # TurnOnLight
         TurnOnLight = utils.SingletonParameterizedOption(
@@ -138,19 +138,36 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
             params_space=Box(-1.0, 1.0, (1, )),
         )
 
-        # OpenDoor
-        def _toggle_door_policy(state: State, memory: Dict,
+
+        # MoveKey
+        def _move_key_policy(state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> Action:
             del state, objects, memory  # unused
             ddoor, = params
-            return Action(np.array([0.0, 0.0, ddoor], dtype=np.float32))
+            return Action(np.array([0.0, 0.0, ddoor, 0.0], dtype=np.float32))
 
-        OpenDoor = utils.SingletonParameterizedOption(
-            "OpenDoor",
+        MoveKey = utils.SingletonParameterizedOption(
+            "MoveKey",
             types=[robot_type, cell_type, door_type],
-            policy=_toggle_door_policy,
-            params_space=Box(0.0, 1.0, (1, )),
+            policy=_move_key_policy,
+            params_space=Box(-1.0, 1.0, (1, )),
         )
 
-        return {MoveRobot, TurnOnLight, TurnOffLight, OpenDoor}
+        # TurnKey
+        def _turn_key_policy(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+            del state, objects, memory  # unused
+            ddoor, = params
+            return Action(np.array([0.0, 0.0, 0.0, ddoor], dtype=np.float32))
+
+        TurnKey = utils.SingletonParameterizedOption(
+            "TurnKey",
+            types=[robot_type, cell_type, door_type],
+            policy=_turn_key_policy,
+            params_space=Box(-1.0, 1.0, (1, )),
+        )
+
+
+        return {MoveRobot, TurnOnLight, TurnOffLight, TurnKey, MoveKey}
