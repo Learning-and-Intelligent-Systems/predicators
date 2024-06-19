@@ -375,7 +375,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             "CallPlanner",
             types=None,
             policy=self.call_planner_policy,
-            params_space=Box(0, len(train_tasks), (1, )),
+            params_space=Box(low=np.array([]), high=np.array([]), shape=(0,)),
         )
         initial_options.add(self.CallPlanner)
         self._initial_options = initial_options
@@ -405,7 +405,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         """policy for CallPlanner option."""
         self._current_control = "planner"
         # create a new task where the init state is our current state
-        current_task = Task(state, self._train_tasks[int(params[0])].goal)
+        current_task = Task(state, self._train_tasks[0].goal)
         option_policy = self._get_option_policy_by_planning(
             current_task, CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
