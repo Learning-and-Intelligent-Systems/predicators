@@ -113,7 +113,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                      annotations: Optional[List[Any]]) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
-        if CFG.approach == "active_sampler_learning":
+        if not online_learning_cycle and CFG.approach != "rl_bridge_policy":
             # Check the assumption that operators and options are 1:1.
             # This is just an implementation convenience.
             assert len({
