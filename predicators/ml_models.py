@@ -1542,7 +1542,6 @@ class MapleQFunction(MLPRegressor):
             and tuple(n.objects) == tuple(option.objects)
         ]
         assert len(matches) == 1
-
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
         discrete_vec[matches[0]] = 1.0

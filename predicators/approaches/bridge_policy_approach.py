@@ -382,7 +382,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self.mapleq=MapleQApproach(self._get_current_predicates(), \
                                    self._initial_options, self._types, \
                                     self._action_space, self._train_tasks)
-        self._current_control = ""
+        self._current_control: Optional[str] = None
         option_policy = self._get_option_policy_by_planning(
             self._train_tasks[0], CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
@@ -391,7 +391,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             raise_error_on_repeated_state=True,
         )
         self._bridge_called_state = State(data={})
-        self._policy_logs: List[str] = []
+        self._policy_logs: List[Optional[str]] = []
 
     def _Can_plan(self, state: State, _: Sequence[Object]) -> bool:
         if (self.mapleq._q_function._vectorize_state(state) !=  # pylint: disable=protected-access
@@ -428,17 +428,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         ignore_effects: Set[Predicate] = set()
         call_planner_nsrt = NSRT("CallPlanner", parameters, preconditions,
                                  add_effects, delete_effects, ignore_effects,
-                                 option, option_vars, self.planner_sampler)
+                                 option, option_vars, utils.null_sampler)
         return call_planner_nsrt
-
-    def planner_sampler(self, state: State, goal: Set[GroundAtom],
-                        rng: np.random.Generator,
-                        objs: Sequence[Object]) -> Array:
-        """sampler for CallPlanner Option."""
-        del state, goal, objs  # unused
-        # Note: just return a random value from -1 to 1
-        return np.array([rng.uniform(0, len(self._train_tasks))],
-                        dtype=np.float32)
 
     @classmethod
     def get_name(cls) -> str:
@@ -498,13 +489,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             self._maple_initialized = True
             self._init_nsrts()
 
-        # Prevent infinite loops by detecting if the bridge policy is called
-        # twice with the same state.
-        last_bridge_policy_state = DefaultState
-
         def _policy(s: State) -> Action:
-            nonlocal last_bridge_policy_state
-
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
             try:
