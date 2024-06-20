@@ -1436,6 +1436,7 @@ class MapleQFunction(MLPRegressor):
         if train_or_test=="test":
             logging.debug(str(option_scores))
             logging.debug("CHOSEN " + str(options[idx]) + str (scores[idx]))
+            logging.debug("STATE" + str(state))
         return options[idx]
 
     def decay_epsilon(self) -> None:
