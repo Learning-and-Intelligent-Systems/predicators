@@ -23,7 +23,7 @@ ENVS:
       num_train_tasks: 1
       grid_row_num_cells: 3
       active_sampler_learning_exploration_epsilon: 1.0
-      horizon: 30
+      horizon: 8
 
 ARGS:
   - "debug"

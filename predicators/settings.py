@@ -505,7 +505,7 @@ class GlobalSettings:
     weight_decay = 0
     mlp_regressor_max_itr = 10000
     mlp_regressor_hid_sizes = [32, 32]
-    mlp_regressor_clip_gradients = False
+    mlp_regressor_clip_gradients = True
     mlp_regressor_gradient_clip_value = 5
     mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_balance_data = True
@@ -577,7 +577,7 @@ class GlobalSettings:
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
-    active_sampler_learning_exploration_epsilon = 0.5
+    active_sampler_learning_exploration_epsilon = 1.0
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
 
@@ -712,6 +712,7 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
+                    "grid_row_door": cls.grid_row_num_cells + 5
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
