@@ -124,7 +124,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 assert nsrt.option_vars == nsrt.parameters  # pragma: no cover.
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
-        if not online_learning_cycle:
+        # Do not set grounding for rl_bridge_policy since it was set already
+        # in init_nsrts
+        if not online_learning_cycle and CFG.approach != "rl_bridge_policy":
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
                 for nsrt in self._nsrts:
