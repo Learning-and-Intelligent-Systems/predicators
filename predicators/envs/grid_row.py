@@ -365,4 +365,8 @@ class GridRowDoorEnv(GridRowEnv):
                 state.get(self._robot, "x") + dx, 0.0, len(self._cells))
             next_state.set(self._robot, "x", new_x)
 
+        if (door_open <= door_target + 0.1 and door_open >= door_target - 0.1 \
+            and door_open1 <= door_target1 + 0.1 and door_open1 >= door_target1 - 0.1):
+            print("WE CAN MOVE", door_open, door_target)
+
         return next_state

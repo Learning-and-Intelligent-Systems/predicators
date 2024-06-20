@@ -1509,9 +1509,23 @@ class MapleQFunction(MLPRegressor):
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
                 #good door is if we're in the 2nd cell and door is not open and we try to TurnKey
                 good_door_index.append(i)
+                print("GOOD DOOR predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
             elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0:
                 #we did not try to open the door...
                 bad_door_index.append(i)
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
+                and vectorized_state[door_open_index+2]<=0.85 and vectorized_state[door_open_index+2]>=0.65\
+                    and vectorized_action[0]==1:
+                print("GOOD CALLPLANNER predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
+                and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<=0.85 and vectorized_action[-1]>=0.65:
+                #second good door, we've already done movekey and now we turn key
+                print("GOOD TURNKEY (second action) predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
+            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]<=0.85 \
+                  and vectorized_state[door_open_index+2]>=0.65 and vectorized_action[14]==1 and vectorized_action[-1]<=0.6 and vectorized_action[-1]>=0.4:
+                #second good door, we've already done movekey and now we turn key
+                print("GOOD MOVEKEY (second action) predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
+
             # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1 and vectorized_action[good_move]==1:
             #     #good move if we're in 6th cell, door is open, and we move to 7th
             #     good_move_index.append(i)

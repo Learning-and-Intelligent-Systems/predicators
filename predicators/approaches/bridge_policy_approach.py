@@ -375,7 +375,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             "CallPlanner",
             types=None,
             policy=self.call_planner_policy,
-            params_space=Box(0, len(train_tasks), (1, )),
+            params_space=Box(low=np.array([]), high=np.array([]), shape=(0, )),
         )
         initial_options.add(self.CallPlanner)
         self._initial_options = initial_options
@@ -405,7 +405,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         """policy for CallPlanner option."""
         self._current_control = "planner"
         # create a new task where the init state is our current state
-        current_task = Task(state, self._train_tasks[int(params[0])].goal)
+        current_task = Task(state, self._train_tasks[0].goal)
         option_policy = self._get_option_policy_by_planning(
             current_task, CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
@@ -428,17 +428,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         ignore_effects: Set[Predicate] = set()
         call_planner_nsrt = NSRT("CallPlanner", parameters, preconditions,
                                  add_effects, delete_effects, ignore_effects,
-                                 option, option_vars, self.planner_sampler)
+                                 option, option_vars, utils.null_sampler)
         return call_planner_nsrt
-
-    def planner_sampler(self, state: State, goal: Set[GroundAtom],
-                        rng: np.random.Generator,
-                        objs: Sequence[Object]) -> Array:
-        """sampler for CallPlanner Option."""
-        del state, goal, objs  # unused
-        # Note: just return a random value from -1 to 1
-        return np.array([rng.uniform(0, len(self._train_tasks))],
-                        dtype=np.float32)
 
     @classmethod
     def get_name(cls) -> str:
@@ -513,7 +504,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     self._policy_logs.append(self._current_control)
                 return action
             except utils.OptionExecutionFailure:
-                print("failed", self._current_control)
+                logging.debug("failed" + self._current_control)
 
             # Switch control from planner to bridge.
             assert self._current_control == "planner"
