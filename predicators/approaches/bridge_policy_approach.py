@@ -553,6 +553,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         for i in range(len(results)):
             result = results[i]
             policy_log = policy_logs[:len(result.states[:-1])]
+            # We index max(j - 1, 0) to count for the case when CallPlanner
+            # is used, since "planner" is added to the corresponding policy_log.
+            # When j = 0, planner is always in control
             mapleq_states = [
                 state for j, state in enumerate(result.states[:-1])
                 if policy_log[j] == "bridge"
