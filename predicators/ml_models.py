@@ -1370,6 +1370,11 @@ class MapleQFunction(MLPRegressor):
         self._good_move_q_values = []
         #bad move, when we wanna move forward but open door instead RIPP
         self._bad_move_q_values = []
+        self._second_turnkey_q_values = []
+        self._second_movekey_q_values = []
+        self._callplanner_q_values = []
+
+
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1393,6 +1398,9 @@ class MapleQFunction(MLPRegressor):
             self._bad_light_q_values[:20] + [0] * max(0, 20 - len(self._bad_light_q_values)),\
             self._good_open_door_q_values[:20] + [0] * max(0, 20 - len(self._good_open_door_q_values)), \
             self._bad_open_door_q_values[:20] + [0] * max(0, 20 - len(self._bad_open_door_q_values)), \
+            self._second_turnkey_q_values[:20] + [0] * max(0, 20 - len(self._second_turnkey_q_values)), \
+            self._second_movekey_q_values[:20] + [0] * max(0, 20 - len(self._second_movekey_q_values)), \
+            self._callplanner_q_values[:20] + [0] * max(0, 20 - len(self._callplanner_q_values)), \
 
     def get_option(self,
                    state: State,
@@ -1418,10 +1426,16 @@ class MapleQFunction(MLPRegressor):
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
+        
+        option_scores=list(zip(options, scores))
+        option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
         idx = np.argmax(scores)
         # Decay epsilon
         if self._use_epsilon_annealing:
             self.decay_epsilon()
+        if train_or_test=="test":
+            print(option_scores)
+            print("CHOSEN ", options[idx], scores[idx])
         return options[idx]
 
     def decay_epsilon(self) -> None:
@@ -1454,6 +1468,9 @@ class MapleQFunction(MLPRegressor):
         bad_light_index=[]
         good_door_index=[]
         bad_door_index=[]
+        second_turnkey_index=[]
+        second_movekey_index=[]
+        callplanner_index=[]
         good_move_index=[]
         bad_move_index=[]
         for i, (state, goal, option, next_state, reward,
@@ -1516,14 +1533,17 @@ class MapleQFunction(MLPRegressor):
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
                 and vectorized_state[door_open_index+2]<=0.85 and vectorized_state[door_open_index+2]>=0.65\
                     and vectorized_action[0]==1:
+                callplanner_index.append(i)
                 print("GOOD CALLPLANNER predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
                 and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<=0.85 and vectorized_action[-1]>=0.65:
                 #second good door, we've already done movekey and now we turn key
+                second_turnkey_index.append(i)
                 print("GOOD TURNKEY (second action) predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]<=0.85 \
-                  and vectorized_state[door_open_index+2]>=0.65 and vectorized_action[14]==1 and vectorized_action[-1]<=0.6 and vectorized_action[-1]>=0.4:
+                  and vectorized_state[door_open_index+2]>=0.65 and vectorized_action[2]==1 and vectorized_action[-1]<=0.6 and vectorized_action[-1]>=0.4:
                 #second good door, we've already done movekey and now we turn key
+                second_movekey_index.append(i)
                 print("GOOD MOVEKEY (second action) predicted, next best value, next best action", Y_arr[i], best_next_value, next_best_action)
 
             # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1 and vectorized_action[good_move]==1:
@@ -1586,6 +1606,40 @@ class MapleQFunction(MLPRegressor):
                     [vectorized_state, vectorized_goal, vectorized_action])
             self._bad_open_door_q_values.append(self.predict(x)[0])
             # print("BAD DOOR", self.predict(x)[0], Y_arr[bad_door])
+
+
+        for move_key in second_movekey_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[move_key])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._second_movekey_q_values.append(self.predict(x)[0])
+            print("SECOND MOVE KEY", self.predict(x)[0], Y_arr[move_key])
+
+        for turn_key in second_turnkey_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[turn_key])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._second_turnkey_q_values.append(self.predict(x)[0])
+            print("SECOND TURN KEY", self.predict(x)[0], Y_arr[turn_key])    
+
+        for callplanner in callplanner_index:
+            (state, goal, option, next_state, reward,
+                    terminal) = (self._replay_buffer[callplanner])
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            x = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+            self._callplanner_q_values.append(self.predict(x)[0])
+            print("CALLPLANNEr", self.predict(x)[0], Y_arr[callplanner])   
 
     def minibatch_generator(
             self, tensor_X: Tensor, tensor_Y: Tensor,

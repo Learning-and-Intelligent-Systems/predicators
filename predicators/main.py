@@ -206,6 +206,9 @@ def _run_pipeline(env: BaseEnv,
         good_move_q_values = []
         #bad move, when we wanna move forward but open door instead RIPP
         bad_move_q_values = []
+        second_movekey_q_values = []
+        second_turnkey_q_values = []
+        callplanner_q_values = []
 
 
         for i in range(CFG.num_online_learning_cycles):
@@ -255,11 +258,15 @@ def _run_pipeline(env: BaseEnv,
             # Evaluate approach after every online learning cycle.
             #CHANGE THIS TO HAVE MAPLEQ IF UR RUNNING BRIDGE POLICY
             if cogman._approach.mapleq._q_function._x_dims:
-                a,b,c,d =(cogman._approach.mapleq._q_function.get_q_values())
+                a,b,c,d, e, f, g =(cogman._approach.mapleq._q_function.get_q_values())
                 good_light_q_values.append(a)
                 bad_light_q_values.append(b)
                 good_open_door_q_values.append(c)
                 bad_open_door_q_values.append(d)
+                second_movekey_q_values.append(e)
+                second_turnkey_q_values.append(f)
+                callplanner_q_values.append(g)
+
             else:
                 q_values.append([0]*20)
             results = _run_testing(env, cogman)
@@ -330,14 +337,33 @@ def _run_pipeline(env: BaseEnv,
         plt.savefig(filename, dpi=300)
         plt.clf()
 
-        plt.plot(learning_cycles, bad_open_door_q_values)
+        plt.plot(learning_cycles, second_movekey_q_values)
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'BAD DOOR qvalues_plot_{timestamp}.png'
+        filename = f'SECOND MOVEKEY qvalues_plot_{timestamp}.png'
         plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("BAD DOOR q values")
+        plt.ylabel("SECOND MOVEKEY q values")
         plt.title("Q-values", fontsize=16, fontweight='bold')
         plt.savefig(filename, dpi=300)
         plt.clf()
+
+        plt.plot(learning_cycles, second_turnkey_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'SECOND TURNKEY qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("SECOND TURNKEY q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
+
+        plt.plot(learning_cycles, callplanner_q_values)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f'CALL PLANNEr qvalues_plot_{timestamp}.png'
+        plt.xlabel("num_online_learning_cycles")
+        plt.ylabel("CALL PLANNEr q values")
+        plt.title("Q-values", fontsize=16, fontweight='bold')
+        plt.savefig(filename, dpi=300)
+        plt.clf()
+
     else:
         results = _run_testing(env, cogman)
         results["num_offline_transitions"] = 0

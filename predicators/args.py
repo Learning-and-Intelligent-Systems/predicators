@@ -51,4 +51,9 @@ def create_arg_parser(env_required: bool = True,
                         const=logging.DEBUG,
                         default=logging.INFO)
     parser.add_argument("--crash_on_failure", action="store_true")
+
+    #RL Bridge
+    # parser.add_argument("--active_sampler_learning_exploration_epsilon", default=0.5, type=float)
+    # parser.add_argument("--mlp_regressor_clip_gradients", action="store_true")
+
     return parser

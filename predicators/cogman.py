@@ -227,7 +227,8 @@ def run_episode_and_get_observations(
                 if act.has_option() and act.get_option() != curr_option:
                     curr_option = act.get_option()
                     metrics["num_options_executed"] += 1
-                    # print(curr_option, cogman._approach._current_control)
+                    if train_or_test=="test":
+                        print(curr_option, cogman._approach._current_control)
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env
