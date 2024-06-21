@@ -231,7 +231,8 @@ class PyBulletBlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
                     params_space=params_space),
-            ])
+            ],
+            "Pick up block ?block")
 
         # Stack
         option_types = [robot_type, block_type]
@@ -269,7 +270,8 @@ class PyBulletBlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
                     params_space=params_space),
-            ])
+            ],
+            annotation="Stack the block in hand onto block ?otherblock")
 
         # PutOnTable
         option_types = [robot_type]
@@ -308,7 +310,9 @@ class PyBulletBlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
                     params_space=params_space),
-            ])
+            ],
+            annotation="Put block on table"
+            )
 
         return {Pick, Stack, PutOnTable}
 

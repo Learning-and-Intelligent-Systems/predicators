@@ -351,7 +351,6 @@ def summarize_results_in_str(accuracy_dict: Dict,
             tn_states = set(tn_state_dict[optn_str][g_optn]['states'])
             fp_states = set(fp_state_dict[optn_str][g_optn]['states'])
 
-
             # Assign a unique id to each state as hash
             for s in tp_states | fn_states | tn_states | fp_states:
                 state_hash = hash(s)
@@ -362,10 +361,15 @@ def summarize_results_in_str(accuracy_dict: Dict,
             uniq_n_tn, uniq_n_fp = len(tn_states), len(fp_states)
 
             if n_succ_states:
+                # [Simplified]
                 result_str.append(
-                f"Option {g_optn} was applied on {n_tot} states and "+
-                f"*successfully* executed on {n_succ_states}/{n_tot} states "+
-                "(ground truth positive states).")
+                f"Option {g_optn} *successfully* executed on the following "+
+                f"states (positive states):")
+                # [Detailed]
+                # result_str.append(
+                # f"Option {g_optn} was applied on {n_tot} states and "+
+                # f"*successfully* executed on {n_succ_states}/{n_tot} states "+
+                # "(ground truth positive states).")
 
                 if n_tp:# and (n_succ_states/n_tot) < 1:
                     # [Detailed] True Positive
@@ -381,9 +385,8 @@ def summarize_results_in_str(accuracy_dict: Dict,
                     #     max_num_examples, "tp", state_hash_to_id)
 
                     # [Simplified] True Positive
-                    result_str.append("To list {max_num_examples}:" if 
-                                      uniq_n_tp > max_num_examples else
-                                      "They are:")    
+                    # result_str.append(f"To list {max_num_examples}:" if 
+                    #                   uniq_n_tp > max_num_examples)    
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, tp_states,
                         max_num_examples, "tp", state_hash_to_id)
@@ -404,10 +407,15 @@ def summarize_results_in_str(accuracy_dict: Dict,
 
             # GT Negative
             if n_fail_states:
+                # [Simplified]
                 result_str.append(
-                f"Option {g_optn} was applied on {n_tot} states and "+
-                f"*failed* to executed on {n_fail_states}/{n_tot} states "+
-                "(ground truth negative states).")
+                f"Option {g_optn} *failed* to executed on the following "+
+                f"states (negative states):")
+                # # [Detailed]
+                # result_str.append(
+                # f"Option {g_optn} was applied on {n_tot} states and "+
+                # f"*failed* to executed on {n_fail_states}/{n_tot} states "+
+                # "(ground truth negative states).")
                 if n_fp:
                     # [Detailed] False Positive
                     # result_str.append(
@@ -422,9 +430,9 @@ def summarize_results_in_str(accuracy_dict: Dict,
                     #     max_num_examples, "fp", state_hash_to_id)
 
                     # [Simplified] False Positive
-                    result_str.append("To list {max_num_examples}:" if 
-                                      uniq_n_fp > max_num_examples else
-                                      "They are:")    
+                    # result_str.append(f"To list {max_num_examples}:" if 
+                    #                   uniq_n_fp > max_num_examples else
+                    #                   "They are:")    
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, fp_states,
                         max_num_examples, "fp", state_hash_to_id)
@@ -1318,7 +1326,8 @@ class LinearChainParameterizedOption(ParameterizedOption):
     """
 
     def __init__(self, name: str,
-                 children: Sequence[ParameterizedOption]) -> None:
+                 children: Sequence[ParameterizedOption],
+                 annotation: Optional[str]=None) -> None:
         assert len(children) > 0
         self._children = children
 
@@ -1336,7 +1345,8 @@ class LinearChainParameterizedOption(ParameterizedOption):
                          params_space,
                          policy=self._policy,
                          initiable=self._initiable,
-                         terminal=self._terminal)
+                         terminal=self._terminal,
+                         annotation=annotation)
 
     def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
@@ -1455,6 +1465,34 @@ class PyBulletState(State):
         simulator_state_copy = list(self.joint_positions)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
+
+    def __hash__(self):
+        # Convert the dictionary to a tuple of key-value pairs and hash it
+        # data_hash = hash(tuple(sorted(self.data.items())))
+        data_tuple = tuple((k, tuple(v)) for k, v in 
+                        sorted(self.data.items())) 
+        if self.simulator_state is not None:
+            data_tuple += tuple(self.simulator_state)
+        data_hash = hash(data_tuple)
+        # # Hash the simulator_state
+        # simulator_state_hash = hash(self.simulator_state)
+        # Combine the two hashes
+        # return hash((data_hash, simulator_state_hash))
+        return data_hash
+
+    # def __eq__(self, other):
+    #     # Compare the data and simulator_state
+    #     assert isinstance(other, PyBulletState)
+
+    #     if len(self.data) != len(other.data):
+    #         return False
+
+    #     for key, value in self.data.items():
+    #         if key not in other.data or not np.array_equal(value, 
+    #         other.data[key]):
+    #             return False
+
+    #     return self.simulator_state == other.simulator_state
 # a bounding box named tuple with attribute left, lower, right, upper 
 # pixel idx within the state image
 BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
@@ -1464,6 +1502,20 @@ class RawState(PyBulletState):
     state_image: PIL.Image.Image = field(default_factory=PIL.Image.new)
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
+    
+    def __hash__(self):
+        # Convert the dictionary to a tuple of key-value pairs and hash it
+        # data_hash = hash(tuple(sorted(self.data.items())))
+        data_tuple = tuple((k, tuple(v)) for k, v in 
+                        sorted(self.data.items())) 
+        if self.simulator_state is not None:
+            data_tuple += tuple(self.simulator_state)
+        data_hash = hash(data_tuple)
+        # # Hash the simulator_state
+        # simulator_state_hash = hash(self.simulator_state)
+        # Combine the two hashes
+        # return hash((data_hash, simulator_state_hash))
+        return data_hash
 
     def evaluate_simple_assertion(self, assertion: str, image: ImagePatch
                                 ) -> VLMQuery:
@@ -1551,16 +1603,6 @@ class RawState(PyBulletState):
 
         return self.simulator_state == other.simulator_state
         
-    def __hash__(self):
-        # Convert the dictionary to a tuple of key-value pairs and hash it
-        # data_hash = hash(tuple(sorted(self.data.items())))
-        data_hash = hash(tuple((k, tuple(v)) for k, v in 
-                        sorted(self.data.items())))
-        # # Hash the simulator_state
-        # simulator_state_hash = hash(self.simulator_state)
-        # Combine the two hashes
-        # return hash((data_hash, simulator_state_hash))
-        return data_hash
 
     def label_all_objects(self):
         state_ip = ImagePatch(self)
@@ -1729,8 +1771,8 @@ def sparse_actions_from_dense_traj(sparse_states: List[State],
         cur_ground_option = cur_action.get_option()
         # Only adding the state when the ground option changes
         if prev_ground_option != cur_ground_option:
-            logging.debug(f"ground_option at step {i}: {cur_ground_option} is "+
-                          "different from the prev ground option")
+            # logging.debug(f"ground_option at step {i}: {cur_ground_option} is "+
+            #               "different from the prev ground option")
             new_actions.append(cur_action)
             prev_ground_option = cur_ground_option
     assert len(sparse_states) == len(new_actions) + 1, \
@@ -3103,7 +3145,8 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
         if CFG.query_vlm_for_each_predicate:
             # group querys by their lifted predicates
             for query in queries:
-                pred_name_to_queries[query.ground_atom.predicate.name].append(query)
+                pred_name_to_queries[query.ground_atom.predicate.name
+                                     ].append(query)
         else:
             # If evaluate all queries at once
             pred_name_to_queries["all"].extend(queries)
@@ -3195,7 +3238,6 @@ class _MemoizedClassifier():
         # if state, object exist in cache, return the value
         # else compute the truth value using the classifier
         objects_tuple = tuple(objects)
-
         return self.cache.get((hash(state), objects_tuple), 
                               self.classifier(state, objects))
 

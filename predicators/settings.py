@@ -150,7 +150,7 @@ class GlobalSettings:
     pybullet_birrt_num_iters = 100
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
-    pybullet_control_mode = "position"
+    pybullet_control_mode = "reset"
     pybullet_max_vel_norm = 0.05
     # env -> robot -> quaternion
     pybullet_robot_ee_orns = defaultdict(

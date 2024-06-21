@@ -137,6 +137,20 @@ class State:
             assert len(self[obj]) == obj.type.dim or\
             len(self[obj])+4 == obj.type.dim # a hack for adding bbox features
 
+    def __hash__(self):
+        # Convert the dictionary to a tuple of key-value pairs and hash it
+        # data_hash = hash(tuple(sorted(self.data.items())))
+        data_tuple = tuple((k, tuple(v)) for k, v in 
+                        sorted(self.data.items())) 
+        if self.simulator_state is not None:
+            data_tuple += tuple(self.simulator_state)
+        data_hash = hash(data_tuple)
+        # # Hash the simulator_state
+        # simulator_state_hash = hash(self.simulator_state)
+        # Combine the two hashes
+        # return hash((data_hash, simulator_state_hash))
+        return data_hash
+
     def __iter__(self) -> Iterator[Object]:
         """An iterator over the state's objects, in sorted order."""
         return iter(sorted(self.data))
@@ -664,6 +678,7 @@ class ParameterizedOption:
     # terminate now. The objects' types will match those in
     # self.types. The parameters will be contained in params_space.
     terminal: ParameterizedTerminal = field(repr=False)
+    annotation: Optional[str] = None
 
     @cached_property
     def _hash(self) -> int:
@@ -1024,6 +1039,11 @@ class NSRT:
     def option_str(self) -> str:
         option_var_str = ", ".join([str(v) for v in self.option_vars])
         return f"{self.option.name}({option_var_str})"
+
+    def option_str_annotated(self) -> str:
+        option_var_str = ", ".join([str(v) for v in self.option_vars])
+        anno = self.option.annotation
+        return f"{self.option.name}({option_var_str}): {anno}"
 
     @cached_property
     def _hash(self) -> int:

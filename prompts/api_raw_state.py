@@ -43,19 +43,20 @@ class RawState:
             The cropped image.
         Examples:
         ---------
-        >>> # An example for predicate On
-        >>> def _On_NSP_holds(state: RawState, objects: Sequence[Object])\
+        >>> # An example for predicate NothingNextTo
+        >>> def _NothingCloseTo_NSP_holds(state: RawState, objects: Sequence[Object])\
         >>>     -> bool:
         >>>     '''
-        >>>     Determine if the first block in objects is directly on top of 
-        >>>     the second block 
+        >>>     Determine if there is nothing close to the block on the left or
+        >>>     right side.
         >>>     '''
-        >>>     block1, block2 = objects
+        >>>     block, = objects
         >>>     ...
         >>>     # Crop the scene image to the smallest bounding box that include both objects.
-        >>>     attention_image = state.crop_to_objects([block1, block2])
+        >>>     attention_image = state.crop_to_objects([block], left_margin=20, 
+        >>>                         right_margin=20)
         >>>     return state.evaluate_simple_assertion(
-        >>>         f"{block1_name} is directly on top of {block2_name} with no blocks in between.", attention_image)
+        >>>         f"There is nothing close to {block_name} on the left or right side.")
         >>>
         >>> # An example for predicate OnTable
         >>> def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
@@ -96,12 +97,12 @@ class RawState:
         Example:
         ---------
         >>> # An example for predicate WristBent
-        >>> _robot_type = Type("robot", ["x", "y", "tilt", "wrist", "fingers"])
-        >>> def _WristBent_holds(state: State, objects: Sequence[Object]
+        >>> _robot_type = Type("robot", ["x", "y", "tilt", "wrist", "gripper"])
+        >>> def _GripperOpen_holds(state: State, objects: Sequence[Object]
         >>>                     ) -> bool:
         >>>     robot, = objects
-        >>>     return state.get(robot, "wrist") >= 0.5
-        >>> _WristBent = NSPredicate("WristBent", [_robot_type], _WristBent_holds)
+        >>>     return state.get(robot, "gripper") == 1.0
+        >>> _WristBent = NSPredicate("GripperOpen", [_robot_type], _WristBent_holds)
         >>>
         >>> # An example for classifying Covers
         >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]

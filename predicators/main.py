@@ -41,6 +41,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
+import datetime
 
 import dill as pkl
 from PIL import Image
@@ -90,7 +91,8 @@ def main() -> None:
     # handlers: List[logging.Handler] = [logging.StreamHandler()]
     handlers: List[logging.Handler] = [colorlog_handler]
     if CFG.log_file:
-        handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        handlers.append(logging.FileHandler(CFG.log_file+timestamp, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
                         handlers=handlers,
@@ -210,6 +212,8 @@ def _run_pipeline(env: BaseEnv,
             # Self Online Learning.
             if CFG.approach == "vlm_online_invention":
                 learning_start = time.perf_counter()
+                # train_tasks[0].init.state_image.save("images/task0_init.png")
+                # breakpoint()
                 cogman.learn_from_tasks(env, train_tasks)
                 learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {

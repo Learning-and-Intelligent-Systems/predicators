@@ -27,9 +27,12 @@ from predicators.structs import GroundAtom, GroundAtomTrajectory, \
 
 def create_score_function(
         score_function_name: str, initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory], candidates: Dict[Predicate,
-                                                                   float],
-        train_tasks: List[Task]) -> _PredicateSearchScoreFunction:
+        atom_dataset: List[GroundAtomTrajectory], 
+        candidates: Dict[Predicate, float],
+        train_tasks: List[Task],
+        succ_optn_dict: Optional[Dict[str, GroundOptionRecord]] = None,
+        fail_optn_dict: Optional[Dict[str, GroundOptionRecord]] = None,
+        ) -> _PredicateSearchScoreFunction:
     """Public method for creating a score function object."""
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
@@ -94,6 +97,10 @@ def create_score_function(
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
                                            candidates, train_tasks,
                                            metric_name)
+    if score_function_name == "operator_classification_error":
+        return _ClassificationErrorScoreFunction(initial_predicates, 
+                                        atom_dataset, candidates, train_tasks, 
+                                        succ_optn_dict, fail_optn_dict)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -127,13 +134,10 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     """A score function that learns operators given the set of predicates."""
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
-        try:
-            total_cost = sum(self._candidates[pred]
-                         for pred in candidate_predicates)
-        except:
-            breakpoint()
-        logging.debug(f"Evaluating predicates: {candidate_predicates}, with "
-                     f"total cost {total_cost}")
+        total_cost = sum(self._candidates[pred]
+                            for pred in candidate_predicates)
+        logging.debug(f"Evaluating predicates: {sorted(candidate_predicates)},"+
+                        f" with total cost {total_cost}")
         start_time = time.perf_counter()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset,
@@ -154,7 +158,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                                            set(candidate_predicates
                                                | self._initial_predicates),
                                            segmented_trajs,
-                                           verify_harmlessness=False,
+                                           verify_harmlessness=CFG.enable_harmless_op_pruning,
                                            verbose=False,
                                            annotations=None)
         except TimeoutError:

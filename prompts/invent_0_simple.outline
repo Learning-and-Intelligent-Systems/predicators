@@ -1,29 +1,37 @@
 You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
 
 I will describe the API you should use for writing predicates and the environment the robot is in.
-# API for Defining Predicates
-Class definitions for `Predicate` and `State` are:
+# The API for `Predicate` and `State` is:
 [STRUCT_DEFINITION]
 
 # The Environment
-The environment includes the following object-type variables:
+The environment includes the following object-type variables with features:
 [TYPES_IN_ENV]
+where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left, lower boundry of the object bounding box in the image starting from (0, 0) at the bottom left corner of the image.
+`pose_x`, `pose_y` and `pose_z` correspond to the 3d object position in the world frame, so they are not comparable to the bbox values.
 
 The existing set of predicates are:
 [PREDICATES_IN_ENV]
 
+The set of options the robot has are:
+[OPTIONS_IN_ENV]
+
+The existing action operators utilizing the predicates are:
+[NSRTS_IN_ENV]
+
 The robot tried to excute its options and got the following results:
 [OPERATOR_PERFORMACE]
 
-Your task is to identify the key differences between the positive and negative states for each option, and propose predicates that can be used to differentiate between positive and negative states.
+Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integreated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy the precondition.
 
-Propose predicates in paragraphs as follows. For each proposal:
-- Identify which differentiating property from above it corresponds to.
-- Define predicate in a Python block as follows:
+Define each proposal in a Python block as follows:
 ```python
-def classifier(state: State, objects: Sequence[Object]) -> bool:
+def <predicate_name>_holds(state: State, objects: Sequence[Object]) -> bool:
     # Implement the boolean classifier function here
     ...
-    
-name: str = ... # Define the predicate name here
-param_types: Sequence[Type] = ... # A list of object-type variables for the predicate, using the ones defined in the environment
+
+# Define the predicate name here 
+name: str = ... 
+
+# A list of object-type variables for the predicate, using the ones defined in the environment
+param_types: Sequence[Type] = ... 

@@ -37,6 +37,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] + 
                     bbox_features)
     _table_type = Type("table", bbox_features)
+
     _known_features = ["pose_x", "pose_y", "pose_z", "fingers"] + bbox_features
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -157,32 +158,19 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
             bool:
         '''Determine if the block in objects is directly resting on the table's 
-        surface in the scene image, using both rules and VLMs.
-        It first identifies the table in the scene, then crops the scene image 
+        surface in the scene image.
+        It first get the table in the environment, then crops the scene image 
         to the smallest bounding box that includes both the block and the table, 
-        and finally evaluates a simple assertion about their relative positions.
-
-        Parameters:
-        -----------
-        state : RawState
-            The current state of the world, represented as an image.
-        objects : Sequence[Object]
-            A sequence containing a single block whose relationship with the 
-            table is to be determined.
-
-        Returns:
-        --------
-        bool
-            True if the block is directly resting on the table's surface, False 
-            otherwise.
+        and finally evaluates a simple assertion about their relation.
+        No classification rules can be devised here so only a VLM query is used.
         '''
         block, = objects
         block_name = block.id_name
-        
-        # Crop the image to the smallest bounding box that include both objects.
+  
         # We know there is only one table in this environment.
         table = state.get_objects(_table_type)[0]
         table_name = table.id_name
+        # Crop the image to the smallest bounding box that include both objects.
         attention_image = state.crop_to_objects([block, table])
 
         return state.evaluate_simple_assertion(
@@ -192,47 +180,34 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
         '''
         Determine if the first block in objects is directly on top of the second 
-        block in the scene image, by using a combination of rules and VLMs.
+        block with no blocks in between in the scene image, by using a 
+        combination of rules and VLMs.
 
         It first checks if the blocks are the same or if they are far away from 
         each other. If neither condition is met, it crops the scene image to the 
         smallest bounding box that includes both blocks and evaluates a simple 
         assertion about their relative positions.
-
-        Parameters:
-        -----------
-        state : RawState
-            The current state of the world, represented as an image.
-        objects : Sequence[Object]
-            A sequence of two blocks whose relationship is to be determined. The 
-            first block is the one that is potentially on top.
-
-        Returns:
-        --------
-        bool
-            True if the first block is directly on top of the second block with 
-            no blocks in between, False otherwise.
         '''
         
         block1, block2 = objects
         block1_name, block2_name = block1.id_name, block2.id_name
 
-        # Heuristics: we know a block can't be on top of itself.
+        # We know a block can't be on top of itself.
         if block1_name == block2_name:
             return False
         
-        # repeat the above
-        if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower")or\
+        # Situations where we're certain that block1 won't be above block2
+        if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower") or\
            state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
            state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
            state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
            state.get(block1, "pose_z") < state.get(block2, "pose_z"):
             return False
 
+        # Use a VLM query to handle to reminder cases
         # Crop the scene image to the smallest bounding box that include both
         # objects.
         attention_image = state.crop_to_objects([block1, block2])
-
         return state.evaluate_simple_assertion(
             f"{block1_name} is directly on top of {block2_name} with no blocks"+
              " in between.", attention_image)

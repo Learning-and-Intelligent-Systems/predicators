@@ -48,9 +48,10 @@ from predicators.predicate_search_score_functions import \
     _ClassificationErrorScoreFunction
 
 import_str = """
-from typing import Sequence
 import numpy as np
+from typing import Sequence
 from predicators.structs import State, Object, Predicate, Type
+from predicators.utils import RawState, NSPredicate
 """
 
 PlanningResult = namedtuple("PlanningResult", 
@@ -88,7 +89,7 @@ def encode_image(image_path: str) -> str:
     return base64.b64encode(image_file.read()).decode('utf-8')
 
 def add_python_quote(text: str) -> str:
-    return f"```python\n{text}\n```\n"
+    return f"```python\n{text}\n```"
 
 def d2s(dict_with_arrays: Dict) -> str:
     # Convert State data with numpy arrays to lists, and to string
@@ -146,7 +147,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         trajectories = []
         for idx, task in enumerate(tasks):
             logging.info(f"Ite {ite}. Solving Task {idx}")
-            # task.init.labeled_image.save(f"images/trn_{idx}_init_pre_solving.png")
+            # logging.debug(f"Init: {init_atoms} \nGoals: {task.goal}")
+            # task.init.labeled_image.save(f"images/trn_{idx}_init.png")
             try:
                 policy = self.solve(task, timeout=CFG.timeout) 
             except (ApproachTimeout, ApproachFailure) as e:
@@ -207,7 +209,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         num_tasks = len(tasks)
         propose_ite = 0
         max_invent_ite = 20
-        invent_at_every_ite = True # Invent at every iterations
+        add_new_proposal_at_every_ite = False # Invent at every iterations
         base_candidates = set()
         manual_prompt = True
         regenerate_response = False
@@ -219,6 +221,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Keep a copy in case it doesn't learn it from data.
         self._init_nsrts = deepcopy(self._nsrts)
         no_improvement = False
+        self.state_cache: Dict[int, RawState] = {}
 
         # Init data collection
         logging.debug(f"Initial predicates: {self._get_current_predicates()}")
@@ -261,9 +264,9 @@ class VlmInventionApproach(NSRTLearningApproach):
             self._prev_learned_predicates: Set[Predicate] =\
                 self._learned_predicates
 
-            if ite == 1 or no_improvement or invent_at_every_ite:
+            if ite == 1: #or no_improvement or add_new_proposal_at_every_ite:
                 # Invent only when there is no improvement in solve rate
-                # Or when invent_at_every_ite is True
+                # Or when add_new_proposal_at_every_ite is True
                 #   Create prompt to inspect the execution
                 # base_candidates: candidates to be unioned with the init set
                 if CFG.vlm_predicator_oracle_base_grammar:
@@ -280,89 +283,111 @@ class VlmInventionApproach(NSRTLearningApproach):
                                             self._initial_predicates
                 else:
                     # Use the results to prompt the llm
-                    prompt = self._create_prompt(env, ite,
-                                                    max_num_options=10,
-                                                    max_num_groundings=2,
-                                                    max_num_examples=2)
+                    prompt = self._create_prompt(env, ite, 10, 2, 1)
                     response_file =\
                         f'./prompts/invent_{self.env_name}_1.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    breakpoint()
                     new_proposals = self._get_llm_predictions(prompt,
                                                     response_file, 
                                                     manual_prompt,
                                                     regenerate_response)
                 logging.info(f"Done: created {len(new_proposals)} candidates:"+
                             f"{new_proposals}")
-
-
-                # Apply the candidate predicates to the data.
-                all_trajs = []
-                for _, trajs in self.task_to_trajs.items():
-                    for traj in trajs: all_trajs.append(traj)
-
-                if CFG.llm_predicator_oracle_learned:
-                    self._learned_predicates = new_proposals
-                else:
-                    # Select a subset candidates by score optimization    
-                    base_candidates |= new_proposals
-
-                    ### Predicate Search
-                    # Optionally add grammar to the candidates
-                    all_candidates: Dict[Predicate, float] = {}
-                    if CFG.llm_predicator_use_grammar:
-                        grammar = _create_grammar(dataset=Dataset(all_trajs), 
-                                                given_predicates=\
-                                    base_candidates|self._initial_predicates)
-                    else:
-                        # Assign cost 0 for every candidate, for now.
-                        # Update: Also use simple grammar
-                        grammar = _GivenPredicateGrammar(
-                                    base_candidates|self._initial_predicates)
-                    all_candidates.update(grammar.generate(
-                        max_num=CFG.grammar_search_max_predicates))
-                        # all_candidates.update({p: 0 for p in base_candidates})
-                    # logging.debug(f"base candidates {base_candidates}")
-                    # logging.debug(f"all candidates {pformat(all_candidates)}")
-                    # breakpoint()
-                    # Add a atomic states for succ_optn_dict and fail_optn_dict
-                    logging.info("[Start] Applying predicates to data...")
-                    # Abstract here because it's used in the score function
-                    # Evaluate the newly proposed predicates; the values for 
-                    # previous proposed should have been cached by the previous
-                    # abstract calls.
-                    for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
-                        for g_optn in optn_dict.keys():
-                            atom_states = []
-                            for state in optn_dict[g_optn].states:
-                                atom_states.append(utils.abstract(
-                                state, set(all_candidates)))
-                            optn_dict[g_optn].abstract_states = atom_states
-
-                    atom_dataset: List[GroundAtomTrajectory] =\
-                        utils.create_ground_atom_dataset(
-                            all_trajs, 
-                            set(all_candidates))
-                    logging.info("[Finish] Applying predicates to data....")
-
-                    logging.info("[Start] Predicate search from "+
-                                f"{self._initial_predicates}...")
-                    score_function = _ClassificationErrorScoreFunction(
-                        self._initial_predicates, atom_dataset, all_candidates,
-                        self._train_tasks, self.succ_optn_dict, 
-                        self.fail_optn_dict)
-                    start_time = time.perf_counter()
-                    self._learned_predicates = \
-                        self._select_predicates_by_score_hillclimbing(
-                            all_candidates, 
-                            score_function, 
-                            initial_predicates = self._initial_predicates)
-                    logging.info("[Finish] Predicate search.")
-                    logging.info(
-                    f"Total search time {time.perf_counter()-start_time:.2f} "
-                    "seconds")
                 propose_ite += 1
-            # breakpoint()
+
+
+            # [Start moving out]
+            # Apply the candidate predicates to the data.
+            all_trajs = []
+            for _, trajs in self.task_to_trajs.items():
+                for traj in trajs: all_trajs.append(traj)
+
+            if CFG.llm_predicator_oracle_learned:
+                self._learned_predicates = new_proposals
+            else:
+                # Select a subset candidates by score optimization    
+                base_candidates |= new_proposals
+
+                ### Predicate Search
+                # Optionally add grammar to the candidates
+                all_candidates: Dict[Predicate, float] = {}
+                if CFG.llm_predicator_use_grammar:
+                    grammar = _create_grammar(dataset=Dataset(all_trajs), 
+                                              given_predicates=\
+                                base_candidates|self._initial_predicates)
+                else:
+                    # Assign cost 0 for every candidate, for now.
+                    # Update: Also use simple grammar
+                    grammar = _GivenPredicateGrammar(
+                                base_candidates|self._initial_predicates)
+                all_candidates.update(grammar.generate(
+                    max_num=CFG.grammar_search_max_predicates))
+                    # all_candidates.update({p: 0 for p in base_candidates})
+                # logging.debug(f"base candidates {base_candidates}")
+                # logging.debug(f"all candidates {pformat(all_candidates)}")
+                # breakpoint()
+                # Add a atomic states for succ_optn_dict and fail_optn_dict
+                logging.info("[Start] Applying predicates to data...")
+                # Abstract here because it's used in the score function
+                # Evaluate the newly proposed predicates; the values for 
+                # previous proposed should have been cached by the previous
+                # abstract calls.
+                num_states = len(set(state for optn_dict in 
+                                [self.succ_optn_dict, self.fail_optn_dict] 
+                                for g_optn in optn_dict.keys() for state in 
+                                optn_dict[g_optn].states))
+                logging.debug(f"There are {num_states} distinct states.")
+                for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+                    for g_optn in optn_dict.keys():
+                        atom_states = []
+                        for state in optn_dict[g_optn].states:
+                            atom_states.append(utils.abstract(
+                            state, set(all_candidates)))
+                        optn_dict[g_optn].abstract_states = atom_states
+
+                # This step should only make VLM calls on the end state
+                # becuaes it would have labled all the other success states 
+                # from the previous step.
+                atom_dataset: List[GroundAtomTrajectory] =\
+                    utils.create_ground_atom_dataset(
+                        all_trajs, set(all_candidates))
+                logging.info("[Finish] Applying predicates to data....")
+
+                # Log the dataset
+                log_atom_dataset: List[GroundAtomTrajectory] =\
+                    utils.create_ground_atom_dataset(
+                        all_trajs, base_candidates)
+                for traj_i, traj in enumerate(log_atom_dataset):
+                    logging.debug(f"[ite {ite}, traj {traj_i}] "+
+                                  "Logging atom dataset")
+                    gt_atom_init = utils.abstract(
+                        tasks[traj[0].train_task_idx].init,
+                        env.predicates)
+                    logging.debug(f"GT init state: {gt_atom_init}")
+                    for state_i, atom_s in enumerate(traj[1]):
+                        logging.debug(f"state{state_i}: {atom_s}")
+                        if state_i < len(traj[0].actions):
+                            op = traj[0].actions[state_i].get_option()
+                            logging.debug(f"action{state_i}: {op}")
+
+                logging.info("[Start] Predicate search from "+
+                            f"{self._initial_predicates}...")
+                if CFG.grammar_search_score_function == "operator_clf_error":
+                score_function = create_score_function(
+                    CFG.grammar_search_score_function, self._initial_predicates, 
+                    atom_dataset, all_candidates, self._train_tasks, 
+                    self.succ_optn_dict, self.fail_optn_dict)
+                start_time = time.perf_counter()
+                self._learned_predicates = \
+                    self._select_predicates_by_score_hillclimbing(
+                        all_candidates, 
+                        score_function, 
+                        initial_predicates = self._initial_predicates)
+                logging.info("[Finish] Predicate search.")
+                logging.info(
+                f"Total search time {time.perf_counter()-start_time:.2f} "
+                "seconds")
+            # [End moving out]
 
             # Finally, learn NSRTs via superclass, using all the kept predicates.
             self._learn_nsrts(all_trajs, online_learning_cycle=None, 
@@ -509,7 +534,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Successful part
                 if failed_opt_idx > 0:
                     states = self._execute_succ_plan_and_track_state(
-                        state, env, nsrt_plan, option_plan[:-1])
+                        state, env, nsrt_plan, option_plan[:-1],
+                        ite=ite, task=i, p_idx=p_idx)
                     state = states[-1]
 
                 # Failed part
@@ -519,22 +545,31 @@ class VlmInventionApproach(NSRTLearningApproach):
         
     def _execute_succ_plan_and_track_state(self, init_state: State, 
                             env: BaseEnv, 
-                             nsrt_plan: List, option_plan: List, 
-                             failed_opt: bool=False) -> List[State]:
+                            nsrt_plan: List, option_plan: List, 
+                            failed_opt: bool=False,
+                            ite:Optional[int] = None,
+                            task:Optional[int] = None,
+                            p_idx:Optional[int] = None) -> List[State]:
         """Similar to _execute_plan_and_track_state but only run in successful 
         policy because we only need the initial state for the failed option.
         """
         state = init_state
         def policy(_: State) -> Action:
             raise OptionExecutionFailure("placeholder policy")
+        steps = 0
         nsrt_counter = 0
         env_step_counter = 0
         states = []
         if failed_opt:
-            option_start_state = env.get_observation(
+            state_hash = state.__hash__()
+            if state_hash in self.state_cache:
+                option_start_state = self.state_cache[state_hash].copy()
+            else:
+                option_start_state = env.get_observation(
                                 render=CFG.vlm_predicator_render_option_state)
-            if CFG.neu_sym_predicate:
-                option_start_state.add_bbox_features()
+                if CFG.neu_sym_predicate:
+                    option_start_state.add_bbox_features()
+                self.state_cache[state_hash] = option_start_state.copy()
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
                 use_object_id=CFG.neu_sym_predicate)
@@ -546,7 +581,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 g_nsrt.parent.option_vars,
                 g_nsrt.option)
         else:
-            for _ in range(CFG.horizon):
+            for steps in range(CFG.horizon):
                 try:
                     act = policy(state)
                 except OptionExecutionFailure as e:
@@ -556,7 +591,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     if str(e) == "placeholder policy" or\
                     (str(e) == "Option plan exhausted!") or\
                     (str(e) == "Encountered repeated state."):
-                        logging.debug(f"option fail because: {str(e)}")
+                        # logging.debug(f"option fail because: {str(e)}")
                         # if nsrt_counter > 0:
                         #     task_str.append(
                         #         "The option successfully terminated in state: \n" +
@@ -566,10 +601,17 @@ class VlmInventionApproach(NSRTLearningApproach):
                         except IndexError: 
                             # When the option_plan is exhausted
                             # Rendering the final state for success traj
-                            option_start_state = env.get_observation(
-                                render=CFG.vlm_predicator_render_option_state)
-                            if CFG.neu_sym_predicate:
-                                option_start_state.add_bbox_features()
+                            state_hash = state.__hash__()
+                            if state_hash in self.state_cache:
+                                option_start_state = self.state_cache[state_hash].copy()
+                            else:
+                                option_start_state = env.get_observation(
+                                    render=CFG.vlm_predicator_render_option_state)
+                                if CFG.neu_sym_predicate:
+                                    option_start_state.add_bbox_features()
+                                self.state_cache[state_hash] = option_start_state.copy()
+                            # option_start_state = env.get_observation(
+                            #     render=CFG.vlm_predicator_render_option_state)
                             # For debugging incomplete options
                             states.append(option_start_state)
                             break
@@ -581,10 +623,17 @@ class VlmInventionApproach(NSRTLearningApproach):
                             policy = utils.option_plan_to_policy(
                                 [option], raise_error_on_repeated_state=False)
                                 # [option], raise_error_on_repeated_state=True)
-                            option_start_state = env.get_observation(
-                                render=CFG.vlm_predicator_render_option_state)
-                            if CFG.neu_sym_predicate:
-                                option_start_state.add_bbox_features()
+                            state_hash = state.__hash__()
+                            if state_hash in self.state_cache:
+                                option_start_state = self.state_cache[state_hash].copy()
+                            else:
+                                option_start_state = env.get_observation(
+                                                render=CFG.vlm_predicator_render_option_state)
+                                if CFG.neu_sym_predicate:
+                                    option_start_state.add_bbox_features()
+                                self.state_cache[state_hash] = option_start_state.copy()
+                            # option_start_state = env.get_observation(
+                            #     render=CFG.vlm_predicator_render_option_state)
                             # logging.info("Start new option at step "+
                             #                 f"{env_step_counter}")
                             g_nsrt = nsrt_plan[nsrt_counter]
@@ -602,10 +651,14 @@ class VlmInventionApproach(NSRTLearningApproach):
                     else:
                         break
                 else:
+                    # if ite==2 and task==39 and p_idx==5:
+                    #     obs = env.get_observation(
+                    #             render=CFG.vlm_predicator_render_option_state)
+                    #     obs.labeled_image.save(f"logs/{ite}_{task}_{p_idx}_{steps}.png")
                     state = env.step(act)
                     env_step_counter += 1
 
-        # logging.debug(f"Finish executing after {env_step_counter} steps.")
+        # logging.debug(f"Finish executing after {steps} steps in the loop.")
         return states
 
     
@@ -647,8 +700,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     temperature=CFG.llm_temperature,
                     seed=CFG.seed,
                     save_file=response_file)[0]
-        new_candidates = self._parse_predicate_predictions(
-            response_file)
+        new_candidates = self._parse_predicate_predictions(response_file)
         return new_candidates
 
     def _select_predicates_by_score_hillclimbing(
@@ -830,11 +882,11 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Options
         '''Template: The set of options the robot has are:
         [OPTIONS_IN_ENV]'''
-        # options_str_set = set()
-        # for nsrt in self._nsrts:
-        #     options_str_set.add(nsrt.option_str())
-        # options_str = '\n'.join(list(options_str_set))
-        # template = template.replace("[OPTIONS_IN_ENV]", options_str)
+        options_str_set = set()
+        for nsrt in self._nsrts:
+            options_str_set.add(nsrt.option_str_annotated())
+        options_str = '\n'.join(list(options_str_set))
+        template = template.replace("[OPTIONS_IN_ENV]", options_str)
         
         # NSRTS
         nsrt_str = []
@@ -877,11 +929,16 @@ class VlmInventionApproach(NSRTLearningApproach):
         
         candidates = set()
         context: Dict = {}
+        # add the classifiers of the existing predicates to the context for 
+        # potential reuse
+        for p in self._initial_predicates:
+            context[f"_{p.name}_NSP_holds"] = p._classifier
+
         type_init_str = self._env_type_str(self.env_source_code)
         constants_str = self._constants_str(self.env_source_code)
         for code_str in python_blocks:
             # Extract name from code block
-            match = re.search(r'(\w+)\s*=\s*Predicate', code_str)
+            match = re.search(r'(\w+)\s*=\s*(NS)?Predicate', code_str)
             if match is None:
                 raise ValueError("No predicate name found in the code block")
             pred_name =  match.group(1)
@@ -899,8 +956,9 @@ class VlmInventionApproach(NSRTLearningApproach):
             #         break
 
             # Instantiate the predicate
-            exec(import_str + '\n' + type_init_str + '\n' + constants_str +
-                     code_str, context)
+            exec('\n'.join(
+                     [import_str, type_init_str, constants_str, code_str]), 
+                context)
             candidates.add(context[pred_name])
 
         return candidates

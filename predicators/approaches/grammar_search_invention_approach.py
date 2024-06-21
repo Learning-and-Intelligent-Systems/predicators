@@ -857,10 +857,9 @@ class _NegationPredicateGrammarWrapper(_PredicateGrammar):
             yield (predicate, cost)
             classifier = _NegationClassifier(predicate)
             negated_predicate = DerivedPredicate(
-                str(classifier), predicate.types,
-                                          classifier)
+                str(classifier), predicate.types, classifier)
             # No change to costs when negating.
-            yield (negated_predicate, cost)#+1)
+            yield (negated_predicate, cost) #+1)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
