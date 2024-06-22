@@ -707,6 +707,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     load_llm_pred_invent_dataset = True
     save_llm_pred_invent_dataset = True
     neu_sym_predicate = False
+    reset_optn_state_dict_at_every_ite = False
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms

@@ -63,13 +63,17 @@ FLAGS:
   grammar_search_grammar_includes_foralls: True  # relaxation 2
   load_llm_pred_invent_dataset: False
   save_llm_pred_invent_dataset: False # can't pickle rendered states
+  grammar_search_score_function: "expected_nodes_created"
+  # grammar_search_score_function: "operator_classification_error"
 
   # NSP (using VLMs) setting
+  reset_optn_state_dict_at_every_ite: False
   enable_harmless_op_pruning: False
   neu_sym_predicate: True # True for NSP
   vlm_predicator_render_option_state: True # True for NSP
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"
+  # vlm_model_name: "gpt-4o"
   vlm_temperature: 0
   vlm_use_chat_mode: True
   sesame_check_expected_atoms: False

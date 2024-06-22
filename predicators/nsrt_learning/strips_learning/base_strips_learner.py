@@ -67,8 +67,8 @@ class BaseSTRIPSLearner(abc.ABC):
         for min_perc_data_for_nsrt in pnad_perc_data_low_to_high:
             min_data = max(CFG.min_data_for_nsrt,
                            self._num_segments * min_perc_data_for_nsrt)
-            logging.debug(f"Learned {len(learned_pnads)} operators before "+
-                          f"pruning: {learned_pnads}")
+            # logging.debug(f"Learned {len(learned_pnads)} operators before "+
+            #               f"pruning: {learned_pnads}")
             # Printing for debug
             for pnad in learned_pnads:
                 logging.debug(f"PNAD: {pnad.op.name} \n"

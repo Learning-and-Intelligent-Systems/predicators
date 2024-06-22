@@ -1,0 +1,62 @@
+You are absolutely right! There are a few other predicates that would be very helpful for this robotic planning problem. Here are some ideas:
+
+**1. `Clear(?x:block)`**
+
+* **Purpose:** This predicate checks if a block has a clear top surface, meaning no other blocks are on top of it.
+* **Implementation:**
+```python
+def _Clear_holds(state: RawState, objects: Sequence[Object]) -> bool:
+    '''
+    Determine if there are no blocks on top of the input block. 
+    '''
+    block, = objects
+    block_name = block.id_name
+    # Iterate over all other blocks
+    for other_block in state.get_objects(_block_type):
+        other_block_name = other_block.id_name
+        if other_block_name == block_name:
+            continue
+        # If any block is on top of the target block, it's not clear
+        if _On_NSP_holds(state, [other_block, block]):
+            return False 
+    return True
+
+_Clear = NSPredicate("Clear", [_block_type], _Clear_holds) 
+```
+
+**2. `Near(?x:block, ?y:block)`**
+
+* **Purpose:** Determines if two blocks are spatially close to each other, which could be helpful for picking and placing actions. You can define "near" using a distance threshold on their bounding box coordinates.
+* **Implementation:**
+```python
+def _Near_holds(state: RawState, objects: Sequence[Object], distance_threshold: int = 20) -> bool:
+    '''
+    Determine if two blocks are near each other based on a distance 
+    threshold of their bounding boxes.
+    '''
+    block1, block2 = objects
+    block1_name, block2_name = block1.id_name, block2.id_name
+    
+    # If they are the same block, they are not considered near each other.
+    if block1_name == block2_name:
+        return False
+
+    # Calculate the distance between the centers of their bounding boxes.
+    center_x1 = (state.get(block1, "bbox_left") + state.get(block1, "bbox_right")) / 2
+    center_y1 = (state.get(block1, "bbox_lower") + state.get(block1, "bbox_upper")) / 2
+    center_x2 = (state.get(block2, "bbox_left") + state.get(block2, "bbox_right")) / 2
+    center_y2 = (state.get(block2, "bbox_lower") + state.get(block2, "bbox_upper")) / 2
+    distance = ((center_x1 - center_x2)**2 + (center_y1 - center_y2)**2)**0.5
+
+    return distance <= distance_threshold 
+
+_Near = NSPredicate("Near", [_block_type, _block_type], _Near_holds) 
+```
+
+**How these predicates improve planning:**
+
+* **More Specific Preconditions:** Predicates like `Clear` and `GripperOpen` allow you to create much more precise preconditions for your actions. For example, `Stack` would require `Clear(?otherblock)` and `GripperClosed(?robot)`. 
+* **Fewer Unnecessary Actions:**  The robot won't try to stack a block on a non-clear block or pick up a block with an already open gripper. 
+* **More Efficient Plans:** With more specific preconditions, the planner can eliminate many impossible action sequences, leading to faster plan generation. 
+
+**Note:** These predicates use a combination of simple rules and visual reasoning (`evaluate_simple_assertion`). You can adjust the complexity of these predicates based on the capabilities of your VLM and the trade-off between accuracy and computational cost. 

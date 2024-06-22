@@ -253,8 +253,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         for ite in range(1, max_invent_ite+1):
             logging.info(f"===Starting iteration {ite}...")
             # Reset at every iteration
-            # self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
-            # self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
+            if CFG.reset_optn_state_dict_at_every_ite:
+                self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
+                self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
             # This will update self.task_to_tasjs
             self._process_interaction_result(env, results, tasks, ite, 
                                              use_only_first_solution=False)
@@ -264,7 +265,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             self._prev_learned_predicates: Set[Predicate] =\
                 self._learned_predicates
 
-            if ite == 1: #or no_improvement or add_new_proposal_at_every_ite:
+            if ite == 1 or no_improvement: #or add_new_proposal_at_every_ite:
                 # Invent only when there is no improvement in solve rate
                 # Or when add_new_proposal_at_every_ite is True
                 #   Create prompt to inspect the execution
@@ -285,7 +286,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # Use the results to prompt the llm
                     prompt = self._create_prompt(env, ite, 10, 2, 1)
                     response_file =\
-                        f'./prompts/invent_{self.env_name}_1.response'
+                        f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
                     new_proposals = self._get_llm_predictions(prompt,
                                                     response_file, 
@@ -372,7 +373,6 @@ class VlmInventionApproach(NSRTLearningApproach):
 
                 logging.info("[Start] Predicate search from "+
                             f"{self._initial_predicates}...")
-                if CFG.grammar_search_score_function == "operator_clf_error":
                 score_function = create_score_function(
                     CFG.grammar_search_score_function, self._initial_predicates, 
                     atom_dataset, all_candidates, self._train_tasks, 
@@ -383,6 +383,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         all_candidates, 
                         score_function, 
                         initial_predicates = self._initial_predicates)
+                breakpoint()
                 logging.info("[Finish] Predicate search.")
                 logging.info(
                 f"Total search time {time.perf_counter()-start_time:.2f} "
@@ -873,9 +874,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         # If NSP, provide the GT goal NSPs, although they are never used.
         pred_str_lst = []
         pred_str_lst.append(self._init_predicate_str(env, self.env_source_code))
-        if ite > 1:
-            pred_str_lst.append("The previously invented predicates are:")
-            pred_str_lst.append(self._invented_predicate_str(ite))
+        # if ite > 1:
+        #     pred_str_lst.append("The previously invented predicates are:")
+        #     pred_str_lst.append(self._invented_predicate_str(ite))
         pred_str = '\n'.join(pred_str_lst)
         template = template.replace("[PREDICATES_IN_ENV]", pred_str)
         
