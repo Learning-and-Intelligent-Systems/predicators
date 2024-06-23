@@ -163,7 +163,7 @@ def main() -> None:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
-    if approach.is_offline_learning_based:
+    if approach.is_offline_learning_based or CFG.make_demo_videos:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
@@ -365,12 +365,9 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
-<<<<<<< HEAD
     test_tasks = [
         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
     ]
-=======
-    test_tasks = env.get_test_tasks()
     # # Check rendering by saving the image of the init state of tasks
     # for i, task in enumerate(test_tasks):
     #     task.init.state_image.save(f"images/{env.get_name()}_"+
@@ -400,7 +397,6 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     # breakpoint()
     
     # /Check
->>>>>>> 5cd89e4a (add state labelling before individual predicate evaluation)
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()

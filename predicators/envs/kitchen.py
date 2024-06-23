@@ -309,7 +309,7 @@ README of that repo suggests!"
             self._gym_env.render()
         self._current_observation = {
             "state_info": self.get_object_centric_state_info(),
-            "obs_images": self.render()
+            "obs_images": self.render() if CFG.rgb_observation else None
         }
         return self._copy_observation(self._current_observation)
 
@@ -418,7 +418,7 @@ README of that repo suggests!"
             self._gym_env.set_body_position("kettle", kettle_coords)
         return {
             "state_info": self.get_object_centric_state_info(),
-            "obs_images": self.render()
+            "obs_images": self.render() if CFG.rgb_observation else None
         }
 
     @classmethod

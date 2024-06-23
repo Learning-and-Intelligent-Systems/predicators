@@ -11,6 +11,7 @@ from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 from inspect import getsource
 from pprint import PrettyPrinter, pformat
+import copy
 
 import numpy as np
 import PIL.Image
@@ -424,6 +425,9 @@ class Predicate:
 class DerivedPredicate(Predicate):
     pass
 
+@dataclass(frozen=True, repr=False, eq=False)
+class AnnotatedPredicate(Predicate):
+    pass
 
 @dataclass(frozen=True, order=False, repr=False, eq=False)
 class VLMPredicate(Predicate):

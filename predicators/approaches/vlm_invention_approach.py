@@ -17,7 +17,7 @@ from predicators.ground_truth_models import get_gt_nsrts
 from predicators.llm_interface import OpenAILLM, OpenAILLMNEW
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.structs import Dataset, LowLevelTrajectory, Predicate, \
-    ParameterizedOption, Type, Task, Optional, GroundAtomTrajectory, \
+    ParameterizedOption, Type, Task, Optional, GroundAtomTrajectory,\
     AnnotatedPredicate
 from predicators.approaches.grammar_search_invention_approach import \
     create_score_function 
