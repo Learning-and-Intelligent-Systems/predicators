@@ -17,8 +17,8 @@ ENVS:
     # NAME: "tools"
     # NAME: "coffee"
     # NAME: "sticky_table"
-    NAME: "pybullet_blocks"
-    # NAME: "kitchen"
+    # NAME: "pybullet_blocks"
+    NAME: "kitchen"
     # NAME: "burger"
 ARGS: 
   # []
@@ -34,8 +34,12 @@ FLAGS:
   num_train_tasks: 5
   num_test_tasks: 5
   option_learner: no_learning # include all options by flagging no learning
-  # kitchen_use_perfect_samplers: True
-  # bilevel_plan_without_sim: True
+  kitchen_use_perfect_samplers: True
+  bilevel_plan_without_sim: True
+  # included_options: "HandPressButton"
+  # stick_button_button_position: "only_bottom"
+  # stick_button_button_position: "only_top"
+  # excluded_predicates: "all"
   sesame_max_samples_per_step: 10
   min_perc_data_for_nsrt: 1
   segmenter: "option_changes"

@@ -808,7 +808,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
-                    "stick_button_move": 1000
+                    "stick_button_move": 1000,
+                    "burger": 1000
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into refining a single skeleton.

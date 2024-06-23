@@ -1,5 +1,10 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
-research/relay-policy-learning."""
+research/relay-policy-learning.
+
+To render in a headless mode, try using
+
+>>> xvfb-run -a python predicators/main.py ...
+"""
 import copy
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, cast
 
