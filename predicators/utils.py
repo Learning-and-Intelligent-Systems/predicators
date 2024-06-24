@@ -745,6 +745,9 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
 
     return np.array(sampler_input_lst)
 
+def wrap_angle(angle: float) -> float:
+    """Wrap an angle in radians to [-pi, pi]."""
+    return np.arctan2(np.sin(angle), np.cos(angle))
 
 class _Geom2D(abc.ABC):
     """A 2D shape that contains some points."""

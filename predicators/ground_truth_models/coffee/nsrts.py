@@ -15,7 +15,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"coffee"}
+        return {"coffee", "pybullet_coffee"}
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],

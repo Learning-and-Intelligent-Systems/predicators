@@ -1,16 +1,23 @@
 """Ground-truth options for the coffee environment."""
 
+from functools import lru_cache
 from typing import ClassVar, Dict, Sequence, Set, Tuple
+from typing import Type as TypingType
 
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.envs.coffee import CoffeeEnv
+from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.pybullet_helpers.controllers import \
+    get_change_fingers_action, get_move_end_effector_to_pose_action
+from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
-from predicators import utils
 
 
 class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -20,6 +27,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
     twist_policy_tol: ClassVar[float] = 1e-1
     pick_policy_tol: ClassVar[float] = 1e-1
     pour_policy_tol: ClassVar[float] = 1e-1
+    env_cls: ClassVar[TypingType[CoffeeEnv]] = CoffeeEnv
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -166,16 +174,16 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot_pos = (x, y, z)
             jug_x = state.get(jug, "x")
             jug_y = state.get(jug, "y")
-            jug_z = CoffeeEnv.jug_height
+            jug_z = cls.env_cls.jug_height
             jug_top = (jug_x, jug_y, jug_z)
             xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
             # If at the correct x and y position, move directly toward the
             # target.
             if xy_sq_dist < cls.twist_policy_tol:
-                return cls._get_move_action(jug_top, robot_pos)
+                return cls._get_move_action(state, jug_top, robot_pos)
             # Move to the position above the jug.
-            return cls._get_move_action((jug_x, jug_y, CoffeeEnv.robot_init_z),
-                                        robot_pos)
+            return cls._get_move_action(
+                state, (jug_x, jug_y, cls.env_cls.robot_init_z), robot_pos)
 
         return policy
 
@@ -192,19 +200,19 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             norm_desired_rot, = params
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
-                                -CoffeeEnv.max_angular_vel,
-                                CoffeeEnv.max_angular_vel)
+                                -cls.env_cls.max_angular_vel,
+                                cls.env_cls.max_angular_vel)
             if abs(delta_rot) < cls.twist_policy_tol:
                 # Move up to stop twisting.
                 x = state.get(robot, "x")
                 y = state.get(robot, "y")
                 z = state.get(robot, "z")
                 robot_pos = (x, y, z)
-                return cls._get_move_action((x, y, CoffeeEnv.robot_init_z),
+                return cls._get_move_action(state,
+                                            (x, y, cls.env_cls.robot_init_z),
                                             robot_pos)
-            dtwist = delta_rot / CoffeeEnv.max_angular_vel
-            return Action(
-                np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
+            dtwist = delta_rot / cls.env_cls.max_angular_vel
+            return cls._get_twist_action(dtwist)
 
         return policy
 
@@ -226,33 +234,34 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # If close enough, pick.
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
             if sq_dist_to_handle < cls.pick_policy_tol:
-                return Action(
-                    np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
-                             dtype=np.float32))
+                return cls._get_pick_action(state)
             target_x, target_y, target_z = handle_pos
             # Distance to the handle in the x/z plane.
             xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
             # Distance to the penultimate waypoint in the x/y plane.
-            waypoint_y = target_y - CoffeeEnv.pick_jug_y_padding
+            waypoint_y = target_y - cls.env_cls.pick_jug_y_padding
             # Distance in the z direction to a safe move distance.
-            safe_z_sq_dist = (CoffeeEnv.robot_init_z - z)**2
+            safe_z_sq_dist = (cls.env_cls.robot_init_z - z)**2
             xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
             # If at the correct x and z position and behind in the y direction,
             # move directly toward the target.
             if target_y > y and xz_handle_sq_dist < cls.pick_policy_tol:
-                return cls._get_move_action(handle_pos, robot_pos)
+                return cls._get_move_action(state, handle_pos, robot_pos)
             # If close enough to the penultimate waypoint in the x/y plane,
             # move to the waypoint (in the z direction).
             if xy_waypoint_sq_dist < cls.pick_policy_tol:
-                return cls._get_move_action((target_x, waypoint_y, target_z),
+                return cls._get_move_action(state,
+                                            (target_x, waypoint_y, target_z),
                                             robot_pos)
             # If at a safe height, move to the position above the penultimate
             # waypoint, still at a safe height.
-            if safe_z_sq_dist < CoffeeEnv.safe_z_tol:
+            if safe_z_sq_dist < cls.env_cls.safe_z_tol:
                 return cls._get_move_action(
-                    (target_x, waypoint_y, CoffeeEnv.robot_init_z), robot_pos)
+                    state, (target_x, waypoint_y, cls.env_cls.robot_init_z),
+                    robot_pos)
             # Move up to a safe height.
-            return cls._get_move_action((x, y, CoffeeEnv.robot_init_z),
+            return cls._get_move_action(state,
+                                        (x, y, cls.env_cls.robot_init_z),
                                         robot_pos)
 
         return policy
@@ -262,29 +271,39 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
-            # This policy picks the jug up slightly above the table to avoid
-            # worrying about friction, then moves directly to the place
-            # position, then places the jug.
+            # This policy moves directly to place the jug.
             del memory, params  # unused
             robot, jug, _ = objects
+
+            # Get the current robot position.
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            robot_pos = (x, y, z)
+
+            # Get the difference between the jug location and the target.
             # Use the jug position as the origin.
-            x = state.get(jug, "x")
-            y = state.get(jug, "y")
-            z = state.get(robot, "z") - CoffeeEnv.jug_handle_height
-            jug_pos = (x, y, z)
-            place_pos = (CoffeeEnv.dispense_area_x, CoffeeEnv.dispense_area_y,
-                         CoffeeEnv.z_lb)
+            jx = state.get(jug, "x")
+            jy = state.get(jug, "y")
+            jz = cls.env_cls.z_lb + cls.env_cls.jug_height
+            current_jug_pos = (jx, jy, jz)
+            target_jug_pos = (cls.env_cls.dispense_area_x,
+                              cls.env_cls.dispense_area_y,
+                              cls.env_cls.z_lb + cls.env_cls.jug_handle_height)
+            dx, dy, dz = np.subtract(target_jug_pos, current_jug_pos)
+
+            # Get the target robot position.
+            target_robot_pos = (x + dx, y + dy, z + dz)
             # If close enough, place.
-            sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
-            if sq_dist_to_place < CoffeeEnv.place_jug_in_machine_tol:
-                return Action(
-                    np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+            sq_dist_to_place = np.sum(
+                np.subtract(robot_pos, target_robot_pos)**2)
+            if sq_dist_to_place < cls.env_cls.place_jug_in_machine_tol:
+                return cls._get_place_action(state)
             # If already above the table, move directly toward the place pos.
-            if z > CoffeeEnv.z_lb:
-                return cls._get_move_action(place_pos, jug_pos)
-            # Move up.
-            return cls._get_move_action((x, y, z + CoffeeEnv.max_position_vel),
-                                        jug_pos)
+            return cls._get_move_action(state,
+                                        target_robot_pos,
+                                        robot_pos,
+                                        finger_status="closed")
 
         return policy
 
@@ -301,13 +320,14 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             y = state.get(robot, "y")
             z = state.get(robot, "z")
             robot_pos = (x, y, z)
-            button_pos = (CoffeeEnv.button_x, CoffeeEnv.button_y,
-                          CoffeeEnv.button_z)
-            if (CoffeeEnv.button_z - z)**2 < CoffeeEnv.button_radius**2:
+            button_pos = (cls.env_cls.button_x, cls.env_cls.button_y,
+                          cls.env_cls.button_z)
+            if (cls.env_cls.button_z - z)**2 < cls.env_cls.button_radius**2:
                 # Move directly toward the button.
-                return cls._get_move_action(button_pos, robot_pos)
+                return cls._get_move_action(state, button_pos, robot_pos)
             # Move only in the z direction.
-            return cls._get_move_action((x, y, CoffeeEnv.button_z), robot_pos)
+            return cls._get_move_action(state, (x, y, cls.env_cls.button_z),
+                                        robot_pos)
 
         return policy
 
@@ -321,8 +341,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # pour, we need to start by rotating the cup to prevent any further
             # pouring until we've moved over the next cup.
             del memory, params  # unused
-            move_tilt = CoffeeEnv.tilt_lb
-            pour_tilt = CoffeeEnv.tilt_ub
+            move_tilt = cls.env_cls.tilt_lb
+            pour_tilt = cls.env_cls.tilt_ub
             robot, jug, cup = objects
             robot_x = state.get(robot, "x")
             robot_y = state.get(robot, "y")
@@ -334,26 +354,41 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             jug_z = cls._get_jug_z(state, robot, jug)
             jug_pos = (jug_x, jug_y, jug_z)
             pour_x, pour_y, _ = pour_pos = cls._get_pour_position(state, cup)
+            dx, dy, dz = np.subtract(pour_pos, jug_pos)
+            # Get the target robot position.
+            robot_pour_pos = (robot_x + dx, robot_y + dy, robot_z + dz)
             # If we're close enough to the pour position, pour.
             sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
             if sq_dist_to_pour < cls.pour_policy_tol:
                 dtilt = pour_tilt - tilt
-                return cls._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
+                return cls._get_move_action(state,
+                                            robot_pos,
+                                            robot_pos,
+                                            dtilt=dtilt,
+                                            finger_status="closed")
             dtilt = move_tilt - tilt
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
-            if xy_pour_sq_dist < CoffeeEnv.safe_z_tol:
-                return cls._get_move_action(pour_pos, jug_pos, dtilt=dtilt)
+            if xy_pour_sq_dist < cls.env_cls.safe_z_tol:
+                return cls._get_move_action(state,
+                                            robot_pour_pos,
+                                            robot_pos,
+                                            dtilt=0.0,
+                                            finger_status="closed")
             # If we're at a safe height, move toward above the pour position.
-            if (robot_z - CoffeeEnv.robot_init_z)**2 < CoffeeEnv.safe_z_tol:
-                return cls._get_move_action((pour_x, pour_y, jug_z),
-                                            jug_pos,
-                                            dtilt=dtilt)
-            # Move to a safe moving height.
+            if (robot_z -
+                    cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
+                return cls._get_move_action(
+                    state, (robot_pour_pos[0], robot_pour_pos[1], robot_z),
+                    robot_pos,
+                    dtilt=0.0,
+                    finger_status="closed")
+            # Move backward and to a safe moving height.
             return cls._get_move_action(
-                (robot_x, robot_y, CoffeeEnv.robot_init_z),
+                state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,
-                dtilt=dtilt)
+                dtilt=0.0,
+                finger_status="closed")
 
         return policy
 
@@ -361,10 +396,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _get_move_action(cls,
+                         state: State,
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
                          dtilt: float = 0.0,
-                         dwrist: float = 0.0) -> Action:
+                         dwrist: float = 0.0,
+                         finger_status: str = "open") -> Action:
+        del state, finger_status  # used in PyBullet subclass
         # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
         # But we can only move at most max_position_vel in one step.
@@ -372,39 +410,303 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         pos_norm = float(np.linalg.norm(delta))
         # If the norm is more than max_position_vel, rescale the delta so
         # that its norm is max_position_vel.
-        if pos_norm > CoffeeEnv.max_position_vel:
-            delta = CoffeeEnv.max_position_vel * (delta / pos_norm)
-            pos_norm = CoffeeEnv.max_position_vel
+        if pos_norm > cls.env_cls.max_position_vel:
+            delta = cls.env_cls.max_position_vel * (delta / pos_norm)
+            pos_norm = cls.env_cls.max_position_vel
         # Now normalize so that the action values are between -1 and 1, as
         # expected by simulate and the action space.
         if pos_norm > 0:
-            delta = delta / CoffeeEnv.max_position_vel
+            delta = delta / cls.env_cls.max_position_vel
         dx, dy, dz = delta
-        dtilt = np.clip(dtilt, -CoffeeEnv.max_angular_vel,
-                        CoffeeEnv.max_angular_vel)
-        dtilt = dtilt / CoffeeEnv.max_angular_vel
+        dtilt = np.clip(dtilt, -cls.env_cls.max_angular_vel,
+                        cls.env_cls.max_angular_vel)
+        dtilt = dtilt / cls.env_cls.max_angular_vel
         return Action(
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
+
+    @classmethod
+    def _get_twist_action(cls, dtwist: float) -> Action:
+        return Action(
+            np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
+
+    @classmethod
+    def _get_pick_action(cls, state: State) -> Action:
+        del state  # used by PyBullet subclass
+        return Action(
+            np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
+
+    @classmethod
+    def _get_place_action(cls) -> Action:
+        del state  # used by PyBullet subclass
+        return Action(
+            np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
 
     @classmethod
     def _get_jug_handle_grasp(cls, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Hack to avoid duplicate code.
-        return CoffeeEnv._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
+        return cls.env_cls._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
 
     @classmethod
     def _get_jug_z(cls, state: State, robot: Object, jug: Object) -> float:
-        try:
-            assert state.get(jug, "is_held") > 0.5
-        except:
-            raise utils.OptionExecutionFailure("Jug is not held.")
+        assert state.get(jug, "is_held") > 0.5
         # Offset to account for handle.
-        return state.get(robot, "z") - CoffeeEnv.jug_handle_height
+        return state.get(robot, "z") - cls.env_cls.jug_handle_height
 
-    @staticmethod
-    def _get_pour_position(state: State,
+    @classmethod
+    def _get_pour_position(cls, state: State,
                            cup: Object) -> Tuple[float, float, float]:
-        target_x = state.get(cup, "x") + CoffeeEnv.pour_x_offset
-        target_y = state.get(cup, "y") + CoffeeEnv.pour_y_offset
-        target_z = CoffeeEnv.pour_z_offset
+        target_x = state.get(cup, "x") + cls.env_cls.pour_x_offset
+        target_y = state.get(cup, "y") + cls.env_cls.pour_y_offset
+        target_z = cls.env_cls.z_lb + cls.env_cls.pour_z_offset
         return (target_x, target_y, target_z)
+
+
+@lru_cache
+def _get_pybullet_robot() -> SingleArmPyBulletRobot:
+    _, pybullet_robot, _ = \
+        PyBulletCoffeeEnv.initialize_pybullet(using_gui=False)
+    return pybullet_robot
+
+
+class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
+    """Ground-truth options for the pybullet_coffee environment."""
+
+    env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletCoffeeEnv
+    twist_policy_tol: ClassVar[float] = 1e-3
+    pick_policy_tol: ClassVar[float] = 1e-3
+    pour_policy_tol: ClassVar[float] = 1e-3
+    _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"pybullet_coffee"}
+
+    @classmethod
+    def _get_move_action(cls,
+                         state: State,
+                         target_pos: Tuple[float, float, float],
+                         robot_pos: Tuple[float, float, float],
+                         dtilt: float = 0.0,
+                         dwrist: float = 0.0,
+                         finger_status: str = "open") -> Action:
+        pybullet_robot = _get_pybullet_robot()
+
+        # Determine orientations.
+        robots = [r for r in state if r.type.name == "robot"]
+        assert len(robots) == 1
+        robot = robots[0]
+        current_tilt = state.get(robot, "tilt")
+        current_wrist = state.get(robot, "wrist")
+        current_quat = PyBulletCoffeeEnv.tilt_wrist_to_gripper_orn(
+            current_tilt, current_wrist)
+        target_quat = PyBulletCoffeeEnv.tilt_wrist_to_gripper_orn(
+            current_tilt + dtilt, current_wrist + dwrist)
+        assert dwrist == 0.0  # temp
+        current_pose = Pose(robot_pos, current_quat)
+        target_pose = Pose(target_pos, target_quat)
+        assert isinstance(state, utils.PyBulletState)
+        current_joint_positions = state.joint_positions
+
+        # import pybullet as p
+        # p.addUserDebugText("+", robot_pos,
+        #                        [0.0, 1.0, 0.0],
+        #                        physicsClientId=pybullet_robot.physics_client_id)
+        # p.addUserDebugText("*", target_pos,
+        #                        [1.0, 0.0, 0.0],
+        #                        physicsClientId=pybullet_robot.physics_client_id)
+
+        # import time
+        # time.sleep(1.0)
+
+        return get_move_end_effector_to_pose_action(
+            pybullet_robot, current_joint_positions, current_pose, target_pose,
+            finger_status, CFG.pybullet_max_vel_norm,
+            cls._finger_action_nudge_magnitude)
+
+    @classmethod
+    def _get_twist_action(cls, dtwist: float) -> Action:
+        import ipdb
+        ipdb.set_trace()
+
+    @classmethod
+    def _get_finger_action(cls, state: State,
+                           target_pybullet_fingers: float) -> Action:
+        pybullet_robot = _get_pybullet_robot()
+        robots = [r for r in state if r.type.name == "robot"]
+        assert len(robots) == 1
+        robot = robots[0]
+        current_finger_state = state.get(robot, "fingers")
+        current_finger_joint = PyBulletCoffeeEnv.fingers_state_to_joint(
+            pybullet_robot, current_finger_state)
+        assert isinstance(state, utils.PyBulletState)
+        current_joint_positions = state.joint_positions
+
+        return get_change_fingers_action(
+            pybullet_robot,
+            current_joint_positions,
+            current_finger_joint,
+            target_pybullet_fingers,
+            CFG.pybullet_max_vel_norm,
+        )
+
+    @classmethod
+    def _get_pick_action(cls, state: State) -> Action:
+        pybullet_robot = _get_pybullet_robot()
+        return cls._get_finger_action(state, pybullet_robot.closed_fingers)
+
+    @classmethod
+    def _get_place_action(cls, state: State) -> Action:
+        pybullet_robot = _get_pybullet_robot()
+        return cls._get_finger_action(state, pybullet_robot.open_fingers)
+
+
+# class PyBulletCoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
+#     """Ground-truth options for the pybullet_coffee environment."""
+
+#     @classmethod
+#     def get_env_names(cls) -> Set[str]:
+#         return {"pybullet_coffee"}
+
+#     @classmethod
+#     def get_options(cls, env_name: str, types: Dict[str, Type],
+#                     predicates: Dict[str, Predicate],
+#                     action_space: Box) -> Set[ParameterizedOption]:
+
+#         # The options are the same as in the regular coffee environment, except
+#         # for the policies.
+#         coffee_options = CoffeeGroundTruthOptionFactory.get_options(
+#             "coffee", types, predicates, action_space)
+#         coffee_option_name_to_option = {o.name: o for o in coffee_options}
+
+#         # MoveToTwistJug
+#         coffee_MoveToTwistJug = coffee_option_name_to_option["MoveToTwistJug"]
+#         MoveToTwistJug = ParameterizedOption(
+#             coffee_MoveToTwistJug.name,
+#             types=coffee_MoveToTwistJug.types,
+#             params_space=coffee_MoveToTwistJug.params_space,
+#             policy=cls._create_move_to_twist_policy(),
+#             initiable=coffee_MoveToTwistJug.initiable,
+#             terminal=coffee_MoveToTwistJug.terminal)
+
+#         # TwistJug
+#         coffee_TwistJug = coffee_option_name_to_option["TwistJug"]
+#         TwistJug = ParameterizedOption(
+#             coffee_TwistJug.name,
+#             types=coffee_TwistJug.types,
+#             params_space=coffee_TwistJug.params_space,
+#             policy=cls._create_twist_jug_policy(),
+#             initiable=coffee_TwistJug.initiable,
+#             terminal=coffee_TwistJug.terminal,
+#         )
+
+#         # PickJug
+#         coffee_PickJug = coffee_option_name_to_option["PickJug"]
+#         PickJug = ParameterizedOption(
+#             coffee_PickJug.name,
+#             types=coffee_PickJug.types,
+#             params_space=coffee_PickJug.params_space,
+#             policy=cls._create_pick_jug_policy(),
+#             initiable=coffee_PickJug.initiable,
+#             terminal=coffee_PickJug.terminal,
+#         )
+
+#         # PlaceJugInMachine
+#         coffee_PlaceJugInMachine = \
+#             coffee_option_name_to_option["PlaceJugInMachine"]
+#         PlaceJugInMachine = ParameterizedOption(
+#             coffee_PlaceJugInMachine.name,
+#             types=coffee_PlaceJugInMachine.types,
+#             params_space=coffee_PlaceJugInMachine.params_space,
+#             policy=cls._create_place_jug_in_machine_policy(),
+#             initiable=coffee_PlaceJugInMachine.initiable,
+#             terminal=coffee_PlaceJugInMachine.terminal,
+#         )
+
+#         # TurnMachineOn
+#         coffee_TurnMachineOn = coffee_option_name_to_option["TurnMachineOn"]
+#         TurnMachineOn = ParameterizedOption(
+#             coffee_TurnMachineOn.name,
+#             types=coffee_TurnMachineOn.types,
+#             params_space=coffee_TurnMachineOn.params_space,
+#             policy=cls._create_turn_machine_on_policy(),
+#             initiable=coffee_TurnMachineOn.initiable,
+#             terminal=coffee_TurnMachineOn.terminal,
+#         )
+
+#         # Pour
+#         coffee_Pour = coffee_option_name_to_option["Pour"]
+#         Pour = ParameterizedOption(
+#             coffee_Pour.name,
+#             types=coffee_Pour.types,
+#             params_space=coffee_Pour.params_space,
+#             policy=cls._create_pour_policy(),
+#             initiable=coffee_Pour.initiable,
+#             terminal=coffee_Pour.terminal,
+#         )
+
+#         return {
+#             TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, Pour,
+#             MoveToTwistJug
+#         }
+
+#     @classmethod
+#     def _create_move_to_twist_policy(cls) -> ParameterizedPolicy:
+
+#         def policy(state: State, memory: Dict, objects: Sequence[Object],
+#                    params: Array) -> Action:
+#             import ipdb
+#             ipdb.set_trace()
+
+#         return policy
+
+#     @classmethod
+#     def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
+
+#         def policy(state: State, memory: Dict, objects: Sequence[Object],
+#                    params: Array) -> Action:
+
+#             import ipdb
+#             ipdb.set_trace()
+
+#         return policy
+
+#     @classmethod
+#     def _create_pick_jug_policy(cls) -> ParameterizedPolicy:
+
+#         def policy(state: State, memory: Dict, objects: Sequence[Object],
+#                    params: Array) -> Action:
+#             import ipdb
+#             ipdb.set_trace()
+
+#         return policy
+
+#     @classmethod
+#     def _create_place_jug_in_machine_policy(cls) -> ParameterizedPolicy:
+
+#         def policy(state: State, memory: Dict, objects: Sequence[Object],
+#                    params: Array) -> Action:
+#             import ipdb
+#             ipdb.set_trace()
+
+#         return policy
+
+#     @classmethod
+#     def _create_turn_machine_on_policy(cls) -> ParameterizedPolicy:
+
+#         def policy(state: State, memory: Dict, objects: Sequence[Object],
+#                    params: Array) -> Action:
+#             import ipdb
+#             ipdb.set_trace()
+
+#         return policy
+
+#     @classmethod
+#     def _create_pour_policy(cls) -> ParameterizedPolicy:
+
+#         def policy(state: State, memory: Dict, objects: Sequence[Object],
+#                    params: Array) -> Action:
+#             import ipdb
+#             ipdb.set_trace()
+
+#         return policy
