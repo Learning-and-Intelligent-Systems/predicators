@@ -33,19 +33,19 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("AVG_REF_COST", "avg_ref_cost"),
-    # ("AVG_SAMPLES_PER_PLAN", "avg_num_samples"),
-    # ("MIN_SAMPLES_PER_PLAN", "min_num_samples"),
-    # ("MAX_SAMPLES_PER_PLAN", "max_num_samples"),
-    # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
-    # ("MIN_SKELETONS", "min_skeletons_optimized"),
-    # ("MAX_SKELETONS", "max_skeletons_optimized"),
+    ("AVG_SAMPLES_PER_PLAN", "avg_num_samples"),
+    ("MIN_SAMPLES_PER_PLAN", "min_num_samples"),
+    ("MAX_SAMPLES_PER_PLAN", "max_num_samples"),
+    ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
+    ("MIN_SKELETONS", "min_skeletons_optimized"),
+    ("MAX_SKELETONS", "max_skeletons_optimized"),
     # ("AVG_NODES_EXPANDED", "avg_num_nodes_expanded"),
     # ("AVG_NUM_NSRTS", "avg_num_nsrts"),
     # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
     # ("AVG_PLAN_LEN", "avg_plan_length"),
-    # ("NUM_EXECUTION_FAILURES", "num_execution_failures"),
-    # ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
-    # ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
+    ("NUM_EXECUTION_FAILURES", "num_execution_failures"),
+    ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
+    ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
     # ("QUERY_COST", "query_cost"),
 ]
 
@@ -95,6 +95,8 @@ def create_raw_dataframe(
     """Returns one dataframe with all data, not grouped."""
     all_data = []
     git_commit_hashes = set()
+
+
     column_names = [c for (c, _) in column_names_and_keys]
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
@@ -109,7 +111,7 @@ def create_raw_dataframe(
         else:
             run_data_defaultdict = outdata
         (env, approach, seed, excluded_predicates, included_options,
-         experiment_id, online_learning_cycle) = filepath[8:-4].split("__")
+         experiment_id, sampler, online_learning_cycle) = filepath[8:-4].split("__")
         if not excluded_predicates:
             excluded_predicates = "none"
         run_data = dict(
@@ -146,18 +148,18 @@ def create_dataframes(
     column_names_and_keys: Sequence[Tuple[str, str]],
     groups: Sequence[str],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes."""
     df = create_raw_dataframe(column_names_and_keys, derived_keys)
     grouped = df.groupby(list(groups))
     means = grouped.mean(numeric_only=True)
     stds = grouped.std(numeric_only=True, ddof=0)
     sizes = grouped.size().to_frame()
-    return means, stds, sizes
+    return means, stds, sizes, df
 
 
 def _main() -> None:
-    means, stds, sizes = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS, [])
+    means, stds, sizes, df = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS, [])
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
@@ -167,7 +169,7 @@ def _main() -> None:
     means["NUM_SEEDS"] = sizes
     pd.set_option("expand_frame_repr", False)
     print("\n\nAGGREGATED DATA OVER SEEDS:")
-    print(means)
+    print(df)
     means.to_csv("results_summary.csv")
     print("\n\nWrote out table to results_summary.csv")
 

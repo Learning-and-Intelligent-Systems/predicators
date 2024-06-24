@@ -6,6 +6,7 @@ import abc
 import itertools
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
+import logging
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
@@ -505,7 +506,8 @@ class ParameterizedOption:
 
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
-        assert len(objects) == len(self.types)
+
+        assert len(objects) == len(self.types), f"option: {self.name}, objects: {objects}, len(self.types): {len(self.types)}"
         for obj, t in zip(objects, self.types):
             assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
@@ -997,7 +999,12 @@ class _GroundNSRT:
         # Clip the params into the params_space of self.option, for safety.
         low = self.option.params_space.low
         high = self.option.params_space.high
+        logging.info(low)
+        logging.info(high)
+        logging.info(params)
+        logging.info(f'option name: {self.name}')
         params = np.clip(params, low, high)
+
         return self.option.ground(self.option_objs, params)
 
     def copy_with(self, **kwargs: Any) -> _GroundNSRT:

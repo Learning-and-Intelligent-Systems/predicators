@@ -10,7 +10,7 @@ from predicators.envs.cover import CoverMultistepOptions
 from predicators.envs.pybullet_cover import PyBulletCoverEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.controllers import \
-    create_change_fingers_option, create_move_end_effector_to_pose_option
+    create_change_fingers_option, MotionPlanController
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG

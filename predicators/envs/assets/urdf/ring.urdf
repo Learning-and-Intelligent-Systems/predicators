@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<robot name="ring">
+  <link name="baseLink">
+
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".05"/>
+       <inertia ixx="0.00002663125" ixy="0" ixz="0" iyy="0.00002663125" iyz="0" izz="0.0000476375"/>
+    </inertial>
+
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+				<mesh filename="ring.obj" scale="0.004 0.004 0.015"/>
+      </geometry>
+       <material name="red">
+        <color rgba="1 0 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+	 	<mesh filename="ring.obj" scale="0.004 0.004 0.015"/>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>1</mu>
+            <mu2>1</mu2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <min_depth>0.01</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+  </link>
+</robot>

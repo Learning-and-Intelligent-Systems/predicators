@@ -27,8 +27,9 @@ def install_ikfast_module(ikfast_dir: str) -> None:
         "python setup.py",
     ]
     # Execute the command.
-    cmd = "; ".join(cmds)
-    logging.debug(f"Executing command: {cmd}")
+    logging.info(f"{ikfast_dir}")
+    cmd = " & ".join(cmds)
+    logging.info(f"Executing command: {cmd}")
     exit_value = os.system(cmd)
     if exit_value != 0:
         raise RuntimeError(
@@ -45,9 +46,11 @@ def install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
     """
     ikfast_dir = os.path.join(get_third_party_path(), "ikfast",
                               ikfast_info.module_dir)
-    glob_pattern = os.path.join(ikfast_dir, f"{ikfast_info.module_name}*.so")
+    glob_pattern = os.path.join(ikfast_dir, f"{ikfast_info.module_name}*.pyd")
     so_filepaths = glob.glob(glob_pattern)
 
+    logging.info(f'glob_pattern {glob_pattern}')
+    logging.info(so_filepaths)
     # We need to install.
     if not so_filepaths:
         logging.warning(

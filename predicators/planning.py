@@ -136,6 +136,9 @@ def _sesame_plan_with_astar(
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
+    for nsrt in nsrts:
+        logging.info(f'param space for nsrt: {nsrt.name}, {nsrt.option.params_space}')
+
     while True:
         # Optionally exclude NSRTs with empty effects, because they can slow
         # the search significantly, so we may want to exclude them. Note however
@@ -175,6 +178,7 @@ def _sesame_plan_with_astar(
                         skeleton, atoms_sequence, task.goal)
                 else:
                     atoms_seq = atoms_sequence
+
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), metrics,
@@ -191,6 +195,7 @@ def _sesame_plan_with_astar(
                     metrics["plan_length"] = len(plan)
                     metrics["refinement_time"] = (time.perf_counter() -
                                                   refinement_start_time)
+                    logging.info(f'(planning.py) PLAN: {plan}')
                     return plan, skeleton, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
@@ -257,7 +262,14 @@ def filter_nsrts(
     ]
     all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
                                                     init_atoms)
+    logging.info(f'all_reachable_atoms: {all_reachable_atoms}')
+    logging.info(f'init atoms: {init_atoms}')
+    logging.info(f'ground_nsrts: {ground_nsrts}')
     if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
+        logging.info(f'all_reachable_atoms: {all_reachable_atoms}')
+        logging.info(f'init atoms: {init_atoms}')
+        logging.info(f'ground_nsrts: {ground_nsrts}')
+    
         raise PlanningFailure(f"Goal {task.goal} not dr-reachable")
     reachable_nsrts = [
         nsrt for nsrt in nonempty_ground_nsrts
@@ -321,7 +333,11 @@ def task_plan(
     utils.create_task_planning_heuristic; then call this method. See the tests
     in tests/test_planning for usage examples.
     """
+    
     if not goal.issubset(reachable_atoms):
+        logging.info(f'init atoms: {init_atoms}')
+        logging.info(f'ground_nsrts: {ground_nsrts}')
+    
         logging.info(f"Detected goal unreachable. Goal: {goal}")
         logging.info(f"Initial atoms: {init_atoms}")
         raise PlanningFailure(f"Goal {goal} not dr-reachable")
@@ -403,9 +419,14 @@ def _skeleton_generator(
         # for act in node.skeleton:
         #     logging.info(f"{act.name} {act.objects}")
         # logging.info("")
+        for act in node.skeleton:
+             logging.info(f"{act.name} {act.objects}")
+        logging.info("")
+        
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
+            logging.info('yielded')
             yield node.skeleton, node.atoms_sequence
         else:
             # Generate successors.
@@ -541,6 +562,8 @@ def run_low_level_search(
         None for _ in skeleton
     ]
     plan_found = False
+    for nsrt in skeleton:
+        logging.info(f'param space for nsrt: {nsrt.name}, {nsrt.option.params_space}')
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
             return longest_failed_refinement, False
@@ -552,10 +575,14 @@ def run_low_level_search(
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
+        logging.info(num_tries)
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
+        logging.info(f"sampling option for nsrt: {nsrt}")
+
         option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
+        logging.info(f"option: {option}")
         # Increment num_samples metric by 1
         metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
@@ -564,8 +591,11 @@ def run_low_level_search(
             try:
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
+                logging.info(next_state)
+                logging.info(num_actions)
             except EnvironmentFailure as e:
                 can_continue_on = False
+                logging.info("Failed")
                 # Remember only the most recent failure.
                 discovered_failures[cur_idx - 1] = _DiscoveredFailure(e, nsrt)
             else:  # an EnvironmentFailure was not raised

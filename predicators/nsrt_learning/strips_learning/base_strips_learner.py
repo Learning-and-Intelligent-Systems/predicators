@@ -130,12 +130,12 @@ class BaseSTRIPSLearner(abc.ABC):
                 seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
                 option_specs)
             if not demo_preserved:
-                logging.debug("Harmlessness not preserved for demo!")
-                logging.debug(f"Initial atoms: {atoms_seq[0]}")
+                logging.info("Harmlessness not preserved for demo!")
+                logging.info(f"Initial atoms: {atoms_seq[0]}")
                 for t in range(1, len(atoms_seq)):
-                    logging.debug(f"Timestep {t} add effects: "
+                    logging.info(f"Timestep {t} add effects: "
                                   f"{atoms_seq[t] - atoms_seq[t-1]}")
-                    logging.debug(f"Timestep {t} del effects: "
+                    logging.info(f"Timestep {t} del effects: "
                                   f"{atoms_seq[t-1] - atoms_seq[t]}")
                 return False
         return True

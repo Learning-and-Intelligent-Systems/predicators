@@ -1,6 +1,7 @@
 """Motion Planning in PyBullet."""
 from __future__ import annotations
 
+import logging
 from typing import Collection, Iterator, Optional, Sequence
 
 import numpy as np
@@ -72,6 +73,9 @@ def run_motion_planning(
         _set_state(pt)
         p.performCollisionDetection(physicsClientId=physics_client_id)
         for body in collision_bodies:
+            # logging.info(type(body))
+            # logging.info(collision_bodies)
+            # logging.info(type(physics_client_id))
             if p.getContactPoints(robot.robot_id,
                                   body,
                                   physicsClientId=physics_client_id):
@@ -84,6 +88,9 @@ def run_motion_planning(
     def _distance_fn(from_pt: JointPositions, to_pt: JointPositions) -> float:
         # NOTE: only using positions to calculate distance. Should use
         # orientations as well in the near future.
+
+        # Quincy Question
+
         from_ee = robot.forward_kinematics(from_pt).position
         to_ee = robot.forward_kinematics(to_pt).position
         return sum(np.subtract(from_ee, to_ee)**2)

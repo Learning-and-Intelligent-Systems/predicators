@@ -1,10 +1,11 @@
 """Note: this subdirectory is modified from the pybullet-planning repository
 by Caelan Garrett (https://github.com/caelan/pybullet-planning/)."""
-
+import logging
 import sys
+sys.path.append("C:/Users/quinc/Documents/LIS/predicators/predicators/third_party/ikfast")
+
 
 from compile import compile_ikfast
-
 
 def main():
     # lib name template: 'ikfast_<robot name>'

@@ -83,6 +83,7 @@ class BlocksEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         x, y, z, fingers = action.arr
+        logging.info("transition")
         # Infer which transition function to follow
         if fingers < 0.5:
             return self._transition_pick(state, x, y, z)
@@ -292,6 +293,7 @@ class BlocksEnv(BaseEnv):
                 goal = self._sample_goal_from_piles(num_blocks, piles, rng)
                 if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
+            logging.info(f'GOAL: {goal}')
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
@@ -411,6 +413,7 @@ class BlocksEnv(BaseEnv):
         block, = objects
         z = state.get(block, "pose_z")
         desired_z = self.table_height + self._block_size * 0.5
+
         return (state.get(block, "held") < self.held_tol) and \
             (desired_z-self.on_tol < z < desired_z+self.on_tol)
 

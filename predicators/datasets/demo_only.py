@@ -44,6 +44,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         logging.info(f"\n\nCREATED {len(dataset.trajectories)} DEMONSTRATIONS")
 
         with open(dataset_fname, "wb") as f:
+            logging.info(dataset_fname)
             pkl.dump(dataset, f)
     return dataset
 

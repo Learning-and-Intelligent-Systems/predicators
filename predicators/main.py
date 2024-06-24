@@ -53,7 +53,7 @@ from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options, \
-    parse_config_included_options
+    parse_config_included_options, get_gt_nsrts
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
@@ -92,6 +92,8 @@ def main() -> None:
     os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
+
+
     # The action space needs to be seeded externally, because env.action_space
     # is often created during env __init__().
     env.action_space.seed(CFG.seed)
@@ -120,6 +122,10 @@ def main() -> None:
     else:
         # Determine from the config which oracle options to include, if any.
         options = parse_config_included_options(env)
+    nsrts = get_gt_nsrts(env.get_name(), preds, options)
+    for nsrt in nsrts:
+        logging.info(f'{nsrt.name}:{nsrt.option.params_space}')
+    #exit()
     # Create the agent (approach).
     approach_name = CFG.approach
     if CFG.approach_wrapper:

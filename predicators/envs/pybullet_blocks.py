@@ -39,7 +39,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         """Run super(), then handle blocks-specific initialization."""
         physics_client_id, pybullet_robot, bodies = super(
         ).initialize_pybullet(using_gui)
-
+        logging.info(f'CLIENT ID: {physics_client_id}')
         table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
                               useFixedBase=True,
                               physicsClientId=physics_client_id)
@@ -94,6 +94,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # (teleporting them far away) based on which ones are in the state.
         num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
+        logging.info(num_blocks)
         block_ids = []
         block_size = CFG.blocks_block_size
         for i in range(num_blocks):
@@ -104,6 +105,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 create_pybullet_block(color, half_extents, cls._obj_mass,
                                       cls._obj_friction, cls._default_orn,
                                       physics_client_id))
+        logging.info(block_ids)
         bodies["block_ids"] = block_ids
 
         return physics_client_id, pybullet_robot, bodies
@@ -140,12 +142,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle blocks-specific resetting."""
         super()._reset_state(state)
-
+        logging.info("resetting pybullet state")
         # Reset blocks based on the state.
         block_objs = state.get_objects(self._block_type)
+        logging.info(block_objs)
         self._block_id_to_block = {}
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
+
+
             self._block_id_to_block[block_id] = block_obj
             bx = state.get(block_obj, "pose_x")
             by = state.get(block_obj, "pose_y")
@@ -159,6 +164,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             g = state.get(block_obj, "color_g")
             b = state.get(block_obj, "color_b")
             color = (r, g, b, 1.0)  # alpha = 1.0
+
             p.changeVisualShape(block_id,
                                 linkIndex=-1,
                                 rgbaColor=color,
@@ -174,6 +180,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
+
             assert block_id not in self._block_id_to_block
             p.resetBasePositionAndOrientation(
                 block_id, [oov_x, oov_y, i * h],
@@ -220,6 +227,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         state = utils.PyBulletState(state_dict,
                                     simulator_state=joint_positions)
+
+
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")

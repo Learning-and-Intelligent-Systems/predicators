@@ -2,7 +2,6 @@
 from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
 import gym
-import gym_sokoban  # pylint:disable=unused-import
 import matplotlib
 import numpy as np
 from gym.spaces import Box

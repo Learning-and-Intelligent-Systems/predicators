@@ -1187,12 +1187,15 @@ def run_policy_with_simulator(
     states = [state]
     actions: List[Action] = []
     exception_raised_in_step = False
+    logging.info(f"Simulate forward with max steps: {max_num_steps}")
     if not termination_function(state):
         for _ in range(max_num_steps):
+            logging.info('Sim step')
             monitor_observed = False
             exception_raised_in_step = False
             try:
                 act = policy(state)
+                logging.info(f"getting action: {act}")
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
@@ -1200,13 +1203,16 @@ def run_policy_with_simulator(
                 actions.append(act)
                 states.append(state)
             except Exception as e:
+                logging.info("exception in sim")
                 if exceptions_to_break_on is not None and \
                     type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
                 if monitor is not None and not monitor_observed:
-                    monitor.observe(state, None)
+                    monitor.observe(state, None
+                    )
+                
                 raise e
             if termination_function(state):
                 break
@@ -2216,7 +2222,10 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """
     atoms = set()
     for pred in preds:
+        logging.info(f'pred: {pred}')
         for choice in get_object_combinations(list(state), pred.types):
+            logging.info(f'choice: {choice}')
+
             if pred.holds(state, choice):
                 atoms.add(GroundAtom(pred, choice))
     return atoms
@@ -2591,6 +2600,8 @@ def load_ground_atom_dataset(
         # Load the ground atoms dataset.
         with open(dataset_fname, "rb") as f:
             ground_atom_dataset_atoms = pkl.load(f)
+        logging.info(len(trajectories))
+        logging.info(len(ground_atom_dataset_atoms))
         assert ground_atom_dataset_atoms is not None
         assert len(trajectories) == len(ground_atom_dataset_atoms)
         logging.info("\n\nLOADED GROUND ATOM DATASET")
@@ -3180,7 +3191,10 @@ def get_third_party_path() -> str:
     """Return the absolute path to the third party directory."""
     module_path = Path(__file__)
     predicators_dir = module_path.parent
+    logging.info(f"predicators_dir: {predicators_dir}")
+
     third_party_dir_path = os.path.join(predicators_dir, "third_party")
+    logging.info(third_party_dir_path)
     return third_party_dir_path
 
 
@@ -3275,7 +3289,7 @@ def get_config_path_str(experiment_id: Optional[str] = None) -> str:
     if experiment_id is None:
         experiment_id = CFG.experiment_id
     return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
-            f"__{CFG.included_options}__{experiment_id}")
+            f"__{CFG.included_options}__{CFG.sampler_learning_regressor_model}__{experiment_id}")
 
 
 def get_approach_save_path_str() -> str:

@@ -5,6 +5,7 @@ Note: to promote modularity, this file should NOT import CFG.
 
 import abc
 import logging
+import math
 import os
 import tempfile
 from collections import deque
@@ -1310,6 +1311,420 @@ def _train_pytorch_model(model: nn.Module,
 # next low-level state, reward, done.
 MapleQData = Tuple[State, Set[GroundAtom], _Option, State, float, bool]
 
+class DiffusionRegressor(nn.Module, DistributionRegressor):
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: int, timesteps: int,
+                 learning_rate: float) -> None:
+        super().__init__()
+        torch.set_num_threads(CFG.torch_num_threads)  # reset here to get the cmd line arg
+        self._linears = nn.ModuleList()
+        self._hid_sizes = hid_sizes
+        self._max_train_iters = max_train_iters
+        self._timesteps = timesteps
+        self._device = 'cuda' if CFG.use_cuda else 'cpu'
+        self._optimizer = None
+        self._learning_rate = learning_rate
+        self.is_trained = False
+
+        # define beta schedule
+        self._betas = self._cosine_beta_schedule(timesteps=timesteps)
+        # self._betas = self._linear_beta_schedule(timesteps=timesteps)
+
+        # define alphas
+        alphas = 1. - self._betas
+        alphas_cumprod = torch.cumprod(alphas, axis=0)
+        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
+        self._sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
+
+        # calculations for diffusion q(x_t | x_{t-1}) and others
+        self._sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+        self._sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
+
+        # calculations for posterior q(x_{t-1} | x_t, x_0)
+        self._posterior_variance = self._betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+
+        self._cache_num_samples = CFG.sesame_max_samples_per_step  # * CFG.ebm_aux_n_samples
+        self._cache = {}
+
+    def forward(self, X_cond, Y_out, t, return_aux=False):
+        half_t_dim = self._t_dim // 2
+        t_embeddings = math.log(10000) / (half_t_dim - 1)
+        t_embeddings = torch.exp(torch.arange(half_t_dim, device=self._device) * -t_embeddings)
+        t_embeddings = t[:, None] * t_embeddings[None, :]
+        t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
+        X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
+        for linear in self._linears[:-1]:
+            # X = F.relu(F.dropout(linear(X), p=0.5, training=self.training))
+            X = F.relu(linear(X))
+        X = self._linears[-1](X)
+        if return_aux:
+            return X[:, self._y_dim:]
+        return X[:, :self._y_dim]
+
+    def fit(self, X_cond: Array, Y_out: Array,
+            Y_aux: Optional[Array] = None) -> None:  # X_neg: Array, Y_neg: Array) -> None:
+        num_data, _ = Y_out.shape
+        if not self.is_trained:
+            self.is_trained = True
+            self._x_cond_dim = X_cond.shape[1]
+            self._t_dim = (X_cond.shape[1] // 2) * 2  # make sure it's even
+            _, self._y_dim = Y_out.shape
+            self._x_dim = self._x_cond_dim + self._t_dim + self._y_dim
+
+            self._input_shift = np.min(X_cond, axis=0)
+            self._input_scale = np.max(X_cond - self._input_shift, axis=0)
+            self._input_scale = np.clip(self._input_scale, 1e-6, None)
+
+            self._output_shift = np.min(Y_out, axis=0)
+            self._output_scale = np.max(Y_out - self._output_shift, axis=0)
+            self._output_scale = np.clip(self._output_scale, 1e-6, None)
+
+            if Y_aux is not None:
+                self._y_aux_dim = Y_aux.shape[1]
+                self._output_aux_shift = np.min(Y_aux, axis=0)
+                self._output_aux_scale = np.max(Y_aux - self._output_aux_shift, axis=0)
+                self._output_aux_scale = np.clip(self._output_aux_scale, 1e-6, None)
+
+        X_cond = ((X_cond - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out = ((Y_out - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux is not None:
+            Y_aux = ((Y_aux - self._output_aux_shift) / self._output_aux_scale) * 2 - 1
+
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
+
+        logging.info("XXXX")
+        logging.info(X_cond)
+        logging.info("YYYYY")
+        logging.info(Y_out)
+        self._initialize_net()
+        logging.info(f"CUDA: {torch.cuda.is_available()}")
+        self.to(self._device)
+        optimizer = self._create_optimizer()
+
+        tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self._device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
+        # tensor_X_neg = torch.from_numpy(np.array(X_neg, dtype=np.float32)).to(self._device)
+        # tensor_Y_neg = torch.from_numpy(np.array(Y_neg, dtype=np.float32)).to(self._device)
+        if Y_aux is not None:
+            tensor_Y_aux = torch.from_numpy(np.array(Y_aux, dtype=np.float32)).to(self._device)
+            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out, tensor_Y_aux)
+        else:
+            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
+        # data_neg = torch.utils.data.TensorDataset(tensor_X_neg, tensor_Y_neg)
+        dataloader = torch.utils.data.DataLoader(data, batch_size=512, shuffle=True)
+        # dataloader_neg = torch.utils.data.DataLoader(data_neg, batch_size=(512 * len(data_neg)) // len(data), shuffle=True)
+
+        assert isinstance(self._max_train_iters, int)
+        self.train()
+        for itr in range(self._max_train_iters):
+            cum_loss = 0
+            n = 0
+            # for (tensor_X, tensor_Y), (tensor_X_neg, tensor_Y_neg) in zip(dataloader, dataloader_neg):
+            # for tensor_X, tensor_Y in dataloader:
+            for tensors in dataloader:
+                if len(tensors) == 3:
+                    tensor_X, tensor_Y, tensor_Y_aux = tensors
+                else:
+                    tensor_X, tensor_Y = tensors
+                    tensor_Y_aux = None
+                t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self._device)
+                # t_neg = torch.randint(0, self._timesteps, (tensor_X_neg.shape[0],), device=self._device)
+                loss = self._p_losses(tensor_X, tensor_Y, t, tensor_Y_aux)  # , tensor_X_neg, tensor_Y_neg, t_neg)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                cum_loss += loss.item() * tensor_X.shape[0]
+                n += tensor_X.shape[0]
+            cum_loss /= n
+            if itr % 100 == 0:
+                logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+
+        self.eval()
+        logging.info(f"Trained model with loss: {cum_loss:.5f}")
+        return cum_loss
+
+    def distill(self, model_data_1, model_data_2) -> None:
+        assert self.is_trained
+
+        model_1, data_1 = model_data_1
+        X_cond_1, Y_out_1, Y_aux_1 = data_1
+        model_2, data_2 = model_data_2
+        X_cond_2, Y_out_2, Y_aux_2 = data_2
+
+        assert (model_1._input_scale == self._input_scale).all() and (model_2._input_scale == self._input_scale).all()
+        assert (model_1._input_shift == self._input_shift).all() and (model_2._input_shift == self._input_shift).all()
+        assert (model_1._output_scale == self._output_scale).all() and (
+                model_2._output_scale == self._output_scale).all()
+        assert (model_1._output_shift == self._output_shift).all() and (
+                model_2._output_shift == self._output_shift).all()
+        if hasattr(self, '_output_aux_scale'):
+            assert (model_1._output_aux_scale == self._output_aux_scale).all() and (
+                    model_2._output_aux_scale == self._output_aux_scale).all()
+            assert (model_1._output_aux_shift == self._output_aux_shift).all() and (
+                    model_2._output_aux_shift == self._output_aux_shift).all()
+
+        X_cond_1 = ((X_cond_1 - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out_1 = ((Y_out_1 - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux_1 is not None:
+            Y_aux_1 = ((Y_aux_1 - self._output_aux_shift) / self._output_aux_scale) * 2 - 1
+        X_cond_2 = ((X_cond_2 - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out_2 = ((Y_out_2 - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux_2 is not None:
+            Y_aux_2 = ((Y_aux_2 - self._output_aux_shift) / self._output_aux_scale) * 2 - 1
+
+        size_1 = X_cond_1.shape[0]
+        size_2 = X_cond_2.shape[0]
+        # Make sure both dataloaders have the same # batches
+        pow_2 = 512
+        batch_size_2 = 0
+        while batch_size_2 == 0:
+            batch_size_1 = pow_2
+            batch_size_2 = pow_2 * min(size_1, size_2) // max(size_1, size_2)
+            pow_2 *= 2
+        if size_2 > size_1:
+            batch_size_2, batch_size_1 = batch_size_1, batch_size_2
+
+        logging.info(f"Distilling {model_1.__class__.__name__} with {size_1} datapoints and "
+                     f"{model_2.__class__.__name__} with {size_2} datapoints into "
+                     f"{self.__class__.__name__}")
+
+        tensor_X_cond_1 = torch.from_numpy(np.array(X_cond_1, dtype=np.float32)).to(self._device)
+        tensor_Y_out_1 = torch.from_numpy(np.array(Y_out_1, dtype=np.float32)).to(self._device)
+        if Y_aux_1 is not None:
+            tensor_Y_aux_1 = torch.from_numpy(np.array(Y_aux_1, dtype=np.float32)).to(self._device)
+            data_1 = torch.utils.data.TensorDataset(tensor_X_cond_1, tensor_Y_out_1, tensor_Y_aux_1)
+        else:
+            data_1 = torch.utils.data.TensorDataset(tensor_X_cond_1, tensor_Y_out_1)
+        dataloader_1 = torch.utils.data.DataLoader(data_1, batch_size=batch_size_1, shuffle=True)
+
+        tensor_X_cond_2 = torch.from_numpy(np.array(X_cond_2, dtype=np.float32)).to(self._device)
+        tensor_Y_out_2 = torch.from_numpy(np.array(Y_out_2, dtype=np.float32)).to(self._device)
+        if Y_aux_2 is not None:
+            tensor_Y_aux_2 = torch.from_numpy(np.array(Y_aux_2, dtype=np.float32)).to(self._device)
+            data_2 = torch.utils.data.TensorDataset(tensor_X_cond_2, tensor_Y_out_2, tensor_Y_aux_2)
+        else:
+            data_2 = torch.utils.data.TensorDataset(tensor_X_cond_2, tensor_Y_out_2)
+        dataloader_2 = torch.utils.data.DataLoader(data_2, batch_size=batch_size_2, shuffle=True)
+
+        optimizer = self._optimizer
+        assert isinstance(self._max_train_iters, int)
+        self.train()
+        for itr in range(self._max_train_iters // 10):
+            cum_loss = 0
+            n = 0
+            for tensors_1, tensors_2 in zip(dataloader_1, dataloader_2):
+                if len(tensors_1) == 3:
+                    tensor_X_1, tensor_Y_1, tensor_Y_aux_1 = tensors_1
+                    tensor_X_2, tensor_Y_2, tensor_Y_aux_2 = tensors_2
+                else:
+                    tensor_X_1, tensor_Y_1 = tensors_1
+                    tensor_X_2, tensor_Y_2 = tensors_2
+                    tensor_Y_aux_1 = None
+                    tensor_Y_aux_2 = None
+                t_1 = torch.randint(0, self._timesteps, (tensor_X_1.shape[0],), device=self._device)
+                t_2 = torch.randint(0, self._timesteps, (tensor_X_2.shape[0],), device=self._device)
+                loss = self._distill_losses(model_1, tensor_X_1, tensor_Y_1, t_1, tensor_Y_aux_1, model_2, tensor_X_2,
+                                            tensor_Y_2, t_2, tensor_Y_aux_2)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                cum_loss += loss.item() * (tensor_X_1.shape[0] + tensor_X_2.shape[0])
+                n += tensor_X_1.shape[0] + tensor_X_2.shape[0]
+            cum_loss /= n
+            if itr % 10 == 0:
+                logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+
+        self.eval()
+        logging.info(f"Distilled model with loss: {cum_loss:.5f}")
+        return cum_loss
+
+    @torch.no_grad()
+    def _p_sample(self, x_cond, y_out, t, t_index):
+        betas_t = self._extract(self._betas, t, y_out.shape)
+        sqrt_one_minus_alphas_cumprod_t = self._extract(
+            self._sqrt_one_minus_alphas_cumprod, t, y_out.shape
+        )
+        sqrt_recip_alphas_t = self._extract(self._sqrt_recip_alphas, t, y_out.shape)
+
+        # Equation 11 in the paper
+        # Use our model (noise predictor) to predict the mean
+        if CFG.classifier_free_guidance:
+            epsilon_empty = self(torch.zeros_like(x_cond), y_out, t)
+            epsilon_cond = self(x_cond, y_out, t)
+            epsilon = epsilon_empty + 2 * (epsilon_cond - epsilon_empty)
+        else:
+            epsilon_out = self(x_cond, y_out, t)
+            epsilon = epsilon_out  # [:, :-1]
+        # out = epsilon_out[:, -1]
+        # grad = torch.autograd.grad(out.sum(), y_out)[0]
+        # epsilon -= (sqrt_one_minus_alphas_cumprod_t * grad)
+        model_mean = sqrt_recip_alphas_t * (
+                y_out - betas_t * epsilon / sqrt_one_minus_alphas_cumprod_t
+        )
+
+        if t_index == 0:
+            return model_mean
+        else:
+            posterior_variance_t = self._extract(self._posterior_variance, t, y_out.shape)
+            noise = torch.randn_like(y_out)
+            # Algorithm 2 line 4:
+            return model_mean + torch.sqrt(posterior_variance_t) * noise
+
+    @torch.no_grad()
+    def _p_sample_loop(self, x_cond):
+        # start from pure noise (for each example in the batch)
+        y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self._device, requires_grad=True)
+        y_outs = []
+
+        for i in reversed(range(0, self._timesteps)):
+            y_out = self._p_sample(x_cond, y_out,
+                                   torch.full((self._cache_num_samples,), i, device=self._device, dtype=torch.long), i)
+            y_outs.append(y_out.detach().cpu().numpy())
+        return y_outs
+
+    def predict_sample(self, x_cond: Array, rng: np.random.Generator) -> Array:
+        if x_cond.round(decimals=4).data.tobytes() not in self._cache:
+            x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
+            x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self._device)
+            x_cond_tensor = x_cond_tensor.view(1, -1).expand(self._cache_num_samples, -1)
+            samples = self._p_sample_loop(x_cond_tensor)[-1]
+            self._cache[x_cond.round(decimals=4).data.tobytes()] = (samples, 0)  # cache, idx
+        sample = self._next_sample_in_cache(x_cond.round(decimals=4))
+        return ((sample + 1) / 2 * self._output_scale) + self._output_shift
+
+    def _next_sample_in_cache(self, arr):
+        samples, idx = self._cache[arr.data.tobytes()]
+        if idx < samples.shape[0] - 1:
+            self._cache[arr.data.tobytes()] = (samples, idx + 1)
+        else:
+            del self._cache[arr.data.tobytes()]
+        return samples[idx]
+
+    def _initialize_net(self):
+        if len(self._linears) == 0:
+            self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+            for i in range(len(self._hid_sizes) - 1):
+                self._linears.append(
+                    nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+            # self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim + 1))   # +1 for classifier guidance
+            if CFG.ebm_aux_training:
+                self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim + self._y_aux_dim))
+            else:
+                self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim))
+
+    def _create_optimizer(self) -> optim.Optimizer:
+        """Create an optimizer after the model is initialized."""
+        if self._optimizer is None:
+            print('Creating optimizer afresh')
+            self._optimizer = optim.Adam(self.parameters(), lr=self._learning_rate)
+        return self._optimizer
+
+    @classmethod
+    def _cosine_beta_schedule(cls, timesteps, s=0.008):
+        """
+        cosine schedule as proposed in https://arxiv.org/abs/2102.09672
+        """
+        steps = timesteps + 1
+        x = torch.linspace(0, timesteps, steps)
+        alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * torch.pi * 0.5) ** 2
+        alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
+        betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
+        return torch.clip(betas, 0.0001, 0.9999)
+
+    @classmethod
+    def _linear_beta_schedule(cls, timesteps):
+        beta_start = 0.0001
+        beta_end = 0.02
+        return torch.linspace(beta_start, beta_end, timesteps)
+
+    def _p_losses(self, X_cond, Y_start, t, Y_aux):  # , X_neg, Y_neg_start, t_neg):
+        noise = torch.randn_like(Y_start)
+        Y_noisy = self._q_sample(Y_start, t, noise)
+        if CFG.classifier_free_guidance:
+            mask = torch.randint(2, size=(X_cond.shape[0], 1), dtype=torch.long, device=X_cond.device)
+        else:
+            mask = torch.ones((X_cond.shape[0], 1), dtype=torch.long, device=X_cond.device)
+        X_cond = X_cond * mask
+        predicted_noise_label = self(X_cond, Y_noisy, t)
+        predicted_noise = predicted_noise_label  # [:, :-1]
+        # label_pos = predicted_noise_label[:, -1]
+        loss = F.smooth_l1_loss(noise, predicted_noise)
+
+        # noise_neg = torch.randn_like(Y_neg_start)
+        # Y_neg_noisy = self._q_sample(Y_neg_start, t_neg, noise_neg)
+        # predicted_noise_label = self(X_neg, Y_neg_noisy, t_neg)
+        # label_neg = predicted_noise_label[:, -1]
+
+        # loss += F.binary_cross_entropy_with_logits(torch.cat((label_pos, label_neg)),
+        #                 torch.cat((torch.ones_like(label_pos), torch.zeros_like(label_neg))))
+
+        if Y_aux is not None:
+            # X_cond_hat = self(X_cond, torch.zeros_like(Y_noisy), torch.zeros_like(t), return_reconstruction=True)
+            # loss += F.smooth_l1_loss(X_cond, X_cond_hat)
+            Y_aux_hat = self(X_cond, Y_start, torch.zeros_like(t), return_aux=True)
+            loss += F.smooth_l1_loss(Y_aux, Y_aux_hat)
+
+        return loss
+
+    def _distill_losses(self, model_1, X_cond_1, Y_start_1, t_1, Y_aux_1, model_2, X_cond_2, Y_start_2, t_2, Y_aux_2):
+        if CFG.lifelong_method == "2-distill":
+            noise_1 = torch.randn_like(Y_start_1)
+            Y_noisy_1 = self._q_sample(Y_start_1, t_1, noise_1)
+            predicted_noise_1 = self(X_cond_1, Y_noisy_1, t_1)
+
+            noise_label_1 = model_1(X_cond_1, Y_noisy_1, t_1)
+            loss_1 = F.smooth_l1_loss(noise_label_1, predicted_noise_1)
+
+            if Y_aux_1 is not None:
+                Y_aux_hat_1 = self(X_cond_1, Y_start_1, torch.zeros_like(t_1), return_aux=True)
+                Y_aux_label_1 = model_1(X_cond_1, Y_start_1, torch.zeros_like(t_1), return_aux=True)
+                loss_1 += F.smooth_l1_loss(Y_aux_label_1, Y_aux_hat_1)
+        else:
+            loss_1 = self._p_losses(X_cond_1, Y_start_1, t_1, Y_aux_1)
+
+        noise_2 = torch.randn_like(Y_start_2)
+        Y_noisy_2 = self._q_sample(Y_start_2, t_2, noise_2)
+        predicted_noise_2 = self(X_cond_2, Y_noisy_2, t_2)
+
+        noise_label_2 = model_2(X_cond_2, Y_noisy_2, t_2)
+        loss_2 = F.smooth_l1_loss(noise_label_2, predicted_noise_2)
+
+        if Y_aux_2 is not None:
+            Y_aux_hat_2 = self(X_cond_2, Y_start_2, torch.zeros_like(t_2), return_aux=True)
+            Y_aux_label_2 = model_2(X_cond_2, Y_start_2, torch.zeros_like(t_2), return_aux=True)
+            loss_2 += F.smooth_l1_loss(Y_aux_label_2, Y_aux_hat_2)
+
+        return loss_1 + loss_2
+
+    def predict_aux(self, x_cond: Array, y_out: Array) -> Array:
+        x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
+        x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self._device)
+
+        y_out = ((y_out - self._output_shift) / self._output_scale) * 2 - 1
+        y_out_tensor = torch.from_numpy(np.array(y_out, dtype=np.float32)).to(self._device)
+
+        t = torch.zeros(x_cond_tensor.shape[0], device=self._device, dtype=torch.int64)
+        aux = self(x_cond_tensor, y_out_tensor, t, return_aux=True).detach().cpu().numpy()
+        return ((aux + 1) / 2 * self._output_aux_scale) + self._output_aux_shift
+
+    def aux_square_error(self, x_cond: Array, y_out: Array, aux_label: Array) -> Array:
+        aux = self.predict_aux(x_cond, y_out)
+        return (aux - aux_label) ** 2
+
+    def _q_sample(self, Y_start, t, noise):
+        sqrt_alphas_cumprod_t = self._extract(self._sqrt_alphas_cumprod, t, Y_start.shape)
+        sqrt_one_minus_alphas_cumprod_t = self._extract(
+            self._sqrt_one_minus_alphas_cumprod, t, Y_start.shape
+        )
+
+        return sqrt_alphas_cumprod_t * Y_start + sqrt_one_minus_alphas_cumprod_t * noise
+
+    def _extract(self, a, t, shape):
+        batch_size = t.shape[0]
+        out = a.gather(-1, t.cpu())
+        return out.reshape(batch_size, *((1,) * (len(shape) - 1))).to(t.device)
 
 class MapleQFunction(MLPRegressor):
     """A Q function inspired by MAPLE (https://ut-austin-rpl.github.io/maple/)

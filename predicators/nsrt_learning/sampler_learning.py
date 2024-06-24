@@ -5,17 +5,20 @@ from dataclasses import dataclass
 from typing import Any, List, Sequence, Set, Tuple
 
 import numpy as np
-
+import pybullet as p
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DistributionRegressor, \
-    MLPBinaryClassifier, NeuralGaussianRegressor
+    MLPBinaryClassifier, NeuralGaussianRegressor, DiffusionRegressor
+from predicators.nsrt_learning import sampler_visualizer
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
+
+
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
@@ -135,42 +138,45 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                  f"{len(negative_data)} negative examples")
 
     # Fit classifier to data
-    logging.info("Fitting classifier...")
-    X_classifier: List[List[Array]] = []
-    for state, sub, option, goal in positive_data + negative_data:
-        # input is state features and option parameters
-        X_classifier.append([np.array(1.0)])  # start with bias term
-        for var in variables:
-            X_classifier[-1].extend(state[sub[var]])
-        X_classifier[-1].extend(option.params)
-        # For sampler learning, we currently make the extremely limiting
-        # assumption that there is one goal atom, with one goal object. This
-        # will not be true in most cases. This is a placeholder for better
-        # methods to come.
-        if CFG.sampler_learning_use_goals:
-            assert goal is not None
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            X_classifier[-1].extend(state[goal_obj])
-    X_arr_classifier = np.array(X_classifier)
-    # output is binary signal
-    y_arr_classifier = np.array([1 for _ in positive_data] +
-                                [0 for _ in negative_data])
-    classifier = MLPBinaryClassifier(
-        seed=CFG.seed,
-        balance_data=CFG.mlp_classifier_balance_data,
-        max_train_iters=CFG.sampler_mlp_classifier_max_itr,
-        learning_rate=CFG.learning_rate,
-        weight_decay=CFG.weight_decay,
-        use_torch_gpu=CFG.use_torch_gpu,
-        train_print_every=CFG.pytorch_train_print_every,
-        n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-        hid_sizes=CFG.mlp_classifier_hid_sizes,
-        n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
-        weight_init="default")
-    classifier.fit(X_arr_classifier, y_arr_classifier)
+    classifier = None
+
+    if not CFG.sampler_disable_classifier:
+        logging.info("Fitting classifier...")
+        X_classifier: List[List[Array]] = []
+        for state, sub, option, goal in positive_data + negative_data:
+            # input is state features and option parameters
+            X_classifier.append([np.array(1.0)])  # start with bias term
+            for var in variables:
+                X_classifier[-1].extend(state[sub[var]])
+            X_classifier[-1].extend(option.params)
+            # For sampler learning, we currently make the extremely limiting
+            # assumption that there is one goal atom, with one goal object. This
+            # will not be true in most cases. This is a placeholder for better
+            # methods to come.
+            if CFG.sampler_learning_use_goals:
+                assert goal is not None
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 1
+                goal_obj = goal_atom.objects[0]
+                X_classifier[-1].extend(state[goal_obj])
+        X_arr_classifier = np.array(X_classifier)
+        # output is binary signal
+        y_arr_classifier = np.array([1 for _ in positive_data] +
+                                    [0 for _ in negative_data])
+        classifier = MLPBinaryClassifier(
+            seed=CFG.seed,
+            balance_data=CFG.mlp_classifier_balance_data,
+            max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
+            n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+            hid_sizes=CFG.mlp_classifier_hid_sizes,
+            n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
+            weight_init="default")
+        classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
     logging.info("Fitting regressor...")
@@ -203,10 +209,16 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             max_train_iters=CFG.neural_gaus_regressor_max_itr,
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate)
+    elif CFG.sampler_learning_regressor_model == "diffusion":
+        assert CFG.sampler_disable_classifier
+        regressor = DiffusionRegressor(
+            seed=CFG.seed,
+            hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+            max_train_iters=CFG.neural_gaus_regressor_max_itr,
+            timesteps=100,
             learning_rate=CFG.learning_rate,
-            weight_decay=CFG.weight_decay,
-            use_torch_gpu=CFG.use_torch_gpu,
-            train_print_every=CFG.pytorch_train_print_every)
+        )
     else:
         assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
         regressor = DegenerateMLPDistributionRegressor(
@@ -215,13 +227,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             max_train_iters=CFG.mlp_regressor_max_itr,
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
-            learning_rate=CFG.learning_rate,
-            weight_decay=CFG.weight_decay,
-            use_torch_gpu=CFG.use_torch_gpu,
-            train_print_every=CFG.pytorch_train_print_every)
+            learning_rate=CFG.learning_rate)
 
     regressor.fit(X_arr_regressor, Y_arr_regressor)
-
     # Construct and return sampler
     return _LearnedSampler(classifier, regressor, variables,
                            param_option).sampler
@@ -341,14 +349,18 @@ class _LearnedSampler:
             x_lst.extend(state[goal_obj])  # add goal state
         x = np.array(x_lst)
         num_rejections = 0
+
         if CFG.sampler_disable_classifier:
             params = np.array(self._regressor.predict_sample(x, rng),
                               dtype=self._param_option.params_space.dtype)
+            
+            #logging.info(f'PARAMS: {params}')
             return params
         while num_rejections <= CFG.max_rejection_sampling_tries:
+            # sampler_visualizer.visualize(self._regressor, x, rng)
             params = np.array(self._regressor.predict_sample(x, rng),
                               dtype=self._param_option.params_space.dtype)
-            if self._param_option.params_space.contains(params) and \
+            if not CFG.sampler_disable_classifier and self._param_option.params_space.contains(params) and \
                self._classifier.classify(np.r_[x, params]):
                 break
             num_rejections += 1

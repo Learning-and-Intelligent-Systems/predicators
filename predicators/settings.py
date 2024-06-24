@@ -73,6 +73,12 @@ class GlobalSettings:
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
+    # ring stack env parameters
+    ring_size = 0.056  # should be larger than ring_radius
+    ring_height = 0.03
+    pole_base_height = 0.02
+    pole_height = 0.1 + pole_base_height
+
     # playroom env parameters
     playroom_num_blocks_train = [3]
     playroom_num_blocks_test = [3]
@@ -161,7 +167,7 @@ class GlobalSettings:
         })
 
     # IKFast parameters
-    ikfast_max_time = 0.05
+    ikfast_max_time = 0.10
     ikfast_max_candidates = 100
     ikfast_max_attempts = np.inf
     ikfast_max_distance = np.inf
@@ -506,7 +512,7 @@ class GlobalSettings:
     pytorch_train_print_every = 1000
 
     # sampler learning parameters
-    sampler_learner = "neural"  # "neural" or "random" or "oracle"
+    sampler_learner = "neural"  # "diffusion" or "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
     sampler_mlp_classifier_n_reinitialize_tries = 1
@@ -585,6 +591,44 @@ class GlobalSettings:
 
     # bridge policy parameters
     bridge_policy = "learned_ldl"  # default bridge policy
+    
+    # GPU
+    use_cuda = True
+
+    # EBM model
+    ebm_class = 'diff'  # ebm or diff(usion)
+    use_full_state = False
+    use_skeleton_state = False
+    sampler_horizon = 1
+    sampler_learning_single_step = False
+    use_ebm = True
+    sql_reward_scale = 1 / 24  # 1#100#
+    save_only_exploration_results = True
+    lifelong_method = "retrain"  # "retrain", "distill", "2-distill"
+    lifelong_burnin_period = None
+    torch_num_threads = 1
+
+    # bookshelf env parameters
+    bookshelf_num_books_train = [4, 5]  # [3, 4]#[2, 3]#[8, 9]#
+    bookshelf_num_books_test = [5, 6]  # [4, 5]#[3, 4]#[9, 10]#
+    bookshelf_num_obstacles_train = [18, 19]  # [4, 5]#
+    bookshelf_num_obstacles_test = [19, 20]  # [5, 6]#
+    bookshelf_against_wall = False
+    bookshelf_train_tasks_overwrite = None
+    bookshelf_specialized_nsrts = False
+    bookshelf_singlestep_goal = False
+    bookshelf_add_sampler_idx_to_params = False
+    bookshelf_no_obstacles = False
+    # ebm_train_reconstruction = False
+    ebm_aux_training = None  # None, 'reconstruct', 'geometry', 'geometry+'
+    ebm_aux_n_samples = 1  # How many samples to draw and check for each sampler
+    # use_cspace = False
+    # image_only = False
+    ebm_input_mode = 'local'  # 'full-image-only', 'full-image-vector', 'full-image-action', 'full-cspace-only', 'full-cspace-vector', 'full-cspace-action', 'local'
+    classifier_free_guidance = False
+    viz_sampling_distributions = False
+    sesame_max_samples_total = float('inf')
+    exit_if_result_exists = True
 
     # glib explorer parameters
     glib_min_goal_size = 1
@@ -710,6 +754,7 @@ class GlobalSettings:
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_blocks": "oracle_blocks",
+                    "pybullet_ring_stack": "oracle_ring_stack"
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum number of skeletons optimized before
