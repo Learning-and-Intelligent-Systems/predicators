@@ -99,12 +99,16 @@ def main() -> None:
         env)
     # The known predicates are passed into the approach and into dataset
     # creation. In some cases, like when inventing geometric and VLM predicates,
-    # we want to hide certain goal predicates from the agent by replacing them
-    # with agent-specific goal predicates that the environment defines.
-    # Note that inside dataset creation, the known predicates are only used to
-    # create a VLM dataset, so we can just overwrite the variable `preds`.
+    # we want to hide certain goal predicates from the agent because we may
+    # want to invent them. So we can replace them with agent-specific goal
+    # predicates that the environment defines. Note that inside dataset
+    # creation, the known predicates are only used to create a VLM dataset, so
+    # we can just overwrite the variable `preds`. No replacing is done if the
+    # approach is oracle because the ground truth operators are defined in terms
+    # of the original goal predicates.
     preds = utils.replace_goals_with_agent_specific_goals(
-        included_preds, excluded_preds, env)
+        included_preds, excluded_preds,
+        env) if CFG.approach != "oracle" else included_preds
     # Create the train tasks.
     env_train_tasks = env.get_train_tasks()
     # We assume that a train Task can be constructed from a EnvironmentTask.
@@ -125,7 +129,9 @@ def main() -> None:
     # using predicates that differ from those in the goals of the tasks that the
     # demonstrator solves, then replace those predicates accordingly. This is
     # used in VLM predicate invention where we want to invent certain goal
-    # predicates that the demonstrator needed to solve the task.
+    # predicates that the demonstrator needed to solve the task. We don't need
+    # worry about not doing this replacing if the approach is oracle because the
+    # "unedited" train tasks are passed into offline dataset creation.
     approach_train_tasks = [
         task.replace_goal_with_alt_goal() for task in stripped_train_tasks
     ]
@@ -326,9 +332,16 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
-    test_tasks = [
-        task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
-    ]
+    # If the goals of the tasks that the approaches solve need to be described
+    # using predicates that differ from those in the goals of the tasks that the
+    # demonstrator solves, then replace those predicates accordingly. This is
+    # used in VLM predicate invention where we want to invent certain goal
+    # predicates that the demonstrator needed to solve the task. No replacing is
+    # done if the approach is oracle because the ground truth operators are
+    # defined in terms of the original goal predicates.
+    test_tasks = env.get_test_tasks()
+    if CFG.approach != "oracle":
+        test_tasks = [task.replace_goal_with_alt_goal() for task in test_tasks]
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()
