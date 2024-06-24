@@ -332,6 +332,7 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
+    import pdb; pdb.set_trace()
     # If the goals of the tasks that the approaches solve need to be described
     # using predicates that differ from those in the goals of the tasks that the
     # demonstrator solves, then replace those predicates accordingly. This is
