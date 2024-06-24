@@ -17,7 +17,8 @@ ENVS:
     # NAME: "tools"
     # NAME: "coffee"
     # NAME: "sticky_table"
-    NAME: "pybullet_blocks"
+    # NAME: "pybullet_blocks"
+    NAME: "pybullet_coffee"
 ARGS: 
   # []
   - "debug"
