@@ -48,7 +48,7 @@ FLAGS:
   video_fps: 20
   sesame_max_skeletons_optimized: 200
 
-  rgb_observation: True
+  rgb_observation: False
   save_nsp_image_patch_before_query: True
   vlm_model_name: "gemini-1.5-flash"
   # vlm_model_name: "gpt-4o"
