@@ -267,7 +267,7 @@ class PyBulletRingsGroundTruthOptionFactory(GroundTruthOptionFactory):
         option_types = [robot_type]
         params_space = Box(0, 1, (2, ))
         place_z = PyBulletRingEnv.table_height + \
-            ring_height / 2 + cls._offset_z
+            pole_height + cls._offset_z
         PutOnTable = utils.LinearChainParameterizedOption(
             "PutOnTable",
             [

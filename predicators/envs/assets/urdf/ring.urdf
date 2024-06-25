@@ -18,6 +18,7 @@
       </material>
     </visual>
     <collision>
+
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
 	 	<mesh filename="ring.obj" scale="0.004 0.004 0.015"/>

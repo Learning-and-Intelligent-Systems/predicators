@@ -32,12 +32,12 @@ class RingStackEnv(BaseEnv):
     table_height: ClassVar[float] = 0.2
     # The table x bounds are (1.1, 1.6),
     x_lb: ClassVar[float] = 1.2
-    x_ub: ClassVar[float] = 1.5
+    x_ub: ClassVar[float] = 1.4
     # The table y bounds are (0.3, 1.2)
     y_lb: ClassVar[float] = 0.5
     y_ub: ClassVar[float] = 1.0
 
-    pick_z: ClassVar[float] = 0.7  # Q: Maybe picking height for blocks?
+    pick_z: ClassVar[float] = 0.5  # Q: Maybe picking height for blocks?
 
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
@@ -47,7 +47,7 @@ class RingStackEnv(BaseEnv):
     held_tol: ClassVar[float] = 0.5
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
-    around_tol: ClassVar[float] = 0.01
+    around_tol: ClassVar[float] = 0.1
 
     collision_padding: ClassVar[float] = 2.0  # Q: Variable to explore
 
@@ -88,6 +88,7 @@ class RingStackEnv(BaseEnv):
         self._num_rings_test = 50
 
         self._pole_base_height = CFG.pole_base_height
+        self._pole_height = CFG.pole_height
 
         # Hyperparameters from CFG. # TODO
         # self._block_size = CFG.blocks_block_size
@@ -260,7 +261,7 @@ class RingStackEnv(BaseEnv):
         # Create goal from piles
         goal_atoms = set()
         goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
-        goal_atoms.add(GroundAtom(self._OnTable, [ring]))
+        goal_atoms.add(GroundAtom(self._GripperOpen, [self._robot]))
         return goal_atoms
 
     def _sample_initial_xy(
@@ -306,13 +307,10 @@ class RingStackEnv(BaseEnv):
         ring, = objects
         z = state.get(ring, "pose_z")
         desired_z = self.table_height + self._ring_height * 0.5
-        logging.info(state.get(ring, "held"))
-        logging.info(f'self.table_height{self.table_height}')
-        logging.info(f'z:{z}')
-        logging.info(f'desired_z-self.on_tol:{desired_z - self.on_tol}')
-        logging.info(f'desired_z+self.on_tol:{desired_z + self.on_tol}')
+
         return (state.get(ring, "held") < self.held_tol) and \
-            (desired_z - self.on_tol - self._pole_base_height * 0.5 < z < desired_z + self.on_tol + self._pole_base_height * 0.5)
+            (
+                    desired_z - self.on_tol - self._pole_base_height * 0.5 < z < desired_z + self.on_tol + self._pole_base_height * 0.5)
 
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -329,13 +327,20 @@ class RingStackEnv(BaseEnv):
         ring, pole, = objects
         pole_x = state.get(pole, "pose_x")
         pole_y = state.get(pole, "pose_y")
+        pole_z = state.get(pole, "pose_z")
 
         ring_x = state.get(ring, "pose_x")
         ring_y = state.get(ring, "pose_y")
+        ring_z = state.get(ring, "pose_z")
 
-        dist = np.linalg.norm(np.array([ring_x, ring_y]) - np.array([pole_x, pole_y]))
+        point_in_circle = (pole_x - ring_x) ** 2 + (pole_y - ring_y) ** 2 <= self._ring_size - self._ring_height
+        correct_height = pole_z < ring_z <= pole_z + self._pole_height - self._ring_height
+        logging.info("Checking around holds")
+        logging.info(f'pole in ring?: {point_in_circle}')
+        logging.info(f'ring: {[ring_x, ring_y]}, pole: {[pole_x, pole_y]}')
 
-        return dist <= self.around_tol
+        return ((pole_x - ring_x) ** 2 + (
+                pole_y - ring_y) ** 2 <= self._ring_size - self._ring_height) and correct_height
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         if self._Holding_holds(state, objects):
@@ -502,4 +507,3 @@ class RingStackEnv(BaseEnv):
         plt.suptitle(title, fontsize=24, wrap=True)
         plt.tight_layout()
         return fig
-

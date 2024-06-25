@@ -43,7 +43,12 @@ class MotionPlanController:
                                                final_joint_positions,
                                                collision_bodies=body_ids,
                                                seed=0,
-                                               physics_client_id=self.physics_client_id)[1:]
+                                               physics_client_id=self.physics_client_id)
+
+        if self.motion_plan is not None:
+            self.motion_plan = self.motion_plan[1:]
+        else:
+            self.motion_plan = [initial_joint_positions]
 
     def get_next_state_in_plan(self):
         if len(self.motion_plan) > 0:
@@ -107,7 +112,6 @@ class MotionPlanController:
 
             # Keep validate as False because validate=True would update the
             # state of the robot during simulation, which overrides physics.
-
             try:
                 # For the panda, always set the joints after running IK because
                 # IKFast is very sensitive to initialization, and it's easier to
@@ -117,14 +121,15 @@ class MotionPlanController:
                 initial_joint_positions = robot.inverse_kinematics(current_pose,
                                                                    validate=False,
                                                                    set_joints=True)
-
+                #logging.info("Initial joint positions successful in motion plan")
                 target_joint_positions = robot.inverse_kinematics(target_pose,
                                                                   validate=False,
                                                                   set_joints=False)
+                #logging.info("Target joint positions successful in motion plan")
                 if len(self.motion_plan) == 0:
                     self._create_motion_plan(initial_joint_positions, target_joint_positions, robot)
-                    logging.info("creating motion plan")
-                logging.info(self.motion_plan)
+
+                    #logging.info(self.motion_plan)
 
                 # logging.info(f'initial_joint_positions: {initial_joint_positions}')
                 #logging.info(f'state: {state}')
@@ -133,7 +138,8 @@ class MotionPlanController:
                 self.planned = False
                 self.motion_plan = []
                 logging.info("IK FAIL DURING MOTION PLAN")
-                raise utils.OptionExecutionFailure("Inverse kinematics failed.")
+                logging.info(f"for option: {name} creating motion plan for initial_pose: {current_pose} and goal pose {target_pose}")
+                #raise utils.OptionExecutionFailure("Inverse kinematics failed.")
 
 
             # Handle the fingers. Fingers drift if left alone.
