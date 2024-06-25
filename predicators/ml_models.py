@@ -31,6 +31,9 @@ from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
     State, _GroundNSRT, _Option
 
+np.set_printoptions(threshold=np.inf)
+torch.set_printoptions(threshold=torch.inf)
+
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
 
@@ -1286,6 +1289,9 @@ def _train_pytorch_model(model: nn.Module,
             logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
         optimizer.zero_grad()
         loss.backward()  # type: ignore
+        # for param in model.parameters():
+        #     if param.grad is not None:
+        #         print(f'Gradient: {param.grad}')
         if clip_gradients:
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
         optimizer.step()
@@ -1357,7 +1363,7 @@ class MapleQFunction(MLPRegressor):
         self._epsilon = CFG.active_sampler_learning_exploration_epsilon
         self._min_epsilon = CFG.min_epsilon
         self._use_epsilon_annealing = CFG.use_epsilon_annealing
-        self._ep_reduction = 10*(self._epsilon-self._min_epsilon) \
+        self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
         self._good_light_q_values =[]
@@ -1413,12 +1419,13 @@ class MapleQFunction(MLPRegressor):
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
+        print(self._epsilon)
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
             # Note that this assumes that the output of sampling is completely
             # random, including in the order of ground NSRTs.
-            if self._use_epsilon_annealing:
+            if self._use_epsilon_annealing and epsilon != 0:
                 self.decay_epsilon()
             return options[0]
         # Return the best option (approx argmax.)
@@ -1432,12 +1439,13 @@ class MapleQFunction(MLPRegressor):
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
         idx = np.argmax(scores)
         # Decay epsilon
-        if self._use_epsilon_annealing:
+        if self._use_epsilon_annealing and epsilon != 0:
             self.decay_epsilon()
         if train_or_test=="test":
             # logging.debug(str(option_scores))
             logging.debug("CHOSEN " + str(options[idx]) + str (scores[idx]))
             logging.debug("STATE" + str(state))
+        print("options and scores", option_scores[:10])
         return options[idx]
 
     def decay_epsilon(self) -> None:
@@ -1454,6 +1462,8 @@ class MapleQFunction(MLPRegressor):
 
     def train_q_function(self) -> None:
         """Fit the model."""
+        if self.state_dict():
+            print("qnet", self.state_dict())
         # First, precompute the size of the input and output from the
         # Q-network.
         X_size = sum(o.type.dim for o in self._ordered_objects) + len(
@@ -1779,6 +1789,7 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
+        # print("sampled_options", sampled_options[:10])
         return sampled_options
 
 
@@ -1815,6 +1826,7 @@ class MPDQNFunction(MapleQFunction):
                 replay_buffer_max_size,
                 replay_buffer_sample_with_replacement)
         
+        # our "current"q network
         self.qnet = MapleQFunction(seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
             max_train_iters=CFG.mlp_regressor_max_itr,
@@ -1828,6 +1840,7 @@ class MPDQNFunction(MapleQFunction):
             num_lookahead_samples=CFG.
             active_sampler_learning_num_lookahead_samples)
 
+        # target q network
         self.target_qnet = MapleQFunction(seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
             max_train_iters=CFG.mlp_regressor_max_itr,
@@ -1843,16 +1856,19 @@ class MPDQNFunction(MapleQFunction):
 
         self.target_qnet.load_state_dict(self.qnet.state_dict())
         self._qfunc_init = False
+     
         self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
-     
     # def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
     # ideally use SmoothL1Loss, but to compare w no target, use MSELoss for now
     #     return nn.SmoothL1Loss()
 
     def train_q_function(self) -> None:
         """Fit the model."""
+        if self.qnet.state_dict():
+            print("qnet", self.qnet.state_dict())
+            print("target qnet", self.target_qnet.state_dict())
         # First, precompute the size of the input and output from the
         # Q-network.
         X_size = sum(o.type.dim for o in self._ordered_objects) + len(
@@ -1881,10 +1897,7 @@ class MPDQNFunction(MapleQFunction):
                 print("WE GOT REWARD")
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
-            try:
-                vectorized_action = self._vectorize_option(option)
-            except:
-                import ipdb; ipdb.set_trace()
+            vectorized_action = self._vectorize_option(option)
             X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_goal, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
@@ -1946,19 +1959,21 @@ class MPDQNFunction(MapleQFunction):
                 #good door is if we're in the 2nd cell and door is not open and we try to MoveKey
                 good_door_index.append(i)
                 logging.debug("GOOD DOOR value target, next best value, next best action" +str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+                logging.debug("our state" + str(vectorized_state))
                 if best_next_value!=0:
                     logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
                 #good door is if we're in the 2nd cell and door is not open and we try to TurnKey
                 good_door_index.append(i)
                 logging.debug("GOOD DOOR value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+                logging.debug("our state" + str(vectorized_state))
                 if best_next_value!=0:
                     logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
-            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0:
+            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and len(bad_door_index)<20:
                 #we did not try to open the door...
                 bad_door_index.append(i)
                 logging.debug("BAD DOOR value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-                # logging.debug("next state" + str(next_state))
+                logging.debug("our state" + str(vectorized_state) + "next state" + str(vectorized_next_state))
                 if best_next_value!=0:
                     logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
@@ -1966,6 +1981,7 @@ class MPDQNFunction(MapleQFunction):
                     and vectorized_action[0]==1:
                 callplanner_index.append(i)
                 logging.debug("GOOD CALLPLANNER value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+                logging.debug("our state" + str(vectorized_state))
                 if best_next_value!=0:
                     logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
@@ -1973,6 +1989,7 @@ class MPDQNFunction(MapleQFunction):
                 #second good door, we've already done movekey and now we turn key
                 second_turnkey_index.append(i)
                 logging.debug("GOOD TURNKEY (second action) value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+                logging.debug("our state" + str(vectorized_state))
                 if best_next_value!=0:
                     logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
             if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]<=0.85 \
@@ -1980,6 +1997,8 @@ class MPDQNFunction(MapleQFunction):
                 #second good door, we've already done movekey and now we turn key
                 second_movekey_index.append(i)
                 logging.debug("GOOD MOVEKEY (second action) value target, next best value, next best action" + str(Y_arr[i]) +str(best_next_value) + str(next_best_action))
+                logging.debug("our state" + str(vectorized_state))
+
                 if best_next_value!=0:
                     logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
 
@@ -2001,12 +2020,13 @@ class MPDQNFunction(MapleQFunction):
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
+        print(epsilon)
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
             # Note that this assumes that the output of sampling is completely
             # random, including in the order of ground NSRTs.
-            if self._use_epsilon_annealing:
+            if self._use_epsilon_annealing and epsilon != 0:
                 self.decay_epsilon()
             self.update_target_network()
             return options[0]
@@ -2016,16 +2036,16 @@ class MPDQNFunction(MapleQFunction):
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
-        
-        option_scores=list(zip(options, scores))
-        option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
         if type(scores[0]) is Tensor:
             scores = [score.detach() for score in scores]
+        option_scores=list(zip(options, scores))
+        option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
 
         idx = np.argmax(scores)
+        print("option scores", option_scores[:10])
 
         # Decay epsilon
-        if self._use_epsilon_annealing:
+        if self._use_epsilon_annealing and epsilon != 0:
             self.decay_epsilon()
         self.update_target_network()
         return options[idx]
@@ -2036,10 +2056,7 @@ class MPDQNFunction(MapleQFunction):
             # target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
 
         # this is j copying all params into the target
-        try:
-            self.target_qnet.load_state_dict(self.qnet.state_dict())
-        except:
-            import ipdb;ipdb.set_trace()
+        self.target_qnet.load_state_dict(self.qnet.state_dict())
 
 
     def _fit(self, X: Array, Y: Array) -> None:
