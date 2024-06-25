@@ -279,6 +279,11 @@ def _run_pipeline(env: BaseEnv,
             num_solved += results["num_solved"]
             print("CUMULATIVE NUM SOLVED: ", num_solved)
             print("fraction solved: ", num_solved / (i + 1))
+            smooth_reward = sum(logs[-25:])/25
+            if smooth_reward>0.93:
+                print("smooth reward.")
+                raise ValueError
+
             if results["num_solved"] == 1:
                 logs.append(1)
             else:

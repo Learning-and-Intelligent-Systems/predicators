@@ -49,7 +49,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
-from predicators.approaches.maple_q_approach import MapleQApproach
+from predicators.approaches.maple_q_approach import MapleQApproach, MPDQNApproach
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -379,7 +379,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         )
         initial_options.add(self.CallPlanner)
         self._initial_options = initial_options
-        self.mapleq=MapleQApproach(self._get_current_predicates(), \
+        self.mapleq=MPDQNApproach(self._get_current_predicates(), \
                                    self._initial_options, self._types, \
                                     self._action_space, self._train_tasks)
         self._current_control = ""
@@ -483,7 +483,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             raise_error_on_repeated_state=True,
         )
         if not self._maple_initialized:
-            self.mapleq = MapleQApproach(self._get_current_predicates(),
+            self.mapleq = MPDQNApproach(self._get_current_predicates(),
                                          self._initial_options, self._types,
                                          self._action_space, self._train_tasks)
             self._maple_initialized = True

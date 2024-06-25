@@ -338,7 +338,8 @@ class GridRowDoorEnv(GridRowEnv):
         # Apply ddoor if we're in same cell as door
         door_cell = door_cells[0]
         robot_cell = robot_cells[0]
-        if robot_cell == door_cell:
+        if robot_cell == door_cell and not (door_open <= door_target + 0.1 and door_open >= door_target - 0.1 \
+            and door_open1 <= door_target1 + 0.1 and door_open1 >= door_target1 - 0.1):
             new_door_level = np.clip(
                 state.get(self._door, "open") + ddoor, 0.0, 1.0)
             next_state.set(self._door, "open", new_door_level)
@@ -364,9 +365,4 @@ class GridRowDoorEnv(GridRowEnv):
             new_x = np.clip(
                 state.get(self._robot, "x") + dx, 0.0, len(self._cells))
             next_state.set(self._robot, "x", new_x)
-
-        if (door_open <= door_target + 0.1 and door_open >= door_target - 0.1 \
-            and door_open1 <= door_target1 + 0.1 and door_open1 >= door_target1 - 0.1):
-            print("WE CAN MOVE", door_open, door_target)
-
         return next_state
