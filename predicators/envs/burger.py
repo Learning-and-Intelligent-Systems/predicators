@@ -405,6 +405,7 @@ class BurgerEnv(BaseEnv):
         return set(cells)
 
     def simulate(self, state: State, action: Action) -> State:
+        held_item = None
         # We assume only one of <dcol, drow>, <direction>, <interact>,
         # <pickplace> is not "null" in each action.
         # If each one was null, the action would be <0, 0, -1, 0, 0>.
@@ -514,6 +515,7 @@ class BurgerEnv(BaseEnv):
         next_state.simulator_state["images"] = self.render_state(
             next_state, DefaultEnvironmentTask)
 
+
         return next_state
 
     def render_state_plt(
@@ -523,7 +525,10 @@ class BurgerEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         figsize = (self.num_cols * 2, self.num_rows * 2)
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        # The DPI has to be sufficiently high otherwise when the matplotlib
+        # figure gets converted to a PIL image, text in the image can become
+        # blurry.
+        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=200)
         plt.suptitle(caption, wrap=True)
 
         # Plot vertical lines
@@ -536,7 +541,6 @@ class BurgerEnv(BaseEnv):
 
         # Draw robot
         x, y = self.get_position(self._robot, state)
-        # ax.plot(robot_col + 0.5, robot_row + 0.5, 'rs', markersize=20)
         robot_direction = self.enum_to_dir[state.get(self._robot, "dir")]
         robot_img = mpimg.imread(
             utils.get_env_asset_path(f"imgs/robot_{robot_direction}.png"))
@@ -546,17 +550,23 @@ class BurgerEnv(BaseEnv):
                       x + (1 - img_size[0]) / 2, x + (1 + img_size[0]) / 2,
                       y + (1 - img_size[1]) / 2, y + (1 + img_size[1]) / 2
                   ])
+        if CFG.burger_render_set_of_marks:
+            ax.text(x + 1/2, y + (1 - img_size[1]) / 2, self._robot.name, fontsize=10, color="red", ha="center", va="top", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
 
         # Draw grill
         x, y = self.get_position(self._grill, state)
         grill_img = mpimg.imread(utils.get_env_asset_path("imgs/grill.png"))
         ax.imshow(grill_img, extent=[x, x + 1, y, y + 1])
+        if CFG.burger_render_set_of_marks:
+            ax.text(x + 1/2, y + (1 - img_size[1]) / 2, self._grill.name, fontsize=10, color="red", ha="center", va="top", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
 
         # Draw cutting board
         x, y = self.get_position(self._cutting_board, state)
         cutting_board_img = mpimg.imread(
             utils.get_env_asset_path("imgs/cutting_board.png"))
         ax.imshow(cutting_board_img, extent=[x, x + 1, y, y + 1])
+        if CFG.burger_render_set_of_marks:
+            ax.text(x + 1/2, y + (1 - img_size[1]) / 2, self._cutting_board.name, fontsize=10, color="red", ha="center", va="top", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
 
         # Draw items
         type_to_img = {
@@ -615,6 +625,20 @@ class BurgerEnv(BaseEnv):
                     y + (1 + img_size[1]) / 2
                 ]
             ax.imshow(img, extent=extent, zorder=zorder)
+            if CFG.burger_render_set_of_marks:
+                if is_held:
+                    ax.text(x + (1 + held_img_size[0]) * (1 / 2), y + offset + held_img_size[1] / 2, item.name, fontsize=10, color="red", ha="left", va="top", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
+                else:
+                    if zorder > 0:
+                        if self._On_holds(state, [item, self._grill]) or self._On_holds(state, [item, self._cutting_board]):
+                            ax.text(x + 1/2, y + (1 + img_size[1]) / 2, item.name, fontsize=10, color="red", ha="center", va="bottom", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
+                        else:
+                            ax.text(x, y + (0.1 * zorder) + (1 - img_size[1]) / 2, item.name, fontsize=10, color="red", ha="left", va="top", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
+                    else:
+                        if not self._Clear_holds(state, [item]) or not self._OnNothing_holds(state, [item]):
+                            ax.text(x, y + (1 - img_size[1]) / 2, item.name, fontsize=10, color="red", ha="left", va="top", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
+                        else:
+                            ax.text(x + 1/2, y + (1 - img_size[1]) / 2, item.name, fontsize=10, color="red", ha="center", va="top", bbox=dict(facecolor="black", alpha=0.5, boxstyle="square,pad=0.0"))
 
         # Draw background
         floor_img = mpimg.imread(
