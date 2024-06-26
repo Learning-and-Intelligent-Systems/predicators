@@ -305,7 +305,7 @@ class _ForallClassifier(_NullaryClassifier):
         types = self.body.types
         type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types))
         objs = ",".join(str(i) for i in range(len(types)))
-        return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
+        return f"Forall[{type_sig}].[{str(self.body)}[{objs}]]"
 
     def pretty_str(self) -> Tuple[str, str]:
         types = self.body.types
@@ -355,7 +355,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
         type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types)
                             if i != self.free_variable_idx)
         objs = ",".join(str(i) for i in range(len(types)))
-        return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
+        return f"Forall[{type_sig}].[{str(self.body)}[{objs}]]"
 
     def pretty_str(self) -> Tuple[str, str]:
         types = self.body.types

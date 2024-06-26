@@ -991,7 +991,7 @@ def generate_sas_file_for_fd(
         logging.debug(prob_str)
         raise PlanningFailure("FD failed to translate PDDL "
                               "to sas, there is likely a "
-                              "dr-reachability issue! Run "
+                              "dr-reachability or PDDL formatting issue! Run "
                               "with '--debug' flag to see the "
                               "output from FD.")
     return sas_file
