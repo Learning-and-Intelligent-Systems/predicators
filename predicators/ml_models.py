@@ -1279,9 +1279,15 @@ def _train_pytorch_model(model: nn.Module,
     else:  # assume that it's a function from dataset size to max iters
         max_iters = max_train_iters(dataset_size)
     assert isinstance(max_iters, int)
+    i = 0
     for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)
+        if i == 0:
+            print("tensor_Y, Yhat, loss", tensor_X)
+            # import ipdb;ipdb.set_trace()
+            i = 1
+        # , tensor_Y.view(-1), Y_hat.view(-1), loss.view(-1)
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_itr = itr
@@ -1446,8 +1452,8 @@ class MapleQFunction(MLPRegressor):
             # logging.debug(str(option_scores))
             logging.debug("CHOSEN " + str(options[idx]) + str (scores[idx]))
             logging.debug("STATE" + str(state))
-        if train_or_test=="test":
-            print("options and scores", option_scores[:10])
+        # if train_or_test=="test":
+        #     print("options and scores", option_scores[:10])
         return options[idx]
 
     def decay_epsilon(self) -> None:
@@ -1494,6 +1500,8 @@ class MapleQFunction(MLPRegressor):
             vectorized_action = self._vectorize_option(option)
             X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_goal, vectorized_action])
+            # if i==0:
+            #     import ipdb;ipdb.set_trace()
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
@@ -1524,6 +1532,8 @@ class MapleQFunction(MLPRegressor):
             else:
                 best_next_value = 0.0
             Y_arr[i] = reward + self._discount * best_next_value
+            # if i>=0 and i<=3:
+            #     import ipdb;ipdb.set_trace()
 
             door_pos = CFG.grid_row_num_cells//2+0.5
             door_open_index = CFG.grid_row_num_cells+1
@@ -1667,6 +1677,7 @@ class MapleQFunction(MLPRegressor):
             batch_size: int) -> Iterator[Tuple[Tensor, Tensor]]:
         """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
         first, sample a minibatch of size batch_size to train on."""
+        torch.manual_seed(CFG.seed)
         train_dataset = TensorDataset(tensor_X, tensor_Y)
         train_dataloader = DataLoader(train_dataset,
                                       batch_size=batch_size,
@@ -1871,7 +1882,7 @@ class MPDQNFunction(MapleQFunction):
 
     def train_q_function(self) -> None:
         """Fit the model."""
-        import ipdb;ipdb.set_trace()
+        # import ipdb;ipdb.set_trace()
         # First, precompute the size of the input and output from the
         # Q-network.
         X_size = sum(o.type.dim for o in self._ordered_objects) + len(
@@ -1947,6 +1958,8 @@ class MPDQNFunction(MapleQFunction):
                 # as per double dqn, the q value is predicted by target_qnet and action is chosen by qnet
                 target_predicted=self.target_qnet.predict(x)[0]
                 Y_arr[i] = reward + self._discount * target_predicted
+                # if i>=0 and i<=3:
+                #     import ipdb;ipdb.set_trace()
             # if reward == 1.0:
             #     print("option", option, "TARGET", Y_arr[i])
             
@@ -2008,19 +2021,17 @@ class MPDQNFunction(MapleQFunction):
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
         # number of iterations. It will also normalize all the data.
+        Xx=X_arr
+        Yy=Y_arr
         self.qnet.fit(X_arr, Y_arr)
-
+        if not self.target_qnet._disable_normalization:
+            Xx, self.target_qnet._input_shift, self.target_qnet._input_scale = _normalize_data(Xx)
+            Yy, self.target_qnet._output_shift, self.target_qnet._output_scale = _normalize_data(Yy)
         if not self._qfunc_init:
             # we need to init a bunch of stuff for qnet and target_qnet
             # for training qnet to work
-            X=X_arr
-            Y=Y_arr
-            self.target_qnet._x_dims = tuple(X.shape[1:])
-            _, self.target_qnet._y_dim = Y.shape
-
-            if not self.target_qnet._disable_normalization:
-                X, self.target_qnet._input_shift, self.target_qnet._input_scale = _normalize_data(X)
-                Y, self.target_qnet._output_shift, self.target_qnet._output_scale = _normalize_data(Y)
+            self.target_qnet._x_dims = tuple(Xx.shape[1:])
+            _, self.target_qnet._y_dim = Yy.shape
 
             # self.qnet._initialize_net()
             self.target_qnet._initialize_net()
@@ -2063,8 +2074,8 @@ class MPDQNFunction(MapleQFunction):
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
 
         idx = np.argmax(scores)
-        if train_or_test=="test":
-            print("option scores", option_scores[:10])
+        # if train_or_test=="test":
+        #     print("option scores", option_scores[:10])
 
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
@@ -2074,12 +2085,12 @@ class MPDQNFunction(MapleQFunction):
     
     def update_target_network(self):
         # this is soft polyak averaging:
-        # for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
-            # target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
+        for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
+            target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
 
         # this is j copying all params into the target
 
-        self.target_qnet.load_state_dict(self.qnet.state_dict())
+        # self.target_qnet.load_state_dict(self.qnet.state_dict())
 
 
     # def _fit(self, X: Array, Y: Array) -> None:

@@ -15,7 +15,7 @@ ENVS:
   grid_row:
     NAME: "grid_row_door"
     FLAGS:
-      max_num_steps_interaction_request: 200
+      max_num_steps_interaction_request: 300
       interactive_num_requests_per_cycle: 5
       online_nsrt_learning_requests_per_cycle: 5
       num_online_learning_cycles: 100
