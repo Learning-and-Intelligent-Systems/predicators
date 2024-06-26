@@ -8,6 +8,7 @@ Nicole Thean (https://github.com/nicolethean).
 import copy
 import io
 import logging
+import random
 from typing import Callable, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
@@ -264,7 +265,11 @@ class BurgerEnv(BaseEnv):
         return ret
 
     def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+                   rng: np.random.Generator,
+                   partial_tasks: bool) -> List[EnvironmentTask]:
+        '''when `partial_tasks` is true, the goal is not always making the whole
+        burger
+        '''
         tasks = []
         state_dict = {}
         hidden_state = {}
@@ -326,16 +331,31 @@ class BurgerEnv(BaseEnv):
             state_dict[bottom_bun] = {"row": r, "col": c, "z": 0}
             hidden_state[bottom_bun] = {"is_held": 0.0}
 
-            goal = {
-                GroundAtom(self._On, [patty, bottom_bun]),
-                # GroundAtom(self._On, [cheese, patty]),
-                # GroundAtom(self._On, [tomato, cheese]),
-                # GroundAtom(self._On, [top_bun, tomato]),
-                # GroundAtom(self._IsCooked, [patty]),
-                # GroundAtom(self._IsSliced, [tomato]),
-                # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
-                #     top_bun])
-            }
+            # 1/6 of probabilty to have one
+            # I want to have the 1/6 prob to have size 1
+            if partial_tasks:
+                num_atoms = rng.choice(range(6)) + 1
+            else:
+                num_atoms = 6
+            goal_atoms = random.sample([
+                                GroundAtom(self._On, [patty, bottom_bun]),
+                                GroundAtom(self._On, [cheese, patty]),
+                                GroundAtom(self._On, [tomato, cheese]),
+                                GroundAtom(self._On, [top_bun, tomato]),
+                                GroundAtom(self._IsCooked, [patty]),
+                                GroundAtom(self._IsSliced, [tomato])], 
+                            num_atoms)
+            goal = set(goal_atoms)
+            # goal = {
+            #     GroundAtom(self._On, [patty, bottom_bun]),
+            #     GroundAtom(self._On, [cheese, patty]),
+            #     GroundAtom(self._On, [tomato, cheese]),
+            #     GroundAtom(self._On, [top_bun, tomato]),
+            #     GroundAtom(self._IsCooked, [patty]),
+            #     GroundAtom(self._IsSliced, [tomato]),
+            #     # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
+            #     #     top_bun])
+            # }
 
             if CFG.burger_explicit_goal:
                 alt_goal = None
@@ -367,7 +387,8 @@ class BurgerEnv(BaseEnv):
         return tasks
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng,
+                               partial_tasks=True)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
