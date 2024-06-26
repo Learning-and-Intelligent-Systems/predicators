@@ -120,6 +120,7 @@ class _NormalizingRegressor(Regressor):
         # Make prediction.
         y = self._predict(x)
         assert y.shape == (self._y_dim, )
+        # import ipdb;ipdb.set_trace()
         # Denormalize.
         if not self._disable_normalization:
             y = (y * self._output_scale) + self._output_shift
@@ -1222,6 +1223,7 @@ def _normalize_data(data: Array,
     shift = np.min(data, axis=0)
     scale = np.max(data - shift, axis=0)
     scale = np.clip(scale, scale_clip, None)
+    # import ipdb;ipdb.set_trace()
     return (data - shift) / scale, shift, scale
 
 
@@ -1419,7 +1421,6 @@ class MapleQFunction(MLPRegressor):
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
-        print(self._epsilon)
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -1430,7 +1431,7 @@ class MapleQFunction(MLPRegressor):
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
-            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+            state, num_samples_per_applicable_nsrt=10)
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
@@ -1445,7 +1446,8 @@ class MapleQFunction(MLPRegressor):
             # logging.debug(str(option_scores))
             logging.debug("CHOSEN " + str(options[idx]) + str (scores[idx]))
             logging.debug("STATE" + str(state))
-        print("options and scores", option_scores[:10])
+        if train_or_test=="test":
+            print("options and scores", option_scores[:10])
         return options[idx]
 
     def decay_epsilon(self) -> None:
@@ -1462,8 +1464,7 @@ class MapleQFunction(MLPRegressor):
 
     def train_q_function(self) -> None:
         """Fit the model."""
-        if self.state_dict():
-            print("qnet", self.state_dict())
+        import ipdb;ipdb.set_trace()
         # First, precompute the size of the input and output from the
         # Q-network.
         X_size = sum(o.type.dim for o in self._ordered_objects) + len(
@@ -1558,11 +1559,11 @@ class MapleQFunction(MLPRegressor):
                 second_movekey_index.append(i)
                 logging.debug("GOOD MOVEKEY (second action) predicted, next best value, next best action" + str(Y_arr[i]) +str(best_next_value) + str(next_best_action))
 
-            if vectorized_state[-1]==door_pos and not (vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
-                and vectorized_state[door_open_index+2]<=0.85 and vectorized_state[door_open_index+2]>=0.65)\
-                    and vectorized_action[0]==1:
-                if best_next_value!=0:
-                    logging.debug("BADDDD CALLPLANNER predicted, next best value, next best action" + str(self.predict(X_arr[i])) + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+            # if vectorized_state[-1]==door_pos and not (vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
+            #     and vectorized_state[door_open_index+2]<=0.85 and vectorized_state[door_open_index+2]>=0.65)\
+            #         and vectorized_action[0]==1:
+                # if best_next_value!=0:
+                #     logging.debug("BADDDD CALLPLANNER predicted, next best value, next best action" + str(self.predict(X_arr[i])) + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
 
             # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==1 and vectorized_action[good_move]==1:
             #     #good move if we're in 6th cell, door is open, and we move to 7th
@@ -1659,7 +1660,7 @@ class MapleQFunction(MLPRegressor):
             self._callplanner_q_values.append(self.predict(x)[0])
             print("CALLPLANNEr", self.predict(x)[0], Y_arr[callplanner])   
 
-    
+
 
     def minibatch_generator(
             self, tensor_X: Tensor, tensor_Y: Tensor,
@@ -1758,7 +1759,11 @@ class MapleQFunction(MLPRegressor):
             self._vectorize_goal(goal),
             self._vectorize_option(option)
         ])
+        # import ipdb;ipdb.set_trace()
         y = self.predict(x)[0]
+        # if self.state_dict():
+        #     print("qnet", self.state_dict())
+        #     raise ValueError
         return y
 
     def _sample_applicable_options_from_state(
@@ -1866,9 +1871,7 @@ class MPDQNFunction(MapleQFunction):
 
     def train_q_function(self) -> None:
         """Fit the model."""
-        if self.qnet.state_dict():
-            print("qnet", self.qnet.state_dict())
-            print("target qnet", self.target_qnet.state_dict())
+        import ipdb;ipdb.set_trace()
         # First, precompute the size of the input and output from the
         # Q-network.
         X_size = sum(o.type.dim for o in self._ordered_objects) + len(
@@ -1948,65 +1951,80 @@ class MPDQNFunction(MapleQFunction):
             #     print("option", option, "TARGET", Y_arr[i])
             
             # PRINTING Q VALUES
-            door_pos = CFG.grid_row_num_cells//2+0.5
-            door_open_index = CFG.grid_row_num_cells+1
-            good_move = CFG.grid_row_num_cells*(CFG.grid_row_num_cells//2)+CFG.grid_row_num_cells//2+1
-            if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65 and terminal and vectorized_action[-2]==1.0:
-                good_light_index.append(i)
-            elif vectorized_action[-2]==1.0:
-                bad_light_index.append(i)
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[2]==1 and vectorized_action[-1]<0.6 and vectorized_action[-1]>0.4:
-                #good door is if we're in the 2nd cell and door is not open and we try to MoveKey
-                good_door_index.append(i)
-                logging.debug("GOOD DOOR value target, next best value, next best action" +str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-                logging.debug("our state" + str(vectorized_state))
-                if best_next_value!=0:
-                    logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
-                #good door is if we're in the 2nd cell and door is not open and we try to TurnKey
-                good_door_index.append(i)
-                logging.debug("GOOD DOOR value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-                logging.debug("our state" + str(vectorized_state))
-                if best_next_value!=0:
-                    logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
-            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and len(bad_door_index)<20:
-                #we did not try to open the door...
-                bad_door_index.append(i)
-                logging.debug("BAD DOOR value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-                logging.debug("our state" + str(vectorized_state) + "next state" + str(vectorized_next_state))
-                if best_next_value!=0:
-                    logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
-                and vectorized_state[door_open_index+2]<=0.85 and vectorized_state[door_open_index+2]>=0.65\
-                    and vectorized_action[0]==1:
-                callplanner_index.append(i)
-                logging.debug("GOOD CALLPLANNER value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-                logging.debug("our state" + str(vectorized_state))
-                if best_next_value!=0:
-                    logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
-                and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<=0.85 and vectorized_action[-1]>=0.65:
-                #second good door, we've already done movekey and now we turn key
-                second_turnkey_index.append(i)
-                logging.debug("GOOD TURNKEY (second action) value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-                logging.debug("our state" + str(vectorized_state))
-                if best_next_value!=0:
-                    logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]<=0.85 \
-                  and vectorized_state[door_open_index+2]>=0.65 and vectorized_action[2]==1 and vectorized_action[-1]<=0.6 and vectorized_action[-1]>=0.4:
-                #second good door, we've already done movekey and now we turn key
-                second_movekey_index.append(i)
-                logging.debug("GOOD MOVEKEY (second action) value target, next best value, next best action" + str(Y_arr[i]) +str(best_next_value) + str(next_best_action))
-                logging.debug("our state" + str(vectorized_state))
+            # door_pos = CFG.grid_row_num_cells//2+0.5
+            # door_open_index = CFG.grid_row_num_cells+1
+            # good_move = CFG.grid_row_num_cells*(CFG.grid_row_num_cells//2)+CFG.grid_row_num_cells//2+1
+            # if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65 and terminal and vectorized_action[-2]==1.0:
+            #     good_light_index.append(i)
+            # elif vectorized_action[-2]==1.0:
+            #     bad_light_index.append(i)
+            # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[2]==1 and vectorized_action[-1]<0.6 and vectorized_action[-1]>0.4:
+            #     #good door is if we're in the 2nd cell and door is not open and we try to MoveKey
+            #     good_door_index.append(i)
+            #     logging.debug("GOOD DOOR value target, next best value, next best action" +str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+            #     logging.debug("our state" + str(vectorized_state))
+            #     if best_next_value!=0:
+            #         logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
+            # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
+            #     #good door is if we're in the 2nd cell and door is not open and we try to TurnKey
+            #     good_door_index.append(i)
+            #     logging.debug("GOOD DOOR value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+            #     logging.debug("our state" + str(vectorized_state))
+            #     if best_next_value!=0:
+            #         logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
+            # elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and len(bad_door_index)<20:
+            #     #we did not try to open the door...
+            #     bad_door_index.append(i)
+            #     logging.debug("BAD DOOR value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+            #     logging.debug("our state" + str(vectorized_state) + "next state" + str(vectorized_next_state))
+            #     if best_next_value!=0:
+            #         logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
+            # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
+            #     and vectorized_state[door_open_index+2]<=0.85 and vectorized_state[door_open_index+2]>=0.65\
+            #         and vectorized_action[0]==1:
+            #     callplanner_index.append(i)
+            #     logging.debug("GOOD CALLPLANNER value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+            #     logging.debug("our state" + str(vectorized_state))
+            #     if best_next_value!=0:
+            #         logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
+            # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
+            #     and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<=0.85 and vectorized_action[-1]>=0.65:
+            #     #second good door, we've already done movekey and now we turn key
+            #     second_turnkey_index.append(i)
+            #     logging.debug("GOOD TURNKEY (second action) value target, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
+            #     logging.debug("our state" + str(vectorized_state))
+            #     if best_next_value!=0:
+            #         logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
+            # if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]<=0.85 \
+            #       and vectorized_state[door_open_index+2]>=0.65 and vectorized_action[2]==1 and vectorized_action[-1]<=0.6 and vectorized_action[-1]>=0.4:
+            #     #second good door, we've already done movekey and now we turn key
+            #     second_movekey_index.append(i)
+            #     logging.debug("GOOD MOVEKEY (second action) value target, next best value, next best action" + str(Y_arr[i]) +str(best_next_value) + str(next_best_action))
+            #     logging.debug("our state" + str(vectorized_state))
 
-                if best_next_value!=0:
-                    logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
+            #     if best_next_value!=0:
+            #         logging.debug("THE Q VALUE WEEEE PREDICT:" + str(self.qnet.predict(X_arr[i])))
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
         # number of iterations. It will also normalize all the data.
-        self.fit(X_arr, Y_arr)
+        self.qnet.fit(X_arr, Y_arr)
 
+        if not self._qfunc_init:
+            # we need to init a bunch of stuff for qnet and target_qnet
+            # for training qnet to work
+            X=X_arr
+            Y=Y_arr
+            self.target_qnet._x_dims = tuple(X.shape[1:])
+            _, self.target_qnet._y_dim = Y.shape
+
+            if not self.target_qnet._disable_normalization:
+                X, self.target_qnet._input_shift, self.target_qnet._input_scale = _normalize_data(X)
+                Y, self.target_qnet._output_shift, self.target_qnet._output_scale = _normalize_data(Y)
+
+            # self.qnet._initialize_net()
+            self.target_qnet._initialize_net()
+            self._qfunc_init = True
 
     def get_option(self,
                    state: State,
@@ -2020,7 +2038,10 @@ class MPDQNFunction(MapleQFunction):
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
-        print(epsilon)
+            # if self.qnet.state_dict():
+            #     print("qnet", self.qnet.state_dict())
+            #     raise ValueError
+        # print(epsilon)
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -2032,7 +2053,7 @@ class MPDQNFunction(MapleQFunction):
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
-            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+            state, num_samples_per_applicable_nsrt=10)
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
@@ -2042,7 +2063,8 @@ class MPDQNFunction(MapleQFunction):
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
 
         idx = np.argmax(scores)
-        print("option scores", option_scores[:10])
+        if train_or_test=="test":
+            print("option scores", option_scores[:10])
 
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
@@ -2056,55 +2078,57 @@ class MPDQNFunction(MapleQFunction):
             # target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
 
         # this is j copying all params into the target
+
         self.target_qnet.load_state_dict(self.qnet.state_dict())
 
 
-    def _fit(self, X: Array, Y: Array) -> None:
-        if not self._qfunc_init:
-            # we need to init a bunch of stuff for qnet and target_qnet
-            # for training qnet to work
-            self.qnet._x_dims = tuple(X.shape[1:])
-            self.target_qnet._x_dims = tuple(X.shape[1:])
-            _, self.qnet._y_dim = Y.shape
-            _, self.target_qnet._y_dim = Y.shape
+    # def _fit(self, X: Array, Y: Array) -> None:
+    #     # import ipdb; ipdb.set_trace()
+    #     if not self._qfunc_init:
+    #         # we need to init a bunch of stuff for qnet and target_qnet
+    #         # for training qnet to work
+    #         self.qnet._x_dims = tuple(X.shape[1:])
+    #         self.target_qnet._x_dims = tuple(X.shape[1:])
+    #         _, self.qnet._y_dim = Y.shape
+    #         _, self.target_qnet._y_dim = Y.shape
 
-            if not self.qnet._disable_normalization:
-                X, self.target_qnet._input_shift, self.qnet._input_scale = _normalize_data(X)
-                Y, self.qnet._output_shift, self.qnet._output_scale = _normalize_data(Y)
+    #         if not self.qnet._disable_normalization:
+    #             X, self.qnet._input_shift, self.qnet._input_scale = _normalize_data(X)
+    #             Y, self.qnet._output_shift, self.qnet._output_scale = _normalize_data(Y)
 
-            if not self.target_qnet._disable_normalization:
-                X, self.target_qnet._input_shift, self.target_qnet._input_scale = _normalize_data(X)
-                Y, self.target_qnet._output_shift, self.target_qnet._output_scale = _normalize_data(Y)
+    #         if not self.target_qnet._disable_normalization:
+    #             X, self.target_qnet._input_shift, self.target_qnet._input_scale = _normalize_data(X)
+    #             Y, self.target_qnet._output_shift, self.target_qnet._output_scale = _normalize_data(Y)
 
-            self.qnet._initialize_net()
-            self.target_qnet._initialize_net()
-            self._qfunc_init = True
+    #         self.qnet._initialize_net()x
+    #         self.target_qnet._initialize_net()
+    #         self._qfunc_init = True
 
-        self.qnet.to(self._device)
-        self.target_qnet.to(self._device)
-        # Create the loss function.
-        loss_fn = self._create_loss_fn()
-        # Create the optimizer.
-        optimizer = self._create_optimizer()
-        # Convert data to tensors.
-        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
-            self._device)
-        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
-            self._device)
-        batch_generator = self.minibatch_generator(
-            tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
-        # Run training.
-        _train_pytorch_model(self.qnet,
-                             loss_fn,
-                             optimizer,
-                             batch_generator,
-                             device=self._device,
-                             print_every=self._train_print_every,
-                             max_train_iters=self._max_train_iters,
-                             dataset_size=X.shape[0],
-                             clip_gradients=self._clip_gradients,
-                             clip_value=self._clip_value,
-                             n_iter_no_change=self._n_iter_no_change)
+    #     self.qnet.to(self._device)
+    #     self.target_qnet.to(self._device)
+    #     # Create the loss function.
+    #     loss_fn = self._create_loss_fn()
+    #     # Create the optimizer.
+    #     optimizer = self._create_optimizer()
+    #     # Convert data to tensors.
+    #     tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
+    #         self._device)
+    #     tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
+    #         self._device)
+    #     batch_generator = self.minibatch_generator(
+    #         tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
+    #     # Run training.
+    #     _train_pytorch_model(self.qnet,
+    #                          loss_fn,
+    #                          optimizer,
+    #                          batch_generator,
+    #                          device=self._device,
+    #                          print_every=self._train_print_every,
+    #                          max_train_iters=self._max_train_iters,
+    #                          dataset_size=X.shape[0],
+    #                          clip_gradients=self._clip_gradients,
+    #                          clip_value=self._clip_value,
+    #                          n_iter_no_change=self._n_iter_no_change)
 
     def predict_q_value(self, state: State, goal: Set[GroundAtom],
                         option: _Option) -> float:
@@ -2118,6 +2142,11 @@ class MPDQNFunction(MapleQFunction):
             self._vectorize_goal(goal),
             self._vectorize_option(option)
         ])
+        # import ipdb;ipdb.set_trace()
         y = self.qnet.predict(x)[0]
 
+        # if self.qnet.state_dict():
+        #     print("qnet", self.qnet.state_dict())
+        #     raise ValueError
+        
         return y
