@@ -18,7 +18,6 @@ ARGS:
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  option_model_terminate_on_repeat: True
   num_train_tasks: 1
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
@@ -30,7 +29,7 @@ FLAGS:
   # sesame_task_planner: fdopt
   min_perc_data_for_nsrt: 10
   segmenter: "option_changes"
-  timeout: 150 # 80 won't be enough even for the oracle to solve the full goal
+  timeout: 300 # 80 won't be enough even for the oracle to solve the full goal
   pybullet_camera_width: 800
   pybullet_camera_height: 900
   video_fps: 20

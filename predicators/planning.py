@@ -176,16 +176,19 @@ def _sesame_plan_with_astar(
                     sorted(proposed_skeletons,
                            key=lambda s: estimator.get_cost(task, *s)))
             refinement_start_time = time.perf_counter()
+            logging.debug(f"Start task planning")
             for skeleton, atoms_sequence in gen:
                 if CFG.sesame_use_necessary_atoms:
                     atoms_seq = utils.compute_necessary_atoms_seq(
                         skeleton, atoms_sequence, task.goal)
                 else:
                     atoms_seq = atoms_sequence
+                logging.debug(f"found plan {[ns.short_str for ns in skeleton]}")
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), metrics,
                     max_horizon)
+                logging.debug(f"plan succ={suc}")
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
@@ -598,6 +601,8 @@ def run_low_level_search(
         cur_idx += 1
         if option.initiable(state):
             try:
+                if skeleton[0].name == "MoveWhenFacingOneStack":
+                    breakpoint()
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
             except EnvironmentFailure as e:
@@ -1183,16 +1188,22 @@ def _sesame_plan_with_fast_downward(
     sas_file = generate_sas_file_for_fd(task, nsrts, predicates, types,
                                         timeout, timeout_cmd, alias_flag,
                                         exec_str, objects, init_atoms)
-
+    partial_refinements = []
+    num_skeletons_optimized = 0
     while True:
         logging.debug(f"Start task planning, timeleft "\
                       f"{timeout - (time.perf_counter() - start_time)}")
+        if num_skeletons_optimized == CFG.sesame_max_skeletons_optimized:
+            raise _MaxSkeletonsFailure("Planning reached "\
+                                        "max_skeletons_optimized!")
+
         skeleton, atoms_sequence, metrics = fd_plan_from_sas_file(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
             objects, init_atoms, nsrts, float(max_horizon))
+        num_skeletons_optimized += 1
         # Run low-level search on this skeleton.
         low_level_timeout = timeout - (time.perf_counter() - start_time)
-        logging.debug(f"found 1 skeleton {skeleton}, timeleft {low_level_timeout}")
+        logging.debug(f"found plan {[ns.short_str for ns in skeleton]}, timeleft {low_level_timeout}")
         try:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)
@@ -1201,18 +1212,37 @@ def _sesame_plan_with_fast_downward(
                                              necessary_atoms_seq, seed,
                                              low_level_timeout, metrics,
                                              max_horizon)
-            if not suc:
-                if time.perf_counter() - start_time > timeout:
-                    raise PlanningTimeout("Planning timed out in refinement!")
-                raise PlanningFailure("Skeleton produced by FD not refinable!")
+            if suc:
+                # Success! It's a complete plan.
+                logging.info(
+                    f"Planning succeeded! Found plan of length "
+                    f"{len(plan)} after "
+                    f"{int(metrics['num_skeletons_optimized'])} "
+                    f"skeletons with {int(metrics['num_samples'])}"
+                    f" samples, discovering "
+                    f"{int(metrics['num_failures_discovered'])} failures")
+                metrics["plan_length"] = len(plan)
+                metrics["refinement_time"] = (time.perf_counter() -
+                                                refinement_start_time)
+                metrics["partial_refinements"] = partial_refinements
+                return plan, skeleton, metrics
+            logging.info(f"ite {num_skeletons_optimized}, found succ={suc} "\
+                         f"partial plan {plan}")
+            partial_refinements.append((skeleton, plan))
+            if time.perf_counter() - start_time > timeout:
+                raise PlanningTimeout("Planning timed out in refinement!")
             metrics["plan_length"] = len(plan)
             metrics["refinement_time"] = (time.perf_counter() -
                                           refinement_start_time)
-            return plan, skeleton, metrics
         except _DiscoveredFailureException as e:
+            logging.debug("Discovered Failure: " + str(e))
             metrics["num_failures_discovered"] += 1
+            partial_refinements.append(
+                (skeleton, e.info["longest_failed_refinement"]))
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
+            e.info["partial_refinements"] = partial_refinements
+            e.info["metrics"] = metrics
             raise e
 
 
