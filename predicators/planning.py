@@ -1026,7 +1026,15 @@ def generate_sas_file_for_fd(
     # Run to generate sas
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
                f"--sas-file {sas_file} {dom_file} {prob_file}")
-    subprocess.getoutput(cmd_str)
+    fd_translation_cmd_output = subprocess.getoutput(cmd_str)
+    if "Driver aborting" in fd_translation_cmd_output:
+        logging.debug(fd_translation_cmd_output)
+        logging.debug(prob_str)
+        raise PlanningFailure("FD failed to translate PDDL "
+                              "to sas, there is likely a "
+                              "dr-reachability issue! Run "
+                              "with '--debug' flag to see the "
+                              "output from FD.")
     return sas_file
 
 
