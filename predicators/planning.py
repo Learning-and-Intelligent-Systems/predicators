@@ -1177,11 +1177,14 @@ def _sesame_plan_with_fast_downward(
                                         exec_str, objects, init_atoms)
 
     while True:
+        logging.debug(f"Start task planning, timeleft "\
+                      f"{timeout - (time.perf_counter() - start_time)}")
         skeleton, atoms_sequence, metrics = fd_plan_from_sas_file(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
             objects, init_atoms, nsrts, float(max_horizon))
         # Run low-level search on this skeleton.
         low_level_timeout = timeout - (time.perf_counter() - start_time)
+        logging.debug(f"found 1 skeleton {skeleton}, timeleft {low_level_timeout}")
         try:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)

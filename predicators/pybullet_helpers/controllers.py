@@ -182,8 +182,10 @@ def create_change_fingers_option(
         del memory  # unused
         current_val, target_val = get_current_and_target_val(
             state, objects, params)
-        return get_change_fingers_action(robot, current_val, target_val,
-                                         max_vel_norm)
+        state = cast(utils.PyBulletState, state)
+        return get_change_fingers_action(robot, state.joint_positions, 
+                                        current_val, target_val,
+                                        max_vel_norm)
 
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:

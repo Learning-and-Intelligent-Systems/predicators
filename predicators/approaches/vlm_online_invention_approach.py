@@ -138,7 +138,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     self._initial_predicates)
 
     def _solve_tasks(self, env: BaseEnv, tasks: List[Task], ite: int) -> \
-        Tuple[List[PlanningResult], Dataset]:
+        List[PlanningResult]:
         '''When return_trajctories is True, return the dataset of trajectories
         otherwise, return the results of solving the tasks (succeeded/failed 
         plans).
@@ -241,7 +241,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
-        # breakpoint()
+        breakpoint()
 
         self.succ_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
@@ -259,6 +259,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             # This will update self.task_to_tasjs
             self._process_interaction_result(env, results, tasks, ite, 
                                              use_only_first_solution=False)
+            breakpoint()
             #### End of data collection
 
             # Invent when no improvement in solve rate
@@ -521,7 +522,6 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Currently, the unsuccessful experience is accumulated
             # The failed refinements (negative samples)
             # This result is either a Result tuple or an exception
-            # todo: Maybe should unify them in _solve_tasks?
             for p_idx, p_ref in enumerate(result.info['partial_refinements']):
                 nsrt_plan = p_ref[0]
                 # longest option refinement
@@ -664,7 +664,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     
     def collect_dataset(self, ite: int, env: BaseEnv, tasks: List[Task]
-                        ) -> Tuple[List[PlanningResult], Dataset]:
+                        ) -> List[PlanningResult]:
 
         ds_fname = utils.llm_pred_dataset_save_name(ite)
         if CFG.load_llm_pred_invent_dataset and os.path.exists(ds_fname):

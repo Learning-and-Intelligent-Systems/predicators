@@ -24,7 +24,7 @@ from predicators.structs import Action, DefaultEnvironmentTask, \
     EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
     Video
 
-
+matplotlib.use('Agg')  # Use a non-interactive backend to prevent debug messages
 class BurgerEnv(BaseEnv):
     """A simple gridworld environment where a robot prepares a burger, inspired
     by https://github.com/portal-cornell/robotouille.
@@ -132,71 +132,221 @@ class BurgerEnv(BaseEnv):
             self._grill_type, self._cutting_board_type
         }
 
+    # def _get_tasks(self, num: int,
+    #                rng: np.random.Generator) -> List[EnvironmentTask]:
+    #     del rng  # unused
+    #     tasks = []
+    #     state_dict = {}
+    #     hidden_state = {}
+    #
+    #     # Add robot, grill, and cutting board
+    #     state_dict[self._robot] = {
+    #         "row": 2,
+    #         "col": 2,
+    #         "z": 0,
+    #         "fingers": 0.0,
+    #         "dir": 3
+    #     }
+    #     state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
+    #     state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
+    #
+    #     # Add patty
+    #     patty = Object("patty", self._patty_type)
+    #     state_dict[patty] = {"row": 0, "col": 0, "z": 0}
+    #     hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
+    #
+    #     # Add tomato
+    #     tomato = Object("tomato", self._tomato_type)
+    #     state_dict[tomato] = {"row": 0, "col": 1, "z": 0}
+    #     hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
+    #
+    #     # Add cheese
+    #     cheese = Object("cheese", self._cheese_type)
+    #     state_dict[cheese] = {"row": 3, "col": 0, "z": 0}
+    #     hidden_state[cheese] = {"is_held": 0.0}
+    #
+    #     # Add top bun
+    #     top_bun = Object("top_bun", self._top_bun_type)
+    #     state_dict[top_bun] = {"row": 3, "col": 1, "z": 0}
+    #     hidden_state[top_bun] = {"is_held": 0.0}
+    #
+    #     # Add bottom bun
+    #     bottom_bun = Object("bottom_bun", self._bottom_bun_type)
+    #     state_dict[bottom_bun] = {"row": 0, "col": 2, "z": 0}
+    #     hidden_state[bottom_bun] = {"is_held": 0.0}
+    #
+    #     goal = {
+    #         # GroundAtom(self._On, [patty, bottom_bun]),
+    #         # GroundAtom(self._On, [cheese, patty]),
+    #         # GroundAtom(self._On, [tomato, cheese]),
+    #         # GroundAtom(self._On, [top_bun, tomato]),
+    #         # GroundAtom(self._IsCooked, [patty]),
+    #         # GroundAtom(self._IsSliced, [tomato]),
+    #         # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
+    #         #     top_bun])
+    #         GroundAtom(self._On, [patty, bottom_bun]),
+    #         GroundAtom(self._On, [cheese, patty]),
+    #         GroundAtom(self._IsCooked, [patty]),
+    #         GroundAtom(self._IsSliced, [tomato]),
+    #     }
+    #
+    #     alt_goal = {
+    #         GroundAtom(self._On, [patty, bottom_bun]),
+    #         GroundAtom(self._On, [cheese, patty]),
+    #         GroundAtom(self._GoalHack,
+    #                    [bottom_bun, patty, cheese, tomato, top_bun])
+    #     }
+    #
+    #     for _ in range(num):
+    #         state = utils.create_state_from_dict(state_dict)
+    #         state.simulator_state = {}
+    #         state.simulator_state["state"] = hidden_state
+    #         # A DefaultEnvironmentTask is a dummy environment task. Our render
+    #         # function does not use the task argument, so this is ok.
+    #         state.simulator_state["images"] = self.render_state(
+    #             state, DefaultEnvironmentTask)
+    #         # Recall that a EnvironmentTask consists of an Observation and a
+    #         # GoalDescription, both of whose types are Any.
+    #         tasks.append(EnvironmentTask(state, goal, alt_goal_desc=alt_goal))
+    #
+    #     return tasks
+
+    def get_accessible_edge_cells(self, rng: np.random.Generator) -> List[Tuple[int, int]]:
+        n_row = self.num_rows
+        n_col = self.num_cols
+        top = [(n_row - 1, col) for col in range(n_col)]
+        left = [(row, 0) for row in range(n_row)]
+        bottom = [(0, col) for col in range(n_col)]
+        right = [(row, n_col - 1) for row in range(n_row)]
+        corners = [(0, 0), (0, self.num_cols - 1), (self.num_rows - 1, 0), (self.num_rows - 1, self.num_cols - 1)]
+
+        # Arrange open spots so that the robot will never be adjacent to two objects
+        # at the same time.
+        # 1. Pick one edge to keep all its cells.
+        # 2. Pick one edge to lose two cells.
+        # 3. The rest is determined by the previous choices.
+
+        edges = [top, left, bottom, right]
+        for i, edge in enumerate(edges):
+            edges[i] = [c for c in edge if c not in corners]
+        top, left, bottom, right = edges
+        # Without loss of generality, have the top edge keep all its cells.
+        # Next, pick one edge to lose two cells.
+        loses_two = edges[rng.choice([1,2,3])]
+        if loses_two == left:
+            left = left[1:len(left)-1]
+            bottom = bottom[:-1]
+            right = right[:-1]
+        elif loses_two == bottom:
+            left = left[:-1]
+            bottom = bottom[1:len(bottom)-1]
+            right = right[:-1]
+        elif loses_two == right:
+            left = left[:-1]
+            bottom = bottom[1:]
+            right = right[1:len(right)-1]
+
+        edges = [top, left, bottom, right]
+        cells = top + left + bottom + right
+        rotate = rng.choice([0, 1, 2, 3])
+        if rotate == 0:
+            ret = cells
+        elif rotate == 1:
+            # Rotate 90 degrees.
+            ret = [(col, n_row - 1 - row) for row, col in cells]
+        elif rotate == 2:
+            # Rotate 180 degrees.
+            ret = [(n_row - 1 - row, n_col - 1 - col) for row, col in cells]
+        else:
+            # Rotate 270 degrees.
+            ret = [(col, row) for row, col in cells]
+
+        return ret
+
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
-        del rng  # unused
         tasks = []
         state_dict = {}
         hidden_state = {}
 
-        # Add robot, grill, and cutting board
-        state_dict[self._robot] = {
-            "row": 2,
-            "col": 2,
-            "z": 0,
-            "fingers": 0.0,
-            "dir": 3
-        }
-        state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
-        state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
-
-        # Add patty
-        patty = Object("patty", self._patty_type)
-        state_dict[patty] = {"row": 0, "col": 0, "z": 0}
-        hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
-
-        # Add tomato
-        tomato = Object("tomato", self._tomato_type)
-        state_dict[tomato] = {"row": 0, "col": 1, "z": 0}
-        hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
-
-        # Add cheese
-        cheese = Object("cheese", self._cheese_type)
-        state_dict[cheese] = {"row": 3, "col": 0, "z": 0}
-        hidden_state[cheese] = {"is_held": 0.0}
-
-        # Add top bun
-        top_bun = Object("top_bun", self._top_bun_type)
-        state_dict[top_bun] = {"row": 3, "col": 1, "z": 0}
-        hidden_state[top_bun] = {"is_held": 0.0}
-
-        # Add bottom bun
-        bottom_bun = Object("bottom_bun", self._bottom_bun_type)
-        state_dict[bottom_bun] = {"row": 0, "col": 2, "z": 0}
-        hidden_state[bottom_bun] = {"is_held": 0.0}
-
-        goal = {
-            # GroundAtom(self._On, [patty, bottom_bun]),
-            # GroundAtom(self._On, [cheese, patty]),
-            # GroundAtom(self._On, [tomato, cheese]),
-            # GroundAtom(self._On, [top_bun, tomato]),
-            # GroundAtom(self._IsCooked, [patty]),
-            # GroundAtom(self._IsSliced, [tomato]),
-            # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
-            #     top_bun])
-            GroundAtom(self._On, [patty, bottom_bun]),
-            GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._IsCooked, [patty]),
-        }
-
-        alt_goal = {
-            GroundAtom(self._On, [patty, bottom_bun]),
-            GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._GoalHack,
-                       [bottom_bun, patty, cheese, tomato, top_bun])
-        }
+        spots_for_objects = self.get_accessible_edge_cells(rng)
+        # num_tasks = num
+        # if num == 1:
+        #     num_tasks += 1
 
         for _ in range(num):
+        # for _ in range(num_tasks):
+            shuffled_spots = spots_for_objects.copy()
+            rng.shuffle(shuffled_spots)
+
+            # Add robot, grill, and cutting board
+            r, c = shuffled_spots[0]
+            state_dict[self._robot] = {
+                "row": 2,  # assumes 5x5 grid
+                "col": 2,  # assumes 5x5 grid
+                "z": 0,
+                "fingers": 0.0,
+                "dir": 3
+            }
+            r, c = shuffled_spots[1]
+            state_dict[self._grill] = {"row": r, "col": c, "z": 0}
+            r, c = shuffled_spots[2]
+            state_dict[self._cutting_board] = {"row": r, "col": c, "z": 0}
+
+            # Add patty
+            r, c = shuffled_spots[3]
+            patty = Object("patty", self._patty_type)
+            state_dict[patty] = {"row": r, "col": c, "z": 0}
+            hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
+
+            # Add tomato
+            try:
+                r, c = shuffled_spots[4]
+            except Exception as e:
+                breakpoint()
+            tomato = Object("tomato", self._tomato_type)
+            state_dict[tomato] = {"row": r, "col": c, "z": 0}
+            hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
+
+            # Add cheese
+            r, c = shuffled_spots[5]
+            cheese = Object("cheese", self._cheese_type)
+            state_dict[cheese] = {"row": r, "col": c, "z": 0}
+            hidden_state[cheese] = {"is_held": 0.0}
+
+            # Add top bun
+            r, c = shuffled_spots[6]
+            top_bun = Object("top_bun", self._top_bun_type)
+            state_dict[top_bun] = {"row": r, "col": c, "z": 0}
+            hidden_state[top_bun] = {"is_held": 0.0}
+
+            # Add bottom bun
+            r, c = shuffled_spots[7]
+            bottom_bun = Object("bottom_bun", self._bottom_bun_type)
+            state_dict[bottom_bun] = {"row": r, "col": c, "z": 0}
+            hidden_state[bottom_bun] = {"is_held": 0.0}
+
+            goal = {
+                GroundAtom(self._On, [patty, bottom_bun]),
+                GroundAtom(self._On, [cheese, patty]),
+                GroundAtom(self._On, [tomato, cheese]),
+                GroundAtom(self._On, [top_bun, tomato]),
+                GroundAtom(self._IsCooked, [patty]),
+                GroundAtom(self._IsSliced, [tomato]),
+                # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
+                #     top_bun])
+            }
+
+            if CFG.burger_explicit_goal:
+                alt_goal = None
+            else:
+                alt_goal = {
+                    GroundAtom(self._On, [patty, bottom_bun]),
+                    GroundAtom(self._On, [cheese, patty]),
+                    GroundAtom(self._GoalHack,
+                            [bottom_bun, patty, cheese, tomato, top_bun])
+                }
+
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = {}
             state.simulator_state["state"] = hidden_state
@@ -206,8 +356,14 @@ class BurgerEnv(BaseEnv):
                 state, DefaultEnvironmentTask)
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
+            state = utils.BurgerState(state)
+            assert isinstance(state, utils.BurgerState)
             tasks.append(EnvironmentTask(state, goal, alt_goal_desc=alt_goal))
 
+            # img = Image.fromarray(state.simulator_state["images"][0])
+            # import pdb; pdb.set_trace()
+        # if num == 1:
+        #     return [tasks[0]]
         return tasks
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -276,7 +432,7 @@ class BurgerEnv(BaseEnv):
         robot, item = objects
         assert state.simulator_state is not None
         assert "state" in state.simulator_state
-        return not self._HandEmpty_holds(state,[robot]) and \
+        return not self._HandEmpty_holds(state, [robot]) and \
             state.simulator_state["state"][item]["is_held"] > 0.5
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -307,15 +463,15 @@ class BurgerEnv(BaseEnv):
         return True
 
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # bottom, patty, cheese, tomato, top = objects
-        bottom, patty, cheese, _, _ = objects
+        bottom, patty, cheese, tomato, top = objects
+        # bottom, patty, cheese, _, _ = objects
         atoms = [
             self._On_holds(state, [patty, bottom]),
             self._On_holds(state, [cheese, patty]),
             # self._On_holds(state, [tomato, cheese]),
             # self._On_holds(state, [top, tomato]),
-            self._IsCooked_holds(state, [patty]),
-            # self._IsSliced_holds(state, [tomato])
+            # self._IsCooked_holds(state, [patty]),
+            self._IsSliced_holds(state, [tomato])
         ]
         return all(atoms)
 
@@ -350,7 +506,10 @@ class BurgerEnv(BaseEnv):
 
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._GoalHack}
+        if CFG.burger_explicit_goal:
+            return self.goal_predicates
+        else:
+            return {self._On, self._GoalHack}
 
     @property
     def action_space(self) -> Box:
@@ -443,6 +602,9 @@ class BurgerEnv(BaseEnv):
             if abs(new_rx - ox) < 1e-3 and abs(new_ry - oy) < 1e-3:
                 next_state.simulator_state["images"] = self.render_state(
                     next_state, DefaultEnvironmentTask)
+
+                next_state = utils.BurgerState(next_state)
+                assert isinstance(next_state, utils.BurgerState)
                 return next_state
 
         # No collision detected, so we can move the robot.
@@ -513,6 +675,8 @@ class BurgerEnv(BaseEnv):
         assert next_state.simulator_state is not None
         next_state.simulator_state["images"] = self.render_state(
             next_state, DefaultEnvironmentTask)
+        next_state = utils.BurgerState(next_state)
+        assert isinstance(next_state, utils.BurgerState)
 
         return next_state
 

@@ -6,6 +6,7 @@ then Execution.
 import abc
 import logging
 from typing import Any, Callable, List, Optional, Set, Tuple
+from pprint import pformat
 
 from gym.spaces import Box
 
@@ -84,6 +85,8 @@ class BilevelPlanningApproach(BaseApproach):
             policy = utils.option_plan_to_policy(option_plan)
 
         self._save_metrics(metrics, nsrts, preds)
+        logging.info(f"Plan of len {len(option_plan)} found: "\
+                     f"{pformat(option_plan)}")
 
         def _policy(s: State) -> Action:
             try:

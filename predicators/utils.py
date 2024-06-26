@@ -634,6 +634,8 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
     return State(state_dict, simulator_state)
 
 
+
+
 def create_json_dict_from_ground_atoms(
         ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
     """Saves a set of ground atoms in a JSON-compatible dict.
@@ -1449,6 +1451,24 @@ class SingletonParameterizedOption(ParameterizedOption):
                          policy=policy,
                          initiable=_initiable,
                          terminal=_terminal)
+
+class BurgerState(State):
+    def __init__(self, state: State):
+        self.data = state.data
+        self.simulator_state = state.simulator_state
+
+    def allclose(self, other: State) -> bool:
+        if self.simulator_state is not None and \
+           other.simulator_state is not None:
+            if not sorted(self.simulator_state['state']) == \
+                sorted(other.simulator_state['state']):
+                return False
+        if not sorted(self.data) == sorted(other.data):
+            return False
+        for obj in self.data:
+            if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
+                return False
+        return True
 
 class PyBulletState(State):
     """A PyBullet state that stores the robot joint positions in addition to

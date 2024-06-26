@@ -6,37 +6,38 @@ APPROACHES:
     FLAGS: []
 ENVS:
   stick_button:
-    # NAME: "burger"
-    NAME: "pybullet_cover"
+    NAME: "burger"
+    # NAME: "pybullet_cover"
     # NAME: "pybullet_blocks"
     
 ARGS: 
   # []
   - "debug"
-  # - "rgb_observation" # stick_button doesn't support rendering
   # - "make_segmented_demo_videos"
   # - "make_demo_videos" 
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 40
+  option_model_terminate_on_repeat: True
+  num_train_tasks: 1
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
   strips_learner: "cluster_and_intersect"
   # bilevel_plan_without_sim: True
   excluded_predicates: "all"
-  sesame_max_samples_per_step: 10
+  sesame_max_samples_per_step: 1
+  # sesame_task_planner: fdopt
   min_perc_data_for_nsrt: 10
   segmenter: "option_changes"
-  neural_gaus_regressor_max_itr: 50000
-  timeout: 30 #0
+  timeout: 150 # 80 won't be enough even for the oracle to solve the full goal
   pybullet_camera_width: 800
   pybullet_camera_height: 900
   video_fps: 20
   log_file: "logs/vlm_predicate.log"
 
   # Env settings
+  burger_explicit_goal: True
   rgb_observation: False
   render_init_state: True # True for NSP
 

@@ -1,0 +1,43 @@
+# Run the oracle agent in the Burger environment
+---
+APPROACHES:
+  oracle:
+    NAME: "oracle"
+    FLAGS: []
+ENVS:
+  burger:
+    NAME: "burger"
+ARGS: 
+  # []
+  - "debug"
+  # - "rgb_observation" # stick_button doesn't support rendering
+  # - "make_failure_videos"
+  # - "make_test_videos"
+  # - "make_segmented_demo_videos"
+  # - "make_demo_videos" 
+  # - "use_gui"
+FLAGS:
+  num_train_tasks: 1
+  num_test_tasks: 10
+  sesame_task_planner: fdopt
+  sesame_max_samples_per_step: 1
+  option_model_terminate_on_repeat: False
+  min_perc_data_for_nsrt: 1
+  timeout: 150
+
+  rgb_observation: False
+  excluded_predicates: "all"
+  save_nsp_image_patch_before_query: True
+  vlm_model_name: "gemini-1.5-flash"
+  # vlm_model_name: "gpt-4o"
+  vlm_temperature: 0
+  vlm_use_chat_mode: True
+  sesame_check_expected_atoms: False
+  query_vlm_for_each_assertion: False
+  query_vlm_for_each_predicate: False
+  llm_openai_max_response_tokens: 4096
+
+
+START_SEED: 2
+NUM_SEEDS: 1
+...

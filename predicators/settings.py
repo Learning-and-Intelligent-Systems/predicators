@@ -353,8 +353,9 @@ class GlobalSettings:
     grid_row_num_cells = 100
 
     # burger env parameters
-    gridworld_num_rows = 4
-    gridworld_num_cols = 4
+    gridworld_num_rows = 5
+    gridworld_num_cols = 5
+    burger_explicit_goal = False
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -809,7 +810,6 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     "tools": 1000,
                     "stick_button": 1000,
                     "stick_button_move": 1000,
-                    "burger": 1000
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into refining a single skeleton.

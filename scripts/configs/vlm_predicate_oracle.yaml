@@ -17,11 +17,12 @@ ENVS:
     # NAME: "tools"
     # NAME: "coffee"
     # NAME: "sticky_table"
+    NAME: "burger"
     # NAME: "pybullet_blocks"
-    NAME: "pybullet_coffee"
+    # NAME: "pybullet_coffee"
 ARGS: 
-  # []
-  - "debug"
+  []
+  # - "debug"
   # - "rgb_observation" # stick_button doesn't support rendering
   # - "make_failure_videos"
   # - "make_test_videos"
@@ -30,7 +31,7 @@ ARGS:
   # - "use_gui"
 FLAGS:
   num_train_tasks: 5
-  num_test_tasks: 5
+  num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   kitchen_use_perfect_samplers: True
   # included_options: "HandPressButton"
