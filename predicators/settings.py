@@ -351,6 +351,7 @@ class GlobalSettings:
     grid_row_num_cells = 100
 
     # burger env parameters
+    burger_render_set_of_marks = True
     gridworld_num_rows = 4
     gridworld_num_cols = 4
 

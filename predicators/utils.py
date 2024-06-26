@@ -2308,7 +2308,8 @@ def abstract(state: State,
         for pred in vlm_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
-        atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+        true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+        atoms |= true_vlm_atoms
     return atoms
 
 
