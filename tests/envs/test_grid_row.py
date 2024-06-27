@@ -235,7 +235,7 @@ def test_grid_row_door():
 
     rng = np.random.default_rng(123)
 
-    # Now repeatedly turn on the light until it succeeds.
+    # Now turn on the light.
     ground_nsrt = TurnOnLight.ground([robot, cell_order[-1], light])
     print(state)
     assert all(a.holds(state) for a in ground_nsrt.preconditions)

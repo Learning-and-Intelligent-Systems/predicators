@@ -267,7 +267,6 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Note: return 1.0 to show door is now open
             return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
 
         robot = Variable("?robot", robot_type)
@@ -293,7 +292,6 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Note: return 1.0 to show door is now open
             return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
 
         robot = Variable("?robot", robot_type)

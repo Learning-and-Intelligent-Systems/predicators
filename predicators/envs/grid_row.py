@@ -188,7 +188,7 @@ class GridRowDoorEnv(GridRowEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        # type door with features ['x', and 'open']
+        # type door with features ['x', 'open', 'target', 'open1', 'target1']
         self._door_type = Type("door",
                                ["x", "open", "target", "open1", "target1"])
         self._door = Object("door", self._door_type)
@@ -337,6 +337,7 @@ class GridRowDoorEnv(GridRowEnv):
         ]
         assert len(door_cells) == 1
         # Apply ddoor if we're in same cell as door
+        # Can only open door, not close
         door_cell = door_cells[0]
         robot_cell = robot_cells[0]
         if robot_cell == door_cell and not (door_target - 0.1 \
