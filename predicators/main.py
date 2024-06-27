@@ -296,7 +296,7 @@ def _run_pipeline(env: BaseEnv,
             cumulative_logs.append(num_solved)
             _save_test_results(results, online_learning_cycle=i)
 
-            generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
+        generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
                     good_open_door_q_values, second_movekey_q_values, second_turnkey_q_values, callplanner_q_values, smooth_reward)
 
     else:
