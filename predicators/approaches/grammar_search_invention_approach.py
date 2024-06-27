@@ -1034,14 +1034,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
         # Now, rename these predicates to be compatible with PDDL planners!
-        renamed_predicates = set()
+        renamed_predicates: Set[Predicate] = set()
         for p in self._learned_predicates:
-            if isinstance(p, VLMPredicate):
+            if isinstance(p, VLMPredicate):  # pragma: no cover.
                 renamed_predicates.add(p)
                 continue
             new_name = p.name.replace("(", "[").replace(")",
                                                         "]").replace(" ", "_")
-            renamed_pred = Predicate(new_name, p.types, p._classifier)
+            renamed_pred = Predicate(new_name, p.types, p._classifier)  # pylint:disable=protected-access
             renamed_predicates.add(renamed_pred)
         self._learned_predicates = renamed_predicates
         # Finally, learn NSRTs via superclass, using all the kept predicates.
