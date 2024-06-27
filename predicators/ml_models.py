@@ -1283,10 +1283,10 @@ def _train_pytorch_model(model: nn.Module,
     for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)
-        if i == 0:
-            print("tensor_Y, Yhat, loss", tensor_X)
-            # import ipdb;ipdb.set_trace()
-            i = 1
+        # if i == 0:
+        #     print("tensor_Y, Yhat, loss", tensor_X)
+        #     # import ipdb;ipdb.set_trace()
+        #     i = 1
         # , tensor_Y.view(-1), Y_hat.view(-1), loss.view(-1)
         if loss.item() < best_loss:
             best_loss = loss.item()
@@ -1448,10 +1448,10 @@ class MapleQFunction(MLPRegressor):
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
             self.decay_epsilon()
-        if train_or_test=="test":
-            # logging.debug(str(option_scores))
-            logging.debug("CHOSEN " + str(options[idx]) + str (scores[idx]))
-            logging.debug("STATE" + str(state))
+        # if train_or_test=="test":
+        #     # logging.debug(str(option_scores))
+        #     logging.debug("CHOSEN " + str(options[idx]) + str (scores[idx]))
+        #     logging.debug("STATE" + str(state))
         # if train_or_test=="test":
         #     print("options and scores", option_scores[:10])
         return options[idx]
@@ -1470,7 +1470,7 @@ class MapleQFunction(MLPRegressor):
 
     def train_q_function(self) -> None:
         """Fit the model."""
-        import ipdb;ipdb.set_trace()
+        # import ipdb;ipdb.set_trace()
         # First, precompute the size of the input and output from the
         # Q-network.
         X_size = sum(o.type.dim for o in self._ordered_objects) + len(
@@ -1876,6 +1876,7 @@ class MPDQNFunction(MapleQFunction):
         self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
+        self._counter = 0
     # def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
     # ideally use SmoothL1Loss, but to compare w no target, use MSELoss for now
     #     return nn.SmoothL1Loss()
@@ -2060,7 +2061,8 @@ class MPDQNFunction(MapleQFunction):
             # random, including in the order of ground NSRTs.
             if self._use_epsilon_annealing and epsilon != 0:
                 self.decay_epsilon()
-            self.update_target_network()
+            if train_or_test=="train":
+                self.update_target_network()
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
@@ -2080,17 +2082,19 @@ class MPDQNFunction(MapleQFunction):
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
             self.decay_epsilon()
-        self.update_target_network()
+        if train_or_test=="train":
+            self.update_target_network()
         return options[idx]
     
     def update_target_network(self):
         # this is soft polyak averaging:
-        for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
-            target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
+        # for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
+        #     target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
 
         # this is j copying all params into the target
-
-        # self.target_qnet.load_state_dict(self.qnet.state_dict())
+        if self._counter % 600 == 0:
+            self.target_qnet.load_state_dict(self.qnet.state_dict())
+        self._counter+=1
 
 
     # def _fit(self, X: Array, Y: Array) -> None:

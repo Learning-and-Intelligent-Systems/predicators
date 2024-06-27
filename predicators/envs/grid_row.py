@@ -353,10 +353,8 @@ class GridRowDoorEnv(GridRowEnv):
         ]
         assert len(light_cells) == 1
         light_cell = light_cells[0]
-        if robot_cell == light_cell:
-            new_light_level = np.clip(
-                state.get(self._light, "level") + dlight, 0.0, 1.0)
-            next_state.set(self._light, "level", new_light_level)
+        if robot_cell == light_cell and dlight == 0.75 and self._LightOff_holds(state, [self._light]):
+            next_state.set(self._light, "level", 0.75)
 
         if (door_open <= door_target + 0.1 and door_open >= door_target - 0.1 \
             and door_open1 <= door_target1 + 0.1 and door_open1 >= door_target1 - 0.1) \

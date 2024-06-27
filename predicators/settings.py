@@ -712,7 +712,7 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
-                    "grid_row_door": cls.grid_row_num_cells + 5
+                    "grid_row_door": 30
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
