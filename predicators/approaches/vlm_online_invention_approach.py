@@ -229,7 +229,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         
         # For storing the results found at every iteration
         self.task_to_latest_traj: Dict[int, LowLevelTrajectory] = dict()
-        # For help checking if a new plan is unique
+        # For help checking if a new plan is unique, to control data collection
         self.task_to_plans: Dict[int, List[_Option]] = defaultdict(list)
         # Organize a dataset for operator learning. This becomes the operator 
         # learning dataset when the trajectories are put together.
@@ -241,7 +241,6 @@ class VlmInventionApproach(NSRTLearningApproach):
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
-        breakpoint()
 
         self.succ_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
@@ -259,7 +258,6 @@ class VlmInventionApproach(NSRTLearningApproach):
             # This will update self.task_to_tasjs
             self._process_interaction_result(env, results, tasks, ite, 
                                              use_only_first_solution=False)
-            breakpoint()
             #### End of data collection
 
             # Invent when no improvement in solve rate
@@ -303,6 +301,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             all_trajs = []
             for _, trajs in self.task_to_trajs.items():
                 for traj in trajs: all_trajs.append(traj)
+            logging.info(f"Learning from {len(all_trajs)} trajectories.")
 
             if CFG.llm_predicator_oracle_learned:
                 self._learned_predicates = new_proposals
@@ -394,8 +393,12 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Finally, learn NSRTs via superclass, using all the kept predicates.
             self._learn_nsrts(all_trajs, online_learning_cycle=None, 
                               annotations=None)
+            breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to 
+            # Is this sufficient? Or should I add back all the operators?
+            # Because if it only learned move to one then can it use it to do
+            # move to two?
             cur_options = [nsrt.option for nsrt in self._nsrts]
             for p_nsrts in self._init_nsrts:
                 if not p_nsrts.option in cur_options:
@@ -487,60 +490,69 @@ class VlmInventionApproach(NSRTLearningApproach):
                         # Otherwise, update the log
                         self.solve_log[i] = True
                 
-                # Check if the current plan is novel from before
+                # Check if the current plan is novel; only log the
+                # plan for predicate/operator learning if it's novel
                 if i in self.task_to_plans:
-                    # Has solved before
+                    # Has been solved before
                     if any(are_equal_by_obj(option_plan, plan) for plan in 
-                        self.task_to_plans[i]):
-                        # If the current plan is the same as any previous one
+                            self.task_to_plans[i]):
                         continue
                     else:
-                        # Add the novel plan to the storage
                         logging.warning(f"Found a novel plan for task {i}")
-                        # comment for for running overnight
-                        # breakpoint()
                         self.task_to_plans[i].append(option_plan.copy())
                 else:
-                    # If the task haven't been solved before, add it directly
+                    # Has not been solved before.
                     self.task_to_plans[i].append(option_plan.copy())
 
-                # If the code has got here:
-                # it's the 1st time solving task i or we've found a new plan.
-                suc_state_traj = self._execute_succ_plan_and_track_state(
+                # If the code has got here: it's the 1st time solving task i OR 
+                #   we've found a new plan.
+                states, actions = self._execute_succ_plan_and_track_state(
                     env.reset(train_or_test='train', task_idx=i), env, 
                     nsrt_plan, option_plan)
                 
                 # Add it to the trajectory dictionary
-                dense_traj = self.task_to_latest_traj[i]
                 self.task_to_trajs[i].append(LowLevelTrajectory(
-                    suc_state_traj,
-                    utils.sparse_actions_from_dense_traj(suc_state_traj,
-                                                         dense_traj),
-                    _is_demo=dense_traj.is_demo, 
-                    _train_task_idx=dense_traj.train_task_idx))
+                            states, actions, _is_demo=True, _train_task_idx=i))
 
             # Currently, the unsuccessful experience is accumulated
             # The failed refinements (negative samples)
             # This result is either a Result tuple or an exception
             for p_idx, p_ref in enumerate(result.info['partial_refinements']):
-                nsrt_plan = p_ref[0]
                 # longest option refinement
                 option_plan = p_ref[1].copy()
-                logging.debug(f"[ite {ite} task {i}] Processing failed plan "+
+                nsrt_plan = p_ref[0]
+                logging.debug(f"[ite {ite} task {i}] Processing failed plan "\
+                f"of len {len(option_plan)}: "\
                 f"{p_idx} {[op.name + str(op.objects) for op in option_plan]}")
                 failed_opt_idx = len(option_plan) - 1
 
+                # As above, check if the p-plan is novel
+                if i in self.task_to_plans:
+                    # Has been solved before
+                    if any(are_equal_by_obj(option_plan, plan) for plan in 
+                            self.task_to_plans[i]):
+                        continue
+                    else:
+                        # logging.warning(f"Found a novel pplan for task {i}")
+                        self.task_to_plans[i].append(option_plan.copy())
+                else:
+                    # Has not been solved before.
+                    self.task_to_plans[i].append(option_plan.copy())
+
                 state = env.reset(train_or_test='train', task_idx=i)
-                # state.labeled_image.save(f"images/trn_{i}_init_pre_proc_fail{p_idx}.png")
                 # Successful part
                 if failed_opt_idx > 0:
-                    states = self._execute_succ_plan_and_track_state(
+                    states, actions = self._execute_succ_plan_and_track_state(
                         state, env, nsrt_plan, option_plan[:-1],
                         ite=ite, task=i, p_idx=p_idx)
                     state = states[-1]
+                    # Take the prefix of the pplan and use it to learn
+                    #   operators.
+                    self.task_to_trajs[i].append(LowLevelTrajectory(
+                        states, actions, _is_demo=True, _train_task_idx=i))
 
                 # Failed part
-                _ = self._execute_succ_plan_and_track_state(state, env, 
+                _, _ = self._execute_succ_plan_and_track_state(state, env, 
                         nsrt_plan[failed_opt_idx:], option_plan[-1:], 
                         failed_opt=True)
         
@@ -550,9 +562,18 @@ class VlmInventionApproach(NSRTLearningApproach):
                             failed_opt: bool=False,
                             ite:Optional[int] = None,
                             task:Optional[int] = None,
-                            p_idx:Optional[int] = None) -> List[State]:
+                            p_idx:Optional[int] = None
+                            ) -> Tuple[List[State], List[Action]]:
         """Similar to _execute_plan_and_track_state but only run in successful 
         policy because we only need the initial state for the failed option.
+        Return:
+        -------
+        states: List[State]
+            The states before executing each option in the option plan and last 
+            state before returning.
+        actions: List[Action]
+            The first action from each option in the option plan. The length of
+            this will be 1 less than the number of states.
         """
         state = init_state
         def policy(_: State) -> Action:
@@ -560,14 +581,15 @@ class VlmInventionApproach(NSRTLearningApproach):
         steps = 0
         nsrt_counter = 0
         env_step_counter = 0
-        states = []
+        states, actions = [], []
+        first_option_action = False
         if failed_opt:
             state_hash = state.__hash__()
             if state_hash in self.state_cache:
                 option_start_state = self.state_cache[state_hash].copy()
             else:
                 option_start_state = env.get_observation(
-                                render=CFG.vlm_predicator_render_option_state)
+                            render=CFG.vlm_predicator_render_option_state)
                 if CFG.neu_sym_predicate:
                     option_start_state.add_bbox_features()
                 self.state_cache[state_hash] = option_start_state.copy()
@@ -641,6 +663,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                             gop_str = g_nsrt.ground_option_str(
                                 use_object_id=CFG.neu_sym_predicate)
                             states.append(option_start_state)
+                            first_option_action = True
                             self.succ_optn_dict[gop_str].append_state(
                                 option_start_state,
                                 utils.abstract(option_start_state, 
@@ -652,15 +675,14 @@ class VlmInventionApproach(NSRTLearningApproach):
                     else:
                         break
                 else:
-                    # if ite==2 and task==39 and p_idx==5:
-                    #     obs = env.get_observation(
-                    #             render=CFG.vlm_predicator_render_option_state)
-                    #     obs.labeled_image.save(f"logs/{ite}_{task}_{p_idx}_{steps}.png")
                     state = env.step(act)
+                    if first_option_action:
+                        actions.append(act)
+                        first_option_action = False
                     env_step_counter += 1
 
         # logging.debug(f"Finish executing after {steps} steps in the loop.")
-        return states
+        return states, actions
 
     
     def collect_dataset(self, ite: int, env: BaseEnv, tasks: List[Task]

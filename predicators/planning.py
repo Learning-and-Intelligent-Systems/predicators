@@ -601,8 +601,8 @@ def run_low_level_search(
         cur_idx += 1
         if option.initiable(state):
             try:
-                if skeleton[0].name == "MoveWhenFacingOneStack":
-                    breakpoint()
+                # if skeleton[0].name == "MoveWhenFacingOneStack":
+                #     breakpoint()
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
             except EnvironmentFailure as e:

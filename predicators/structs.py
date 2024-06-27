@@ -1318,7 +1318,8 @@ class LowLevelTrajectory:
 
     def __post_init__(self) -> None:
         try:
-            assert len(self._states) == len(self._actions) + 1
+            assert len(self._states) == len(self._actions) + 1,\
+                f"{len(actions)} actions but {len(states)} states"
         except:
             breakpoint()
         if self._is_demo:

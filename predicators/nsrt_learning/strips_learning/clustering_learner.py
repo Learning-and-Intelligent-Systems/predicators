@@ -32,6 +32,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                 # Try to unify this transition with existing effects.
                 # Note that both add and delete effects must unify,
                 # and also the objects that are arguments to the options.
+                breakpoint()
                 (pnad_param_option, pnad_option_vars) = pnad.option_spec
                 suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
                     frozenset(),  # no preconditions
