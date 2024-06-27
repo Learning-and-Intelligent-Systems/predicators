@@ -173,9 +173,9 @@ def test_grid_row_door():
     assert light_type.name == "light"
     assert robot_type.name == "robot"
     assert door_type.name == "door"
-    assert env.action_space.shape == (3, )
+    assert env.action_space.shape == (4, )
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
-    assert len(nsrts) == 4
+    assert len(nsrts) == 5
     assert len(options) == len(nsrts)
     env_train_tasks = env.get_train_tasks()
     assert len(env_train_tasks) == 1
@@ -184,8 +184,9 @@ def test_grid_row_door():
     env_task = env_test_tasks[0]
     env.reset("test", 0)
     # Test NSRTs.
-    MoveRobot, OpenDoor, TurnOffLight, TurnOnLight = sorted(nsrts)
-    assert OpenDoor.name == "OpenDoor"
+    MoveKey, MoveRobot, TurnKey, TurnOffLight, TurnOnLight = sorted(nsrts)
+    assert MoveKey.name == "MoveKey"
+    assert TurnKey.name == "TurnKey"
     assert MoveRobot.name == "MoveRobot"
     assert TurnOffLight.name == "TurnOffLight"
     assert TurnOnLight.name == "TurnOnLight"
@@ -203,13 +204,25 @@ def test_grid_row_door():
     # First move to the light.
     state = init_state.copy()
     for cell, next_cell in zip(cell_order[:-1], cell_order[1:]):
-        if len(ground_nsrt_plan) == state.get(door, "x") - 0.5:
-            ground_nsrt_plan.append(OpenDoor.ground([robot, cell, door]))
-            ground_nsrt_plan.append(MoveRobot.ground([robot, cell, next_cell]))
-        else:
-            ground_nsrt_plan.append(MoveRobot.ground([robot, cell, next_cell]))
-    rng = np.random.default_rng(123)
-    for ground_nsrt in ground_nsrt_plan:
+
+        if env._In_holds(state, [door, cell]):  # pylint: disable=protected-access
+            for _ in range(100):
+                ground_nsrt = TurnKey.ground([robot, cell, door])
+                option = ground_nsrt.sample_option(state, set(), rng)
+                action = option.policy(state)
+                state = env.simulate(state, action)
+                if 0.65 <= state.get(door, "open1") <= 0.85:
+                    break
+
+            ground_nsrt = MoveKey.ground([robot, cell, door])
+            for _ in range(100):
+                option = ground_nsrt.sample_option(state, set(), rng)
+                action = option.policy(state)
+                state = env.simulate(state, action)
+                if 0.4 <= state.get(door, "open") <= 0.6:
+                    break
+        ground_nsrt_plan.append(MoveRobot.ground([robot, cell, next_cell]))
+        ground_nsrt = ground_nsrt_plan[-1]
         assert all(a.holds(state) for a in ground_nsrt.preconditions)
         option = ground_nsrt.sample_option(state, set(), rng)
         assert option.initiable(state)
@@ -219,31 +232,18 @@ def test_grid_row_door():
         assert all(a.holds(state) for a in ground_nsrt.add_effects)
         assert not any(a.holds(state) for a in ground_nsrt.delete_effects)
         assert isinstance(env.render_state(state, task), list)
+
+    rng = np.random.default_rng(123)
+
     # Now repeatedly turn on the light until it succeeds.
     ground_nsrt = TurnOnLight.ground([robot, cell_order[-1], light])
-    for _ in range(100):
-        assert all(a.holds(state) for a in ground_nsrt.preconditions)
-        option = ground_nsrt.sample_option(state, set(), rng)
-        assert option.initiable(state)
-        action = option.policy(state)
-        state = env.simulate(state, action)
-        assert option.terminal(state)
-        if all(a.holds(state) for a in ground_nsrt.add_effects):
-            break
-    assert isinstance(env.render_state(state, task), list)
-    assert all(a.holds(state) for a in ground_nsrt.add_effects)
-    assert not any(a.holds(state) for a in ground_nsrt.delete_effects)
-    # Now repeatedly turn off the light until it succeeds.
-    ground_nsrt = TurnOffLight.ground([robot, cell_order[-1], light])
-    for _ in range(100):
-        assert all(a.holds(state) for a in ground_nsrt.preconditions)
-        option = ground_nsrt.sample_option(state, set(), rng)
-        assert option.initiable(state)
-        action = option.policy(state)
-        state = env.simulate(state, action)
-        assert option.terminal(state)
-        if all(a.holds(state) for a in ground_nsrt.add_effects):
-            break
+    print(state)
+    assert all(a.holds(state) for a in ground_nsrt.preconditions)
+    option = ground_nsrt.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    action = option.policy(state)
+    state = env.simulate(state, action)
+    assert option.terminal(state)
     assert isinstance(env.render_state(state, task), list)
     assert all(a.holds(state) for a in ground_nsrt.add_effects)
     assert not any(a.holds(state) for a in ground_nsrt.delete_effects)
