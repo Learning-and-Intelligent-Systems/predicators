@@ -209,6 +209,7 @@ def _run_pipeline(env: BaseEnv,
         second_movekey_q_values = []
         second_turnkey_q_values = []
         callplanner_q_values = []
+        smooth_rewards = []
 
 
         for i in range(CFG.num_online_learning_cycles):
@@ -280,8 +281,11 @@ def _run_pipeline(env: BaseEnv,
             print("CUMULATIVE NUM SOLVED: ", num_solved)
             print("fraction solved: ", num_solved / (i + 1))
             smooth_reward = sum(logs[-25:])/25
+            smooth_rewards.append(smooth_reward)
             if smooth_reward>0.93:
                 print("smooth reward.")
+                generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
+                    good_open_door_q_values, second_movekey_q_values, second_turnkey_q_values, callplanner_q_values, smooth_rewards)
                 raise ValueError
 
             if results["num_solved"] == 1:
@@ -292,82 +296,8 @@ def _run_pipeline(env: BaseEnv,
             cumulative_logs.append(num_solved)
             _save_test_results(results, online_learning_cycle=i)
 
-        plt.plot(learning_cycles, logs)
-        plt.show()
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("Solves")
-        plt.title("Solves over Cycles", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
-
-        plt.plot(learning_cycles, cumulative_logs)
-        plt.show()
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'cumulative_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("Cumulative Solves")
-        plt.title("Cumulative Solves over Cycles",
-                fontsize=16,
-                fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
-
-        # FOR PLOTTING Q VALUES
-        plt.plot(learning_cycles, good_light_q_values)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("GOOD LIGHT q values")
-        plt.title("Q-values", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
-
-        plt.plot(learning_cycles, bad_light_q_values)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("BAD LIGHT q values")
-        plt.title("Q-values", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
-
-        plt.plot(learning_cycles, good_open_door_q_values)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("GOOD DOOR q values")
-        plt.title("Q-values", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
-
-        plt.plot(learning_cycles, second_movekey_q_values)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'SECOND MOVEKEY qvalues_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("SECOND MOVEKEY q values")
-        plt.title("Q-values", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
-
-        plt.plot(learning_cycles, second_turnkey_q_values)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'SECOND TURNKEY qvalues_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("SECOND TURNKEY q values")
-        plt.title("Q-values", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
-
-        plt.plot(learning_cycles, callplanner_q_values)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f'CALL PLANNEr qvalues_plot_{timestamp}.png'
-        plt.xlabel("num_online_learning_cycles")
-        plt.ylabel("CALL PLANNEr q values")
-        plt.title("Q-values", fontsize=16, fontweight='bold')
-        plt.savefig(filename, dpi=300)
-        plt.clf()
+            generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
+                    good_open_door_q_values, second_movekey_q_values, second_turnkey_q_values, callplanner_q_values, smooth_reward)
 
     else:
         results = _run_testing(env, cogman)
@@ -377,6 +307,99 @@ def _run_pipeline(env: BaseEnv,
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
 
+
+
+def generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
+                    good_open_door_q_values, second_movekey_q_values, second_turnkey_q_values, callplanner_q_values, smooth_rewards):
+    plt.plot(learning_cycles, logs)
+    plt.show()
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("Solves")
+    plt.title("Solves over Cycles", fontsize=16, fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+    plt.plot(learning_cycles, cumulative_logs)
+    plt.show()
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'cumulative_plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("Cumulative Solves")
+    plt.title("Cumulative Solves over Cycles",
+            fontsize=16,
+            fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+
+    plt.plot(learning_cycles, smooth_rewards)
+    plt.show()
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'smoothrwd_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("Smooth Reward")
+    plt.title("Smooth Reward",
+            fontsize=16,
+            fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+    # FOR PLOTTING Q VALUES
+    plt.plot(learning_cycles, good_light_q_values)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("GOOD LIGHT q values")
+    plt.title("Q-values", fontsize=16, fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+    plt.plot(learning_cycles, bad_light_q_values)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("BAD LIGHT q values")
+    plt.title("Q-values", fontsize=16, fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+    plt.plot(learning_cycles, good_open_door_q_values)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("GOOD DOOR q values")
+    plt.title("Q-values", fontsize=16, fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+    plt.plot(learning_cycles, second_movekey_q_values)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'SECOND MOVEKEY qvalues_plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("SECOND MOVEKEY q values")
+    plt.title("Q-values", fontsize=16, fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+    plt.plot(learning_cycles, second_turnkey_q_values)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'SECOND TURNKEY qvalues_plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("SECOND TURNKEY q values")
+    plt.title("Q-values", fontsize=16, fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
+
+    plt.plot(learning_cycles, callplanner_q_values)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    filename = f'CALL PLANNEr qvalues_plot_{timestamp}.png'
+    plt.xlabel("num_online_learning_cycles")
+    plt.ylabel("CALL PLANNEr q values")
+    plt.title("Q-values", fontsize=16, fontweight='bold')
+    plt.savefig(filename, dpi=300)
+    plt.clf()
 
 def _generate_interaction_results(
         cogman: CogMan,
