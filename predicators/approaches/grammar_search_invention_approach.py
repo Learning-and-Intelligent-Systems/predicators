@@ -25,7 +25,8 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type, \
+    VLMPredicate
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -1032,6 +1033,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             self._learned_predicates = self._select_predicates_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
+        # Now, rename these predicates to be compatible with PDDL planners!
+        renamed_predicates = set()
+        for p in self._learned_predicates:
+            if isinstance(p, VLMPredicate):
+                renamed_predicates.add(p)
+                continue
+            new_name = p.name.replace("(", "[").replace(")",
+                                                        "]").replace(" ", "_")
+            renamed_pred = Predicate(new_name, p.types, p._classifier)
+            renamed_predicates.add(renamed_pred)
+        self._learned_predicates = renamed_predicates
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         annotations = None
         if dataset.has_annotations:
