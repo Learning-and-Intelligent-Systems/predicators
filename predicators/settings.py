@@ -512,6 +512,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # associated with their PNAD in order to not be pruned during operator
     # learning.
     cluster_and_intersect_min_datastore_fraction = 0.0
+    use_option_not_args_types_in_unification = False
+    use_most_general_type_in_clustering = False
 
     # torch GPU usage setting
     use_torch_gpu = False

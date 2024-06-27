@@ -54,6 +54,10 @@ FLAGS:
   rgb_observation: False
   render_init_state: False # True for NSP
 
+  # Operator learning config
+  use_option_not_args_types_in_unification: True
+  use_most_general_type_in_clustering: True
+
   # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"
   grammar_search_predicate_cost_upper_bound: 10

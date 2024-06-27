@@ -1214,12 +1214,15 @@ def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
         return False, {}
 
     # Try to get lucky with a one-to-one mapping
+    # obj -> var
     subs12: EntToEntSub = {}
+    # var -> obj
     subs21 = {}
     success = True
     for atom1, atom2 in zip(atoms_lst1, atoms_lst2):
         if not success:
             break
+        # atom1: groundAtom, atom2: lifttedAtom
         for v1, v2 in zip(atom1.entities, atom2.entities):
             if v1 in subs12 and subs12[v1] != v2:
                 success = False
@@ -1227,6 +1230,7 @@ def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
             if v2 in subs21:
                 success = False
                 break
+
             subs12[v1] = v2
             subs21[v2] = v1
     if success:
@@ -1258,8 +1262,11 @@ def unify_preconds_effects_options(
     if param_option1 != param_option2:
         # Can't unify if the parameterized options are different.
         return False, {}
-    opt_arg_pred1 = Predicate("OPT-ARGS", [a.type for a in option_args1],
-                              _classifier=lambda s, o: False)  # dummy
+    opt_arg_pred1 = Predicate("OPT-ARGS", 
+                            param_option1.types if 
+                            CFG.use_option_not_args_types_in_unification else
+                            [a.type for a in option_args1],
+                            _classifier=lambda s, o: False)  # dummy
     f_option_args1 = frozenset({GroundAtom(opt_arg_pred1, option_args1)})
     new_preconds1 = wrap_atom_predicates(preconds1, "PRE-")
     f_new_preconds1 = frozenset(new_preconds1)
@@ -1268,8 +1275,11 @@ def unify_preconds_effects_options(
     new_delete_effects1 = wrap_atom_predicates(delete_effects1, "DEL-")
     f_new_delete_effects1 = frozenset(new_delete_effects1)
 
-    opt_arg_pred2 = Predicate("OPT-ARGS", [a.type for a in option_args2],
-                              _classifier=lambda s, o: False)  # dummy
+    opt_arg_pred2 = Predicate("OPT-ARGS", 
+                            param_option1.types if 
+                            CFG.use_option_not_args_types_in_unification else
+                            [a.type for a in option_args2],
+                            _classifier=lambda s, o: False)  # dummy
     f_option_args2 = frozenset({LiftedAtom(opt_arg_pred2, option_args2)})
     new_preconds2 = wrap_atom_predicates(preconds2, "PRE-")
     f_new_preconds2 = frozenset(new_preconds2)
@@ -2319,9 +2329,11 @@ def find_substitution(
     super_entities_by_type: Dict[Type, List[_TypedEntity]] = defaultdict(list)
     super_pred_to_tuples = defaultdict(set)
     for atom in super_atoms:
-        for obj in atom.entities:
+        for i, obj in enumerate(atom.entities):
             if obj not in super_entities_by_type[obj.type]:
-                super_entities_by_type[obj.type].append(obj)
+                super_entities_by_type[atom.predicate.types[i] if
+                        CFG.use_option_not_args_types_in_unification else
+                        obj.type].append(obj)
         super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
     sub_variables = sorted({e for atom in sub_atoms for e in atom.entities})
     return _find_substitution_helper(sub_atoms, super_entities_by_type,

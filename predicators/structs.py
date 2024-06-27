@@ -29,6 +29,14 @@ class Type:
     feature_names: Sequence[str] = field(repr=False)
     parent: Optional[Type] = field(default=None, repr=False)
 
+    @cached_property
+    def ancestor_type(self) -> Type:
+        """Recursively find the initial ancestor type that is not None."""
+        if self.parent is None:
+            return self
+        else:
+            return self.parent.ancestor_type
+
     @property
     def dim(self) -> int:
         """Dimensionality of the feature vector of this object type."""
@@ -60,6 +68,14 @@ class _TypedEntity:
     name: str
     type: Type
     id: Optional[int] = None # pybullet id; used when labeling the objects
+
+    @cached_property
+    def ancestor_type(self) -> Type:
+        """Recursively find the initial ancestor type that is not None."""
+        if self.type.parent is None:
+            return self.type
+        else:
+            return self.type.parent.ancestor_type
 
     @cached_property
     def id_name(self) -> str:

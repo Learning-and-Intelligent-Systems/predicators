@@ -32,19 +32,23 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                 # Try to unify this transition with existing effects.
                 # Note that both add and delete effects must unify,
                 # and also the objects that are arguments to the options.
-                breakpoint()
                 (pnad_param_option, pnad_option_vars) = pnad.option_spec
+                # ent_to_ent_sub:: {object: variable}
                 suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
                     frozenset(),  # no preconditions
                     frozenset(),  # no preconditions
                     frozenset(segment.add_effects),
                     frozenset(pnad.op.add_effects),
+                    # frozenset(),  # test
+                    # frozenset(),  # test
                     frozenset(segment.delete_effects),
                     frozenset(pnad.op.delete_effects),
                     segment_param_option,
                     pnad_param_option,
                     segment_option_objs,
-                    tuple(pnad_option_vars))
+                    tuple(pnad_option_vars),
+                    )
+                # breakpoint()
                 sub = cast(VarToObjSub,
                            {v: o
                             for o, v in ent_to_ent_sub.items()})
@@ -59,8 +63,12 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                            segment.delete_effects for o in atom.objects} | \
                           set(segment_option_objs)
                 objects_lst = sorted(objects)
+                # a hack: should change to the types of the predicate/option
                 params = utils.create_new_variables(
-                    [o.type for o in objects_lst])
+                    [o.ancestor_type for o in objects_lst] if
+                    CFG.use_most_general_type_in_clustering else
+                    [o.type for o in objects_lst]
+                    )
                 preconds: Set[LiftedAtom] = set()  # will be learned later
                 obj_to_var = dict(zip(objects_lst, params))
                 var_to_obj = dict(zip(params, objects_lst))
