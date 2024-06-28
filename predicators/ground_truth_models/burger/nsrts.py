@@ -378,42 +378,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                 option_vars, null_sampler)
         nsrts.add(move_when_facing_four_stack_nsrt)
 
-        # MoveWhenFacingThreeStack
-        parameters = [robot, to_obj4, from_obj1, from_obj2, from_obj3]
-        option_vars = [robot, to_obj4]
-        option = Move
-        preconditions = {
-            LiftedAtom(Adjacent, [robot, from_obj1]),
-            LiftedAtom(Facing, [robot, from_obj1]),
-            LiftedAtom(Adjacent, [robot, from_obj2]),
-            LiftedAtom(Facing, [robot, from_obj2]),
-            LiftedAtom(Adjacent, [robot, from_obj3]),
-            LiftedAtom(Facing, [robot, from_obj3]),
-            LiftedAtom(Clear, [from_obj1]),
-            LiftedAtom(On, [from_obj1, from_obj2]),
-            LiftedAtom(On, [from_obj2, from_obj3]),
-            LiftedAtom(OnNothing, [from_obj3])
-        }
-        add_effects = {
-            LiftedAtom(Adjacent, [robot, to_obj4]),
-            LiftedAtom(Facing, [robot, to_obj4])
-        }
-        delete_effects = {
-            LiftedAtom(Adjacent, [robot, from_obj1]),
-            LiftedAtom(Facing, [robot, from_obj1]),
-            LiftedAtom(Adjacent, [robot, from_obj2]),
-            LiftedAtom(Facing, [robot, from_obj2]),
-            LiftedAtom(Adjacent, [robot, from_obj3]),
-            LiftedAtom(Facing, [robot, from_obj3])
-        }
-        ignore_effects = set()
-        move_when_facing_three_stack_nsrt = NSRT("MoveWhenFacingThreeStack",
-                                                 parameters, preconditions,
-                                                 add_effects, delete_effects,
-                                                 ignore_effects, option,
-                                                 option_vars, null_sampler)
-        nsrts.add(move_when_facing_three_stack_nsrt)
-
         # MoveFromOneStackToThreeStack
         parameters = [robot, to_obj1, to_obj2, to_obj4, from_obj4]
         option_vars = [robot, to_obj1]

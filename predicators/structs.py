@@ -32,10 +32,18 @@ class Type:
     @cached_property
     def ancestor_type(self) -> Type:
         """Recursively find the initial ancestor type that is not None."""
-        if self.parent is None:
-            return self
+        if self.type.parent is None:
+            return self.type
         else:
-            return self.parent.ancestor_type
+            return self.type.parent.ancestor_type
+    def all_ancestors(self) -> List[Type]:
+        """Returns a list of all ancestor types of the entity."""
+        ancestors = []
+        current_type = self.parent
+        while current_type is not None:
+            ancestors.append(current_type)
+            current_type = current_type.parent
+        return ancestors
 
     @property
     def dim(self) -> int:
@@ -69,13 +77,7 @@ class _TypedEntity:
     type: Type
     id: Optional[int] = None # pybullet id; used when labeling the objects
 
-    @cached_property
-    def ancestor_type(self) -> Type:
-        """Recursively find the initial ancestor type that is not None."""
-        if self.type.parent is None:
-            return self.type
-        else:
-            return self.type.parent.ancestor_type
+
 
     @cached_property
     def id_name(self) -> str:
@@ -473,7 +475,10 @@ class _Atom:
                              "single entity.")
         assert len(self.entities) == self.predicate.arity
         for ent, pred_type in zip(self.entities, self.predicate.types):
-            assert ent.is_instance(pred_type)
+            try:
+                assert ent.is_instance(pred_type)
+            except:
+                breakpoint()
 
     @property
     def _str(self) -> str:
@@ -1055,6 +1060,8 @@ class NSRT:
     Delete Effects: {sorted(self.delete_effects, key=str)}
     Ignore Effects: {sorted(self.ignore_effects, key=str)}
     Option Spec: {self.option.name}({option_var_str})"""
+
+    # def has_equal_eff(self, other_nsrt) -> bool:
 
     def option_str(self) -> str:
         option_var_str = ", ".join([str(v) for v in self.option_vars])

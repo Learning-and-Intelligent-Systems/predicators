@@ -237,6 +237,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             defaultdict(list)
 
         # Return the results and populate self.task_to_latest_traj
+        self._nsrts = utils.reduce_nsrts(self._nsrts)
+        breakpoint()
         results = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
@@ -405,6 +407,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     self._nsrts.add(p_nsrts)
             # self._nsrts |= self._init_nsrts
             print("All NSRTS after learning", pformat(self._nsrts))
+            breakpoint()
 
             # Collect Data again
             # Set up load/save filename for interaction dataset

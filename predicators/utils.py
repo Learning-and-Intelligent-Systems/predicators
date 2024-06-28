@@ -100,6 +100,20 @@ def print_confusion_matrix(tp: int, tn: int, fp: int, fn: int) -> None:
              ["", "", "", precision, recall, specificity, accuracy, f1_score]]
     logging.info(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
 
+def reduce_nsrts(nsrts: Set[NSRT]) -> Set[NSRT]:
+    """Reduce a set of NSRTs by removing any NSRTs that are subsumed by others."""
+    reduced_nsrts = deepcopy(nsrts)
+
+    for nsrt in nsrts:
+        for ref_nsrt in nsrts:
+            if nsrt.add_effects == ref_nsrt.add_effects and\
+                    nsrt.delete_effects == ref_nsrt.delete_effects and\
+                    nsrt.option == ref_nsrt.option and\
+                    (len(nsrt.preconditions) > len(ref_nsrt.preconditions) or\
+                    len(nsrt.parameters) > len(ref_nsrt.parameters)):
+                reduced_nsrts.discard(nsrt)
+    return reduced_nsrts
+
 def count_classification_result_for_ops(
         nsrts: Set[NSRT],
         succ_optn_dict: Dict[str, GroundOptionRecord],

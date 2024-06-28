@@ -15,9 +15,9 @@ ENVS:
     # NAME: "doors"
     # NAME: "painting"
     # NAME: "tools"
-    # NAME: "coffee"
+    NAME: "coffee"
     # NAME: "sticky_table"
-    NAME: "burger"
+    # NAME: "burger"
     # NAME: "pybullet_blocks"
     # NAME: "pybullet_coffee"
 ARGS: 
@@ -47,7 +47,7 @@ FLAGS:
   pybullet_camera_width: 900
   pybullet_camera_height: 900
   video_fps: 20
-  sesame_max_skeletons_optimized: 200
+  # sesame_max_skeletons_optimized: 200
 
   rgb_observation: False
   save_nsp_image_patch_before_query: True

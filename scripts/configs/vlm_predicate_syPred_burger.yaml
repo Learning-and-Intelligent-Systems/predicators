@@ -40,7 +40,7 @@ FLAGS:
   # bilevel_plan_without_sim: True
   excluded_predicates: "all"
   sesame_max_samples_per_step: 1
-  min_perc_data_for_nsrt: 3
+  min_perc_data_for_nsrt: 0
   segmenter: "option_changes"
   neural_gaus_regressor_max_itr: 50000
   timeout: 300
@@ -50,13 +50,13 @@ FLAGS:
 
   # Env settings
   burger_explicit_goal: True
-  sesame_max_skeletons_optimized: 8
+  sesame_max_skeletons_optimized: 1000
   rgb_observation: False
   render_init_state: False # True for NSP
 
   # Operator learning config
   use_option_not_args_types_in_unification: True
-  use_most_general_type_in_clustering: True
+  use_least_generalization_types_in_clustering: True
 
   # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"

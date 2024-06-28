@@ -1,6 +1,7 @@
 """Algorithms for STRIPS learning that rely on clustering to obtain effects."""
 
 import abc
+from copy import deepcopy
 import functools
 import logging
 from collections import defaultdict
@@ -64,9 +65,41 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                           set(segment_option_objs)
                 objects_lst = sorted(objects)
                 # a hack: should change to the types of the predicate/option
+                # e.g. Holding(?i:item) won't work here
+                # For each object, get the least general type from the types of
+                #   the predicates, options that mentions it.
+                if CFG.use_least_generalization_types_in_clustering:
+                    least_generalization_types = []
+                    for o in objects_lst:
+                        types = set()
+                        for atom in segment.add_effects | segment.delete_effects:
+                            for i, obj in enumerate(atom.objects):
+                                if obj == o:
+                                    types.add(atom.predicate.types[i])
+                        for i, obj in enumerate(segment_option_objs):
+                            if obj == o:
+                                types.add(segment_param_option.types[i])
+                        # find the most specific type in types
+                        #   (i.e. the type that is not a supertype of any other type)
+                        types_copy = deepcopy(types)
+                        # for example if types{bun, item, object} return bun
+                        # if types{item, object} return item
+                        for t in types:
+                            for t2 in types:
+                                try:
+                                    if t != t2 and t in t2.all_ancestors():
+                                        types_copy.discard(t)
+                                except:
+                                    breakpoint()
+                        try:
+                            assert len(types_copy)==1
+                        except:
+                            breakpoint()
+                        least_generalization_types.append(types_copy.pop())
+
                 params = utils.create_new_variables(
-                    [o.ancestor_type for o in objects_lst] if
-                    CFG.use_most_general_type_in_clustering else
+                    least_generalization_types if
+                    CFG.use_least_generalization_types_in_clustering else
                     [o.type for o in objects_lst]
                     )
                 preconds: Set[LiftedAtom] = set()  # will be learned later
