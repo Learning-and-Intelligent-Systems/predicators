@@ -19,14 +19,14 @@ ARGS:
 FLAGS:
   num_train_tasks: 1
   num_test_tasks: 10
-  sesame_task_planner: fdopt
+  # sesame_task_planner: fdopt
   sesame_max_samples_per_step: 1
   option_model_terminate_on_repeat: False
   min_perc_data_for_nsrt: 1
   timeout: 150
 
   rgb_observation: False
-  excluded_predicates: "all"
+  # excluded_predicates: "all"
   save_nsp_image_patch_before_query: True
   vlm_model_name: "gemini-1.5-flash"
   # vlm_model_name: "gpt-4o"

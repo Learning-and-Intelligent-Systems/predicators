@@ -38,7 +38,7 @@ FLAGS:
   sampler_learner: oracle
   strips_learner: "cluster_and_intersect"
   # bilevel_plan_without_sim: True
-  excluded_predicates: "all"
+  # excluded_predicates: "all"
   sesame_max_samples_per_step: 1
   min_perc_data_for_nsrt: 0
   segmenter: "option_changes"
@@ -50,25 +50,26 @@ FLAGS:
 
   # Env settings
   burger_explicit_goal: True
-  sesame_max_skeletons_optimized: 1000
+  sesame_max_skeletons_optimized: 2000
   rgb_observation: False
   render_init_state: False # True for NSP
 
   # Operator learning config
+  use_partial_plans_prefix_as_demo: True
   use_option_not_args_types_in_unification: True
   use_least_generalization_types_in_clustering: True
 
-  # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"
   grammar_search_predicate_cost_upper_bound: 10
   # grammar_search_search_algorithm: "hill_climbing"
   painting_raise_environment_failure: False
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
-  grammar_search_grammar_includes_negation: True
-  grammar_search_grammar_includes_foralls: True
+  grammar_search_grammar_includes_negation: False
+  grammar_search_grammar_includes_foralls: False
   load_llm_pred_invent_dataset: False
   save_llm_pred_invent_dataset: False # can't pickle rendered states
+  # sesame_task_planner: fdopt
 
   # NSP (using VLMs) setting
   neu_sym_predicate: False # True for NSP

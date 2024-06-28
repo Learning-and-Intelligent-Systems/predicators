@@ -88,7 +88,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         slice_nsrt = NSRT("Slice", parameters, preconditions, add_effects,
                           delete_effects, ignore_effects, option, option_vars,
                           null_sampler)
-        nsrts.add(slice_nsrt)
 
         # Cook
         parameters = [robot, patty, grill]
@@ -105,7 +104,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         cook_nsrt = NSRT("Cook", parameters, preconditions, add_effects,
                          delete_effects, ignore_effects, option, option_vars,
                          null_sampler)
-        nsrts.add(cook_nsrt)
 
         # NOTE: this nsrt will be relevant after the environment is updated to
         # have more variation in the tasks' initial states.
@@ -158,7 +156,27 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                    add_effects, delete_effects,
                                                    ignore_effects, option,
                                                    option_vars, null_sampler)
-        nsrts.add(move_from_nothing_to_one_stack_nsrt)
+        
+        # MoveFromNothing
+        parameters = [robot, to_obj4]
+        option_vars = [robot, to_obj4]
+        option = Move
+        # okay to be less specific
+        preconditions = set()
+        # okay to be less specific
+        add_effects = {
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4])
+        }
+        # okay to be less specific
+        delete_effects = set()
+        ignore_effects = set()
+        move_from_nothing = NSRT("Move",
+                                                   parameters, preconditions,
+                                                   add_effects, delete_effects,
+                                                   ignore_effects, option,
+                                                   option_vars, null_sampler)
+
 
         # MoveFromNothingToTwoStack
         parameters = [robot, to_obj1, to_obj4]
@@ -183,7 +201,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                    add_effects, delete_effects,
                                                    ignore_effects, option,
                                                    option_vars, null_sampler)
-        nsrts.add(move_from_nothing_to_two_stack_nsrt)
 
         # MoveFromNothingToThreeStack
         parameters = [robot, to_obj1, to_obj2, to_obj4]
@@ -210,7 +227,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "MoveFromNothingToThreeStack", parameters, preconditions,
             add_effects, delete_effects, ignore_effects, option, option_vars,
             null_sampler)
-        nsrts.add(move_from_nothing_to_three_stack_nsrt)
 
         # MoveFromNothingToFourStack
         parameters = [robot, to_obj1, to_obj2, to_obj3, to_obj4]
@@ -240,7 +256,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "MoveFromNothingToFourStack", parameters, preconditions,
             add_effects, delete_effects, ignore_effects, option, option_vars,
             null_sampler)
-        nsrts.add(move_from_nothing_to_four_stack_nsrt)
 
         # MoveWhenFacingOneStack
         parameters = [robot, to_obj4, from_obj4]
@@ -266,7 +281,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                add_effects, delete_effects,
                                                ignore_effects, option,
                                                option_vars, null_sampler)
-        nsrts.add(move_when_facing_one_stack_nsrt)
 
         # MoveWhenFacingTwoStack
         parameters = [robot, to_obj4, from_obj1, from_obj4]
@@ -297,7 +311,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                add_effects, delete_effects,
                                                ignore_effects, option,
                                                option_vars, null_sampler)
-        nsrts.add(move_when_facing_two_stack_nsrt)
 
         # MoveWhenFacingThreeStack
         parameters = [robot, to_obj4, from_obj1, from_obj2, from_obj4]
@@ -333,7 +346,38 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                  add_effects, delete_effects,
                                                  ignore_effects, option,
                                                  option_vars, null_sampler)
-        nsrts.add(move_when_facing_three_stack_nsrt)
+
+        # MoveFromOneStackToThreeStack
+        parameters = [robot, to_obj1, to_obj2, to_obj4, from_obj4]
+        option_vars = [robot, to_obj1]
+        option = Move
+        preconditions = {
+            LiftedAtom(Adjacent, [robot, from_obj4]),
+            LiftedAtom(Facing, [robot, from_obj4]),
+            LiftedAtom(Clear, [from_obj4]),
+            LiftedAtom(OnNothing, [from_obj4]),
+            LiftedAtom(Clear, [to_obj1]),
+            LiftedAtom(On, [to_obj1, to_obj2]),
+            LiftedAtom(On, [to_obj2, to_obj4]),
+            LiftedAtom(OnNothing, [to_obj4]),
+        }
+        add_effects = {
+            LiftedAtom(Adjacent, [robot, to_obj1]),
+            LiftedAtom(Facing, [robot, to_obj1]),
+            LiftedAtom(Adjacent, [robot, to_obj2]),
+            LiftedAtom(Facing, [robot, to_obj2]),
+            LiftedAtom(Adjacent, [robot, to_obj4]),
+            LiftedAtom(Facing, [robot, to_obj4]),
+        }
+        delete_effects = {
+            LiftedAtom(Adjacent, [robot, from_obj4]),
+            LiftedAtom(Facing, [robot, from_obj4]),
+        }
+        ignore_effects = set()
+        move_from_one_stack_to_three_stack_nsrt = NSRT(
+            "MoveFromOneStackToThreeStack", parameters, preconditions,
+            add_effects, delete_effects, ignore_effects, option, option_vars,
+            null_sampler)
 
         # MoveWhenFacingFourStack
         parameters = [
@@ -376,7 +420,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                 add_effects, delete_effects,
                                                 ignore_effects, option,
                                                 option_vars, null_sampler)
-        nsrts.add(move_when_facing_four_stack_nsrt)
 
         # MoveFromOneStackToThreeStack
         parameters = [robot, to_obj1, to_obj2, to_obj4, from_obj4]
@@ -409,7 +452,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "MoveFromOneStackToThreeStack", parameters, preconditions,
             add_effects, delete_effects, ignore_effects, option, option_vars,
             null_sampler)
-        nsrts.add(move_from_one_stack_to_three_stack_nsrt)
 
         # NOTE: this nsrt will be relevant after the environment is updated to
         # have more variation in the tasks' initial states.
@@ -503,7 +545,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                          preconditions, add_effects,
                                          delete_effects, ignore_effects,
                                          option, option_vars, null_sampler)
-        nsrts.add(pick_single_adjacent_nsrt)
 
         # PickFromStack
         parameters = [robot, item, obj]
@@ -533,7 +574,6 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     add_effects, delete_effects,
                                     ignore_effects, option, option_vars,
                                     null_sampler)
-        nsrts.add(pick_from_stack_nsrt)
 
         # Place
         parameters = [robot, item, obj]
@@ -560,6 +600,21 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
                           delete_effects, ignore_effects, option, option_vars,
                           null_sampler)
+
+        nsrts.add(slice_nsrt)
+        nsrts.add(cook_nsrt)
+        # nsrts.add(move_from_nothing) # yichao add
+        nsrts.add(move_from_nothing_to_one_stack_nsrt)
+        nsrts.add(move_from_nothing_to_two_stack_nsrt)
+        nsrts.add(move_from_nothing_to_three_stack_nsrt)
+        nsrts.add(move_from_nothing_to_four_stack_nsrt)
+        nsrts.add(move_when_facing_one_stack_nsrt)
+        nsrts.add(move_when_facing_two_stack_nsrt)
+        nsrts.add(move_when_facing_three_stack_nsrt)
+        nsrts.add(move_when_facing_four_stack_nsrt)
+        nsrts.add(move_from_one_stack_to_three_stack_nsrt)
+        nsrts.add(pick_single_adjacent_nsrt)
+        nsrts.add(pick_from_stack_nsrt)
         nsrts.add(place_nsrt)
 
         return nsrts

@@ -238,8 +238,10 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         # Return the results and populate self.task_to_latest_traj
         self._nsrts = utils.reduce_nsrts(self._nsrts)
+        self._reduced_nsrts = deepcopy(self._nsrts)
         breakpoint()
         results = self.collect_dataset(0, env, tasks)
+        breakpoint()
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
@@ -335,11 +337,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Evaluate the newly proposed predicates; the values for 
                 # previous proposed should have been cached by the previous
                 # abstract calls.
-                num_states = len(set(state for optn_dict in 
-                                [self.succ_optn_dict, self.fail_optn_dict] 
-                                for g_optn in optn_dict.keys() for state in 
-                                optn_dict[g_optn].states))
-                logging.debug(f"There are {num_states} distinct states.")
+                # num_states = len(set(state for optn_dict in 
+                #                 [self.succ_optn_dict, self.fail_optn_dict] 
+                #                 for g_optn in optn_dict.keys() for state in 
+                #                 optn_dict[g_optn].states))
+                # logging.debug(f"There are {num_states} distinct states.")
                 for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
                     for g_optn in optn_dict.keys():
                         atom_states = []
@@ -405,7 +407,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             for p_nsrts in self._init_nsrts:
                 if not p_nsrts.option in cur_options:
                     self._nsrts.add(p_nsrts)
-            # self._nsrts |= self._init_nsrts
+            # self._nsrts |= self._reduced_nsrts
             print("All NSRTS after learning", pformat(self._nsrts))
             breakpoint()
 
@@ -551,7 +553,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     state = states[-1]
                     # Take the prefix of the pplan and use it to learn
                     #   operators.
-                    self.task_to_trajs[i].append(LowLevelTrajectory(
+                    if CFG.use_partial_plans_prefix_as_demo:
+                        self.task_to_trajs[i].append(LowLevelTrajectory(
                         states, actions, _is_demo=True, _train_task_idx=i))
 
                 # Failed part

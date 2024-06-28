@@ -1493,6 +1493,20 @@ class BurgerState(State):
             if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
                 return False
         return True
+    
+    def __hash__(self):
+        # Convert the dictionary to a tuple of key-value pairs and hash it
+        # data_hash = hash(tuple(sorted(self.data.items())))
+        data_tuple = tuple((k, tuple(v)) for k, v in 
+                        sorted(self.data.items())) 
+        if self.simulator_state is not None:
+            data_tuple += tuple(self.simulator_state)
+        data_hash = hash(data_tuple)
+        # # Hash the simulator_state
+        # simulator_state_hash = hash(self.simulator_state)
+        # Combine the two hashes
+        # return hash((data_hash, simulator_state_hash))
+        return data_hash
 
 class PyBulletState(State):
     """A PyBullet state that stores the robot joint positions in addition to
