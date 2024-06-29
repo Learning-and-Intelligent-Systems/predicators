@@ -27,6 +27,9 @@ machines.txt
 tests/_fake_trajs
 tests/_fake_results
 sas_plan
+.vscode
+Gymnasium-Robotics/
+downward/
 
 # Jetbrains IDEs
 .idea/

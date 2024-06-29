@@ -56,6 +56,7 @@ class CoffeeEnv(BaseEnv):
     button_y: ClassVar[float] = machine_y
     button_z: ClassVar[float] = 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_x_len
+    button_press_threshold: ClassVar[float] = button_radius
     # Jug settings.
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
@@ -65,6 +66,8 @@ class CoffeeEnv(BaseEnv):
                                      init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - jug_radius - init_padding
+    jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
+    jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
     jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
@@ -143,9 +146,6 @@ class CoffeeEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._jug = Object("juggy", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
-        # Settings from CFG.
-        self.jug_init_rot_lb = -CFG.coffee_jug_init_rot_amt
-        self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
 
     @classmethod
     def get_name(cls) -> str:
@@ -618,7 +618,7 @@ class CoffeeEnv(BaseEnv):
         y = state.get(robot, "y")
         z = state.get(robot, "z")
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
-        return sq_dist_to_button < self.button_radius
+        return sq_dist_to_button < self.button_press_threshold
 
     @staticmethod
     def _NotSameCup_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -644,7 +644,7 @@ class CoffeeEnv(BaseEnv):
         rot = state.get(jug, "rot") - np.pi / 2
         target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
         target_y = state.get(jug, "y") + np.sin(rot) * cls.jug_handle_offset
-        target_z = cls.jug_handle_height
+        target_z = cls.z_lb + cls.jug_handle_height
         return (target_x, target_y, target_z)
 
     def _get_pour_position(self, state: State,
