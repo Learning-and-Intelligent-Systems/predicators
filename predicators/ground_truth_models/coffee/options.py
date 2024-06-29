@@ -375,7 +375,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                          dtilt: float = 0.0,
                          dwrist: float = 0.0,
                          finger_status: str = "open") -> Action:
-        del state, finger_status
+        del state, finger_status  # used in PyBullet subclass
         # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
         # But we can only move at most max_position_vel in one step.
@@ -431,8 +431,14 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                            cup: Object) -> Tuple[float, float, float]:
         target_x = state.get(cup, "x") + cls.env_cls.pour_x_offset
         target_y = state.get(cup, "y") + cls.env_cls.pour_y_offset
-        target_z = cls.env_cls.pour_z_offset
+        target_z = cls.env_cls.z_lb + cls.env_cls.pour_z_offset
         return (target_x, target_y, target_z)
+
+@lru_cache
+def _get_pybullet_robot() -> SingleArmPyBulletRobot:
+    _, pybullet_robot, _ = \
+        PyBulletCoffeeEnv.initialize_pybullet(using_gui=False)
+    return pybullet_robot
 
 class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_coffee environment."""
