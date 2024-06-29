@@ -1,12 +1,18 @@
 """Ground-truth options for the coffee environment."""
 
+from functools import lru_cache
 from typing import ClassVar, Dict, Sequence, Set, Tuple
+from typing import Type as TypingType
 
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.envs.coffee import CoffeeEnv
+from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
@@ -19,6 +25,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
     twist_policy_tol: ClassVar[float] = 1e-1
     pick_policy_tol: ClassVar[float] = 1e-1
     pour_policy_tol: ClassVar[float] = 1e-1
+    env_cls: ClassVar[TypingType[CoffeeEnv]] = CoffeeEnv
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -165,7 +172,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot_pos = (x, y, z)
             jug_x = state.get(jug, "x")
             jug_y = state.get(jug, "y")
-            jug_z = CoffeeEnv.jug_height
+            jug_z = cls.env_cls.jug_height
             jug_top = (jug_x, jug_y, jug_z)
             xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
             # If at the correct x and y position, move directly toward the
@@ -173,7 +180,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             if xy_sq_dist < cls.twist_policy_tol:
                 return cls._get_move_action(jug_top, robot_pos)
             # Move to the position above the jug.
-            return cls._get_move_action((jug_x, jug_y, CoffeeEnv.robot_init_z),
+            return cls._get_move_action((jug_x, jug_y, cls.env_cls.robot_init_z),
                                         robot_pos)
 
         return policy
@@ -191,17 +198,17 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             norm_desired_rot, = params
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
-                                -CoffeeEnv.max_angular_vel,
-                                CoffeeEnv.max_angular_vel)
+                                -cls.env_cls.max_angular_vel,
+                                cls.env_cls.max_angular_vel)
             if abs(delta_rot) < cls.twist_policy_tol:
                 # Move up to stop twisting.
                 x = state.get(robot, "x")
                 y = state.get(robot, "y")
                 z = state.get(robot, "z")
                 robot_pos = (x, y, z)
-                return cls._get_move_action((x, y, CoffeeEnv.robot_init_z),
+                return cls._get_move_action((x, y, cls.env_cls.robot_init_z),
                                             robot_pos)
-            dtwist = delta_rot / CoffeeEnv.max_angular_vel
+            dtwist = delta_rot / cls.env_cls.max_angular_vel
             return Action(
                 np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
 
@@ -232,9 +239,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Distance to the handle in the x/z plane.
             xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
             # Distance to the penultimate waypoint in the x/y plane.
-            waypoint_y = target_y - CoffeeEnv.pick_jug_y_padding
+            waypoint_y = target_y - cls.env_cls.pick_jug_y_padding
             # Distance in the z direction to a safe move distance.
-            safe_z_sq_dist = (CoffeeEnv.robot_init_z - z)**2
+            safe_z_sq_dist = (cls.env_cls.robot_init_z - z)**2
             xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
             # If at the correct x and z position and behind in the y direction,
             # move directly toward the target.
@@ -247,11 +254,11 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                                             robot_pos)
             # If at a safe height, move to the position above the penultimate
             # waypoint, still at a safe height.
-            if safe_z_sq_dist < CoffeeEnv.safe_z_tol:
+            if safe_z_sq_dist < cls.env_cls.safe_z_tol:
                 return cls._get_move_action(
-                    (target_x, waypoint_y, CoffeeEnv.robot_init_z), robot_pos)
+                    (target_x, waypoint_y, cls.env_cls.robot_init_z), robot_pos)
             # Move up to a safe height.
-            return cls._get_move_action((x, y, CoffeeEnv.robot_init_z),
+            return cls._get_move_action((x, y, cls.env_cls.robot_init_z),
                                         robot_pos)
 
         return policy
@@ -269,20 +276,20 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Use the jug position as the origin.
             x = state.get(jug, "x")
             y = state.get(jug, "y")
-            z = state.get(robot, "z") - CoffeeEnv.jug_handle_height
+            z = state.get(robot, "z") - cls.env_cls.jug_handle_height
             jug_pos = (x, y, z)
-            place_pos = (CoffeeEnv.dispense_area_x, CoffeeEnv.dispense_area_y,
-                         CoffeeEnv.z_lb)
+            place_pos = (cls.env_cls.dispense_area_x, cls.env_cls.dispense_area_y,
+                         cls.env_cls.z_lb)
             # If close enough, place.
             sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
-            if sq_dist_to_place < CoffeeEnv.place_jug_in_machine_tol:
+            if sq_dist_to_place < cls.env_cls.place_jug_in_machine_tol:
                 return Action(
                     np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # If already above the table, move directly toward the place pos.
-            if z > CoffeeEnv.z_lb:
+            if z > cls.env_cls.z_lb:
                 return cls._get_move_action(place_pos, jug_pos)
             # Move up.
-            return cls._get_move_action((x, y, z + CoffeeEnv.max_position_vel),
+            return cls._get_move_action((x, y, z + cls.env_cls.max_position_vel),
                                         jug_pos)
 
         return policy
@@ -300,13 +307,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             y = state.get(robot, "y")
             z = state.get(robot, "z")
             robot_pos = (x, y, z)
-            button_pos = (CoffeeEnv.button_x, CoffeeEnv.button_y,
-                          CoffeeEnv.button_z)
-            if (CoffeeEnv.button_z - z)**2 < CoffeeEnv.button_radius**2:
+            button_pos = (cls.env_cls.button_x, cls.env_cls.button_y,
+                          cls.env_cls.button_z)
+            if (cls.env_cls.button_z - z)**2 < cls.env_cls.button_radius**2:
                 # Move directly toward the button.
                 return cls._get_move_action(button_pos, robot_pos)
             # Move only in the z direction.
-            return cls._get_move_action((x, y, CoffeeEnv.button_z), robot_pos)
+            return cls._get_move_action((x, y, cls.env_cls.button_z), robot_pos)
 
         return policy
 
@@ -320,8 +327,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # pour, we need to start by rotating the cup to prevent any further
             # pouring until we've moved over the next cup.
             del memory, params  # unused
-            move_tilt = CoffeeEnv.tilt_lb
-            pour_tilt = CoffeeEnv.tilt_ub
+            move_tilt = cls.env_cls.tilt_lb
+            pour_tilt = cls.env_cls.tilt_ub
             robot, jug, cup = objects
             robot_x = state.get(robot, "x")
             robot_y = state.get(robot, "y")
@@ -341,16 +348,16 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             dtilt = move_tilt - tilt
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
-            if xy_pour_sq_dist < CoffeeEnv.safe_z_tol:
+            if xy_pour_sq_dist < cls.env_cls.safe_z_tol:
                 return cls._get_move_action(pour_pos, jug_pos, dtilt=dtilt)
             # If we're at a safe height, move toward above the pour position.
-            if (robot_z - CoffeeEnv.robot_init_z)**2 < CoffeeEnv.safe_z_tol:
+            if (robot_z - cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
                 return cls._get_move_action((pour_x, pour_y, jug_z),
                                             jug_pos,
                                             dtilt=dtilt)
             # Move to a safe moving height.
             return cls._get_move_action(
-                (robot_x, robot_y, CoffeeEnv.robot_init_z),
+                (robot_x, robot_y, cls.env_cls.robot_init_z),
                 robot_pos,
                 dtilt=dtilt)
 
