@@ -197,6 +197,7 @@ class PyBulletEnv(BaseEnv):
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
+        self._held_obj_to_base_link = None
         self._held_obj_id = None
 
         # Reset robot.
