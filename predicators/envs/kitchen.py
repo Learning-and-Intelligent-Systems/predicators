@@ -355,25 +355,37 @@ README of that repo suggests!"
             self._current_observation["state_info"])
         kettle = self.object_name_to_object("kettle")
         burner4 = self.object_name_to_object("burner4")
+        burner3 = self.object_name_to_object("burner3")
         knob4 = self.object_name_to_object("knob4")
+        knob3 = self.object_name_to_object("knob3")
         light = self.object_name_to_object("light")
         goal_desc = self._current_task.goal_description
-        kettle_on_burner = self._OnTop_holds(state, [kettle, burner4])
+        kettle_on_burner4 = self._OnTop_holds(state, [kettle, burner4])
+        kettle_on_burner3 = self._OnTop_holds(state, [kettle, burner3])
         knob4_turned_on = self.On_holds(state, [knob4])
+        knob3_turned_on = self.On_holds(state, [knob3])
         light_turned_on = self.On_holds(state, [light])
-        kettle_boiling = self._KettleBoiling_holds(state,
+        kettle_boiling4 = self._KettleBoiling_holds(state,
                                                    [kettle, burner4, knob4])
+        kettle_boiling3 = self._KettleBoiling_holds(state,
+                                                   [kettle, burner3, knob3])
         if goal_desc == ("Move the kettle to the back burner and turn it on; "
                          "also turn on the light"):
-            return kettle_on_burner and knob4_turned_on and light_turned_on
-        if goal_desc == "Move the kettle to the back burner":
-            return kettle_on_burner
-        if goal_desc == "Turn on the back burner":
+            return kettle_on_burner4 and knob4_turned_on and light_turned_on
+        if goal_desc == "Move the kettle to the back left burner":
+            return kettle_on_burner4
+        if goal_desc == "Move the kettle to the back right burner":
+            return kettle_on_burner3
+        if goal_desc == "Turn on the back left burner":
             return knob4_turned_on
+        if goal_desc == "Turn on the back right burner":
+            return knob3_turned_on
         if goal_desc == "Turn on the light":
             return light_turned_on
-        if goal_desc == "Move the kettle to the back burner and turn it on":
-            return kettle_boiling
+        if goal_desc == "Move the kettle to the back left burner and turn it on":
+            return kettle_boiling4
+        if goal_desc == "Move the kettle to the back right burner and turn it on":
+            return kettle_boiling3
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,
@@ -385,16 +397,26 @@ README of that repo suggests!"
         ]
         goal_descriptions: List[str] = []
         if CFG.kitchen_goals in ["all", "kettle_only"]:
-            goal_descriptions.append("Move the kettle to the back burner")
+            if train_or_test == "train":
+                goal_descriptions.append("Move the kettle to the back left burner")
+            else:
+                goal_descriptions.append("Move the kettle to the back right burner")
         if CFG.kitchen_goals in ["all", "knob_only"]:
-            goal_descriptions.append("Turn on the back burner")
+            if train_or_test == "train":
+                goal_descriptions.append("Turn on the back left burner")
+            else:
+                goal_descriptions.append("Turn on the back right burner")
         if CFG.kitchen_goals in ["all", "light_only"]:
             goal_descriptions.append("Turn on the light")
         if CFG.kitchen_goals in ["all", "boil_kettle"]:
-            goal_descriptions.append(
-                "Move the kettle to the back burner and turn it on")
+            if train_or_test == "train":
+                goal_descriptions.append(
+                    "Move the kettle to the back left burner and turn it on")
+            else:
+                goal_descriptions.append(
+                    "Move the kettle to the back right burner and turn it on")
         if CFG.kitchen_goals == "all":
-            desc = ("Move the kettle to the back burner and turn it on; also "
+            desc = ("Move the kettle to the back left burner and turn it on; also "
                     "turn on the light")
             goal_descriptions.append(desc)
 
@@ -416,6 +438,9 @@ README of that repo suggests!"
             # even more variation.
             kettle_coords = (-0.269, rng.uniform(0.4, 0.55), 1.626)
             self._gym_env.set_body_position("kettle", kettle_coords)
+            # TODO: if the task is at test-time where we need to get the
+            # kettle onto the right back burner, have it start out on
+            # the right front burner.
         return {
             "state_info": self.get_object_centric_state_info(),
             "obs_images": self.render()
