@@ -33,7 +33,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     safe_z_tol: ClassVar[float] = 1e-2
     place_jug_in_machine_tol: ClassVar[float] = 1e-3
     jug_twist_offset: ClassVar[float] = 0.025
-    init_padding: ClassVar[float] = 0.05
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
@@ -122,7 +121,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
-        self._cup_to_liquid_id: Dict[Object, int] = {}
+        self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
         self._cup_to_capacity: Dict[Object, float] = {}
         # The status of the jug is not modeled inside PyBullet.
         self._jug_filled = False
@@ -262,9 +261,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         pose = (cls.dispense_area_x, cls.dispense_area_y,
                 cls.z_lb + dispense_height)
         orientation = cls._default_orn
-        half_extents = [
+        half_extents = (
             1.1 * dispense_radius, 1.1 * dispense_radius, dispense_height
-        ]
+        )
 
         # Create a square beneath the dispense area for visual niceness.
         collision_id = p.createCollisionShape(
@@ -445,7 +444,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Create liquid in cups.
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
-                p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
+                p.removeBody(liquid_id,
+                             physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
         for cup in state.get_objects(self._cup_type):
@@ -622,7 +622,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return self._add_pybullet_state_to_tasks([task])[0]
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        return {self._jug_id}
+        return [self._jug_id]
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
         if CFG.pybullet_robot == "fetch":
