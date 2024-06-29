@@ -131,7 +131,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         )
 
         # Pour
-        def _Pour_initiable(state: State, memory: Dict, 
+        def _Pour_initiable(state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
             del memory, params
             robot, jug, _ = objects
