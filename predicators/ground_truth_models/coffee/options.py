@@ -463,7 +463,109 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {"pybullet_coffee"}
+    
+    @classmethod
+    def _create_place_jug_in_machine_policy(cls) -> ParameterizedPolicy:
 
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            # This policy moves directly to place the jug.
+            del memory, params  # unused
+            robot, jug, _ = objects
+
+            # Get the current robot position.
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            robot_pos = (x, y, z)
+
+            # Get the difference between the jug location and the target.
+            # Use the jug position as the origin.
+            jx = state.get(jug, "x")
+            jy = state.get(jug, "y")
+            jz = cls.env_cls.z_lb + cls.env_cls.jug_height
+            current_jug_pos = (jx, jy, jz)
+            target_jug_pos = (cls.env_cls.dispense_area_x,
+                              cls.env_cls.dispense_area_y,
+                              cls.env_cls.z_lb + cls.env_cls.jug_handle_height)
+            dx, dy, dz = np.subtract(target_jug_pos, current_jug_pos)
+
+            # Get the target robot position.
+            target_robot_pos = (x + dx, y + dy, z + dz)
+            # If close enough, place.
+            sq_dist_to_place = np.sum(
+                np.subtract(robot_pos, target_robot_pos)**2)
+            if sq_dist_to_place < cls.env_cls.place_jug_in_machine_tol:
+                return cls._get_place_action(state)
+            # If already above the table, move directly toward the place pos.
+            return cls._get_move_action(state,
+                                        target_robot_pos,
+                                        robot_pos,
+                                        finger_status="closed")
+
+        return policy
+    
+    @classmethod
+    def _create_pour_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            # This policy moves the robot next to the cup and then pours until
+            # the cup is filled. Note that if starting out at the end of another
+            # pour, we need to start by rotating the cup to prevent any further
+            # pouring until we've moved over the next cup.
+            del memory, params  # unused
+            move_tilt = cls.env_cls.tilt_lb
+            pour_tilt = cls.env_cls.tilt_ub
+            robot, jug, cup = objects
+            robot_x = state.get(robot, "x")
+            robot_y = state.get(robot, "y")
+            robot_z = state.get(robot, "z")
+            robot_pos = (robot_x, robot_y, robot_z)
+            tilt = state.get(robot, "tilt")
+            jug_x = state.get(jug, "x")
+            jug_y = state.get(jug, "y")
+            jug_z = cls._get_jug_z(state, robot, jug)
+            jug_pos = (jug_x, jug_y, jug_z)
+            pour_x, pour_y, _ = pour_pos = cls._get_pour_position(state, cup)
+            dx, dy, dz = np.subtract(pour_pos, jug_pos)
+            # Get the target robot position.
+            robot_pour_pos = (robot_x + dx, robot_y + dy, robot_z + dz)
+            # If we're close enough to the pour position, pour.
+            sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
+            if sq_dist_to_pour < cls.pour_policy_tol:
+                dtilt = pour_tilt - tilt
+                return cls._get_move_action(state,
+                                            robot_pos,
+                                            robot_pos,
+                                            dtilt=dtilt,
+                                            finger_status="closed")
+            dtilt = move_tilt - tilt
+            # If we're above the pour position, move down to pour.
+            xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
+            if xy_pour_sq_dist < cls.env_cls.safe_z_tol:
+                return cls._get_move_action(state,
+                                            robot_pour_pos,
+                                            robot_pos,
+                                            dtilt=0.0,
+                                            finger_status="closed")
+            # If we're at a safe height, move toward above the pour position.
+            if (robot_z -
+                    cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
+                return cls._get_move_action(
+                    state, (robot_pour_pos[0], robot_pour_pos[1], robot_z),
+                    robot_pos,
+                    dtilt=0.0,
+                    finger_status="closed")
+            # Move backward and to a safe moving height.
+            return cls._get_move_action(
+                state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
+                robot_pos,
+                dtilt=0.0,
+                finger_status="closed")
+
+        return policy
+        
     @classmethod
     def _get_move_action(cls,
                          state: State,
