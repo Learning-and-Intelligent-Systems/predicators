@@ -437,15 +437,16 @@ class CoverEnvRegrasp(CoverEnv):
     grasp on the initially held object sometimes requires placing and
     regrasping.
 
-    This environment also has two different oracle NSRTs for placing, one for
-    placing a target and one for placing on the table.
+    This environment also has two different oracle NSRTs for placing,
+    one for placing a target and one for placing on the table.
 
-    This environment also has a Clear predicate, to prevent placing on already
-    covered targets.
+    This environment also has a Clear predicate, to prevent placing on
+    already covered targets.
 
-    Finally, to allow placing on the table, we need to change the allowed
-    hand regions. We implement it so that there is a relatively small hand
-    region centered at each target, but then everywhere else is allowed.
+    Finally, to allow placing on the table, we need to change the
+    allowed hand regions. We implement it so that there is a relatively
+    small hand region centered at each target, but then everywhere else
+    is allowed.
     """
     _allow_free_space_placing: ClassVar[bool] = True
     _initial_pick_offsets: ClassVar[List[float]] = [-0.95, 0.0, 0.95]
@@ -496,15 +497,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     """Cover domain with a lower level action space. Useful for using and
     learning multistep options.
 
-    The action space is (dx, dy, dgrip). The last dimension
-    controls the gripper "magnet" or "vacuum". The state space is updated to
-    track x, y, grip.
+    The action space is (dx, dy, dgrip). The last dimension controls the
+    gripper "magnet" or "vacuum". The state space is updated to track x,
+    y, grip.
 
-    The robot can move anywhere as long as it, and the block it may be holding,
-    does not collide with another block. Picking up a block is allowed when the
-    robot gripper is empty, when the robot is in the allowable hand region, and
-    when the robot is sufficiently close to the block in the y-direction.
-    Placing is allowed anywhere. Collisions are handled in simulate().
+    The robot can move anywhere as long as it, and the block it may be
+    holding, does not collide with another block. Picking up a block is
+    allowed when the robot gripper is empty, when the robot is in the
+    allowable hand region, and when the robot is sufficiently close to
+    the block in the y-direction. Placing is allowed anywhere.
+    Collisions are handled in simulate().
     """
     grasp_thresh: ClassVar[float] = 0.0
     initial_block_y: ClassVar[float] = 0.1

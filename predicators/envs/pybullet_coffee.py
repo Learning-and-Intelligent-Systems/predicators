@@ -261,9 +261,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         pose = (cls.dispense_area_x, cls.dispense_area_y,
                 cls.z_lb + dispense_height)
         orientation = cls._default_orn
-        half_extents = (
-            1.1 * dispense_radius, 1.1 * dispense_radius, dispense_height
-        )
+        half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
+                        dispense_height)
 
         # Create a square beneath the dispense area for visual niceness.
         collision_id = p.createCollisionShape(

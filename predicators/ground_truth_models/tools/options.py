@@ -159,8 +159,8 @@ class ToolsGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # while all other Fasten options have 4 parameters.
                 _, item, contraption = objects
                 # For fastening by hand, we don't want to be holding any tool.
-                tool_is_correct = (ToolsEnv.get_held_item_or_tool(state) is
-                                   None)
+                tool_is_correct = (ToolsEnv.get_held_item_or_tool(state)
+                                   is None)
             else:
                 _, item, tool, contraption = objects
                 # For fastening with a tool, we should be holding it.
