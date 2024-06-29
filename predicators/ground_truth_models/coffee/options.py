@@ -554,7 +554,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 #                     predicates: Dict[str, Predicate],
 #                     action_space: Box) -> Set[ParameterizedOption]:
 
-#         # The options are the same as in the regular coffee environment, 
+#         # The options are the same as in the regular coffee environment,
 #         # except for the policies.
 #         coffee_options = CoffeeGroundTruthOptionFactory.get_options(
 #             "coffee", types, predicates, action_space)
