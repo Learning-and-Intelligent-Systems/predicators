@@ -81,8 +81,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height
     # NOTE: twisting not implemented.
-    jug_init_rot_lb: ClassVar[float] = -1e-5
-    jug_init_rot_ub: ClassVar[float] = 1e-5
+    jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
+    jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
     dispense_area_y: ClassVar[float] = machine_y - 4 * jug_radius
@@ -609,6 +609,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 cup, state)
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
+        
         return state
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
