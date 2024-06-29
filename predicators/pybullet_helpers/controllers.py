@@ -188,6 +188,8 @@ def get_change_fingers_action(robot: SingleArmPyBulletRobot,
                               current_joint_positions: JointPositions,
                               current_val: float, target_val: float,
                               max_vel_norm: float) -> Action:
+    '''Get change fingers action
+    '''
     f_delta = target_val - current_val
     f_delta = np.clip(f_delta, -max_vel_norm, max_vel_norm)
     f_action = current_val + f_delta

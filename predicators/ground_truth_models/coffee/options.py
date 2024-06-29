@@ -493,10 +493,10 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         # import pybullet as p
         # p.addUserDebugText("+", robot_pos,
         #                        [0.0, 1.0, 0.0],
-        #                        physicsClientId=pybullet_robot.physics_client_id)
+        #                      physicsClientId=pybullet_robot.physics_client_id)
         # p.addUserDebugText("*", target_pos,
         #                        [1.0, 0.0, 0.0],
-        #                        physicsClientId=pybullet_robot.physics_client_id)
+        #                      physicsClientId=pybullet_robot.physics_client_id)
 
         # import time
         # time.sleep(1.0)
@@ -554,8 +554,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 #                     predicates: Dict[str, Predicate],
 #                     action_space: Box) -> Set[ParameterizedOption]:
 
-#         # The options are the same as in the regular coffee environment, except
-#         # for the policies.
+#         # The options are the same as in the regular coffee environment, 
+#         # except for the policies.
 #         coffee_options = CoffeeGroundTruthOptionFactory.get_options(
 #             "coffee", types, predicates, action_space)
 #         coffee_option_name_to_option = {o.name: o for o in coffee_options}
