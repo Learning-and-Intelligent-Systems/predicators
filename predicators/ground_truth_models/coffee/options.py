@@ -11,6 +11,8 @@ from predicators import utils
 from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.pybullet_helpers.controllers import \
+    get_change_fingers_action, get_move_end_effector_to_pose_action
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
@@ -434,11 +436,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         target_z = cls.env_cls.z_lb + cls.env_cls.pour_z_offset
         return (target_x, target_y, target_z)
 
+
 @lru_cache
 def _get_pybullet_robot() -> SingleArmPyBulletRobot:
     _, pybullet_robot, _ = \
         PyBulletCoffeeEnv.initialize_pybullet(using_gui=False)
     return pybullet_robot
+
 
 class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_coffee environment."""

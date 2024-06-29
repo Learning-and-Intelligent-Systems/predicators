@@ -444,7 +444,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create liquid in cups.
         for liquid_id in self._cup_to_liquid_id.values():
-            p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
+            if liquid_id is not None:
+                p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
         for cup in state.get_objects(self._cup_type):
