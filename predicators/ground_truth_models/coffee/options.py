@@ -178,9 +178,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # If at the correct x and y position, move directly toward the
             # target.
             if xy_sq_dist < cls.twist_policy_tol:
-                return cls._get_move_action(jug_top, robot_pos)
+                return cls._get_move_action(state, jug_top, robot_pos)
             # Move to the position above the jug.
-            return cls._get_move_action((jug_x, jug_y, cls.env_cls.robot_init_z),
+            return cls._get_move_action(state, (jug_x, jug_y, cls.env_cls.robot_init_z),
                                         robot_pos)
 
         return policy
@@ -206,7 +206,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                 y = state.get(robot, "y")
                 z = state.get(robot, "z")
                 robot_pos = (x, y, z)
-                return cls._get_move_action((x, y, cls.env_cls.robot_init_z),
+                return cls._get_move_action(state, (x, y, cls.env_cls.robot_init_z),
                                             robot_pos)
             dtwist = delta_rot / cls.env_cls.max_angular_vel
             return Action(
@@ -246,19 +246,19 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # If at the correct x and z position and behind in the y direction,
             # move directly toward the target.
             if target_y > y and xz_handle_sq_dist < cls.pick_policy_tol:
-                return cls._get_move_action(handle_pos, robot_pos)
+                return cls._get_move_action(state, handle_pos, robot_pos)
             # If close enough to the penultimate waypoint in the x/y plane,
             # move to the waypoint (in the z direction).
             if xy_waypoint_sq_dist < cls.pick_policy_tol:
-                return cls._get_move_action((target_x, waypoint_y, target_z),
+                return cls._get_move_action(state, (target_x, waypoint_y, target_z),
                                             robot_pos)
             # If at a safe height, move to the position above the penultimate
             # waypoint, still at a safe height.
             if safe_z_sq_dist < cls.env_cls.safe_z_tol:
-                return cls._get_move_action(
+                return cls._get_move_action(state, 
                     (target_x, waypoint_y, cls.env_cls.robot_init_z), robot_pos)
             # Move up to a safe height.
-            return cls._get_move_action((x, y, cls.env_cls.robot_init_z),
+            return cls._get_move_action(state, (x, y, cls.env_cls.robot_init_z),
                                         robot_pos)
 
         return policy
@@ -287,9 +287,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                     np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
             # If already above the table, move directly toward the place pos.
             if z > cls.env_cls.z_lb:
-                return cls._get_move_action(place_pos, jug_pos)
+                return cls._get_move_action(state, place_pos, jug_pos)
             # Move up.
-            return cls._get_move_action((x, y, z + cls.env_cls.max_position_vel),
+            return cls._get_move_action(state, (x, y, z + cls.env_cls.max_position_vel),
                                         jug_pos)
 
         return policy
@@ -311,9 +311,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                           cls.env_cls.button_z)
             if (cls.env_cls.button_z - z)**2 < cls.env_cls.button_radius**2:
                 # Move directly toward the button.
-                return cls._get_move_action(button_pos, robot_pos)
+                return cls._get_move_action(state, button_pos, robot_pos)
             # Move only in the z direction.
-            return cls._get_move_action((x, y, cls.env_cls.button_z), robot_pos)
+            return cls._get_move_action(state, (x, y, cls.env_cls.button_z), robot_pos)
 
         return policy
 
@@ -344,19 +344,19 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
             if sq_dist_to_pour < cls.pour_policy_tol:
                 dtilt = pour_tilt - tilt
-                return cls._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
+                return cls._get_move_action(state, jug_pos, jug_pos, dtilt=dtilt)
             dtilt = move_tilt - tilt
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
             if xy_pour_sq_dist < cls.env_cls.safe_z_tol:
-                return cls._get_move_action(pour_pos, jug_pos, dtilt=dtilt)
+                return cls._get_move_action(state, pour_pos, jug_pos, dtilt=dtilt)
             # If we're at a safe height, move toward above the pour position.
             if (robot_z - cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
-                return cls._get_move_action((pour_x, pour_y, jug_z),
+                return cls._get_move_action(state, (pour_x, pour_y, jug_z),
                                             jug_pos,
                                             dtilt=dtilt)
             # Move to a safe moving height.
-            return cls._get_move_action(
+            return cls._get_move_action(state,
                 (robot_x, robot_y, cls.env_cls.robot_init_z),
                 robot_pos,
                 dtilt=dtilt)
@@ -367,10 +367,12 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _get_move_action(cls,
+                         state: State,
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
                          dtilt: float = 0.0,
-                         dwrist: float = 0.0) -> Action:
+                         dwrist: float = 0.0,
+                         finger_status: str = "open") -> Action:
         # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
         # But we can only move at most max_position_vel in one step.
@@ -378,17 +380,17 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         pos_norm = float(np.linalg.norm(delta))
         # If the norm is more than max_position_vel, rescale the delta so
         # that its norm is max_position_vel.
-        if pos_norm > CoffeeEnv.max_position_vel:
-            delta = CoffeeEnv.max_position_vel * (delta / pos_norm)
-            pos_norm = CoffeeEnv.max_position_vel
+        if pos_norm > cls.env_cls.max_position_vel:
+            delta = cls.env_cls.max_position_vel * (delta / pos_norm)
+            pos_norm = cls.env_cls.max_position_vel
         # Now normalize so that the action values are between -1 and 1, as
         # expected by simulate and the action space.
         if pos_norm > 0:
-            delta = delta / CoffeeEnv.max_position_vel
+            delta = delta / cls.env_cls.max_position_vel
         dx, dy, dz = delta
-        dtilt = np.clip(dtilt, -CoffeeEnv.max_angular_vel,
-                        CoffeeEnv.max_angular_vel)
-        dtilt = dtilt / CoffeeEnv.max_angular_vel
+        dtilt = np.clip(dtilt, -cls.env_cls.max_angular_vel,
+                        cls.env_cls.max_angular_vel)
+        dtilt = dtilt / cls.env_cls.max_angular_vel
         return Action(
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
 
@@ -396,18 +398,18 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _get_jug_handle_grasp(cls, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Hack to avoid duplicate code.
-        return CoffeeEnv._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
+        return cls.env_cls._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
 
     @classmethod
     def _get_jug_z(cls, state: State, robot: Object, jug: Object) -> float:
         assert state.get(jug, "is_held") > 0.5
         # Offset to account for handle.
-        return state.get(robot, "z") - CoffeeEnv.jug_handle_height
+        return state.get(robot, "z") - cls.env_cls.jug_handle_height
 
-    @staticmethod
-    def _get_pour_position(state: State,
+    @classmethod
+    def _get_pour_position(cls, state: State,
                            cup: Object) -> Tuple[float, float, float]:
-        target_x = state.get(cup, "x") + CoffeeEnv.pour_x_offset
-        target_y = state.get(cup, "y") + CoffeeEnv.pour_y_offset
-        target_z = CoffeeEnv.pour_z_offset
+        target_x = state.get(cup, "x") + cls.env_cls.pour_x_offset
+        target_y = state.get(cup, "y") + cls.env_cls.pour_y_offset
+        target_z = cls.env_cls.pour_z_offset
         return (target_x, target_y, target_z)
