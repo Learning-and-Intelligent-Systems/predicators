@@ -85,14 +85,14 @@ def learn_nsrts_from_data(
         #         produce PNAD objects. Each PNAD
         #         contains a STRIPSOperator, Datastore, and OptionSpec. The
         #         samplers will be filled in on a later step.
-        pnads = learn_strips_operators(
-            trajectories,
-            train_tasks,
-            predicates,
-            segmented_trajs,
-            verify_harmlessness=True,
-            verbose=(CFG.option_learner != "no_learning"),
-            annotations=annotations)
+        pnads = learn_strips_operators(trajectories,
+                                       train_tasks,
+                                       predicates,
+                                       segmented_trajs,
+                                       verify_harmlessness=True,
+                                       verbose=(CFG.option_learner
+                                                != "no_learning"),
+                                       annotations=annotations)
 
         # Save least complex learned PNAD set across data orderings.
         pnads_complexity = sum(pnad.op.get_complexity() for pnad in pnads)

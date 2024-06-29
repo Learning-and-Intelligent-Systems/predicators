@@ -37,8 +37,9 @@ class LLMOptionRenamingApproach(LLMBaseRenamingApproach):
 
     def _create_replacements(self) -> Dict[str, str]:
         return {
-            o.name: utils.generate_random_string(len(o.name),
-                                                 list(string.ascii_lowercase),
-                                                 self._rng)
+            o.name:
+            utils.generate_random_string(len(o.name),
+                                         list(string.ascii_lowercase),
+                                         self._rng)
             for o in self._initial_options
         }

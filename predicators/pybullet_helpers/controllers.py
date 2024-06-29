@@ -16,6 +16,7 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 
 _SUPPORTED_ROBOTS: Set[str] = {"fetch", "panda"}
 
+
 def get_move_end_effector_to_pose_action(
     robot: SingleArmPyBulletRobot,
     current_joint_positions: JointPositions,
@@ -52,10 +53,9 @@ def get_move_end_effector_to_pose_action(
         # a solution from the previous call. The fetch robot does not
         # use IKFast, and in fact gets screwed up if we set joints here.
         validate = robot.get_name() != "panda"
-        joint_positions = robot.inverse_kinematics(
-            ee_action,
-            validate=validate,
-            set_joints=True)
+        joint_positions = robot.inverse_kinematics(ee_action,
+                                                   validate=validate,
+                                                   set_joints=True)
     except InverseKinematicsError:
         raise utils.OptionExecutionFailure("Inverse kinematics failed.")
     # Handle the fingers. Fingers drift if left alone.
@@ -80,6 +80,7 @@ def get_move_end_effector_to_pose_action(
                          robot.action_space.high)
     assert robot.action_space.contains(action_arr)
     return Action(action_arr)
+
 
 def create_move_end_effector_to_pose_option(
     robot: SingleArmPyBulletRobot,
@@ -182,6 +183,7 @@ def create_move_end_effector_to_pose_option(
                                initiable=lambda _1, _2, _3, _4: True,
                                terminal=_terminal)
 
+
 def get_change_fingers_action(robot: SingleArmPyBulletRobot,
                               current_joint_positions: JointPositions,
                               current_val: float, target_val: float,
@@ -197,6 +199,7 @@ def get_change_fingers_action(robot: SingleArmPyBulletRobot,
     target = np.clip(target, robot.action_space.low, robot.action_space.high)
     assert robot.action_space.contains(target)
     return Action(target)
+
 
 def create_change_fingers_option(
     robot: SingleArmPyBulletRobot,
