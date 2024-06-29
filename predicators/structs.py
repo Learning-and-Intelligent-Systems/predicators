@@ -778,8 +778,7 @@ class STRIPSOperator:
         remaining_params = {
             p
             for atom in self.preconditions | new_add_effects
-            | new_delete_effects
-            for p in atom.variables
+            | new_delete_effects for p in atom.variables
         } | set(option_vars)
         new_params = [p for p in self.parameters if p in remaining_params]
         return STRIPSOperator(self.name, new_params, self.preconditions,

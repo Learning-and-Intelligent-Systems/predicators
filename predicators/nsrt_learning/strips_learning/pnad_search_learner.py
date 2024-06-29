@@ -259,10 +259,9 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._compute_pnad_delete_effects(pnad)
             self._compute_pnad_ignore_effects(pnad)
         # Fix naming.
-        pnad_map: Dict[ParameterizedOption, List[PNAD]] = {
-            p.option_spec[0]: []
-            for p in new_pnads
-        }
+        pnad_map: Dict[ParameterizedOption,
+                       List[PNAD]] = {p.option_spec[0]: []
+                                      for p in new_pnads}
         for p in new_pnads:
             p.op = p.op.copy_with(name=p.option_spec[0].name)
             pnad_map[p.option_spec[0]].append(p)

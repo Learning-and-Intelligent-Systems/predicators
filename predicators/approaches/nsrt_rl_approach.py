@@ -139,8 +139,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 next_state, cur_option.objects)
             had_sufficient_steps = (
                 next_state.allclose(traj.states[-1])
-                and (CFG.max_num_steps_interaction_request - j
-                     > CFG.nsrt_rl_valid_reward_steps_threshold))
+                and (CFG.max_num_steps_interaction_request - j >
+                     CFG.nsrt_rl_valid_reward_steps_threshold))
             if terminate:
                 option_to_data[parent_option].append(experience)
                 cur_option_idx += 1

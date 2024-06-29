@@ -242,8 +242,7 @@ def _create_name_to_instances(env: BaseEnv,
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     var_name_to_nsrt_variables = {
         _variable_to_s_exp(v, n.name): (n, v)
-        for n in nsrts
-        for v in n.parameters
+        for n in nsrts for v in n.parameters
     }
     names_to_instances: Dict[str, Dict[str, Any]] = {
         "predicates": pred_name_to_pred,

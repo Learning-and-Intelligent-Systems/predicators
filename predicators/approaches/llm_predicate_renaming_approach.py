@@ -37,9 +37,8 @@ class LLMPredicateRenamingApproach(LLMBaseRenamingApproach):
 
     def _create_replacements(self) -> Dict[str, str]:
         return {
-            p.name:
-            utils.generate_random_string(len(p.name),
-                                         list(string.ascii_lowercase),
-                                         self._rng)
+            p.name: utils.generate_random_string(len(p.name),
+                                                 list(string.ascii_lowercase),
+                                                 self._rng)
             for p in self._get_current_predicates()
         }

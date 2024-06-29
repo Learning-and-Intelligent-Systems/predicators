@@ -3072,10 +3072,9 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
         types_str = " ".join(t.name for t in sorted(types))
     # Case 2: type hierarchy.
     else:
-        parent_to_children_types: Dict[Type, List[Type]] = {
-            t: []
-            for t in types
-        }
+        parent_to_children_types: Dict[Type,
+                                       List[Type]] = {t: []
+                                                      for t in types}
         for t in sorted(types):
             if t.parent:
                 parent_to_children_types[t.parent].append(t)

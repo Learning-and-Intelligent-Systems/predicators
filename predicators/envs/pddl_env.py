@@ -102,8 +102,7 @@ class _PDDLEnv(BaseEnv):
         tasks = self._pregenerated_train_tasks + self._pregenerated_test_tasks
         self._goal_predicates = {
             a.predicate
-            for t in tasks
-            for a in t.task.goal
+            for t in tasks for a in t.task.goal
         }
 
     @classmethod

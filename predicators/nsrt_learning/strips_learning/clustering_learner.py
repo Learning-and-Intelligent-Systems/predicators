@@ -44,10 +44,9 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                     pnad_param_option,
                     segment_option_objs,
                     tuple(pnad_option_vars))
-                sub = cast(VarToObjSub, {
-                    v: o
-                    for o, v in ent_to_ent_sub.items()
-                })
+                sub = cast(VarToObjSub,
+                           {v: o
+                            for o, v in ent_to_ent_sub.items()})
                 if suc:
                     # Add to this PNAD.
                     assert set(sub.keys()) == set(pnad.op.parameters)
