@@ -508,7 +508,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 
     @classmethod
     def _get_twist_action(cls, dtwist: float) -> Action:
-        breakpoint()
+        raise NotImplementedError("Twisting not yet implemented in PyBullet.")
 
     @classmethod
     def _get_finger_action(cls, state: State,
