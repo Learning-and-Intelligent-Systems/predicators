@@ -9,7 +9,6 @@ from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.inverse_kinematics import \
     InverseKinematicsError
 from predicators.pybullet_helpers.joint import JointPositions
-
 from predicators.pybullet_helpers.robots.single_arm import \
     SingleArmPyBulletRobot
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
