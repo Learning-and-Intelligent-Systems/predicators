@@ -487,9 +487,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             "num_failures_discovered"
     ]:
         total = cogman.metrics[f"total_{metric_name}"]
-        metrics[f"avg_{metric_name}"] = (total /
-                                         num_found_policy if num_found_policy
-                                         > 0 else float("inf"))
+        metrics[f"avg_{metric_name}"] = (
+            total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
 
 

@@ -55,8 +55,8 @@ def test_cluttered_table(place_version=False):
                 pose_x2 = state.get(can2, "pose_x")
                 pose_y2 = state.get(can2, "pose_y")
                 rad2 = state.get(can2, "radius")
-                assert np.linalg.norm([pose_y2 - pose_y1,
-                                       pose_x2 - pose_x1]) > rad1 + rad2
+                assert np.linalg.norm([pose_y2 - pose_y1, pose_x2 - pose_x1
+                                       ]) > rad1 + rad2
         can = list(state)[0]
         act = Action(env.action_space.sample())
         if i == 0:

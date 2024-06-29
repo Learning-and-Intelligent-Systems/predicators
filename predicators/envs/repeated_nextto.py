@@ -157,8 +157,8 @@ class RepeatedNextToEnv(BaseEnv):
     def _NextTo_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, dot = objects
         return (state.get(dot, "grasped") < self.grasped_thresh
-                and abs(state.get(robot, "x") - state.get(dot, "x"))
-                < self._nextto_thresh)
+                and abs(state.get(robot, "x") - state.get(dot, "x")) <
+                self._nextto_thresh)
 
     def _NextToNothing_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
@@ -276,9 +276,8 @@ class RepeatedNextToSimple(RepeatedNextToEnv):
         goals = [goal1, goal2]
         # NOTE: 2.0 would be the exactly correct multiplier. 2.1 is just to
         # give some extra spacing.
-        assert (self.env_ub -
-                self.env_lb) > (self._nextto_thresh *
-                                CFG.repeated_nextto_num_dots * 2.1)
+        assert (self.env_ub - self.env_lb) > (
+            self._nextto_thresh * CFG.repeated_nextto_num_dots * 2.1)
         for i in range(num):
             data: Dict[Object, Array] = {}
             for d_num, dot in enumerate(dots):

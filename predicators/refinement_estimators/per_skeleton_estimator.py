@@ -13,10 +13,9 @@ from predicators.structs import GroundAtom, Task, _GroundNSRT
 
 # Type of the (skeleton, atoms_sequence) key for model dictionary
 # which converts both of them to be immutable
-ModelDictKey = Tuple[
-    Tuple[_GroundNSRT, ...],  # skeleton converted to tuple
-    Tuple[FrozenSet[GroundAtom], ...]  # atoms_sequence
-]
+ModelDictKey = Tuple[Tuple[_GroundNSRT, ...],  # skeleton converted to tuple
+                     Tuple[FrozenSet[GroundAtom], ...]  # atoms_sequence
+                     ]
 Model = TypeVar('Model')
 
 

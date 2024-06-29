@@ -132,8 +132,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 for nsrt in self._nsrts:
                     all_objects = {
                         o
-                        for t in self._train_tasks
-                        for o in t.init
+                        for t in self._train_tasks for o in t.init
                     }
                     all_ground_nsrts.update(
                         utils.all_ground_nsrts(nsrt, all_objects))
