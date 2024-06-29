@@ -202,17 +202,17 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
                                 cls.env_cls.max_angular_vel)
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            robot_pos = (x, y, z)
             if abs(delta_rot) < cls.twist_policy_tol:
                 # Move up to stop twisting.
-                x = state.get(robot, "x")
-                y = state.get(robot, "y")
-                z = state.get(robot, "z")
-                robot_pos = (x, y, z)
                 return cls._get_move_action(state,
                                             (x, y, cls.env_cls.robot_init_z),
                                             robot_pos)
             dtwist = delta_rot / cls.env_cls.max_angular_vel
-            return cls._get_twist_action(dtwist)
+            return cls._get_twist_action(state, robot_pos, dtwist)
 
         return policy
 
@@ -407,7 +407,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
 
     @classmethod
-    def _get_twist_action(cls, dtwist: float) -> Action:
+    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float], 
+                          dtwist: float) -> Action:
+        del state, cur_robot_pos # used by PyBullet subclass
         return Action(
             np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
 
@@ -586,7 +588,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             current_tilt, current_wrist)
         target_quat = PyBulletCoffeeEnv.tilt_wrist_to_gripper_orn(
             current_tilt + dtilt, current_wrist + dwrist)
-        assert dwrist == 0.0  # temp
+        # assert dwrist == 0.0  # temp
         current_pose = Pose(robot_pos, current_quat)
         target_pose = Pose(target_pos, target_quat)
         assert isinstance(state, utils.PyBulletState)
@@ -609,8 +611,10 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             cls._finger_action_nudge_magnitude)
 
     @classmethod
-    def _get_twist_action(cls, dtwist: float) -> Action:
-        raise NotImplementedError("Twisting not yet implemented in PyBullet.")
+    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float],
+                          dtwist: float) -> Action:
+        return cls._get_move_action(state, cur_robot_pos, cur_robot_pos, 0.0,
+                                    dtwist)
 
     @classmethod
     def _get_finger_action(cls, state: State,
