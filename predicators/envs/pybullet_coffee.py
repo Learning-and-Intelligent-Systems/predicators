@@ -541,7 +541,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Get jug state.
         (x, y, _), quat = p.getBasePositionAndOrientation(
             self._jug_id, physicsClientId=self._physics_client_id)
-        rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
+        # rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
+        rot = p.getEulerFromQuaternion(quat)[2] + np.pi/2
         held = (self._jug_id == self._held_obj_id)
         filled = float(self._jug_filled)
         state_dict[self._jug] = {
@@ -574,6 +575,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return state
 
     def step(self, action: Action) -> State:
+        # What's the previous robot state?
+        current_ee_rpy = self._pybullet_robot.forward_kinematics(self._pybullet_robot.get_joints()).rpy
         state = super().step(action)
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
@@ -607,6 +610,33 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                              physicsClientId=self._physics_client_id)
             self._cup_to_liquid_id[cup] = self._create_pybullet_liquid_for_cup(
                 cup, state)
+            self._current_observation = self._get_state()
+            state = self._current_observation.copy()
+        # Handle twisting
+        elif self._Twisting_holds(state, [self._robot, self._jug]):
+            cur_gripper_yaw = state.get(self._robot, "wrist")
+            gripper_pose = self._pybullet_robot.forward_kinematics(
+                                action.arr.tolist())
+            init_roll = 2.4863781352634065
+            d_roll = gripper_pose.rpy[0] - current_ee_rpy[0]
+            # print(f"[in step] cur ee rpy {current_ee_rpy}"\
+            #     " -- should equal to the ``current ee rpy above``")
+            # print(f"[in step] ee rpy {gripper_pose.rpy} -- should equal the ``new ee``"\
+            #       " rpy in the policy above")
+            # print(f"[in step] ee d_roll {-d_roll} -- should equal the d_roll in "\
+            #       " the policy above")
+            
+            (jx, jy, jz), orn = p.getBasePositionAndOrientation(self._jug_id,
+                                    physicsClientId=self._physics_client_id)
+            jug_yaw = p.getEulerFromQuaternion(orn)[2]
+            # print(f"[in step] jug yaw {jug_yaw + np.pi/2:.3f}")
+            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, jug_yaw-d_roll])
+            # print(f"[in step] jug new yaw {jug_yaw-d_roll+np.pi/2:.3f}")
+            p.resetBasePositionAndOrientation(
+                self._jug_id, [jx, jy, jz],
+                jug_orientation,
+                physicsClientId=self._physics_client_id)
+
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
         

@@ -197,7 +197,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory  # unused
             robot, jug = objects
             current_rot = state.get(jug, "rot")
-            norm_desired_rot, = params
+            # norm_desired_rot, = params
+            norm_desired_rot = 0.0 # perfect sampler
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
@@ -457,15 +458,124 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_coffee environment."""
 
     env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletCoffeeEnv
-    twist_policy_tol: ClassVar[float] = 1e-3
-    pick_policy_tol: ClassVar[float] = 1e-3
-    pour_policy_tol: ClassVar[float] = 1e-3
+    # twist_policy_tol: ClassVar[float] = 1e-3
+    # pick_policy_tol: ClassVar[float] = 1e-3
+    # pour_policy_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {"pybullet_coffee"}
     
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
+        options = super().get_options(env_name, types, predicates, action_space)
+        
+        robot_type = types["robot"]
+        jug_type = types["jug"]
+
+        # TwistJug
+        def _TwistJug_terminal(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
+            del memory, params  # unused
+            robot, jug = objects
+            # return HandEmpty.holds(state, [robot])
+            # modify to stop at the beginning state
+            robot_pose = [state.get(robot, "x"), state.get(robot, "y"),
+                        state.get(robot, "z"), ]
+            robot_wrist = state.get(robot, "wrist")
+            robot_tilt = state.get(robot, "tilt")
+            robot_finger = state.get(robot, "fingers")
+            return np.allclose(robot_pose, [cls.env_cls.robot_init_x, 
+                                            cls.env_cls.robot_init_y, 
+                                            cls.env_cls.robot_init_z], 
+                                            atol=1e-2) and \
+                   np.allclose([robot_wrist, robot_tilt, robot_finger], 
+                               [cls.env_cls.robot_init_wrist,
+                                cls.env_cls.robot_init_tilt,
+                                cls.env_cls.open_fingers],
+                                            atol=1e-2)
+
+        TwistJug = ParameterizedOption(
+            "TwistJug",
+            types=[robot_type, jug_type],
+            # The parameter is a normalized amount to twist by.
+            params_space=Box(-1, 1, (1, )),
+            policy=cls._create_twist_jug_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_TwistJug_terminal,
+        )
+        options.remove(TwistJug)
+        options.add(TwistJug)
+        return options
+    
+    @classmethod
+    def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            # This policy twists until the jug is in the desired rotation, and
+            # then moves up to break contact with the jug.
+            del memory  # unused
+            robot, jug = objects
+            current_rot = state.get(jug, "rot")
+            # norm_desired_rot, = params
+            norm_desired_rot = 0.0 # perfect sampler
+            desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
+            delta_rot = np.clip(desired_rot - current_rot,
+                                -cls.env_cls.max_angular_vel,
+                                cls.env_cls.max_angular_vel)
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            robot_pos = (x, y, z)
+            jug_x = state.get(jug, "x")
+            jug_y = state.get(jug, "y")
+            jug_top = (jug_x, jug_y, cls.env_cls.jug_height)
+            # print("[Taking a new twist action]")
+            # print(f"[policy] desired jug rot {desired_rot:.3f}")
+            # print(f"[policy] current jug rot {current_rot:.3f}")
+            # print(f"[policy] delta jug rot {delta_rot:.3f} -- the policy wants "\
+            #       "to move the jug by this amount")
+
+            # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
+            #     state.joint_positions).rpy
+            # print(f"[policy] current ee rpy {current_ee_rpy}")
+            if abs(delta_rot) < cls.twist_policy_tol:
+                # print(f"Moving up")
+                # Rotate the ee back to init after not in the twisting position
+                sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
+                if sq_dist_to_jug_top > cls.env_cls.grasp_position_tol:
+                    dwrist = cls.env_cls.robot_init_wrist - state.get(robot, 
+                                                                      "wrist")
+                    dtilt = cls.env_cls.robot_init_tilt - state.get(robot, 
+                                                                    "tilt")
+                else:
+                    dtilt = 0.0
+                    dwrist = 0.0
+
+                # Move up to stop twisting.
+                return cls._get_move_action(state,
+                                            (cls.env_cls.robot_init_x,
+                                             cls.env_cls.robot_init_y,
+                                             cls.env_cls.robot_init_z),
+                                            robot_pos,
+                                            dtilt,
+                                            dwrist)
+            dtwist = delta_rot / cls.env_cls.max_angular_vel
+            new_joint_pos = cls._get_twist_action(state, robot_pos, dtwist)
+            # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
+            #     new_joint_pos.arr.tolist()).rpy
+            # print(f"[policy] new ee rpy {new_ee_rpy}")
+            # print(f"[policy] d_roll {-(new_ee_rpy[0] - current_ee_rpy[0]):.3f}")
+            # breakpoint()
+            return new_joint_pos
+
+        return policy
+
     @classmethod
     def _create_place_jug_in_machine_policy(cls) -> ParameterizedPolicy:
 
@@ -613,8 +723,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     @classmethod
     def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float],
                           dtwist: float) -> Action:
+        delta_rot = dtwist * cls.env_cls.max_angular_vel
         return cls._get_move_action(state, cur_robot_pos, cur_robot_pos, 0.0,
-                                    dtwist)
+                                    delta_rot)
 
     @classmethod
     def _get_finger_action(cls, state: State,
