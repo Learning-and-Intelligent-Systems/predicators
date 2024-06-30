@@ -14,8 +14,6 @@ class KitchenPerceiver(BasePerceiver):
         return "kitchen"
 
     def reset(self, env_task: EnvironmentTask) -> Task:
-        # TODO: handle different goals corresponding to back left
-        # vs. back right burners!
         state = self._observation_to_state(env_task.init_obs)
         pred_name_to_pred = KitchenEnv.create_predicates()
         OnTop = pred_name_to_pred["OnTop"]
@@ -28,8 +26,9 @@ class KitchenPerceiver(BasePerceiver):
         burner3 = KitchenEnv.object_name_to_object("burner3")
         light = KitchenEnv.object_name_to_object("light")
         goal_desc = env_task.goal_description
-        if goal_desc == ("Move the kettle to the back left burner and turn it on; "
-                         "also turn on the light"):
+        if goal_desc == (
+                "Move the kettle to the back left burner and turn it on; "
+                "also turn on the light"):
             goal = {
                 GroundAtom(TurnedOn, [knob4]),
                 GroundAtom(OnTop, [kettle, burner4]),
