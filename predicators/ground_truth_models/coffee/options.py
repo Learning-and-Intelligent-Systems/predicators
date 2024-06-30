@@ -93,7 +93,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                               params: Array) -> bool:
             del memory, params  # unused
             robot, jug = objects
-            return Holding.holds(state, [robot, jug])
+            holds = Holding.holds(state, [robot, jug])
+            return holds
 
         PickJug = ParameterizedOption(
             "PickJug",
@@ -459,8 +460,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 
     env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletCoffeeEnv
     # twist_policy_tol: ClassVar[float] = 1e-3
-    # pick_policy_tol: ClassVar[float] = 1e-3
-    # pour_policy_tol: ClassVar[float] = 1e-3
+    pick_policy_tol: ClassVar[float] = 1e-3
+    pour_policy_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
     @classmethod
