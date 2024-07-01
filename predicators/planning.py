@@ -557,6 +557,7 @@ def run_low_level_search(
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, task.goal, rng_sampler)
+        logging.debug(f"[planning] trying to excute option {option}")
         plan[cur_idx] = option
         # Increment num_samples metric by 1
         metrics["num_samples"] += 1
@@ -587,12 +588,15 @@ def run_low_level_search(
                             static_obj_changed = True
                             break
                 if static_obj_changed:
+                    logging.debug("Can't continue: static obj changed")
                     can_continue_on = False
                 # Check if we have exceeded the horizon.
                 elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                    logging.debug("Can't continue: max actions exceeded")
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:
+                    logging.debug("Can't continue: option is a noop")
                     can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.
@@ -613,6 +617,7 @@ def run_low_level_search(
                         if cur_idx == len(skeleton):
                             plan_found = True
                     else:
+                        logging.debug("Can't continue: expected atom fail")
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -622,9 +627,11 @@ def run_low_level_search(
                         if task.goal_holds(traj[cur_idx]):
                             plan_found = True
                         else:
+                            logging.debug("Can't continue: goal atom fail")
                             can_continue_on = False
         else:
             # The option is not initiable.
+            logging.debug("Can't continue: init fail")
             can_continue_on = False
         if refinement_time is not None:
             try_end_time = time.perf_counter()

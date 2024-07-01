@@ -75,7 +75,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         float] = machine_x - machine_x_len / 2 + init_padding
     jug_init_x_ub: ClassVar[
         float] = machine_x + machine_x_len / 2 - init_padding
-    jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
+    # adding 1 extra padding
+    jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding * 2
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
@@ -111,7 +112,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
     # Camera parameters.
-    _camera_distance: ClassVar[float] = 0.8
+    _camera_distance: ClassVar[float] = 1.6 #0.8
     _camera_yaw: ClassVar[float] = 70
     _camera_pitch: ClassVar[float] = -48
     _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
@@ -541,8 +542,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Get jug state.
         (x, y, _), quat = p.getBasePositionAndOrientation(
             self._jug_id, physicsClientId=self._physics_client_id)
-        # rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
-        rot = p.getEulerFromQuaternion(quat)[2] + np.pi/2
+        rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
+        # rot = p.getEulerFromQuaternion(quat)[2] + np.pi/2
         held = (self._jug_id == self._held_obj_id)
         filled = float(self._jug_filled)
         state_dict[self._jug] = {
@@ -619,18 +620,30 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 action.arr.tolist())
             init_roll = 2.4863781352634065
             d_roll = gripper_pose.rpy[0] - current_ee_rpy[0]
+            d_yaw = gripper_pose.rpy[2] - current_ee_rpy[2]
+            if np.abs(d_yaw) > 0.2:
+                # changed sign
+                print("flip roll")
+                if d_yaw < 0:
+                    d_roll -= np.pi
+                if d_yaw > 0:
+                    d_roll += np.pi
             # print(f"[in step] cur ee rpy {current_ee_rpy}"\
             #     " -- should equal to the ``current ee rpy above``")
             # print(f"[in step] ee rpy {gripper_pose.rpy} -- should equal the ``new ee``"\
             #       " rpy in the policy above")
-            # print(f"[in step] ee d_roll {-d_roll} -- should equal the d_roll in "\
+            # print(f"[in step] ee d_roll {-d_roll:.3f} -- should equal the d_roll in "\
             #       " the policy above")
+            if d_roll > 2 * np.pi / 3:
+                d_roll
             
             (jx, jy, jz), orn = p.getBasePositionAndOrientation(self._jug_id,
                                     physicsClientId=self._physics_client_id)
             jug_yaw = p.getEulerFromQuaternion(orn)[2]
+            new_jug_yaw = jug_yaw - d_roll
+            new_jug_yaw = utils.wrap_angle(new_jug_yaw)
             # print(f"[in step] jug yaw {jug_yaw + np.pi/2:.3f}")
-            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, jug_yaw-d_roll])
+            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, new_jug_yaw])
             # print(f"[in step] jug new yaw {jug_yaw-d_roll+np.pi/2:.3f}")
             p.resetBasePositionAndOrientation(
                 self._jug_id, [jx, jy, jz],

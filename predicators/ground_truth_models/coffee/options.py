@@ -3,6 +3,7 @@
 from functools import lru_cache
 from typing import ClassVar, Dict, Sequence, Set, Tuple
 from typing import Type as TypingType
+import logging
 
 import numpy as np
 from gym.spaces import Box
@@ -504,7 +505,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             "TwistJug",
             types=[robot_type, jug_type],
             # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (1, )),
+            params_space=Box(-1, 1, (0, )), # temp; originally 1
             policy=cls._create_twist_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
@@ -542,8 +543,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # print(f"[policy] delta jug rot {delta_rot:.3f} -- the policy wants "\
             #       "to move the jug by this amount")
 
-            # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
-            #     state.joint_positions).rpy
+            current_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                state.joint_positions).rpy
             # print(f"[policy] current ee rpy {current_ee_rpy}")
             if abs(delta_rot) < cls.twist_policy_tol:
                 # print(f"Moving up")
@@ -568,8 +569,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                                             dwrist)
             dtwist = delta_rot / cls.env_cls.max_angular_vel
             new_joint_pos = cls._get_twist_action(state, robot_pos, dtwist)
-            # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
-            #     new_joint_pos.arr.tolist()).rpy
+            new_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                new_joint_pos.arr.tolist()).rpy
             # print(f"[policy] new ee rpy {new_ee_rpy}")
             # print(f"[policy] d_roll {-(new_ee_rpy[0] - current_ee_rpy[0]):.3f}")
             # breakpoint()
@@ -625,7 +626,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                    params: Array) -> Action:
             # This policy moves the robot next to the cup and then pours until
             # the cup is filled. Note that if starting out at the end of another
-            # pour, we need to start by rotating the cup to prevent any further
+            # pour, we need to start by rotating the jug to prevent any further
             # pouring until we've moved over the next cup.
             del memory, params  # unused
             move_tilt = cls.env_cls.tilt_lb
@@ -648,29 +649,67 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
             if sq_dist_to_pour < cls.pour_policy_tol:
                 dtilt = pour_tilt - tilt
-                return cls._get_move_action(state,
+                # logging.debug("Pour")
+                current_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                    state.joint_positions).rpy
+                cur_formated_jp = np.array([round(jp, 3) for jp in state.joint_positions])
+                current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
+                new_joint_pos = cls._get_move_action(state,
                                             robot_pos,
                                             robot_pos,
                                             dtilt=dtilt,
                                             finger_status="closed")
+                new_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                    new_joint_pos.arr.tolist()).rpy
+                new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
+                new_formated_jp = np.array([round(jp, 3) for jp in new_joint_pos.arr])
+                # logging.debug(f"[pour] cur joint position {cur_formated_jp}")
+                # logging.debug(f"[pour] new joint position {new_formated_jp}")
+                # logging.debug(f"[pour] joint delta {np.round(new_formated_jp - cur_formated_jp, 2)}")
+                # logging.debug(f"[pour] cur ee rpy {current_ee_rpy}")
+                # logging.debug(f"[pour] new ee rpy {new_ee_rpy}")
+                # logging.debug(f"[pour] d_roll {new_ee_rpy[0] - current_ee_rpy[0]}")
+                return new_joint_pos
             dtilt = move_tilt - tilt
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
-            if xy_pour_sq_dist < cls.env_cls.safe_z_tol:
-                return cls._get_move_action(state,
-                                            robot_pour_pos,
-                                            robot_pos,
-                                            dtilt=0.0,
-                                            finger_status="closed")
+            if xy_pour_sq_dist < cls.env_cls.safe_z_tol * 1e-2:
+                # logging.debug("Move down to pour")
+                current_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                                                    state.joint_positions).rpy
+                current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
+                cur_formated_jp = np.array([round(jp, 3) for jp in state.joint_positions])
+                new_joint_pos = cls._get_move_action(state,
+                                            # robot_pour_pos,
+                                        (robot_x, robot_y, robot_pour_pos[2]),
+                                        robot_pos,
+                                        dtilt=0.0,
+                                        finger_status="closed")
+                new_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                                                new_joint_pos.arr.tolist()).rpy
+                new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
+                new_formated_jp = np.array([round(jp, 3) for jp in new_joint_pos.arr])
+                # logging.debug(f"[move down] cur joint position {cur_formated_jp}")
+                # logging.debug(f"[move down] new joint position {new_formated_jp}")
+                # logging.debug(f"[move down] joint delta {np.round(new_formated_jp - cur_formated_jp, 2)}")
+                # logging.debug(f"[move down] cur ee rpy {current_ee_rpy}"\
+                #                 " -- roll should be the same as new")
+                # logging.debug(f"[move down] new ee rpy {new_ee_rpy}"\
+                #                     " -- roll should be the same as current")
+                # logging.debug(f"[move down] d_roll {new_ee_rpy[0] - current_ee_rpy[0]}")
+                return new_joint_pos
             # If we're at a safe height, move toward above the pour position.
             if (robot_z -
                     cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
+                # logging.debug("At a safe height, move towards the pour position")
                 return cls._get_move_action(
                     state, (robot_pour_pos[0], robot_pour_pos[1], robot_z),
                     robot_pos,
                     dtilt=0.0,
                     finger_status="closed")
+
             # Move backward and to a safe moving height.
+            # logging.debug("Move backward and to a safe moving height")
             return cls._get_move_action(
                 state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,
