@@ -1008,7 +1008,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset = utils.merge_ground_atom_datasets(
                 atom_dataset_from_grammar, atom_dataset_from_vlm)
             candidates = candidates_from_grammar | candidates_from_vlm
-            import pdb; pdb.set_trace()
         elif not CFG.offline_data_method in [
                 "demo+labelled_atoms", "saved_vlm_img_demos_folder",
                 "demo_with_vlm_imgs"

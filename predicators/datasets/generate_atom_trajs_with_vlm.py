@@ -657,7 +657,6 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     # NOTE: we convert to a sorted list here to get rid of randomness from set
     # ordering.
     unique_atoms_list = sorted(atom_proposals_set)
-    import pdb; pdb.set_trace()
     # Now, query the VLM!
     logging.info("Querying VLM to label every scene...")
     atom_labels = _label_trajectories_with_vlm_atom_values(
