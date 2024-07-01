@@ -112,7 +112,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
     # Camera parameters.
-    _camera_distance: ClassVar[float] = 1.6 #0.8
+    _camera_distance: ClassVar[float] = 1.6  #0.8
     _camera_yaw: ClassVar[float] = 70
     _camera_pitch: ClassVar[float] = -48
     _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
@@ -577,7 +577,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
     def step(self, action: Action) -> State:
         # What's the previous robot state?
-        current_ee_rpy = self._pybullet_robot.forward_kinematics(self._pybullet_robot.get_joints()).rpy
+        current_ee_rpy = self._pybullet_robot.forward_kinematics(
+            self._pybullet_robot.get_joints()).rpy
         state = super().step(action)
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
@@ -617,7 +618,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         elif self._Twisting_holds(state, [self._robot, self._jug]):
             cur_gripper_yaw = state.get(self._robot, "wrist")
             gripper_pose = self._pybullet_robot.forward_kinematics(
-                                action.arr.tolist())
+                action.arr.tolist())
             init_roll = 2.4863781352634065
             d_roll = gripper_pose.rpy[0] - current_ee_rpy[0]
             d_yaw = gripper_pose.rpy[2] - current_ee_rpy[2]
@@ -636,9 +637,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             #       " the policy above")
             if d_roll > 2 * np.pi / 3:
                 d_roll
-            
-            (jx, jy, jz), orn = p.getBasePositionAndOrientation(self._jug_id,
-                                    physicsClientId=self._physics_client_id)
+
+            (jx, jy, jz), orn = p.getBasePositionAndOrientation(
+                self._jug_id, physicsClientId=self._physics_client_id)
             jug_yaw = p.getEulerFromQuaternion(orn)[2]
             new_jug_yaw = jug_yaw - d_roll
             new_jug_yaw = utils.wrap_angle(new_jug_yaw)
@@ -652,7 +653,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
-        
+
         return state
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
