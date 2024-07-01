@@ -174,8 +174,12 @@ def test_burger():
     # Test get_cell_in_direction
     x, y = env.get_cell_in_direction(1, 1, "left")
     assert x == 0 and y == 1
+    x, y = env.get_cell_in_direction(1, 1, "right")
+    assert x == 2 and y == 1
     x, y = env.get_cell_in_direction(1, 1, "up")
     assert x == 1 and y == 2
+    x, y = env.get_cell_in_direction(1, 1, "down")
+    assert x == 1 and y == 0
     x, y = env.get_cell_in_direction(1, 1, "no_change")
     assert x == 1 and y == 1
 
@@ -187,12 +191,12 @@ def test_burger():
                             next_state) == env.get_position(robot, state)
 
     # Test placing on the ground
-    state = traj.states[1]
+    state = traj.states[2]
     action = Action(np.array([0, 0, -1, 0, 1], dtype=np.float32))
     next_state = env.simulate(state, action)
-    assert env.get_position(patty, next_state) == env.get_position(
-        patty, traj.states[0])
-    assert next_state.get(patty, "z") == 0
+    assert env.get_position(tomato, next_state) == env.get_position(
+        tomato, traj.states[0])
+    assert next_state.get(tomato, "z") == 0
 
     # Test rendering
     env.render_state_plt(traj.states[0], task)
@@ -253,3 +257,15 @@ def test_burger():
     action = option.policy(state)
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 3
+
+    # Test _get_accessible_edge_cells()
+    # This isn't a real test because we aren't going to verify that the
+    # edge cells that this function outputs satisfy all the constraints we want
+    # them to satisy (edge cells such that the robot will never be adjacent to
+    # more than 1 cell at any time).
+    rng = env._train_rng
+    # 50 is an arbitrary number here. We just want to call this function many
+    # times to get all possible outcomes to happen at least once for coverage
+    # purposes.
+    for _ in range(50):
+        _ = env._get_accessible_edge_cells(rng)
