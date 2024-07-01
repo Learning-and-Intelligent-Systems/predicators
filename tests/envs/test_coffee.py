@@ -106,7 +106,8 @@ def test_coffee():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     twist_amt = num_twists * env.max_angular_vel
-    assert abs(traj.states[-1].get(jug, "rot") - twist_amt) < 1e-6
+    assert abs(traj.states[-1].get(jug, "rot") - twist_amt) < 1e-6, \
+        "final rot - twist_amt too large"
     s = traj.states[-1]
 
     # The jug is too twisted now, so picking it up should fail.
@@ -297,7 +298,8 @@ def test_coffee():
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure})
     expected_rot = env.jug_init_rot_ub
-    assert abs(traj.states[-1].get(jug, "rot") - expected_rot) < 1e-6
+    assert abs(traj.states[-1].get(jug, "rot") - expected_rot) < 1e-6,\
+        f"final rot {traj.states[-1].get(jug, 'rot')} - expected_rot too large"
 
     # Test PickJug.
     PickJug = option_name_to_option["PickJug"]
