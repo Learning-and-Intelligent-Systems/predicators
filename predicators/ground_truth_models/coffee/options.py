@@ -416,8 +416,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
 
     @classmethod
-    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float],
-                          dtwist: float) -> Action:
+    def _get_twist_action(cls, state: State,
+                            cur_robot_pos: Tuple[float, float, float],
+                            dtwist: float) -> Action:
         del state, cur_robot_pos  # used by PyBullet subclass
         return Action(
             np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
@@ -553,8 +554,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # print(f"[policy] delta jug rot {delta_rot:.3f} -- the policy wants "\
             #       "to move the jug by this amount")
 
-            current_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                state.joint_positions).rpy
+            # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
+            #     state.joint_positions).rpy
             # print(f"[policy] current ee rpy {current_ee_rpy}")
             if abs(delta_rot) < cls.twist_policy_tol:
                 # print(f"Moving up")
@@ -576,8 +577,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     dwrist)
             dtwist = delta_rot / cls.env_cls.max_angular_vel
             new_joint_pos = cls._get_twist_action(state, robot_pos, dtwist)
-            new_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                new_joint_pos.arr.tolist()).rpy
+            # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
+            #     new_joint_pos.arr.tolist()).rpy
             # print(f"[policy] new ee rpy {new_ee_rpy}")
             # print(f"[policy] d_roll {-(new_ee_rpy[0] - current_ee_rpy[0]):.3f}")
             # breakpoint()
@@ -657,21 +658,21 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             if sq_dist_to_pour < cls.pour_policy_tol:
                 dtilt = pour_tilt - tilt
                 # logging.debug("Pour")
-                current_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                    state.joint_positions).rpy
-                cur_formated_jp = np.array(
-                    [round(jp, 3) for jp in state.joint_positions])
-                current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
+                # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                #     state.joint_positions).rpy
+                # cur_formated_jp = np.array(
+                #     [round(jp, 3) for jp in state.joint_positions])
+                # current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
                 new_joint_pos = cls._get_move_action(state,
                                                      robot_pos,
                                                      robot_pos,
                                                      dtilt=dtilt,
                                                      finger_status="closed")
-                new_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                    new_joint_pos.arr.tolist()).rpy
-                new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
-                new_formated_jp = np.array(
-                    [round(jp, 3) for jp in new_joint_pos.arr])
+                # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                #     new_joint_pos.arr.tolist()).rpy
+                # new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
+                # new_formated_jp = np.array(
+                #     [round(jp, 3) for jp in new_joint_pos.arr])
                 # logging.debug(f"[pour] cur joint position {cur_formated_jp}")
                 # logging.debug(f"[pour] new joint position {new_formated_jp}")
                 # logging.debug(f"[pour] joint delta {np.round(new_formated_jp - cur_formated_jp, 2)}")
@@ -684,11 +685,11 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
             if xy_pour_sq_dist < cls.env_cls.safe_z_tol * 1e-2:
                 # logging.debug("Move down to pour")
-                current_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                    state.joint_positions).rpy
-                current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
-                cur_formated_jp = np.array(
-                    [round(jp, 3) for jp in state.joint_positions])
+                # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                #     state.joint_positions).rpy
+                # current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
+                # cur_formated_jp = np.array(
+                #     [round(jp, 3) for jp in state.joint_positions])
                 new_joint_pos = cls._get_move_action(
                     state,
                     # robot_pour_pos,
@@ -696,11 +697,11 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     robot_pos,
                     dtilt=0.0,
                     finger_status="closed")
-                new_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                    new_joint_pos.arr.tolist()).rpy
-                new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
-                new_formated_jp = np.array(
-                    [round(jp, 3) for jp in new_joint_pos.arr])
+                # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
+                #     new_joint_pos.arr.tolist()).rpy
+                # new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
+                # new_formated_jp = np.array(
+                #     [round(jp, 3) for jp in new_joint_pos.arr])
                 # logging.debug(f"[move down] cur joint position {cur_formated_jp}")
                 # logging.debug(f"[move down] new joint position {new_formated_jp}")
                 # logging.debug(f"[move down] joint delta {np.round(new_formated_jp - cur_formated_jp, 2)}")
@@ -773,8 +774,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             cls._finger_action_nudge_magnitude)
 
     @classmethod
-    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float],
-                          dtwist: float) -> Action:
+    def _get_twist_action(cls, state: State,
+                            cur_robot_pos: Tuple[float, float, float],
+                            dtwist: float) -> Action:
         delta_rot = dtwist * cls.env_cls.max_angular_vel
         return cls._get_move_action(state, cur_robot_pos, cur_robot_pos, 0.0,
                                     delta_rot)
