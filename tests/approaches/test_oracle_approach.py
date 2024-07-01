@@ -15,6 +15,7 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
 from predicators.envs.coffee import CoffeeEnv
+from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
 from predicators.envs.cover import BumpyCoverEnv, CoverEnv, \
     CoverEnvHierarchicalTypes, CoverEnvPlaceHard, CoverEnvRegrasp, \
     CoverEnvTypedOptions, CoverMultistepOptions, RegionalBumpyCoverEnv
@@ -72,7 +73,8 @@ ENV_NAME_AND_CLS = [
     ("touch_point_param", TouchPointEnvParam), ("touch_open", TouchOpenEnv),
     ("stick_button", StickButtonEnv),
     ("stick_button_move", StickButtonMovementEnv), ("doors", DoorsEnv),
-    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
+    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv),
+    ("pybullet_coffee", PyBulletCoffeeEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
