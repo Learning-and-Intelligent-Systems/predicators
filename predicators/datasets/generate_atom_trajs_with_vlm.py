@@ -874,8 +874,11 @@ def create_ground_atom_data_from_saved_img_trajs(
             curr_state_path = path.joinpath(str(state_num))
             # NOTE: we assume all images are saved as jpg files.
             img_files = sorted(glob.glob(str(curr_state_path) + "/*.jpg"))
-            for img in img_files:
-                curr_imgs.append(PIL.Image.open(img))
+            for img_file in img_files:
+                img = PIL.Image.open(img_file)
+                assert isinstance(img, PIL.Image.Image)
+                curr_imgs.append(img)
+                import pdb; pdb.set_trace()
             img_traj.append(curr_imgs)
             state_file = curr_state_path / "state.p"
             if state_file.exists():  # pragma: no cover

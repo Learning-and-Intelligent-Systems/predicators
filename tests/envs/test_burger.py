@@ -45,6 +45,11 @@ def test_burger():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     assert len(nsrts) == 15
     task = env.get_train_tasks()[0]
+    # The nsrts that are commented out are used when the "full" goal is used
+    # in the tasks. Because we are still getting predicate invention to work
+    # in BurgerEnv, we are not yet using the "full" goal. Because the full goal
+    # won't be in the environment's task's goals, we won't test a plan that
+    # achieves that goal in the tests for now.
     MoveWhenFacingOneStack = [
         n for n in nsrts if n.name == "MoveWhenFacingOneStack"
     ][0]
@@ -136,6 +141,7 @@ def test_burger():
     #         [robot, tomato, cheese, patty, bottom_bun]),
     #     Place.ground([robot, top_bun, tomato])
     # ]
+
     option_plan = [n.option.ground(n.option_objs, []) for n in plan]
     policy = utils.option_plan_to_policy(option_plan)
     traj, _ = utils.run_policy(policy,
