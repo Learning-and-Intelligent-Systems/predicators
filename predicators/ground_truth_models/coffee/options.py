@@ -82,7 +82,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             "TwistJug",
             types=[robot_type, jug_type],
             # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (1, )),
+            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0,)),
             policy=cls._create_twist_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
@@ -516,7 +516,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             "TwistJug",
             types=[robot_type, jug_type],
             # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (0, )),  # temp; originally 1
+            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0, )),  # temp; originally 1
             policy=cls._create_twist_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
