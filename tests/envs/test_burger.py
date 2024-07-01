@@ -51,24 +51,24 @@ def test_burger():
     MoveWhenFacingTwoStack = [
         n for n in nsrts if n.name == "MoveWhenFacingTwoStack"
     ][0]
-    MoveWhenFacingThreeStack = [
-        n for n in nsrts if n.name == "MoveWhenFacingThreeStack"
-    ][0]
-    MoveWhenFacingFourStack = [
-        n for n in nsrts if n.name == "MoveWhenFacingFourStack"
-    ][0]
+    # MoveWhenFacingThreeStack = [
+    #     n for n in nsrts if n.name == "MoveWhenFacingThreeStack"
+    # ][0]
+    # MoveWhenFacingFourStack = [
+    #     n for n in nsrts if n.name == "MoveWhenFacingFourStack"
+    # ][0]
     MoveFromNothingToOneStack = [
         n for n in nsrts if n.name == "MoveFromNothingToOneStack"
     ][0]
     MoveFromNothingToTwoStack = [
         n for n in nsrts if n.name == "MoveFromNothingToTwoStack"
     ][0]
-    MoveFromNothingToFourStack = [
-        n for n in nsrts if n.name == "MoveFromNothingToFourStack"
-    ][0]
-    MoveFromOneStackToThreeStack = [
-        n for n in nsrts if n.name == "MoveFromOneStackToThreeStack"
-    ][0]
+    # MoveFromNothingToFourStack = [
+    #     n for n in nsrts if n.name == "MoveFromNothingToFourStack"
+    # ][0]
+    # MoveFromOneStackToThreeStack = [
+    #     n for n in nsrts if n.name == "MoveFromOneStackToThreeStack"
+    # ][0]
     PickSingleAdjacent = [n for n in nsrts
                           if n.name == "PickSingleAdjacent"][0]
     PickFromStack = [n for n in nsrts if n.name == "PickFromStack"][0]
@@ -258,14 +258,14 @@ def test_burger():
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 3
 
-    # Test _get_accessible_edge_cells()
+    # Test _get_edge_cells_for_object_placement()
     # This isn't a real test because we aren't going to verify that the
     # edge cells that this function outputs satisfy all the constraints we want
     # them to satisy (edge cells such that the robot will never be adjacent to
-    # more than 1 cell at any time).
-    rng = env._train_rng
+    # more than one of these edge cells at any time).
+    rng = np.random.default_rng(0)
     # 50 is an arbitrary number here. We just want to call this function many
     # times to get all possible outcomes to happen at least once for coverage
     # purposes.
     for _ in range(50):
-        _ = env._get_accessible_edge_cells(rng)
+        _ = env.get_edge_cells_for_object_placement(rng)

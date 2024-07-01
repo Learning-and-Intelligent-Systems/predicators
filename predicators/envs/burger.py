@@ -211,8 +211,15 @@ class BurgerEnv(BaseEnv):
     #
     #     return tasks
 
-    def _get_accessible_edge_cells(
+    def get_edge_cells_for_object_placement(
             self, rng: np.random.Generator) -> List[Tuple[int, int]]:
+        """Selects edge cells such that if objects were placed in these cells,
+        the robot would never find itself adjacent to more than one object.
+
+        This helper function assumes that the grid is 5x5.
+
+        Public for use by tests.
+        """
         n_row = self.num_rows
         n_col = self.num_cols
         top = [(n_row - 1, col) for col in range(n_col)]
@@ -222,19 +229,32 @@ class BurgerEnv(BaseEnv):
         corners = [(0, 0), (0, self.num_cols - 1), (self.num_rows - 1, 0),
                    (self.num_rows - 1, self.num_cols - 1)]
 
-        # Arrange open spots so that the robot will never be adjacent to two
-        # objects.
-        # at the same time.
+        # Pick edge cells for objects to be placed in such that the robot will
+        # never be adjacent to two objects at the same time.
         # 1. Pick one edge to keep all its cells.
         # 2. Pick one edge to lose two cells.
-        # 3. The rest is determined by the previous choices.
+        # 3. The cells we keep in the remaining two edges are determined by the
+        # previous choices.
+        # If this strategy is confusing to you, spend a few minutes drawing it
+        # out on graph paper.
 
+        # We don't consider placing objects in the corners because the robot
+        # cannot interact with an object that is diagonally positioned.
         edges = [top, left, bottom, right]
         for i, edge in enumerate(edges):
             edges[i] = [c for c in edge if c not in corners]
         top, left, bottom, right = edges
-        # Without loss of generality, have the top edge keep all its cells.
-        # Next, pick one edge to lose two cells.
+        # Without loss of generality, have the top edge keep all its cells. To
+        # generate other possibilities, we will later rotate the entire grid
+        # with some probability.
+        # Note that we can always keep cells that are in the "middle" of the
+        # edge -- we only need to worry about cells at the ends of an edge.
+        # If one edge keeps all its cells (call this edge A), then for the two
+        # edges that are adjacent to A, we can't choose the cell in each of
+        # these that is closest to A -- otherwise the robot could be adjacent
+        # to objects at once. Since our grid has 4 edges, this implies that
+        # one edge will have to lose two cells, and the others will lose one
+        # cell.
         loses_two = edges[rng.choice([1, 2, 3])]
         if loses_two == left:
             left = left[1:len(left) - 1]
@@ -248,10 +268,14 @@ class BurgerEnv(BaseEnv):
             left = left[:-1]
             bottom = bottom[1:]
             right = right[1:len(right) - 1]
-
         edges = [top, left, bottom, right]
+        # Now, rotate the grid with some probability to cover the total set of
+        # possibilities for object placements that satisfy our constraint. To
+        # see why this rotation covers all the possibilities, draw it out on
+        # graph paper.
         cells = top + left + bottom + right
         rotate = rng.choice([0, 1, 2, 3])
+        # Rotate 0 degrees.
         if rotate == 0:
             ret = cells
         elif rotate == 1:
@@ -272,13 +296,9 @@ class BurgerEnv(BaseEnv):
         state_dict = {}
         hidden_state = {}
 
-        spots_for_objects = self._get_accessible_edge_cells(rng)
-        # num_tasks = num
-        # if num == 1:
-        #     num_tasks += 1
+        spots_for_objects = self.get_edge_cells_for_object_placement(rng)
 
         for _ in range(num):
-            # for _ in range(num_tasks):
             shuffled_spots = spots_for_objects.copy()
             rng.shuffle(shuffled_spots)
 
@@ -355,10 +375,6 @@ class BurgerEnv(BaseEnv):
             # GoalDescription, both of whose types are Any.
             tasks.append(EnvironmentTask(state, goal, alt_goal_desc=alt_goal))
 
-            # img = Image.fromarray(state.simulator_state["images"][0])
-            # import pdb; pdb.set_trace()
-        # if num == 1:
-        #     return [tasks[0]]
         return tasks
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
