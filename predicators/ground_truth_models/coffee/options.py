@@ -140,6 +140,12 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         )
 
         # Pour
+        def _Pour_initiable(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+            del memory, params
+            robot, jug, _ = objects
+            return Holding.holds(state, [robot, jug])
+
         def _Pour_terminal(state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
@@ -151,7 +157,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, jug_type, cup_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_pour_policy(),
-            initiable=lambda s, m, o, p: True,
+            initiable=_Pour_initiable,
             terminal=_Pour_terminal,
         )
 

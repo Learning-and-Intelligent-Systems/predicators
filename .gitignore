@@ -29,6 +29,8 @@ machines.txt
 tests/_fake_trajs
 tests/_fake_results
 sas_plan
+downward/
+Gymnasium-Robotics/
 
 slurm_outputs/
 
