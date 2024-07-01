@@ -163,7 +163,7 @@ def test_burger():
     OnNothing = [p for p in env.predicates if p.name == "OnNothing"][0]
     assert GroundAtom(OnNothing,
                       [cheese]) not in utils.abstract(traj.states[-1],
-                                                       env.predicates)
+                                                      env.predicates)
 
     # Test _GoalHack_holds
     GoalHack = [p for p in env.predicates if p.name == "GoalHack"][0]
