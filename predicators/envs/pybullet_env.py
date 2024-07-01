@@ -169,7 +169,6 @@ class PyBulletEnv(BaseEnv):
             not state.allclose(self._current_state):
             self._current_observation = state
             self._reset_state(state)
-            print("[debug] reset is called from simulate")
         return self.step(action)
 
     def render_state_plt(

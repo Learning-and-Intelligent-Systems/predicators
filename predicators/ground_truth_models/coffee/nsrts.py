@@ -102,7 +102,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions,
                               add_effects, delete_effects, ignore_effects,
                               option, option_vars, 
-                              twist_jug_sampler)
+                              null_sampler) # temp
+                            #   twist_jug_sampler)
         nsrts.add(twist_jug_nsrt)
 
         # PickJugFromTable
