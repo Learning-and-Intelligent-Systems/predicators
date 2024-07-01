@@ -2,14 +2,14 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 import numpy as np
 import pybullet as p
 
 from predicators import utils
 from predicators.envs.coffee import CoffeeEnv
-from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
+from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
@@ -75,14 +75,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         float] = machine_x - machine_x_len / 2 + init_padding
     jug_init_x_ub: ClassVar[
         float] = machine_x + machine_x_len / 2 - init_padding
-    jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
+    # adding 1 extra padding
+    jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding * 2
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height
     # NOTE: twisting not implemented.
-    jug_init_rot_lb: ClassVar[float] = -1e-5
-    jug_init_rot_ub: ClassVar[float] = 1e-5
+    jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
+    jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
     dispense_area_y: ClassVar[float] = machine_y - 4 * jug_radius
@@ -111,7 +112,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
     # Camera parameters.
-    _camera_distance: ClassVar[float] = 0.8
+    _camera_distance: ClassVar[float] = 1.6  #0.8
     _camera_yaw: ClassVar[float] = 70
     _camera_pitch: ClassVar[float] = -48
     _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
@@ -121,7 +122,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
-        self._cup_to_liquid_id: Dict[Object, int] = {}
+        self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
         self._cup_to_capacity: Dict[Object, float] = {}
         # The status of the jug is not modeled inside PyBullet.
         self._jug_filled = False
@@ -261,9 +262,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         pose = (cls.dispense_area_x, cls.dispense_area_y,
                 cls.z_lb + dispense_height)
         orientation = cls._default_orn
-        half_extents = [
-            1.1 * dispense_radius, 1.1 * dispense_radius, dispense_height
-        ]
+        half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
+                        dispense_height)
 
         # Create a square beneath the dispense area for visual niceness.
         collision_id = p.createCollisionShape(
@@ -380,12 +380,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         robot_ee_orn = cls.get_robot_ee_home_orn()
         ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
                        robot_ee_orn)
-        # base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
+        base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, 
-                                                ee_home,
-                                                # base_pose
-                                                )
+                                                physics_client_id, ee_home,
+                                                base_pose)
 
     def _extract_robot_state(self, state: State) -> Array:
         qx, qy, qz, qw = self._state_to_gripper_orn(state)
@@ -446,7 +444,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Create liquid in cups.
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
-                p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
+                p.removeBody(liquid_id,
+                             physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
         for cup in state.get_objects(self._cup_type):
@@ -544,6 +543,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         (x, y, _), quat = p.getBasePositionAndOrientation(
             self._jug_id, physicsClientId=self._physics_client_id)
         rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
+        # rot = p.getEulerFromQuaternion(quat)[2] + np.pi/2
         held = (self._jug_id == self._held_obj_id)
         filled = float(self._jug_filled)
         state_dict[self._jug] = {
@@ -576,6 +576,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return state
 
     def step(self, action: Action) -> State:
+        # What's the previous robot state?
+        current_ee_rpy = self._pybullet_robot.forward_kinematics(
+            self._pybullet_robot.get_joints()).rpy
         state = super().step(action)
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
@@ -611,6 +614,46 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 cup, state)
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
+        # Handle twisting
+        elif self._Twisting_holds(state, [self._robot, self._jug]):
+            cur_gripper_yaw = state.get(self._robot, "wrist")
+            gripper_pose = self._pybullet_robot.forward_kinematics(
+                action.arr.tolist())
+            init_roll = 2.4863781352634065
+            d_roll = gripper_pose.rpy[0] - current_ee_rpy[0]
+            d_yaw = gripper_pose.rpy[2] - current_ee_rpy[2]
+            if np.abs(d_yaw) > 0.2:
+                # changed sign
+                print("flip roll")
+                if d_yaw < 0:
+                    d_roll -= np.pi
+                if d_yaw > 0:
+                    d_roll += np.pi
+            # print(f"[in step] cur ee rpy {current_ee_rpy}"\
+            #     " -- should equal to the ``current ee rpy above``")
+            # print(f"[in step] ee rpy {gripper_pose.rpy} -- should equal the ``new ee``"\
+            #       " rpy in the policy above")
+            # print(f"[in step] ee d_roll {-d_roll:.3f} -- should equal the d_roll in "\
+            #       " the policy above")
+            if d_roll > 2 * np.pi / 3:
+                d_roll
+
+            (jx, jy, jz), orn = p.getBasePositionAndOrientation(
+                self._jug_id, physicsClientId=self._physics_client_id)
+            jug_yaw = p.getEulerFromQuaternion(orn)[2]
+            new_jug_yaw = jug_yaw - d_roll
+            new_jug_yaw = utils.wrap_angle(new_jug_yaw)
+            # print(f"[in step] jug yaw {jug_yaw + np.pi/2:.3f}")
+            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, new_jug_yaw])
+            # print(f"[in step] jug new yaw {jug_yaw-d_roll+np.pi/2:.3f}")
+            p.resetBasePositionAndOrientation(
+                self._jug_id, [jx, jy, jz],
+                jug_orientation,
+                physicsClientId=self._physics_client_id)
+
+            self._current_observation = self._get_state()
+            state = self._current_observation.copy()
+
         return state
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
@@ -623,7 +666,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return self._add_pybullet_state_to_tasks([task])[0]
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        return {self._jug_id}
+        return [self._jug_id]
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
         if CFG.pybullet_robot == "fetch":

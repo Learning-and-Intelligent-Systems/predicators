@@ -326,13 +326,14 @@ def task_plan(
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
 
-    This method is tightly coupled with task_plan_grounding -- the reason they
-    are separate methods is that it is sometimes possible to ground only once
-    and then plan multiple times (e.g. from different initial states, or to
-    different goals). To run task planning once, call task_plan_grounding to
-    get ground_nsrts and reachable_atoms; then create a heuristic using
-    utils.create_task_planning_heuristic; then call this method. See the tests
-    in tests/test_planning for usage examples.
+    This method is tightly coupled with task_plan_grounding -- the
+    reason they are separate methods is that it is sometimes possible to
+    ground only once and then plan multiple times (e.g. from different
+    initial states, or to different goals). To run task planning once,
+    call task_plan_grounding to get ground_nsrts and reachable_atoms;
+    then create a heuristic using utils.create_task_planning_heuristic;
+    then call this method. See the tests in tests/test_planning for
+    usage examples.
     """
     if not goal.issubset(reachable_atoms):
         logging.info(f"Detected goal unreachable. Goal: {goal}")
@@ -369,16 +370,17 @@ def _skeleton_generator(
     sesame_max_policy_guided_rollout: int = 0,
     use_visited_state_set: bool = False
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
-    """A* search over skeletons (sequences of ground NSRTs).
-    Iterates over pairs of (skeleton, atoms sequence).
+    """A* search over skeletons (sequences of ground NSRTs). Iterates over
+    pairs of (skeleton, atoms sequence).
 
     Note that we can't use utils.run_astar() here because we want to
-    yield multiple skeletons, whereas that utility method returns only
-    a single solution. Furthermore, it's easier to track and update our
+    yield multiple skeletons, whereas that utility method returns only a
+    single solution. Furthermore, it's easier to track and update our
     metrics dictionary if we re-implement the search here. If
-    use_visited_state_set is False (which is the default), then we may revisit
-    the same abstract states multiple times, unlike in typical A*. See
-    Issue #1117 for a discussion on why this is False by default.
+    use_visited_state_set is False (which is the default), then we may
+    revisit the same abstract states multiple times, unlike in typical
+    A*. See Issue #1117 for a discussion on why this is False by
+    default.
     """
 
     # Initialize the progress bar
@@ -592,6 +594,7 @@ def run_low_level_search(
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, task.goal, rng_sampler)
+        logging.debug(f"[planning] trying to excute option {option}")
         plan[cur_idx] = option
         # Increment num_samples metric by 1
         if progress_bar:
@@ -626,12 +629,15 @@ def run_low_level_search(
                             static_obj_changed = True
                             break
                 if static_obj_changed:
+                    logging.debug("Can't continue: static obj changed")
                     can_continue_on = False
                 # Check if we have exceeded the horizon.
                 elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                    logging.debug("Can't continue: max actions exceeded")
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:
+                    logging.debug("Can't continue: option is a noop")
                     can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.
@@ -653,6 +659,7 @@ def run_low_level_search(
                             plan_found = True
                     else:
                         logging.debug("Failed in exepected atoms check!")
+                        logging.debug("Can't continue: expected atom fail")
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -662,9 +669,11 @@ def run_low_level_search(
                         if task.goal_holds(traj[cur_idx]):
                             plan_found = True
                         else:
+                            logging.debug("Can't continue: goal atom fail")
                             can_continue_on = False
         else:
             # The option is not initiable.
+            logging.debug("Can't continue: init fail")
             can_continue_on = False
         if refinement_time is not None:
             try_end_time = time.perf_counter()
@@ -936,11 +945,11 @@ def task_plan_with_option_plan_constraint(
     """Turn an option plan into a plan of ground NSRTs that achieves the goal
     from the initial atoms.
 
-    If atoms_seq is not None, the ground NSRT plan must also match up with
-    the given sequence of atoms. Otherwise, atoms are not checked.
+    If atoms_seq is not None, the ground NSRT plan must also match up
+    with the given sequence of atoms. Otherwise, atoms are not checked.
 
-    If no goal-achieving sequence of ground NSRTs corresponds to
-    the option plan, return None.
+    If no goal-achieving sequence of ground NSRTs corresponds to the
+    option plan, return None.
     """
     dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts, _ = task_plan_grounding(init_atoms,

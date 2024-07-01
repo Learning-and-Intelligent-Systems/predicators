@@ -53,10 +53,9 @@ def get_move_end_effector_to_pose_action(
         # a solution from the previous call. The fetch robot does not
         # use IKFast, and in fact gets screwed up if we set joints here.
         validate = robot.get_name() != "panda"
-        joint_positions = robot.inverse_kinematics(
-            ee_action,
-            validate=validate,
-            set_joints=True)
+        joint_positions = robot.inverse_kinematics(ee_action,
+                                                   validate=validate,
+                                                   set_joints=True)
     except InverseKinematicsError:
         raise utils.OptionExecutionFailure("Inverse kinematics failed.")
     # Handle the fingers. Fingers drift if left alone.
@@ -107,19 +106,62 @@ def create_move_end_effector_to_pose_option(
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del memory  # unused
-        current_pose, target_pose, finger_status = get_current_and_target_pose_and_finger_status(
-            state, objects, params)
+        # Sync the joints.
         assert isinstance(state, utils.PyBulletState)
-        current_joint_positions = state.joint_positions
-        return get_move_end_effector_to_pose_action(
-            robot,
-            current_joint_positions,
-            current_pose,
-            target_pose,
-            finger_status,
-            max_vel_norm,
-            finger_action_nudge_magnitude,
-        )
+        robot.set_joints(state.joint_positions)
+        # First handle the main arm joints.
+        current_pose, target_pose, finger_status = \
+            get_current_and_target_pose_and_finger_status(
+            state, objects, params)
+        # This option currently assumes a fixed end effector orientation.
+        assert np.allclose(current_pose.orientation, target_pose.orientation)
+        orn = current_pose.orientation
+        current = current_pose.position
+        target = target_pose.position
+        # Run IK to determine the target joint positions.
+        ee_delta = np.subtract(target, current)
+        # Reduce the target to conform to the max velocity constraint.
+        ee_norm = np.linalg.norm(ee_delta)
+        if ee_norm > max_vel_norm:
+            ee_delta = ee_delta * max_vel_norm / ee_norm
+        dx, dy, dz = np.add(current, ee_delta)
+        ee_action = Pose((dx, dy, dz), orn)
+        # Keep validate as False because validate=True would update the
+        # state of the robot during simulation, which overrides physics.
+        try:
+            # For the panda, always set the joints after running IK because
+            # IKFast is very sensitive to initialization, and it's easier to
+            # find good solutions on subsequent calls if we are already near
+            # a solution from the previous call. The fetch robot does not
+            # use IKFast, and in fact gets screwed up if we set joints here.
+            joint_positions = robot.inverse_kinematics(ee_action,
+                                                       validate=False,
+                                                       set_joints=True)
+        except InverseKinematicsError:
+            raise utils.OptionExecutionFailure("Inverse kinematics failed.")
+        # Handle the fingers. Fingers drift if left alone.
+        # When the fingers are not explicitly being opened or closed, we
+        # nudge the fingers toward being open or closed according to the
+        # finger status.
+        if finger_status == "open":
+            finger_delta = finger_action_nudge_magnitude
+        else:
+            assert finger_status == "closed"
+            finger_delta = -finger_action_nudge_magnitude
+        # Extract the current finger state.
+        state = cast(utils.PyBulletState, state)
+        finger_position = state.joint_positions[robot.left_finger_joint_idx]
+        # The finger action is an absolute joint position for the fingers.
+        f_action = finger_position + finger_delta
+        # Override the meaningless finger values in joint_action.
+        joint_positions[robot.left_finger_joint_idx] = f_action
+        joint_positions[robot.right_finger_joint_idx] = f_action
+        action_arr = np.array(joint_positions, dtype=np.float32)
+        # This clipping is needed sometimes for the joint limits.
+        action_arr = np.clip(action_arr, robot.action_space.low,
+                             robot.action_space.high)
+        assert robot.action_space.contains(action_arr)
+        return Action(action_arr)
 
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
@@ -146,6 +188,7 @@ def get_change_fingers_action(robot: SingleArmPyBulletRobot,
                               current_joint_positions: JointPositions,
                               current_val: float, target_val: float,
                               max_vel_norm: float) -> Action:
+    """Get change fingers action."""
     f_delta = target_val - current_val
     f_delta = np.clip(f_delta, -max_vel_norm, max_vel_norm)
     f_action = current_val + f_delta
@@ -182,10 +225,19 @@ def create_change_fingers_option(
         del memory  # unused
         current_val, target_val = get_current_and_target_val(
             state, objects, params)
+        f_delta = target_val - current_val
+        f_delta = np.clip(f_delta, -max_vel_norm, max_vel_norm)
+        f_action = current_val + f_delta
+        # Don't change the rest of the joints.
         state = cast(utils.PyBulletState, state)
-        return get_change_fingers_action(robot, state.joint_positions, 
-                                        current_val, target_val,
-                                        max_vel_norm)
+        target = np.array(state.joint_positions, dtype=np.float32)
+        target[robot.left_finger_joint_idx] = f_action
+        target[robot.right_finger_joint_idx] = f_action
+        # This clipping is needed sometimes for the joint limits.
+        target = np.clip(target, robot.action_space.low,
+                         robot.action_space.high)
+        assert robot.action_space.contains(target)
+        return Action(target)
 
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:

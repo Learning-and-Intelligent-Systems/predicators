@@ -614,11 +614,12 @@ DefaultTask = Task(DefaultState, set())
 class EnvironmentTask:
     """An initial observation and goal description.
 
-    Environments produce environment tasks and agents produce and solve tasks.
+    Environments produce environment tasks and agents produce and solve
+    tasks.
 
     In fully observed settings, the init_obs will be a State and the
-    goal_description will be a Set[GroundAtom]. For convenience, we can convert
-    an EnvironmentTask into a Task in those cases.
+    goal_description will be a Set[GroundAtom]. For convenience, we can
+    convert an EnvironmentTask into a Task in those cases.
     """
     init_obs: Observation
     goal_description: GoalDescription

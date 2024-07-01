@@ -76,7 +76,8 @@ class PyBulletEnv(BaseEnv):
         """Returns physics client ID, robot, and dictionary containing other
         object IDs and any other info from pybullet that needs to be tracked.
 
-        This is a public class method because the oracle options use it too.
+        This is a public class method because the oracle options use it
+        too.
 
         Subclasses may override to load additional assets.
         """
@@ -163,6 +164,9 @@ class PyBulletEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         # Optimization: check if we're already in the right state.
+        # self._current_observation is None at the beginning
+        # state is not allclose to self._current_state when the state has been
+        # updated, so it first calls _reset_state to update the pybullet state
         if self._current_observation is None or \
             not state.allclose(self._current_state):
             self._current_observation = state
@@ -201,6 +205,7 @@ class PyBulletEnv(BaseEnv):
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
+        self._held_obj_to_base_link = None
         self._held_obj_id = None
 
         # Reset robot.

@@ -317,6 +317,7 @@ class GlobalSettings:
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
+    coffee_twist_sampler = True
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]
@@ -746,6 +747,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # tasks take more actions to complete.
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
+                    "pybullet_coffee":
+                    2000,  # to allow pour policies to finish
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,
@@ -810,6 +813,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
+                    "pybullet_coffee": 1000,  # useful in solving 3 cups
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
