@@ -385,9 +385,11 @@ README of that repo suggests!"
             return knob3_turned_on
         if goal_desc == "Turn on the light":
             return light_turned_on
-        if goal_desc == "Move the kettle to the back left burner and turn it on":
+        if goal_desc == ("Move the kettle to the back left burner "
+                         "and turn it on"):
             return kettle_boiling4
-        if goal_desc == "Move the kettle to the back right burner and turn it on":
+        if goal_desc == ("Move the kettle to the back right burner "
+                         "and turn it on"):
             return kettle_boiling3
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 

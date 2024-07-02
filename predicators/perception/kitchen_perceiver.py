@@ -50,9 +50,11 @@ class KitchenPerceiver(BasePerceiver):
             goal = {
                 GroundAtom(TurnedOn, [light]),
             }
-        elif goal_desc == "Move the kettle to the back left burner and turn it on":
+        elif goal_desc == ("Move the kettle to the back left burner "
+                           "and turn it on"):
             goal = {GroundAtom(KettleBoiling, [kettle, burner4, knob4])}
-        elif goal_desc == "Move the kettle to the back right burner and turn it on":
+        elif goal_desc == ("Move the kettle to the back right burner "
+                           "and turn it on"):
             goal = {GroundAtom(KettleBoiling, [kettle, burner3, knob3])}
         else:
             raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
