@@ -176,13 +176,9 @@ def _sample_vlm_atom_proposals_from_trajectories(
 
 def _label_single_trajectory_with_vlm_atom_values(
         indexed_traj: Tuple[int, ImageOptionTrajectory],
-        vlm: VisionLanguageModel, atoms_list: List[str]) -> List[str]:
+        vlm: VisionLanguageModel, atoms_list: List[str], num_trajs: int) -> List[str]:
     """Given a list of atoms, label every state in an ImageOptionTrajectory
-    with the truth values of those atoms.
-
-    Intended to be used when parallelizing labeling multiple
-    trajectories.
-    """
+    with the truth values of those atoms."""
     idx, traj = indexed_traj
     curr_scenes_labelled = 0
     total_scenes_to_label = len(traj.imgs)
@@ -203,7 +199,7 @@ def _label_single_trajectory_with_vlm_atom_values(
         curr_scenes_labelled += 1
         logging.info(
             f"Completed ({curr_scenes_labelled}/{total_scenes_to_label}) " \
-            f"label queries to VLM for traj #{idx}!"
+            f"label queries to VLM for trajectory #{idx + 1} of {num_trajs}!"
         )
     logging.info("Finished labeling trajectory.")
     return curr_traj_txt_outputs
@@ -213,42 +209,25 @@ def _label_trajectories_with_vlm_atom_values(
         trajectories: List[ImageOptionTrajectory], vlm: VisionLanguageModel,
         atoms_list: List[str]) -> List[List[str]]:
     """Given a list of atoms, label every state in ImageOptionTrajectories with
-    the truth values of a set of atoms."""
+    the truth values of those atoms."""
+    output_labelled_atoms_txt_list = []
+    label_function = (
+        lambda indexed_traj: _label_single_trajectory_with_vlm_atom_values(
+            indexed_traj, vlm, atoms_list, len(trajectories)))
+    indexed_trajectories = list(enumerate(trajectories))
+
     if CFG.grammar_search_parallelize_vlm_labeling:
-        output_labelled_atoms_txt_list = []
-        label_function = (
-            lambda traj: _label_single_trajectory_with_vlm_atom_values(
-                traj, vlm, atoms_list))
-        logging.info("Labeling each trajectory in parallel.")
-        indexed_trajectories = list(enumerate(trajectories))
+        logging.info("Labeling trajectories in parallel.")
         with ThreadPoolExecutor() as executor:
             for traj_txt_outputs in executor.map(label_function,
                                                  indexed_trajectories):
                 output_labelled_atoms_txt_list.append(traj_txt_outputs)
         return output_labelled_atoms_txt_list
 
-    total_scenes_to_label = sum(len(traj.imgs) for traj in trajectories)
-    curr_scenes_labelled = 0
-    output_labelled_atoms_txt_list = []
-    for traj in trajectories:
-        curr_traj_txt_outputs: List[str] = []
-        prompts_for_traj = _generate_prompt_for_scene_labelling(
-            traj, atoms_list, label_history=curr_traj_txt_outputs)
-        for text_prompt, img_prompt in prompts_for_traj:
-            # Sample VLM outputs with temperature 0 in an attempt to be
-            # accurate.
-            curr_vlm_atom_labelling = vlm.sample_completions(text_prompt,
-                                                             img_prompt,
-                                                             0.0,
-                                                             CFG.seed,
-                                                             num_completions=1)
-            assert len(curr_vlm_atom_labelling) == 1
-            sanitized_output = curr_vlm_atom_labelling[0].replace('\\', '')
-            curr_traj_txt_outputs.append(sanitized_output)
-            curr_scenes_labelled += 1
-            logging.info("Completed (%s/%s) label queries to VLM!",
-                         curr_scenes_labelled, total_scenes_to_label)
-        output_labelled_atoms_txt_list.append(curr_traj_txt_outputs)
+    logging.info("Labeling trajectories sequentially.")
+    for idx, traj in indexed_trajectories:
+        traj_txt_outputs = label_function((idx, traj))
+        output_labelled_atoms_txt_list.append(traj_txt_outputs)
     return output_labelled_atoms_txt_list
 
 
