@@ -415,7 +415,9 @@ README of that repo suggests!"
             # is anywhere between burners 2 and 4. Later, we might add
             # even more variation.
             kettle_coords = (-0.269, rng.uniform(0.4, 0.55), 1.626)
-            self._gym_env.set_body_position("kettle", kettle_coords)
+            self._gym_env.set_body_position(
+                "kettle",  # type: ignore
+                kettle_coords)
         return {
             "state_info": self.get_object_centric_state_info(),
             "obs_images": self.render()
