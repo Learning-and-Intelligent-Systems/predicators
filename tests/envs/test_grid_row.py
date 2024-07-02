@@ -211,7 +211,7 @@ def test_grid_row_door():
                 option = ground_nsrt.sample_option(state, set(), rng)
                 action = option.policy(state)
                 state = env.simulate(state, action)
-                if 0.65 <= state.get(door, "open1") <= 0.85:
+                if 0.65 <= state.get(door, "turn_key") <= 0.85:
                     break
 
             ground_nsrt = MoveKey.ground([robot, cell, door])
@@ -219,7 +219,7 @@ def test_grid_row_door():
                 option = ground_nsrt.sample_option(state, set(), rng)
                 action = option.policy(state)
                 state = env.simulate(state, action)
-                if 0.4 <= state.get(door, "open") <= 0.6:
+                if 0.4 <= state.get(door, "move_key") <= 0.6:
                     break
         ground_nsrt_plan.append(MoveRobot.ground([robot, cell, next_cell]))
         ground_nsrt = ground_nsrt_plan[-1]

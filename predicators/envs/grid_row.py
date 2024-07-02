@@ -188,8 +188,9 @@ class GridRowDoorEnv(GridRowEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        self._door_type = Type("door",
-                               ["x", "move_key", "move_target", "turn_key", "turn_target"])
+        self._door_type = Type(
+            "door",
+            ["x", "move_key", "move_target", "turn_key", "turn_target"])
         self._door = Object("door", self._door_type)
 
         self._DoorInCell = Predicate("DoorInCell",
@@ -245,8 +246,9 @@ class GridRowDoorEnv(GridRowEnv):
         door_move_key_target = state.get(self._door, "move_target")
         door_turn_key = state.get(self._door, "turn_key")
         door_turn_key_target = state.get(self._door, "turn_target")
-        if (door_move_key_target - 0.1 <= door_move_key <= door_move_key_target + 0.1 \
-    and door_turn_key_target - 0.1 <= door_turn_key <= door_turn_key_target + 0.1):
+        if (door_move_key_target - 0.1 <= door_move_key <= \
+            door_move_key_target + 0.1 and door_turn_key_target - 0.1 \
+                <= door_turn_key <= door_turn_key_target + 0.1):
             door = plt.Rectangle((door_pos - self.cell_width / 2.0, 0),
                                  self.cell_width,
                                  self.cell_width,
