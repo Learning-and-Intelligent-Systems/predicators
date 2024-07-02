@@ -660,7 +660,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 if abs(dtilt) < cls.env_cls.pour_angle_tol * 0.1:
                     # make pouring more stable
                     dtilt = 0
-                logging.debug(f"Pour: dtils {dtilt}")
+                # logging.debug(f"Pour: dtils {dtilt}")
                 # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
                 #     state.joint_positions).rpy
                 # cur_formated_jp = np.array(
@@ -687,7 +687,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
             if xy_pour_sq_dist < cls.env_cls.safe_z_tol * 1e-2:
-                logging.debug("Move down to pour")
+                # logging.debug("Move down to pour")
                 # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
                 #     state.joint_positions).rpy
                 # current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
@@ -717,7 +717,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # If we're at a safe height, move toward above the pour position.
             if (robot_z -
                     cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
-                logging.debug("At a safe height, move towards the pour position")
+                # logging.debug("At a safe height, move towards the pour position")
                 return cls._get_move_action(
                     state, (robot_pour_pos[0], robot_pour_pos[1], robot_z),
                     robot_pos,
@@ -725,7 +725,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     finger_status="closed")
 
             # Move backward and to a safe moving height.
-            logging.debug("Move backward and to a safe moving height")
+            # logging.debug("Move backward and to a safe moving height")
             return cls._get_move_action(
                 state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,
