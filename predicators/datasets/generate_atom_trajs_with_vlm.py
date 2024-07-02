@@ -7,7 +7,7 @@ import os
 import re
 from functools import partial
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple, cast
 
 import dill as pkl
 import numpy as np
@@ -870,12 +870,15 @@ def create_ground_atom_data_from_saved_img_trajs(
         img_traj = []
         state_traj: Optional[List[State]] = []
         for state_num in range(num_states_in_traj):
-            curr_imgs = []
+            curr_imgs: List[PIL.Image.Image] = []
             curr_state_path = path.joinpath(str(state_num))
             # NOTE: we assume all images are saved as jpg files.
             img_files = sorted(glob.glob(str(curr_state_path) + "/*.jpg"))
-            for img in img_files:
-                curr_imgs.append(PIL.Image.open(img))
+            for img_file in img_files:
+                # PIL.Image.open returns an ImageFile, which is a subclass of
+                # an Image.
+                img = cast(PIL.Image.Image, PIL.Image.open(img_file))
+                curr_imgs.append(img)
             img_traj.append(curr_imgs)
             state_file = curr_state_path / "state.p"
             if state_file.exists():  # pragma: no cover
