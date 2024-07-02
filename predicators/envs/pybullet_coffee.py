@@ -591,7 +591,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 -1,
                                 rgbaColor=self.plate_color_on,
                                 physicsClientId=self._physics_client_id)
-            self._jug_filled = True
+            # the jug is only filled if it's in the machine
+            if self.JugInMachine_holds(state, [self._jug, self._machine]):
+                self._jug_filled = True
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
         # If the robot is pouring into a cup, raise the liquid in it.
