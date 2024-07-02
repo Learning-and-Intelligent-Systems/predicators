@@ -1283,11 +1283,6 @@ def _train_pytorch_model(model: nn.Module,
     for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)
-        # if i == 0:
-        #     print("tensor_Y, Yhat, loss", tensor_X)
-        #     # import ipdb;ipdb.set_trace()
-        #     i = 1
-        # , tensor_Y.view(-1), Y_hat.view(-1), loss.view(-1)
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_itr = itr
@@ -1297,9 +1292,6 @@ def _train_pytorch_model(model: nn.Module,
             logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
         optimizer.zero_grad()
         loss.backward()  # type: ignore
-        # for param in model.parameters():
-        #     if param.grad is not None:
-        #         print(f'Gradient: {param.grad}')
         if clip_gradients:
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
         optimizer.step()
@@ -1448,12 +1440,6 @@ class MapleQFunction(MLPRegressor):
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
             self.decay_epsilon()
-        # if train_or_test=="test":
-        #     # logging.debug(str(option_scores))
-        #     logging.debug("CHOSEN " + str(options[idx]) + str (scores[idx]))
-        #     logging.debug("STATE" + str(state))
-        # if train_or_test=="test":
-        #     print("options and scores", option_scores[:10])
         return options[idx]
 
     def decay_epsilon(self) -> None:
@@ -1500,8 +1486,6 @@ class MapleQFunction(MLPRegressor):
             vectorized_action = self._vectorize_option(option)
             X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_goal, vectorized_action])
-            # if i==0:
-            #     import ipdb;ipdb.set_trace()
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
@@ -1525,15 +1509,12 @@ class MapleQFunction(MLPRegressor):
                         vectorized_next_state, vectorized_goal, self._vectorize_option(next_option)
                     ])
                     q_x_hat = self.predict(x_hat)[0]
-                    # best_next_value = max(best_next_value, q_x_hat)
                     if best_next_value<q_x_hat:
                         best_next_value=q_x_hat
                         next_best_action = next_option
             else:
                 best_next_value = 0.0
             Y_arr[i] = reward + self._discount * best_next_value
-            # if i>=0 and i<=3:
-            #     import ipdb;ipdb.set_trace()
 
             door_pos = CFG.grid_row_num_cells//2+0.5
             door_open_index = CFG.grid_row_num_cells+1
@@ -1723,8 +1704,6 @@ class MapleQFunction(MLPRegressor):
                              n_iter_no_change=self._n_iter_no_change)
 
     def _vectorize_state(self, state: State) -> Array:
-        # Cannot just call state.vec() directly because some objects may not
-        # appear in this state.
         vecs: List[Array] = []
         for o in self._ordered_objects:
             try:
@@ -1770,11 +1749,7 @@ class MapleQFunction(MLPRegressor):
             self._vectorize_goal(goal),
             self._vectorize_option(option)
         ])
-        # import ipdb;ipdb.set_trace()
         y = self.predict(x)[0]
-        # if self.state_dict():
-        #     print("qnet", self.state_dict())
-        #     raise ValueError
         return y
 
     def _sample_applicable_options_from_state(
@@ -1786,8 +1761,8 @@ class MapleQFunction(MLPRegressor):
         state_objs = set(state)
         applicable_nsrts = [
             o for o in self._ordered_ground_nsrts if \
-                set(o.objects).issubset(state_objs) and all(
-                a.holds(state) for a in o.preconditions)
+            set(o.objects).issubset(state_objs) and all(
+            a.holds(state) for a in o.preconditions)
         ]
         # Randomize order of applicable NSRTs to assure that the output order
         # of this function is completely randomized.
@@ -1805,7 +1780,6 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
-        # print("sampled_options", sampled_options[:10])
         return sampled_options
 
 
@@ -1880,13 +1854,75 @@ class MPDQNFunction(MapleQFunction):
     # def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
     # ideally use SmoothL1Loss, but to compare w no target, use MSELoss for now
     #     return nn.SmoothL1Loss()
+    def _vectorize_state(self, state: State) -> Array:
+        # Cannot just call state.vec() directly because some objects may not
+        # appear in this state.
+        vecs = MapleQFunction._vectorize_state(self, state)
+        has_middle_cell = 1
+        light_target = 0.75
+        robot_pos = vecs[-1]
+        if robot_pos==0:
+            has_left_cell=0
+        else:
+            has_left_cell=1
+
+        if robot_pos==CFG.grid_row_num_cells-1:
+            has_right_cell=0
+        else:
+            has_right_cell=1
+
+        door_pos = vecs[-9]
+        light_pos = vecs[-2]
+        light_target = vecs[-3]
+
+        if robot_pos == door_pos:
+            has_middle_door = 1
+        else:
+            has_middle_door = 0
+
+        if robot_pos+1 == door_pos:
+            has_right_door = 1
+        else:
+            has_right_door = 0
+
+        if robot_pos-1 == door_pos:
+            has_left_door = 1
+        else:
+            has_left_door = 0
+        
+        if robot_pos == light_pos:
+            has_middle_light = 1
+        else:
+            has_middle_light = 0
+
+        if robot_pos+1 == light_pos:
+            has_right_light = 1
+        else:
+            has_right_light = 0
+
+        if robot_pos-1 == light_pos:
+            has_left_light = 1
+        else:
+            has_left_light = 0
+        
+        door_open, door_target, door_open1, door_target1 = (vecs[-8], vecs[-7], vecs[-6], vecs[-5])
+        light_level = vecs[-4]
+        
+        vectorized_state = [has_left_cell, has_left_door, has_left_light, has_middle_cell, \
+                has_middle_door, has_middle_light, has_right_cell, \
+                has_right_door, has_right_light, door_open, door_target, \
+                door_open1, door_target1, light_level, light_target]
+        
+        return vectorized_state
+    
 
     def train_q_function(self) -> None:
         """Fit the model."""
-        # import ipdb;ipdb.set_trace()
         # First, precompute the size of the input and output from the
         # Q-network.
-        X_size = sum(o.type.dim for o in self._ordered_objects) + len(
+
+        # REMEMBER U NEED TO CHANGE X_size IF U EVER CHANGE VECTORIZE STUFFS
+        X_size = 15 + len(
             self._ordered_frozen_goals
         ) + self._num_ground_nsrts + self._max_num_params
         Y_size = 1
@@ -1908,13 +1944,16 @@ class MPDQNFunction(MapleQFunction):
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
-            # if reward == 1:
-            #     print("WE GOT REWARD")
+            if reward == 1:
+                print("WE GOT REWARD")
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
-            X_arr[i] = np.concatenate(
+            try:
+                X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_goal, vectorized_action])
+            except:
+                import ipdb;ipdb.set_trace()
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
@@ -1959,10 +1998,6 @@ class MPDQNFunction(MapleQFunction):
                 # as per double dqn, the q value is predicted by target_qnet and action is chosen by qnet
                 target_predicted=self.target_qnet.predict(x)[0]
                 Y_arr[i] = reward + self._discount * target_predicted
-                # if i>=0 and i<=3:
-                #     import ipdb;ipdb.set_trace()
-            # if reward == 1.0:
-            #     print("option", option, "TARGET", Y_arr[i])
             
             # PRINTING Q VALUES
             # door_pos = CFG.grid_row_num_cells//2+0.5
@@ -2034,7 +2069,6 @@ class MPDQNFunction(MapleQFunction):
             self.target_qnet._x_dims = tuple(Xx.shape[1:])
             _, self.target_qnet._y_dim = Yy.shape
 
-            # self.qnet._initialize_net()
             self.target_qnet._initialize_net()
             self._qfunc_init = True
 
@@ -2050,10 +2084,7 @@ class MPDQNFunction(MapleQFunction):
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
-            # if self.qnet.state_dict():
-            #     print("qnet", self.qnet.state_dict())
-            #     raise ValueError
-        # print(epsilon)
+
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -2074,7 +2105,7 @@ class MPDQNFunction(MapleQFunction):
             scores = [score.detach() for score in scores]
         option_scores=list(zip(options, scores))
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
-
+        # print("vectorized state", self._vectorize_state(state))
         idx = np.argmax(scores)
         # if train_or_test=="test":
         #     print("option scores", option_scores[:10])
@@ -2095,55 +2126,6 @@ class MPDQNFunction(MapleQFunction):
         if self._counter % 600 == 0:
             self.target_qnet.load_state_dict(self.qnet.state_dict())
         self._counter+=1
-
-
-    # def _fit(self, X: Array, Y: Array) -> None:
-    #     # import ipdb; ipdb.set_trace()
-    #     if not self._qfunc_init:
-    #         # we need to init a bunch of stuff for qnet and target_qnet
-    #         # for training qnet to work
-    #         self.qnet._x_dims = tuple(X.shape[1:])
-    #         self.target_qnet._x_dims = tuple(X.shape[1:])
-    #         _, self.qnet._y_dim = Y.shape
-    #         _, self.target_qnet._y_dim = Y.shape
-
-    #         if not self.qnet._disable_normalization:
-    #             X, self.qnet._input_shift, self.qnet._input_scale = _normalize_data(X)
-    #             Y, self.qnet._output_shift, self.qnet._output_scale = _normalize_data(Y)
-
-    #         if not self.target_qnet._disable_normalization:
-    #             X, self.target_qnet._input_shift, self.target_qnet._input_scale = _normalize_data(X)
-    #             Y, self.target_qnet._output_shift, self.target_qnet._output_scale = _normalize_data(Y)
-
-    #         self.qnet._initialize_net()x
-    #         self.target_qnet._initialize_net()
-    #         self._qfunc_init = True
-
-    #     self.qnet.to(self._device)
-    #     self.target_qnet.to(self._device)
-    #     # Create the loss function.
-    #     loss_fn = self._create_loss_fn()
-    #     # Create the optimizer.
-    #     optimizer = self._create_optimizer()
-    #     # Convert data to tensors.
-    #     tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
-    #         self._device)
-    #     tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
-    #         self._device)
-    #     batch_generator = self.minibatch_generator(
-    #         tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
-    #     # Run training.
-    #     _train_pytorch_model(self.qnet,
-    #                          loss_fn,
-    #                          optimizer,
-    #                          batch_generator,
-    #                          device=self._device,
-    #                          print_every=self._train_print_every,
-    #                          max_train_iters=self._max_train_iters,
-    #                          dataset_size=X.shape[0],
-    #                          clip_gradients=self._clip_gradients,
-    #                          clip_value=self._clip_value,
-    #                          n_iter_no_change=self._n_iter_no_change)
 
     def predict_q_value(self, state: State, goal: Set[GroundAtom],
                         option: _Option) -> float:

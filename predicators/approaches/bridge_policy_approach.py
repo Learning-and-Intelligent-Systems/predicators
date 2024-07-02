@@ -50,6 +50,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.maple_q_approach import MapleQApproach, MPDQNApproach
+from predicators.ml_models import MapleQFunction
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -394,8 +395,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self._policy_logs: List[str] = []
 
     def _Can_plan(self, state: State, _: Sequence[Object]) -> bool:
-        if (self.mapleq._q_function._vectorize_state(state) !=  # pylint: disable=protected-access
-                self.mapleq._q_function._vectorize_state(  # pylint: disable=protected-access
+        if (MapleQFunction._vectorize_state(self.mapleq._q_function, state) !=  # pylint: disable=protected-access
+                MapleQFunction._vectorize_state(self.mapleq._q_function,  # pylint: disable=protected-access
                     self._bridge_called_state)).any():  # pylint: disable=protected-access
             return True
         return False
