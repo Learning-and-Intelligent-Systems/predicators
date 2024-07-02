@@ -212,10 +212,12 @@ def _label_trajectories_with_vlm_atom_values(
     """Given a list of atoms, label every state in ImageOptionTrajectories with
     the truth values of those atoms."""
     output_labelled_atoms_txt_list = []
+
     def label_function(
             indexed_traj: Tuple[int, ImageOptionTrajectory]) -> List[str]:
         return _label_single_trajectory_with_vlm_atom_values(
             indexed_traj, vlm, atoms_list, len(trajectories))
+
     indexed_trajectories = list(enumerate(trajectories))
 
     if CFG.grammar_search_parallelize_vlm_labeling:
