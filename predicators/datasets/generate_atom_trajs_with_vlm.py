@@ -7,7 +7,7 @@ import os
 import re
 from functools import partial
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple, cast
 
 import dill as pkl
 import numpy as np
@@ -875,8 +875,9 @@ def create_ground_atom_data_from_saved_img_trajs(
             # NOTE: we assume all images are saved as jpg files.
             img_files = sorted(glob.glob(str(curr_state_path) + "/*.jpg"))
             for img_file in img_files:
-                img = PIL.Image.open(img_file)
-                assert isinstance(img, PIL.Image.Image)
+                # PIL.Image.open returns an ImageFile, which is a subclass of
+                # an Image.
+                img = cast(PIL.Image.open(img_file), PIL.Image.Image)
                 curr_imgs.append(img)
             img_traj.append(curr_imgs)
             state_file = curr_state_path / "state.p"
