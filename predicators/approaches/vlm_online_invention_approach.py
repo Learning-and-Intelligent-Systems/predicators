@@ -237,14 +237,13 @@ class VlmInventionApproach(NSRTLearningApproach):
             defaultdict(list)
 
         # Return the results and populate self.task_to_latest_traj
-        self._nsrts = utils.reduce_nsrts(self._nsrts)
-        self._reduced_nsrts = deepcopy(self._nsrts)
-        breakpoint()
+        # self._nsrts = utils.reduce_nsrts(self._nsrts)
+        # self._reduced_nsrts = deepcopy(self._nsrts)
         results = self.collect_dataset(0, env, tasks)
-        breakpoint()
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
+        breakpoint()
 
         self.succ_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)

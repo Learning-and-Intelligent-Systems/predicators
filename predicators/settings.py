@@ -747,8 +747,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # tasks take more actions to complete.
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
-                    "pybullet_coffee":
-                    2000,  # to allow pour policies to finish
+                    # to allow pour policies to finish
+                    "pybullet_coffee": 2000,
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,
@@ -813,7 +813,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
-                    "pybullet_coffee": 1000,  # useful in solving 3 cups
+                    # "pybullet_coffee": 40,  # with GT preds, 40 is enough
+                    # "pybullet_coffee": 50,
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
