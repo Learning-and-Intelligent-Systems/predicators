@@ -61,8 +61,8 @@ class PaintingEnv(BaseEnv):
 
     # Types
     _obj_type = Type("obj", [
-        "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
-        "grasp", "held"
+        "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color", "grasp",
+        "held"
     ])
     _box_type = Type("box", ["pose_x", "pose_y", "color"])
     _lid_type = Type("lid", ["is_open"])

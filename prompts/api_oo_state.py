@@ -1,6 +1,5 @@
 class State:
-    """
-    A class representing the low-level state of the world.
+    """A class representing the low-level state of the world.
 
     Attributes:
     -----------
@@ -13,11 +12,11 @@ class State:
     Methods:
     --------
     get(self, obj: Object, feature_name: str) -> Any:
-        This method looks up an object feature by name. It returns the value of 
+        This method looks up an object feature by name. It returns the value of
         the feature.
 
     get_objects(self, object_type: Type) -> List[Object]:
-        This method returns objects of the given type in the order of 
+        This method returns objects of the given type in the order of
         __iter__().
     """
     data: Dict[Object, Array]
@@ -26,8 +25,7 @@ class State:
     simulator_state: Optional[Any] = None
 
     def get(self, obj: Object, feature_name: str) -> Any:
-        """
-        Look up an object feature by name.
+        """Look up an object feature by name.
 
         Parameters:
         -----------
@@ -102,8 +100,7 @@ class State:
         """
 
     def get_objects(self, object_type: Type) -> List[Object]:
-        """
-        Return objects of the given type in the order of __iter__().
+        """Return objects of the given type in the order of __iter__().
 
         Parameters:
         -----------
@@ -138,5 +135,4 @@ class State:
         >>>     return True
         >>> _NotAboveCup = Predicate("NotAboveCup", [_robot_type, _jug_type],
                                     _NotAboveCup_holds)
-
         """

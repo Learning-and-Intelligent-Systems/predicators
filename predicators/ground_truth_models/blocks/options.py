@@ -42,7 +42,7 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
         #                    p: Array) -> bool:
         #     robot, block = o
         #     return Holding.holds(s, [block])
-            
+
         Pick = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
             # params: []
@@ -50,7 +50,7 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls._create_pick_policy(action_space),
             types=[robot_type, block_type],
             # terminal=_Pick_terminal,
-            )
+        )
 
         # Probably will need to change the option parameters for this to work
         # def _Stack_terminal(s: State, m: Dict, o: Sequence[Object],
@@ -66,7 +66,7 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, block_type],
             # types = [block_type, block_type, robot_type],
             # terminal=_Stack_terminal,
-            )
+        )
 
         # def _PutOnTable_terminal(s: State, m: Dict, o: Sequence[Object],
         #                          p: Array) -> bool:
@@ -82,7 +82,7 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
             # types=[block_type, robot_type],
             params_space=Box(0, 1, (2, )),
             # terminal=_PutOnTable_terminal,
-            )
+        )
 
         return {Pick, Stack, PutOnTable}
 
@@ -311,8 +311,7 @@ class PyBulletBlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
                     option_types=option_types,
                     params_space=params_space),
             ],
-            annotation="Put block on table"
-            )
+            annotation="Put block on table")
 
         return {Pick, Stack, PutOnTable}
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import abc
 import contextlib
+import copy
 import functools
 import gc
-import copy
 import heapq as hq
 import importlib
 import io
@@ -15,28 +15,25 @@ import logging
 import os
 import pkgutil
 import re
+import shutil
 import subprocess
 import sys
-import time
 import textwrap
+import time
 from argparse import ArgumentParser
 from collections import defaultdict, namedtuple
+from copy import deepcopy
 from dataclasses import dataclass, field
+from functools import cached_property
+from inspect import getsource
 from pathlib import Path
+from pprint import pformat, pprint
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
     Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
-from copy import deepcopy
-from tabulate import tabulate
-from pprint import pprint
-import shutil
-from functools import cached_property
-from inspect import getsource
-from pprint import pformat
 
-from tqdm import tqdm
 import dill as pkl
 import imageio
 import matplotlib
@@ -52,24 +49,26 @@ from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
+from tabulate import tabulate
+from tqdm import tqdm
 
 from predicators.args import create_arg_parser
+from predicators.image_patch_wrapper import ImagePatch
 from predicators.pretrained_model_interface import GoogleGeminiVLM, \
     OpenAIVLM, VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
-from predicators.structs import NSRT, Action, Array, DummyOption, \
-    EntToEntSub, GroundAtom, GroundAtomTrajectory, \
-    GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
-    LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask, \
-    DerivedPredicate, Dataset
+from predicators.structs import NSRT, Action, Array, Dataset, \
+    DerivedPredicate, DummyOption, EntToEntSub, GroundAtom, \
+    GroundAtomTrajectory, GroundNSRTOrSTRIPSOperator, Image, LDLRule, \
+    LiftedAtom, LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, \
+    Mask, Metrics, NSRTOrSTRIPSOperator, Object, ObjectOrVariable, \
+    Observation, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, VLMPredicate, \
+    _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
+    _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
-from predicators.image_patch_wrapper import ImagePatch
 
 if TYPE_CHECKING:
     from predicators.envs import BaseEnv
@@ -84,24 +83,34 @@ if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
         cuda_visible_devices[0] = "0"
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
 
+
 def print_confusion_matrix(tp: int, tn: int, fp: int, fn: int) -> None:
     precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
     recall = round(tp / (tp + fn), 2) if tp + fn > 0 else 0
     specificity = round(tn / (tn + fp), 2) if tn + fp > 0 else 0
-    accuracy = round((tp + tn) / (tp + tn + fp + fn), 
-                     2) if tp + tn + fp + fn > 0 else 0
-    f1_score = round(2 * (precision * recall) / (precision + recall), 
-                     2) if precision + recall > 0 else 0
+    accuracy = round(
+        (tp + tn) / (tp + tn + fp + fn), 2) if tp + tn + fp + fn > 0 else 0
+    f1_score = round(2 * (precision * recall) /
+                     (precision + recall), 2) if precision + recall > 0 else 0
 
-    table = [["", "Positive", "Negative", "Precision", "Recall", "Specificity",
-              "Accuracy", "F1 Score", ],
-             ["True", tp, tn, "", "", "", "", ""],
+    table = [[
+        "",
+        "Positive",
+        "Negative",
+        "Precision",
+        "Recall",
+        "Specificity",
+        "Accuracy",
+        "F1 Score",
+    ], ["True", tp, tn, "", "", "", "", ""],
              ["False", fp, fn, "", "", "", "", ""],
              ["", "", "", precision, recall, specificity, accuracy, f1_score]]
     logging.info(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
 
+
 def reduce_nsrts(nsrts: Set[NSRT]) -> Set[NSRT]:
-    """Reduce a set of NSRTs by removing any NSRTs that are subsumed by others."""
+    """Reduce a set of NSRTs by removing any NSRTs that are subsumed by
+    others."""
     reduced_nsrts = deepcopy(nsrts)
 
     for nsrt in nsrts:
@@ -114,6 +123,7 @@ def reduce_nsrts(nsrts: Set[NSRT]) -> Set[NSRT]:
                 reduced_nsrts.discard(nsrt)
     return reduced_nsrts
 
+
 def count_classification_result_for_ops(
         nsrts: Set[NSRT],
         succ_optn_dict: Dict[str, GroundOptionRecord],
@@ -121,19 +131,19 @@ def count_classification_result_for_ops(
         return_str: bool = False,
         initial_ite: bool = False,
         print_cm: bool = False,
-        max_num_options: int = 10, # Number of options to show
-        max_num_groundings: int = 2, # Number of ground options per option.3
-        max_num_examples: int = 2, # Number of examples per ground option.
-        ) -> Tuple[int, int, int, int, str]:
+        max_num_options: int = 10,  # Number of options to show
+        max_num_groundings: int = 2,  # Number of ground options per option.3
+        max_num_examples: int = 2,  # Number of examples per ground option.
+) -> Tuple[int, int, int, int, str]:
 
     np.set_printoptions(precision=1)
     result_str = []
 
     # Dictionary of {option_str: {ground_option_str: states}}
-    # These are used when only listing states of the top max_num_grounds ground 
+    # These are used when only listing states of the top max_num_grounds ground
     # option: ground options with the most examples
     tp_state_dict, fn_state_dict, tn_state_dict, fp_state_dict =\
-        [defaultdict(lambda: defaultdict(lambda: defaultdict(list))) for _ 
+        [defaultdict(lambda: defaultdict(lambda: defaultdict(list))) for _
             in range(4)]
 
     # Dictionary of {option_str: {ground_option_str: classification accuracy}}
@@ -141,9 +151,8 @@ def count_classification_result_for_ops(
     sum_tp, sum_fn, sum_tn, sum_fp = 0, 0, 0, 0
     ground_options = set(succ_optn_dict.keys()) | set(fail_optn_dict.keys())
 
-
     for g_optn in ground_options:
-        # Use atom states directly 
+        # Use atom states directly
         succ_states = succ_optn_dict[g_optn].states
         succ_abs_states = succ_optn_dict[g_optn].abstract_states
         fail_states = fail_optn_dict[g_optn].states
@@ -201,30 +210,37 @@ def count_classification_result_for_ops(
                 # ground_nsrtss = [all_ground_operators_given_partial(
                 #                         nsrt, env_objects, option_var_to_obj)
                 #                     for nsrt in relevant_nsrt]
-                ground_nsrtss = [all_ground_operators_given_partial(
-                                    nsrt, 
-                                    env_objects, 
-                                    dict(zip(nsrt.option_vars, optn_objs))
-                                ) for nsrt in relevant_nsrt]
+                ground_nsrtss = [
+                    all_ground_operators_given_partial(
+                        nsrt, env_objects,
+                        dict(zip(nsrt.option_vars, optn_objs)))
+                    for nsrt in relevant_nsrt
+                ]
 
                 # Flatten the list of lists
-                ground_nsrts = [nsrt for nsrt_list in ground_nsrtss 
-                                    for nsrt in nsrt_list]
-                for i, (state, atom_state) in enumerate(zip(succ_states, succ_abs_states)):
-                    # atom_state = abstract(state, 
+                ground_nsrts = [
+                    nsrt for nsrt_list in ground_nsrtss for nsrt in nsrt_list
+                ]
+                for i, (state, atom_state) in enumerate(
+                        zip(succ_states, succ_abs_states)):
+                    # atom_state = abstract(state,
                     #                             self._get_current_predicates())
-                    if any([gnsrt.preconditions.issubset(atom_state) for gnsrt 
-                                                            in ground_nsrts]):
+                    if any([
+                            gnsrt.preconditions.issubset(atom_state)
+                            for gnsrt in ground_nsrts
+                    ]):
                         tp_states.append(state)
-                        tp_state_dict[str(optn)][g_optn]['states'].append(state)
+                        tp_state_dict[str(optn)][g_optn]['states'].append(
+                            state)
                     else:
                         # if i == 9 and g_optn == "Stack(robby:robot, block0:block)":
-                            # logging.debug(f"Relevant ground nsrts: {ground_nsrts}")
+                        # logging.debug(f"Relevant ground nsrts: {ground_nsrts}")
                         # logging.debug(f"FN state {i} for {g_optn}: "+
                         #                 f"{state.pretty_str()}")
                         # logging.debug(f"FN atom state: {atom_state}")
                         fn_states.append(state)
-                        fn_state_dict[str(optn)][g_optn]['states'].append(state)
+                        fn_state_dict[str(optn)][g_optn]['states'].append(
+                            state)
             # filter out the tn, fp states
             if fail_states:
                 # Get all consistent ground operators
@@ -250,30 +266,36 @@ def count_classification_result_for_ops(
                 # ground_nsrtss = [all_ground_operators_given_partial(
                 #                         nsrt, env_objects, option_var_to_obj)
                 #                     for nsrt in relevant_nsrt]
-                ground_nsrtss = [all_ground_operators_given_partial(
-                                    nsrt, 
-                                    env_objects, 
-                                    dict(zip(nsrt.option_vars, optn_objs))
-                                ) for nsrt in relevant_nsrt]
+                ground_nsrtss = [
+                    all_ground_operators_given_partial(
+                        nsrt, env_objects,
+                        dict(zip(nsrt.option_vars, optn_objs)))
+                    for nsrt in relevant_nsrt
+                ]
 
                 # Flatten the list of lists
-                ground_nsrts = [nsrt for nsrt_list in ground_nsrtss
-                                    for nsrt in nsrt_list]
+                ground_nsrts = [
+                    nsrt for nsrt_list in ground_nsrtss for nsrt in nsrt_list
+                ]
                 for state, atom_state in zip(fail_states, fail_abs_states):
                     # atom_state = utils.abstract(state,
                     #                             self._get_current_predicates())
-                    if any([gnsrt.preconditions.issubset(atom_state) for gnsrt 
-                                                            in ground_nsrts]):
+                    if any([
+                            gnsrt.preconditions.issubset(atom_state)
+                            for gnsrt in ground_nsrts
+                    ]):
                         fp_states.append(state)
-                        fp_state_dict[str(optn)][g_optn]['states'].append(state)
+                        fp_state_dict[str(optn)][g_optn]['states'].append(
+                            state)
                     else:
                         tn_states.append(state)
-                        tn_state_dict[str(optn)][g_optn]['states'].append(state)
+                        tn_state_dict[str(optn)][g_optn]['states'].append(
+                            state)
         # Convert the states to string
         n_tp, n_fn = len(tp_states), len(fn_states)
         n_tn, n_fp = len(tn_states), len(fp_states)
-        sum_tp, sum_fn = sum_tp+n_tp, sum_fn+n_fn
-        sum_tn, sum_fp = sum_tn+n_tn, sum_fp+n_fp
+        sum_tp, sum_fn = sum_tp + n_tp, sum_fn + n_fn
+        sum_tn, sum_fp = sum_tn + n_tn, sum_fp + n_fp
 
         tp_state_dict[str(optn)][g_optn]['n_tp'] = n_tp
         fp_state_dict[str(optn)][g_optn]['n_fp'] = n_fp
@@ -285,39 +307,41 @@ def count_classification_result_for_ops(
         fp_state_dict[str(optn)][g_optn]['n_fail'] = n_fail_states
         accuracy_dict[str(optn)][g_optn]['tot'] = n_tot
         accuracy_dict[str(optn)][g_optn]['acc'] = (n_tp + n_tn) / n_tot
-    
+
     result_str = ""
     if return_str:
-        result_str = summarize_results_in_str(accuracy_dict,
-                                                tp_state_dict,
-                                                fp_state_dict,
-                                                tn_state_dict,
-                                                fn_state_dict,
-                                                max_num_options,
-                                                max_num_groundings,
-                                                max_num_examples,
-                                                )
+        result_str = summarize_results_in_str(
+            accuracy_dict,
+            tp_state_dict,
+            fp_state_dict,
+            tn_state_dict,
+            fn_state_dict,
+            max_num_options,
+            max_num_groundings,
+            max_num_examples,
+        )
 
     if print_cm:
         print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
 
     return sum_tp, sum_tn, sum_fp, sum_fn, result_str
 
-def summarize_results_in_str(accuracy_dict: Dict,
-                             tp_state_dict: Dict,
-                             fp_state_dict: Dict,
-                             tn_state_dict: Dict,
-                             fn_state_dict: Dict,
-                             max_num_options: int,
-                             max_num_groundings: int,
-                             max_num_examples: int,
-                             ) -> str:
+
+def summarize_results_in_str(
+    accuracy_dict: Dict,
+    tp_state_dict: Dict,
+    fp_state_dict: Dict,
+    tn_state_dict: Dict,
+    fn_state_dict: Dict,
+    max_num_options: int,
+    max_num_groundings: int,
+    max_num_examples: int,
+) -> str:
     result_str = []
     # What how to simplify the prompt?
     # 1. The g_opt with the highest non-1 accuracy, based on repeated states
     # 2. ''                                       , based on unique states
     # 3. ......
-
 
     # For each option, sort the g_options based on some metrics, currently
     # based on accuracy
@@ -334,18 +358,19 @@ def summarize_results_in_str(accuracy_dict: Dict,
 
     # Sorting the ground options in decreasing accuracy
     for option_str, ground_options in option_dict.items():
-        sorted_ground_options = sorted(ground_options, 
-                                        key=lambda x: x[1], reverse=True)
+        sorted_ground_options = sorted(ground_options,
+                                       key=lambda x: x[1],
+                                       reverse=True)
         option_dict[option_str] = sorted_ground_options
     logging.debug(pformat(option_dict))
-    
+
     for optn_idx, optn_str in enumerate(option_dict.keys()):
         if optn_idx == max_num_options: break
         n_g_optn_shown = 0
         for (g_optn, acc) in option_dict[optn_str]:
             if n_g_optn_shown == max_num_groundings: break
             # Show max_num_groundins whose accuracy are less than 1.
-            if acc < 1: 
+            if acc < 1:
                 n_g_optn_shown += 1
             # else:
             #     continue
@@ -377,33 +402,33 @@ def summarize_results_in_str(accuracy_dict: Dict,
             if n_succ_states:
                 # [Simplified]
                 result_str.append(
-                f"Option {g_optn} *successfully* executed on the following "+
-                f"states (positive states):")
+                    f"Option {g_optn} *successfully* executed on the following "
+                    + f"states (positive states):")
                 # [Detailed]
                 # result_str.append(
                 # f"Option {g_optn} was applied on {n_tot} states and "+
                 # f"*successfully* executed on {n_succ_states}/{n_tot} states "+
                 # "(ground truth positive states).")
 
-                if n_tp:# and (n_succ_states/n_tot) < 1:
+                if n_tp:  # and (n_succ_states/n_tot) < 1:
                     # [Detailed] True Positive
                     # result_str.append(
                     # f"  Out of the {n_succ_states} GT positive states, "+
                     # f"with the current predicates and operators, "+
                     # f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
                     # "operators' precondition (true positives)"+
-                    # (f", to list {max_num_examples}:" if 
+                    # (f", to list {max_num_examples}:" if
                     #     uniq_n_tp > max_num_examples else ":"))
                     # result_str = append_classification_result_for_ops(
                     #     result_str, g_optn, tp_states,
                     #     max_num_examples, "tp", state_hash_to_id)
 
                     # [Simplified] True Positive
-                    # result_str.append(f"To list {max_num_examples}:" if 
-                    #                   uniq_n_tp > max_num_examples)    
+                    # result_str.append(f"To list {max_num_examples}:" if
+                    #                   uniq_n_tp > max_num_examples)
                     result_str = append_classification_result_for_ops(
-                        result_str, g_optn, tp_states,
-                        max_num_examples, "tp", state_hash_to_id)
+                        result_str, g_optn, tp_states, max_num_examples, "tp",
+                        state_hash_to_id)
 
                 # Ignored in the simplified prompt
                 # # False Negative
@@ -413,7 +438,7 @@ def summarize_results_in_str(accuracy_dict: Dict,
                 #     f"with the current predicates and operators, "+
                 #     f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
                 #     "operators' precondition (false negatives)"+
-                #     (f", to list {max_num_examples}:" if 
+                #     (f", to list {max_num_examples}:" if
                 #         uniq_n_fn > max_num_examples else ":"))
                 #     result_str = append_classification_result_for_ops(
                 #         result_str, g_optn, fn_states,
@@ -423,8 +448,8 @@ def summarize_results_in_str(accuracy_dict: Dict,
             if n_fail_states:
                 # [Simplified]
                 result_str.append(
-                f"Option {g_optn} *failed* to executed on the following "+
-                f"states (negative states):")
+                    f"Option {g_optn} *failed* to executed on the following " +
+                    f"states (negative states):")
                 # # [Detailed]
                 # result_str.append(
                 # f"Option {g_optn} was applied on {n_tot} states and "+
@@ -437,19 +462,19 @@ def summarize_results_in_str(accuracy_dict: Dict,
                     # f"with the current predicates and operators, "+
                     # f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
                     # "operators' precondition (false positives)"+
-                    # (f", to list {max_num_examples}:" if 
+                    # (f", to list {max_num_examples}:" if
                     #     uniq_n_fp > max_num_examples else ":"))
                     # result_str = append_classification_result_for_ops(
                     #     result_str, g_optn, fp_states,
                     #     max_num_examples, "fp", state_hash_to_id)
 
                     # [Simplified] False Positive
-                    # result_str.append(f"To list {max_num_examples}:" if 
+                    # result_str.append(f"To list {max_num_examples}:" if
                     #                   uniq_n_fp > max_num_examples else
-                    #                   "They are:")    
+                    #                   "They are:")
                     result_str = append_classification_result_for_ops(
-                        result_str, g_optn, fp_states,
-                        max_num_examples, "fp", state_hash_to_id)
+                        result_str, g_optn, fp_states, max_num_examples, "fp",
+                        state_hash_to_id)
 
                 # Ignored in the simplified prompt
                 # if n_tn:# and (n_tn/n_fail_states) < 1:
@@ -459,18 +484,17 @@ def summarize_results_in_str(accuracy_dict: Dict,
                 #     f"with the current predicates and operators, "+
                 #     f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
                 #     "operators' precondition (true negatives)"+
-                #     (f", to list {max_num_examples}:" if 
+                #     (f", to list {max_num_examples}:" if
                 #         uniq_n_tn > max_num_examples else ":"))
                 #     result_str = append_classification_result_for_ops(
                 #         result_str, g_optn, tn_states,
                 #         max_num_examples, "tn", state_hash_to_id)
     return '\n'.join(result_str)
 
-def append_classification_result_for_ops(result_str: List[str],
-                                         g_optn: str,
+
+def append_classification_result_for_ops(result_str: List[str], g_optn: str,
                                          states: Set[State],
-                                         max_num_examples: int,
-                                         category: str,
+                                         max_num_examples: int, category: str,
                                          state_hash_to_id: Dict) -> List[str]:
     for i, state in enumerate(states):
         if i == max_num_examples: break
@@ -487,15 +511,18 @@ def append_classification_result_for_ops(result_str: List[str],
             text_color = (0, 0, 0)  # white
             draw.text((0, 0), obs_name, fill=text_color, font=font)
 
-            img_copy.save(os.path.join(obs_dir, obs_name+f_suffix))
+            img_copy.save(os.path.join(obs_dir, obs_name + f_suffix))
             logging.debug(f"Saved Image {obs_name}")
             result_str.append("  " + obs_name + " with additional info:")
             # Should add proprio state
-        result_str.append(state.dict_str(indent=2, 
-            object_features=not CFG.vlm_predicator_render_option_state,
-            use_object_id=CFG.vlm_predicator_render_option_state)+'\n')
+        result_str.append(
+            state.dict_str(
+                indent=2,
+                object_features=not CFG.vlm_predicator_render_option_state,
+                use_object_id=CFG.vlm_predicator_render_option_state) + '\n')
 
     return result_str
+
 
 def count_positives_for_ops(
     strips_ops: List[STRIPSOperator],
@@ -648,8 +675,6 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
     return State(state_dict, simulator_state)
 
 
-
-
 def create_json_dict_from_ground_atoms(
         ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
     """Saves a set of ground atoms in a JSON-compatible dict.
@@ -761,9 +786,11 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
 
     return np.array(sampler_input_lst)
 
+
 def wrap_angle(angle: float) -> float:
     """Wrap an angle in radians to [-pi, pi]."""
     return np.arctan2(np.sin(angle), np.cos(angle))
+
 
 class _Geom2D(abc.ABC):
     """A 2D shape that contains some points."""
@@ -1281,11 +1308,11 @@ def unify_preconds_effects_options(
     if param_option1 != param_option2:
         # Can't unify if the parameterized options are different.
         return False, {}
-    opt_arg_pred1 = Predicate("OPT-ARGS", 
-                            param_option1.types if 
-                            CFG.use_option_not_args_types_in_unification else
-                            [a.type for a in option_args1],
-                            _classifier=lambda s, o: False)  # dummy
+    opt_arg_pred1 = Predicate(
+        "OPT-ARGS",
+        param_option1.types if CFG.use_option_not_args_types_in_unification
+        else [a.type for a in option_args1],
+        _classifier=lambda s, o: False)  # dummy
     f_option_args1 = frozenset({GroundAtom(opt_arg_pred1, option_args1)})
     new_preconds1 = wrap_atom_predicates(preconds1, "PRE-")
     f_new_preconds1 = frozenset(new_preconds1)
@@ -1294,11 +1321,11 @@ def unify_preconds_effects_options(
     new_delete_effects1 = wrap_atom_predicates(delete_effects1, "DEL-")
     f_new_delete_effects1 = frozenset(new_delete_effects1)
 
-    opt_arg_pred2 = Predicate("OPT-ARGS", 
-                            param_option1.types if 
-                            CFG.use_option_not_args_types_in_unification else
-                            [a.type for a in option_args2],
-                            _classifier=lambda s, o: False)  # dummy
+    opt_arg_pred2 = Predicate(
+        "OPT-ARGS",
+        param_option1.types if CFG.use_option_not_args_types_in_unification
+        else [a.type for a in option_args2],
+        _classifier=lambda s, o: False)  # dummy
     f_option_args2 = frozenset({LiftedAtom(opt_arg_pred2, option_args2)})
     new_preconds2 = wrap_atom_predicates(preconds2, "PRE-")
     f_new_preconds2 = frozenset(new_preconds2)
@@ -1360,9 +1387,10 @@ class LinearChainParameterizedOption(ParameterizedOption):
     current child index.
     """
 
-    def __init__(self, name: str,
+    def __init__(self,
+                 name: str,
                  children: Sequence[ParameterizedOption],
-                 annotation: Optional[str]=None) -> None:
+                 annotation: Optional[str] = None) -> None:
         assert len(children) > 0
         self._children = children
 
@@ -1441,7 +1469,7 @@ class SingletonParameterizedOption(ParameterizedOption):
         initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
                                      bool]] = None,
         terminal: Optional[Callable[[State, Dict, Sequence[Object], Array],
-                                     bool]] = None,
+                                    bool]] = None,
     ) -> None:
         if types is None:
             types = []
@@ -1482,7 +1510,9 @@ class SingletonParameterizedOption(ParameterizedOption):
                          initiable=_initiable,
                          terminal=_terminal)
 
+
 class BurgerState(State):
+
     def __init__(self, state: State):
         self.data = state.data
         self.simulator_state = state.simulator_state
@@ -1499,12 +1529,11 @@ class BurgerState(State):
             if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
                 return False
         return True
-    
+
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
         # data_hash = hash(tuple(sorted(self.data.items())))
-        data_tuple = tuple((k, tuple(v)) for k, v in 
-                        sorted(self.data.items())) 
+        data_tuple = tuple((k, tuple(v)) for k, v in sorted(self.data.items()))
         if self.simulator_state is not None:
             data_tuple += tuple(self.simulator_state)
         data_hash = hash(data_tuple)
@@ -1513,6 +1542,7 @@ class BurgerState(State):
         # Combine the two hashes
         # return hash((data_hash, simulator_state_hash))
         return data_hash
+
 
 class PyBulletState(State):
     """A PyBullet state that stores the robot joint positions in addition to
@@ -1532,12 +1562,10 @@ class PyBulletState(State):
         simulator_state_copy = list(self.joint_positions)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
-
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
         # data_hash = hash(tuple(sorted(self.data.items())))
-        data_tuple = tuple((k, tuple(v)) for k, v in 
-                        sorted(self.data.items())) 
+        data_tuple = tuple((k, tuple(v)) for k, v in sorted(self.data.items()))
         if self.simulator_state is not None:
             data_tuple += tuple(self.simulator_state)
         data_hash = hash(data_tuple)
@@ -1555,26 +1583,28 @@ class PyBulletState(State):
     #         return False
 
     #     for key, value in self.data.items():
-    #         if key not in other.data or not np.array_equal(value, 
+    #         if key not in other.data or not np.array_equal(value,
     #         other.data[key]):
     #             return False
 
     #     return self.simulator_state == other.simulator_state
-# a bounding box named tuple with attribute left, lower, right, upper 
+
+
+# a bounding box named tuple with attribute left, lower, right, upper
 # pixel idx within the state image
 BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
+
 
 @dataclass
 class RawState(PyBulletState):
     state_image: PIL.Image.Image = field(default_factory=PIL.Image.new)
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
-    
+
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
         # data_hash = hash(tuple(sorted(self.data.items())))
-        data_tuple = tuple((k, tuple(v)) for k, v in 
-                        sorted(self.data.items())) 
+        data_tuple = tuple((k, tuple(v)) for k, v in sorted(self.data.items()))
         if self.simulator_state is not None:
             data_tuple += tuple(self.simulator_state)
         data_hash = hash(data_tuple)
@@ -1584,18 +1614,16 @@ class RawState(PyBulletState):
         # return hash((data_hash, simulator_state_hash))
         return data_hash
 
-    def evaluate_simple_assertion(self, assertion: str, image: ImagePatch
-                                ) -> VLMQuery:
-        """Given an assertion and an image, queries a VLM and returns whether the
-        assertion is true or false.
-        """
-        return VLMQuery(assertion, BoundingBox(image.left,
-                                                image.lower,
-                                                image.right,
-                                                image.upper))
+    def evaluate_simple_assertion(self, assertion: str,
+                                  image: ImagePatch) -> VLMQuery:
+        """Given an assertion and an image, queries a VLM and returns whether
+        the assertion is true or false."""
+        return VLMQuery(
+            assertion,
+            BoundingBox(image.left, image.lower, image.right, image.upper))
 
     def add_bbox_features(self) -> None:
-        '''Add the features about the bounding box to the objects'''
+        """Add the features about the bounding box to the objects."""
         for obj, mask in self.obj_mask_dict.items():
             bbox = mask_to_bbox(mask)
             for name, value in bbox._asdict().items():
@@ -1607,25 +1635,27 @@ class RawState(PyBulletState):
         if idx >= len(self.data[obj]):
             # When setting the bounding box features for the first time
             # So we'd first append 4 dimension and try to set again
-            self.data[obj] = np.append(self.data[obj], [0]*4)
+            self.data[obj] = np.append(self.data[obj], [0] * 4)
             self.set(obj, feature_name, feature_val)
         else:
             self.data[obj][idx] = feature_val
 
-    def dict_str(self, indent: int = 0, object_features: bool = True,
-                use_object_id: bool = False) -> str:
+    def dict_str(self,
+                 indent: int = 0,
+                 object_features: bool = True,
+                 use_object_id: bool = False) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:
             obj_dict = {}
             for attribute, value in zip(obj.type.feature_names, self[obj]):
-                # include if it's proprioception feature, or position/bbox 
+                # include if it's proprioception feature, or position/bbox
                 # feature, or object_features is True
                 if (obj.type.name == "robot" and \
-                    attribute not in ["bbox_left", "bbox_right", "bbox_upper", 
+                    attribute not in ["bbox_left", "bbox_right", "bbox_upper",
                                       "pose_x", "pose_y", "pose_z",
                                       "bbox_lower"]) or object_features:
-                #    attribute in ["pose_x", "pose_y", "pose_z", "bbox_left", 
+                    #    attribute in ["pose_x", "pose_y", "pose_z", "bbox_left",
                     # "bbox_right", "bbox_upper", "bbox_lower"] or\
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
@@ -1648,13 +1678,12 @@ class RawState(PyBulletState):
                 content_str = f"'{key}': {{{value_str}}}"
             if i == 0:
                 dict_str += f"{content_str},\n"
-            elif i == n_keys-1: 
+            elif i == n_keys - 1:
                 dict_str += spaces + f" {content_str}"
             else:
                 dict_str += spaces + f" {content_str},\n"
         dict_str += "}"
         return dict_str
-            
 
     def __eq__(self, other):
         # Compare the data and simulator_state
@@ -1664,12 +1693,11 @@ class RawState(PyBulletState):
             return False
 
         for key, value in self.data.items():
-            if key not in other.data or not np.array_equal(value, 
-            other.data[key]):
+            if key not in other.data or not np.array_equal(
+                    value, other.data[key]):
                 return False
 
         return self.simulator_state == other.simulator_state
-        
 
     def label_all_objects(self):
         state_ip = ImagePatch(self)
@@ -1677,7 +1705,7 @@ class RawState(PyBulletState):
         labels = [obj.id for obj in self.obj_mask_dict.keys()]
         masks = self.obj_mask_dict.values()
         state_ip.label_all_objects(masks, labels)
-            # state_ip.label_object(mask, obj.id)
+        # state_ip.label_object(mask, obj.id)
         # state_ip.cropped_image_in_PIL.save(f"images/obs_after_label_all.png")
         self.labeled_image = state_ip.cropped_image_in_PIL
 
@@ -1687,33 +1715,30 @@ class RawState(PyBulletState):
         state_image_copy = copy.copy(self.state_image)
         obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
         labeled_image_copy = copy.copy(self.labeled_image)
-        return RawState(pybullet_state_copy.data, 
-                        pybullet_state_copy.simulator_state, 
-                        state_image_copy, 
-                        obj_mask_copy,
-                        labeled_image_copy)
+        return RawState(pybullet_state_copy.data,
+                        pybullet_state_copy.simulator_state, state_image_copy,
+                        obj_mask_copy, labeled_image_copy)
 
     def get_obj_mask(self, object: Object) -> Mask:
         """Return the mask for the object."""
         return self.obj_mask_dict[object]
 
     def get_obj_bbox(self, object: Object) -> BoundingBox:
-        '''
-        Get the bounding box of the object in the state image
-        The origin is bottom left corner--(0, 0)
-        '''
+        """Get the bounding box of the object in the state image The origin is
+        bottom left corner--(0, 0)"""
         mask = self.get_obj_mask(object)
         return mask_to_bbox(mask)
-    
-    def crop_to_objects(self, objects: Collection[Object],
+
+    def crop_to_objects(self,
+                        objects: Collection[Object],
                         left_margin: int = 5,
-                        lower_margin: int=10, 
-                        right_margin: int=10, 
-                        top_margin: int=5
-                        ) -> ImagePatch:
+                        lower_margin: int = 10,
+                        right_margin: int = 10,
+                        top_margin: int = 5) -> ImagePatch:
         state_ip = ImagePatch(self)
         return state_ip.crop_to_objects(objects, left_margin, lower_margin,
                                         right_margin, top_margin)
+
 
 def mask_to_bbox(mask: Mask) -> BoundingBox:
     y_indices, x_indices = np.where(mask)
@@ -1725,6 +1750,7 @@ def mask_to_bbox(mask: Mask) -> BoundingBox:
     lower = height - (y_indices.max() + 1)
     upper = height - (y_indices.min() + 1)
     return BoundingBox(left, lower, right, upper)
+
 
 def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
 
@@ -1744,8 +1770,8 @@ def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
 class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
 
-    def __init__(self, name: str, types: Sequence[Type], 
-            _classifier: Callable[[RawState, Sequence[Object]], bool]):
+    def __init__(self, name: str, types: Sequence[Type],
+                 _classifier: Callable[[RawState, Sequence[Object]], bool]):
         self._original_classifier = _classifier
         super().__init__(name, types, _MemoizedClassifier(_classifier))
 
@@ -1763,6 +1789,7 @@ class NSPredicate(Predicate):
         clf_str = textwrap.dedent(clf_str)
         clf_str = clf_str.replace("@staticmethod\n", "")
         return clf_str
+
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for
@@ -1802,11 +1829,11 @@ class LoggingMonitor(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+
 def remove_intermediate_states(dataset: Dataset) -> Dataset:
     """For each trajectories in the dataset, only keep the states before
-    executing each ground option (assume given in trajectory._actions) and
-    the final state
-    """
+    executing each ground option (assume given in trajectory._actions) and the
+    final state."""
     new_trajectories = []
     for traj in dataset.trajectories:
         new_states = []
@@ -1823,14 +1850,14 @@ def remove_intermediate_states(dataset: Dataset) -> Dataset:
         new_states.append(traj._states[-1])
 
         # Update the trajectory to the sparse states and actions
-        new_trajectories.append(LowLevelTrajectory(new_states, 
-                                                    new_actions,
-                                                    traj.is_demo,
-                                                    traj.train_task_idx))
+        new_trajectories.append(
+            LowLevelTrajectory(new_states, new_actions, traj.is_demo,
+                               traj.train_task_idx))
     return Dataset(new_trajectories)
 
-def sparse_actions_from_dense_traj(sparse_states: List[State], 
-                                   traj: LowLevelTrajectory)-> List[Action]: 
+
+def sparse_actions_from_dense_traj(sparse_states: List[State],
+                                   traj: LowLevelTrajectory) -> List[Action]:
     new_actions = []
     prev_ground_option = DummyOption
     for i in range(len(traj._actions)):
@@ -1843,15 +1870,17 @@ def sparse_actions_from_dense_traj(sparse_states: List[State],
             new_actions.append(cur_action)
             prev_ground_option = cur_ground_option
     assert len(sparse_states) == len(new_actions) + 1, \
-        "States should be 1 step longer" 
+        "States should be 1 step longer"
     return new_actions
-    
 
-def sparse_dataset_from_dataset_and_states(dataset: Dataset, 
-                                suc_state_trajs: List[List[State]]) -> Dataset:
-    """Make a sparse dataset that has states before executing each ground option
-    and the final state, assuming the state trajectories are given.
-    The actions here are not very important because they are not used."""
+
+def sparse_dataset_from_dataset_and_states(
+        dataset: Dataset, suc_state_trajs: List[List[State]]) -> Dataset:
+    """Make a sparse dataset that has states before executing each ground
+    option and the final state, assuming the state trajectories are given.
+
+    The actions here are not very important because they are not used.
+    """
     # This doesn't work because only newly successful states are passed in.
     # assert len(dataset.trajectories) == len(suc_state_trajs),\
     #     "The number of trajectories need to be the same."
@@ -1864,17 +1893,18 @@ def sparse_dataset_from_dataset_and_states(dataset: Dataset,
             cur_ground_option = cur_action.get_option()
             # Only adding the state when the ground option changes
             if prev_ground_option != cur_ground_option:
-                logging.debug(f"[sparsifying actions] ground_option at step "+
-                f"{i}: {cur_ground_option} is different from the prev ground "+
-                f"option")
+                logging.debug(
+                    f"[sparsifying actions] ground_option at step " +
+                    f"{i}: {cur_ground_option} is different from the prev ground "
+                    + f"option")
                 new_actions.append(cur_action)
                 prev_ground_option = cur_ground_option
         # Update the trajectory to the sparse states and actions
-        new_trajectories.append(LowLevelTrajectory(suc_state_traj, 
-                                                    new_actions,
-                                                    traj.is_demo,
-                                                    traj.train_task_idx))
+        new_trajectories.append(
+            LowLevelTrajectory(suc_state_traj, new_actions, traj.is_demo,
+                               traj.train_task_idx))
     return Dataset(new_trajectories)
+
 
 def run_policy(
     policy: Callable[[State], Action],
@@ -1995,10 +2025,11 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     exception_raised_in_step = False
     if not termination_function(state):
-        for _ in range(max_num_steps):
+        for i in range(max_num_steps):
             monitor_observed = False
             exception_raised_in_step = False
             try:
+                # logging.debug(f"Step {i} \n"+ pformat(state.pretty_str()))
                 act = policy(state)
                 if monitor is not None:
                     monitor.observe(state, act)
@@ -2016,9 +2047,13 @@ def run_policy_with_simulator(
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
+                logging.debug("Termination successfully because the term. "
+                              "condition is met.")
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
+    if len(states) == max_num_steps:
+        logging.warning("Terminating at the max_num_steps_option_rollout")
     traj = LowLevelTrajectory(states, actions)
     return traj
 
@@ -2109,8 +2144,8 @@ def option_policy_to_policy(
                 raise e
             if not cur_option.initiable(state):
                 raise OptionExecutionFailure(
-                        "Unsound option policy.",
-                        info={"last_failed_option": last_option})
+                    "Unsound option policy.",
+                    info={"last_failed_option": last_option})
             num_cur_option_steps = 0
 
         num_cur_option_steps += 1
@@ -2365,9 +2400,9 @@ def find_substitution(
     for atom in super_atoms:
         for i, obj in enumerate(atom.entities):
             if obj not in super_entities_by_type[obj.type]:
-                super_entities_by_type[atom.predicate.types[i] if
-                        CFG.use_option_not_args_types_in_unification else
-                        obj.type].append(obj)
+                super_entities_by_type[atom.predicate.types[i] if CFG.
+                                       use_option_not_args_types_in_unification
+                                       else obj.type].append(obj)
         super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
     sub_variables = sorted({e for atom in sub_atoms for e in atom.entities})
     return _find_substitution_helper(sub_atoms, super_entities_by_type,
@@ -2506,10 +2541,11 @@ def _run_heuristic_search(
         console_width = shutil.get_terminal_size().columns
         # Calculate 60% of the console width
         ncols = int(console_width * 0.6)
-        pbar = tqdm(total=num_search, desc="Heuristic Search",
-            ncols=ncols, 
-            bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}', 
-            colour='green')
+        pbar = tqdm(total=num_search,
+                    desc="Heuristic Search",
+                    ncols=ncols,
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}',
+                    colour='green')
 
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
     state_to_best_path_cost: Dict[_S, float] = \
@@ -2603,7 +2639,8 @@ def run_gbfs(initial_state: _S,
     get_priority = lambda n: heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
                                  get_priority, max_expansions, max_evals,
-                                 timeout, lazy_expansion, full_search_tree_size)
+                                 timeout, lazy_expansion,
+                                 full_search_tree_size)
 
 
 def run_astar(initial_state: _S,
@@ -3124,10 +3161,10 @@ def abstract(state: State,
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
     # For NSPredicates, first evaluate the base NSPs, then cache the values,
     #   then evaluate the derived NSPs.
-    derived_preds = set(pred for pred in preds if isinstance(pred, 
-                        DerivedPredicate))
-    base_ns_preds = set(pred for pred in preds if isinstance(pred, NSPredicate)
-                        ) - derived_preds
+    derived_preds = set(pred for pred in preds
+                        if isinstance(pred, DerivedPredicate))
+    base_ns_preds = set(pred for pred in preds
+                        if isinstance(pred, NSPredicate)) - derived_preds
 
     # Next, classify all non-VLM predicates.
     atoms: Set[GroundAtom] = set()
@@ -3155,10 +3192,10 @@ def abstract(state: State,
                 eval_result = pred.holds(state, choice)
                 ground_atom = GroundAtom(pred, choice)
                 if eval_result == True:
-                # If the ground predicate returns true -> add it to atoms
+                    # If the ground predicate returns true -> add it to atoms
                     atoms.add(ground_atom)
                 elif isinstance(eval_result, VLMQuery):
-                # If pred evalation return query request->add it query list
+                    # If pred evalation return query request->add it query list
                     query = eval_result
                     query.ground_atom = ground_atom
                     vlm_queries.append(query)
@@ -3167,9 +3204,8 @@ def abstract(state: State,
 
         # Make the query, cache the results and add the ones that holds.
         if len(vlm_queries) > 0:
-            vlm_atoms = query_vlm_for_atom_vals_with_VLMQuerys(vlm_queries, 
-                                                                state, 
-                                                                vlm)
+            vlm_atoms = query_vlm_for_atom_vals_with_VLMQuerys(
+                vlm_queries, state, vlm)
             atoms |= set(vlm_atoms)
 
     if len(derived_preds) > 0:
@@ -3180,12 +3216,12 @@ def abstract(state: State,
     return atoms
 
 
-def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
-        state: RawState, 
+def query_vlm_for_atom_vals_with_VLMQuerys(
+        queries: Sequence[VLMQuery],
+        state: RawState,
         vlm: Optional[VisionLanguageModel] = None) -> Sequence[GroundAtom]:
     """Given a set of ground atoms, queries a VLM and gets the subset of these
-    atoms that are true.
-    """
+    atoms that are true."""
     true_atom: Set[GroundAtom] = set()
     state_ip = ImagePatch(state)
 
@@ -3200,11 +3236,12 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
         for query in queries:
             attention_image = state_ip.crop_to_bboxes([query.attention_box])
             attention_image = attention_image.cropped_image_in_PIL
-            vlm_output = vlm.sample_completions(prompt=query.query_str,
-                                                imgs=[attention_image],
-                                                temperature=CFG.vlm_temperature,
-                                                seed=CFG.seed,
-                                                num_completions=1)
+            vlm_output = vlm.sample_completions(
+                prompt=query.query_str,
+                imgs=[attention_image],
+                temperature=CFG.vlm_temperature,
+                seed=CFG.seed,
+                num_completions=1)
             assert len(vlm_output) == 1
             vlm_output_str = vlm_output[0].lower()
             if "true" in vlm_output_str:
@@ -3217,8 +3254,8 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
         if CFG.query_vlm_for_each_predicate:
             # group querys by their lifted predicates
             for query in queries:
-                pred_name_to_queries[query.ground_atom.predicate.name
-                                     ].append(query)
+                pred_name_to_queries[query.ground_atom.predicate.name].append(
+                    query)
         else:
             # If evaluate all queries at once
             pred_name_to_queries["all"].extend(queries)
@@ -3227,13 +3264,15 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
             attention_image = state_ip.crop_to_bboxes(
                 [query.attention_box for query in queries])
             attention_image = attention_image.cropped_image_in_PIL
-            prompts = "\n".join([f"{i+1}. {query.query_str}" for i, query in
-                enumerate(queries)])
-            vlm_output = vlm.sample_completions(prompt=prompts,
-                                                imgs=[attention_image],
-                                                temperature=CFG.vlm_temperature,
-                                                seed=CFG.seed,
-                                                num_completions=1)
+            prompts = "\n".join([
+                f"{i+1}. {query.query_str}" for i, query in enumerate(queries)
+            ])
+            vlm_output = vlm.sample_completions(
+                prompt=prompts,
+                imgs=[attention_image],
+                temperature=CFG.vlm_temperature,
+                seed=CFG.seed,
+                num_completions=1)
             assert len(vlm_output) == 1
             vlm_output_str = vlm_output[0].lower()
             all_vlm_responses = vlm_output_str.strip().split("\n")
@@ -3276,45 +3315,46 @@ def query_vlm_for_atom_vals_with_VLMQuerys(queries: Sequence[VLMQuery],
     #                             f"response: {response}")
     return true_atom
 
+
 @dataclass
 class VLMQuery:
     """A class to represent a query to a VLM."""
     query_str: str
     attention_box: BoundingBox
     ground_atom: Optional[GroundAtom] = None
-    
+
+
 @dataclass
 class _MemoizedClassifier():
     classifier: Callable[[State, Sequence[Object]], Union[bool, VLMQuery]]
     cache: Dict = field(default_factory=dict)
 
-    def cache_truth_value(self, state: State, objects: Sequence[Object], 
-        truth_value: bool) -> None:
-        """Cache the boolean value after querying the VLM and obtaining
-        the result
-        """
+    def cache_truth_value(self, state: State, objects: Sequence[Object],
+                          truth_value: bool) -> None:
+        """Cache the boolean value after querying the VLM and obtaining the
+        result."""
         objects_tuple = tuple(objects)
         self.cache[(state.__hash__(), objects_tuple)] = truth_value
 
     def has_classified(self, state: State, objects: Sequence[Object]) -> bool:
-        """Check if the state, object pair has been stored in the cache
-        """
+        """Check if the state, object pair has been stored in the cache."""
         objects_tuple = tuple(objects)
         return (state, objects_tuple) in self.cache
 
     def __call__(self, state: State, objects: Sequence[Object]) -> \
         Union[bool, VLMQuery]:
-        """When the classifier is called, return the cached value if it 
-        exists otherwise call self.classifier
-        """
+        """When the classifier is called, return the cached value if it exists
+        otherwise call self.classifier."""
         # if state, object exist in cache, return the value
         # else compute the truth value using the classifier
         objects_tuple = tuple(objects)
-        return self.cache.get((hash(state), objects_tuple), 
+        return self.cache.get((hash(state), objects_tuple),
                               self.classifier(state, objects))
 
-def compare_abstract_accuracy(env: BaseEnv, states: List[State],
-    est_preds_to_gt_preds: Dict[NSPredicate, Predicate]) -> None:
+
+def compare_abstract_accuracy(
+        env: BaseEnv, states: List[State],
+        est_preds_to_gt_preds: Dict[NSPredicate, Predicate]) -> None:
     num_evals, num_correct = 0, 0
 
     for i, state in enumerate(states):
@@ -3331,21 +3371,23 @@ def compare_abstract_accuracy(env: BaseEnv, states: List[State],
                     if nsp_ground_atom in est_ground_atoms:
                         num_correct += 1
                     else:
-                        logging.info(f"The correct value is "+
-                            f"{gt_pred}({choice})={gt_pred_holds}")
+                        logging.info(f"The correct value is " +
+                                     f"{gt_pred}({choice})={gt_pred_holds}")
                 else:
                     if nsp_ground_atom not in est_ground_atoms:
                         num_correct += 1
                     else:
-                        logging.info(f"The correct value is "+
-                            f"{gt_pred}({choice})={gt_pred_holds}")
-    logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. "+
+                        logging.info(f"The correct value is " +
+                                     f"{gt_pred}({choice})={gt_pred_holds}")
+    logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. " +
                  f"Accuracy: {num_correct/num_evals}.")
 
-def test_derived_predicates(env: BaseEnv, states: List[State],
-    base_ns_preds: Set[NSPredicate]):
 
-    from predicators.approaches.grammar_search_invention_approach import _create_grammar
+def test_derived_predicates(env: BaseEnv, states: List[State],
+                            base_ns_preds: Set[NSPredicate]):
+
+    from predicators.approaches.grammar_search_invention_approach import \
+        _create_grammar
     grammar = _create_grammar(dataset=None, given_predicates=base_ns_preds)
     candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
     logging.info(f"Generated candidates: {candidates}")
@@ -3656,6 +3698,7 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
         sample = {universe[i] for i in idxs}
         yield sample
 
+
 def llm_pred_dataset_save_name(invention_iteration: int) -> str:
     suffix_str = ".data"
     dataset_fname =\
@@ -3672,6 +3715,7 @@ def vlm_option_obs_save_name(g_optn_str: str, category: str, obs_idx: int) ->\
     os.makedirs(img_dir, exist_ok=True)
     # img_path = os.path.join(img_dir, img_fname)
     return img_fname, img_dir
+
 
 def create_dataset_filename_str(
         saving_ground_atoms: bool,
@@ -4257,17 +4301,17 @@ class VideoMonitor(LoggingMonitor):
         """Return the video."""
         return self._video
 
+
 @dataclass
 class SegmentedVideoMonitor(LoggingMonitor):
-    """Similar to VideoMonitor, but saves the video for the scene and each 
-    segment object in a dictionary of Videos.
-    """
+    """Similar to VideoMonitor, but saves the video for the scene and each
+    segment object in a dictionary of Videos."""
     _render_fn: Callable[[Optional[Action], Optional[str]], Dict[str, Video]]
     _seg_video: Dict[str, Video] = field(init=False, default_factory=dict)
 
     def reset(self, train_or_test: str, task_idx: int) -> None:
         self._seg_video = {}
-    
+
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
         del obs  # unused
         # Get the segmented video from the render function
@@ -4275,8 +4319,8 @@ class SegmentedVideoMonitor(LoggingMonitor):
         # otherwise extend to the current video
         seg_video = self._render_fn(action, None)
         for key, video in seg_video.items():
-            self._seg_video.setdefault(key, []).extend(video)    
-    
+            self._seg_video.setdefault(key, []).extend(video)
+
     def get_video(self) -> Dict[str, Video]:
         """Return the videos."""
         return self._seg_video
@@ -4289,6 +4333,7 @@ class SegmentedVideoMonitor(LoggingMonitor):
 
     # def observe(self, obs: Observation, action: Optional[Action]) -> None:
     #     del obs
+
 
 @dataclass
 class SimulateVideoMonitor(LoggingMonitor):

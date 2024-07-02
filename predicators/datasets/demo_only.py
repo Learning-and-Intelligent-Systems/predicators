@@ -264,7 +264,8 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             assert video_monitor is not None
             seg_videos = video_monitor.get_video()
             for key, video in seg_videos.items():
-                outfile = (f"{CFG.env}__{CFG.seed}__demo__task{idx}__{key}.mp4")
+                outfile = (
+                    f"{CFG.env}__{CFG.seed}__demo__task{idx}__{key}.mp4")
                 utils.save_video(outfile, video)
     if annotate_with_gt_ops:
         dataset = Dataset(trajectories, annotations)

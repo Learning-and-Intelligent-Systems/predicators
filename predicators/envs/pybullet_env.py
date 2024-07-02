@@ -19,8 +19,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, Observation, \
-    State, Video, Mask, Object
+from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
+    Observation, State, Video
 from predicators.utils import RawState
 
 
@@ -189,7 +189,10 @@ class PyBulletEnv(BaseEnv):
         raise NotImplementedError("A PyBullet environment cannot render "
                                   "arbitrary states.")
 
-    def reset(self, train_or_test: str, task_idx: int, render:bool=False) -> Observation:
+    def reset(self,
+              train_or_test: str,
+              task_idx: int,
+              render: bool = False) -> Observation:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
         # Converts the State into a PyBulletState.
@@ -249,10 +252,11 @@ class PyBulletEnv(BaseEnv):
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
-    def render_segmented_obj(self, action: Optional[Action] = None,
-        caption: Optional[str] = None) -> Tuple[Image.Image, Dict[Object, Mask]]: 
-        '''Render the scene and the segmented objects in the scene.
-        '''
+    def render_segmented_obj(self,
+                             action: Optional[Action] = None,
+                             caption: Optional[str] = None
+                             ) -> Tuple[Image.Image, Dict[Object, Mask]]:
+        """Render the scene and the segmented objects in the scene."""
         # if not self.using_gui:
         #     raise Exception(
         #         "Rendering only works with GUI on. See "
@@ -281,17 +285,17 @@ class PyBulletEnv(BaseEnv):
         mask_dict: Dict[str, Mask] = {}
 
         # Get the original image and segmentation mask
-        (_, _, rgbImg, _, segImg) = p.getCameraImage(
-            width=width,
-            height=height,
-            viewMatrix=view_matrix,
-            projectionMatrix=proj_matrix,
-            renderer=p.ER_BULLET_HARDWARE_OPENGL,
-            physicsClientId=self._physics_client_id)
+        (_, _, rgbImg, _,
+         segImg) = p.getCameraImage(width=width,
+                                    height=height,
+                                    viewMatrix=view_matrix,
+                                    projectionMatrix=proj_matrix,
+                                    renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                                    physicsClientId=self._physics_client_id)
 
         # Convert to numpy arrays
-        original_image = np.array(rgbImg, dtype=np.uint8).reshape((height, 
-                                                                   width, 4))
+        original_image = np.array(rgbImg, dtype=np.uint8).reshape(
+            (height, width, 4))
         seg_image = np.array(segImg).reshape((height, width))
         # imageio.imsave(f'./prompts/og_image.png', original_image)
         # imageio.imsave(f'./prompts/seg_image.png', seg_image)
@@ -316,23 +320,23 @@ class PyBulletEnv(BaseEnv):
         #     except:
         #         breakpoint()
 
-            # Option 1: mask everything besides the object out
-            # obj_only_img = np.where(mask[..., None], original_image, 0)
+        # Option 1: mask everything besides the object out
+        # obj_only_img = np.where(mask[..., None], original_image, 0)
 
-            # # Get the indices of the pixels that belong to the object
-            # y_indices, x_indices = np.where(mask)
+        # # Get the indices of the pixels that belong to the object
+        # y_indices, x_indices = np.where(mask)
 
-            # # Get the bounding box
-            # left = x_indices.min()
-            # right = x_indices.max()
-            # lower = y_indices.min()
-            # upper = y_indices.max()
-            # cropped_image = original_image[lower:upper+1, left:right+1]
+        # # Get the bounding box
+        # left = x_indices.min()
+        # right = x_indices.max()
+        # lower = y_indices.min()
+        # upper = y_indices.max()
+        # cropped_image = original_image[lower:upper+1, left:right+1]
 
-            # Add the cropped image to the dictionary
-            # img_dict[str(bodyId)] = Image.fromarray(cropped_image)
-            # img_dict[str(bodyId)] = ImageWithBox(
-            #     Image.fromarray(cropped_image), left, lower, right, upper)
+        # Add the cropped image to the dictionary
+        # img_dict[str(bodyId)] = Image.fromarray(cropped_image)
+        # img_dict[str(bodyId)] = ImageWithBox(
+        #     Image.fromarray(cropped_image), left, lower, right, upper)
 
         return state_img, mask_dict
 
@@ -341,10 +345,9 @@ class PyBulletEnv(BaseEnv):
         assert isinstance(self._current_observation, State)
         state_copy = self._current_observation.copy()
         if render:
-            rendered_state = RawState(
-                state_copy.data, state_copy.simulator_state,
-                *self.render_segmented_obj()
-            )
+            rendered_state = RawState(state_copy.data,
+                                      state_copy.simulator_state,
+                                      *self.render_segmented_obj())
             rendered_state.label_all_objects()
             return rendered_state
         else:
@@ -404,7 +407,7 @@ class PyBulletEnv(BaseEnv):
         # Depending on the observation mode, either return object-centric state
         # or object_centric + rgb observation
         observation_copy = self.get_observation(render=CFG.rgb_observation)
-        
+
         return observation_copy
         # state_copy = self._current_observation.copy()
         # return state_copy
@@ -504,6 +507,7 @@ class PyBulletEnv(BaseEnv):
     def _add_pybullet_state_to_tasks(
             self, tasks: List[EnvironmentTask]) -> List[EnvironmentTask]:
         """Converts the task initial states into PyBulletStates.
+
         This is used in generating tasks.
         """
         pybullet_tasks = []
@@ -511,18 +515,18 @@ class PyBulletEnv(BaseEnv):
             # Reset the robot.
             init = task.init
             # Extract the joints.
-            # YC: Probably need to reset_state here so I can then get an 
+            # YC: Probably need to reset_state here so I can then get an
             # observation, would it work without the reset_state?
-            # Attempt 2: First reset it. 
+            # Attempt 2: First reset it.
             self._current_observation = init
             self._reset_state(init)
             # Cast _current_observation from type State to PybulletState
             joint_positions = self._pybullet_robot.get_joints()
-            self._current_observation = utils.PyBulletState(init.data.copy(), 
-                                            simulator_state=joint_positions)
+            self._current_observation = utils.PyBulletState(
+                init.data.copy(), simulator_state=joint_positions)
             # Attempt 1: Let's try to get a rendering directly first
             pybullet_init = self.get_observation(render=CFG.render_init_state)
-            # # <Original code            
+            # # <Original code
             # self._pybullet_robot.reset_state(self._extract_robot_state(init))
             # joint_positions = self._pybullet_robot.get_joints()
             # pybullet_init = utils.PyBulletState(

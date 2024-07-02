@@ -1,10 +1,10 @@
 """Algorithms for STRIPS learning that rely on clustering to obtain effects."""
 
 import abc
-from copy import deepcopy
 import functools
 import logging
 from collections import defaultdict
+from copy import deepcopy
 from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 
 from predicators import utils
@@ -48,7 +48,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                     pnad_param_option,
                     segment_option_objs,
                     tuple(pnad_option_vars),
-                    )
+                )
                 # breakpoint()
                 sub = cast(VarToObjSub,
                            {v: o
@@ -92,16 +92,15 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                                 except:
                                     breakpoint()
                         try:
-                            assert len(types_copy)==1
+                            assert len(types_copy) == 1
                         except:
                             breakpoint()
                         least_generalization_types.append(types_copy.pop())
 
                 params = utils.create_new_variables(
-                    least_generalization_types if
-                    CFG.use_least_generalization_types_in_clustering else
-                    [o.type for o in objects_lst]
-                    )
+                    least_generalization_types if CFG.
+                    use_least_generalization_types_in_clustering else
+                    [o.type for o in objects_lst])
                 preconds: Set[LiftedAtom] = set()  # will be learned later
                 obj_to_var = dict(zip(objects_lst, params))
                 var_to_obj = dict(zip(params, objects_lst))

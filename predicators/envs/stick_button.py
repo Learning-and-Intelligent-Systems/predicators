@@ -66,9 +66,9 @@ class StickButtonEnv(BaseEnv):
         self._StickAboveButton = Predicate(
             "StickAboveButton", [self._stick_type, self._button_type],
             self.Above_holds)
-        self._HandAboveButton = Predicate(
-            "HandAboveButton", [self._hand_type, self._button_type],
-            self.Above_holds)
+        self._HandAboveButton = Predicate("HandAboveButton",
+                                          [self._hand_type, self._button_type],
+                                          self.Above_holds)
         self._Grasped = Predicate("Grasped",
                                   [self._hand_type, self._stick_type],
                                   self._Grasped_holds)
@@ -76,7 +76,7 @@ class StickButtonEnv(BaseEnv):
                                     self._HandEmpty_holds)
         self._AboveNoButton = Predicate("AboveNoButton", [],
                                         self._AboveNoButton_holds)
-        self._ReachableByHand = Predicate("ReachableByHand", 
+        self._ReachableByHand = Predicate("ReachableByHand",
                                           [self._button_type],
                                           self._ReachableByHand_holds)
 
@@ -154,7 +154,6 @@ class StickButtonEnv(BaseEnv):
                    (circ.intersects(robot_circ) and not stick_held):
                     next_state.set(button, "pressed", 1.0)
 
-
             # Check if the stick is now held for the first time.
             if not stick_held and stick_rect.intersects(robot_circ):
                 # Check for a collision with the stick holder. The reason that
@@ -168,14 +167,14 @@ class StickButtonEnv(BaseEnv):
                     return state.copy()
 
                 next_state.set(self._stick, "held", 1.0)
-            
+
             both_unpressed = True
             num_buttons = len(state.get_objects(self._button_type))
-            if num_buttons==2:
+            if num_buttons == 2:
                 for button in state.get_objects(self._button_type):
                     if state.get(button, "pressed") > 0.5:
                         both_unpressed = False
-                
+
                 if both_unpressed:
                     both_pressed = True
                     for button in state.get_objects(self._button_type):
@@ -183,7 +182,6 @@ class StickButtonEnv(BaseEnv):
                             both_pressed = False
                     if both_pressed:
                         breakpoint()
-
 
         return next_state
 
@@ -202,8 +200,12 @@ class StickButtonEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._Pressed, self._HandAboveButton, self._StickAboveButton,
-            self._Grasped, self._HandEmpty, self._AboveNoButton,
+            self._Pressed,
+            self._HandAboveButton,
+            self._StickAboveButton,
+            self._Grasped,
+            self._HandEmpty,
+            self._AboveNoButton,
             # self._ReachableByHand
         }
 
@@ -300,19 +302,21 @@ class StickButtonEnv(BaseEnv):
                 while True:
                     x = rng.uniform(self.x_lb + radius, self.x_ub - radius)
                     if CFG.stick_button_button_position == "uniform":
-                        y = rng.uniform(self.y_lb+radius, self.y_ub-radius)
+                        y = rng.uniform(self.y_lb + radius, self.y_ub - radius)
                     elif CFG.stick_button_button_position == "only_top":
-                        y = rng.uniform(self.rz_y_ub+radius, self.y_ub-radius)
+                        y = rng.uniform(self.rz_y_ub + radius,
+                                        self.y_ub - radius)
                     elif CFG.stick_button_button_position == "only_bottom":
-                        y = rng.uniform(self.y_lb+radius, self.rz_y_ub-radius)
+                        y = rng.uniform(self.y_lb + radius,
+                                        self.rz_y_ub - radius)
                     elif CFG.stick_button_button_position == "at_least_one_top":
                         # at least one button is at the top
-                        y = rng.uniform(self.y_lb+radius, self.y_ub-radius)
+                        y = rng.uniform(self.y_lb + radius, self.y_ub - radius)
                         if y > self.rz_y_ub:
                             at_least_one_top = True
-                        if not at_least_one_top and i == num_buttons-1:
-                            y = rng.uniform(self.rz_y_ub+radius, 
-                                            self.y_ub-radius)
+                        if not at_least_one_top and i == num_buttons - 1:
+                            y = rng.uniform(self.rz_y_ub + radius,
+                                            self.y_ub - radius)
                     geom = utils.Circle(x, y, radius)
                     # Keep only if no intersections with existing objects.
                     if not any(geom.intersects(g) for g in collision_geoms):
@@ -448,7 +452,8 @@ class StickButtonEnv(BaseEnv):
         button, = objects
         return state.get(button, "pressed") > 0.5
 
-    def _ReachableByHand_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _ReachableByHand_holds(cls, state: State,
+                               objects: Sequence[Object]) -> bool:
         button, = objects
         x = state.get(button, "x")
         y = state.get(button, "y")
@@ -540,13 +545,12 @@ class StickButtonMovementEnv(StickButtonEnv):
     # We add an attribute for the open/closed status of the robot's gripper.
     _hand_type = Type("hand", ["x", "y", "theta", "fingers"])
 
-
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Predicates
         self._Pressed = Predicate("Pressed", [self._button_type],
-                                    self._Pressed_holds)
+                                  self._Pressed_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._hand_type],
                                     self._HandEmpty_holds_diff_signature)
 

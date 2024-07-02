@@ -1,6 +1,7 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Tuple, Sequence
+from typing import Any, ClassVar, Dict, List, Sequence, Tuple
+
 import numpy as np
 import pybullet as p
 
@@ -11,9 +12,9 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, Object, State,\
-    Type
-from predicators.utils import NSPredicate, RawState, BoundingBox, VLMQuery
+from predicators.structs import Action, Array, EnvironmentTask, Object, \
+    State, Type
+from predicators.utils import BoundingBox, NSPredicate, RawState, VLMQuery
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -38,24 +39,21 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _target_height: ClassVar[float] = 0.0001
 
     # Types
-    _block_type = Type("block", 
-                    ["is_block", "is_target", "width", "pose", "grasp"])
-    _target_type = Type("target",
-                                ["is_block", "is_target", "width", "pose"])
+    _block_type = Type("block",
+                       ["is_block", "is_target", "width", "pose", "grasp"])
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
     _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
     _table_type = Type("table", [])
 
     # _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
     #                             _Covers_NSP_holds)
 
-    def _Covers_NSP_holds(self, state: State, objects: Sequence[Object]
-                            ) -> bool:
-        '''
-        Determine if the block is covering (directly on top of) the target 
-        region.
-        '''
+    def _Covers_NSP_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        """Determine if the block is covering (directly on top of) the target
+        region."""
         block, target = objects
-        # Necessary but not sufficient condition for covering: no part of the 
+        # Necessary but not sufficient condition for covering: no part of the
         # target region is outside the block.
         if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
             state.get(target, "bbox_right") > state.get(block, "bbox_right"):

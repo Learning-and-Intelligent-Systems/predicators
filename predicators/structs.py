@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import abc
-import textwrap
+import copy
 import itertools
+import textwrap
 from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
-from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
-    List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 from inspect import getsource
 from pprint import PrettyPrinter, pformat
-import copy
+from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
+    List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
 import PIL.Image
@@ -36,6 +36,7 @@ class Type:
             return self.type
         else:
             return self.type.parent.ancestor_type
+
     def all_ancestors(self) -> List[Type]:
         """Returns a list of all ancestor types of the entity."""
         ancestors = []
@@ -60,8 +61,7 @@ class Type:
         return hash((self.name, tuple(self.feature_names)))
 
     def type_str(self) -> str:
-        """Get a string representation of the type's name and feature names.
-        """
+        """Get a string representation of the type's name and feature names."""
         features_str = ', '.join(self.feature_names)
         return f"Type `{self.name}` has features: {features_str}"
 
@@ -75,9 +75,7 @@ class _TypedEntity:
     """
     name: str
     type: Type
-    id: Optional[int] = None # pybullet id; used when labeling the objects
-
-
+    id: Optional[int] = None  # pybullet id; used when labeling the objects
 
     @cached_property
     def id_name(self) -> str:
@@ -120,7 +118,7 @@ class Object(_TypedEntity):
         # By default, the dataclass generates a new __hash__ method when
         # frozen=True and eq=True, so we need to override it.
         return self._hash
-    
+
     def __eq__(self, other) -> bool:
         if isinstance(other, Object):
             return self.name == other.name and self.type == other.type
@@ -149,7 +147,6 @@ class State:
     # this field is provided.
     simulator_state: Optional[Any] = None
 
-
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
         for obj in self:
@@ -159,8 +156,7 @@ class State:
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
         # data_hash = hash(tuple(sorted(self.data.items())))
-        data_tuple = tuple((k, tuple(v)) for k, v in 
-                        sorted(self.data.items())) 
+        data_tuple = tuple((k, tuple(v)) for k, v in sorted(self.data.items()))
         if self.simulator_state is not None:
             data_tuple += tuple(self.simulator_state)
         data_hash = hash(data_tuple)
@@ -244,6 +240,7 @@ class State:
 
     def pretty_str(self) -> str:
         """Display the state in a nice human-readable format."""
+
         def format_float(val):
             if isinstance(val, float):
                 return f"{val:.1f}"
@@ -265,9 +262,11 @@ class State:
                                                           4) + "\n"
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
-    
-    def dict_str(self, indent: int = 0, object_features: bool = True,
-                use_object_id: bool = False) -> str:
+
+    def dict_str(self,
+                 indent: int = 0,
+                 object_features: bool = True,
+                 use_object_id: bool = False) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:
@@ -291,18 +290,19 @@ class State:
             value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
             if i == 0:
                 dict_str += f"'{key}': {{{value_str}}},\n"
-            elif i == n_keys-1: 
+            elif i == n_keys - 1:
                 dict_str += spaces + f" '{key}': {{{value_str}}}"
             else:
                 dict_str += spaces + f" '{key}': {{{value_str}}},\n"
         dict_str += "}"
         return dict_str
 
+
 DefaultState = State({})
 
 # @dataclass
 # class ImageWithBox:
-#     """An PIL image of either a scene or object with it's bounding box 
+#     """An PIL image of either a scene or object with it's bounding box
 #     coordicates"""
 #     image: PIL.Image.Image
 #     left: int
@@ -343,7 +343,7 @@ class Predicate:
 
     def __hash__(self) -> int:
         return self._hash
-    
+
     def __eq__(self, other) -> bool:
         # equal by name
         assert isinstance(other, Predicate)
@@ -389,7 +389,7 @@ class Predicate:
             for i in range(self.arity))
         body_str = f"{self.name}({vars_str_no_types})"
         return vars_str, body_str
-    
+
     def pretty_str_with_types(self) -> str:
         if hasattr(self._classifier, "pretty_str"):
             # This is an invented predicate, from the predicate grammar.
@@ -419,9 +419,8 @@ class Predicate:
         return clf_str
 
     def predicate_str(self) -> str:
-        """Get a string representation of the predicate's name, types, and 
-        classifier.
-        """
+        """Get a string representation of the predicate's name, types, and
+        classifier."""
         classifier_str = getsource(self._classifier)
         return f"{self.pddl_str()} with classifier\n"+\
                f"```python\n{classifier_str}```\n"
@@ -439,13 +438,16 @@ class Predicate:
     def __lt__(self, other: Predicate) -> bool:
         return str(self) < str(other)
 
+
 @dataclass(frozen=True, repr=False, eq=False)
 class DerivedPredicate(Predicate):
     pass
 
+
 @dataclass(frozen=True, repr=False, eq=False)
 class AnnotatedPredicate(Predicate):
     pass
+
 
 @dataclass(frozen=True, order=False, repr=False, eq=False)
 class VLMPredicate(Predicate):
@@ -778,15 +780,15 @@ class _Option:
         action = self._policy(state)
         action.set_option(self)
         return action
-    
+
     def clear_memory(self):
         self.memory: Dict = {}
-    
+
     def __str__(self) -> str:
         objects = ", ".join(o.name for o in self.objects)
         params = ", ".join(str(round(p, 2)) for p in self.params)
         return f"{self.name}({objects}, {params})"
-    
+
     def eq_by_obj(self, other: _Option) -> bool:
         try:
             assert isinstance(other, _Option)
@@ -822,12 +824,9 @@ class STRIPSOperator:
     delete_effects: Set[LiftedAtom]
     ignore_effects: Set[Predicate]
 
-    def make_nsrt(
-        self,
-        option: ParameterizedOption,
-        option_vars: Sequence[Variable],
-        sampler: NSRTSampler
-    ) -> NSRT:
+    def make_nsrt(self, option: ParameterizedOption,
+                  option_vars: Sequence[Variable],
+                  sampler: NSRTSampler) -> NSRT:
         """Make an NSRT out of this STRIPSOperator object, given the necessary
         additional fields."""
         return NSRT(self.name, self.parameters, self.preconditions,
@@ -1195,8 +1194,8 @@ class _GroundNSRT:
 
     def ground_option_str(self, use_object_id: bool = False) -> str:
         if use_object_id:
-            var_str = ", ".join([o.id_name+":"+o.type.name for o in 
-                                    self.option_objs])
+            var_str = ", ".join(
+                [o.id_name + ":" + o.type.name for o in self.option_objs])
         else:
             var_str = ", ".join([str(o) for o in self.option_objs])
         return f"{self.option.name}({var_str})"
@@ -1468,10 +1467,10 @@ class Dataset:
             self._annotations.append(annotation)
         self._trajectories.append(trajectory)
 
+
 @dataclass(eq=False)
 class GroundOptionRecord:
-    """Store the ground option execution results
-    """
+    """Store the ground option execution results."""
     states: List[State] = field(default_factory=list)
     abstract_states: List[Set[GroundAtom]] = field(default_factory=list)
     rendered_states: List[Image] = field(default_factory=list)
@@ -1482,17 +1481,17 @@ class GroundOptionRecord:
 
     @property
     def has_states(self) -> bool:
-        """Check if the states list is non-empty"""
+        """Check if the states list is non-empty."""
         return bool(self.states)
-    
-    def append_state(self, 
-                     state: State, 
+
+    def append_state(self,
+                     state: State,
                      abstract_state: Set[GroundAtom],
-                     optn_objs: List[Object], 
-                     optn_vars: List[Variable], 
-                     option: ParameterizedOption, 
-                     error: Optional[Exception]=None) -> None:
-        """Append a state to the states list"""
+                     optn_objs: List[Object],
+                     optn_vars: List[Variable],
+                     option: ParameterizedOption,
+                     error: Optional[Exception] = None) -> None:
+        """Append a state to the states list."""
         if not self.has_states:
             self.optn_objs = optn_objs
             self.optn_vars = optn_vars
@@ -1504,9 +1503,9 @@ class GroundOptionRecord:
         # if rendered_state:
         #     self.rendered_states.append(rendered_state)
 
-    # def assign_values(self, 
-    #                   optn_objs: List[Object], optn_vars: List[Variable], 
-    #                   option: ParameterizedOption, 
+    # def assign_values(self,
+    #                   optn_objs: List[Object], optn_vars: List[Variable],
+    #                   option: ParameterizedOption,
     #                   error: Optional[Exception] = None
     #                   ) -> None:
     #     """Assign new values to optn_objs, optn_vars, option, and error"""
@@ -1514,6 +1513,7 @@ class GroundOptionRecord:
     #     self.optn_vars = optn_vars
     #     self.option = option
     #     self.error = error
+
 
 @dataclass(eq=False)
 class Segment:

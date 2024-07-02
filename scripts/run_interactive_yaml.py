@@ -1,16 +1,15 @@
-"""
-Run the code by taking in a YAML config file, in an interactive
-mode, as opposed to submitting a slurm job.
-"""
+"""Run the code by taking in a YAML config file, in an interactive mode, as
+opposed to submitting a slurm job."""
+import argparse
 import os
-import sys
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),
 #                                                 '..')))
 import shlex
-import argparse
 import subprocess
+import sys
 
-from scripts.cluster_utils import generate_run_configs, config_to_cmd_flags
+from scripts.cluster_utils import config_to_cmd_flags, generate_run_configs
+
 
 def _main():
     # Set up argparse.
@@ -23,9 +22,10 @@ def _main():
     cfg = next(generate_run_configs(args.config))
     cmd_str = config_to_cmd_flags(cfg)
     cmd_flags = shlex.split(cmd_str)
-    
+
     # run the command
     subprocess.run(["python", "predicators/main.py"] + cmd_flags)
+
 
 if __name__ == "__main__":
     _main()

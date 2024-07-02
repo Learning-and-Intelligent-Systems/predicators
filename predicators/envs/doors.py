@@ -113,14 +113,14 @@ class DoorsEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, 
-                            map_size_list=CFG.doors_map_size_train, 
-                            rng=self._train_rng)
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               map_size_list=CFG.doors_map_size_train,
+                               rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks, 
-                            map_size_list=CFG.doors_map_size_test, 
-                            rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               map_size_list=CFG.doors_map_size_test,
+                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -222,9 +222,8 @@ class DoorsEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int,
-                    map_size_list: Optional[List[int]] ,
-                    rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int, map_size_list: Optional[List[int]],
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         for _ in range(num):
             # Sample a room map.
@@ -703,8 +702,7 @@ class DoorsEnv(BaseEnv):
         # To do this, perform a random tree search in the grid for a certain
         # number of steps, starting from a random location.
         assert room_map_size > 1
-        room_map = np.zeros((room_map_size, room_map_size),
-                            dtype=bool)
+        room_map = np.zeros((room_map_size, room_map_size), dtype=bool)
         min_num_rooms = max(2, int(self._min_room_exists_frac * room_map.size))
         max_num_rooms = int(self._max_room_exists_frac * room_map.size)
         num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)

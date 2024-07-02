@@ -2,28 +2,30 @@
 Example command line:
     export OPENAI_API_KEY=<your API key>
 """
-import re
-import json
 import base64
+import json
 import logging
-from typing import Set, List
+import re
+from typing import List, Set
 
-from gym.spaces import Box
 import imageio
+from gym.spaces import Box
 
 from predicators import utils
-from predicators.settings import CFG
+from predicators.approaches.grammar_search_invention_approach import \
+    create_score_function
+from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.ground_truth_models import get_gt_nsrts
 from predicators.llm_interface import OpenAILLM, OpenAILLMNEW
-from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
-from predicators.structs import Dataset, LowLevelTrajectory, Predicate, \
-    ParameterizedOption, Type, Task, Optional, GroundAtomTrajectory,\
-    AnnotatedPredicate
-from predicators.approaches.grammar_search_invention_approach import \
-    create_score_function 
+from predicators.settings import CFG
+from predicators.structs import AnnotatedPredicate, Dataset, \
+    GroundAtomTrajectory, LowLevelTrajectory, Optional, ParameterizedOption, \
+    Predicate, Task, Type
+
 
 class VlmInventionApproach(NSRTLearningApproach):
-    """Predicate Invention with VLMs"""
+    """Predicate Invention with VLMs."""
+
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
@@ -51,15 +53,15 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Generate a candidate set of predicates.
         logging.info("Generating candidate predicates...")
         invention_prompt = self._create_invention_prompt(dataset)
-        vlm_predictions = self._vlm.sample_completions(invention_prompt,
-                                                temperature=CFG.llm_temperature,
-                                                seed=CFG.seed)[0]
+        vlm_predictions = self._vlm.sample_completions(
+            invention_prompt, temperature=CFG.llm_temperature,
+            seed=CFG.seed)[0]
         candidates = self._parse_predicate_predictions(vlm_predictions)
 
         for idx, candidate in enumerate(candidates):
             logging.info(f"Predicate: {candidate}")
             interpretation_prompt = self._create_interpretation_prompt(
-                                                    candidate, idx)
+                candidate, idx)
             # currently the response is pasted from ChatGPT
             # response = self._vlm.sample_completions(interpretation_prompt)
             with open(f'./prompts/interpret_1_cover_{idx}_{candidate.name}'\
@@ -125,19 +127,18 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._learn_nsrts(dataset.trajectories,
                           online_learning_cycle=None,
                           annotations=annotations)
-        
-    
+
     def _parse_classifier_response(self, response: str) -> str:
         # Define the regex pattern to match Python code block
         pattern = r'```python(.*?)```'
-        
+
         # Use regex to find the Python code block in the response
         match = re.search(pattern, response, re.DOTALL)
-        
+
         # If a match is found, return the Python code block
         if match:
             return match.group(1).strip()
-        
+
         # If no match is found, return an empty string
         return ''
 
@@ -154,18 +155,17 @@ class VlmInventionApproach(NSRTLearningApproach):
             name = pred_str.split('(')[0]
             args = pred_str.split('(')[1].replace(')', '').split(', ')
             types = [self._type_dict[arg.split(':')[1]] for arg in args]
-            predicate = AnnotatedPredicate(name=name, types=types, 
+            predicate = AnnotatedPredicate(name=name,
+                                           types=types,
                                            description=description,
                                            _classifier=None)
             predicates.append(predicate)
-        for pred in predicates: 
+        for pred in predicates:
             logging.info(pred)
         return predicates
 
-
     def _create_invention_prompt(self, dataset: Dataset) -> str:
-        '''Compose a prompt for VLM for predicate invention
-        '''
+        """Compose a prompt for VLM for predicate invention."""
         ########### These doesn't use the dataset ###########
         # Read the template
         with open('./prompts/invent_0_template_raw.prompt', 'r') as file:
@@ -174,7 +174,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Domain description
         with open('./prompts/domain_description_cover.prompt', 'r') as file:
             domain_description = file.read()
-        template = template.replace('[TEXTUAL_DOMAIN_DESCRIPTION]', 
+        template = template.replace('[TEXTUAL_DOMAIN_DESCRIPTION]',
                                     domain_description)
 
         # Domain entity types
@@ -216,11 +216,8 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         ########### Make the prompt ###########
         # Create the text entry
-        text_entry = {
-            "type": "text",
-            "text": text_prompt
-        }
-        
+        text_entry = {"type": "text", "text": text_prompt}
+
         prompt = [text_entry]
         if CFG.rgb_observation:
             # Create the image entries
@@ -237,10 +234,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Combine the text entry and image entries and Create the final prompt
             prompt += image_entries
 
-        prompt = [{
-                "role": "user",
-                "content": prompt
-            }]
+        prompt = [{"role": "user", "content": prompt}]
 
         # Convert the prompt to JSON string
         prompt_json = json.dumps(prompt, indent=2)
@@ -251,7 +245,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         #     prompt = json.load(file)
         return prompt
 
-    def _create_interpretation_prompt(self, pred: AnnotatedPredicate, idx: int) -> str:
+    def _create_interpretation_prompt(self, pred: AnnotatedPredicate,
+                                      idx: int) -> str:
         with open('./prompts/interpret_0.prompt', 'r') as file:
             template = file.read()
         text_prompt = template.replace('[INSERT_QUERY_HERE]', pred.__str__())
@@ -260,15 +255,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         with open(f'./prompts/interpret_1_cover_{idx}_{pred.name}_text.prompt', 'w') \
             as file:
             file.write(text_prompt)
-        
-        text_entry = {
-            "type": "text",
-            "text": text_prompt
-        }
-        prompt = [{
-            "role": "user",
-            "content": text_entry
-        }]
+
+        text_entry = {"type": "text", "text": text_prompt}
+        prompt = [{"role": "user", "content": text_entry}]
 
         # Convert the prompt to JSON string
         prompt_json = json.dumps(prompt, indent=2)
@@ -277,7 +266,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             file.write(str(prompt_json))
         return prompt
 
+
 # Function to encode the image
 def encode_image(image_path: str) -> str:
-  with open(image_path, "rb") as image_file:
-    return base64.b64encode(image_file.read()).decode('utf-8')
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')

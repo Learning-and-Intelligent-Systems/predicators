@@ -34,6 +34,7 @@ To run grammar search predicate invention (example):
         --seed 0 --excluded_predicates all
 """
 
+import datetime
 import logging
 import os
 import sys
@@ -41,11 +42,10 @@ import time
 from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
-import datetime
 
+import colorlog
 import dill as pkl
 from PIL import Image
-import colorlog
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -56,12 +56,12 @@ from predicators.envs import BaseEnv, create_new_env
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
+from predicators.image_patch_wrapper import ImagePatch
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
-from predicators.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Response, Task, Video, EnvironmentTask
+from predicators.structs import Dataset, EnvironmentTask, InteractionRequest, \
+    InteractionResult, Metrics, Response, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
-from predicators.image_patch_wrapper import ImagePatch
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
@@ -76,23 +76,23 @@ def main() -> None:
     str_args = " ".join(sys.argv)
     # Log to stderr.
     colorlog_handler = colorlog.StreamHandler()
-    colorlog_handler.setFormatter(colorlog.ColoredFormatter(
-    '%(log_color)s%(levelname)s: %(message)s',
-    log_colors={
-        'DEBUG':    'cyan',
-        'INFO':     'green',
-        'WARNING':  'yellow',
-        'ERROR':    'red',
-        'CRITICAL': 'red,bg_white',
-    },
-    reset=True,
-    style='%'
-    ))
+    colorlog_handler.setFormatter(
+        colorlog.ColoredFormatter('%(log_color)s%(levelname)s: %(message)s',
+                                  log_colors={
+                                      'DEBUG': 'cyan',
+                                      'INFO': 'green',
+                                      'WARNING': 'yellow',
+                                      'ERROR': 'red',
+                                      'CRITICAL': 'red,bg_white',
+                                  },
+                                  reset=True,
+                                  style='%'))
     # handlers: List[logging.Handler] = [logging.StreamHandler()]
     handlers: List[logging.Handler] = [colorlog_handler]
     if CFG.log_file:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        handlers.append(logging.FileHandler(CFG.log_file+timestamp, mode='w'))
+        handlers.append(logging.FileHandler(CFG.log_file + timestamp,
+                                            mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
                         handlers=handlers,
@@ -201,7 +201,7 @@ def _run_pipeline(env: BaseEnv,
         if cogman.is_offline_learning_based:
             assert offline_dataset is not None, "Missing offline dataset"
             num_offline_transitions = sum(
-            len(traj.actions) for traj in offline_dataset.trajectories)
+                len(traj.actions) for traj in offline_dataset.trajectories)
         else:
             num_offline_transitions = 0
         num_online_transitions = 0
@@ -382,10 +382,10 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     #         f"test_task{i}.png")
     #     task.init.labeled_image.save(f"images/{env.get_name()}_"+
     #         f"test_task{i}_labeled.png")
-        # Save all the masks
-        # for obj, mask in task.init.obj_mask_dict.items():
-        #     Image.fromarray(mask).save(
-        #         f"images/test_task{i}_mask{obj.id}.png")
+    # Save all the masks
+    # for obj, mask in task.init.obj_mask_dict.items():
+    #     Image.fromarray(mask).save(
+    #         f"images/test_task{i}_mask{obj.id}.png")
 
     # Check the processed image before performing simple query
     # ground_atoms = utils.abstract(test_tasks[0].init, env.ns_predicates)
@@ -394,16 +394,15 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     # state_ip = ImagePatch(task.init.state_image)
     # for obj in list(task.init):
 
-
     # Compare accuracy
     # test_tasks[0].init.state_image.save("images/test_task0_init.png")
     # utils.compare_abstract_accuracy(env,
-    #                                 [t.init for t in test_tasks], 
+    #                                 [t.init for t in test_tasks],
     #                                 env.ns_predicates_to_predicates)
     # utils.test_derived_predicates(env, [t.init for t in test_tasks],
     #                               env.ns_predicates)
     # breakpoint()
-    
+
     # /Check
     # If the goals of the tasks that the approaches solve need to be described
     # using predicates that differ from those in the goals of the tasks that the
@@ -433,7 +432,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             # so that we can log planning failures, timeouts, etc. This is
             # mostly for legacy reasons (before cogman existed separately
             # from approaches).
-            # Temporary: 
+            # Temporary:
             #   1. modify the task to inlcude object labels
             #   2. reset the vlm chat history
             cogman.reset(env_task)

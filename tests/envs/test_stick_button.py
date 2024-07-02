@@ -7,8 +7,6 @@ import pytest
 from predicators import utils
 from predicators.envs.stick_button import StickButtonEnv, \
     StickButtonMovementEnv
-from predicators.envs.stick_button import StickButtonEnv, \
-    StickButtonMovementEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.structs import Action, EnvironmentTask, GroundAtom
 

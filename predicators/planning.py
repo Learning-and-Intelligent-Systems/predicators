@@ -9,19 +9,19 @@ import heapq as hq
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
-from tqdm import tqdm
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
 from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
     Optional, Sequence, Set, Tuple
-import shutil
 
 import numpy as np
+from tqdm import tqdm
 
 from predicators import utils
 from predicators.option_model import _OptionModelBase
@@ -39,6 +39,7 @@ _NOT_CAUSES_FAILURE = "NotCausesFailure"
 console_width = shutil.get_terminal_size().columns
 # Calculate 60% of the console width
 ncols = int(console_width * 0.6)
+
 
 @dataclass(repr=False, eq=False)
 class _Node:
@@ -183,7 +184,9 @@ def _sesame_plan_with_astar(
                         skeleton, atoms_sequence, task.goal)
                 else:
                     atoms_seq = atoms_sequence
-                logging.debug(f"found plan {[ns.short_str for ns in skeleton]}")
+                logging.debug(f"[found plan] "
+                              f"{int(metrics['num_skeletons_optimized'])} "
+                              f"{[ns.short_str for ns in skeleton]}")
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), metrics,
@@ -386,10 +389,11 @@ def _skeleton_generator(
     # Initialize the progress bar
     progress_bar = False
     if progress_bar:
-        pbar = tqdm(total=max_skeletons_optimized, desc="High level search",
-            ncols=ncols, 
-            bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}', 
-            colour='green')
+        pbar = tqdm(total=max_skeletons_optimized,
+                    desc="High level search",
+                    ncols=ncols,
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}',
+                    colour='green')
     start_time = time.perf_counter()
     current_objects = set(task.init)
     queue: List[Tuple[float, float, _Node]] = []
@@ -550,14 +554,15 @@ def run_low_level_search(
     num_tries = [0 for _ in skeleton]
     # Optimization: if the params_space for the NSRT option is empty, only
     # sample it once, because all samples are just empty (so equivalent).
-    
+
     progress_bar = False
     if progress_bar:
-        pbar = tqdm(total=sum(max_tries), desc="Low level search", 
-                ncols=ncols, 
-                bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}', 
-                colour='blue', 
-                leave=False)
+        pbar = tqdm(total=sum(max_tries),
+                    desc="Low level search",
+                    ncols=ncols,
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}',
+                    colour='blue',
+                    leave=False)
     max_tries = [
         CFG.sesame_max_samples_per_step
         if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
@@ -1212,7 +1217,8 @@ def _sesame_plan_with_fast_downward(
         num_skeletons_optimized += 1
         # Run low-level search on this skeleton.
         low_level_timeout = timeout - (time.perf_counter() - start_time)
-        logging.debug(f"found plan {[ns.short_str for ns in skeleton]}, timeleft {low_level_timeout}")
+        logging.debug(f"found plan {[ns.short_str for ns in skeleton]}, "
+                      f"timeleft {low_level_timeout}")
         try:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)
@@ -1232,7 +1238,7 @@ def _sesame_plan_with_fast_downward(
                     f"{int(metrics['num_failures_discovered'])} failures")
                 metrics["plan_length"] = len(plan)
                 metrics["refinement_time"] = (time.perf_counter() -
-                                                refinement_start_time)
+                                              refinement_start_time)
                 metrics["partial_refinements"] = partial_refinements
                 return plan, skeleton, metrics
             logging.info(f"ite {num_skeletons_optimized}, found succ={suc} "\

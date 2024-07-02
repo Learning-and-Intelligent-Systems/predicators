@@ -116,28 +116,30 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot, item, obj = objects
             return HandEmpty.holds(state, [robot]) and On.holds(
                 state, [item, obj])
+
         def _Place_initiable(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
+                             objects: Sequence[Object], params: Array) -> bool:
             del memory, params  # unused
             robot, item, _ = objects
             return Holding.holds(state, [robot, item])
 
-        Place = ParameterizedOption("Place",
-                                    types=[robot_type, item_type, object_type],
-                                    params_space=Box(0, 1, (0, )),
-                                    policy=cls._create_pickplace_policy(),
-                                    # Use a stronger init to avoid going in to
-                                    # a loop. This can be avoided by a slightly
-                                    # more sophisticated way to detect repeated
-                                    # state: currently the repeated state is 
-                                    # detected solely by comparing if the 
-                                    # current state is the same as the previous
-                                    # state; but a smarter way is to detect
-                                    # whether the (state, action) tuple has
-                                    # been encountered
-                                    # initiable=lambda s, m, o, p: True,
-                                    initiable=_Place_initiable,
-                                    terminal=_Place_terminal)
+        Place = ParameterizedOption(
+            "Place",
+            types=[robot_type, item_type, object_type],
+            params_space=Box(0, 1, (0, )),
+            policy=cls._create_pickplace_policy(),
+            # Use a stronger init to avoid going in to
+            # a loop. This can be avoided by a slightly
+            # more sophisticated way to detect repeated
+            # state: currently the repeated state is
+            # detected solely by comparing if the
+            # current state is the same as the previous
+            # state; but a smarter way is to detect
+            # whether the (state, action) tuple has
+            # been encountered
+            # initiable=lambda s, m, o, p: True,
+            initiable=_Place_initiable,
+            terminal=_Place_terminal)
 
         return {Move, Pick, Place, Cook, Slice}
 

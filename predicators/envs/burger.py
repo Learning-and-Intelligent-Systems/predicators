@@ -25,7 +25,10 @@ from predicators.structs import Action, DefaultEnvironmentTask, \
     EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
     Video
 
-matplotlib.use('Agg')  # Use a non-interactive backend to prevent debug messages
+matplotlib.use(
+    'Agg')  # Use a non-interactive backend to prevent debug messages
+
+
 class BurgerEnv(BaseEnv):
     """A simple gridworld environment where a robot prepares a burger, inspired
     by https://github.com/portal-cornell/robotouille.
@@ -132,15 +135,16 @@ class BurgerEnv(BaseEnv):
             self._grill_type, self._cutting_board_type
         }
 
-
-    def get_accessible_edge_cells(self, rng: np.random.Generator) -> List[Tuple[int, int]]:
+    def get_accessible_edge_cells(
+            self, rng: np.random.Generator) -> List[Tuple[int, int]]:
         n_row = self.num_rows
         n_col = self.num_cols
         top = [(n_row - 1, col) for col in range(n_col)]
         left = [(row, 0) for row in range(n_row)]
         bottom = [(0, col) for col in range(n_col)]
         right = [(row, n_col - 1) for row in range(n_row)]
-        corners = [(0, 0), (0, self.num_cols - 1), (self.num_rows - 1, 0), (self.num_rows - 1, self.num_cols - 1)]
+        corners = [(0, 0), (0, self.num_cols - 1), (self.num_rows - 1, 0),
+                   (self.num_rows - 1, self.num_cols - 1)]
 
         # Arrange open spots so that the robot will never be adjacent to two objects
         # at the same time.
@@ -154,19 +158,19 @@ class BurgerEnv(BaseEnv):
         top, left, bottom, right = edges
         # Without loss of generality, have the top edge keep all its cells.
         # Next, pick one edge to lose two cells.
-        loses_two = edges[rng.choice([1,2,3])]
+        loses_two = edges[rng.choice([1, 2, 3])]
         if loses_two == left:
-            left = left[1:len(left)-1]
+            left = left[1:len(left) - 1]
             bottom = bottom[:-1]
             right = right[:-1]
         elif loses_two == bottom:
             left = left[:-1]
-            bottom = bottom[1:len(bottom)-1]
+            bottom = bottom[1:len(bottom) - 1]
             right = right[:-1]
         elif loses_two == right:
             left = left[:-1]
             bottom = bottom[1:]
-            right = right[1:len(right)-1]
+            right = right[1:len(right) - 1]
 
         edges = [top, left, bottom, right]
         cells = top + left + bottom + right
@@ -185,12 +189,13 @@ class BurgerEnv(BaseEnv):
 
         return ret
 
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator,
-                   partial_tasks: Optional[bool]=False) -> List[EnvironmentTask]:
-        '''when `partial_tasks` is true, the goal is not always making the whole
-        burger
-        '''
+    def _get_tasks(
+            self,
+            num: int,
+            rng: np.random.Generator,
+            partial_tasks: Optional[bool] = False) -> List[EnvironmentTask]:
+        """When `partial_tasks` is true, the goal is not always making the
+        whole burger."""
         tasks = []
         state_dict = {}
         hidden_state = {}
@@ -201,7 +206,7 @@ class BurgerEnv(BaseEnv):
         #     num_tasks += 1
 
         for task_idx in range(num):
-        # for _ in range(num_tasks):
+            # for _ in range(num_tasks):
             shuffled_spots = spots_for_objects.copy()
             rng.shuffle(shuffled_spots)
 
@@ -263,7 +268,7 @@ class BurgerEnv(BaseEnv):
             #                     # GroundAtom(self._On, [top_bun, tomato]),
             #                     # GroundAtom(self._IsCooked, [patty]),
             #                     # GroundAtom(self._IsSliced, [tomato])
-            #                     ], 
+            #                     ],
             #                 num_atoms)
             # goal_atoms = [
             #                     GroundAtom(self._On, [patty, bottom_bun]),
@@ -272,7 +277,7 @@ class BurgerEnv(BaseEnv):
             #                     GroundAtom(self._On, [top_bun, tomato]),
             #                     GroundAtom(self._IsCooked, [patty]),
             #                     GroundAtom(self._IsSliced, [tomato])
-            #                     ] 
+            #                     ]
             # if task_idx == 1:
             # goal = set(goal_atoms)
             goal = {
@@ -293,7 +298,7 @@ class BurgerEnv(BaseEnv):
                     GroundAtom(self._On, [patty, bottom_bun]),
                     GroundAtom(self._On, [cheese, patty]),
                     GroundAtom(self._GoalHack,
-                            [bottom_bun, patty, cheese, tomato, top_bun])
+                               [bottom_bun, patty, cheese, tomato, top_bun])
                 }
 
             state = utils.create_state_from_dict(state_dict)
@@ -317,7 +322,8 @@ class BurgerEnv(BaseEnv):
         return tasks
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng,
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng,
                                partial_tasks=False)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
@@ -444,9 +450,17 @@ class BurgerEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._Adjacent, self._AdjacentToNothing, self._AdjacentNotFacing,
-            self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty,
-            self._Holding, self._On, self._OnNothing, self._Clear,
+            self._Adjacent,
+            self._AdjacentToNothing,
+            self._AdjacentNotFacing,
+            self._Facing,
+            self._IsCooked,
+            self._IsSliced,
+            self._HandEmpty,
+            self._Holding,
+            self._On,
+            self._OnNothing,
+            self._Clear,
             # self._GoalHack
         }
 
@@ -632,8 +646,6 @@ class BurgerEnv(BaseEnv):
         assert isinstance(next_state, utils.BurgerState)
 
         return next_state
-
-
 
     def render_state_plt(
             self,

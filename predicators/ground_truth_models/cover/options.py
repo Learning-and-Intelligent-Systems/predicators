@@ -205,13 +205,13 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Pick is done when we're holding the desired object.
             return Holding.holds(s, o)
 
-        Pick = utils.SingletonParameterizedOption("Pick",
-                                                _Pick_policy,
-                                                types=[block_type],
-                                                params_space=Box(
-                                                      lb, ub, (1, )),
-                                                # terminal=_Pick_terminal,
-                                                )
+        Pick = utils.SingletonParameterizedOption(
+            "Pick",
+            _Pick_policy,
+            types=[block_type],
+            params_space=Box(lb, ub, (1, )),
+            # terminal=_Pick_terminal,
+        )
 
         def _Place_policy(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> Action:
@@ -233,7 +233,7 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=place_types,
             params_space=Box(0, 1, (1, )),
             # terminal=_Place_terminal,
-            )
+        )
 
         return {Pick, Place}
 

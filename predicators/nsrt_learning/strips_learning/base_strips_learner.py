@@ -67,18 +67,20 @@ class BaseSTRIPSLearner(abc.ABC):
         for min_perc_data_for_nsrt in pnad_perc_data_low_to_high:
             min_data = max(CFG.min_data_for_nsrt,
                            self._num_segments * min_perc_data_for_nsrt)
-            logging.debug(f"Learned {len(learned_pnads)} operators before "+
+            logging.debug(f"Learned {len(learned_pnads)} operators before " +
                           f"pruning: {learned_pnads}")
             # Printing for debug
             for pnad in learned_pnads:
-                logging.debug(f"PNAD: {pnad.op.name} \n"
-                f"Total segments: {self._num_segments} "
-                f"Percentage: {len(pnad.datastore)/float(self._num_segments)}")
+                logging.debug(
+                    f"PNAD: {pnad.op.name} \n"
+                    f"Total segments: {self._num_segments} "
+                    f"Percentage: {len(pnad.datastore)/float(self._num_segments)}"
+                )
             learned_pnads = [
                 pnad for pnad in learned_pnads
                 if len(pnad.datastore) >= min_data
             ]
-            logging.debug(f"Pruned to {len(learned_pnads)} operators: "+
+            logging.debug(f"Pruned to {len(learned_pnads)} operators: " +
                           f"{learned_pnads}")
             if not CFG.enable_harmless_op_pruning:
                 # If we are not doing harmless operator pruning, return

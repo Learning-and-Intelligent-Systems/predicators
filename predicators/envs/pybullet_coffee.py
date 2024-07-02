@@ -592,7 +592,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 rgbaColor=self.plate_color_on,
                                 physicsClientId=self._physics_client_id)
             # the jug is only filled if it's in the machine
-            if self.JugInMachine_holds(state, [self._jug, self._machine]):
+            if self._JugInMachine_holds(state, [self._jug, self._machine]):
                 self._jug_filled = True
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
@@ -621,10 +621,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             state = self._current_observation.copy()
         # Handle twisting
         elif self._Twisting_holds(state, [self._robot, self._jug]):
-            cur_gripper_yaw = state.get(self._robot, "wrist")
             gripper_pose = self._pybullet_robot.forward_kinematics(
                 action.arr.tolist())
-            init_roll = 2.4863781352634065
             d_roll = gripper_pose.rpy[0] - current_ee_rpy[0]
             d_yaw = gripper_pose.rpy[2] - current_ee_rpy[2]
             if np.abs(d_yaw) > 0.2:

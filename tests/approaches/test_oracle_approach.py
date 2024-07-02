@@ -15,7 +15,6 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
 from predicators.envs.coffee import CoffeeEnv
-from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
 from predicators.envs.cover import BumpyCoverEnv, CoverEnv, \
     CoverEnvHierarchicalTypes, CoverEnvPlaceHard, CoverEnvRegrasp, \
     CoverEnvTypedOptions, CoverMultistepOptions, RegionalBumpyCoverEnv
@@ -28,6 +27,7 @@ from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksEasyDeliveryPDDLEnv
 from predicators.envs.playroom import PlayroomEnv, PlayroomSimpleEnv
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
+from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
 from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
     RepeatedNextToEnv, RepeatedNextToSimple, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv

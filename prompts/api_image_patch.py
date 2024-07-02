@@ -1,7 +1,10 @@
 import math
 
+
 class ImagePatch:
-    """A Python class containing a crop of an image centered around a particular object, as well as relevant information.
+    """A Python class containing a crop of an image centered around a
+    particular object, as well as relevant information.
+
     Attributes
     ----------
     cropped_image : array_like
@@ -31,9 +34,11 @@ class ImagePatch:
     """
 
     def __init__(self, image, left: int = None, lower: int = None, right: int = None, upper: int = None):
-        """Initializes an ImagePatch object by cropping the image at the given coordinates and stores the coordinates as
-        attributes. If no coordinates are provided, the image is left unmodified, and the coordinates are set to the
-        dimensions of the image.
+        """Initializes an ImagePatch object by cropping the image at the given
+        coordinates and stores the coordinates as attributes. If no coordinates
+        are provided, the image is left unmodified, and the coordinates are set
+        to the dimensions of the image.
+
         Parameters
         -------
         image : array_like
@@ -71,8 +76,9 @@ class ImagePatch:
     #     )
 
     def find(self, object_name: str) -> List[ImagePatch]:
-        """Returns a list of ImagePatch objects matching object_name contained in the crop if any are found.
-        Otherwise, returns an empty list.
+        """Returns a list of ImagePatch objects matching object_name contained
+        in the crop if any are found. Otherwise, returns an empty list.
+
         Parameters
         ----------
         object_name : str
@@ -94,7 +100,9 @@ class ImagePatch:
         return find_in_image(self.cropped_image, object_name)
 
     def exists(self, object_name: str) -> bool:
-        """Returns True if the object specified by object_name is found in the image, and False otherwise.
+        """Returns True if the object specified by object_name is found in the
+        image, and False otherwise.
+
         Parameters
         -------
         object_name : str
@@ -112,8 +120,11 @@ class ImagePatch:
         return len(self.find(object_name)) > 0
 
     def verify_property(self, object_name: str, visual_property: str) -> bool:
-        """Returns True if the object possesses the visual property, and False otherwise.
-        Differs from 'exists' in that it presupposes the existence of the object specified by object_name, instead checking whether the object possesses the property.
+        """Returns True if the object possesses the visual property, and False
+        otherwise. Differs from 'exists' in that it presupposes the existence
+        of the object specified by object_name, instead checking whether the
+        object possesses the property.
+
         Parameters
         -------
         object_name : str
@@ -134,6 +145,7 @@ class ImagePatch:
 
     def best_text_match(self, option_list: List[str], prefix: str=None) -> str:
         """Returns the string that best matches the image.
+
         Parameters
         -------
         option_list : str
@@ -153,9 +165,11 @@ class ImagePatch:
         return best_text_match(self.cropped_image, option_list, prefix)
 
     def simple_query(self, question: str = None) -> str:
-        """Returns the answer to a basic question asked about the image. If no question is provided, returns the answer
-        to "What is this?". The questions are about basic perception, and are not meant to be used for complex reasoning
-        or external knowledge.
+        """Returns the answer to a basic question asked about the image. If no
+        question is provided, returns the answer to "What is this?". The
+        questions are about basic perception, and are not meant to be used for
+        complex reasoning or external knowledge.
+
         Parameters
         -------
         question : str
@@ -190,7 +204,8 @@ class ImagePatch:
         return simple_query(self.cropped_image, question)
 
     def compute_depth(self):
-        """Returns the median depth of the image crop
+        """Returns the median depth of the image crop.
+
         Parameters
         ----------
         Returns
@@ -212,6 +227,7 @@ class ImagePatch:
 
     def crop(self, left: int, lower: int, right: int, upper: int) -> ImagePatch:
         """Returns a new ImagePatch cropped from the current ImagePatch.
+
         Parameters
         -------
         left, lower, right, upper : int
@@ -221,8 +237,9 @@ class ImagePatch:
         return ImagePatch(self.cropped_image, left, lower, right, upper)
 
     def overlaps_with(self, left, lower, right, upper):
-        """Returns True if a crop with the given coordinates overlaps with this 
+        """Returns True if a crop with the given coordinates overlaps with this
         one, else False.
+
         Parameters
         ----------
         left, lower, right, upper : int
@@ -248,7 +265,8 @@ class ImagePatch:
         return self.left <= right and self.right >= left and self.lower <= upper and self.upper >= lower
 
     def llm_query(self, question: str, long_answer: bool = True) -> str:
-        '''Answers a text question using GPT-3. The input question is always a formatted string with a variable in it.
+        """Answers a text question using GPT-3. The input question is always a
+        formatted string with a variable in it.
 
         Parameters
         ----------
@@ -283,7 +301,7 @@ class ImagePatch:
         >>>     object_patch = object_patches[0]
         >>>     object_name = object_patch.simple_query("What is the name of the object?")
         >>>     return object_patch.llm_query(f"What is the history behind {object_name}?", long_answer=True)
-        '''
+        """
         return llm_query(question, long_answer)
 
 
@@ -291,6 +309,7 @@ class ImagePatch:
 
 def best_image_match(list_patches: List[ImagePatch], content: List[str], return_index=False) -> Union[ImagePatch, int]:
     """Returns the patch most likely to contain the content.
+
     Parameters
     ----------
     list_patches : List[ImagePatch]
@@ -308,9 +327,9 @@ def best_image_match(list_patches: List[ImagePatch], content: List[str], return_
 
 
 def distance(patch_a: ImagePatch, patch_b: ImagePatch) -> float:
-    """
-    Returns the distance between the edges of two ImagePatches. If the patches overlap, it returns a negative distance
-    corresponding to the negative intersection over union.
+    """Returns the distance between the edges of two ImagePatches. If the
+    patches overlap, it returns a negative distance corresponding to the
+    negative intersection over union.
 
     Parameters
     ----------
@@ -336,8 +355,10 @@ def bool_to_yesno(bool_answer: bool) -> str:
 
 
 def coerce_to_numeric(string):
-    """
-    This function takes a string as input and returns a float after removing any non-numeric characters.
-    If the input string contains a range (e.g. "10-15"), it returns the first value in the range.
+    """This function takes a string as input and returns a float after removing
+    any non-numeric characters.
+
+    If the input string contains a range (e.g. "10-15"), it returns the
+    first value in the range.
     """
     return coerce_to_numeric(string)

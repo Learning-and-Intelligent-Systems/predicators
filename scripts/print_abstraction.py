@@ -1,16 +1,16 @@
-"""Print the learned/GT predicates and action operators of an environment
+"""Print the learned/GT predicates and action operators of an environment.
 
-python scripts/print_abstraction.py --approach oracle --seed 0 --env cover_multistep_options
-
+python scripts/print_abstraction.py --approach oracle --seed 0 --env
+cover_multistep_options
 """
 from pprint import pprint
 
 from predicators import utils
-from predicators.settings import CFG
-from predicators.envs import create_new_env
 from predicators.approaches import create_approach
+from predicators.envs import create_new_env
 from predicators.ground_truth_models import get_gt_options
 from predicators.perception import create_perceiver
+from predicators.settings import CFG
 
 # ENVS = [
 #     "cover_multistep_options",
@@ -19,8 +19,8 @@ from predicators.perception import create_perceiver
 #     "coffee"
 # ]
 
+
 def _main():
-    
 
     env_name = CFG.env
     env = create_new_env(env_name, do_cache=True)
@@ -32,7 +32,7 @@ def _main():
     train_tasks = [perceiver.reset(t) for t in env_train_tasks]
     stripped_train_tasks = [
         utils.strip_task(task, preds) for task in train_tasks
-    ]                
+    ]
 
     # Print example environment states
     print("# Example Environment States:")
@@ -55,14 +55,15 @@ def _main():
     for pred in preds:
         print(pred.pddl_str())
     print()
-    
+
     # Print the GT NSRTs
     approach = create_approach(approach_name, preds, options, env.types,
-                                env.action_space, stripped_train_tasks)
+                               env.action_space, stripped_train_tasks)
     print("# NSRTs:")
     nsrts = approach._nsrts
     for nsrt in nsrts:
         print(nsrt)
+
 
 if __name__ == "__main__":
     args = utils.parse_args()
@@ -70,7 +71,3 @@ if __name__ == "__main__":
 
     print("# Environment: ", CFG.env)
     _main()
-
-
-        
-            

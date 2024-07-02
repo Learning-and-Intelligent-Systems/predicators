@@ -1,6 +1,5 @@
 class RawState:
-    """
-    A class representing the raw visual state of the world
+    """A class representing the raw visual state of the world.
 
     Attributes:
     -----------
@@ -10,7 +9,7 @@ class RawState:
     Methods:
     --------
     crop_to_objects(self, objects: Collection[Object],
-                    left_margin: int = 5, lower_margin: int=10, 
+                    left_margin: int = 5, lower_margin: int=10,
                     right_margin: int=10, top_margin: int=5) -> Image:
         Crops the labeled image to only focus on the objects in the input.
     get(self, obj: Object, feature_name: str) -> Any:
@@ -25,8 +24,7 @@ class RawState:
                         lower_margin: int=10, 
                         right_margin: int=10, 
                         top_margin: int=5) -> Image:
-        """
-        Crop the labeled_image to only include the specified objects, with 
+        """Crop the labeled_image to only include the specified objects, with
         optional margins around the objects.
 
         Parameters:
@@ -79,8 +77,7 @@ class RawState:
         """
 
     def get(self, obj: Object, feature_name: str) -> Any:
-        """
-        Look up an object feature by name.
+        """Look up an object feature by name.
 
         Parameters:
         -----------
@@ -123,8 +120,7 @@ class RawState:
         """
 
     def get_objects(self, object_type: Type) -> List[Object]:
-        """
-        Return objects of the given type in the state
+        """Return objects of the given type in the state.
 
         Parameters:
         -----------
@@ -153,10 +149,9 @@ class RawState:
         """
 
     def evaluate_simple_assertion(self, assertion: str, image: Image) -> bool:
-        """
-        A function that takes a simple assertion as a string and 
-        an image as input, and returns a boolean indicating whether the 
-        assertion holds true for the image according to the VLM.
+        """A function that takes a simple assertion as a string and an image as
+        input, and returns a boolean indicating whether the assertion holds
+        true for the image according to the VLM.
 
         The assertion should be clear, unambiguous, and relatively simple, and 
         the image should have been cropped to only the relavant objects.

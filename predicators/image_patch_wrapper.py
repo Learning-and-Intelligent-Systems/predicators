@@ -1,26 +1,28 @@
-from typing import List, Sequence, Tuple
-import random
-import os
 import logging
+import os
+import random
+from typing import List, Sequence, Tuple
 
 import cv2
-import torch as th
-from torchvision.transforms import ToPILImage
-from torchvision import transforms
+import matplotlib.colors as mcolors
+import matplotlib.figure as mplfigure
 import numpy as np
+import torch as th
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from numpy.typing import NDArray
 from PIL import Image
+from torchvision import transforms
+from torchvision.transforms import ToPILImage
 
-# from viper.image_patch import ImagePatch as ViperImagePatch
-from predicators.structs import Object, Mask, State
 from predicators import utils
 # from predicators.utils import BoundingBox
 from predicators.settings import CFG
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-import matplotlib.colors as mcolors
-import matplotlib.figure as mplfigure
+# from viper.image_patch import ImagePatch as ViperImagePatch
+from predicators.structs import Mask, Object, State
+
 
 class VisImage:
+
     def __init__(self, img, scale=1.0):
         """
         Args:
@@ -45,7 +47,7 @@ class VisImage:
         """
         fig = mplfigure.Figure(frameon=False)
         self.dpi = fig.get_dpi()
-        # add a small 1e-2 to avoid precision lost due to matplotlib's 
+        # add a small 1e-2 to avoid precision lost due to matplotlib's
         # truncation (https://github.com/matplotlib/matplotlib/issues/15363)
         # fig.set_size_inches(
         #     (self.width * self.scale + 1e-2) / self.dpi,
@@ -60,8 +62,9 @@ class VisImage:
         self.fig = fig
         self.ax = ax
         # self.reset_image(img)
-        self.ax.imshow(img, #extent=(0, self.width-1, self.height-1, 0), 
-                       interpolation="nearest")
+        self.ax.imshow(
+            img,  #extent=(0, self.width-1, self.height-1, 0), 
+            interpolation="nearest")
 
     # def reset_image(self, img):
     #     """
@@ -101,12 +104,18 @@ class VisImage:
 
 
 class ImagePatch:
-# class ImagePatch:
+    # class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
-    def __init__(self, state: State, left: int = None, lower: int = None,
-                 right: int = None, upper: int = None, parent_left: int=0, 
-                 parent_lower:int=0, queues: Tuple=None, 
-                 parent_img_patch: 'ImagePatch'=None) -> None:
+    def __init__(self,
+                 state: State,
+                 left: int = None,
+                 lower: int = None,
+                 right: int = None,
+                 upper: int = None,
+                 parent_left: int = 0,
+                 parent_lower: int = 0,
+                 queues: Tuple = None,
+                 parent_img_patch: 'ImagePatch' = None) -> None:
         if state.labeled_image is None:
             image = state.state_image
             # super().__init__(state.state_image, *args, **kwargs)
@@ -116,7 +125,7 @@ class ImagePatch:
         self.state = state
         # self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         # css4_colors = mcolors.CSS4_COLORS
-        # self.color_proposals = [list(mcolors.hex2color(color)) for color in 
+        # self.color_proposals = [list(mcolors.hex2color(color)) for color in
         #                         css4_colors.values()]
         # ViperGPT init stuff
         if isinstance(image, Image.Image):
@@ -133,7 +142,9 @@ class ImagePatch:
             self.right = image.shape[2]  # width
             self.upper = image.shape[1]  # height
         else:
-            self.cropped_image = image[:, image.shape[1]-upper:image.shape[1]-lower, left:right]
+            self.cropped_image = image[:, image.shape[1] -
+                                       upper:image.shape[1] - lower,
+                                       left:right]
             self.left = left + parent_left
             self.upper = upper + parent_lower
             self.right = right + parent_left
@@ -153,7 +164,6 @@ class ImagePatch:
         if self.cropped_image.shape[1] == 0 or self.cropped_image.shape[2] == 0:
             raise Exception("ImagePatch has no area")
 
-
     @property
     def cropped_image_in_PIL(self):
         return ToPILImage()(self.cropped_image)
@@ -163,24 +173,23 @@ class ImagePatch:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         pil_image = self.cropped_image_in_PIL
         pil_image.save(path)
-    
-    def label_all_objects(self, 
-                    masks: Sequence[Mask], 
-                    labels: Sequence[str], 
-                    alpha: float = 0.1,
-                    anno_mode: List[str]=['Mark']):
-        """
-        Label an object, as indicated by mask, on the image.
+
+    def label_all_objects(self,
+                          masks: Sequence[Mask],
+                          labels: Sequence[str],
+                          alpha: float = 0.1,
+                          anno_mode: List[str] = ['Mark']):
+        """Label an object, as indicated by mask, on the image.
 
         Parameters:
         -----------
         mask : Mask
-            Mask of shape (H, W), where H is the image height and W is the image 
+            Mask of shape (H, W), where H is the image height and W is the image
             width. Each value in the array is either a True or False.
-        
+
         label : str
             The label to be assigned to the object.
-        
+
         alpha : float
             The transparency of the mask overlay.
 
@@ -195,7 +204,7 @@ class ImagePatch:
         # randint = random.randint(0, len(self.color_proposals)-1)
         # color = self.color_proposals[randint]
         # color = mcolors.to_rgb(color)
-        color = np.array([1,1,1])
+        color = np.array([1, 1, 1])
 
         img_np = self.cropped_image.permute(1, 2, 0).numpy()
         vis_image = VisImage(img_np)
@@ -208,26 +217,26 @@ class ImagePatch:
             mask_dt = cv2.distanceTransform(mask, cv2.DIST_L2, 0)
             mask_dt = mask_dt[1:-1, 1:-1]
             max_dist = np.max(mask_dt)
-            coords_y, coords_x = np.where(mask_dt == max_dist)  
+            coords_y, coords_x = np.where(mask_dt == max_dist)
 
             # try:
-            img_np = self.draw_text(vis_image, label, 
-                (coords_x[len(coords_x)//2], coords_y[len(coords_y)//2] - 8), 
-            color=color)
+            img_np = self.draw_text(vis_image,
+                                    label, (coords_x[len(coords_x) // 2],
+                                            coords_y[len(coords_y) // 2] - 8),
+                                    color=color)
 
         img_np = vis_image.get_image()
         self.cropped_image = th.tensor(img_np).permute(2, 0, 1)
 
-    def crop_to_objects(self, objects: Sequence[Object], 
+    def crop_to_objects(self,
+                        objects: Sequence[Object],
                         left_margin: int = 5,
-                        lower_margin: int=10, 
-                        right_margin: int=10, 
-                        top_margin: int=5
-                        ) -> 'ImagePatch':
-        """
-        Crop the image patch to the smallest bounding box that contains all the
-        masks of all the objects.
-        The BBox origin (0, 0) is at the bottom-left corner.
+                        lower_margin: int = 10,
+                        right_margin: int = 10,
+                        top_margin: int = 5) -> 'ImagePatch':
+        """Crop the image patch to the smallest bounding box that contains all
+        the masks of all the objects. The BBox origin (0, 0) is at the bottom-
+        left corner.
 
         Parameters:
         -----------
@@ -239,47 +248,44 @@ class ImagePatch:
             bboxes = [utils.mask_to_bbox(mask) for mask in masks]
         except Exception as e:
             breakpoint()
-        
+
             # left = min(left, x_indices.min() - left_margin)
             # lower = min(lower, self.height - y_indices.max() - lower_margin - 1)
             # right = max(right, x_indices.max() + right_margin)
             # upper = max(upper, self.height - y_indices.min() + top_margin - 1)
         bbox = utils.smallest_bbox_from_bboxes(bboxes)
         # Crop the image
-        return self.crop(bbox.left - left_margin, 
-                         bbox.lower - lower_margin, 
-                         bbox.right + right_margin, 
-                         bbox.upper + top_margin)
-    
+        return self.crop(bbox.left - left_margin, bbox.lower - lower_margin,
+                         bbox.right + right_margin, bbox.upper + top_margin)
+
     def crop_to_bboxes(self, bboxes) -> 'ImagePatch':
         bbox = utils.smallest_bbox_from_bboxes(bboxes)
-        return self.crop(bbox.left,
-                         bbox.lower,
-                         bbox.right, 
-                         bbox.upper)
+        return self.crop(bbox.left, bbox.lower, bbox.right, bbox.upper)
 
-    def crop(self, left: int, lower: int, right: int, upper: int) -> 'ImagePatch':
-        """Returns a new ImagePatch containing a crop of the original image at 
+    def crop(self, left: int, lower: int, right: int,
+             upper: int) -> 'ImagePatch':
+        """Returns a new ImagePatch containing a crop of the original image at
         the given coordinates.
+
         Parameters
         ----------
         left : int
-            the position of the left border of the crop's bounding box in the 
+            the position of the left border of the crop's bounding box in the
             original image
         lower : int
-            the position of the bottom border of the crop's bounding box in the 
+            the position of the bottom border of the crop's bounding box in the
             original image
         right : int
-            the position of the right border of the crop's bounding box in the 
+            the position of the right border of the crop's bounding box in the
             original image
         upper : int
-            the position of the top border of the crop's bounding box in the 
+            the position of the top border of the crop's bounding box in the
             original image
 
         Returns
         -------
         ImagePatch
-            a new ImagePatch containing a crop of the original image at the 
+            a new ImagePatch containing a crop of the original image at the
             given coordinates
         """
         # make all inputs ints
@@ -294,13 +300,19 @@ class ImagePatch:
         right = min(self.width, right)
         upper = min(self.height, upper)
 
-        return ImagePatch(self.state, left, lower, right, upper, 
-                          self.left, self.lower, queues=self.queues,
+        return ImagePatch(self.state,
+                          left,
+                          lower,
+                          right,
+                          upper,
+                          self.left,
+                          self.lower,
+                          queues=self.queues,
                           parent_img_patch=self)
-        
 
-    def draw_text(self, fig: VisImage, text: str, position: Sequence[int], 
-        color: Sequence[float], font_size: int=14, 
+
+    def draw_text(self, fig: VisImage, text: str, position: Sequence[int],
+        color: Sequence[float], font_size: int=14,
         horizontal_alignment: str="center", rotation: float=0) ->\
             NDArray[np.uint8]:
         """
@@ -318,21 +330,22 @@ class ImagePatch:
         Returns:
             output (VisImage): image object with text drawn.
         """
+
         def contrasting_color(rgb):
-            """Returns 'white' or 'black' depending on which color contrasts 
+            """Returns 'white' or 'black' depending on which color contrasts
             more with the given RGB value."""
-            
+
             # Decompose the RGB tuple
             R, G, B = rgb
 
             # Calculate the Y value
             Y = 0.299 * R + 0.587 * G + 0.114 * B
 
-            # If Y value is greater than 128, it's closer to white so return 
+            # If Y value is greater than 128, it's closer to white so return
             # black. Otherwise, return white.
             return 'black' if Y > 128 else 'white'
 
-        bbox_background = contrasting_color(color*255)
+        bbox_background = contrasting_color(color * 255)
 
         x, y = position
         fig.ax.text(
@@ -341,8 +354,12 @@ class ImagePatch:
             text,
             size=font_size * fig.scale,
             family="sans-serif",
-            bbox={"facecolor": bbox_background, "alpha": 0.8, "pad": 0.7, 
-                  "edgecolor": "none"},
+            bbox={
+                "facecolor": bbox_background,
+                "alpha": 0.8,
+                "pad": 0.7,
+                "edgecolor": "none"
+            },
             verticalalignment="top",
             horizontalalignment=horizontal_alignment,
             color=color,

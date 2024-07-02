@@ -87,8 +87,8 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(RobotAboveButton, [robot, from_button])}
         ignore_effects = set()
-        robot_press_button_nsrt = NSRT("HandPressButtonFromButton",
-                                       parameters, preconditions, add_effects,
+        robot_press_button_nsrt = NSRT("HandPressButtonFromButton", parameters,
+                                       preconditions, add_effects,
                                        delete_effects, ignore_effects, option,
                                        option_vars, null_sampler)
         nsrts.add(robot_press_button_nsrt)

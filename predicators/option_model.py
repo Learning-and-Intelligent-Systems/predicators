@@ -7,9 +7,8 @@ option in the environment.
 from __future__ import annotations
 
 import abc
-from typing import Callable, Set, Tuple
 import logging
-
+from typing import Callable, Set, Tuple
 
 import numpy as np
 

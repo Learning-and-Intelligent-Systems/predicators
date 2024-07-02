@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple, Sequence, Set, Union
+from typing import Any, ClassVar, Dict, List, Sequence, Set, Tuple, Union
 
 import numpy as np
 import pybullet as p
@@ -15,10 +15,10 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, EnvironmentTask, Object, State, Type,\
-    Predicate
-from predicators.utils import NSPredicate, RawState, BoundingBox,\
-    VLMQuery, _MemoizedClassifier
+from predicators.structs import Array, EnvironmentTask, Object, Predicate, \
+    State, Type
+from predicators.utils import BoundingBox, NSPredicate, RawState, VLMQuery, \
+    _MemoizedClassifier
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -32,10 +32,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     # Repeat for LLM predicates parsing
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
-                                "color_r", "color_g", "color_b"] + bbox_features)
-    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] + 
-                    bbox_features)
+    _block_type = Type("block", [
+        "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g", "color_b"
+    ] + bbox_features)
+    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
+                       bbox_features)
     _table_type = Type("table", bbox_features)
 
     _known_features = ["pose_x", "pose_y", "pose_z", "fingers"] + bbox_features
@@ -56,15 +57,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Predicates
         self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
-                                    self._On_NSP_holds)
+                                   self._On_NSP_holds)
         self._OnTable_NSP = NSPredicate("OnTable", [self._block_type],
-                                    self._OnTable_NSP_holds)
+                                        self._OnTable_NSP_holds)
         self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
-                                    self._GripperOpen_NSP_holds)
+                                            self._GripperOpen_NSP_holds)
         self._Holding_NSP = NSPredicate("Holding", [self._block_type],
-                                    self._Holding_NSP_holds)
+                                        self._Holding_NSP_holds)
         self._Clear_NSP = NSPredicate("Clear", [self._block_type],
-                                    self._Clear_NSP_holds)
+                                      self._Clear_NSP_holds)
 
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
@@ -74,29 +75,27 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._obj_id_to_obj: Dict[int, Object] = {}
         self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
 
-
     @property
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
-            self._On_NSP, 
-            self._OnTable_NSP, 
-            self._GripperOpen_NSP,
-            self._Holding_NSP, 
-            self._Clear_NSP
-            }
-    
+            self._On_NSP, self._OnTable_NSP, self._GripperOpen_NSP,
+            self._Holding_NSP, self._Clear_NSP
+        }
+
     @property
     def ns_predicates_to_predicates(self) -> Dict[NSPredicate, Predicate]:
-        return {self._On_NSP: self._On, self._OnTable_NSP: self._OnTable,
-                self._GripperOpen_NSP: self._GripperOpen,
-                self._Holding_NSP: self._Holding, self._Clear_NSP: self._Clear}
+        return {
+            self._On_NSP: self._On,
+            self._OnTable_NSP: self._OnTable,
+            self._GripperOpen_NSP: self._GripperOpen,
+            self._Holding_NSP: self._Holding,
+            self._Clear_NSP: self._Clear
+        }
 
     @staticmethod
     def _Clear_NSP_holds(state: RawState, objects: Sequence[Object]) -> \
             Union[bool, VLMQuery]:
-        '''
-        Is there no block on top of the block
-        '''
+        """Is there no block on top of the block."""
         block, = objects
 
         # Label the object in the scene image.
@@ -104,8 +103,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # We only need to look at the object and the space on top of it to
         # determine if it's clear.
-        attention_image = state.crop_to_objects([block], top_margin=20, 
-                                                   lower_margin=5)
+        attention_image = state.crop_to_objects([block],
+                                                top_margin=20,
+                                                lower_margin=5)
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/clear({block_name}).png")
             # return False
@@ -115,9 +115,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
-        '''
-        Is the robot holding the block
-        '''
+        """Is the robot holding the block."""
         block, = objects
 
         # The block can't be held if the robot's hand is open.
@@ -127,7 +125,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return False
 
         # Using simple heuristics to check if they have overlap
-        block_bbox = state.get_obj_bbox(block) 
+        block_bbox = state.get_obj_bbox(block)
         robot_bbox = state.get_obj_bbox(robot)
         if block_bbox.right < robot_bbox.left or \
             block_bbox.left > robot_bbox.right or\
@@ -141,32 +139,32 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         if CFG.save_nsp_image_patch_before_query:
             attention_image.save(f"{CFG.image_dir}/holding({block_name}).png")
 
-        return state.evaluate_simple_assertion(f"{block_name} is held by the robot",
-            attention_image)
+        return state.evaluate_simple_assertion(
+            f"{block_name} is held by the robot", attention_image)
 
     def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
-        '''
-        Is the robots gripper open
-        '''
+        """Is the robots gripper open."""
         robot, = objects
         finger_state = state.get(robot, "fingers")
         assert finger_state in (0.0, 1.0)
         return finger_state == 1.0
-    
+
 
     def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
             bool:
-        '''Determine if the block in objects is directly resting on the table's 
+        """Determine if the block in objects is directly resting on the table's
         surface in the scene image.
-        It first get the table in the environment, then crops the scene image 
-        to the smallest bounding box that includes both the block and the table, 
-        and finally evaluates a simple assertion about their relation.
-        No classification rules can be devised here so only a VLM query is used.
-        '''
+
+        It first get the table in the environment, then crops the scene
+        image to the smallest bounding box that includes both the block
+        and the table, and finally evaluates a simple assertion about
+        their relation. No classification rules can be devised here so
+        only a VLM query is used.
+        """
         block, = objects
         block_name = block.id_name
-  
+
         # We know there is only one table in this environment.
         table = state.get_objects(_table_type)[0]
         table_name = table.id_name
@@ -178,24 +176,24 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             attention_image)
 
     def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
-        '''
-        Determine if the first block in objects is directly on top of the second 
-        block with no blocks in between in the scene image, by using a 
+        """Determine if the first block in objects is directly on top of the
+        second block with no blocks in between in the scene image, by using a
         combination of rules and VLMs.
 
-        It first checks if the blocks are the same or if they are far away from 
-        each other. If neither condition is met, it crops the scene image to the 
-        smallest bounding box that includes both blocks and evaluates a simple 
-        assertion about their relative positions.
-        '''
-        
+        It first checks if the blocks are the same or if they are far
+        away from each other. If neither condition is met, it crops the
+        scene image to the smallest bounding box that includes both
+        blocks and evaluates a simple assertion about their relative
+        positions.
+        """
+
         block1, block2 = objects
         block1_name, block2_name = block1.id_name, block2.id_name
 
         # We know a block can't be on top of itself.
         if block1_name == block2_name:
             return False
-        
+
         # Situations where we're certain that block1 won't be above block2
         if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower") or\
            state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
@@ -209,12 +207,13 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # objects.
         attention_image = state.crop_to_objects([block1, block2])
         return state.evaluate_simple_assertion(
-            f"{block1_name} is directly on top of {block2_name} with no blocks"+
-             " in between.", attention_image)
+            f"{block1_name} is directly on top of {block2_name} with no blocks"
+            + " in between.", attention_image)
 
     @classmethod
-    def initialize_pybullet(cls, using_gui: bool
-        ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
+    def initialize_pybullet(
+            cls, using_gui: bool
+    ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle blocks-specific initialization."""
         physics_client_id, pybullet_robot, bodies = super(
         ).initialize_pybullet(using_gui)
@@ -401,7 +400,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # pose_x, pose_y, pose_z, held
             state_dict[block] = np.array([bx, by, bz, held, r, g, b],
                                          dtype=np.float32)
-        
+
         # Get table state.
         state_dict[self._table] = np.array([], dtype=np.float32)
 

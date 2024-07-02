@@ -1,10 +1,10 @@
 """Interface to pretrained large language models."""
 
 import abc
+import json
 import logging
 import os
 from typing import List, Optional
-import json
 
 import openai
 from openai import OpenAI
@@ -57,8 +57,8 @@ class LargeLanguageModel(abc.ABC):
         Higher temperatures will increase the variance in the responses.
 
         The seed may not be used and the results may therefore not be
-        reproducible for LLMs where we only have access through an API that
-        does not expose the ability to set a random seed.
+        reproducible for LLMs where we only have access through an API
+        that does not expose the ability to set a random seed.
 
         Responses are saved to disk.
         """
@@ -151,12 +151,12 @@ class OpenAILLM(LargeLanguageModel):
 
 class OpenAILLMNEW(OpenAILLM):
     """New interface to openAI LLMs (GPT-3.5, 4).
-    
+
     This uses OpenAI().chat.completions.create() instead of
-    OpenAI().completions.create().
-    Assumes that an environment variable OPENAI_API_KEY is set to a
-    private API key for beta.openai.com.
+    OpenAI().completions.create(). Assumes that an environment variable
+    OPENAI_API_KEY is set to a private API key for beta.openai.com.
     """
+
     def __init__(self, model_name: str) -> None:
         super().__init__(model_name)
         self.client = OpenAI()
@@ -183,7 +183,8 @@ class OpenAILLMNEW(OpenAILLM):
         #     response["choices"][i]["text"] for i in range(num_completions)
         # ]
         # return text_responses
-        return ['''To develop predicates for effective task planning in the domain described, where a robot must move blocks to cover targets on a table, we need to represent states, actions, and conditions that are important for understanding the task environment and making planning decisions. Here are some useful predicates:
+        return [
+            '''To develop predicates for effective task planning in the domain described, where a robot must move blocks to cover targets on a table, we need to represent states, actions, and conditions that are important for understanding the task environment and making planning decisions. Here are some useful predicates:
 
 1. `OnTable(block:block)` -- Does the block currently lie on the table?
 2. `Holding(robot:robot, block:block)` -- Is the robot holding a particular block?
@@ -198,5 +199,5 @@ class OpenAILLMNEW(OpenAILLM):
 11. `IsPathClear(robot:robot, block:block, target:target)` -- Is the path clear for the robot to move the block to the target?
 12. `IsPlaced(block:block, target:target)` -- Is the block placed on the target?
 
-Each predicate answers a binary question about the state of the world relevant to the task of covering targets with blocks. These predicates form the basis for creating rules and actions in a planning system, such as preconditions and effects for movement and placement actions.''']
-
+Each predicate answers a binary question about the state of the world relevant to the task of covering targets with blocks. These predicates form the basis for creating rules and actions in a planning system, such as preconditions and effects for movement and placement actions.'''
+        ]

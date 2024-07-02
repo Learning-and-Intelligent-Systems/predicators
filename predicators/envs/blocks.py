@@ -50,15 +50,16 @@ class BlocksEnv(BaseEnv):
     collision_padding: ClassVar[float] = 2.0
 
     # Types
-    # _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
+    # _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held",
     #                             "color_r", "color_g", "color_b"])
     # _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"])
     # _table_type = Type("table", [])
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _block_type = Type("block", ["pose_x", "pose_y", "pose_z", "held", 
-                                "color_r", "color_g", "color_b"] + bbox_features)
-    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] + 
-                    bbox_features)
+    _block_type = Type("block", [
+        "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g", "color_b"
+    ] + bbox_features)
+    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
+                       bbox_features)
     _table_type = Type("table", bbox_features)
     _known_features = ["pose_x", "pose_y", "pose_z", "fingers"] + bbox_features
 
@@ -75,7 +76,6 @@ class BlocksEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
-        
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -200,8 +200,7 @@ class BlocksEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._On, self._OnTable, self._GripperOpen, 
-            self._Holding,
+            self._On, self._OnTable, self._GripperOpen, self._Holding,
             self._Clear
         }
 
@@ -336,8 +335,8 @@ class BlocksEnv(BaseEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            # Example: 0.2 + 0.045 * 0.5 
-            z = self.table_height + self._block_size * (0.5 + pile_j) 
+            # Example: 0.2 + 0.045 * 0.5
+            z = self.table_height + self._block_size * (0.5 + pile_j)
             r, g, b = rng.uniform(size=3)
             if "clear" in self._block_type.feature_names:
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,

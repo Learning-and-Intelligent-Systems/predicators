@@ -28,10 +28,9 @@ class CoverEnv(BaseEnv):
     workspace_z: ClassVar[float] = 0.65
 
     # Types
-    _block_type = Type("block", 
-                    ["is_block", "is_target", "width", "pose", "grasp"])
-    _target_type = Type("target",
-                                ["is_block", "is_target", "width", "pose"])
+    _block_type = Type("block",
+                       ["is_block", "is_target", "width", "pose", "grasp"])
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
     _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -405,6 +404,7 @@ class CoverEnvTypedOptions(CoverEnv):
 
     This means we need two options (one for block, one for target).
     """
+
     @classmethod
     def get_name(cls) -> str:
         return "cover_typed_options"
@@ -1019,12 +1019,11 @@ class CoverEnvPlaceHard(CoverEnv):
     # Repeating Types and Predicates for LLM input.
     # Types
     _block_type = Type("block",
-                        ["is_block", "is_target", "width", "pose", "grasp"])
-    _target_type = Type("target",                       
-                        ["is_block", "is_target", "width", "pose"])
+                       ["is_block", "is_target", "width", "pose", "grasp"])
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
     _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
 
-    def __init__(self, use_gui:bool = True) -> None:
+    def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Predicates

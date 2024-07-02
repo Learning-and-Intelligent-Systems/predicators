@@ -13,26 +13,26 @@ from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
 import numpy as np
 from tabulate import tabulate
 
-
 from predicators import utils
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
     task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, GroundAtomTrajectory, \
+from predicators.structs import NSRT, GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
-    STRIPSOperator, Task, _GroundSTRIPSOperator, NSRT
+    STRIPSOperator, Task, _GroundSTRIPSOperator
 
 
 def create_score_function(
-        score_function_name: str, initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory], 
-        candidates: Dict[Predicate, float],
-        train_tasks: List[Task],
-        succ_optn_dict: Optional[Dict[str, GroundOptionRecord]] = None,
-        fail_optn_dict: Optional[Dict[str, GroundOptionRecord]] = None,
-        ) -> _PredicateSearchScoreFunction:
+    score_function_name: str,
+    initial_predicates: Set[Predicate],
+    atom_dataset: List[GroundAtomTrajectory],
+    candidates: Dict[Predicate, float],
+    train_tasks: List[Task],
+    succ_optn_dict: Optional[Dict[str, GroundOptionRecord]] = None,
+    fail_optn_dict: Optional[Dict[str, GroundOptionRecord]] = None,
+) -> _PredicateSearchScoreFunction:
     """Public method for creating a score function object."""
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
@@ -98,12 +98,12 @@ def create_score_function(
                                            candidates, train_tasks,
                                            metric_name)
     if score_function_name == "operator_classification_error":
-        return _ClassificationErrorScoreFunction(initial_predicates, 
-                                        atom_dataset, candidates, train_tasks, 
-                                        succ_optn_dict, fail_optn_dict)
+        return _ClassificationErrorScoreFunction(initial_predicates,
+                                                 atom_dataset, candidates,
+                                                 train_tasks, succ_optn_dict,
+                                                 fail_optn_dict)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
-
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -135,9 +135,10 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         total_cost = sum(self._candidates[pred]
-                            for pred in candidate_predicates)
-        logging.debug(f"Evaluating predicates: {sorted(candidate_predicates)},"+
-                        f" with total cost {total_cost}")
+                         for pred in candidate_predicates)
+        logging.debug(
+            f"Evaluating predicates: {sorted(candidate_predicates)}," +
+            f" with total cost {total_cost}")
         start_time = time.perf_counter()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset,
@@ -153,14 +154,15 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         del pruned_atom_data
         try:
-            pnads = learn_strips_operators(low_level_trajs,
-                                           self._train_tasks,
-                                           set(candidate_predicates
-                                               | self._initial_predicates),
-                                           segmented_trajs,
-                                           verify_harmlessness=CFG.enable_harmless_op_pruning,
-                                           verbose=False,
-                                           annotations=None)
+            pnads = learn_strips_operators(
+                low_level_trajs,
+                self._train_tasks,
+                set(candidate_predicates
+                    | self._initial_predicates),
+                segmented_trajs,
+                verify_harmlessness=CFG.enable_harmless_op_pruning,
+                verbose=False,
+                annotations=None)
         except TimeoutError:
             logging.info(
                 "Warning: Operator Learning timed out! Skipping evaluation.")
@@ -176,25 +178,24 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
                                                 low_level_trajs,
-                                                segmented_trajs, 
-                                                strips_ops,
+                                                segmented_trajs, strips_ops,
                                                 option_specs)
         pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
         logging.debug(f"\tTotal score: {total_score} computed in "
-                     f"{time.perf_counter()-start_time:.3f} seconds")
+                      f"{time.perf_counter()-start_time:.3f} seconds")
         # pre_str = [p.name for p in candidate_predicates]
-        # if sorted(pre_str) == sorted(["Clear", "Holding", "On", "OnTable", 
+        # if sorted(pre_str) == sorted(["Clear", "Holding", "On", "OnTable",
         #                               "GripperOpen"]) or\
-        #    sorted(pre_str) == sorted(["Clear", "NOT-GripperOpen", "On", "OnTable", 
+        #    sorted(pre_str) == sorted(["Clear", "NOT-GripperOpen", "On", "OnTable",
         #                               "GripperOpen"]):
         #     print(f"Learned operators: {pnads}")
         #     print(pre_str)
-            #  ite 1: -99.9989 vs -99.9988, second appeared first
-            # ite 2: -99.9988 vs. -95.9989
-            # -100 + 0.0012000000000000001 + 0.0 vs -96 + 0.0011
-            # breakpoint()
+        #  ite 1: -99.9989 vs -99.9988, second appeared first
+        # ite 2: -99.9988 vs. -95.9989
+        # -100 + 0.0012000000000000001 + 0.0 vs -96 + 0.0011
+        # breakpoint()
         return total_score
 
     def evaluate_with_operators(self,
@@ -215,6 +216,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             complexity += op.get_complexity()
         return CFG.grammar_search_operator_complexity_weight * complexity
 
+
 @dataclass(frozen=True, eq=False, repr=False)
 class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting classification
@@ -227,19 +229,18 @@ class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
                                 low_level_trajs: List[LowLevelTrajectory],
                                 segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
-                                option_specs: List[OptionSpec]
-                                ) -> float:
+                                option_specs: List[OptionSpec]) -> float:
         del candidate_predicates, low_level_trajs, segmented_trajs
         nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
         tp, tn, fp, fn, _ = utils.count_classification_result_for_ops(
-            nsrts, self.succ_optn_dict, self.fail_optn_dict
-        )
-        accuracy = round((tp + tn) / (tp + tn + fp + fn), 
-                     2) if tp + tn + fp + fn > 0 else 0
+            nsrts, self.succ_optn_dict, self.fail_optn_dict)
+        accuracy = round(
+            (tp + tn) / (tp + tn + fp + fn), 2) if tp + tn + fp + fn > 0 else 0
         num = tp + tn + fp + fn
         logging.debug(f"num: {num}. tp: {tp}, tn: {tn}, fp: {fp}, fn: {fn}, "+\
                     f"accuracy: {accuracy}")
-        return -accuracy*100
+        return -accuracy * 100
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):

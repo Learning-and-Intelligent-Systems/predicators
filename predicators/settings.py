@@ -273,7 +273,7 @@ class GlobalSettings:
     stick_button_num_buttons_test = [3, 4]
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
-    stick_button_button_position = "uniform" # "only_top" "only_bottom"
+    stick_button_button_position = "uniform"  # "only_top" "only_bottom"
 
     # screws env parameters
     screws_num_screws_train = [15, 20]
@@ -515,7 +515,6 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     cluster_and_intersect_min_datastore_fraction = 0.0
     use_option_not_args_types_in_unification = False
     use_least_generalization_types_in_clustering = False
-    use_partial_plans_prefix_as_demo = False
 
     # torch GPU usage setting
     use_torch_gpu = False
@@ -701,9 +700,9 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     grammar_search_clustering_gmm_num_components = 10
 
     # Have the pybullet env (for now) to render the states and save to RawState
-    rgb_observation = False # Render every state
-    render_init_state = False # Render only the init state for planning
-    # For debug 
+    rgb_observation = False  # Render every state
+    render_init_state = False  # Render only the init state for planning
+    # For debug
     save_nsp_image_patch_before_query = False
     # LLM predicate invention algorithm parameters
     llm_predicator_use_grammar = True
@@ -813,12 +812,20 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
-                    # "pybullet_coffee": 40,  # with GT preds, 40 is enough
-                    # "pybullet_coffee": 50,
+                    # with GT preds, 40 is enough for 3 cups in pb_coffee
+                    "pybullet_coffee": 40,
+                    # "pybullet_coffee": 8,
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
                     "stick_button_move": 1000,
+                })[args.get("env", "")],
+
+            # whether to use the successful prefix of partial plan to learn
+            # predicates/operators
+            use_partial_plans_prefix_as_demo=defaultdict(
+                lambda: False, {
+                    "pybullet_coffee": True,
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into refining a single skeleton.
@@ -872,21 +879,31 @@ You are an AI researcher who will answer whether each assertion holds in the ima
 
             # Parameters specific to the cover environment.
             # cover env parameters
-            cover_num_blocks=defaultdict(lambda: 2, {
-                # "cover_place_hard": 1,
-            })[args.get("env", "")],
-            cover_num_targets=defaultdict(lambda: 2, {
-                # "cover_place_hard": 1,
-            })[args.get("env", "")],
-            cover_block_widths=defaultdict(lambda: [0.1, 0.07], {
-                # "cover_place_hard": [0.1],
-            })[args.get("env", "")],
-            cover_target_widths=defaultdict(lambda: [0.05, 0.03], {
-                # "cover_place_hard": [0.05],
-            })[args.get("env", "")],
-            cover_initial_holding_prob=defaultdict(lambda: 0.75, {
-                # "cover_place_hard": 0.0,
-            })[args.get("env", "")],
+            cover_num_blocks=defaultdict(
+                lambda: 2,
+                {
+                    # "cover_place_hard": 1,
+                })[args.get("env", "")],
+            cover_num_targets=defaultdict(
+                lambda: 2,
+                {
+                    # "cover_place_hard": 1,
+                })[args.get("env", "")],
+            cover_block_widths=defaultdict(
+                lambda: [0.1, 0.07],
+                {
+                    # "cover_place_hard": [0.1],
+                })[args.get("env", "")],
+            cover_target_widths=defaultdict(
+                lambda: [0.05, 0.03],
+                {
+                    # "cover_place_hard": [0.05],
+                })[args.get("env", "")],
+            cover_initial_holding_prob=defaultdict(
+                lambda: 0.75,
+                {
+                    # "cover_place_hard": 0.0,
+                })[args.get("env", "")],
         )
 
 

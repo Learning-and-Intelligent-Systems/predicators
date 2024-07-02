@@ -24,11 +24,10 @@ from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
-from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, Segment, State, Task, Type, \
-    DerivedPredicate, VLMPredicate
+from predicators.structs import Dataset, DerivedPredicate, GroundAtom, \
+    GroundAtomTrajectory, Object, ParameterizedOption, Predicate, Segment, \
+    State, Task, Type, VLMPredicate
 from predicators.utils import VLMQuery
-    
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -42,7 +41,7 @@ def _create_grammar(dataset: Dataset,
     grammar = None
     if CFG.grammar_search_grammar_use_single_feature:
         grammar: _PredicateGrammar = _SingleFeatureInequalitiesPredicateGrammar(
-        dataset)
+            dataset)
     if CFG.grammar_search_grammar_use_diff_features:
         diff_grammar = _FeatureDiffInequalitiesPredicateGrammar(dataset)
         grammar = _ChainPredicateGrammar([grammar, diff_grammar],
@@ -857,10 +856,10 @@ class _NegationPredicateGrammarWrapper(_PredicateGrammar):
         for (predicate, cost) in self.base_grammar.enumerate():
             yield (predicate, cost)
             classifier = _NegationClassifier(predicate)
-            negated_predicate = DerivedPredicate(
-                str(classifier), predicate.types, classifier)
+            negated_predicate = DerivedPredicate(str(classifier),
+                                                 predicate.types, classifier)
             # No change to costs when negating.
-            yield (negated_predicate, cost) #+1)
+            yield (negated_predicate, cost)  #+1)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -881,14 +880,14 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
             # Generate Forall(x)
             forall_classifier = _ForallClassifier(predicate)
             forall_predicate = DerivedPredicate(str(forall_classifier), [],
-                                         forall_classifier)
+                                                forall_classifier)
             assert forall_predicate.arity == 0
             yield (forall_predicate, cost + 1)  # add arity + 1 to cost
             # Generate NOT-Forall(x)
             notforall_classifier = _NegationClassifier(forall_predicate)
             notforall_predicate = DerivedPredicate(str(notforall_classifier),
-                                            forall_predicate.types,
-                                            notforall_classifier)
+                                                   forall_predicate.types,
+                                                   notforall_classifier)
             assert notforall_predicate.arity == 0
             yield (notforall_predicate, cost + 1)  # add arity + 1 to cost
             # Generate UFFs
@@ -897,15 +896,15 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                     # Positive UFF
                     uff_classifier = _UnaryFreeForallClassifier(predicate, idx)
                     uff_predicate = DerivedPredicate(str(uff_classifier),
-                                              [predicate.types[idx]],
-                                              uff_classifier)
+                                                     [predicate.types[idx]],
+                                                     uff_classifier)
                     assert uff_predicate.arity == 1
                     yield (uff_predicate, cost + 2)  # add arity + 1 to cost
                     # Negated UFF
                     notuff_classifier = _NegationClassifier(uff_predicate)
-                    notuff_predicate = DerivedPredicate(str(notuff_classifier),
-                                                 uff_predicate.types,
-                                                 notuff_classifier)
+                    notuff_predicate = DerivedPredicate(
+                        str(notuff_classifier), uff_predicate.types,
+                        notuff_classifier)
                     assert notuff_predicate.arity == 1
                     yield (notuff_predicate, cost + 2)  # add arity + 1 to cost
 

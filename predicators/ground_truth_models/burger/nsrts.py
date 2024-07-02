@@ -156,7 +156,7 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                    add_effects, delete_effects,
                                                    ignore_effects, option,
                                                    option_vars, null_sampler)
-        
+
         # MoveFromNothing
         parameters = [robot, to_obj4]
         option_vars = [robot, to_obj4]
@@ -171,12 +171,9 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # okay to be less specific
         delete_effects = set()
         ignore_effects = set()
-        move_from_nothing = NSRT("Move",
-                                                   parameters, preconditions,
-                                                   add_effects, delete_effects,
-                                                   ignore_effects, option,
-                                                   option_vars, null_sampler)
-
+        move_from_nothing = NSRT("Move", parameters, preconditions,
+                                 add_effects, delete_effects, ignore_effects,
+                                 option, option_vars, null_sampler)
 
         # MoveFromNothingToTwoStack
         parameters = [robot, to_obj1, to_obj4]

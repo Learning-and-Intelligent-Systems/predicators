@@ -250,20 +250,28 @@ class GoogleGeminiVLM(VisionLanguageModel):
         assert "GOOGLE_API_KEY" in os.environ
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
         safety_settings = [
-        {"category": "HARM_CATEGORY_HARASSMENT",
-        "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "BLOCK_NONE"},
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_NONE"
+            },
         ]
         # pylint:disable=no-member
         self._model = genai.GenerativeModel(
             model_name=self._model_name,
             safety_settings=safety_settings,
-            system_instruction=CFG.vlm_system_instruction)  
+            system_instruction=CFG.vlm_system_instruction)
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()
 
@@ -289,9 +297,8 @@ class GoogleGeminiVLM(VisionLanguageModel):
         del seed, stop_token  # unused
         assert imgs is not None
         # pylint:disable=no-member
-        generation_config = genai.types.GenerationConfig(  
-            candidate_count=num_completions,
-            temperature=temperature)
+        generation_config = genai.types.GenerationConfig(
+            candidate_count=num_completions, temperature=temperature)
         if CFG.vlm_use_chat_mode:
             logging.debug("Using chat mode instead of sample completions.")
             response = self.chat_session.send_message(
@@ -303,8 +310,6 @@ class GoogleGeminiVLM(VisionLanguageModel):
                 generation_config=generation_config)  # type: ignore
         response.resolve()
         return [response.text]
-    
-
 
 
 class OpenAIVLM(VisionLanguageModel, OpenAIModel):
@@ -357,18 +362,19 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         if suffix:
             content.append({"text": suffix, "type": "text"})
         return [{"role": "user", "content": content}]
-    
+
     def prepare_system_message(self):
         system_message = []
         if CFG.vlm_system_instruction:
             system_message.append({
-                "role": "system",
+                "role":
+                "system",
                 "content": [{
                     "type": "text",
                     "text": CFG.vlm_system_instruction
-                    }]})
+                }]
+            })
         return system_message
-
 
     def get_id(self) -> str:
         """Get an identifier for the model."""
