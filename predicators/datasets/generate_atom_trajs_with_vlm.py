@@ -877,7 +877,7 @@ def create_ground_atom_data_from_saved_img_trajs(
             for img_file in img_files:
                 # PIL.Image.open returns an ImageFile, which is a subclass of
                 # an Image.
-                img = cast(PIL.Image.open(img_file), PIL.Image.Image)
+                img = cast(PIL.Image.Image, PIL.Image.open(img_file))
                 curr_imgs.append(img)
             img_traj.append(curr_imgs)
             state_file = curr_state_path / "state.p"
