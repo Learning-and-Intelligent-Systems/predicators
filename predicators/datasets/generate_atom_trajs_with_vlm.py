@@ -870,7 +870,7 @@ def create_ground_atom_data_from_saved_img_trajs(
         img_traj = []
         state_traj: Optional[List[State]] = []
         for state_num in range(num_states_in_traj):
-            curr_imgs = []
+            curr_imgs: List[PIL.Image.Image] = []
             curr_state_path = path.joinpath(str(state_num))
             # NOTE: we assume all images are saved as jpg files.
             img_files = sorted(glob.glob(str(curr_state_path) + "/*.jpg"))
