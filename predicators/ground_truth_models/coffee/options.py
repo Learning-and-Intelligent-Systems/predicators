@@ -82,7 +82,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             "TwistJug",
             types=[robot_type, jug_type],
             # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0,)),
+            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0, )),
             policy=cls._create_twist_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
@@ -205,8 +205,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory  # unused
             robot, jug = objects
             current_rot = state.get(jug, "rot")
-            # norm_desired_rot, = params
-            norm_desired_rot = 0.0  # perfect sampler
+            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
@@ -416,9 +415,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
 
     @classmethod
-    def _get_twist_action(cls, state: State,
-                            cur_robot_pos: Tuple[float, float, float],
-                            dtwist: float) -> Action:
+    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float, float,
+                                                                  float],
+                          dtwist: float) -> Action:
         del state, cur_robot_pos  # used by PyBullet subclass
         return Action(
             np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
@@ -516,7 +515,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             "TwistJug",
             types=[robot_type, jug_type],
             # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0, )),  # temp; originally 1
+            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else
+                                     0, )),  # temp; originally 1
             policy=cls._create_twist_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
@@ -535,8 +535,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             del memory  # unused
             robot, jug = objects
             current_rot = state.get(jug, "rot")
-            # norm_desired_rot, = params
-            norm_desired_rot = 0.0  # perfect sampler
+            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
@@ -774,9 +773,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             cls._finger_action_nudge_magnitude)
 
     @classmethod
-    def _get_twist_action(cls, state: State,
-                            cur_robot_pos: Tuple[float, float, float],
-                            dtwist: float) -> Action:
+    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float, float,
+                                                                  float],
+                          dtwist: float) -> Action:
         delta_rot = dtwist * cls.env_cls.max_angular_vel
         return cls._get_move_action(state, cur_robot_pos, cur_robot_pos, 0.0,
                                     delta_rot)
@@ -811,154 +810,3 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     def _get_place_action(cls, state: State) -> Action:
         pybullet_robot = _get_pybullet_robot()
         return cls._get_finger_action(state, pybullet_robot.open_fingers)
-
-
-# class PyBulletCoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
-#     """Ground-truth options for the pybullet_coffee environment."""
-
-#     @classmethod
-#     def get_env_names(cls) -> Set[str]:
-#         return {"pybullet_coffee"}
-
-#     @classmethod
-#     def get_options(cls, env_name: str, types: Dict[str, Type],
-#                     predicates: Dict[str, Predicate],
-#                     action_space: Box) -> Set[ParameterizedOption]:
-
-#         # The options are the same as in the regular coffee environment,
-#         # except for the policies.
-#         coffee_options = CoffeeGroundTruthOptionFactory.get_options(
-#             "coffee", types, predicates, action_space)
-#         coffee_option_name_to_option = {o.name: o for o in coffee_options}
-
-#         # MoveToTwistJug
-#         coffee_MoveToTwistJug = coffee_option_name_to_option["MoveToTwistJug"]
-#         MoveToTwistJug = ParameterizedOption(
-#             coffee_MoveToTwistJug.name,
-#             types=coffee_MoveToTwistJug.types,
-#             params_space=coffee_MoveToTwistJug.params_space,
-#             policy=cls._create_move_to_twist_policy(),
-#             initiable=coffee_MoveToTwistJug.initiable,
-#             terminal=coffee_MoveToTwistJug.terminal)
-
-#         # TwistJug
-#         coffee_TwistJug = coffee_option_name_to_option["TwistJug"]
-#         TwistJug = ParameterizedOption(
-#             coffee_TwistJug.name,
-#             types=coffee_TwistJug.types,
-#             params_space=coffee_TwistJug.params_space,
-#             policy=cls._create_twist_jug_policy(),
-#             initiable=coffee_TwistJug.initiable,
-#             terminal=coffee_TwistJug.terminal,
-#         )
-
-#         # PickJug
-#         coffee_PickJug = coffee_option_name_to_option["PickJug"]
-#         PickJug = ParameterizedOption(
-#             coffee_PickJug.name,
-#             types=coffee_PickJug.types,
-#             params_space=coffee_PickJug.params_space,
-#             policy=cls._create_pick_jug_policy(),
-#             initiable=coffee_PickJug.initiable,
-#             terminal=coffee_PickJug.terminal,
-#         )
-
-#         # PlaceJugInMachine
-#         coffee_PlaceJugInMachine = \
-#             coffee_option_name_to_option["PlaceJugInMachine"]
-#         PlaceJugInMachine = ParameterizedOption(
-#             coffee_PlaceJugInMachine.name,
-#             types=coffee_PlaceJugInMachine.types,
-#             params_space=coffee_PlaceJugInMachine.params_space,
-#             policy=cls._create_place_jug_in_machine_policy(),
-#             initiable=coffee_PlaceJugInMachine.initiable,
-#             terminal=coffee_PlaceJugInMachine.terminal,
-#         )
-
-#         # TurnMachineOn
-#         coffee_TurnMachineOn = coffee_option_name_to_option["TurnMachineOn"]
-#         TurnMachineOn = ParameterizedOption(
-#             coffee_TurnMachineOn.name,
-#             types=coffee_TurnMachineOn.types,
-#             params_space=coffee_TurnMachineOn.params_space,
-#             policy=cls._create_turn_machine_on_policy(),
-#             initiable=coffee_TurnMachineOn.initiable,
-#             terminal=coffee_TurnMachineOn.terminal,
-#         )
-
-#         # Pour
-#         coffee_Pour = coffee_option_name_to_option["Pour"]
-#         Pour = ParameterizedOption(
-#             coffee_Pour.name,
-#             types=coffee_Pour.types,
-#             params_space=coffee_Pour.params_space,
-#             policy=cls._create_pour_policy(),
-#             initiable=coffee_Pour.initiable,
-#             terminal=coffee_Pour.terminal,
-#         )
-
-#         return {
-#             TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, Pour,
-#             MoveToTwistJug
-#         }
-
-#     @classmethod
-#     def _create_move_to_twist_policy(cls) -> ParameterizedPolicy:
-
-#         def policy(state: State, memory: Dict, objects: Sequence[Object],
-#                    params: Array) -> Action:
-#             import ipdb
-#             ipdb.set_trace()
-
-#         return policy
-
-#     @classmethod
-#     def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
-
-#         def policy(state: State, memory: Dict, objects: Sequence[Object],
-#                    params: Array) -> Action:
-
-#             import ipdb
-#             ipdb.set_trace()
-
-#         return policy
-
-#     @classmethod
-#     def _create_pick_jug_policy(cls) -> ParameterizedPolicy:
-
-#         def policy(state: State, memory: Dict, objects: Sequence[Object],
-#                    params: Array) -> Action:
-#             import ipdb
-#             ipdb.set_trace()
-
-#         return policy
-
-#     @classmethod
-#     def _create_place_jug_in_machine_policy(cls) -> ParameterizedPolicy:
-
-#         def policy(state: State, memory: Dict, objects: Sequence[Object],
-#                    params: Array) -> Action:
-#             import ipdb
-#             ipdb.set_trace()
-
-#         return policy
-
-#     @classmethod
-#     def _create_turn_machine_on_policy(cls) -> ParameterizedPolicy:
-
-#         def policy(state: State, memory: Dict, objects: Sequence[Object],
-#                    params: Array) -> Action:
-#             import ipdb
-#             ipdb.set_trace()
-
-#         return policy
-
-#     @classmethod
-#     def _create_pour_policy(cls) -> ParameterizedPolicy:
-
-#         def policy(state: State, memory: Dict, objects: Sequence[Object],
-#                    params: Array) -> Action:
-#             import ipdb
-#             ipdb.set_trace()
-
-#         return policy
