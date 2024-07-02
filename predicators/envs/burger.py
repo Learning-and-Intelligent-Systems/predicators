@@ -132,71 +132,157 @@ class BurgerEnv(BaseEnv):
             self._grill_type, self._cutting_board_type
         }
 
+    def get_edge_cells_for_object_placement(
+            self, rng: np.random.Generator) -> List[Tuple[int, int]]:
+        """Selects edge cells such that if objects were placed in these cells,
+        the robot would never find itself adjacent to more than one object.
+
+        This helper function assumes that the grid is 5x5.
+
+        Public for use by tests.
+        """
+        n_row = self.num_rows
+        n_col = self.num_cols
+        top = [(n_row - 1, col) for col in range(n_col)]
+        left = [(row, 0) for row in range(n_row)]
+        bottom = [(0, col) for col in range(n_col)]
+        right = [(row, n_col - 1) for row in range(n_row)]
+        corners = [(0, 0), (0, self.num_cols - 1), (self.num_rows - 1, 0),
+                   (self.num_rows - 1, self.num_cols - 1)]
+
+        # Pick edge cells for objects to be placed in such that the robot will
+        # never be adjacent to two objects at the same time.
+        # 1. Pick one edge to keep all its cells.
+        # 2. Pick one edge to lose two cells.
+        # 3. The cells we keep in the remaining two edges are determined by the
+        # previous choices.
+        # If this strategy is confusing to you, spend a few minutes drawing it
+        # out on graph paper.
+
+        # We don't consider placing objects in the corners because the robot
+        # cannot interact with an object that is diagonally positioned.
+        edges = [top, left, bottom, right]
+        for i, edge in enumerate(edges):
+            edges[i] = [c for c in edge if c not in corners]
+        top, left, bottom, right = edges
+        # Without loss of generality, have the top edge keep all its cells. To
+        # generate other possibilities, we will later rotate the entire grid
+        # with some probability.
+        # Note that we can always keep cells that are in the "middle" of the
+        # edge -- we only need to worry about cells at the ends of an edge.
+        # If one edge keeps all its cells (call this edge A), then for the two
+        # edges that are adjacent to A, we can't choose the cell in each of
+        # these that is closest to A -- otherwise the robot could be adjacent
+        # to objects at once. Since our grid has 4 edges, this implies that
+        # one edge will have to lose two cells, and the others will lose one
+        # cell.
+        loses_two = edges[rng.choice([1, 2, 3])]
+        if loses_two == left:
+            left = left[1:len(left) - 1]
+            bottom = bottom[:-1]
+            right = right[:-1]
+        elif loses_two == bottom:
+            left = left[:-1]
+            bottom = bottom[1:len(bottom) - 1]
+            right = right[:-1]
+        elif loses_two == right:
+            left = left[:-1]
+            bottom = bottom[1:]
+            right = right[1:len(right) - 1]
+        edges = [top, left, bottom, right]
+        # Now, rotate the grid with some probability to cover the total set of
+        # possibilities for object placements that satisfy our constraint. To
+        # see why this rotation covers all the possibilities, draw it out on
+        # graph paper.
+        cells = top + left + bottom + right
+        rotate = rng.choice([0, 1, 2, 3])
+        # Rotate 0 degrees.
+        if rotate == 0:
+            ret = cells
+        elif rotate == 1:
+            # Rotate 90 degrees.
+            ret = [(col, n_row - 1 - row) for row, col in cells]
+        elif rotate == 2:
+            # Rotate 180 degrees.
+            ret = [(n_row - 1 - row, n_col - 1 - col) for row, col in cells]
+        else:
+            # Rotate 270 degrees.
+            ret = [(col, row) for row, col in cells]
+
+        return ret
+
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
-        del rng  # unused
         tasks = []
         state_dict = {}
         hidden_state = {}
 
-        # Add robot, grill, and cutting board
-        state_dict[self._robot] = {
-            "row": 2,
-            "col": 2,
-            "z": 0,
-            "fingers": 0.0,
-            "dir": 3
-        }
-        state_dict[self._grill] = {"row": 2, "col": 3, "z": 0}
-        state_dict[self._cutting_board] = {"row": 1, "col": 3, "z": 0}
-
-        # Add patty
-        patty = Object("patty", self._patty_type)
-        state_dict[patty] = {"row": 0, "col": 0, "z": 0}
-        hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
-
-        # Add tomato
-        tomato = Object("tomato", self._tomato_type)
-        state_dict[tomato] = {"row": 0, "col": 1, "z": 0}
-        hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
-
-        # Add cheese
-        cheese = Object("cheese", self._cheese_type)
-        state_dict[cheese] = {"row": 3, "col": 0, "z": 0}
-        hidden_state[cheese] = {"is_held": 0.0}
-
-        # Add top bun
-        top_bun = Object("top_bun", self._top_bun_type)
-        state_dict[top_bun] = {"row": 3, "col": 1, "z": 0}
-        hidden_state[top_bun] = {"is_held": 0.0}
-
-        # Add bottom bun
-        bottom_bun = Object("bottom_bun", self._bottom_bun_type)
-        state_dict[bottom_bun] = {"row": 0, "col": 2, "z": 0}
-        hidden_state[bottom_bun] = {"is_held": 0.0}
-
-        goal = {
-            # GroundAtom(self._On, [patty, bottom_bun]),
-            # GroundAtom(self._On, [cheese, patty]),
-            # GroundAtom(self._On, [tomato, cheese]),
-            # GroundAtom(self._On, [top_bun, tomato]),
-            # GroundAtom(self._IsCooked, [patty]),
-            # GroundAtom(self._IsSliced, [tomato]),
-            # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
-            #     top_bun])
-            GroundAtom(self._On, [patty, bottom_bun]),
-            GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._IsCooked, [patty]),
-        }
-
-        alt_goal = {
-            GroundAtom(self._On, [patty, bottom_bun]),
-            GroundAtom(self._On, [cheese, patty]),
-            GroundAtom(self._GoalHack,
-                       [bottom_bun, patty, cheese, tomato, top_bun])
-        }
+        spots_for_objects = self.get_edge_cells_for_object_placement(rng)
 
         for _ in range(num):
+            shuffled_spots = spots_for_objects.copy()
+            rng.shuffle(shuffled_spots)
+
+            # Add robot, grill, and cutting board
+            r, c = shuffled_spots[0]
+            state_dict[self._robot] = {
+                "row": 2,  # assumes 5x5 grid
+                "col": 2,  # assumes 5x5 grid
+                "z": 0,
+                "fingers": 0.0,
+                "dir": 3
+            }
+            r, c = shuffled_spots[1]
+            state_dict[self._grill] = {"row": r, "col": c, "z": 0}
+            r, c = shuffled_spots[2]
+            state_dict[self._cutting_board] = {"row": r, "col": c, "z": 0}
+
+            # Add patty
+            r, c = shuffled_spots[3]
+            patty = Object("patty", self._patty_type)
+            state_dict[patty] = {"row": r, "col": c, "z": 0}
+            hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
+
+            # Add tomato
+            r, c = shuffled_spots[4]
+            tomato = Object("tomato", self._tomato_type)
+            state_dict[tomato] = {"row": r, "col": c, "z": 0}
+            hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
+
+            # Add cheese
+            r, c = shuffled_spots[5]
+            cheese = Object("cheese", self._cheese_type)
+            state_dict[cheese] = {"row": r, "col": c, "z": 0}
+            hidden_state[cheese] = {"is_held": 0.0}
+
+            # Add top bun
+            r, c = shuffled_spots[6]
+            top_bun = Object("top_bun", self._top_bun_type)
+            state_dict[top_bun] = {"row": r, "col": c, "z": 0}
+            hidden_state[top_bun] = {"is_held": 0.0}
+
+            # Add bottom bun
+            r, c = shuffled_spots[7]
+            bottom_bun = Object("bottom_bun", self._bottom_bun_type)
+            state_dict[bottom_bun] = {"row": r, "col": c, "z": 0}
+            hidden_state[bottom_bun] = {"is_held": 0.0}
+
+            goal = {
+                GroundAtom(self._On, [patty, bottom_bun]),
+                GroundAtom(self._On, [cheese, patty]),
+                # GroundAtom(self._On, [tomato, cheese]),
+                # GroundAtom(self._On, [top_bun, tomato]),
+                GroundAtom(self._IsCooked, [patty]),
+                GroundAtom(self._IsSliced, [tomato]),
+            }
+
+            alt_goal = {
+                GroundAtom(self._On, [patty, bottom_bun]),
+                GroundAtom(self._On, [cheese, patty]),
+                GroundAtom(self._GoalHack,
+                           [bottom_bun, patty, cheese, tomato, top_bun])
+            }
+
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = {}
             state.simulator_state["state"] = hidden_state
@@ -276,7 +362,7 @@ class BurgerEnv(BaseEnv):
         robot, item = objects
         assert state.simulator_state is not None
         assert "state" in state.simulator_state
-        return not self._HandEmpty_holds(state,[robot]) and \
+        return not self._HandEmpty_holds(state, [robot]) and \
             state.simulator_state["state"][item]["is_held"] > 0.5
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -308,14 +394,14 @@ class BurgerEnv(BaseEnv):
 
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # bottom, patty, cheese, tomato, top = objects
-        bottom, patty, cheese, _, _ = objects
+        bottom, patty, cheese, tomato, _ = objects
         atoms = [
             self._On_holds(state, [patty, bottom]),
             self._On_holds(state, [cheese, patty]),
             # self._On_holds(state, [tomato, cheese]),
             # self._On_holds(state, [top, tomato]),
             self._IsCooked_holds(state, [patty]),
-            # self._IsSliced_holds(state, [tomato])
+            self._IsSliced_holds(state, [tomato])
         ]
         return all(atoms)
 
