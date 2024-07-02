@@ -82,7 +82,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             "TwistJug",
             types=[robot_type, jug_type],
             # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0,)),
+            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0, )),
             policy=cls._create_twist_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
@@ -205,7 +205,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory  # unused
             robot, jug = objects
             current_rot = state.get(jug, "rot")
-            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0 
+            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
@@ -415,9 +415,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
 
     @classmethod
-    def _get_twist_action(cls, state: State,
-                            cur_robot_pos: Tuple[float, float, float],
-                            dtwist: float) -> Action:
+    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float, float,
+                                                                  float],
+                          dtwist: float) -> Action:
         del state, cur_robot_pos  # used by PyBullet subclass
         return Action(
             np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
@@ -515,7 +515,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             "TwistJug",
             types=[robot_type, jug_type],
             # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else 0, )),  # temp; originally 1
+            params_space=Box(-1, 1, (1 if CFG.coffee_twist_sampler else
+                                     0, )),  # temp; originally 1
             policy=cls._create_twist_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
@@ -535,7 +536,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             robot, jug = objects
             current_rot = state.get(jug, "rot")
             # norm_desired_rot, = params
-            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0 
+            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
@@ -656,7 +657,10 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
             if sq_dist_to_pour < cls.pour_policy_tol:
                 dtilt = pour_tilt - tilt
-                # logging.debug("Pour")
+                if abs(dtilt) < cls.env_cls.pour_angle_tol * 0.1:
+                    # make pouring more stable
+                    dtilt = 0
+                logging.debug(f"Pour: dtils {dtilt}")
                 # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
                 #     state.joint_positions).rpy
                 # cur_formated_jp = np.array(
@@ -683,7 +687,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
             if xy_pour_sq_dist < cls.env_cls.safe_z_tol * 1e-2:
-                # logging.debug("Move down to pour")
+                logging.debug("Move down to pour")
                 # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
                 #     state.joint_positions).rpy
                 # current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
@@ -713,7 +717,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # If we're at a safe height, move toward above the pour position.
             if (robot_z -
                     cls.env_cls.robot_init_z)**2 < cls.env_cls.safe_z_tol:
-                # logging.debug("At a safe height, move towards the pour position")
+                logging.debug("At a safe height, move towards the pour position")
                 return cls._get_move_action(
                     state, (robot_pour_pos[0], robot_pour_pos[1], robot_z),
                     robot_pos,
@@ -721,7 +725,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     finger_status="closed")
 
             # Move backward and to a safe moving height.
-            # logging.debug("Move backward and to a safe moving height")
+            logging.debug("Move backward and to a safe moving height")
             return cls._get_move_action(
                 state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,
@@ -738,12 +742,28 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                          dtilt: float = 0.0,
                          dwrist: float = 0.0,
                          finger_status: str = "open") -> Action:
-        pybullet_robot = _get_pybullet_robot()
-
         # Determine orientations.
         robots = [r for r in state if r.type.name == "robot"]
         assert len(robots) == 1
         robot = robots[0]
+        current_joint_positions = state.joint_positions
+        pybullet_robot = _get_pybullet_robot()
+
+        # Early stop
+        if target_pos == robot_pos and dtilt == 0 and dwrist == 0:
+            pybullet_robot.set_joints(current_joint_positions)
+            action_arr = np.array(current_joint_positions, dtype=np.float32)
+            # action_arr = np.clip(action_arr, pybullet_robot.action_space.low,
+            #              pybullet_robot.action_space.high)
+            try:
+                assert pybullet_robot.action_space.contains(action_arr)
+            except:
+                logging.debug(f"action_space: {pybullet_robot.action_space}\n")
+                logging.debug(f"action arr type: {type(action_arr)}")
+                logging.debug(f"action arr: {action_arr}")
+            return Action(action_arr)
+
+
         current_tilt = state.get(robot, "tilt")
         current_wrist = state.get(robot, "wrist")
         current_quat = PyBulletCoffeeEnv.tilt_wrist_to_gripper_orn(
@@ -754,7 +774,6 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         current_pose = Pose(robot_pos, current_quat)
         target_pose = Pose(target_pos, target_quat)
         assert isinstance(state, utils.PyBulletState)
-        current_joint_positions = state.joint_positions
 
         # import pybullet as p
         # p.addUserDebugText("+", robot_pos,
@@ -773,9 +792,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             cls._finger_action_nudge_magnitude)
 
     @classmethod
-    def _get_twist_action(cls, state: State,
-                            cur_robot_pos: Tuple[float, float, float],
-                            dtwist: float) -> Action:
+    def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float, float,
+                                                                  float],
+                          dtwist: float) -> Action:
         delta_rot = dtwist * cls.env_cls.max_angular_vel
         return cls._get_move_action(state, cur_robot_pos, cur_robot_pos, 0.0,
                                     delta_rot)
