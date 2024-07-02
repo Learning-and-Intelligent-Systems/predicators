@@ -143,8 +143,8 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
                              objects: Sequence[Object],
                              params: Array) -> Action:
             del state, objects, memory  # unused
-            ddoor, = params
-            return Action(np.array([0.0, 0.0, ddoor, 0.0], dtype=np.float32))
+            dmove, = params
+            return Action(np.array([0.0, 0.0, dmove, 0.0], dtype=np.float32))
 
         MoveKey = utils.SingletonParameterizedOption(
             "MoveKey",
@@ -158,8 +158,8 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
                              objects: Sequence[Object],
                              params: Array) -> Action:
             del state, objects, memory  # unused
-            ddoor, = params
-            return Action(np.array([0.0, 0.0, 0.0, ddoor], dtype=np.float32))
+            dturn, = params
+            return Action(np.array([0.0, 0.0, 0.0, dturn], dtype=np.float32))
 
         TurnKey = utils.SingletonParameterizedOption(
             "TurnKey",

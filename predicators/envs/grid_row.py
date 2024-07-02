@@ -286,7 +286,7 @@ class GridRowDoorEnv(GridRowEnv):
 
     @property
     def action_space(self) -> Box:
-        # dx, dlight, ddoor, ddoor1
+        # dx, dlight, dmove, dturn
         return Box(-np.inf, np.inf, (4, ))
 
     def _get_tasks(self, num: int,
@@ -323,7 +323,7 @@ class GridRowDoorEnv(GridRowEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
-        dx, dlight, ddoor, ddoor1 = action.arr
+        dx, dlight, dmove, dturn = action.arr
         door_pos = state.get(self._door, "x")
         robbot_pos = state.get(self._robot, "x")
         door_move_key = state.get(self._door, "move_key")
@@ -345,10 +345,10 @@ class GridRowDoorEnv(GridRowEnv):
                             <= door_move_key <= door_move_target + 0.1 \
     and door_turn_target - 0.1 <= door_turn_key <= door_turn_target + 0.1):
             new_door_level = np.clip(
-                state.get(self._door, "move_key") + ddoor, 0.0, 1.0)
+                state.get(self._door, "move_key") + dmove, 0.0, 1.0)
             next_state.set(self._door, "move_key", new_door_level)
             new_door1_level = np.clip(
-                state.get(self._door, "turn_key") + ddoor1, 0.0, 1.0)
+                state.get(self._door, "turn_key") + dturn, 0.0, 1.0)
             next_state.set(self._door, "turn_key", new_door1_level)
         # Apply dlight if we're in the same cell as the light.
         assert len(robot_cells) == 1
