@@ -304,7 +304,7 @@ class GridRowDoorEnv(GridRowEnv):
                     "target": 0.75,
                 },
                 self._door: {
-                    "x": 6.5,
+                    "x": 3.5,
                     "open": 0.0,
                     "target": 0.5,
                     "open1": 0.0,

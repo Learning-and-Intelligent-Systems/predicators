@@ -1915,7 +1915,35 @@ class MPDQNFunction(MapleQFunction):
         
         return vectorized_state
     
+    def _vectorize_option(self, option: _Option) -> Array:
 
+        matches = [
+            i for (n, i) in self._ground_nsrt_to_idx.items()
+            if n.option == option.parent
+            and tuple(n.objects) == tuple(option.objects)
+        ]
+        lifted_nsrts = []
+        for (n, index) in self._ground_nsrt_to_idx.items():
+            if n.option not in lifted_nsrts:
+                lifted_nsrts.append(n.option)
+            
+
+        matches = [
+            i for (i,n) in enumerate(lifted_nsrts)
+            if n == option.parent
+        ]
+
+        assert len(matches) == 1
+        # Create discrete part.
+        discrete_vec = np.zeros(len(lifted_nsrts))
+        discrete_vec[matches[0]] = 1.0
+        # Create continuous part.
+        continuous_vec = np.zeros(self._max_num_params)
+        continuous_vec[:len(option.params)] = option.params
+        # Concatenate.
+        vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
+        return vec
+    
     def train_q_function(self) -> None:
         """Fit the model."""
         # First, precompute the size of the input and output from the
@@ -1924,7 +1952,7 @@ class MPDQNFunction(MapleQFunction):
         # REMEMBER U NEED TO CHANGE X_size IF U EVER CHANGE VECTORIZE STUFFS
         X_size = 15 + len(
             self._ordered_frozen_goals
-        ) + self._num_ground_nsrts + self._max_num_params
+        ) + 6 + self._max_num_params
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
@@ -2079,7 +2107,6 @@ class MPDQNFunction(MapleQFunction):
                    train_or_test: str = "test") -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # MODIFICATIONS: update target network at each time step
-
         # Return a random option.
         epsilon = self._epsilon
         if train_or_test == "test":
@@ -2097,7 +2124,7 @@ class MPDQNFunction(MapleQFunction):
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
-            state, num_samples_per_applicable_nsrt=10)
+            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
@@ -2105,10 +2132,8 @@ class MPDQNFunction(MapleQFunction):
             scores = [score.detach() for score in scores]
         option_scores=list(zip(options, scores))
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
-        # print("vectorized state", self._vectorize_state(state))
         idx = np.argmax(scores)
-        # if train_or_test=="test":
-        #     print("option scores", option_scores[:10])
+        print("option scores", option_scores[:10])
 
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
@@ -2118,11 +2143,10 @@ class MPDQNFunction(MapleQFunction):
         return options[idx]
     
     def update_target_network(self):
-        # this is soft polyak averaging:
+        # Soft polyak averaging:
         # for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
         #     target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
 
-        # this is j copying all params into the target
         if self._counter % 600 == 0:
             self.target_qnet.load_state_dict(self.qnet.state_dict())
         self._counter+=1
@@ -2139,11 +2163,6 @@ class MPDQNFunction(MapleQFunction):
             self._vectorize_goal(goal),
             self._vectorize_option(option)
         ])
-        # import ipdb;ipdb.set_trace()
         y = self.qnet.predict(x)[0]
-
-        # if self.qnet.state_dict():
-        #     print("qnet", self.qnet.state_dict())
-        #     raise ValueError
         
         return y
