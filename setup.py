@@ -20,6 +20,7 @@ setup(
         "dill==0.3.5.1",
         "pyperplan",
         "pathos",
+        "pillow==10.3.0",
         "requests",
         "slack_bolt",
         "pybullet>=3.2.0",
