@@ -448,7 +448,7 @@ README of that repo suggests!"
             # is anywhere between burners 2 and 4. Later, we might add
             # even more variation.
             kettle_y_coord = rng.uniform(0.4, 0.55)
-        self._gym_env.set_body_position(
+        self._gym_env.set_body_position(  # type: ignore
             "kettle", (kettle_x_coord, kettle_y_coord, 1.626))
         return {
             "state_info": self.get_object_centric_state_info(),
