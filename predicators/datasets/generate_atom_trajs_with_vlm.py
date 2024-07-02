@@ -222,6 +222,13 @@ def _label_trajectories_with_vlm_atom_values(
 
     if CFG.grammar_search_parallelize_vlm_labeling:
         logging.info("Labeling trajectories in parallel.")
+        # Mulithreading is the right choice over multiprocessing for tasks that
+        # involve waiting for responses from external servers, such as API
+        # calls, as these tasks are I/O bound. The python GIL has minimal impact
+        # on I/O-bound tasks. We will spawn one thread for each trajectory we
+        # need to label. The number of threads you can spawn is limited by
+        # system resources; the limit will far exceed the number of demo
+        # trajectories we expect, which is ~50. 
         with ThreadPoolExecutor() as executor:
             for traj_txt_outputs in executor.map(label_function,
                                                  indexed_trajectories):
