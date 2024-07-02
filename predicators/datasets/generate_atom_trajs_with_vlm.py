@@ -174,9 +174,10 @@ def _sample_vlm_atom_proposals_from_trajectories(
     return aggregated_vlm_output_strs
 
 
-def _label_single_trajectory_with_vlm_atom_values(
-        indexed_traj: Tuple[int, ImageOptionTrajectory],
-        vlm: VisionLanguageModel, atoms_list: List[str], num_trajs: int) -> List[str]:
+def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
+    int, ImageOptionTrajectory], vlm: VisionLanguageModel,
+                                                  atoms_list: List[str],
+                                                  num_trajs: int) -> List[str]:
     """Given a list of atoms, label every state in an ImageOptionTrajectory
     with the truth values of those atoms."""
     idx, traj = indexed_traj
@@ -211,9 +212,10 @@ def _label_trajectories_with_vlm_atom_values(
     """Given a list of atoms, label every state in ImageOptionTrajectories with
     the truth values of those atoms."""
     output_labelled_atoms_txt_list = []
-    label_function = (
-        lambda indexed_traj: _label_single_trajectory_with_vlm_atom_values(
-            indexed_traj, vlm, atoms_list, len(trajectories)))
+    def label_function(
+            indexed_traj: Tuple[int, ImageOptionTrajectory]) -> List[str]:
+        return _label_single_trajectory_with_vlm_atom_values(
+            indexed_traj, vlm, atoms_list, len(trajectories))
     indexed_trajectories = list(enumerate(trajectories))
 
     if CFG.grammar_search_parallelize_vlm_labeling:
