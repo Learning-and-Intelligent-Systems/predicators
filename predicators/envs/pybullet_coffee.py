@@ -597,6 +597,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # If the robot is pouring into a cup, raise the liquid in it.
         if abs(state.get(self._robot, "tilt") -
                self.tilt_ub) < self.pour_angle_tol:
+            # If the jug is empty, noop.
+            if not self._jug_filled:
+                return state
             # Find the cup to pour into, if any.
             cup = self._get_cup_to_pour(state)
             # If pouring into nothing, noop.
