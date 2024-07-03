@@ -115,8 +115,10 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = PickJug
         preconditions = {
             LiftedAtom(OnTable, [jug]),
-            LiftedAtom(HandEmpty, [robot])
+            LiftedAtom(HandEmpty, [robot]),
         }
+        if CFG.coffee_jug_pickable_pred:
+            preconditions.add(LiftedAtom(JugPickable, [jug]))
         add_effects = {
             LiftedAtom(Holding, [robot, jug]),
         }

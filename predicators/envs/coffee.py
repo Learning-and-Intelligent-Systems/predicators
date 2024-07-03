@@ -1,6 +1,7 @@
 """An environment where a robot must brew and pour coffee."""
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+import logging
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -141,6 +142,9 @@ class CoffeeEnv(BaseEnv):
         self._NotSameCup = Predicate("NotSameCup",
                                      [self._cup_type, self._cup_type],
                                      self._NotSameCup_holds)
+        # yichao add
+        self._JugPickable = Predicate("JugPickable", [self._jug_type],
+                                      self._JugPickable_holds)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -285,7 +289,8 @@ class CoffeeEnv(BaseEnv):
             self._CupFilled, self._JugInMachine, self._Holding,
             self._MachineOn, self._OnTable, self._HandEmpty, self._JugFilled,
             self._RobotAboveCup, self._JugAboveCup, self._NotAboveCup,
-            self._PressingButton, self._Twisting, self._NotSameCup
+            self._PressingButton, self._Twisting, self._NotSameCup,
+            self._JugPickable
         }
 
     @property
@@ -560,6 +565,8 @@ class CoffeeEnv(BaseEnv):
         return not self._JugInMachine_holds(state, [jug, self._machine])
 
     def _Twisting_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        """The robot gripper is in the twisting position.
+        """
         robot, jug = objects
         x = state.get(robot, "x")
         y = state.get(robot, "y")
@@ -625,6 +632,20 @@ class CoffeeEnv(BaseEnv):
         del state  # unused
         cup1, cup2 = objects
         return cup1 != cup2
+
+    def _JugPickable_holds(self, state: State, 
+                           objects: Sequence[Object]) -> bool:
+        jug, = objects
+        jug_rot = state.get(jug, "rot")
+
+        if self.get_name == "coffee":
+            pick_jug_rot_tol = self.pick_jug_rot_tol
+        else:
+            # in pb-coffee determine by grasp check
+            pick_jug_rot_tol = 2/10 * np.pi
+
+        return abs(jug_rot) <= pick_jug_rot_tol
+            
 
     def _robot_jug_above_cup(self, state: State, cup: Object) -> bool:
         if not self._Holding_holds(state, [self._robot, self._jug]):
