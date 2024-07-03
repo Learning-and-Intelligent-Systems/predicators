@@ -287,66 +287,6 @@ class GridRowDoorEnv(GridRowEnv):
         # dx, dlight, ddoor, ddoor1
         return Box(-np.inf, np.inf, (4, ))
 
-    def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        num=CFG.num_test_tasks
-        goal = {GroundAtom(self._LightOn, [self._light])}
-        tasks: List[EnvironmentTask] = []
-        while len(tasks) < num:
-            state_dict = {
-                self._robot: {
-                    "x": 0.5,
-                },
-                # Note: light level and door locations are fixed for now
-                # in order to maintain consistency across train and test
-                self._light: {
-                    "x": len(self._cells) - 0.5,
-                    "level": 0.0,
-                    "target": 0.75,
-                },
-                self._door: {
-                    "x": 3.5,
-                    "open": 0.0,
-                    "target": 0.5,
-                    "open1": 0.0,
-                    "target1": 0.75
-                }
-            }
-            for i, cell in enumerate(self._cells):
-                state_dict[cell] = {"x": i + 0.5}
-            state = utils.create_state_from_dict(state_dict)
-            tasks.append(EnvironmentTask(state, goal))
-        return tasks
-    
-    def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        num=CFG.num_test_tasks
-        goal = {GroundAtom(self._LightOn, [self._light])}
-        tasks: List[EnvironmentTask] = []
-        while len(tasks) < num:
-            state_dict = {
-                self._robot: {
-                    "x": 0.5,
-                },
-                # Note: light level and door locations are fixed for now
-                # in order to maintain consistency across train and test
-                self._light: {
-                    "x": len(self._cells) - 0.5,
-                    "level": 0.0,
-                    "target": 0.75,
-                },
-                self._door: {
-                    "x": 6.5,
-                    "open": 0.0,
-                    "target": 0.5,
-                    "open1": 0.0,
-                    "target1": 0.75
-                }
-            }
-            for i, cell in enumerate(self._cells):
-                state_dict[cell] = {"x": i + 0.5}
-            state = utils.create_state_from_dict(state_dict)
-            tasks.append(EnvironmentTask(state, goal))
-        return tasks
-    
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment: to turn the light on.

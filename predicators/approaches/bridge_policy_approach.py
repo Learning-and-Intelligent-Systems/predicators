@@ -505,7 +505,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     self._policy_logs.append(self._current_control)
                 return action
             except utils.OptionExecutionFailure:
-                logging.debug("failed" + self._current_control)
+                failed = True
+                # logging.debug("failed" + self._current_control)
 
             # Switch control from planner to bridge.
             assert self._current_control == "planner"

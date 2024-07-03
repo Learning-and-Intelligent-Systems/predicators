@@ -279,14 +279,10 @@ def _run_pipeline(env: BaseEnv,
             print("HEYASEIHASIFHIHAOIDF", i)
             num_solved += results["num_solved"]
             print("CUMULATIVE NUM SOLVED: ", num_solved)
-            print("fraction solved: ", num_solved / (i + 1))
+            logging.debug("CUMULATIVE NUM SOLVED: " + str(num_solved))
+            # print("fraction solved: ", num_solved / (i + 1))
             smooth_reward = sum(logs[-25:])/25
             smooth_rewards.append(smooth_reward)
-            if smooth_reward>0.93:
-                print("smooth reward.")
-                generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
-                    good_open_door_q_values, second_movekey_q_values, second_turnkey_q_values, callplanner_q_values, smooth_rewards)
-                raise ValueError
 
             if results["num_solved"] == 1:
                 logs.append(1)
@@ -294,6 +290,11 @@ def _run_pipeline(env: BaseEnv,
                 logs.append(0)
             learning_cycles.append(i + 1)
             cumulative_logs.append(num_solved)
+            # if smooth_reward>0.93:
+            #     print("smooth reward.")
+            #     generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
+            #         good_open_door_q_values, second_movekey_q_values, second_turnkey_q_values, callplanner_q_values, smooth_rewards)
+            #     raise ValueError
             _save_test_results(results, online_learning_cycle=i)
 
         generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
@@ -345,61 +346,8 @@ def generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, 
             fontweight='bold')
     plt.savefig(filename, dpi=300)
     plt.clf()
-
-    # FOR PLOTTING Q VALUES
-    plt.plot(learning_cycles, good_light_q_values)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f'GOOD LIGHT qvalues_plot_{timestamp}.png'
-    plt.xlabel("num_online_learning_cycles")
-    plt.ylabel("GOOD LIGHT q values")
-    plt.title("Q-values", fontsize=16, fontweight='bold')
-    plt.savefig(filename, dpi=300)
-    plt.clf()
-
-    plt.plot(learning_cycles, bad_light_q_values)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f'BAD LIGHT qvalues_plot_{timestamp}.png'
-    plt.xlabel("num_online_learning_cycles")
-    plt.ylabel("BAD LIGHT q values")
-    plt.title("Q-values", fontsize=16, fontweight='bold')
-    plt.savefig(filename, dpi=300)
-    plt.clf()
-
-    plt.plot(learning_cycles, good_open_door_q_values)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f'GOOD DOOR qvalues_plot_{timestamp}.png'
-    plt.xlabel("num_online_learning_cycles")
-    plt.ylabel("GOOD DOOR q values")
-    plt.title("Q-values", fontsize=16, fontweight='bold')
-    plt.savefig(filename, dpi=300)
-    plt.clf()
-
-    plt.plot(learning_cycles, second_movekey_q_values)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f'SECOND MOVEKEY qvalues_plot_{timestamp}.png'
-    plt.xlabel("num_online_learning_cycles")
-    plt.ylabel("SECOND MOVEKEY q values")
-    plt.title("Q-values", fontsize=16, fontweight='bold')
-    plt.savefig(filename, dpi=300)
-    plt.clf()
-
-    plt.plot(learning_cycles, second_turnkey_q_values)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f'SECOND TURNKEY qvalues_plot_{timestamp}.png'
-    plt.xlabel("num_online_learning_cycles")
-    plt.ylabel("SECOND TURNKEY q values")
-    plt.title("Q-values", fontsize=16, fontweight='bold')
-    plt.savefig(filename, dpi=300)
-    plt.clf()
-
-    plt.plot(learning_cycles, callplanner_q_values)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f'CALL PLANNEr qvalues_plot_{timestamp}.png'
-    plt.xlabel("num_online_learning_cycles")
-    plt.ylabel("CALL PLANNEr q values")
-    plt.title("Q-values", fontsize=16, fontweight='bold')
-    plt.savefig(filename, dpi=300)
-    plt.clf()
+    print("SMOOTH REWARDS", smooth_rewards)
+    logging.debug("SMOOTH REWARDS" + str(smooth_rewards))
 
 def _generate_interaction_results(
         cogman: CogMan,
@@ -708,8 +656,6 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             assert monitor is not None
             video = monitor.get_video()
             utils.save_video(video_file, video)
-        if we_solved:
-            import ipdb; ipdb.set_trace()
 
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)

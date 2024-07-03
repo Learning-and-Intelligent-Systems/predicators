@@ -1780,6 +1780,8 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
+        if sampled_options == []:
+            import ipdb; ipdb.set_trace()
         return sampled_options
 
 
@@ -2128,12 +2130,13 @@ class MPDQNFunction(MapleQFunction):
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
-        if type(scores[0]) is Tensor:
-            scores = [score.detach() for score in scores]
+        # if type(scores[0]) is Tensor:
+        #     scores = [score.detach() for score in scores]
         option_scores=list(zip(options, scores))
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
         idx = np.argmax(scores)
-        print("option scores", option_scores[:10])
+
+        # print("option scores", option_scores[:10])
 
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:

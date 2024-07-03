@@ -15,15 +15,15 @@ ENVS:
   grid_row:
     NAME: "grid_row_door"
     FLAGS:
-      max_num_steps_interaction_request: 300
+      max_num_steps_interaction_request: 100
       interactive_num_requests_per_cycle: 5
       online_nsrt_learning_requests_per_cycle: 5
       num_online_learning_cycles: 100
       num_test_tasks: 1
       num_train_tasks: 1
-      grid_row_num_cells: 25
+      grid_row_num_cells: 10
       active_sampler_learning_exploration_epsilon: 1.0
-      horizon: 30
+      horizon: 20
 
 ARGS:
   - "debug"
