@@ -1974,8 +1974,6 @@ class MPDQNFunction(MapleQFunction):
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
-            if reward == 1:
-                print("WE GOT REWARD")
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)

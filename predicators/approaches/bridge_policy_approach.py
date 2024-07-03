@@ -454,7 +454,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     utils.all_ground_nsrts(nsrt, all_objects))
         elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
             all_objects = set()
-            for t in self.mapleq._train_tasks:  # pylint: disable=protected-access
+            for t in self._train_tasks:  # pylint: disable=protected-access
                 curr_task_objects = set(t.init)
                 curr_task_types = {o.type for o in t.init}
                 curr_init_atoms = utils.abstract(t.init, predicates)
