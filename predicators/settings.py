@@ -349,6 +349,7 @@ class GlobalSettings:
 
     # grid row env parameters
     grid_row_num_cells = 100
+    test_grid_row_num_cells = 100
 
     # burger env parameters
     gridworld_num_rows = 4

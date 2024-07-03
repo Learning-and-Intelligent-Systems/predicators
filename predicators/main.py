@@ -290,6 +290,7 @@ def _run_pipeline(env: BaseEnv,
                 logs.append(0)
             learning_cycles.append(i + 1)
             cumulative_logs.append(num_solved)
+            print(smooth_rewards, learning_cycles, logs, cumulative_logs)
             # if smooth_reward>0.93:
             #     print("smooth reward.")
             #     generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
@@ -321,19 +322,6 @@ def generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, 
     plt.title("Solves over Cycles", fontsize=16, fontweight='bold')
     plt.savefig(filename, dpi=300)
     plt.clf()
-
-    plt.plot(learning_cycles, cumulative_logs)
-    plt.show()
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f'cumulative_plot_{timestamp}.png'
-    plt.xlabel("num_online_learning_cycles")
-    plt.ylabel("Cumulative Solves")
-    plt.title("Cumulative Solves over Cycles",
-            fontsize=16,
-            fontweight='bold')
-    plt.savefig(filename, dpi=300)
-    plt.clf()
-
 
     plt.plot(learning_cycles, smooth_rewards)
     plt.show()
