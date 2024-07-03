@@ -6,7 +6,6 @@ APPROACHES:
     FLAGS:
       explorer: "maple_q"
       bilevel_plan_without_sim: True
-      mlp_regressor_clip_gradients: True
       mlp_regressor_max_itr: 100000
       segmenter: "oracle"
       demonstrator: "oracle"
@@ -22,9 +21,6 @@ ENVS:
       num_test_tasks: 1
       num_train_tasks: 1
       grid_row_num_cells: 10
-      active_sampler_learning_exploration_epsilon: 1.0
-      horizon: 20
-
 ARGS:
   - "debug"
 FLAGS:
