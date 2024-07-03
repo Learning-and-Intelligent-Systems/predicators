@@ -245,10 +245,16 @@ class VlmInventionApproach(NSRTLearningApproach):
         # learning dataset when the trajectories are put together.
         self.task_to_trajs: Dict[int, List[LowLevelTrajectory]] = \
             defaultdict(list)
+        # Storing the prefix of partial trajectories
+        self.task_to_partial_trajs: Dict[int, List[LowLevelTrajectory]] = \
+            defaultdict(list)
 
         # Return the results and populate self.task_to_latest_traj
-        # self._nsrts = utils.reduce_nsrts(self._nsrts)
-        # self._reduced_nsrts = deepcopy(self._nsrts)
+        self._nsrts = utils.reduce_nsrts(self._nsrts)
+        self._reduced_nsrts = deepcopy(self._nsrts)
+        self._previous_nsrts = deepcopy(self._nsrts)
+        logging.debug(f"Initial reduced operators:\n {pformat(self._nsrts)}")
+        breakpoint()
         results = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
@@ -314,8 +320,15 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # [Start moving out]
             # Apply the candidate predicates to the data.
-            all_trajs = []
-            for _, trajs in self.task_to_trajs.items():
+            all_trajs = []            
+            # needs to be improved
+            if CFG.use_partial_plans_prefix_as_demo and num_solved == 0:
+                logging.info(f"Learning from only failed plans")
+                iterator = self.task_to_partial_trajs.items()
+            else:
+                logging.info(f"Learning from only full solution trajectories.")
+                iterator = self.task_to_trajs.items()
+            for _, trajs in iterator:
                 for traj in trajs:
                     all_trajs.append(traj)
             logging.info(f"Learning from {len(all_trajs)} trajectories.")
@@ -401,13 +414,13 @@ class VlmInventionApproach(NSRTLearningApproach):
                         all_candidates,
                         score_function,
                         initial_predicates = self._initial_predicates)
-                breakpoint()
                 logging.info("[Finish] Predicate search.")
                 logging.info(
                     f"Total search time {time.perf_counter()-start_time:.2f} "
                     "seconds")
             # [End moving out]
 
+            breakpoint()
             # Finally, learn NSRTs via superclass, using all the kept predicates.
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
@@ -419,12 +432,19 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Because if it only learned move to one then can it use it to do
             # move to two?
             cur_options = [nsrt.option for nsrt in self._nsrts]
-            for p_nsrts in self._init_nsrts:
-                if not p_nsrts.option in cur_options:
-                    self._nsrts.add(p_nsrts)
+            # When starting to use complete trajectory to learn operators,
+            # add the previous nsrts whose option is no longer in the current
+            # nsrt, e.g. (twist when the tasks with non-twist jug is solved).
+            for p_nsrt in self._previous_nsrts:
+                if not p_nsrt.option in cur_options:
+                    logging.debug(f"Adding back nsrt: {pformat(p_nsrt)}")
+                    self._nsrts.add(p_nsrt)
+            # Add the initial nsrts back to the nsrts
+            # for p_nsrts in self._init_nsrts:
+            #     if not p_nsrts.option in cur_options:
+            #         self._nsrts.add(p_nsrts)
             # self._nsrts |= self._reduced_nsrts
             print("All NSRTS after learning", pformat(self._nsrts))
-            breakpoint()
 
             # Collect Data again
             # Set up load/save filename for interaction dataset
@@ -446,6 +466,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                          f"Solve rate {num_solved / num_tasks} "
                          f"Prev solve rate {prev_solve_rate} "
                          f"Clf accuracy: {clf_acc:.2f}\n")
+            breakpoint()
 
             # Save the best model
             if solve_rate > best_solve_rate:
@@ -455,6 +476,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 best_nsrt = self._nsrts
                 best_preds = self._learned_predicates
             prev_solve_rate = solve_rate
+            self._previous_nsrts = deepcopy(self._nsrts)
             if solve_rate == 1:
                 break
             time.sleep(5)
@@ -573,8 +595,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                 state = env.reset(train_or_test='train', task_idx=i)
                 # Successful part
                 if failed_opt_idx > 0:
-                    if i == 2 and p_idx == 31:
-                        breakpoint()
                     states, actions = self._execute_succ_plan_and_track_state(
                         state,
                         env,
@@ -588,11 +608,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                     #   operators.
                     if len(states) <= len(actions):
                         logging.warning("states is not 1 more than actions")
+                        breakpoint()
                         # hacky fix, should really figure out why the option
                         # plan
                         # actions = actions[:len(states)-1]
                     if CFG.use_partial_plans_prefix_as_demo:
-                        self.task_to_trajs[i].append(
+                        self.task_to_partial_trajs[i].append(
                             LowLevelTrajectory(states,
                                                actions,
                                                _is_demo=True,
@@ -696,6 +717,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             # environments, but causes the option to not finish in
                             # the pybullet environment, hence are disabled in
                             # testing neu-sym-predicates.
+                            # We are okay with this because the failure options
+                            # have been handled above.
                             policy = utils.option_plan_to_policy(
                                 [option], raise_error_on_repeated_state=False)
                             # [option], raise_error_on_repeated_state=True)

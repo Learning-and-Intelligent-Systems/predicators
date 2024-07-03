@@ -69,6 +69,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=lambda s, m, o, p: True,
             terminal=_MoveToTwistJug_terminal,
         )
+        cls.move_to_twist_policy = MoveToTwistJug
 
         # TwistJug
         def _TwistJug_terminal(state: State, memory: Dict,
@@ -164,8 +165,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         )
 
         return {
-            TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, Pour,
-            MoveToTwistJug
+            PickJug, PlaceJugInMachine, TurnMachineOn, Pour,
+            MoveToTwistJug, TwistJug
         }
 
     @classmethod
@@ -523,6 +524,16 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         )
         options.remove(TwistJug)
         options.add(TwistJug)
+
+        if CFG.coffee_combined_move_and_twist_policy:
+            Twist = utils.LinearChainParameterizedOption(
+                "Twist",
+                [
+                    cls.move_to_twist_policy,
+                    TwistJug
+                ]
+            )
+            options.add(Twist)
         return options
 
     @classmethod

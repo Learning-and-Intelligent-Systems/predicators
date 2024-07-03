@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Set
 
 import numpy as np
 import pybullet as p
@@ -14,7 +14,8 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, Object, State
+from predicators.structs import Action, Array, EnvironmentTask, Object, State\
+    , Predicate
 
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
@@ -81,7 +82,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height
-    # NOTE: twisting not implemented.
     jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # Dispense area settings.
@@ -126,6 +126,28 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._cup_to_capacity: Dict[Object, float] = {}
         # The status of the jug is not modeled inside PyBullet.
         self._jug_filled = False
+
+    @property
+    def oracle_proposed_predicates(self) -> Set[Predicate]:
+        # Useful predicates when
+        return {
+            self._CupFilled, 
+            self._Holding, 
+            self._MachineOn, 
+            self._OnTable, 
+            self._HandEmpty, 
+            self._JugFilled,
+            self._JugInMachine,
+            self._JugPickable,
+            self._Twisting,
+            # Should add: in correct rotation
+
+            # self._RobotAboveCup,
+            # self._JugAboveCup,
+            # self._NotAboveCup,
+            # self._PressingButton,
+            # self._NotSameCup,
+        }
 
     @classmethod
     def initialize_pybullet(
@@ -583,14 +605,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
         if self._PressingButton_holds(state, [self._robot, self._machine]):
-            p.changeVisualShape(self._button_id,
-                                -1,
-                                rgbaColor=self.button_color_on,
-                                physicsClientId=self._physics_client_id)
-            p.changeVisualShape(self._dispense_area_id,
-                                -1,
-                                rgbaColor=self.plate_color_on,
-                                physicsClientId=self._physics_client_id)
+            if CFG.coffee_mac_requires_jug_to_turn_on:
+                if self._JugInMachine_holds(state, [self._jug, self._machine]):
+                    p.changeVisualShape(self._button_id,
+                                    -1,
+                                    rgbaColor=self.button_color_on,
+                                    physicsClientId=self._physics_client_id)
+                    p.changeVisualShape(self._dispense_area_id,
+                                    -1,
+                                    rgbaColor=self.plate_color_on,
+                                    physicsClientId=self._physics_client_id)
+            else:
+                p.changeVisualShape(self._button_id,
+                                    -1,
+                                    rgbaColor=self.button_color_on,
+                                    physicsClientId=self._physics_client_id)
+                p.changeVisualShape(self._dispense_area_id,
+                                    -1,
+                                    rgbaColor=self.plate_color_on,
+                                    physicsClientId=self._physics_client_id)
             # the jug is only filled if it's in the machine
             if self._JugInMachine_holds(state, [self._jug, self._machine]):
                 self._jug_filled = True

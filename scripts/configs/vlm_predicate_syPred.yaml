@@ -23,7 +23,8 @@ FLAGS:
   sampler_learner: oracle
   strips_learner: "cluster_and_intersect"
   excluded_predicates: "all"
-  min_perc_data_for_nsrt: 3
+  min_perc_data_for_nsrt: 1 # 1 works for coffee (100) 0 works for coffee 50; 
+                            # 3 for blocks
   timeout: 30 #300
 
   # Env settings
@@ -32,6 +33,11 @@ FLAGS:
   pybullet_control_mode: "reset"
   sesame_check_expected_atoms: False
   coffee_twist_sampler: False
+  coffee_num_cups_train: '[1]'
+  coffee_no_rotated_jug: False
+  coffee_rotated_jug_ratio: 0.1
+  coffee_combined_move_and_twist_policy: True
+  coffee_mac_requires_jug_to_turn_on: True
 
   # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs" # "hill_climbing"
@@ -49,7 +55,7 @@ FLAGS:
   vlm_predicator_render_option_state: False # True for NSP
   llm_predicator_use_grammar: False
   vlm_predicator_oracle_base_grammar: True
-  llm_predicator_oracle_learned: True 
+  llm_predicator_oracle_learned: True
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"

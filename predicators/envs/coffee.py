@@ -461,7 +461,7 @@ class CoffeeEnv(BaseEnv):
         common_state_dict[self._machine] = {
             "is_on": 0.0,  # machine starts off
         }
-        for _ in range(num):
+        for task_idx in range(num):
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
             num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
@@ -515,7 +515,21 @@ class CoffeeEnv(BaseEnv):
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
-            rot = rng.uniform(self.jug_init_rot_lb, self.jug_init_rot_ub)
+            
+            if CFG.coffee_no_rotated_jug:
+                rot = 0.0
+            else:
+                p = CFG.coffee_rotated_jug_ratio
+                add_rotation = rng.choice([True, False], p=[p, 1-p])
+                if add_rotation:
+                    logging.info("Adding rotation to jug")
+                    rot = rng.uniform(self.jug_init_rot_lb, 
+                                      self.jug_init_rot_ub)
+                else:
+                    rot = 0.0
+                if task_idx == 1:
+                    rot = self.jug_init_rot_ub
+
             state_dict[self._jug] = {
                 "x": x,
                 "y": y,

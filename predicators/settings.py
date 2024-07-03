@@ -318,6 +318,12 @@ class GlobalSettings:
     coffee_num_cups_test = [2, 3]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
     coffee_twist_sampler = True
+    coffee_jug_pickable_pred = True
+    coffee_no_rotated_jug = False
+    # perc that has a rotation that's sampled
+    coffee_rotated_jug_ratio = 1
+    coffee_combined_move_and_twist_policy = False
+    coffee_mac_requires_jug_to_turn_on = False
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]
@@ -813,8 +819,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
                     # with GT preds, 40 is enough for 3 cups in pb_coffee
-                    "pybullet_coffee": 40,
-                    # "pybullet_coffee": 8,
+                    "pybullet_coffee": 100,
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
