@@ -296,7 +296,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         new_proposals = env.ns_predicates -\
                             self._initial_predicates
                     else:
-                        new_proposals = env.predicates -\
+                        new_proposals = env.oracle_proposed_predicates -\
                                             self._initial_predicates
                 else:
                     # Use the results to prompt the llm
