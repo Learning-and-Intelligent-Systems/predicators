@@ -139,9 +139,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._JugFilled,
             self._JugInMachine,
             self._JugPickable,
-            self._Twisting,
             # Should add: in correct rotation
 
+            # self._Twisting,
             # self._RobotAboveCup,
             # self._JugAboveCup,
             # self._NotAboveCup,

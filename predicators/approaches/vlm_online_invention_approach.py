@@ -333,7 +333,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     all_trajs.append(traj)
             logging.info(f"Learning from {len(all_trajs)} trajectories.")
 
-            if CFG.llm_predicator_oracle_learned:
+            if CFG.llm_predicator_oracle_learned or num_solved == 0:
                 self._learned_predicates = new_proposals
             else:
                 # Select a subset candidates by score optimization
@@ -347,15 +347,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                               given_predicates=\
                                 base_candidates|self._initial_predicates)
                 else:
-                    # Assign cost 0 for every candidate, for now.
-                    # Update: Also use simple grammar
                     grammar = _GivenPredicateGrammar(
                         base_candidates | self._initial_predicates)
-                all_candidates.update(
-                    grammar.generate(
+                all_candidates.update(grammar.generate(
                         max_num=CFG.grammar_search_max_predicates))
-                # all_candidates.update({p: 0 for p in base_candidates})
-                # logging.debug(f"base candidates {base_candidates}")
                 # logging.debug(f"all candidates {pformat(all_candidates)}")
                 # breakpoint()
                 # Add a atomic states for succ_optn_dict and fail_optn_dict
@@ -369,20 +364,22 @@ class VlmInventionApproach(NSRTLearningApproach):
                 #                 for g_optn in optn_dict.keys() for state in
                 #                 optn_dict[g_optn].states))
                 # logging.debug(f"There are {num_states} distinct states.")
-                for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
-                    for g_optn in optn_dict.keys():
-                        atom_states = []
-                        for state in optn_dict[g_optn].states:
-                            atom_states.append(
-                                utils.abstract(state, set(all_candidates)))
-                        optn_dict[g_optn].abstract_states = atom_states
+                if CFG.grammar_search_score_function == \
+                    "operator_classification_error":
+                    for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+                        for g_optn in optn_dict.keys():
+                            atom_states = []
+                            for state in optn_dict[g_optn].states:
+                                atom_states.append(
+                                    utils.abstract(state, set(all_candidates)))
+                            optn_dict[g_optn].abstract_states = atom_states
 
                 # This step should only make VLM calls on the end state
                 # becuaes it would have labled all the other success states
                 # from the previous step.
                 atom_dataset: List[GroundAtomTrajectory] =\
-                    utils.create_ground_atom_dataset(
-                        all_trajs, set(all_candidates))
+                    utils.create_ground_atom_dataset(all_trajs, 
+                                                     set(all_candidates))
                 logging.info("[Finish] Applying predicates to data....")
 
                 # Log the dataset
