@@ -250,16 +250,18 @@ class VlmInventionApproach(NSRTLearningApproach):
             defaultdict(list)
 
         # Return the results and populate self.task_to_latest_traj
+        num_init_nsrts = len(self._nsrts)
         self._nsrts = utils.reduce_nsrts(self._nsrts)
+        num_reduced_nsrts = len(self._nsrts) - num_init_nsrts
         self._reduced_nsrts = deepcopy(self._nsrts)
         self._previous_nsrts = deepcopy(self._nsrts)
-        logging.debug(f"Initial reduced operators:\n {pformat(self._nsrts)}")
+        logging.debug(f"Initial operators after pruning {num_reduced_nsrts}:\n"
+                      f"{pformat(self._nsrts)}")
         breakpoint()
         results = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
         logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
-        breakpoint()
 
         self.succ_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
@@ -280,7 +282,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                                              tasks,
                                              ite,
                                              use_only_first_solution=False)
-            breakpoint()
             #### End of data collection
 
             # Invent when no improvement in solve rate
@@ -317,6 +318,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     f"Done: created {len(new_proposals)} candidates:" +
                     f"{new_proposals}")
                 propose_ite += 1
+            breakpoint()
 
             # [Start moving out]
             # Apply the candidate predicates to the data.

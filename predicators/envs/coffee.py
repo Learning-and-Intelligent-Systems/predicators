@@ -95,17 +95,17 @@ class CoffeeEnv(BaseEnv):
     max_angular_vel: ClassVar[float] = tilt_ub
     max_finger_vel: ClassVar[float] = 1.0
 
+    # Types
+    _table_type = Type("table", [])
+    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
+    _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"])
+    _machine_type = Type("machine", ["is_on"])
+    _cup_type = Type("cup",
+        ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        self._robot_type = Type("robot",
-                                ["x", "y", "z", "tilt", "wrist", "fingers"])
-        self._jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"])
-        self._machine_type = Type("machine", ["is_on"])
-        self._cup_type = Type(
-            "cup",
-            ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"])
 
         # Predicates
         self._CupFilled = Predicate("CupFilled", [self._cup_type],
@@ -150,6 +150,7 @@ class CoffeeEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._jug = Object("juggy", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
+        self._table = Object("table", self._table_type)
 
     @classmethod
     def get_name(cls) -> str:

@@ -112,10 +112,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
     # Camera parameters.
-    _camera_distance: ClassVar[float] = 1.6  #0.8
+    _camera_distance: ClassVar[float] = 1.3  #0.8
     _camera_yaw: ClassVar[float] = 70
     _camera_pitch: ClassVar[float] = -48
-    _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
+    # _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
+    _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -126,6 +127,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._cup_to_capacity: Dict[Object, float] = {}
         # The status of the jug is not modeled inside PyBullet.
         self._jug_filled = False
+        self._obj_id_to_obj: Dict[int, Object] = {}
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:
@@ -425,12 +427,20 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         super()._reset_state(state)
         self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
 
-        # Reset cups based on the state.
-        cup_objs = state.get_objects(self._cup_type)
 
         # Remove the old cups.
         for old_cup_id in self._cup_id_to_cup:
             p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
+        self._obj_id_to_obj = {}
+        self._obj_id_to_obj[self._pybullet_robot.robot_id] = self._robot
+        self._obj_id_to_obj[self._table_id] = self._table
+        self._obj_id_to_obj[self._jug_id] = self._jug
+        self._obj_id_to_obj[self._machine_id] = self._machine
+        # self._obj_id_to_obj[self._dispense_area_id] = self._dispense_area
+        # self._obj_di_to_obj[self._button_id] = self._button
+
+        # Reset cups based on the state.
+        cup_objs = state.get_objects(self._cup_type)
         # Make new cups.
         self._cup_id_to_cup = {}
         self._cup_to_capacity = {}
@@ -462,6 +472,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 physicsClientId=self._physics_client_id)
 
             self._cup_id_to_cup[cup_id] = cup_obj
+            self._obj_id_to_obj[cup_id] = cup_obj
 
         # Create liquid in cups.
         for liquid_id in self._cup_to_liquid_id.values():

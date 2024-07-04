@@ -1,4 +1,4 @@
-# Use VLM to propose predicates.
+# Use the predicates in the environments to propose predicates.
 ---
 APPROACHES:
   learn_all:
@@ -6,14 +6,12 @@ APPROACHES:
     FLAGS: []
 ENVS:
   stick_button:
-    # NAME: "stick_button"
     # NAME: "pybullet_blocks"
     NAME: "pybullet_coffee"
     # NAME: "coffee"
 ARGS: 
   # []
   - "debug"
-  # - "use_gui"
   # - "load_approach"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
@@ -26,6 +24,7 @@ FLAGS:
   min_perc_data_for_nsrt: 1 # 1 works for coffee (100) 0 works for coffee 50; 
                             # 3 for blocks
   timeout: 30 #300
+  log_file: "logs/vlm_predicate.log"
 
   # Env settings
   rgb_observation: False
@@ -49,8 +48,10 @@ FLAGS:
   grammar_search_prune_redundant_preds: False
   load_llm_pred_invent_dataset: False
   save_llm_pred_invent_dataset: False # can't pickle rendered states
+  grammar_search_score_function: "expected_nodes_created"
 
   # Predicate Invention params (main ones to adjust)
+  reset_optn_state_dict_at_every_ite: False
   neu_sym_predicate: False # True for NSP
   vlm_predicator_render_option_state: False # True for NSP
   llm_predicator_use_grammar: False
