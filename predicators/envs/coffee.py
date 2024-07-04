@@ -96,12 +96,16 @@ class CoffeeEnv(BaseEnv):
     max_finger_vel: ClassVar[float] = 1.0
 
     # Types
-    _table_type = Type("table", [])
-    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
-    _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"])
-    _machine_type = Type("machine", ["is_on"])
+    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
+    _table_type = Type("table", [] + bbox_features)
+    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"] + 
+                                bbox_features)
+    _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"] + 
+                            bbox_features)
+    _machine_type = Type("machine", ["is_on"] + bbox_features)
     _cup_type = Type("cup",
-        ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"])
+        ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"] + 
+        bbox_features)
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -538,6 +542,7 @@ class CoffeeEnv(BaseEnv):
                 "is_held": 0.0,  # jug starts off not held
                 "is_filled": 0.0  # jug starts off empty
             }
+            state_dict[self._table] = {}
             init_state = utils.create_state_from_dict(state_dict)
             task = EnvironmentTask(init_state, goal)
             tasks.append(task)

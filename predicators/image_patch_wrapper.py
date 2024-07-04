@@ -186,13 +186,10 @@ class ImagePatch:
         mask : Mask
             Mask of shape (H, W), where H is the image height and W is the image
             width. Each value in the array is either a True or False.
-
         label : str
             The label to be assigned to the object.
-
         alpha : float
             The transparency of the mask overlay.
-
         anno_mode : List[str]
             Weather to use text marker or mask overlay, or both.
         """
@@ -211,6 +208,9 @@ class ImagePatch:
         # vis_image.save(f"images/vis_image_{label}.png")
 
         for mask, label in zip(masks, labels):
+            # Skip if the mask is empty
+            if mask.sum() == 0:
+                continue
             mask = mask.astype(np.uint8)
             mask = np.pad(mask, ((1, 1), (1, 1)), 'constant')
             # The distance from each pixel to the nearest 0 pixel.
@@ -218,8 +218,6 @@ class ImagePatch:
             mask_dt = mask_dt[1:-1, 1:-1]
             max_dist = np.max(mask_dt)
             coords_y, coords_x = np.where(mask_dt == max_dist)
-
-            # try:
             img_np = self.draw_text(vis_image,
                                     label, (coords_x[len(coords_x) // 2],
                                             coords_y[len(coords_y) // 2] - 8),

@@ -670,7 +670,8 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
     for obj, obj_data in data.items():
         obj_vec = []
         for feat in obj.type.feature_names:
-            obj_vec.append(obj_data[feat])
+            if feat in obj_data:
+                obj_vec.append(obj_data[feat])
         state_dict[obj] = np.array(obj_vec)
     return State(state_dict, simulator_state)
 
@@ -1745,10 +1746,15 @@ def mask_to_bbox(mask: Mask) -> BoundingBox:
     height = mask.shape[0]
 
     # Get the bounding box
-    left = x_indices.min()
-    right = x_indices.max()
-    lower = height - (y_indices.max() + 1)
-    upper = height - (y_indices.min() + 1)
+    try:
+        left = x_indices.min()
+        right = x_indices.max()
+        lower = height - (y_indices.max() + 1)
+        upper = height - (y_indices.min() + 1)
+    except ValueError:
+        left, lower, right, upper = 0, 0, 0, 0
+        # If the mask is empty, return a bounding box with all zeros
+
     return BoundingBox(left, lower, right, upper)
 
 
@@ -3710,8 +3716,8 @@ def llm_pred_dataset_save_name(invention_iteration: int) -> str:
 def vlm_option_obs_save_name(g_optn_str: str, category: str, obs_idx: int) ->\
     Tuple[str, str]:
     suffix_str = ".png"
-    img_fname = f"{CFG.env}_{g_optn_str}_{category}_{obs_idx}" + suffix_str
-    img_dir = "./prompts/images"
+    img_fname = f"{g_optn_str}_{category}_{obs_idx}" + suffix_str
+    img_dir = f"./prompts/images_{CFG.env}"
     os.makedirs(img_dir, exist_ok=True)
     # img_path = os.path.join(img_dir, img_fname)
     return img_fname, img_dir

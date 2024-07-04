@@ -113,7 +113,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         [0.0, 0.0, np.pi / 2])
     # Camera parameters.
     _camera_distance: ClassVar[float] = 1.3  #0.8
-    _camera_yaw: ClassVar[float] = 70
+    _camera_yaw: ClassVar[float] = -70
     _camera_pitch: ClassVar[float] = -48
     # _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
@@ -133,14 +133,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def oracle_proposed_predicates(self) -> Set[Predicate]:
         # Useful predicates when
         return {
-            self._CupFilled, 
             self._Holding, 
-            self._MachineOn, 
-            self._OnTable, 
-            self._HandEmpty, 
-            self._JugFilled,
+            self._CupFilled, 
             self._JugInMachine,
             self._JugPickable,
+            self._JugFilled,
+            self._OnTable, 
+            self._MachineOn, # Not needed in syPred's success
+            self._HandEmpty, # Not needed in syPred's success
             # Should add: in correct rotation
 
             # self._Twisting,
@@ -387,6 +387,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                           jug_pose,
                                           jug_orientation,
                                           physicsClientId=physics_client_id)
+        # Set the transparency of the jug
+        transparency = 0.0  # 0.0 is fully transparent, 1.0 is fully opaque
+        p.changeVisualShape(jug_id, -1, rgbaColor=[1, 1, 1, transparency])
         bodies["jug_id"] = jug_id
 
         return physics_client_id, pybullet_robot, bodies
@@ -586,6 +589,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             "is_held": held,
             "is_filled": filled,
         }
+        state_dict[self._table] = {}
 
         # Get machine state.
         button_color = p.getVisualShapeData(

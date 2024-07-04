@@ -215,6 +215,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         """Learn from interacting with the offline dataset."""
+        breakpoint()
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
@@ -252,12 +253,11 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Return the results and populate self.task_to_latest_traj
         num_init_nsrts = len(self._nsrts)
         self._nsrts = utils.reduce_nsrts(self._nsrts)
-        num_reduced_nsrts = len(self._nsrts) - num_init_nsrts
+        num_reduced_nsrts = num_init_nsrts - len(self._nsrts)
         self._reduced_nsrts = deepcopy(self._nsrts)
         self._previous_nsrts = deepcopy(self._nsrts)
         logging.debug(f"Initial operators after pruning {num_reduced_nsrts}:\n"
                       f"{pformat(self._nsrts)}")
-        breakpoint()
         results = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks

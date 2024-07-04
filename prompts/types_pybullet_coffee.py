@@ -1,0 +1,5 @@
+_robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
+_jug_type = Type("jug", ["x", "y"])
+_cup_type = Type("cup", ["x", "y"])
+_machine_type = Type("machine", [])
+_table_type = Type("table", [])
