@@ -105,6 +105,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=cls._create_pick_jug_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_PickJug_terminal,
+            annotation="Pick up the jug."
         )
 
         # PlaceJugInMachine
@@ -123,6 +124,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=cls._create_place_jug_in_machine_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_PlaceJugInMachine_terminal,
+            annotation="Place the jug in the machine."
         )
 
         # TurnMachineOn
@@ -140,6 +142,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=cls._create_turn_machine_on_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_TurnMachineOn_terminal,
+            annotation="Turn the machine on."
         )
 
         # Pour
@@ -162,6 +165,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=cls._create_pour_policy(),
             initiable=_Pour_initiable,
             terminal=_Pour_terminal,
+            annotation="Pour liquid from the jug to the cup"
         )
 
         return {
@@ -532,6 +536,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     cls.move_to_twist_policy,
                     TwistJug
                 ]
+                annotation="Rotate the jug to the desired rotation."
             )
             options.add(Twist)
         return options
