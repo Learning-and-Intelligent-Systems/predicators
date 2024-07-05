@@ -100,12 +100,11 @@ class RawState:
         ---------
         >>> # An example for predicate WristBent
         >>> _robot_type = Type("robot", ["x", "y", "tilt", "wrist", "gripper"])
-        >>> def _WristBent_holds(state: State, objects: Sequence[Object]
+        >>> def _GripperOpen_holds(state: State, objects: Sequence[Object]
         >>>                     ) -> bool:
         >>>     robot, = objects
-        >>>     # the exact value depdends on the domain
-        >>>     return state.get(robot, "wrist") == 0.7 
-        >>> _WristBent = NSPredicate("WristBent", [_robot_type], _WristBent_holds)
+        >>>     return state.get(robot, "gripper") == 1.0
+        >>> _WristBent = NSPredicate("GripperOpen", [_robot_type], _WristBent_holds)
         >>>
         >>> # An example for classifying Covers
         >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
@@ -237,13 +236,27 @@ where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left
 The existing set of predicates are:
 {'CupFilled(?x:cup)'}
 
+Predicate CupFilled(?x) is defined by:
+```python
+def _CupFilled_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                         ) -> bool:
+    """Determine if the cup is filled coffee.
+    """
+    cup, = objects
+    cup_name = cup.id_name
+    attention_image = state.crop_to_objects([cup])
+    return state.evaluate_simple_assertion(
+        f"{cup_name} has coffee in it", attention_image)
+_CupFilled_NSP = NSPredicate("CupFilled", [_cup_type],
+                                          _CupFilled_NSP_holds)
+```
 
 The set of options the robot has are:
-Pour(?robot:robot, ?jug:jug, ?cup:cup): None
-PickJug(?robot:robot, ?jug:jug): None
-TurnMachineOn(?robot:robot, ?machine:machine): None
-PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:machine): None
-Twist(?robot:robot, ?jug:jug): None
+PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:machine): Place the jug in the machine.
+TurnMachineOn(?robot:robot, ?machine:machine): Turn the machine on.
+PickJug(?robot:robot, ?jug:jug): Pick up the jug.
+Pour(?robot:robot, ?jug:jug, ?cup:cup): Pour liquid from the jug to the cup
+Twist(?robot:robot, ?jug:jug): Rotate the jug to the desired rotation.
 
 The existing action operators utilizing the predicates are:
 Operator-PickJugFromTable:
@@ -284,29 +297,15 @@ Operator-Twist:
 
 The robot tried to excute its options and got the following results:
 Option TurnMachineOn(robot1:robot, machine3:machine) *successfully* executed on the following states (positive states):
-  state_46 with additional info:
+  state_2 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
-   'table2:table'}
-
-  state_9 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
 
 Option TurnMachineOn(robot1:robot, machine3:machine) *failed* to executed on the following states (negative states):
   state_0 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-
-  state_37 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -318,40 +317,19 @@ Option Pour(robot1:robot, jug7:jug, cup8:cup) *failed* to executed on the follow
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-
-  state_1 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
    'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
    'table2:table'}
 
 Option PickJug(robot1:robot, jug7:jug) *successfully* executed on the following states (positive states):
-  state_0 with additional info:
+  state_1 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
    'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
 
-  state_38 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-
 Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following states (negative states):
-  state_37 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
-   'table2:table'}
-
-  state_39 with additional info:
+  state_0 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -359,14 +337,7 @@ Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following sta
    'table2:table'}
 
 Option PlaceJugInMachine(robot1:robot, jug7:jug, machine3:machine) *successfully* executed on the following states (positive states):
-  state_37 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
-   'table2:table'}
-
-  state_39 with additional info:
+  state_0 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -374,18 +345,11 @@ Option PlaceJugInMachine(robot1:robot, jug7:jug, machine3:machine) *successfully
    'table2:table'}
 
 Option PlaceJugInMachine(robot1:robot, jug7:jug, machine3:machine) *failed* to executed on the following states (negative states):
-  state_0 with additional info:
+  state_1 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
    'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-
-  state_38 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
 
 Option Twist(robot1:robot, jug7:jug) *successfully* executed on the following states (positive states):
@@ -393,29 +357,7 @@ Option Twist(robot1:robot, jug7:jug) *successfully* executed on the following st
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-
-  state_37 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
    'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
-   'table2:table'}
-
-Option Twist(robot1:robot, jug7:jug) *failed* to executed on the following states (negative states):
-  state_22 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.4, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-
-  state_30 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.4, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
 
 

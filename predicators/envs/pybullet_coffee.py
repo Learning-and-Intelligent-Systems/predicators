@@ -78,7 +78,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_init_x_ub: ClassVar[
         float] = machine_x + machine_x_len / 2 - init_padding
     # adding 1 extra padding
-    jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding * 2
+    jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
@@ -93,7 +93,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
     cup_init_x_ub: ClassVar[
         float] = machine_x - machine_x_len / 2 - cup_radius - init_padding
-    cup_init_y_lb: ClassVar[float] = jug_init_y_lb
+    cup_init_y_lb: ClassVar[float] = jug_init_y_lb + init_padding
     cup_init_y_ub: ClassVar[float] = jug_init_y_ub
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
@@ -145,6 +145,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         attention_image = state.crop_to_objects([cup])
         return state.evaluate_simple_assertion(
             f"{cup_name} has coffee in it", attention_image)
+
+    @property
+    def ns_predicates(self) -> Set[NSPredicate]:
+        return {self._CupFilled_NSP}
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:
