@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Set
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Set, Sequence
 
 import numpy as np
 import pybullet as p
@@ -16,6 +16,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, State\
     , Predicate
+from predicators.utils import NSPredicate, RawState, VLMQuery
 
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
@@ -130,6 +131,20 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._jug_filled = False
         self._jug_liquid_id = None
         self._obj_id_to_obj: Dict[int, Object] = {}
+
+        # Predicates
+        self._CupFilled_NSP = NSPredicate("CupFilled", [self._cup_type],
+                                          self._CupFilled_NSP_holds)
+
+    def _CupFilled_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                             ) -> bool:
+        """Determine if the cup is filled coffee.
+        """
+        cup, = objects
+        cup_name = cup.id_name
+        attention_image = state.crop_to_objects([cup])
+        return state.evaluate_simple_assertion(
+            f"{cup_name} has coffee in it", attention_image)
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:

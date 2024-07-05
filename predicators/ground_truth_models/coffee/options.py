@@ -535,7 +535,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 [
                     cls.move_to_twist_policy,
                     TwistJug
-                ]
+                ],
                 annotation="Rotate the jug to the desired rotation."
             )
             options.add(Twist)
