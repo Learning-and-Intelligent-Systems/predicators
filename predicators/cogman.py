@@ -207,6 +207,20 @@ def run_episode_and_get_observations(
         if monitor is not None:
             monitor.reset(train_or_test, task_idx)
     obs = env.get_observation()
+    if train_or_test == "test":
+        tasks = [
+        task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
+        ]
+    else:
+        preds, _ = utils.parse_config_excluded_predicates(env)
+        env_train_tasks = env.get_train_tasks()
+        train_tasks = [cogman._perceiver.reset(t) for t in env_train_tasks]
+        tasks = [
+        utils.strip_task(task, preds) for task in train_tasks
+    ]
+    print("TASKS",(tasks[0]))
+    cogman._approach._train_tasks = tasks
+    cogman._approach._init_nsrts()
     observations = [obs]
     actions: List[Action] = []
     curr_option: Optional[_Option] = None

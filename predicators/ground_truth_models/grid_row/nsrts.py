@@ -264,10 +264,9 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
 
         # MoveKey
         def move_key_sampler(state: State, goal: Set[GroundAtom],
-                         rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
+                             rng: np.random.Generator,
+                             objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Note: return 1.0 to show door is now open
             return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
 
         robot = Variable("?robot", robot_type)
@@ -283,17 +282,16 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         add_effects = set()
         delete_effects = set()
         ignore_effects = set()
-        move_key_nsrt = NSRT("MoveKey", parameters, preconditions,
-                              add_effects, delete_effects, ignore_effects,
-                              option, option_vars, move_key_sampler)
+        move_key_nsrt = NSRT("MoveKey", parameters, preconditions, add_effects,
+                             delete_effects, ignore_effects, option,
+                             option_vars, move_key_sampler)
         nsrts.add(move_key_nsrt)
-        
+
         # TurnKey
         def turn_key_sampler(state: State, goal: Set[GroundAtom],
-                         rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
+                             rng: np.random.Generator,
+                             objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Note: return 1.0 to show door is now open
             return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
 
         robot = Variable("?robot", robot_type)
@@ -309,9 +307,10 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         add_effects = set()
         delete_effects = set()
         ignore_effects = set()
-        turn_key_nsrt = NSRT("TurnKey", parameters, preconditions,
-                              add_effects, delete_effects, ignore_effects,
-                              option, option_vars, turn_key_sampler)
+        turn_key_nsrt = NSRT("TurnKey", parameters, preconditions, add_effects,
+                             delete_effects, ignore_effects, option,
+                             option_vars, turn_key_sampler)
         nsrts.add(turn_key_nsrt)
 
         return nsrts
+    

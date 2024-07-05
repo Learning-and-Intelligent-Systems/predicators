@@ -469,6 +469,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         goals = [t.goal for t in self.mapleq._train_tasks]  # pylint: disable=protected-access
         self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
             all_objects, goals, all_ground_nsrts)
+        # import ipdb;ipdb.set_trace()
 
     def _solve(self,
                task: Task,
@@ -489,6 +490,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                          self._action_space, self._train_tasks)
             self._maple_initialized = True
             self._init_nsrts()
+
+        # self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
+        #     all_objects, goals, all_ground_nsrts)
 
         # Prevent infinite loops by detecting if the bridge policy is called
         # twice with the same state.
@@ -543,6 +547,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             return policy(s)
 
         def _termination_fn(s: State) -> bool:
+            task = self._train_tasks[train_task_idx]
             return task.goal_holds(s)
 
         # The request's acting policy is from mapleq

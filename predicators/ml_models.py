@@ -26,6 +26,7 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 from torch.utils.data import DataLoader, TensorDataset
 
+from predicators.envs.grid_row import GridRowDoorEnv
 from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
@@ -1429,7 +1430,7 @@ class MapleQFunction(MLPRegressor):
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
-            state, num_samples_per_applicable_nsrt=10)
+            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
@@ -1857,12 +1858,22 @@ class MPDQNFunction(MapleQFunction):
     # ideally use SmoothL1Loss, but to compare w no target, use MSELoss for now
     #     return nn.SmoothL1Loss()
     def _vectorize_state(self, state: State) -> Array:
-        # Cannot just call state.vec() directly because some objects may not
-        # appear in this state.
-        vecs = MapleQFunction._vectorize_state(self, state)
+        vecs: List[Array] = []
+        robot_pos = 0
+        door_list = []
+        for o in state:
+            if o.is_instance(GridRowDoorEnv._robot_type):
+                robot_pos = state.get(o, "x")
+            if o.is_instance(GridRowDoorEnv._door_type):
+                door_list.append(o)
+            try:
+                vec = state[o]
+            except KeyError:
+                vec = np.zeros(o.type.dim, dtype=np.float32)
+            vecs.append(vec)
+        vecs = np.concatenate(vecs)
         has_middle_cell = 1
         light_target = 0.75
-        robot_pos = vecs[-1]
         if robot_pos==0:
             has_left_cell=0
         else:
@@ -1873,25 +1884,40 @@ class MPDQNFunction(MapleQFunction):
         else:
             has_right_cell=1
 
-        door_pos = vecs[-9]
+        # UR GONNA HAVE TO CHANGE THIS STUFF !!!!!! FOR MULTIPLE DOORS
+        # why is this now not even working for train time stuff :SKULL:
         light_pos = vecs[-2]
         light_target = vecs[-3]
+        has_middle_door = 0
+        has_right_door = 0
+        has_left_door = 0
+        door_move_key, door_move_target, \
+                door_turn_key, door_turn_target = (0,0,0,0)
+        for door in door_list:
+            door_pos = state.get(door, "x")
+            if robot_pos == door_pos:
+                has_middle_door = 1
+                door_move_key = state.get(door, "move_key")
+                door_move_target = state.get(door, "move_target")
+                door_turn_key = state.get(door, "turn_key")
+                door_turn_target = state.get(door, "turn_target")
+                # print(door, door_move_key, door_move_target, \
+                # door_turn_key, door_turn_target)
 
-        if robot_pos == door_pos:
-            has_middle_door = 1
-        else:
-            has_middle_door = 0
+            if robot_pos+1 == door_pos:
+                has_right_door = 1
+                door_move_key = state.get(door, "move_key")
+                door_move_target = state.get(door, "move_target")
+                door_turn_key = state.get(door, "turn_key")
+                door_turn_target = state.get(door, "turn_target")
 
-        if robot_pos+1 == door_pos:
-            has_right_door = 1
-        else:
-            has_right_door = 0
+            if robot_pos-1 == door_pos:
+                has_left_door = 1
+                door_move_key = state.get(door, "move_key")
+                door_move_target = state.get(door, "move_target")
+                door_turn_key = state.get(door, "turn_key")
+                door_turn_target = state.get(door, "turn_target")
 
-        if robot_pos-1 == door_pos:
-            has_left_door = 1
-        else:
-            has_left_door = 0
-        
         if robot_pos == light_pos:
             has_middle_light = 1
         else:
@@ -1907,14 +1933,12 @@ class MPDQNFunction(MapleQFunction):
         else:
             has_left_light = 0
         
-        door_open, door_target, door_open1, door_target1 = (vecs[-8], vecs[-7], vecs[-6], vecs[-5])
         light_level = vecs[-4]
         
         vectorized_state = [has_left_cell, has_left_door, has_left_light, has_middle_cell, \
                 has_middle_door, has_middle_light, has_right_cell, \
-                has_right_door, has_right_light, door_open, door_target, \
-                door_open1, door_target1, light_level, light_target]
-        
+                has_right_door, has_right_light, door_move_key, door_move_target, \
+                door_turn_key, door_turn_target, light_level, light_target]
         return vectorized_state
     
     def _vectorize_option(self, option: _Option) -> Array:
@@ -1982,6 +2006,8 @@ class MPDQNFunction(MapleQFunction):
                 [vectorized_state, vectorized_goal, vectorized_action])
             except:
                 import ipdb;ipdb.set_trace()
+            if reward > 0:
+                print("WE GOT REWARD")
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
@@ -2111,7 +2137,9 @@ class MPDQNFunction(MapleQFunction):
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
-
+            # print("GROUNDED NSRTS", self._ordered_ground_nsrts)
+        print("STATE", state, self._vectorize_state(state))
+        
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
@@ -2125,6 +2153,7 @@ class MPDQNFunction(MapleQFunction):
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
             state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+        # num_samples_per_ground_nsrt
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
@@ -2133,14 +2162,13 @@ class MPDQNFunction(MapleQFunction):
         option_scores=list(zip(options, scores))
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
         idx = np.argmax(scores)
-
-        # print("option scores", option_scores[:10])
-
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
             self.decay_epsilon()
         if train_or_test=="train":
             self.update_target_network()
+        # print("ACTION", self._vectorize_option(options[idx]))
+        # print("option scores", option_scores[:10])
         return options[idx]
     
     def update_target_network(self):
