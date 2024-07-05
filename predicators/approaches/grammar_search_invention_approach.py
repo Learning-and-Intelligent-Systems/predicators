@@ -1032,6 +1032,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             self._learned_predicates = self._select_predicates_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset)
+        elif CFG.grammar_search_pred_selection_approach == "no_select":
+            self._learned_predicates = set(candidates.keys())
         logging.info("Done.")
         # Now, rename these predicates to be compatible with PDDL planners!
         renamed_predicates: Set[Predicate] = set()
