@@ -40,6 +40,9 @@
 			<geometry>
 				<mesh filename="textured_objs/original-1.obj"/>
 			</geometry>
+			<material name="base_material_1">
+				<color rgba="1 1 1 0.2"/> <!-- Green color -->
+			</material>
 		</visual>
 		<collision>
 			<origin xyz="0 0 0"/>

@@ -114,7 +114,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Camera parameters.
     _camera_distance: ClassVar[float] = 1.3  #0.8
     _camera_yaw: ClassVar[float] = -70
-    _camera_pitch: ClassVar[float] = -48
+    # _camera_pitch: ClassVar[float] = -48
+    _camera_pitch: ClassVar[float] = -28 # lower
     # _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
@@ -127,6 +128,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._cup_to_capacity: Dict[Object, float] = {}
         # The status of the jug is not modeled inside PyBullet.
         self._jug_filled = False
+        self._jug_liquid_id = None
         self._obj_id_to_obj: Dict[int, Object] = {}
 
     @property
@@ -298,7 +300,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Create the visual_shape.
         visual_id = p.createVisualShape(p.GEOM_BOX,
                                         halfExtents=half_extents,
-                                        rgbaColor=(0.3, 0.3, 0.3, 1.0),
+                                        rgbaColor=(0.7, 0.7, 0.7, 1.0),
                                         physicsClientId=physics_client_id)
 
         # Create the body.
@@ -320,7 +322,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         visual_id = p.createVisualShape(p.GEOM_CYLINDER,
                                         radius=dispense_radius,
                                         length=dispense_height,
-                                        rgbaColor=(0.6, 0.6, 0.6, 0.8),
+                                        rgbaColor=(0.7, 0.7, 0.7, 0.8),
                                         physicsClientId=physics_client_id)
 
         # Create the body.
@@ -379,17 +381,16 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         rot = (cls.jug_init_rot_lb + cls.jug_init_rot_ub) / 2
         jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
 
+        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
         jug_id = p.loadURDF(utils.get_env_asset_path("urdf/kettle.urdf"),
                             useFixedBase=True,
-                            globalScaling=0.075,
+                            # globalScaling=0.075,
+                            globalScaling=0.1,
                             physicsClientId=physics_client_id)
         p.resetBasePositionAndOrientation(jug_id,
                                           jug_pose,
                                           jug_orientation,
                                           physicsClientId=physics_client_id)
-        # Set the transparency of the jug
-        transparency = 0.0  # 0.0 is fully transparent, 1.0 is fully opaque
-        p.changeVisualShape(jug_id, -1, rgbaColor=[1, 1, 1, transparency])
         bodies["jug_id"] = jug_id
 
         return physics_client_id, pybullet_robot, bodies
@@ -487,6 +488,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         for cup in state.get_objects(self._cup_type):
             liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
             self._cup_to_liquid_id[cup] = liquid_id
+
+        # Remove the liquid in jug
+        if self._jug_liquid_id is not None:
+            p.removeBody(self._jug_liquid_id,
+                             physicsClientId=self._physics_client_id)
+            self._jug_liquid_id = None
 
         # NOTE: if the jug is held, the parent class should take care of it.
         if not self._Holding_holds(state, [self._robot, self._jug]):
@@ -619,6 +626,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         state = super().step(action)
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
+        if self._jug_filled:
+            # Move the liquid inside
+            pos, quat = p.getBasePositionAndOrientation(
+                self._jug_id, physicsClientId=self._physics_client_id)
+            p.resetBasePositionAndOrientation(
+                self._jug_liquid_id, pos, quat,
+                physicsClientId=self._physics_client_id)
+
         if self._PressingButton_holds(state, [self._robot, self._machine]):
             if CFG.coffee_mac_requires_jug_to_turn_on:
                 if self._JugInMachine_holds(state, [self._jug, self._machine]):
@@ -641,6 +656,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     physicsClientId=self._physics_client_id)
             # the jug is only filled if it's in the machine
             if self._JugInMachine_holds(state, [self._jug, self._machine]):
+                if not self._jug_filled:
+                    self._jug_liquid_id = \
+                        self._create_pybullet_liquid_for_jug(self._jug, state)
                 self._jug_filled = True
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
@@ -812,6 +830,38 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         pose = (cx, cy, cz)
         orientation = self._default_orn
+        return p.createMultiBody(baseMass=0,
+                                 baseCollisionShapeIndex=collision_id,
+                                 baseVisualShapeIndex=visual_id,
+                                 basePosition=pose,
+                                 baseOrientation=orientation,
+                                 physicsClientId=self._physics_client_id)
+
+    def _create_pybullet_liquid_for_jug(self, jug: Object,
+                                        state: State) -> Optional[int]:
+        # current_liquid = state.get(cup, "current_liquid")
+        # cup_cap = state.get(cup, "capacity_liquid")
+        liquid_height = self.jug_height * 0.65
+        liquid_radius = self.jug_radius * 1.4
+        # cx = state.get(jug, "x")
+        # cy = state.get(jug, "y")
+        # cz = self.z_lb
+
+        collision_id = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=liquid_radius,
+            height=liquid_height,
+            physicsClientId=self._physics_client_id)
+
+        visual_id = p.createVisualShape(
+            p.GEOM_CYLINDER,
+            radius=liquid_radius,
+            length=liquid_height,
+            rgbaColor=(0.35, 0.1, 0.0, 1.0),
+            physicsClientId=self._physics_client_id)
+
+        pose, orientation = p.getBasePositionAndOrientation(
+            self._jug_id, physicsClientId=self._physics_client_id)
         return p.createMultiBody(baseMass=0,
                                  baseCollisionShapeIndex=collision_id,
                                  baseVisualShapeIndex=visual_id,

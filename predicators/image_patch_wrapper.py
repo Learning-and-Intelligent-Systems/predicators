@@ -99,8 +99,9 @@ class VisImage:
         buffer = np.frombuffer(s, dtype="uint8")
 
         img_rgba = buffer.reshape(height, width, 4)
-        rgb, alpha = np.split(img_rgba, [3], axis=2)
-        return rgb.astype("uint8")
+        return img_rgba
+        # rgb, alpha = np.split(img_rgba, [3], axis=2)
+        # return rgb.astype("uint8")
 
 
 class ImagePatch:
@@ -116,12 +117,11 @@ class ImagePatch:
                  parent_lower: int = 0,
                  queues: Tuple = None,
                  parent_img_patch: 'ImagePatch' = None) -> None:
+
         if state.labeled_image is None:
             image = state.state_image
-            # super().__init__(state.state_image, *args, **kwargs)
         else:
             image = state.labeled_image
-            # super().__init__(state.labeled_image, *args, **kwargs)
         self.state = state
         # self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         # css4_colors = mcolors.CSS4_COLORS
