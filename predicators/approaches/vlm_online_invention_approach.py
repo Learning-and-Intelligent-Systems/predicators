@@ -215,9 +215,10 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         """Learn from interacting with the offline dataset."""
-        tasks[0].init.state_image.save("images/test_state.png")
-        tasks[0].init.labeled_image.save("images/test_label.png")
-        # breakpoint()
+        for i, task in enumerate(tasks):
+            tasks[i].init.state_image.save(f"images/init_state{i}.png")
+            tasks[i].init.labeled_image.save(f"images/init_label{i}.png")
+            break
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
@@ -309,7 +310,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                             self._initial_predicates
                 else:
                     # Use the results to prompt the llm
-                    prompt = self._create_prompt(env, ite, 10, 2, 1)
+                    prompt = self._create_prompt(env, ite, 10, 2, 10)
                     breakpoint()
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'

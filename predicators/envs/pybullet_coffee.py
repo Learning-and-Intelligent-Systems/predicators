@@ -135,6 +135,18 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Predicates
         self._CupFilled_NSP = NSPredicate("CupFilled", [self._cup_type],
                                           self._CupFilled_NSP_holds)
+        self._Holding_NSP = Predicate("Holding",
+                                  [self._robot_type, self._jug_type],
+                                  self._Holding_NSP_holds)
+        self._JugInMachine_NSP = Predicate("JugInMachine",
+                                    [self._jug_type, self._machine_type],
+                                    self._JugInMachine_NSP_holds)
+        self._JugPickable_NSP = Predicate("JugPickable", [self._jug_type],
+                                    self._JugPickable_NSP_holds)
+        self._JugFilled_NSP = Predicate("JugFilled", [self._jug_type],
+                                    self._JugFilled_NSP_holds)
+        self._OnTable_NSP = Predicate("OnTable", [self._jug_type],
+                                    self._OnTable_NSP_holds)
 
     def _CupFilled_NSP_holds(self, state: RawState, objects: Sequence[Object]
                              ) -> bool:
@@ -145,17 +157,96 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         attention_image = state.crop_to_objects([cup])
         return state.evaluate_simple_assertion(
             f"{cup_name} has coffee in it", attention_image)
+    
+    def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                           ) -> bool:
+        """Determine if the robot is holding the jug.
+        """
+        robot, jug = objects
+        
+        # The block can't be held if the robot's hand is open.
+        finger_state = state.get(robot, "fingers")
+        if finger_state == 0.4:
+            return False
+
+        robot_name = robot.id_name
+        jug_name = jug.id_name
+        attention_image = state.crop_to_objects([robot, jug])
+        return state.evaluate_simple_assertion(
+            f"{robot_name} is holding {jug_name}", attention_image)
+    
+    def _JugInMachine_NSP_holds(self, state: RawState, 
+                                objects: Sequence[Object],
+                           ) -> bool:
+        """Determine if the jug is inside the machine.
+        """
+        jug, machine = objects
+        jug_name = jug.id_name
+        machine_name = machine.id_name
+        
+        # If the jug is far from the machine, it's not in the machine.
+        if state.get(jug, "bbox_left") > state.get(machine, "bbox_right"):
+            return False
+
+        attention_image = state.crop_to_objects([jug, machine])
+        return state.evaluate_simple_assertion(
+            f"{jug_name} is in the coffee machine {machine_name}", 
+            attention_image)
+    
+    def _JugPickable_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                           ) -> bool:
+        """Determine if the jug is pickable.
+        """
+        jug, = objects
+        jug_name = jug.id_name
+        attention_image = state.crop_to_objects([jug])
+        return state.evaluate_simple_assertion(
+            f"{jug_name}'s handle is pointing to the robot so it can "+
+            "be directly picked up", attention_image)
+    
+    def _JugFilled_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                           ) -> bool:
+        """Determine if the jug is filled with coffee.
+        """
+        jug, = objects
+        jug_name = jug.id_name
+        attention_image = state.crop_to_objects([jug])
+        return state.evaluate_simple_assertion(
+            f"glass {jug_name} is filled with coffee", attention_image)
+    
+    def _OnTable_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                           ) -> bool:
+        """Determine if the jug is on the table.
+        """
+        jug, = objects
+        jug_name = jug.id_name
+
+        # We know there is only one table in this environment.
+        table = state.get_objects(self._table_type)[0]
+        table_name = table.id_name
+        # Crop the image to the smallest bounding box that include both objects.
+
+        attention_image = state.crop_to_objects([jug, table])
+        return state.evaluate_simple_assertion(
+            f"glass {jug_name} is directly resting on {table_name}'s surface.",
+            attention_image)
 
     @property
     def ns_predicates(self) -> Set[NSPredicate]:
-        return {self._CupFilled_NSP}
+        return {self._CupFilled_NSP,
+                self._Holding_NSP,
+                self._JugInMachine_NSP,
+                self._JugPickable_NSP,
+                self._JugFilled_NSP,
+                self._OnTable_NSP,
+                }
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:
         # Useful predicates when
         return {
+            self._CupFilled, # goal predicate
             self._Holding, 
-            self._CupFilled, 
             self._JugInMachine,
             self._JugPickable,
             self._JugFilled,
@@ -406,6 +497,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             # globalScaling=0.075,
                             globalScaling=0.1,
                             physicsClientId=physics_client_id)
+        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.2], 
+                                    physicsClientId=physics_client_id)
+        # p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0.1], 
+        #                             physicsClientId=physics_client_id)
         p.resetBasePositionAndOrientation(jug_id,
                                           jug_pose,
                                           jug_orientation,
@@ -448,8 +543,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle coffee-specific resetting."""
         super()._reset_state(state)
-        self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
-
 
         # Remove the old cups.
         for old_cup_id in self._cup_id_to_cup:
@@ -509,10 +602,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._cup_to_liquid_id[cup] = liquid_id
 
         # Remove the liquid in jug
+        self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
         if self._jug_liquid_id is not None:
             p.removeBody(self._jug_liquid_id,
                              physicsClientId=self._physics_client_id)
             self._jug_liquid_id = None
+            if self._jug_filled:
+                self._jug_liquid_id = self._create_pybullet_liquid_for_jug()
 
         # NOTE: if the jug is held, the parent class should take care of it.
         if not self._Holding_holds(state, [self._robot, self._jug]):
@@ -677,7 +773,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             if self._JugInMachine_holds(state, [self._jug, self._machine]):
                 if not self._jug_filled:
                     self._jug_liquid_id = \
-                        self._create_pybullet_liquid_for_jug(self._jug, state)
+                        self._create_pybullet_liquid_for_jug()
                 self._jug_filled = True
             self._current_observation = self._get_state()
             state = self._current_observation.copy()
@@ -735,7 +831,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, new_jug_yaw])
             # print(f"[in step] jug new yaw {jug_yaw-d_roll+np.pi/2:.3f}")
             p.resetBasePositionAndOrientation(
-                self._jug_id, [jx, jy, jz],
+                self._jug_id, [jx, jy, self.z_lb + self.jug_height / 2],
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
 
@@ -856,12 +952,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                  baseOrientation=orientation,
                                  physicsClientId=self._physics_client_id)
 
-    def _create_pybullet_liquid_for_jug(self, jug: Object,
-                                        state: State) -> Optional[int]:
+    def _create_pybullet_liquid_for_jug(self) -> Optional[int]:
         # current_liquid = state.get(cup, "current_liquid")
         # cup_cap = state.get(cup, "capacity_liquid")
-        liquid_height = self.jug_height * 0.65
-        liquid_radius = self.jug_radius * 1.4
+        liquid_height = self.jug_height * 0.85
+        liquid_radius = self.jug_radius * 1.6
         # cx = state.get(jug, "x")
         # cy = state.get(jug, "y")
         # cz = self.z_lb
@@ -876,7 +971,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             p.GEOM_CYLINDER,
             radius=liquid_radius,
             length=liquid_height,
-            rgbaColor=(0.35, 0.1, 0.0, 1.0),
+            rgbaColor=(0.2, 0.05, 0.0, 1.0),
             physicsClientId=self._physics_client_id)
 
         pose, orientation = p.getBasePositionAndOrientation(

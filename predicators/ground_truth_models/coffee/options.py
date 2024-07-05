@@ -188,11 +188,15 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             jug_x = state.get(jug, "x")
             jug_y = state.get(jug, "y")
             jug_z = cls.env_cls.jug_height
+            # jug_top = (jug_x, jug_y, jug_z + cls.env_cls.jug_height)
             jug_top = (jug_x, jug_y, jug_z)
             xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
             # If at the correct x and y position, move directly toward the
             # target.
-            if xy_sq_dist < cls.twist_policy_tol:
+            tol = cls.twist_policy_tol
+            if CFG.env == "pybullet_coffee":
+                tol *= 1e-2
+            if xy_sq_dist < tol:
                 return cls._get_move_action(state, jug_top, robot_pos)
             # Move to the position above the jug.
             return cls._get_move_action(
@@ -552,7 +556,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             robot, jug = objects
             current_rot = state.get(jug, "rot")
             # norm_desired_rot, = params
-            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0
+            norm_desired_rot = params[0] if params.shape[0] == 1 else 0
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,

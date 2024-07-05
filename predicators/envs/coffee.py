@@ -286,7 +286,8 @@ class CoffeeEnv(BaseEnv):
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_cups_lst=CFG.coffee_num_cups_test,
-                               rng=self._test_rng)
+                               rng=self._train_rng)
+                            #    rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -532,7 +533,7 @@ class CoffeeEnv(BaseEnv):
                                       self.jug_init_rot_ub)
                 else:
                     rot = 0.0
-                if task_idx == 1:
+                if task_idx == 0:
                     rot = self.jug_init_rot_ub
 
             state_dict[self._jug] = {

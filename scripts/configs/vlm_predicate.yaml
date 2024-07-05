@@ -16,7 +16,7 @@ ARGS:
   - "use_gui"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
-  num_train_tasks: 1 #0 # pybullet_coffee
+  num_train_tasks: 10 #0 # pybullet_coffee
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -36,6 +36,7 @@ FLAGS:
   coffee_num_cups_train: '[1]'
   coffee_no_rotated_jug: False
   coffee_rotated_jug_ratio: 0.1
+  # coffee_rotated_jug_ratio: 1
   coffee_combined_move_and_twist_policy: True
   coffee_mac_requires_jug_to_turn_on: True
 
@@ -70,6 +71,6 @@ FLAGS:
   llm_openai_max_response_tokens: 4096
   pybullet_camera_width: 900 
   pybullet_camera_height: 900
-START_SEED: 2
+START_SEED: 1
 NUM_SEEDS: 1
 ...

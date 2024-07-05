@@ -1,7 +1,7 @@
 import logging
 import os
 import random
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Dict
 
 import cv2
 import matplotlib.colors as mcolors
@@ -175,8 +175,7 @@ class ImagePatch:
         pil_image.save(path)
 
     def label_all_objects(self,
-                          masks: Sequence[Mask],
-                          labels: Sequence[str],
+                          obj_mask_dict: Dict[Object, Mask],
                           alpha: float = 0.1,
                           anno_mode: List[str] = ['Mark']):
         """Label an object, as indicated by mask, on the image.
@@ -195,6 +194,7 @@ class ImagePatch:
         """
         # cropped_image: [4, 900, 900]
         assert len(self.cropped_image.shape) == 3
+        masks = obj_mask_dict.values()
         for mask in masks:
             assert self.cropped_image.shape[1:] == mask.shape
         # Draw a color
@@ -207,7 +207,7 @@ class ImagePatch:
         vis_image = VisImage(img_np)
         # vis_image.save(f"images/vis_image_{label}.png")
 
-        for mask, label in zip(masks, labels):
+        for obj, mask in obj_mask_dict.items():
             # Skip if the mask is empty
             if mask.sum() == 0:
                 continue
@@ -218,9 +218,16 @@ class ImagePatch:
             mask_dt = mask_dt[1:-1, 1:-1]
             max_dist = np.max(mask_dt)
             coords_y, coords_x = np.where(mask_dt == max_dist)
+            dy = 0
+            if obj.type.name == 'jug':
+                dy -= 10
+            elif obj.type.name == "cup":
+                dy += 10
+
             img_np = self.draw_text(vis_image,
-                                    label, (coords_x[len(coords_x) // 2],
-                                            coords_y[len(coords_y) // 2] - 8),
+                                    obj.id, 
+                                    (coords_x[len(coords_x) // 2],
+                                    coords_y[len(coords_y) // 2] - 8 + dy),
                                     color=color)
 
         img_np = vis_image.get_image()
