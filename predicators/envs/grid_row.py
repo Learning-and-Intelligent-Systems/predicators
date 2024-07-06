@@ -304,10 +304,9 @@ class GridRowDoorEnv(GridRowEnv):
         tasks: List[EnvironmentTask] = []
 
         door_list: List[List[Object]] = []
-        for door_num in range(2):
+        for door_num in range(3):
             door = Object(f"door{door_num}", self._door_type)
             door_list.append(door)
-
 
         while len(tasks) < num:
             state_dict = {
