@@ -134,6 +134,7 @@ def count_classification_result_for_ops(
         max_num_options: int = 10,  # Number of options to show
         max_num_groundings: int = 2,  # Number of ground options per option.3
         max_num_examples: int = 2,  # Number of examples per ground option.
+        categories_to_show: List[str] = ['tp', 'fp'],
 ) -> Tuple[int, int, int, int, str]:
 
     np.set_printoptions(precision=1)
@@ -319,6 +320,7 @@ def count_classification_result_for_ops(
             max_num_options,
             max_num_groundings,
             max_num_examples,
+            categories_to_show,
         )
 
     if print_cm:
@@ -341,6 +343,7 @@ def summarize_results_in_str(
     max_num_options: int,
     max_num_groundings: int,
     max_num_examples: int,
+    categories_to_show: List[str] = ['tp', 'fp'],
 ) -> str:
     result_str = []
     # What how to simplify the prompt?
@@ -415,7 +418,8 @@ def summarize_results_in_str(
                 # f"*successfully* executed on {n_succ_states}/{n_tot} states "+
                 # "(ground truth positive states).")
 
-                if n_tp:  # and (n_succ_states/n_tot) < 1:
+                # and (n_succ_states/n_tot) < 1:
+                if n_tp and "tp" in categories_to_show:  
                     # [Detailed] True Positive
                     # result_str.append(
                     # f"  Out of the {n_succ_states} GT positive states, "+
@@ -436,18 +440,18 @@ def summarize_results_in_str(
                         state_hash_to_id)
 
                 # Ignored in the simplified prompt
-                # # False Negative
-                # if n_fn:
-                #     result_str.append(
-                #     f"  Out of the {n_succ_states} GT positive states, "+
-                #     f"with the current predicates and operators, "+
-                #     f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
-                #     "operators' precondition (false negatives)"+
-                #     (f", to list {max_num_examples}:" if
-                #         uniq_n_fn > max_num_examples else ":"))
-                #     result_str = append_classification_result_for_ops(
-                #         result_str, g_optn, fn_states,
-                #         max_num_examples, "fn", state_hash_to_id)
+                # False Negative
+                if n_fn and "fn" in categories_to_show:
+                    result_str.append(
+                    f"  Out of the {n_succ_states} GT positive states, "+
+                    f"with the current predicates and operators, "+
+                    f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
+                    "operators' precondition (false negatives)"+
+                    (f", to list {max_num_examples}:" if
+                        uniq_n_fn > max_num_examples else ":"))
+                    result_str = append_classification_result_for_ops(
+                        result_str, g_optn, fn_states,
+                        max_num_examples, "fn", state_hash_to_id)
 
             # GT Negative
             if n_fail_states:
@@ -460,7 +464,7 @@ def summarize_results_in_str(
                 # f"Option {g_optn} was applied on {n_tot} states and "+
                 # f"*failed* to executed on {n_fail_states}/{n_tot} states "+
                 # "(ground truth negative states).")
-                if n_fp:
+                if n_fp and "fp" in categories_to_show:
                     # [Detailed] False Positive
                     # result_str.append(
                     # f"  Out of the {n_fail_states} GT negative states, "+
@@ -482,32 +486,45 @@ def summarize_results_in_str(
                         state_hash_to_id)
 
                 # Ignored in the simplified prompt
-                # if n_tn:# and (n_tn/n_fail_states) < 1:
-                #     # True Negative
-                #     result_str.append(
-                #     f"  Out of the {n_fail_states} GT negative states, "+
-                #     f"with the current predicates and operators, "+
-                #     f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
-                #     "operators' precondition (true negatives)"+
-                #     (f", to list {max_num_examples}:" if
-                #         uniq_n_tn > max_num_examples else ":"))
-                #     result_str = append_classification_result_for_ops(
-                #         result_str, g_optn, tn_states,
-                #         max_num_examples, "tn", state_hash_to_id)
+                # and (n_tn/n_fail_states) < 1:
+                if n_tn and "tn" in categories_to_show:
+                    # True Negative
+                    result_str.append(
+                    f"  Out of the {n_fail_states} GT negative states, "+
+                    f"with the current predicates and operators, "+
+                    f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
+                    "operators' precondition (true negatives)"+
+                    (f", to list {max_num_examples}:" if
+                        uniq_n_tn > max_num_examples else ":"))
+                    result_str = append_classification_result_for_ops(
+                        result_str, g_optn, tn_states,
+                        max_num_examples, "tn", state_hash_to_id)
     return '\n'.join(result_str)
 
 
 def append_classification_result_for_ops(result_str: List[str], g_optn: str,
-                                         states: Set[State],
+                                         states: Set[RawState],
                                          max_num_examples: int, category: str,
                                          state_hash_to_id: Dict) -> List[str]:
-    for i, state in enumerate(states):
-        if i == max_num_examples: break
+    shown_ppp = []
+    num_shown = 0
+    for _, state in enumerate(states):
+        if num_shown == max_num_examples: break
 
+        # Show states whose plan prefix are different
+        assert state.option_history is not None
+        option_history = ", ".join(state.option_history[-1:])
+        # e.g. pick would fell in a state where the jug is not in the 
+        # correct rotation (ppp == []) and a state where the jug is already
+        # in hand (ppp == [pick]) due to different reasons.
+        if option_history not in shown_ppp:
+            shown_ppp.append(option_history)
+        else:
+            continue
         if CFG.vlm_predicator_render_option_state:
             obs_name = "state_" + str(state_hash_to_id[hash(state)])
             f_suffix = ".png"
-            _, obs_dir = vlm_option_obs_save_name(g_optn, category, i)
+            _, obs_dir = vlm_option_obs_save_name(g_optn, category, num_shown)
 
             # Write state name to the image for easy identification
             img_copy = state.labeled_image.copy()
@@ -524,7 +541,12 @@ def append_classification_result_for_ops(result_str: List[str], g_optn: str,
             state.dict_str(
                 indent=2,
                 object_features=not CFG.vlm_predicator_render_option_state,
-                use_object_id=CFG.vlm_predicator_render_option_state) + '\n')
+                use_object_id=CFG.vlm_predicator_render_option_state))
+        if CFG.vlm_invent_include_option_history:
+            result_str.append("  Previous option: " + 
+                        (option_history if option_history != "" else "None"))
+        result_str.append("")
+        num_shown += 1
 
     return result_str
 
@@ -1606,6 +1628,7 @@ class RawState(PyBulletState):
     state_image: PIL.Image.Image = field(default_factory=PIL.Image.new)
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
+    option_history: Optional[str] = None
 
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
@@ -1722,9 +1745,10 @@ class RawState(PyBulletState):
         state_image_copy = copy.copy(self.state_image)
         obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
         labeled_image_copy = copy.copy(self.labeled_image)
+        option_history_copy = copy.copy(self.option_history)
         return RawState(pybullet_state_copy.data,
                         pybullet_state_copy.simulator_state, state_image_copy,
-                        obj_mask_copy, labeled_image_copy)
+                        obj_mask_copy, labeled_image_copy, option_history_copy)
 
     def get_obj_mask(self, object: Object) -> Mask:
         """Return the mask for the object."""

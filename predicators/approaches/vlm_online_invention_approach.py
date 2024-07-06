@@ -277,8 +277,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             logging.info(f"===Starting iteration {ite}...")
             # Reset at every iteration
             if CFG.reset_optn_state_dict_at_every_ite:
-                self.succ_optn_dict = defaultdict(lambda: defaultdict(list))
-                self.fail_optn_dict = defaultdict(lambda: defaultdict(list))
+                self.succ_optn_dict = defaultdict(GroundOptionRecord)
+                self.fail_optn_dict = defaultdict(GroundOptionRecord)
             # This will update self.task_to_tasjs
             self._process_interaction_result(env,
                                              results,
@@ -310,7 +310,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                             self._initial_predicates
                 else:
                     # Use the results to prompt the llm
-                    prompt = self._create_prompt(env, ite, 10, 2, 1)
+                    prompt = self._create_prompt(env, ite, 10, 2, 2, 
+                                            categories_to_show=['tp', 'fp'])
                     breakpoint()
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
@@ -605,7 +606,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         option_plan[:-1],
                         ite=ite,
                         task=i,
-                        p_idx=p_idx)
+                        p_idx=p_idx,)
                     state = states[-1]
                     # Take the prefix of the pplan and use it to learn
                     #   operators.
@@ -623,12 +624,14 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                _train_task_idx=i))
 
                 # Failed part
+                ppp = [o.name for o in option_plan[:-1]]
                 _, _ = self._execute_succ_plan_and_track_state(
                     state,
                     env,
                     nsrt_plan[failed_opt_idx:],
                     option_plan[-1:],
-                    failed_opt=True)
+                    failed_opt=True,
+                    partial_plan_prefix=ppp)
         logging.debug("Collected Positive states for "
                       f"{list(self.succ_optn_dict.keys())}")
         logging.debug("Collected Negative states for "
@@ -643,7 +646,9 @@ class VlmInventionApproach(NSRTLearningApproach):
             failed_opt: bool = False,
             ite: Optional[int] = None,
             task: Optional[int] = None,
-            p_idx: Optional[int] = None) -> Tuple[List[State], List[Action]]:
+            p_idx: Optional[int] = None,
+            partial_plan_prefix: Optional[List[str]] = None,
+            ) -> Tuple[List[State], List[Action]]:
         """Similar to _execute_plan_and_track_state but only run in successful
         policy because we only need the initial state for the failed option.
 
@@ -655,6 +660,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         actions: List[Action]
             The first action from each option in the option plan. The length of
             this will be 1 less than the number of states.
+        partial_plan_prefix: Optional[str] = None,
+            For failed options, the list of option successfully executed before
+            them.
         """
         state = init_state
 
@@ -675,6 +683,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     render=CFG.vlm_predicator_render_option_state)
                 if CFG.neu_sym_predicate:
                     option_start_state.add_bbox_features()
+                option_start_state.option_history = partial_plan_prefix
                 self.state_cache[state_hash] = option_start_state.copy()
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
@@ -710,6 +719,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     vlm_predicator_render_option_state)
                                 if CFG.neu_sym_predicate:
                                     option_start_state.add_bbox_features()
+                                # add plan prefix
+                                option_start_state.option_history = [
+                                    n.option.name for n in 
+                                    nsrt_plan[:nsrt_counter]]
                                 self.state_cache[
                                     state_hash] = option_start_state.copy()
                             # For debugging incomplete options
@@ -733,6 +746,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 option_start_state = env.get_observation(
                                     render=CFG.
                                     vlm_predicator_render_option_state)
+                                # add plan prefix
+                                option_start_state.option_history = [
+                                    n.option.name for n in 
+                                    nsrt_plan[:nsrt_counter]]
                                 if CFG.neu_sym_predicate:
                                     option_start_state.add_bbox_features()
                                 self.state_cache[
@@ -932,7 +949,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         max_num_options: int = 10,  # Number of options to show
         max_num_groundings: int = 2,  # Number of ground options per option.3
         max_num_examples: int = 2,  # Number of examples per ground option.
-        seperate_prompt_per_option: bool = False
+        categories_to_show: List[str] = ['tp', 'fp'],
+        seperate_prompt_per_option: bool = False,
     ) -> str:
         """Compose a prompt for VLM for predicate invention."""
         # Read the shared template
@@ -1016,7 +1034,9 @@ class VlmInventionApproach(NSRTLearningApproach):
             print_cm=True,
             max_num_options=max_num_options,
             max_num_groundings=max_num_groundings,
-            max_num_examples=max_num_examples)
+            max_num_examples=max_num_examples,
+            categories_to_show=categories_to_show,
+            )
         template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
         # Save the text prompt

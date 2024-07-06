@@ -436,6 +436,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_use_chat_mode = False
     query_vlm_for_each_assertion = False
     query_vlm_for_each_predicate = False
+    vlm_invent_include_option_history = True
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"

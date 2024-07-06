@@ -71,6 +71,7 @@ FLAGS:
   llm_openai_max_response_tokens: 4096
   pybullet_camera_width: 900 
   pybullet_camera_height: 900
+  vlm_invent_include_option_history: True
 START_SEED: 1
 NUM_SEEDS: 1
 ...
