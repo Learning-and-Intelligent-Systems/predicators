@@ -298,13 +298,26 @@ class GridRowDoorEnv(GridRowEnv):
         return Box(-np.inf, np.inf, (4, ))
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        self._cells = [
+            Object(f"cell{i}", self._cell_type)
+            for i in range(CFG.test_grid_row_num_cells)
+        ]
+        self._cell_to_neighbors = {
+            self._cells[0]: {self._cells[1]},
+            self._cells[-1]: {self._cells[-2]},
+            **{
+                self._cells[t]: {self._cells[t - 1], self._cells[t + 1]}
+                for t in range(1,
+                               len(self._cells) - 1)
+            }
+        }
         num=CFG.num_test_tasks
         rng=self._test_rng
         goal = {GroundAtom(self._LightOn, [self._light])}
         tasks: List[EnvironmentTask] = []
 
         door_list: List[List[Object]] = []
-        for door_num in range(3):
+        for door_num in range(CFG.num_doors):
             door = Object(f"door{door_num}", self._door_type)
             door_list.append(door)
 
@@ -335,10 +348,53 @@ class GridRowDoorEnv(GridRowEnv):
             tasks.append(EnvironmentTask(state, goal))
         return tasks
 
+
+    def _reset_test_cells(self):
+        self._cells = [
+            Object(f"cell{i}", self._cell_type)
+            for i in range(CFG.test_grid_row_num_cells)
+        ]
+        self._cell_to_neighbors = {
+            self._cells[0]: {self._cells[1]},
+            self._cells[-1]: {self._cells[-2]},
+            **{
+                self._cells[t]: {self._cells[t - 1], self._cells[t + 1]}
+                for t in range(1,
+                               len(self._cells) - 1)
+            }
+        }
+
+    def _reset_cells(self):
+        self._cells = [
+            Object(f"cell{i}", self._cell_type)
+            for i in range(CFG.grid_row_num_cells)
+        ]
+        self._cell_to_neighbors = {
+            self._cells[0]: {self._cells[1]},
+            self._cells[-1]: {self._cells[-2]},
+            **{
+                self._cells[t]: {self._cells[t - 1], self._cells[t + 1]}
+                for t in range(1,
+                               len(self._cells) - 1)
+            }
+        }
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment: to turn the light on.
         goal = {GroundAtom(self._LightOn, [self._light])}
+        self._cells = [
+            Object(f"cell{i}", self._cell_type)
+            for i in range(CFG.grid_row_num_cells)
+        ]
+        self._cell_to_neighbors = {
+            self._cells[0]: {self._cells[1]},
+            self._cells[-1]: {self._cells[-2]},
+            **{
+                self._cells[t]: {self._cells[t - 1], self._cells[t + 1]}
+                for t in range(1,
+                               len(self._cells) - 1)
+            }
+        }
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             state_dict = {
@@ -373,9 +429,12 @@ class GridRowDoorEnv(GridRowEnv):
         next_state = state.copy()
         dx, dlight, dmove, dturn = action.arr
         robbot_pos = state.get(self._robot, "x")
-        robot_cells = [
+        try:
+            robot_cells = [
             c for c in self._cells if self._In_holds(state, [self._robot, c])
-        ]
+            ]
+        except:
+            import ipdb;ipdb.set_trace()
         total_door_cells = []
         robot_cell = robot_cells[0]
         door_cell_to_door = {}
@@ -411,6 +470,8 @@ class GridRowDoorEnv(GridRowEnv):
         light_cells = [
             c for c in self._cells if self._In_holds(state, [self._light, c])
         ]
+        if not len(light_cells) == 1:
+            import ipdb;ipdb.set_trace()
         assert len(light_cells) == 1
         light_cell = light_cells[0]
         if robot_cell == light_cell and dlight == 0.75 and self._LightOff_holds(

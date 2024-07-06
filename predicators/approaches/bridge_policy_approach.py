@@ -120,7 +120,6 @@ class BridgePolicyApproach(OracleApproach):
 
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy, last_bridge_policy_state
-
             if time.perf_counter() - start_time > timeout:
                 raise ApproachTimeout("Bridge policy timed out.")
 
@@ -535,6 +534,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         def _act_policy(s: State) -> Action:
             nonlocal just_starting
             if just_starting:
+                task = self._train_tasks[train_task_idx]
                 self._current_control = "planner"
                 option_policy = self._get_option_policy_by_planning(
                     task, CFG.timeout)

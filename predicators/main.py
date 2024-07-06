@@ -211,11 +211,11 @@ def _run_pipeline(env: BaseEnv,
         second_turnkey_q_values = []
         callplanner_q_values = []
         smooth_rewards = []
-
+        we_solved = False
 
         for i in range(CFG.num_online_learning_cycles):
-            # if i==1:
-            #     raise ValueError
+            if we_solved:
+                raise ValueError
             if i < CFG.skip_until_cycle:
                 continue
 
@@ -288,6 +288,7 @@ def _run_pipeline(env: BaseEnv,
 
             if results["num_solved"] == 1:
                 logs.append(1)
+                we_solved = True
             else:
                 logs.append(0)
             learning_cycles.append(i + 1)
@@ -366,6 +367,7 @@ def _generate_interaction_results(
             monitor = utils.VideoMonitor(env.render)
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
+        env._reset_cells()
         env_task = env.get_train_tasks()[request.train_task_idx]
         cogman.reset(env_task)
         observed_traj, _, _ = run_episode_and_get_observations(
@@ -531,6 +533,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = [
         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
     ]
+    env._reset_test_cells()
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()
