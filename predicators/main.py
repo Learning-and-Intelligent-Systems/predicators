@@ -214,8 +214,8 @@ def _run_pipeline(env: BaseEnv,
         we_solved = False
 
         for i in range(CFG.num_online_learning_cycles):
-            if we_solved:
-                raise ValueError
+            # if we_solved:
+            #     raise ValueError
             if i < CFG.skip_until_cycle:
                 continue
 
