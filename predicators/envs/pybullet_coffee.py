@@ -246,13 +246,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Useful predicates when
         return {
             self._CupFilled, # goal predicate
-            self._Holding, 
-            self._JugInMachine,
+            self._Holding,      # yes 
+            self._JugInMachine, # yes
             self._JugPickable,
             self._JugFilled,
             self._OnTable, 
-            self._MachineOn, # Not needed in syPred's success
-            self._HandEmpty, # Not needed in syPred's success
+            self._MachineOn, # Not needed in syPred's success # yes
+            self._HandEmpty, # Not needed in syPred's success # yes
             # Should add: in correct rotation
 
             # self._Twisting,

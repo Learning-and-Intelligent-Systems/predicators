@@ -310,7 +310,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                             self._initial_predicates
                 else:
                     # Use the results to prompt the llm
-                    prompt = self._create_prompt(env, ite, 10, 2, 10)
+                    prompt = self._create_prompt(env, ite, 10, 2, 1)
                     breakpoint()
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'

@@ -326,6 +326,11 @@ def count_classification_result_for_ops(
 
     return sum_tp, sum_tn, sum_fp, sum_fn, result_str
 
+def remove_duplicates(seq):
+    # remove duplicates from a list while preserving order
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
 
 def summarize_results_in_str(
     accuracy_dict: Dict,
