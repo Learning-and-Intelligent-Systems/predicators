@@ -340,7 +340,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     all_trajs.append(traj)
             logging.info(f"Learning from {len(all_trajs)} trajectories.")
 
-            if CFG.llm_predicator_oracle_learned or num_solved == 0:
+            if CFG.llm_predicator_oracle_learned:
                 self._learned_predicates = new_proposals
             else:
                 # Select a subset candidates by score optimization
@@ -371,8 +371,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                 #                 for g_optn in optn_dict.keys() for state in
                 #                 optn_dict[g_optn].states))
                 # logging.debug(f"There are {num_states} distinct states.")
-                if CFG.grammar_search_score_function == \
-                    "operator_classification_error":
+                if num_solved == 0:
+                    score_function = "operator_classification_error"
+                else:
+                    score_function = "expected_nodes_created"
+                    # score_function = CFG.grammar_search_score_function
+                if score_function == "operator_classification_error":
                     for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
                         for g_optn in optn_dict.keys():
                             atom_states = []
@@ -388,22 +392,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                     utils.create_ground_atom_dataset(all_trajs, 
                                                      set(all_candidates))
                 logging.info("[Finish] Applying predicates to data....")
-
-                # Log the dataset
-                log_atom_dataset: List[GroundAtomTrajectory] =\
-                    utils.create_ground_atom_dataset(
-                        all_trajs, base_candidates)
-                for traj_i, traj in enumerate(log_atom_dataset):
-                    logging.debug(f"[ite {ite}, traj {traj_i}] " +
-                                  "Logging atom dataset")
-                    gt_atom_init = utils.abstract(
-                        tasks[traj[0].train_task_idx].init, env.predicates)
-                    logging.debug(f"GT init state: {gt_atom_init}")
-                    for state_i, atom_s in enumerate(traj[1]):
-                        logging.debug(f"state{state_i}: {atom_s}")
-                        if state_i < len(traj[0].actions):
-                            op = traj[0].actions[state_i].get_option()
-                            logging.debug(f"action{state_i}: {op}")
 
                 logging.info("[Start] Predicate search from " +
                              f"{self._initial_predicates}...")
