@@ -96,16 +96,11 @@ class CoffeeEnv(BaseEnv):
     max_finger_vel: ClassVar[float] = 1.0
 
     # Types
-    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _table_type = Type("table", [] + bbox_features)
-    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"] + 
-                                bbox_features)
-    _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"] + 
-                            bbox_features)
-    _machine_type = Type("machine", ["is_on"] + bbox_features)
+    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
+    _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"])
+    _machine_type = Type("machine", ["is_on"])
     _cup_type = Type("cup",
-        ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"] + 
-        bbox_features)
+        ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -525,16 +520,22 @@ class CoffeeEnv(BaseEnv):
             if CFG.coffee_no_rotated_jug:
                 rot = 0.0
             else:
-                p = CFG.coffee_rotated_jug_ratio
-                add_rotation = rng.choice([True, False], p=[p, 1-p])
-                if add_rotation:
-                    logging.info("Adding rotation to jug")
-                    rot = rng.uniform(self.jug_init_rot_lb, 
-                                      self.jug_init_rot_ub)
+                # Auto
+                # p = CFG.coffee_rotated_jug_ratio
+                # add_rotation = rng.choice([True, False], p=[p, 1-p])
+                # if add_rotation:
+                #     logging.info(f"Adding rotation to jug to task {task_idx}")
+                #     rot = rng.uniform(self.jug_init_rot_lb, 
+                #                       self.jug_init_rot_ub)
+                # else:
+                #     rot = 0.0
+
+                # Manual
+                if task_idx == 1:
+                    logging.info(f"Adding rotation to jug to task {task_idx}")
+                    rot = self.jug_init_rot_ub
                 else:
                     rot = 0.0
-                if task_idx == 0:
-                    rot = self.jug_init_rot_ub
 
             state_dict[self._jug] = {
                 "x": x,

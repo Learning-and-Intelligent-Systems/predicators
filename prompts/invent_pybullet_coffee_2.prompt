@@ -234,7 +234,7 @@ where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left
 `pose_x`, `pose_y` and `pose_z` correspond to the 3d object position in the world frame, so they are not comparable to the bbox values.
 
 The existing set of predicates are:
-{'CupFilled(?x:cup)'}
+{'RobotHoldingJug(?x:robot, ?y:jug)', 'CupFilled(?x:cup)', 'RobotNearMachine(?x:robot)', 'JugInMachine(?x:jug, ?y:machine)'}
 
 Predicate CupFilled(?x) is defined by:
 ```python
@@ -252,27 +252,27 @@ _CupFilled_NSP = NSPredicate("CupFilled", [_cup_type],
 ```
 
 The set of options the robot has are:
-PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:machine): Place the jug in the machine.
-TurnMachineOn(?robot:robot, ?machine:machine): Turn the machine on.
-PickJug(?robot:robot, ?jug:jug): Pick up the jug.
 Pour(?robot:robot, ?jug:jug, ?cup:cup): Pour liquid from the jug to the cup
-Twist(?robot:robot, ?jug:jug): Rotate the jug to the desired rotation.
+PickJug(?x1:robot, ?x0:jug): Pick up the jug.
+Twist(?x1:robot, ?x0:jug): Rotate the jug to the desired rotation.
+TurnMachineOn(?x1:robot, ?x0:machine): Turn the machine on.
+PlaceJugInMachine(?x2:robot, ?x1:jug, ?x0:machine): Place the jug in the machine.
 
 Utilizing the exisiting predicates, we carefully designed following action operators:
-Operator-PickJugFromTable:
-    Parameters: [?robot:robot, ?jug:jug]
+Operator-Op2:
+    Parameters: [?x0:machine, ?x1:jug, ?x2:robot]
+    Preconditions: [RobotHoldingJug(?x2:robot, ?x1:jug)]
+    Add Effects: []
+    Delete Effects: [RobotHoldingJug(?x2:robot, ?x1:jug)]
+    Ignore Effects: []
+    Option Spec: PlaceJugInMachine(?x2:robot, ?x1:jug, ?x0:machine)
+Operator-Op1:
+    Parameters: [?x0:jug, ?x1:robot]
     Preconditions: []
     Add Effects: []
     Delete Effects: []
     Ignore Effects: []
-    Option Spec: PickJug(?robot:robot, ?jug:jug)
-Operator-TurnMachineOn:
-    Parameters: [?robot:robot, ?jug:jug, ?machine:machine]
-    Preconditions: []
-    Add Effects: []
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: TurnMachineOn(?robot:robot, ?machine:machine)
+    Option Spec: Twist(?x1:robot, ?x0:jug)
 Operator-PourFromNowhere:
     Parameters: [?robot:robot, ?jug:jug, ?cup:cup]
     Preconditions: []
@@ -280,28 +280,35 @@ Operator-PourFromNowhere:
     Delete Effects: []
     Ignore Effects: []
     Option Spec: Pour(?robot:robot, ?jug:jug, ?cup:cup)
-Operator-PlaceJugInMachine:
-    Parameters: [?robot:robot, ?jug:jug, ?machine:machine]
+Operator-Op4:
+    Parameters: [?x0:machine, ?x1:robot]
     Preconditions: []
     Add Effects: []
     Delete Effects: []
     Ignore Effects: []
-    Option Spec: PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:machine)
-Operator-Twist:
-    Parameters: [?robot:robot, ?jug:jug]
-    Preconditions: []
+    Option Spec: TurnMachineOn(?x1:robot, ?x0:machine)
+Operator-Op3:
+    Parameters: [?x0:jug, ?x1:robot]
+    Preconditions: [RobotHoldingJug(?x1:robot, ?x0:jug)]
     Add Effects: []
+    Delete Effects: [RobotHoldingJug(?x1:robot, ?x0:jug)]
+    Ignore Effects: []
+    Option Spec: Twist(?x1:robot, ?x0:jug)
+Operator-Op0:
+    Parameters: [?x0:jug, ?x1:robot]
+    Preconditions: []
+    Add Effects: [RobotHoldingJug(?x1:robot, ?x0:jug)]
     Delete Effects: []
     Ignore Effects: []
-    Option Spec: Twist(?robot:robot, ?jug:jug)
+    Option Spec: PickJug(?x1:robot, ?x0:jug)
 
 The robot tried to excute its options on states that satisfied their preconditions and got the following results:
 Option TurnMachineOn(robot1:robot, machine3:machine) *successfully* executed on the following states (positive states):
-  state_6 with additional info:
+  state_3 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'robot1:robot': {'x': 1.0, 'y': 1.4, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
   Previous option: PlaceJugInMachine
 
@@ -314,7 +321,7 @@ Option TurnMachineOn(robot1:robot, machine3:machine) *failed* to executed on the
    'table2:table'}
   Previous option: Twist
 
-  state_2 with additional info:
+  state_4 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -331,13 +338,13 @@ Option Pour(robot1:robot, jug7:jug, cup8:cup) *failed* to executed on the follow
    'table2:table'}
   Previous option: Twist
 
-  state_6 with additional info:
+  state_17 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
    'table2:table'}
-  Previous option: PlaceJugInMachine
+  Previous option: PickJug
 
 Option PickJug(robot1:robot, jug7:jug) *successfully* executed on the following states (positive states):
   state_0 with additional info:
@@ -348,7 +355,7 @@ Option PickJug(robot1:robot, jug7:jug) *successfully* executed on the following 
    'table2:table'}
   Previous option: Twist
 
-  state_6 with additional info:
+  state_9 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -357,7 +364,7 @@ Option PickJug(robot1:robot, jug7:jug) *successfully* executed on the following 
   Previous option: PlaceJugInMachine
 
 Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following states (negative states):
-  state_3 with additional info:
+  state_5 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -365,7 +372,7 @@ Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following sta
    'table2:table'}
   Previous option: PickJug
 
-  state_2 with additional info:
+  state_4 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -374,7 +381,7 @@ Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following sta
   Previous option: None
 
 Option PlaceJugInMachine(robot1:robot, jug7:jug, machine3:machine) *successfully* executed on the following states (positive states):
-  state_3 with additional info:
+  state_5 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
@@ -383,21 +390,6 @@ Option PlaceJugInMachine(robot1:robot, jug7:jug, machine3:machine) *successfully
   Previous option: PickJug
 
 Option PlaceJugInMachine(robot1:robot, jug7:jug, machine3:machine) *failed* to executed on the following states (negative states):
-  state_0 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-  Previous option: Twist
-
-  state_2 with additional info:
-  {'machine3:machine',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
 
 Option Twist(robot1:robot, jug7:jug) *successfully* executed on the following states (positive states):
   state_0 with additional info:
@@ -408,13 +400,22 @@ Option Twist(robot1:robot, jug7:jug) *successfully* executed on the following st
    'table2:table'}
   Previous option: Twist
 
-  state_2 with additional info:
+  state_4 with additional info:
   {'machine3:machine',
    'cup8:cup',
    'jug7:jug',
    'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
   Previous option: None
+
+Option Twist(robot1:robot, jug7:jug) *failed* to executed on the following states (negative states):
+  state_25 with additional info:
+  {'machine3:machine',
+   'cup8:cup',
+   'jug7:jug',
+   'robot1:robot': {'x': 1.0, 'y': 1.5, 'z': 0.4, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'table2:table'}
+  Previous option: TurnMachineOn
 
 
 Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integreated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy the precondition.

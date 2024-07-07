@@ -16,10 +16,10 @@ The existing set of predicates are:
 The set of options the robot has are:
 [OPTIONS_IN_ENV]
 
-The existing action operators utilizing the predicates are:
+Utilizing the exisiting predicates, we carefully designed following action operators:
 [NSRTS_IN_ENV]
 
-The robot tried to excute its options and got the following results:
+The robot tried to excute its options on states that satisfied their preconditions and got the following results:
 [OPERATOR_PERFORMACE]
 
 Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integreated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy the precondition.

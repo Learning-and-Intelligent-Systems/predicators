@@ -11,7 +11,8 @@ from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, \
-    ParameterizedOption, Predicate, STRIPSOperator, VarToObjSub
+    ParameterizedOption, Predicate, STRIPSOperator, VarToObjSub, State, \
+    GroundAtom, GroundOptionRecord
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
@@ -191,6 +192,134 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
             if fraction >= CFG.cluster_and_intersect_min_datastore_fraction:
                 ret_pnads.append(pnad)
         return ret_pnads
+
+class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
+    """A clustering-based STRIPS learner that learns preconditions via 
+    intersection and search over predicate subsets w.r.t. the classification
+    accuracy + simplicity objective that uses the ground truth positive and
+    negative states for each option.
+    Note that in the standard intersection step, Atom with objects not in effect
+    and option is remove (presumbly as a form of regularization) but this is not
+    need here and we can let search do the work.
+    """
+    fail_optn_dict: Dict[str, GroundOptionRecord]
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluster_intersect_and_search"
+    
+    def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
+        new_pnads = []
+        
+        # Cluster the states in the fail_optn_dict sorted with by option name
+        optn_to_fail_data: Dict[str, 
+            List[Tuple[State, Set[GroundAtom], VarToObjSub]]] = defaultdict(
+                list)
+        for optn_rec in self.fail_optn_dict.values():
+            for s, ab_s in zip(optn_rec.states, optn_rec.abstract_states):
+                optn_to_fail_data[optn_rec.option.name].append(
+                    (s, ab_s, dict(zip(optn_rec.optn_vars, optn_rec.optn_objs)))
+                )
+
+        for pnad in pnads:
+            init_preconditions = self._induce_preconditions_via_intersection(
+                pnad)
+            refined_preconditions = self._run_search(pnad, init_preconditions,
+                fail_data=optn_to_fail_data[pnad.op.name])
+
+            new_pnads.append(
+                PNAD(pnad.op.copy_with(preconditions=refined_preconditions),
+                     pnad.datastore, pnad.option_spec))
+
+        return new_pnads
+    
+    def _run_search(self, pnad: PNAD, init_preconditions: Set[LiftedAtom],
+                    fail_data: List[Tuple[State, Set[GroundAtom], VarToObjSub]]
+                    ) -> FrozenSet[LiftedAtom]:
+        """Run search to find a single precondition set for the pnad operator.
+        """
+        initial_state = frozenset(init_preconditions)
+        check_goal = lambda s: False
+        # the classification function
+        # states in the datastore the option is successfully executed
+        succ_data = pnad.datastore
+        score_func = functools.partial(self._score_preconditions, pnad,
+                                       succ_data, fail_data)
+        path, _ = utils.run_gbfs(initial_state,
+                                 check_goal,
+                                 self._get_precondition_successors,
+                                 score_func)
+        return path[-1]
+    
+    @staticmethod
+    def _score_preconditions(
+            pnad: PNAD, 
+            succ_data: Datastore, 
+            fail_data: List[Tuple[State, Set[GroundAtom], VarToObjSub]], 
+            preconditions: FrozenSet[LiftedAtom]):
+        '''Score a precondition based on the succ_states in the datastore and
+        failed states in the fail_optn_dict.'''
+        # The positive states are the states in the pnad, the negative states
+        # are all the states in fail_optn_dict with the same option.
+        # Get the tp, fn, tn, fp states for each ground_option
+        candidate_op = pnad.op.copy_with(preconditions=preconditions)
+        option_spec = pnad.option_spec
+        optn_var = option_spec[1]
+        n_succ_states, n_fail_states = len(succ_data), len(fail_data)
+        tp_states, fn_states, tn_states, fp_states = [], [], [], []
+        n_tot = n_succ_states + n_fail_states
+
+        # TP: states that satisfy the preconditions given the partial varToObj
+        # substituion of the option
+        # assume succ_states is a Datastore here
+        # For succ_states, we only need to ground the operator with the
+        # var_to_obj substitution in the state because we've assumed the the 
+        # precondition doesn't have any variables that are not in the effect
+        # and option. 
+        # If we want to remove this assumption then we can try to ground them
+        # with varToObj substitution consistent with the option and effect..
+        for seg, var_to_obj in succ_data:
+            # alternatively:
+            # g_pre = {a.ground(var_to_obj) for a in preconditions}
+            ground_op = candidate_op.ground(var_to_obj)
+            if ground_op.preconditions.issubset(seg.init_atoms):
+                tp_states.append(seg.states[0])
+            else:
+                fn_states.append(seg.states[0])
+        
+        # For the fail_states, we only have a partial sub. for the options
+        # and we need to compute the false positives and true negatives based on
+        # the ground nsrts with substitutions consistent with the option.
+        for state, atom_state, var_to_obj in fail_data:
+            ground_nsrts = utils.all_ground_operators_given_partial(
+                candidate_op, set(state), var_to_obj)
+            
+            if any([
+                    gnsrt.preconditions.issubset(atom_state)
+                    for gnsrt in ground_nsrts
+            ]):
+                fp_states.append(state)
+            else:
+                tn_states.append(state)
+        
+        # Convert the states to string
+        n_tp, n_fn = len(tp_states), len(fn_states)
+        n_tn, n_fp = len(tn_states), len(fp_states)
+        acc = (n_tp + n_tn) / n_tot
+
+        complexity_penalty = CFG.grammar_search_pred_complexity_weight *\
+                            len(preconditions)
+        return -acc + complexity_penalty
+
+    @staticmethod
+    def _get_precondition_successors(
+        preconditions: FrozenSet[LiftedAtom]
+    ) -> Iterator[Tuple[int, FrozenSet[LiftedAtom], float]]:
+        """The successors remove each atom in the preconditions."""
+        preconditions_sorted = sorted(preconditions)
+        for i in range(len(preconditions_sorted)):
+            successor = preconditions_sorted[:i] + preconditions_sorted[i + 1:]
+            yield i, frozenset(successor), 1.0
 
 
 class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):

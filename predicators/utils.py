@@ -499,6 +499,11 @@ def summarize_results_in_str(
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, tn_states,
                         max_num_examples, "tn", state_hash_to_id)
+                
+                if not (n_fp and "fp" in categories_to_show) and \
+                   not (n_tn and "tn" in categories_to_show):
+                    result_str.append("")
+
     return '\n'.join(result_str)
 
 
@@ -1629,6 +1634,8 @@ class RawState(PyBulletState):
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
     option_history: Optional[str] = None
+    bbox_features: Dict[Object, np.ndarray] = field(default_factory=lambda: 
+                                            defaultdict(lambda: np.zeros(4)))
 
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
@@ -1661,13 +1668,21 @@ class RawState(PyBulletState):
     def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
         """Set the value of an object feature by name."""
         idx = obj.type.feature_names.index(feature_name)
-        if idx >= len(self.data[obj]):
+        standard_feature_len = len(self.data[obj])
+        if idx >= standard_feature_len:
             # When setting the bounding box features for the first time
             # So we'd first append 4 dimension and try to set again
-            self.data[obj] = np.append(self.data[obj], [0] * 4)
-            self.set(obj, feature_name, feature_val)
+            self.bbox_features[obj][idx-standard_feature_len] = feature_val
         else:
             self.data[obj][idx] = feature_val
+    
+    def get(self, obj: Object, feature_name: str) -> Any:
+        idx = obj.type.feature_names.index(feature_name)
+        standard_feature_len = len(self.data[obj])
+        if idx >= standard_feature_len:
+            return self.bbox_features[obj][idx-standard_feature_len]
+        else:
+            return self.data[obj][idx]
 
     def dict_str(self,
                  indent: int = 0,
@@ -1746,9 +1761,11 @@ class RawState(PyBulletState):
         obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
         labeled_image_copy = copy.copy(self.labeled_image)
         option_history_copy = copy.copy(self.option_history)
+        bbox_features_copy = copy.deepcopy(self.bbox_features)
         return RawState(pybullet_state_copy.data,
                         pybullet_state_copy.simulator_state, state_image_copy,
-                        obj_mask_copy, labeled_image_copy, option_history_copy)
+                        obj_mask_copy, labeled_image_copy, option_history_copy,
+                        bbox_features_copy)
 
     def get_obj_mask(self, object: Object) -> Mask:
         """Return the mask for the object."""

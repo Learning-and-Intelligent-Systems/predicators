@@ -55,7 +55,6 @@ from predicators.utils import RawState, NSPredicate
 
 PlanningResult = namedtuple("PlanningResult", ['succeeded', 'info'])
 
-
 def are_equal_by_obj(list1: List[_Option], list2: List[_Option]) -> bool:
     if len(list1) != len(list2):
         return False
@@ -218,16 +217,14 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             tasks[i].init.state_image.save(f"images/init_state{i}.png")
             tasks[i].init.labeled_image.save(f"images/init_label{i}.png")
-            break
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
-        max_invent_ite = 20
+        max_invent_ite = 4
         add_new_proposal_at_every_ite = False  # Invent at every iterations
-        base_candidates = set()
         manual_prompt = True
         regenerate_response = False
-        solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
+        # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
         best_solve_rate, best_ite, clf_acc = 0.0, 0.0, 0.0
         clf_acc_at_best_solve_rate = 0.0
         best_nsrt, best_preds = deepcopy(self._nsrts), set()
@@ -236,6 +233,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._init_nsrts = deepcopy(self._nsrts)
         no_improvement = False
         self.state_cache: Dict[int, RawState] = {}
+        self.base_candidates: Set[Predicate] = self._initial_predicates.copy()
 
         # Init data collection
         logging.debug(f"Initial predicates: {self._get_current_predicates()}")
@@ -271,7 +269,6 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
 
-        base_candidates: Set[Predicate] = self._initial_predicates.copy()
 
         for ite in range(1, max_invent_ite + 1):
             logging.info(f"===Starting iteration {ite}...")
@@ -295,7 +292,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Invent only when there is no improvement in solve rate
                 # Or when add_new_proposal_at_every_ite is True
                 #   Create prompt to inspect the execution
-                # base_candidates: candidates to be unioned with the init set
+                # self.base_candidates: candidates to be unioned with the init set
                 if CFG.vlm_predicator_oracle_base_grammar:
                     if CFG.neu_sym_predicate:
                         # If using the oracle predicates
@@ -323,7 +320,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                     f"Done: created {len(new_proposals)} candidates:" +
                     f"{new_proposals}")
                 propose_ite += 1
-            breakpoint()
 
             # [Start moving out]
             # Apply the candidate predicates to the data.
@@ -344,7 +340,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 self._learned_predicates = new_proposals
             else:
                 # Select a subset candidates by score optimization
-                base_candidates |= new_proposals
+                self.base_candidates |= new_proposals
 
                 ### Predicate Search
                 # Optionally add grammar to the candidates
@@ -352,31 +348,32 @@ class VlmInventionApproach(NSRTLearningApproach):
                 if CFG.llm_predicator_use_grammar:
                     grammar = _create_grammar(dataset=Dataset(all_trajs),
                                               given_predicates=\
-                                base_candidates|self._initial_predicates)
+                                self.base_candidates|self._initial_predicates)
                 else:
                     grammar = _GivenPredicateGrammar(
-                        base_candidates | self._initial_predicates)
+                        self.base_candidates | self._initial_predicates)
                 all_candidates.update(grammar.generate(
                         max_num=CFG.grammar_search_max_predicates))
                 # logging.debug(f"all candidates {pformat(all_candidates)}")
                 # breakpoint()
                 # Add a atomic states for succ_optn_dict and fail_optn_dict
                 logging.info("[Start] Applying predicates to data...")
-                # Abstract here because it's used in the score function
-                # Evaluate the newly proposed predicates; the values for
-                # previous proposed should have been cached by the previous
-                # abstract calls.
-                # num_states = len(set(state for optn_dict in
-                #                 [self.succ_optn_dict, self.fail_optn_dict]
-                #                 for g_optn in optn_dict.keys() for state in
-                #                 optn_dict[g_optn].states))
-                # logging.debug(f"There are {num_states} distinct states.")
                 if num_solved == 0:
-                    score_function = "operator_classification_error"
+                    score_func_name = "operator_classification_error"
                 else:
-                    score_function = "expected_nodes_created"
+                    score_func_name = "expected_nodes_created"
                     # score_function = CFG.grammar_search_score_function
-                if score_function == "operator_classification_error":
+
+                if score_func_name == "operator_classification_error":
+                    # Abstract here because it's used in the score function
+                    # Evaluate the newly proposed predicates; the values for
+                    # previous proposed should have been cached by the previous
+                    # abstract calls.
+                    num_states = len(set(state for optn_dict in
+                                    [self.succ_optn_dict, self.fail_optn_dict]
+                                    for g_optn in optn_dict.keys() for state in
+                                    optn_dict[g_optn].states))
+                    logging.debug(f"There are {num_states} distinct states.")
                     for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
                         for g_optn in optn_dict.keys():
                             atom_states = []
@@ -396,7 +393,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 logging.info("[Start] Predicate search from " +
                              f"{self._initial_predicates}...")
                 score_function = create_score_function(
-                    CFG.grammar_search_score_function,
+                    score_func_name,
                     self._initial_predicates, atom_dataset, all_candidates,
                     self._train_tasks, self.succ_optn_dict,
                     self.fail_optn_dict)
@@ -1133,7 +1130,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         init_pred_str = []
         init_pred_str.append(
             str({p.pretty_str_with_types()
-                 for p in self._initial_predicates}) + "\n")
+                #  for p in self._initial_predicates}) + "\n")
+                 for p in self.base_candidates}) + "\n")
 
         # Print the variable definitions
         constants_str = self._constants_str(source_code)

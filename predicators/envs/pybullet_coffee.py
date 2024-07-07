@@ -15,7 +15,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, State\
-    , Predicate
+    , Predicate, Type
 from predicators.utils import NSPredicate, RawState, VLMQuery
 
 
@@ -119,6 +119,18 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     _camera_pitch: ClassVar[float] = -28 # lower
     # _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
+
+    # Types
+    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
+    _table_type = Type("table", [] + bbox_features)
+    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"] + 
+                                bbox_features)
+    _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"] + 
+                            bbox_features)
+    _machine_type = Type("machine", ["is_on"] + bbox_features)
+    _cup_type = Type("cup",
+        ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"] + 
+        bbox_features)
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -245,14 +257,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def oracle_proposed_predicates(self) -> Set[Predicate]:
         # Useful predicates when
         return {
-            self._CupFilled, # goal predicate
-            self._Holding,      # yes 
-            self._JugInMachine, # yes
-            self._JugPickable,
-            self._JugFilled,
-            self._OnTable, 
+                                # Precondition to actions
+            self._CupFilled,    # goal predicate
+            self._Holding,      # Pour, Place # yes
+            self._JugInMachine, # TurnMachineOn # yes
+            self._JugPickable,  # PickJug
+            self._JugFilled,    # Pour,
+            self._OnTable,      # Pick,  
             self._MachineOn, # Not needed in syPred's success # yes
-            self._HandEmpty, # Not needed in syPred's success # yes
+            self._HandEmpty, # Not needed in syPred's success; Pick # yes
             # Should add: in correct rotation
 
             # self._Twisting,
@@ -398,7 +411,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         pose = (cls.dispense_area_x, cls.dispense_area_y,
                 cls.z_lb + dispense_height)
         orientation = cls._default_orn
-        half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
+        half_extents = (cls.machine_x_len / 2, 1.1 * dispense_radius,
+        # half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
                         dispense_height)
 
         # Create a square beneath the dispense area for visual niceness.

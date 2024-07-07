@@ -117,7 +117,8 @@ class PretrainedLargeModel(abc.ABC):
                 imgs_folderpath = os.path.join(cache_folderpath, "imgs")
                 os.makedirs(imgs_folderpath, exist_ok=True)
                 for i, img in enumerate(imgs):
-                    filename_suffix = str(i) + ".jpg"
+                    filename_suffix = str(i) + ".png"
+                    # filename_suffix = str(i) + ".jpg"
                     img.save(os.path.join(imgs_folderpath, filename_suffix))
             logging.debug(f"Saved model response to {cache_filepath}.")
         # Load the saved completion.

@@ -1,0 +1,4 @@
+Utilizing the exisiting predicates, we carefully designed following action operators:
+Utilizing the existing predicates, we select the set of useful ones {'RobotHoldingJug(?x:robot, ?y:jug)', 'CupFilled(?x:cup)'} and used them to design the following action operators:
+
+The robot tried to excute its options on states that satisfied their preconditions and got the following results:
