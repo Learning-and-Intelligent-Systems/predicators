@@ -2138,7 +2138,7 @@ class MPDQNFunction(MapleQFunction):
         if train_or_test == "test":
             epsilon = 0.0
             # print("GROUNDED NSRTS", self._ordered_ground_nsrts)
-        print("STATE", state, self._vectorize_state(state))
+        # print("STATE", state, self._vectorize_state(state))
         
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(

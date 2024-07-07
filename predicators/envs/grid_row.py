@@ -198,9 +198,9 @@ class GridRowDoorEnv(GridRowEnv):
         #     ["x", "move_key", "move_target", "turn_key", "turn_target"])
         # self._door = Object("door", self._door_type)
 
-        self._DoorInCell = Predicate("DoorInCell",
-                                     [self._door_type, self._cell_type],
-                                     self._In_holds)
+        # self._DoorInCell = Predicate("DoorInCell",
+        #                              [self._door_type, self._cell_type],
+        #                              self._In_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -282,7 +282,7 @@ class GridRowDoorEnv(GridRowEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._RobotInCell, self._LightInCell, self._LightOn,
-            self._LightOff, self._Adjacent, self._DoorInCell
+            self._LightOff, self._Adjacent
         }
 
     @property
@@ -413,7 +413,7 @@ class GridRowDoorEnv(GridRowEnv):
                 state_dict[cell] = {"x": i + 0.5}
             door = Object("door", self._door_type)
             state_dict[door] =     {
-                    "x": rng.choice(range(3,len(self._cells)-2))-0.5,
+                     "x": rng.choice(range(3,len(self._cells)-2))-0.5,
                     "move_key": 0.0,
                     "move_target": 0.5,
                     "turn_key": 0.0,
