@@ -1,0 +1,57 @@
+You are a system whose job is to learn PDDL-style operators given predicates and trajectory data. Specifically, given a list of predicates and types, as well as trajectories consisting states and actions, where every state is a set of true ground predicates (assume all predicates not mentioned in the state are false) and every action has a name and takes in particular objects, propose as many symbolic operators that might help model these states as you can. These operators will be used to plan on similar tasks.
+An operator should have the form (note that the angle brackets here are just for clarifying the syntax; do not output angle brackets in your responses):
+<Operator Name>(<arg1 type>, <arg2 type>, ..., <argn type>)
+preconditions: <precondition expression in terms of predicates in LISP>
+add effects: <add effects expression in terms of predicates in LISP>
+delete effects: <delete effects expression in terms of predicates in LISP>
+action: <action this operator is associated with>
+
+Please structure your output in the following format (once again, angle brackets are just for syntax-clarification):
+Operators:
+<Operator 1>
+
+<Operator 2>
+...
+<Operator n>
+
+
+Here's an example for a simple block-stacking domain.
+Input:
+```
+Types:
+- block
+
+Predicates:
+- (OnTable ?b0 - block)
+- (Clear ?b0 - block)
+- (On ?b0 - block ?b1 - block)
+- (Handempty)
+
+Actions:
+- Pickup(?b - block)
+- PutDown(?b - block)
+
+Trajectory data:
+Trajectory 0 (Goal: {Clear(A)}):
+State 0: {OnTable(A), On(B, A), Handempty(), Clear(B), OnTable(B)}
+Action 0: Pickup(B)
+State 1: {Holding(B), OnTable(A), Clear(A)}
+Action 1: PutDown(B)
+State 2: {OnTable(A), OnTable(B), Handempty(), Clear(A), Clear(B)}
+```
+
+Expected Output:
+```
+Operators:
+PickupOp0(?b0 - block)
+preconditions: (and (Clear ?b0) (Handempty) (OnTable ?b0))
+add effects: (and (Holding ?b0))
+delete effects: (and (Handempty) (OnTable ?b0) (Clear ?b0))
+action: Pickup(?b0)
+
+PlaceDownOp0(?b0 - block)
+preconditions: (and (Holding ?b0))
+add effects: (and (Clear ?b0) (Handempty) (OnTable ?b0))
+delete effects: (and (Holding ?b0))
+action: Pickup(?b0)
+```
