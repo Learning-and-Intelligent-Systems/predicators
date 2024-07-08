@@ -26,7 +26,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot_type = types["robot"]
         jug_type = types["jug"]
         cup_type = types["cup"]
-        machine_type = types["machine"]
+        machine_type = types["coffee_machine"]
 
         # Predicates
         CupFilled = predicates["CupFilled"]

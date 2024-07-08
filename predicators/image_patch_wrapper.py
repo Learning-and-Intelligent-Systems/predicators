@@ -220,7 +220,7 @@ class ImagePatch:
             coords_y, coords_x = np.where(mask_dt == max_dist)
             dy = 0
             if obj.type.name == 'jug':
-                dy -= 10
+                dy += 30
             elif obj.type.name == "cup":
                 dy += 10
 

@@ -234,7 +234,7 @@ where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left
 `pose_x`, `pose_y` and `pose_z` correspond to the 3d object position in the world frame, so they are not comparable to the bbox values.
 
 The existing set of predicates are:
-{'CupFilled(?x:cup)'}
+{'JugUpright(?x:jug)', 'GripperOpen(?x:robot)', 'RobotNearMachine(?x:robot)', 'RobotHoldingJug(?x:robot, ?y:jug)', 'JugInMachine(?x:jug, ?y:coffee_machine)', 'CupFilled(?x:cup)', 'RobotNearJug(?x:robot, ?y:jug)'}
 
 Predicate CupFilled(?x) is defined by:
 ```python
@@ -253,9 +253,9 @@ _CupFilled_NSP = NSPredicate("CupFilled", [_cup_type],
 
 The set of options the robot has are:
 TurnMachineOn(?robot:robot, ?machine:coffee_machine): Turn the machine on.
-PickJug(?robot:robot, ?jug:jug): Pick up the jug.
+PickJug(?x1:robot, ?x0:jug): Pick up the jug.
 Pour(?robot:robot, ?jug:jug, ?cup:cup): Pour liquid from the jug to the cup
-Twist(?robot:robot, ?jug:jug): Rotate the jug to the desired rotation.
+Twist(?x1:robot, ?x0:jug): Rotate the jug to the desired rotation.
 PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:coffee_machine): Place the jug in the machine.
 
 Utilizing the exisiting predicates, we carefully designed following action operators:
@@ -266,13 +266,13 @@ Operator-PlaceJugInMachine:
     Delete Effects: []
     Ignore Effects: []
     Option Spec: PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:coffee_machine)
-Operator-PickJugFromTable:
-    Parameters: [?robot:robot, ?jug:jug]
-    Preconditions: []
+Operator-Op1:
+    Parameters: [?x0:jug, ?x1:robot]
+    Preconditions: [GripperOpen(?x1:robot)]
     Add Effects: []
-    Delete Effects: []
+    Delete Effects: [GripperOpen(?x1:robot)]
     Ignore Effects: []
-    Option Spec: PickJug(?robot:robot, ?jug:jug)
+    Option Spec: PickJug(?x1:robot, ?x0:jug)
 Operator-PourFromNowhere:
     Parameters: [?robot:robot, ?jug:jug, ?cup:cup]
     Preconditions: []
@@ -280,6 +280,13 @@ Operator-PourFromNowhere:
     Delete Effects: []
     Ignore Effects: []
     Option Spec: Pour(?robot:robot, ?jug:jug, ?cup:cup)
+Operator-Op0:
+    Parameters: [?x0:jug, ?x1:robot]
+    Preconditions: [GripperOpen(?x1:robot)]
+    Add Effects: []
+    Delete Effects: []
+    Ignore Effects: []
+    Option Spec: Twist(?x1:robot, ?x0:jug)
 Operator-TurnMachineOn:
     Parameters: [?robot:robot, ?jug:jug, ?machine:coffee_machine]
     Preconditions: []
@@ -287,13 +294,13 @@ Operator-TurnMachineOn:
     Delete Effects: []
     Ignore Effects: []
     Option Spec: TurnMachineOn(?robot:robot, ?machine:coffee_machine)
-Operator-Twist:
-    Parameters: [?robot:robot, ?jug:jug]
+Operator-Op2:
+    Parameters: [?x0:jug, ?x1:robot]
     Preconditions: []
-    Add Effects: []
+    Add Effects: [GripperOpen(?x1:robot)]
     Delete Effects: []
     Ignore Effects: []
-    Option Spec: Twist(?robot:robot, ?jug:jug)
+    Option Spec: Twist(?x1:robot, ?x0:jug)
 
 The robot tried to excute its options on states that satisfied their preconditions and got the following results:
 Option Pour(robot1:robot, jug7:jug, cup8:cup) *failed* to executed on the following states (negative states):
@@ -348,13 +355,13 @@ Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following sta
    'table2:table'}
   Previous option: Twist
 
-  state_7 with additional info:
+  state_10 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup8:cup',
    'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
+   'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
-  Previous option: PickJug
+  Previous option: None
 
 Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
   state_0 with additional info:

@@ -98,7 +98,7 @@ class CoffeeEnv(BaseEnv):
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
     _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"])
-    _machine_type = Type("machine", ["is_on"])
+    _machine_type = Type("coffee_machine", ["is_on"])
     _cup_type = Type("cup",
         ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"])
 
@@ -464,6 +464,10 @@ class CoffeeEnv(BaseEnv):
         }
         for task_idx in range(num):
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
+            # if task_idx == 2:
+            #     num_cups = 2
+            # else:
+            #     num_cups = 1
             num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
             goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
@@ -531,11 +535,15 @@ class CoffeeEnv(BaseEnv):
                 #     rot = 0.0
 
                 # Manual
-                if task_idx == 1:
+                if task_idx == 0:
+                    rot = 0.0
+                elif task_idx in [1, 2]:
                     logging.info(f"Adding rotation to jug to task {task_idx}")
                     rot = self.jug_init_rot_ub
                 else:
-                    rot = 0.0
+                    logging.info(f"Adding rotation to jug to task {task_idx}")
+                    rot = rng.uniform(self.jug_init_rot_lb, 
+                                      self.jug_init_rot_ub)
 
             state_dict[self._jug] = {
                 "x": x,

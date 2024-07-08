@@ -419,7 +419,9 @@ def summarize_results_in_str(
                 # "(ground truth positive states).")
 
                 # and (n_succ_states/n_tot) < 1:
-                if n_tp and "tp" in categories_to_show:  
+                if n_tp and "tp" in categories_to_show and n_fp:  
+                    # and n_fp because without false positives, there isn't 
+                    # anything to learn
                     # [Detailed] True Positive
                     # result_str.append(
                     # f"  Out of the {n_succ_states} GT positive states, "+

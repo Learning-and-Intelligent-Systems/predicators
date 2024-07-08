@@ -13,7 +13,7 @@ ARGS:
   # []
   - "debug"
   # - "load_approach"
-  - "use_gui"
+  # - "use_gui"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
   num_train_tasks: 2 #0 # pybullet_coffee
@@ -24,7 +24,7 @@ FLAGS:
   excluded_predicates: "all"
   min_perc_data_for_nsrt: 0 # 1 works for coffee (100) 0 works for coffee 50; 
                             # 3 for blocks
-  timeout: 30 #300
+  timeout: 300 #300
   log_file: "logs/vlm_predicate.log"
 
   # Env settings
@@ -63,14 +63,14 @@ FLAGS:
   llm_predicator_oracle_learned: False            # relaxation 1
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
-  # vlm_model_name: "gemini-1.5-pro"
-  vlm_model_name: "gpt-4o"
+  vlm_model_name: "gemini-1.5-pro"
+  # vlm_model_name: "gpt-4o"
   vlm_temperature: 0
   vlm_use_chat_mode: True
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
-  pybullet_camera_width: 900 
+  pybullet_camera_width: 900
   pybullet_camera_height: 900
   vlm_invent_include_option_history: True
 START_SEED: 1

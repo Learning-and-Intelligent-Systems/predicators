@@ -80,6 +80,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # adding 1 extra padding
     jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
     jug_init_y_ub: ClassVar[
+        float] = machine_y - machine_y_len - 4 * jug_radius - init_padding
+    jug_init_y_ub_og: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height
@@ -87,14 +89,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
-    dispense_area_y: ClassVar[float] = machine_y - 4 * jug_radius
+    dispense_area_y: ClassVar[float] = machine_y - 5 * jug_radius
     # Cup settings.
     cup_radius: ClassVar[float] = 0.6 * jug_radius
     cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
     cup_init_x_ub: ClassVar[
         float] = machine_x - machine_x_len / 2 - cup_radius - init_padding
     cup_init_y_lb: ClassVar[float] = jug_init_y_lb + init_padding
-    cup_init_y_ub: ClassVar[float] = jug_init_y_ub
+    cup_init_y_ub: ClassVar[float] = jug_init_y_ub_og
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
@@ -114,10 +116,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         [0.0, 0.0, np.pi / 2])
     # Camera parameters.
     _camera_distance: ClassVar[float] = 1.3  #0.8
-    _camera_yaw: ClassVar[float] = -70
-    # _camera_pitch: ClassVar[float] = -48
-    _camera_pitch: ClassVar[float] = -28 # lower
+    # _camera_yaw: ClassVar[float] = 70
+    _camera_pitch: ClassVar[float] = -48
     # _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
+    # Yichao
+    # _camera_yaw: ClassVar[float] = -70
+    _camera_yaw: ClassVar[float] = 90
+    # _camera_pitch: ClassVar[float] = -28 # lower
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
     # Types
@@ -127,7 +132,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 bbox_features)
     _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"] + 
                             bbox_features)
-    _machine_type = Type("machine", ["is_on"] + bbox_features)
+    _machine_type = Type("coffee_machine", ["is_on"] + bbox_features)
     _cup_type = Type("cup",
         ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"] + 
         bbox_features)
@@ -411,7 +416,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         pose = (cls.dispense_area_x, cls.dispense_area_y,
                 cls.z_lb + dispense_height)
         orientation = cls._default_orn
-        half_extents = (cls.machine_x_len / 2, 1.1 * dispense_radius,
+        half_extents = (cls.machine_x_len / 2, 
+                        1.1 * dispense_radius + cls.jug_radius + 0.001,
         # half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
                         dispense_height)
 
@@ -506,14 +512,33 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
 
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
+        # jug_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
         jug_id = p.loadURDF(utils.get_env_asset_path("urdf/kettle.urdf"),
                             useFixedBase=True,
-                            # globalScaling=0.075,
-                            globalScaling=0.1,
+                            # globalScaling=0.075, # original jug
+                            globalScaling=0.1, # enlarged jug
+                            # globalScaling=0.5,
                             physicsClientId=physics_client_id)
-        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.2], 
-                                    physicsClientId=physics_client_id)
-        # p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0.1], 
+
+        # Assuming jug_id and physics_client_id are already defined
+        # for link_index in range(p.getNumJoints(jug_id, 
+        #                             physicsClientId=physics_client_id)):
+        #     # 0 for body, 1 for lid
+        #     p.changeVisualShape(jug_id, link_index, 
+        #                         rgbaColor=[1, 1, 1, 0.3], 
+        #                         physicsClientId=physics_client_id)
+        # for link_index in range(p.getNumJoints(jug_id, 
+        #                             physicsClientId=physics_client_id)):
+        #     # 0 for body, 1 for lid
+        #     p.changeVisualShape(jug_id, link_index, 
+        #                         rgbaColor=[0.3, 0.3, 0.3, 1], 
+        #                         physicsClientId=physics_client_id)
+        #     p.changeVisualShape(jug_id, link_index, 
+        #                         rgbaColor=[0.3, 0.3, 0.3, 1], 
+        #                         physicsClientId=physics_client_id)
+        # p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.6], 
+        #                             physicsClientId=physics_client_id)
+        # p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0], 
         #                             physicsClientId=physics_client_id)
         p.resetBasePositionAndOrientation(jug_id,
                                           jug_pose,
@@ -616,6 +641,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._cup_to_liquid_id[cup] = liquid_id
 
         # Remove the liquid in jug
+        # for link_index in range(p.getNumJoints(self._jug_id, 
+        #                             physicsClientId=self._physics_client_id)):
+        #     # 0 for body, 1 for lid
+        #     p.changeVisualShape(self._jug_id, link_index, 
+        #                         rgbaColor=[1, 1, 1, 1], 
+        #                         physicsClientId=self._physics_client_id)
         self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
         if self._jug_liquid_id is not None:
             p.removeBody(self._jug_liquid_id,
@@ -974,6 +1005,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # cx = state.get(jug, "x")
         # cy = state.get(jug, "y")
         # cz = self.z_lb
+        # for link_index in range(p.getNumJoints(self._jug_id, 
+        #                             physicsClientId=self._physics_client_id)):
+        #     # 0 for body, 1 for lid
+        #     p.changeVisualShape(self._jug_id, link_index, 
+        #                         rgbaColor=[0.3, 0.3, 0.3, 1], 
+        #                         physicsClientId=self._physics_client_id)
 
         collision_id = p.createCollisionShape(
             p.GEOM_CYLINDER,
@@ -985,7 +1022,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             p.GEOM_CYLINDER,
             radius=liquid_radius,
             length=liquid_height,
-            rgbaColor=(0.2, 0.05, 0.0, 1.0),
+            rgbaColor=(0.2*1.5, 0.05*1.5, 0.0, 1.0),
             physicsClientId=self._physics_client_id)
 
         pose, orientation = p.getBasePositionAndOrientation(

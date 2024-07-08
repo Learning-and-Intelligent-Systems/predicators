@@ -217,10 +217,11 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             tasks[i].init.state_image.save(f"images/init_state{i}.png")
             tasks[i].init.labeled_image.save(f"images/init_label{i}.png")
+        breakpoint()
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
-        max_invent_ite = 4
+        max_invent_ite = 20
         add_new_proposal_at_every_ite = False  # Invent at every iterations
         manual_prompt = True
         regenerate_response = False
@@ -261,8 +262,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                       f"{pformat(self._nsrts)}")
         results = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
+        num_failed_plans = prev_num_failed_plans = sum([len(
+                r.info['partial_refinements']) for r in results])
         solve_rate = prev_solve_rate = num_solved / num_tasks
-        logging.info(f"===ite 0; no invent solve rate {solve_rate}\n")
+        logging.info(f"===ite 0; no invent solve rate {solve_rate}; "
+                    f"num skeletons failed {num_failed_plans}\n")
 
         self.succ_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
@@ -289,6 +293,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 self._learned_predicates
 
             if ite == 1 or no_improvement:  #or add_new_proposal_at_every_ite:
+                logging.info("Accquiring new predicates...")
                 # Invent only when there is no improvement in solve rate
                 # Or when add_new_proposal_at_every_ite is True
                 #   Create prompt to inspect the execution
@@ -409,7 +414,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     "seconds")
             # [End moving out]
 
-            breakpoint()
+            # breakpoint()
             # Finally, learn NSRTs via superclass, using all the kept predicates.
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
@@ -439,6 +444,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Set up load/save filename for interaction dataset
             results = self.collect_dataset(ite, env, tasks)
             num_solved = sum([r.succeeded for r in results])
+            num_failed_plans = sum([len(r.info['partial_refinements']) for r in 
+                                results])
             solve_rate = num_solved / num_tasks
             no_improvement = not (solve_rate > prev_solve_rate)
 
@@ -454,6 +461,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             logging.info(f"\n===ite {ite} finished. "
                          f"Solve rate {num_solved / num_tasks} "
                          f"Prev solve rate {prev_solve_rate} "
+                         f"Num skeletons failed {num_failed_plans} "
                          f"Clf accuracy: {clf_acc:.2f}\n")
             breakpoint()
 
@@ -465,8 +473,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                 best_nsrt = self._nsrts
                 best_preds = self._learned_predicates
             prev_solve_rate = solve_rate
+            prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
-            if solve_rate == 1:
+            if solve_rate == 1 and num_failed_plans == 0:
                 break
             time.sleep(5)
 

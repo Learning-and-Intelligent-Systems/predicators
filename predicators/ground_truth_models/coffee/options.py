@@ -42,7 +42,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         # Types
         robot_type = types["robot"]
         jug_type = types["jug"]
-        machine_type = types["machine"]
+        machine_type = types["coffee_machine"]
         cup_type = types["cup"]
 
         # Predicates

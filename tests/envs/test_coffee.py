@@ -34,7 +34,7 @@ def test_coffee():
     type_name_to_type = {t.name: t for t in env.types}
     cup_type = type_name_to_type["cup"]
     jug_type = type_name_to_type["jug"]
-    machine_type = type_name_to_type["machine"]
+    machine_type = type_name_to_type["coffee_machine"]
     robot_type = type_name_to_type["robot"]
     assert env.action_space.shape == (6, )
     # Create a custom initial state, with cups positions at the extremes of
