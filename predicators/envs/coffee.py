@@ -14,7 +14,6 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
 
-
 class CoffeeEnv(BaseEnv):
     """An environment where a robot must brew and pour coffee."""
 

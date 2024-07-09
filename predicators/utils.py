@@ -458,7 +458,9 @@ def summarize_results_in_str(
                         max_num_examples, "fn", state_hash_to_id)
 
             # GT Negative
-            if n_fail_states:
+            # if n_fail_states:
+            if n_tp and "tp" in categories_to_show and n_fp and\
+                "fp" in categories_to_show:
                 # [Simplified]
                 result_str.append(
                     f"Option {g_optn} *failed* to executed on the following " +

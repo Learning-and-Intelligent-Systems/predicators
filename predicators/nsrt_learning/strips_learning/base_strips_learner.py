@@ -22,7 +22,8 @@ class BaseSTRIPSLearner(abc.ABC):
                  segmented_trajs: List[List[Segment]],
                  verify_harmlessness: bool,
                  annotations: Optional[List[Any]],
-                 verbose: bool = True) -> None:
+                 verbose: bool = True,
+                 **kwargs) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates

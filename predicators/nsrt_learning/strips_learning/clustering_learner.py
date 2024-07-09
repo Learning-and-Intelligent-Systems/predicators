@@ -210,6 +210,32 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
     @classmethod
     def get_name(cls) -> str:
         return "cluster_intersect_and_search"
+
+    # @staticmethod
+    # def _induce_preconditions_via_intersection(pnad: PNAD) -> Set[LiftedAtom]:
+    #     """Given a PNAD with a nonempty datastore, compute the preconditions
+    #     for the PNAD's operator by intersecting all lifted preimages."""
+    #     assert len(pnad.datastore) > 0
+    #     for i, (segment, var_to_obj) in enumerate(pnad.datastore):
+    #         objects = set(var_to_obj.values())
+    #         obj_to_var = {o: v for v, o in var_to_obj.items()}
+
+    #         # relax the assumption of only objects in the effect
+    #         atoms = segment.init_atoms
+    #         # atoms = {
+    #         #     atom
+    #         #     for atom in segment.init_atoms
+    #         #     if all(o in objects for o in atom.objects)
+    #         # }
+    #         # if atom's object is in obj_to_var
+    #         lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
+    #         # if atom's object is not in obj_to_var
+
+    #         if i == 0:
+    #             preconditions = lifted_atoms
+    #         else:
+    #             preconditions &= lifted_atoms
+    #     return preconditions
     
     def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
         new_pnads = []
