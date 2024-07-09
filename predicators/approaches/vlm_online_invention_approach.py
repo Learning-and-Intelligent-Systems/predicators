@@ -215,8 +215,8 @@ class VlmInventionApproach(NSRTLearningApproach):
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         """Learn from interacting with the offline dataset."""
         for i, task in enumerate(tasks):
-            tasks[i].init.state_image.save(f"images/init_state{i}.png")
-            tasks[i].init.labeled_image.save(f"images/init_label{i}.png")
+            task.init.state_image.save(f"images/init_state{i}.png")
+            task.init.labeled_image.save(f"images/init_label{i}.png")
         breakpoint()
         self.env_name = env.get_name()
         num_tasks = len(tasks)

@@ -407,7 +407,9 @@ def summarize_results_in_str(
             uniq_n_tp, uniq_n_fn = len(tp_states), len(fn_states)
             uniq_n_tn, uniq_n_fp = len(tn_states), len(fp_states)
 
-            if n_succ_states:
+            # if n_succ_states and n_fail_states:
+            if n_tp and "tp" in categories_to_show and n_fp and\
+                "fp" in categories_to_show:
                 # [Simplified]
                 result_str.append(
                     f"Option {g_optn} *successfully* executed on the following "

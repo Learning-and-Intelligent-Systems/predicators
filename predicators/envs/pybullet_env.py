@@ -300,7 +300,8 @@ class PyBulletEnv(BaseEnv):
         # imageio.imsave(f'./prompts/og_image.png', original_image)
         # imageio.imsave(f'./prompts/seg_image.png', seg_image)
 
-        state_img = Image.fromarray(original_image)
+        state_img = Image.fromarray(original_image[:, :, :3])
+        # state_img = Image.fromarray(original_image)
         # img_dict['scene'] = ImageWithBox(
         #     Image.fromarray(original_image), 0, height-1, 0, width-1)
 

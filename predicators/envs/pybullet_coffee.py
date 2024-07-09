@@ -391,7 +391,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Create the visual_shape.
         visual_id = p.createVisualShape(p.GEOM_BOX,
                                         halfExtents=half_extents,
-                                        rgbaColor=(0.7, 0.7, 0.7, 1.0),
+                                        rgbaColor=(0.2, 0.2, 0.2, 1.0),
                                         physicsClientId=physics_client_id)
 
         # Create the body.
@@ -417,7 +417,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 cls.z_lb + dispense_height)
         orientation = cls._default_orn
         half_extents = (cls.machine_x_len / 2, 
-                        1.1 * dispense_radius + cls.jug_radius + 0.001,
+                        1.1 * dispense_radius + cls.jug_radius + 0.003,
         # half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
                         dispense_height)
 
@@ -430,7 +430,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Create the visual_shape.
         visual_id = p.createVisualShape(p.GEOM_BOX,
                                         halfExtents=half_extents,
-                                        rgbaColor=(0.7, 0.7, 0.7, 1.0),
+                                        rgbaColor=(0.2, 0.2, 0.2, 1.0),
                                         physicsClientId=physics_client_id)
 
         # Create the body.
@@ -452,7 +452,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         visual_id = p.createVisualShape(p.GEOM_CYLINDER,
                                         radius=dispense_radius,
                                         length=dispense_height,
-                                        rgbaColor=(0.7, 0.7, 0.7, 0.8),
+                                        rgbaColor=(0.9, 0.9, 0.9, 1),
                                         physicsClientId=physics_client_id)
 
         # Create the body.
@@ -538,7 +538,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #                         rgbaColor=[0.3, 0.3, 0.3, 1], 
         #                         physicsClientId=physics_client_id)
         # Make the jug transparent
-        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.4], 
+        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.9], 
                                     physicsClientId=physics_client_id)
         # remove the lid
         p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0], 
