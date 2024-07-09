@@ -59,7 +59,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
-                     annotations: Optional[List[Any]]) -> None:
+                     annotations: Optional[List[Any]],
+                     **kwargs) -> None:
         dataset_fname, _ = utils.create_dataset_filename_str(
             saving_ground_atoms=True,
             online_learning_cycle=online_learning_cycle)
@@ -112,7 +113,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   self._action_space,
                                   ground_atom_dataset,
                                   sampler_learner=CFG.sampler_learner,
-                                  annotations=annotations)
+                                  annotations=annotations,
+                                  **kwargs)
         save_path = utils.get_approach_save_path_str()
         # NS predicates currently doesn't support saving
         # if not CFG.neu_sym_predicate:

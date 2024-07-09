@@ -217,7 +217,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             task.init.state_image.save(f"images/init_state{i}.png")
             task.init.labeled_image.save(f"images/init_label{i}.png")
-        breakpoint()
+        # breakpoint()
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
@@ -414,11 +414,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                     "seconds")
             # [End moving out]
 
-            # breakpoint()
+            breakpoint()
             # Finally, learn NSRTs via superclass, using all the kept predicates.
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
-                              annotations=None)
+                              annotations=None,
+                              fail_optn_dict=self.fail_optn_dict)
             breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
@@ -933,6 +934,10 @@ class VlmInventionApproach(NSRTLearningApproach):
         for pred in kept_predicates:
             logging.info(f"\t{pred}")
         score_function.evaluate(kept_predicates)  # log useful numbers
+        logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
+                     f"{len(candidates)} candidates:")
+        for pred in kept_predicates:
+            logging.info(f"\t{pred}")
 
         return set(kept_predicates)
 

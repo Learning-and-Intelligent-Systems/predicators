@@ -12,7 +12,7 @@ from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, \
     ParameterizedOption, Predicate, STRIPSOperator, VarToObjSub, State, \
-    GroundAtom, GroundOptionRecord
+    GroundAtom, GroundOptionRecord, Object
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
@@ -202,7 +202,10 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
     and option is remove (presumbly as a form of regularization) but this is not
     need here and we can let search do the work.
     """
-    fail_optn_dict: Dict[str, GroundOptionRecord]
+    def __init__(self, *args, fail_optn_dict: Dict[str, GroundOptionRecord],
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fail_optn_dict = fail_optn_dict
 
     @classmethod
     def get_name(cls) -> str:
@@ -213,19 +216,24 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         
         # Cluster the states in the fail_optn_dict sorted with by option name
         optn_to_fail_data: Dict[str, 
-            List[Tuple[State, Set[GroundAtom], VarToObjSub]]] = defaultdict(
+            List[Tuple[State, Set[GroundAtom], List[Object]]]] = defaultdict(
                 list)
         for optn_rec in self.fail_optn_dict.values():
             for s, ab_s in zip(optn_rec.states, optn_rec.abstract_states):
                 optn_to_fail_data[optn_rec.option.name].append(
-                    (s, ab_s, dict(zip(optn_rec.optn_vars, optn_rec.optn_objs)))
+                    (s, ab_s, optn_rec.optn_objs)
                 )
 
         for pnad in pnads:
             init_preconditions = self._induce_preconditions_via_intersection(
                 pnad)
+            option_name = pnad.option_spec[0].name
+            logging.debug(f"Running search for with "
+                          f"{len(optn_to_fail_data[option_name])} negative "
+                          f"data for: {pnad}")
             refined_preconditions = self._run_search(pnad, init_preconditions,
-                fail_data=optn_to_fail_data[pnad.op.name])
+                fail_data=optn_to_fail_data[option_name])
+            logging.debug(f"Precondition before search {init_preconditions}")
 
             new_pnads.append(
                 PNAD(pnad.op.copy_with(preconditions=refined_preconditions),
@@ -234,7 +242,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         return new_pnads
     
     def _run_search(self, pnad: PNAD, init_preconditions: Set[LiftedAtom],
-                    fail_data: List[Tuple[State, Set[GroundAtom], VarToObjSub]]
+                    fail_data: List[Tuple[State, Set[GroundAtom], List[Object]]]
                     ) -> FrozenSet[LiftedAtom]:
         """Run search to find a single precondition set for the pnad operator.
         """
@@ -249,13 +257,18 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                                  check_goal,
                                  self._get_precondition_successors,
                                  score_func)
-        return path[-1]
+
+        # log info
+        ret_precon = path[-1]
+        logging.debug(f"Search finished: selected:")
+        score_func(ret_precon)
+        return ret_precon
     
     @staticmethod
     def _score_preconditions(
             pnad: PNAD, 
             succ_data: Datastore, 
-            fail_data: List[Tuple[State, Set[GroundAtom], VarToObjSub]], 
+            fail_data: List[Tuple[State, Set[GroundAtom], List[Object]]], 
             preconditions: FrozenSet[LiftedAtom]):
         '''Score a precondition based on the succ_states in the datastore and
         failed states in the fail_optn_dict.'''
@@ -280,9 +293,10 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         # with varToObj substitution consistent with the option and effect..
         for seg, var_to_obj in succ_data:
             # alternatively:
-            # g_pre = {a.ground(var_to_obj) for a in preconditions}
-            ground_op = candidate_op.ground(var_to_obj)
-            if ground_op.preconditions.issubset(seg.init_atoms):
+            # ground_op = candidate_op.ground(var_to_obj)
+            # if ground_op.preconditions.issubset(seg.init_atoms):
+            g_pre = {a.ground(var_to_obj) for a in preconditions}
+            if g_pre.issubset(seg.init_atoms):
                 tp_states.append(seg.states[0])
             else:
                 fn_states.append(seg.states[0])
@@ -290,9 +304,13 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         # For the fail_states, we only have a partial sub. for the options
         # and we need to compute the false positives and true negatives based on
         # the ground nsrts with substitutions consistent with the option.
-        for state, atom_state, var_to_obj in fail_data:
+        for state, atom_state, optn_objs in fail_data:
+            # we need to use optn_var from the pnad instead of the from the 
+            # self.fail_optn_dict because the var name in the pnad (which is
+            # the same as in candidate_op) is different from the var name in
+            # the fail_optn_dict.
             ground_nsrts = utils.all_ground_operators_given_partial(
-                candidate_op, set(state), var_to_obj)
+                candidate_op, set(state), dict(zip(optn_var, optn_objs)))
             
             if any([
                     gnsrt.preconditions.issubset(atom_state)
@@ -309,7 +327,9 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
 
         complexity_penalty = CFG.grammar_search_pred_complexity_weight *\
                             len(preconditions)
-        return -acc + complexity_penalty
+        cost = -acc + complexity_penalty
+        logging.debug(f"{preconditions} gets score {cost}")
+        return cost
 
     @staticmethod
     def _get_precondition_successors(

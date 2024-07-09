@@ -500,6 +500,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # STRIPS learning algorithm. See get_name() functions in the directory
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
+    predicate_search_strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
     enable_harmless_op_pruning = False  # some methods may want this to be True
     backchaining_check_intermediate_harmlessness = False

@@ -1,6 +1,7 @@
 """This directory contains algorithms for STRIPS operator learning."""
 
 from typing import Any, List, Optional, Set
+import logging
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
@@ -21,19 +22,22 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
                            segmented_trajs: List[List[Segment]],
                            verify_harmlessness: bool,
                            annotations: Optional[List[Any]],
-                           verbose: bool = True) -> List[PNAD]:
+                           verbose: bool = True,
+                           strips_learner: str = None,
+                           **kwargs) -> List[PNAD]:
     """Learn strips operators on the given data segments.
 
     Return a list of PNADs with op (STRIPSOperator), datastore, and
     option_spec fields filled in (but not sampler).
     """
+    if strips_learner is None:
+        strips_learner = CFG.strips_learner
     for cls in utils.get_all_subclasses(BaseSTRIPSLearner):
-        if not cls.__abstractmethods__ and \
-           cls.get_name() == CFG.strips_learner:
+        if not cls.__abstractmethods__ and cls.get_name() == strips_learner:
             learner = cls(trajectories, train_tasks, predicates,
                           segmented_trajs, verify_harmlessness, annotations,
-                          verbose)
+                          verbose, **kwargs)
             break
     else:
-        raise ValueError(f"Unrecognized STRIPS learner: {CFG.strips_learner}")
+        raise ValueError(f"Unrecognized STRIPS learner: {strips_learner}")
     return learner.learn()

@@ -162,7 +162,12 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                 segmented_trajs,
                 verify_harmlessness=CFG.enable_harmless_op_pruning,
                 verbose=False,
-                annotations=None)
+                annotations=None,
+                strips_learner=CFG.predicate_search_strips_learner,
+                fail_optn_dict=self.fail_optn_dict if CFG.
+                 predicate_search_strips_learner=="cluster_intersect_and_search"
+                    else None)
+            
         except TimeoutError:
             logging.info(
                 "Warning: Operator Learning timed out! Skipping evaluation.")

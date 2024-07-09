@@ -23,7 +23,8 @@ def learn_nsrts_from_data(
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
     action_space: Box,
     ground_atom_dataset: Optional[List[GroundAtomTrajectory]],
-    sampler_learner: str, annotations: Optional[List[Any]]
+    sampler_learner: str, annotations: Optional[List[Any]],
+    **kwargs
 ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates.
@@ -92,7 +93,8 @@ def learn_nsrts_from_data(
             segmented_trajs,
             verify_harmlessness=True,
             verbose=(CFG.option_learner != "no_learning"),
-            annotations=annotations)
+            annotations=annotations,
+            **kwargs)
 
         # Save least complex learned PNAD set across data orderings.
         pnads_complexity = sum(pnad.op.get_complexity() for pnad in pnads)
