@@ -276,13 +276,14 @@ class CoffeeEnv(BaseEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
                                num_cups_lst=CFG.coffee_num_cups_train,
-                               rng=self._train_rng)
+                               rng=self._train_rng,
+                               is_train=True)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_cups_lst=CFG.coffee_num_cups_test,
-                               rng=self._train_rng)
-                            #    rng=self._test_rng)
+                               rng=self._test_rng,
+                               is_train=False)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -444,7 +445,8 @@ class CoffeeEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+                   rng: np.random.Generator, is_train: bool = False
+                   ) -> List[EnvironmentTask]:
         tasks = []
         # Create the parts of the initial state that do not change between
         # tasks, which includes the robot and the machine.
@@ -464,11 +466,13 @@ class CoffeeEnv(BaseEnv):
         }
         for task_idx in range(num):
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
-            # if task_idx == 2:
-            #     num_cups = 2
-            # else:
-            #     num_cups = 1
-            num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
+            if is_train:
+                if task_idx == 2:
+                    num_cups = 2
+                else:
+                    num_cups = 1
+            else:
+                num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
             goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
             # Sample initial positions for cups, making sure to keep them
@@ -535,13 +539,14 @@ class CoffeeEnv(BaseEnv):
                 #     rot = 0.0
 
                 # Manual
-                if task_idx == 0:
-                    rot = 0.0
-                elif task_idx in [1, 2]:
-                    logging.info(f"Adding rotation to jug to task {task_idx}")
-                    rot = self.jug_init_rot_ub
+                if is_train:
+                    if task_idx == 0:
+                        rot = 0.0
+                    elif task_idx in [1, 2]:
+                        logging.info(f"Add rotated to jug to task {task_idx}")
+                        rot = self.jug_init_rot_ub
                 else:
-                    logging.info(f"Adding rotation to jug to task {task_idx}")
+                    logging.info(f"Add rotated to jug to task {task_idx}")
                     rot = rng.uniform(self.jug_init_rot_lb, 
                                       self.jug_init_rot_ub)
 

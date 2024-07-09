@@ -516,7 +516,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         jug_id = p.loadURDF(utils.get_env_asset_path("urdf/kettle.urdf"),
                             useFixedBase=True,
                             # globalScaling=0.075, # original jug
-                            globalScaling=0.1, # enlarged jug
+                            # globalScaling=0.1, # enlarged jug
+                            globalScaling=0.09, # enlarged jug
                             # globalScaling=0.5,
                             physicsClientId=physics_client_id)
 
@@ -536,10 +537,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #     p.changeVisualShape(jug_id, link_index, 
         #                         rgbaColor=[0.3, 0.3, 0.3, 1], 
         #                         physicsClientId=physics_client_id)
-        # p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.6], 
-        #                             physicsClientId=physics_client_id)
-        # p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0], 
-        #                             physicsClientId=physics_client_id)
+        # Make the jug transparent
+        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.4], 
+                                    physicsClientId=physics_client_id)
+        # remove the lid
+        p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0], 
+                                    physicsClientId=physics_client_id)
         p.resetBasePositionAndOrientation(jug_id,
                                           jug_pose,
                                           jug_orientation,
@@ -647,6 +650,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #     p.changeVisualShape(self._jug_id, link_index, 
         #                         rgbaColor=[1, 1, 1, 1], 
         #                         physicsClientId=self._physics_client_id)
+        # reset the empty jug
+        p.changeVisualShape(self._jug_id, 0, 
+                                rgbaColor=[1,1,1,0.4], 
+                                physicsClientId=self._physics_client_id)
         self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
         if self._jug_liquid_id is not None:
             p.removeBody(self._jug_liquid_id,
@@ -886,8 +893,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return state
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
-        tasks = super()._get_tasks(num, num_cups_lst, rng)
+                   rng: np.random.Generator, 
+                   is_train: bool=False) -> List[EnvironmentTask]:
+        tasks = super()._get_tasks(num, num_cups_lst, rng, is_train)
         return self._add_pybullet_state_to_tasks(tasks)
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
@@ -1000,17 +1008,18 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _create_pybullet_liquid_for_jug(self) -> Optional[int]:
         # current_liquid = state.get(cup, "current_liquid")
         # cup_cap = state.get(cup, "capacity_liquid")
-        liquid_height = self.jug_height * 0.85
-        liquid_radius = self.jug_radius * 1.6
+        liquid_height = self.jug_height * 0.65
+        liquid_radius = self.jug_radius * 1.5
         # cx = state.get(jug, "x")
         # cy = state.get(jug, "y")
         # cz = self.z_lb
         # for link_index in range(p.getNumJoints(self._jug_id, 
         #                             physicsClientId=self._physics_client_id)):
         #     # 0 for body, 1 for lid
-        #     p.changeVisualShape(self._jug_id, link_index, 
-        #                         rgbaColor=[0.3, 0.3, 0.3, 1], 
-        #                         physicsClientId=self._physics_client_id)
+        # add color to jug
+        p.changeVisualShape(self._jug_id, 0, 
+                                rgbaColor=[0.2, 0.05, 0.0, 1], 
+                                physicsClientId=self._physics_client_id)
 
         collision_id = p.createCollisionShape(
             p.GEOM_CYLINDER,
