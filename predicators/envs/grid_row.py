@@ -504,4 +504,4 @@ class GridRowDoorEnv(GridRowEnv):
             new_x = np.clip(
                 state.get(self._robot, "x") + dx, 0.0, len(self._cells))
             next_state.set(self._robot, "x", new_x)
-        return next_state
+        return next_state  
