@@ -287,6 +287,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                                              tasks,
                                              ite,
                                              use_only_first_solution=False)
+            if ite == 1:
+                n_tp = sum([len(v.states) for v in self.succ_optn_dict.values()])
+                n_fp = sum([len(v.states) for v in self.fail_optn_dict.values()])
+                prev_clf_acc = n_tp / (n_tp + n_fp)
             #### End of data collection
 
             # Invent when no improvement in solve rate
@@ -450,7 +454,6 @@ class VlmInventionApproach(NSRTLearningApproach):
             num_failed_plans = sum([len(r.info['partial_refinements']) for r in 
                                 results])
             solve_rate = num_solved / num_tasks
-            no_improvement = not (solve_rate > prev_solve_rate)
 
             # Print the new classification results with the new operators
             tp, tn, fp, fn, _ = utils.count_classification_result_for_ops(
@@ -461,13 +464,20 @@ class VlmInventionApproach(NSRTLearningApproach):
                 initial_ite=False,
                 print_cm=True)
             clf_acc = (tp + tn) / (tp + tn + fp + fn)
-            logging.info(f"\n===ite {ite} finished.\n"
+
+            no_improvement = not (solve_rate > prev_solve_rate)
+            # no_improvement = no_improvement and not (clf_acc > prev_clf_acc)
+            # no_improvement = no_improvement and \
+            #     not (num_failed_plans < prev_num_failed_plans)
+            logging.info(f"\n===ite {ite} finished. "
+                         f"No improvement={no_improvement}\n"
                          f"Solve rate {num_solved / num_tasks} "
                          f"Prev solve rate {prev_solve_rate}\n"
                          f"Num skeletons failed {num_failed_plans} "
                          f"Prev num skeletons failed {prev_num_failed_plans}\n"
-                         f"Clf accuracy: {clf_acc:.2f}\n")
-            # breakpoint()
+                         f"Clf accuracy: {clf_acc:.2f}. "
+                         f"Prev clf accuracy: {prev_clf_acc:.2f}\n")
+            breakpoint()
 
             # Save the best model
             if solve_rate > best_solve_rate or\
@@ -480,6 +490,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 best_preds = self._learned_predicates
                 num_failed_plans_at_best_solve_rate = num_failed_plans
             prev_solve_rate = solve_rate
+            prev_clf_acc = clf_acc
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
             if solve_rate == 1 and num_failed_plans == 0:
