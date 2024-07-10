@@ -8,7 +8,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
-    Set, Tuple
+    Set, Tuple, Optional
 
 import numpy as np
 from tabulate import tabulate
@@ -96,6 +96,7 @@ def create_score_function(
         metric_name = f"num_nodes_{created_or_expanded}"
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
                                            candidates, train_tasks,
+                                           succ_optn_dict, fail_optn_dict,
                                            metric_name)
     if score_function_name == "operator_classification_error":
         return _ClassificationErrorScoreFunction(initial_predicates,
@@ -132,6 +133,9 @@ class _PredicateSearchScoreFunction(abc.ABC):
 @dataclass(frozen=True, eq=False, repr=False)
 class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     """A score function that learns operators given the set of predicates."""
+    succ_optn_dict: Optional[Dict[str, GroundOptionRecord]]
+    fail_optn_dict: Optional[Dict[str, GroundOptionRecord]]
+
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         total_cost = sum(self._candidates[pred]
@@ -226,8 +230,6 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
 class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting classification
     errors."""
-    succ_optn_dict: Dict[str, GroundOptionRecord]
-    fail_optn_dict: Dict[str, GroundOptionRecord]
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],

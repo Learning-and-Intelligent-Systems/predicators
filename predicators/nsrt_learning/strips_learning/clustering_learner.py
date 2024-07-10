@@ -254,9 +254,9 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
             init_preconditions = self._induce_preconditions_via_intersection(
                 pnad)
             option_name = pnad.option_spec[0].name
-            logging.debug(f"Running search for with "
-                          f"{len(optn_to_fail_data[option_name])} negative "
-                          f"data for: {pnad}")
+            logging.debug(f"Search with "
+                    f"{len(optn_to_fail_data[option_name])} negative and "
+                    f"{len(pnad.datastore)} positive data for: {pnad}")
             refined_preconditions = self._run_search(pnad, init_preconditions,
                 fail_data=optn_to_fail_data[option_name])
             logging.debug(f"Precondition before search {init_preconditions}")
@@ -350,11 +350,16 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         n_tp, n_fn = len(tp_states), len(fn_states)
         n_tn, n_fp = len(tn_states), len(fp_states)
         acc = (n_tp + n_tn) / n_tot
+        # If there are a lot of failed states and a lot of success states, then
+        # fp would be very small even with a weak precondition.
+        # In other word, a weak precondition would have large tp but small tn
+        # and would be accepted under this metric.
 
         complexity_penalty = CFG.grammar_search_pred_complexity_weight *\
                             len(preconditions)
         cost = -acc + complexity_penalty
-        logging.debug(f"{preconditions} gets score {cost}")
+        logging.debug(f"{preconditions} gets score {cost}: tot={n_tot}, "
+                      f"tp={n_tp}, tn={n_tn}, fp={n_fp}")
         return cost
 
     @staticmethod

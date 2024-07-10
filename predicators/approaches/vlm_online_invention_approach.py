@@ -369,23 +369,24 @@ class VlmInventionApproach(NSRTLearningApproach):
                     score_func_name = "expected_nodes_created"
                     # score_function = CFG.grammar_search_score_function
 
-                if score_func_name == "operator_classification_error":
-                    # Abstract here because it's used in the score function
-                    # Evaluate the newly proposed predicates; the values for
-                    # previous proposed should have been cached by the previous
-                    # abstract calls.
-                    num_states = len(set(state for optn_dict in
-                                    [self.succ_optn_dict, self.fail_optn_dict]
-                                    for g_optn in optn_dict.keys() for state in
-                                    optn_dict[g_optn].states))
-                    logging.debug(f"There are {num_states} distinct states.")
-                    for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
-                        for g_optn in optn_dict.keys():
-                            atom_states = []
-                            for state in optn_dict[g_optn].states:
-                                atom_states.append(
-                                    utils.abstract(state, set(all_candidates)))
-                            optn_dict[g_optn].abstract_states = atom_states
+                # if score_func_name == "operator_classification_error":
+                # Abstract here because it's used in the score function
+                # Evaluate the newly proposed predicates; the values for
+                # previous proposed should have been cached by the previous
+                # abstract calls.
+                # this is also used in cluster_intersect_and_search pre learner
+                num_states = len(set(state for optn_dict in
+                                [self.succ_optn_dict, self.fail_optn_dict]
+                                for g_optn in optn_dict.keys() for state in
+                                optn_dict[g_optn].states))
+                logging.debug(f"There are {num_states} distinct states.")
+                for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+                    for g_optn in optn_dict.keys():
+                        atom_states = []
+                        for state in optn_dict[g_optn].states:
+                            atom_states.append(
+                                utils.abstract(state, set(all_candidates)))
+                        optn_dict[g_optn].abstract_states = atom_states
 
                 # This step should only make VLM calls on the end state
                 # becuaes it would have labled all the other success states
@@ -476,7 +477,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             prev_solve_rate = solve_rate
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
-            if solve_rate == 1 and num_failed_plans == 0:
+            if solve_rate == 2 and num_failed_plans == 1:
                 break
             time.sleep(5)
 

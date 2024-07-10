@@ -13,7 +13,7 @@ ARGS:
   # []
   - "debug"
   # - "load_approach"
-  # - "use_gui"
+  - "use_gui"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
   num_train_tasks: 3 #0 # pybullet_coffee
@@ -21,7 +21,7 @@ FLAGS:
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
   strips_learner: "cluster_intersect_and_search"
-  predicate_search_strips_learner: "cluster_intersect_and_search"
+  # predicate_search_strips_learner: "cluster_intersect_and_search"
   excluded_predicates: "all"
   min_perc_data_for_nsrt: 0 # 1 works for coffee (100) 0 works for coffee 50; 
                             # 3 for blocks
