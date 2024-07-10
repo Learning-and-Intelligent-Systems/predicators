@@ -55,10 +55,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.15 * (y_ub - y_lb)
     machine_z_len: ClassVar[float] = 0.5 * (z_ub - z_lb)
+    machine_top_y_len: ClassVar[float] = 1.5 * machine_y_len
     machine_x: ClassVar[float] = x_ub - machine_x_len / 2 - init_padding
     machine_y: ClassVar[float] = y_ub - machine_y_len / 2 - init_padding
     button_x: ClassVar[float] = machine_x
-    button_y: ClassVar[float] = machine_y - machine_y_len / 2
+    button_y: ClassVar[float] = machine_y - machine_y_len / 2 - machine_top_y_len
     button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_y_len
     button_press_threshold: ClassVar[float] = 1e-3
@@ -410,7 +411,40 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         bodies["machine_id"] = machine_id
 
-        ## Create the dispense area.
+        # Dispense top
+        top_half_extents = (
+                            # cls.machine_x_len / 2,
+                            cls.machine_x_len / 3,
+                            cls.machine_top_y_len / 2,
+                            cls.machine_z_len / 6)
+        collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=top_half_extents,
+            physicsClientId=physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(p.GEOM_BOX,
+                                        halfExtents=top_half_extents,
+                                        rgbaColor=(0.2, 0.2, 0.2, 1.0),
+                                        physicsClientId=physics_client_id)
+
+        # Create the body.
+        pose = (
+            # cls.machine_x,
+            cls.machine_x - cls.machine_x_len / 6,
+            # cls.machine_y - cls.machine_y_len/2 - cls.machine_top_y_len / 2,
+            cls.machine_y - cls.machine_y_len/2 - cls.machine_top_y_len / 2,
+            cls.z_lb + cls.machine_z_len / 2 + cls.machine_z_len / 3,
+        )
+        orientation = cls._default_orn
+        p.createMultiBody(baseMass=0,
+                            baseCollisionShapeIndex=collision_id,
+                            baseVisualShapeIndex=visual_id,
+                            basePosition=pose,
+                            baseOrientation=orientation,
+                            physicsClientId=physics_client_id)
+
+        ## Create the dispense area -- base.
         dispense_radius = 2 * cls.jug_radius
         dispense_height = 0.005
         pose = (cls.dispense_area_x, cls.dispense_area_y,
@@ -421,7 +455,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
                         dispense_height)
 
-        # Create a square beneath the dispense area for visual niceness.
+        # Dispense area square.
         collision_id = p.createCollisionShape(
             p.GEOM_BOX,
             halfExtents=half_extents,
@@ -440,7 +474,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                           basePosition=np.add(pose, (0, 0, -dispense_height)),
                           baseOrientation=orientation,
                           physicsClientId=physics_client_id)
-
+        
+        # Dispense area circle
         # Create the collision shape.
         collision_id = p.createCollisionShape(
             p.GEOM_CYLINDER,
@@ -450,7 +485,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create the visual_shape.
         visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                        radius=dispense_radius,
+                                        radius=dispense_radius + 
+                                                0.8*cls.jug_radius,
                                         length=dispense_height,
                                         rgbaColor=(0.9, 0.9, 0.9, 1),
                                         physicsClientId=physics_client_id)

@@ -3,24 +3,24 @@ def _JugInMachine_holds(state: RawState, objects: Sequence[Object]
                          ) -> bool:
     """Determine if the jug is in the machine.
     """
-    # jug, machine = objects
-    # jug_name = jug.id_name
-    # machine_name = machine.id_name
+    jug, machine = objects
+    jug_name = jug.id_name
+    machine_name = machine.id_name
 
-    # if state.get(jug, "bbox_left") > state.get(machine, "bbox_right"):
-    #     return False
+    if state.get(jug, "bbox_left") > state.get(machine, "bbox_right"):
+        return False
 
-    # attention_image = state.crop_to_objects([jug, machine])
-    # return state.evaluate_simple_assertion(
-    #     f"{jug_name} is in the {machine_name}", attention_image)
-    jug, _ = objects
-    dispense_pos = (0.98, 1.42, 0.2)
-    x = state.get(jug, "x")
-    y = state.get(jug, "y")
-    z = 0.2
-    jug_pos = (x, y, z)
-    sq_dist_to_dispense = np.sum(np.subtract(dispense_pos, jug_pos)**2)
-    return sq_dist_to_dispense < 1e-2
+    attention_image = state.crop_to_objects([jug, machine])
+    return state.evaluate_simple_assertion(
+        f"{jug_name} is in the {machine_name}", attention_image)
+    # jug, _ = objects
+    # dispense_pos = (0.98, 1.42, 0.2)
+    # x = state.get(jug, "x")
+    # y = state.get(jug, "y")
+    # z = 0.2
+    # jug_pos = (x, y, z)
+    # sq_dist_to_dispense = np.sum(np.subtract(dispense_pos, jug_pos)**2)
+    # return sq_dist_to_dispense < 1e-2
 _JugInMachine = NSPredicate("JugInMachine", [_jug_type, _machine_type],
                                           _JugInMachine_holds)
 ```
@@ -46,17 +46,17 @@ def _RobotHoldingJug_holds(state: RawState, objects: Sequence[Object]
     """Determine if the robot is holding the jug.
     """
     robot, jug = objects
-    return state.get(jug, "is_held") > 0.5  # test symbolic predicate
-    # robot_name = robot.id_name
-    # jug_name = jug.id_name
+    # return state.get(jug, "is_held") > 0.5  # test symbolic predicate
+    robot_name = robot.id_name
+    jug_name = jug.id_name
 
-    # # Can't be holding when gripper is open
-    # if state.get(robot, "fingers") == 0.4:
-    #     return False
-    #     
-    # attention_image = state.crop_to_objects([robot, jug])
-    # return state.evaluate_simple_assertion(
-    #     f"{robot_name} is holding {jug_name}", attention_image)
+    # Can't be holding when gripper is open
+    if state.get(robot, "fingers") == 0.4:
+        return False
+        
+    attention_image = state.crop_to_objects([robot, jug])
+    return state.evaluate_simple_assertion(
+        f"{robot_name} is holding {jug_name}", attention_image)
 _RobotHoldingJug = NSPredicate("RobotHoldingJug", [_robot_type, _jug_type],
                                           _RobotHoldingJug_holds)
 ```

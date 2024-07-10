@@ -217,7 +217,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             task.init.state_image.save(f"images/init_state{i}.png")
             task.init.labeled_image.save(f"images/init_label{i}.png")
-        # breakpoint()
+        breakpoint()
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
