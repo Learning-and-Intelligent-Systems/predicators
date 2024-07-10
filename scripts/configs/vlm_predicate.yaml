@@ -14,10 +14,10 @@ ARGS:
   - "debug"
   # - "load_approach"
   - "use_gui"
-  - "make_failure_videos"
+  # - "make_failure_videos"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
-  num_train_tasks: 3 #0 # pybullet_coffee
+  num_train_tasks: 2 #0 # pybullet_coffee
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle

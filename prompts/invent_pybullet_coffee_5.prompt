@@ -306,7 +306,7 @@ Option Pour(robot1:robot, jug7:jug, cup9:cup) *successfully* executed on the fol
   Previous option: PickJug
 
 Option Pour(robot1:robot, jug7:jug, cup9:cup) *failed* to executed on the following states (negative states):
-  state_24 with additional info:
+  state_32 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup9:cup',
    'jug7:jug',
@@ -315,7 +315,7 @@ Option Pour(robot1:robot, jug7:jug, cup9:cup) *failed* to executed on the follow
   Previous option: PickJug
 
 Option Pour(robot1:robot, jug7:jug, cup8:cup) *failed* to executed on the following states (negative states):
-  state_27 with additional info:
+  state_31 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup9:cup',
    'cup8:cup',
@@ -345,7 +345,7 @@ Option PlaceJugInMachine(robot1:robot, jug7:jug, coffee_machine3:coffee_machine)
   Previous option: Pour
 
 Option PickJug(robot1:robot, jug7:jug) *successfully* executed on the following states (positive states):
-  state_15 with additional info:
+  state_18 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup9:cup',
    'jug7:jug',
@@ -362,7 +362,7 @@ Option PickJug(robot1:robot, jug7:jug) *successfully* executed on the following 
   Previous option: TurnMachineOn
 
 Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following states (negative states):
-  state_9 with additional info:
+  state_12 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup9:cup',
    'jug7:jug',
@@ -381,7 +381,7 @@ Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *successfully
   Previous option: PlaceJugInMachine
 
 Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
-  state_15 with additional info:
+  state_18 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup9:cup',
    'jug7:jug',
@@ -389,7 +389,7 @@ Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *failed* to e
    'table2:table'}
   Previous option: Twist
 
-  state_9 with additional info:
+  state_12 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup9:cup',
    'jug7:jug',
