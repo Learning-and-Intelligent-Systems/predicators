@@ -691,7 +691,8 @@ class BurgerEnv(BaseEnv):
             self._tomato_type:
             mpimg.imread(utils.get_env_asset_path("imgs/whole_tomato.png")),
             self._patty_type:
-            mpimg.imread(utils.get_env_asset_path("imgs/raw_patty.png"))
+            # mpimg.imread(utils.get_env_asset_path("imgs/raw_patty.png"))
+            mpimg.imread(utils.get_env_asset_path("imgs/yellow_patty.png"))
         }
         held_img_size = (0.3, 0.3)
         offset = held_img_size[1] * (1 / 3)
@@ -703,7 +704,8 @@ class BurgerEnv(BaseEnv):
             if "is_cooked" in state.simulator_state["state"][
                     item] and self._IsCooked_holds(state, [item]):
                 img = mpimg.imread(
-                    utils.get_env_asset_path("imgs/cooked_patty.png"))
+                    # utils.get_env_asset_path("imgs/cooked_patty.png"))
+                    utils.get_env_asset_path("imgs/blue_patty.png"))
             elif "is_sliced" in state.simulator_state["state"][
                     item] and self._IsSliced_holds(state, [item]):
                 img = mpimg.imread(

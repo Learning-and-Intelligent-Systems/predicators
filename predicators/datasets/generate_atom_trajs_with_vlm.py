@@ -69,6 +69,7 @@ def _generate_prompt_for_atom_proposals(
         prompt += "\nSkills executed in trajectory:\n"
         prompt += "\n".join(act.name + str(act.objects)
                             for act in traj.actions)
+        # import pdb; pdb.set_trace()
         # NOTE: exact same issue as described in the above note for
         # naive_whole_traj.
         ret_list.append(
@@ -684,6 +685,7 @@ def _query_vlm_to_generate_ground_atoms_trajs(
         logging.info("Querying VLM for candidate atom proposals...")
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
             image_option_trajs, vlm, 1)
+        import pdb; pdb.set_trace()
         logging.info("Done querying VLM for candidate atoms!")
         # We now parse and sanitize this set of atoms.
         atom_proposals_set = _parse_unique_atom_proposals_from_list(

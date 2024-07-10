@@ -463,6 +463,9 @@ _DEBUG_PREDICATE_PREFIXES = {
         "((0:button).y<=[idx 0]3.01)",  # ButtonReachableByRobot
         "NOT-((0:button).y<=[idx 0]3.01)",  # ButtonNotReachableByRobot
     ],
+    "burger": [
+        "((0:robot).fingers<=[idx 0]0.5)"
+    ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
