@@ -128,6 +128,12 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         )
 
         # TurnMachineOn
+        def _TurnMachineOn_initiable(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+            del memory, params # unused
+            robot, _ = objects
+            return HandEmpty.holds(state, [robot])
+
         def _TurnMachineOn_terminal(state: State, memory: Dict,
                                     objects: Sequence[Object],
                                     params: Array) -> bool:
@@ -140,7 +146,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, machine_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
-            initiable=lambda s, m, o, p: True,
+            initiable=_TurnMachineOn_initiable,
             terminal=_TurnMachineOn_terminal,
             annotation="Turn the machine on."
         )
