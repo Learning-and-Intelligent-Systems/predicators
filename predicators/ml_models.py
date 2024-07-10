@@ -1857,89 +1857,91 @@ class MPDQNFunction(MapleQFunction):
     # def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
     # ideally use SmoothL1Loss, but to compare w no target, use MSELoss for now
     #     return nn.SmoothL1Loss()
-    def _vectorize_state(self, state: State) -> Array:
-        vecs: List[Array] = []
-        robot_pos = 0
-        door_list = []
-        for o in state:
-            if o.is_instance(GridRowDoorEnv._robot_type):
-                robot_pos = state.get(o, "x")
-            if o.is_instance(GridRowDoorEnv._door_type):
-                door_list.append(o)
-            try:
-                vec = state[o]
-            except KeyError:
-                vec = np.zeros(o.type.dim, dtype=np.float32)
-            vecs.append(vec)
-        vecs = np.concatenate(vecs)
-        has_middle_cell = 1
-        light_target = 0.75
-        if robot_pos==0:
-            has_left_cell=0
-        else:
-            has_left_cell=1
 
-        if robot_pos==CFG.grid_row_num_cells-1:
-            has_right_cell=0
-        else:
-            has_right_cell=1
 
-        # UR GONNA HAVE TO CHANGE THIS STUFF !!!!!! FOR MULTIPLE DOORS
-        # why is this now not even working for train time stuff :SKULL:
-        light_pos = vecs[-2]
-        light_target = vecs[-3]
-        has_middle_door = 0
-        has_right_door = 0
-        has_left_door = 0
-        door_move_key, door_move_target, \
-                door_turn_key, door_turn_target = (0,0,0,0)
-        for door in door_list:
-            door_pos = state.get(door, "x")
-            if robot_pos == door_pos:
-                has_middle_door = 1
-                door_move_key = state.get(door, "move_key")
-                door_move_target = state.get(door, "move_target")
-                door_turn_key = state.get(door, "turn_key")
-                door_turn_target = state.get(door, "turn_target")
-                # print(door, door_move_key, door_move_target, \
-                # door_turn_key, door_turn_target)
+    # def _vectorize_state(self, state: State) -> Array:
+    #     vecs: List[Array] = []
+    #     robot_pos = 0
+    #     door_list = []
+    #     for o in state:
+    #         if o.is_instance(GridRowDoorEnv._robot_type):
+    #             robot_pos = state.get(o, "x")
+    #         if o.is_instance(GridRowDoorEnv._door_type):
+    #             door_list.append(o)
+    #         try:
+    #             vec = state[o]
+    #         except KeyError:
+    #             vec = np.zeros(o.type.dim, dtype=np.float32)
+    #         vecs.append(vec)
+    #     vecs = np.concatenate(vecs)
+    #     has_middle_cell = 1
+    #     light_target = 0.75
+    #     if robot_pos==0:
+    #         has_left_cell=0
+    #     else:
+    #         has_left_cell=1
 
-            if robot_pos+1 == door_pos:
-                has_right_door = 1
-                door_move_key = state.get(door, "move_key")
-                door_move_target = state.get(door, "move_target")
-                door_turn_key = state.get(door, "turn_key")
-                door_turn_target = state.get(door, "turn_target")
+    #     if robot_pos==CFG.grid_row_num_cells-1:
+    #         has_right_cell=0
+    #     else:
+    #         has_right_cell=1
 
-            if robot_pos-1 == door_pos:
-                has_left_door = 1
-                door_move_key = state.get(door, "move_key")
-                door_move_target = state.get(door, "move_target")
-                door_turn_key = state.get(door, "turn_key")
-                door_turn_target = state.get(door, "turn_target")
+    #     # UR GONNA HAVE TO CHANGE THIS STUFF !!!!!! FOR MULTIPLE DOORS
+    #     # why is this now not even working for train time stuff :SKULL:
+    #     light_pos = vecs[-2]
+    #     light_target = vecs[-3]
+    #     has_middle_door = 0
+    #     has_right_door = 0
+    #     has_left_door = 0
+    #     door_move_key, door_move_target, \
+    #             door_turn_key, door_turn_target = (0,0,0,0)
+    #     for door in door_list:
+    #         door_pos = state.get(door, "x")
+    #         if robot_pos == door_pos:
+    #             has_middle_door = 1
+    #             door_move_key = state.get(door, "move_key")
+    #             door_move_target = state.get(door, "move_target")
+    #             door_turn_key = state.get(door, "turn_key")
+    #             door_turn_target = state.get(door, "turn_target")
+    #             # print(door, door_move_key, door_move_target, \
+    #             # door_turn_key, door_turn_target)
 
-        if robot_pos == light_pos:
-            has_middle_light = 1
-        else:
-            has_middle_light = 0
+    #         if robot_pos+1 == door_pos:
+    #             has_right_door = 1
+    #             door_move_key = state.get(door, "move_key")
+    #             door_move_target = state.get(door, "move_target")
+    #             door_turn_key = state.get(door, "turn_key")
+    #             door_turn_target = state.get(door, "turn_target")
 
-        if robot_pos+1 == light_pos:
-            has_right_light = 1
-        else:
-            has_right_light = 0
+    #         if robot_pos-1 == door_pos:
+    #             has_left_door = 1
+    #             door_move_key = state.get(door, "move_key")
+    #             door_move_target = state.get(door, "move_target")
+    #             door_turn_key = state.get(door, "turn_key")
+    #             door_turn_target = state.get(door, "turn_target")
 
-        if robot_pos-1 == light_pos:
-            has_left_light = 1
-        else:
-            has_left_light = 0
+    #     if robot_pos == light_pos:
+    #         has_middle_light = 1
+    #     else:
+    #         has_middle_light = 0
+
+    #     if robot_pos+1 == light_pos:
+    #         has_right_light = 1
+    #     else:
+    #         has_right_light = 0
+
+    #     if robot_pos-1 == light_pos:
+    #         has_left_light = 1
+    #     else:
+    #         has_left_light = 0
         
-        light_level = vecs[-4]
+    #     light_level = vecs[-4]
         
-        vectorized_state = [has_left_cell, has_left_door, has_left_light, has_middle_cell, \
-                has_middle_door, has_middle_light, has_right_cell, \
-                has_right_door, has_right_light, door_move_key, door_move_target, \
-                door_turn_key, door_turn_target, light_level, light_target]
-        return vectorized_state
+    #     vectorized_state = [has_left_cell, has_left_door, has_left_light, has_middle_cell, \
+    #             has_middle_door, has_middle_light, has_right_cell, \
+    #             has_right_door, has_right_light, door_move_key, door_move_target, \
+    #             door_turn_key, door_turn_target, light_level, light_target]
+    #     return vectorized_state
     
     def _vectorize_option(self, option: _Option) -> Array:
 

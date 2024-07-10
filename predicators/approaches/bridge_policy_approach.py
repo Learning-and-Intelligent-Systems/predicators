@@ -414,7 +414,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             raise_error_on_repeated_state=True,
         )
 
-        return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
 
     def call_planner_nsrt(self) -> NSRT:
         """CallPlanner NSRT."""

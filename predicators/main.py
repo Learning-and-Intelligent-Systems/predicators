@@ -367,7 +367,7 @@ def _generate_interaction_results(
             monitor = utils.VideoMonitor(env.render)
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
-        env._reset_cells()
+        # env._reset_cells()
         env_task = env.get_train_tasks()[request.train_task_idx]
         cogman.reset(env_task)
         observed_traj, _, _ = run_episode_and_get_observations(
@@ -533,7 +533,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = [
         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
     ]
-    env._reset_test_cells()
+    # env._reset_test_cells()
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()
@@ -645,6 +645,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             video_file = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                      f"{log_message}")
+
         if make_video:
             assert monitor is not None
             video = monitor.get_video()
