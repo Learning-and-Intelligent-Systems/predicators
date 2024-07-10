@@ -226,8 +226,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         manual_prompt = True
         regenerate_response = False
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
-        best_solve_rate, best_ite, clf_acc = 0.0, 0.0, 0.0
+        best_solve_rate, best_ite, clf_acc = -np.inf, 0.0, 0.0
         clf_acc_at_best_solve_rate = 0.0
+        num_failed_plans_at_best_solve_rate = np.inf
         best_nsrt, best_preds = deepcopy(self._nsrts), set()
         self._learned_predicates = set()
         # Keep a copy in case it doesn't learn it from data.
@@ -314,7 +315,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # Use the results to prompt the llm
                     prompt = self._create_prompt(env, ite, 10, 2, 2, 
                                             categories_to_show=['tp', 'fp'])
-                    breakpoint()
+                    # breakpoint()
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
@@ -415,13 +416,13 @@ class VlmInventionApproach(NSRTLearningApproach):
                     "seconds")
             # [End moving out]
 
-            breakpoint()
+            # breakpoint()
             # Finally, learn NSRTs via superclass, using all the kept predicates.
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
                               annotations=None,
                               fail_optn_dict=self.fail_optn_dict)
-            breakpoint()
+            # breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
@@ -460,34 +461,39 @@ class VlmInventionApproach(NSRTLearningApproach):
                 initial_ite=False,
                 print_cm=True)
             clf_acc = (tp + tn) / (tp + tn + fp + fn)
-            logging.info(f"\n===ite {ite} finished. "
+            logging.info(f"\n===ite {ite} finished.\n"
                          f"Solve rate {num_solved / num_tasks} "
-                         f"Prev solve rate {prev_solve_rate} "
+                         f"Prev solve rate {prev_solve_rate}\n"
                          f"Num skeletons failed {num_failed_plans} "
+                         f"Prev num skeletons failed {prev_num_failed_plans}\n"
                          f"Clf accuracy: {clf_acc:.2f}\n")
-            breakpoint()
+            # breakpoint()
 
             # Save the best model
-            if solve_rate > best_solve_rate:
+            if solve_rate > best_solve_rate or\
+               (solve_rate == best_solve_rate and\
+                num_failed_plans < num_failed_plans_at_best_solve_rate):
                 best_solve_rate = solve_rate
                 clf_acc_at_best_solve_rate = clf_acc
                 best_ite = ite
                 best_nsrt = self._nsrts
                 best_preds = self._learned_predicates
+                num_failed_plans_at_best_solve_rate = num_failed_plans
             prev_solve_rate = solve_rate
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
-            if solve_rate == 2 and num_failed_plans == 1:
+            if solve_rate == 1 and num_failed_plans == 0:
                 break
             time.sleep(5)
 
         logging.info("Invention finished.")
         logging.info(
-            f"\nBest solve rate {best_solve_rate} first achieved at ite "
+            f"\nBest solve rate {best_solve_rate} and num_failed_plan"
+            f"{num_failed_plans_at_best_solve_rate} first achieved at ite "
             f"{best_ite}; clf accuracy {clf_acc_at_best_solve_rate}")
         logging.info(f"Predicates learned {best_preds}")
         logging.info(f"NSRTs learned {pformat(best_nsrt)}")
-        breakpoint()
+        # breakpoint()
         self._nsrts = best_nsrt
         self._learned_predicates = best_preds
         return

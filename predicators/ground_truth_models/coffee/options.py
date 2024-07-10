@@ -266,10 +266,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Distance in the z direction to a safe move distance.
             safe_z_sq_dist = (cls.env_cls.robot_init_z - z)**2
             xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
+            dwrist = cls.env_cls.robot_init_wrist - state.get(robot, "wrist")
+            dtilt = cls.env_cls.robot_init_tilt - state.get(robot, "tilt")
             # If at the correct x and z position and behind in the y direction,
             # move directly toward the target.
             if target_y > y and xz_handle_sq_dist < cls.pick_policy_tol:
-                return cls._get_move_action(state, handle_pos, robot_pos)
+                return cls._get_move_action(state, handle_pos, robot_pos, dtilt, 
+                                            dwrist)
             # If close enough to the penultimate waypoint in the x/y plane,
             # move to the waypoint (in the z direction).
             if xy_waypoint_sq_dist < cls.pick_policy_tol:

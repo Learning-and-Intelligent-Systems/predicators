@@ -1,27 +1,3 @@
-
-```python
-def _RobotNotHoldingAboveCup_holds(state: State, objects: Sequence[Object]) -> bool:
-    """Determine if the robot is holding a jug above a cup.
-    """
-    robot, jug, cup = objects
-    if state.get(robot, 'fingers') < 0.2:
-        return False
-    jug_x = state.get(jug, "x")
-    jug_y = state.get(jug, "y")
-    jug_z = state.get(robot, "z") - 0.0825
-    jug_pos = (jug_x, jug_y, jug_z)
-    pour_pos = (state.get(cup, "x") + 0.0135, 
-                state.get(cup, "y") + -0.10799999999999998, 
-                0.20625000000000002)
-    sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
-    return sq_dist_to_pour >= 1
-
-
-name: str = "RobotNotHoldingAboveCup"
-param_types: Sequence[Type] = [_robot_type, _jug_type, _cup_type]
-_RobotNotHoldingAboveCup = NSPredicate(name, param_types, _RobotNotHoldingAboveCup_holds)
-```
-
 ```python
 def _JugSideToGripper_holds(state: State, objects: Sequence[Object]) -> bool:
     """Determine if the jug's side is facing the robot gripper."""
