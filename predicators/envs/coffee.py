@@ -465,13 +465,13 @@ class CoffeeEnv(BaseEnv):
         }
         for task_idx in range(num):
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
-            if is_train:
-                if task_idx == 2:
-                    num_cups = 2
-                else:
-                    num_cups = 1
-            else:
-                num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
+            # if is_train:
+            #     if task_idx == 2:
+            #         num_cups = 2
+            #     else:
+            #         num_cups = 1
+            # else:
+            num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
             goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
             # Sample initial positions for cups, making sure to keep them
@@ -525,29 +525,30 @@ class CoffeeEnv(BaseEnv):
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
             
             if CFG.coffee_no_rotated_jug:
-                rot = 0.0
+                rot = -np.pi/4
             else:
                 # Auto
-                # p = CFG.coffee_rotated_jug_ratio
-                # add_rotation = rng.choice([True, False], p=[p, 1-p])
-                # if add_rotation:
-                #     logging.info(f"Adding rotation to jug to task {task_idx}")
-                #     rot = rng.uniform(self.jug_init_rot_lb, 
-                #                       self.jug_init_rot_ub)
-                # else:
-                #     rot = 0.0
+                p = CFG.coffee_rotated_jug_ratio
+                add_rotation = rng.choice([True, False], p=[p, 1-p])
+                if add_rotation:
+                    logging.info(f"Adding rotation to jug to task {task_idx}")
+                    # rot = rng.uniform(self.jug_init_rot_lb, 
+                    #                   self.jug_init_rot_ub)
+                    rot = self.jug_init_rot_ub
+                else:
+                    rot = 0.0
 
                 # Manual
-                if is_train:
-                    if task_idx == 0:
-                        rot = 0.0
-                    elif task_idx in [1, 2]:
-                        logging.info(f"Add rotated to jug to task {task_idx}")
-                        rot = self.jug_init_rot_ub
-                else:
-                    logging.info(f"Add rotated to jug to task {task_idx}")
-                    rot = rng.uniform(self.jug_init_rot_lb, 
-                                      self.jug_init_rot_ub)
+                # if is_train:
+                #     if task_idx == 0:
+                #         rot = 0.0
+                #     elif task_idx in [1, 2]:
+                #         logging.info(f"Add rotated to jug to task {task_idx}")
+                #         rot = self.jug_init_rot_ub
+                # else:
+                #     logging.info(f"Add rotated to jug to task {task_idx}")
+                #     rot = rng.uniform(self.jug_init_rot_lb, 
+                #                       self.jug_init_rot_ub)
 
             state_dict[self._jug] = {
                 "x": x,
@@ -677,6 +678,7 @@ class CoffeeEnv(BaseEnv):
         else:
             # in pb-coffee determine by grasp check
             pick_jug_rot_tol = 2/10 * np.pi
+            # pick_jug_rot_tol = - np.pi / 4
 
         return abs(jug_rot) <= pick_jug_rot_tol
             

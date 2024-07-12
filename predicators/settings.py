@@ -314,7 +314,7 @@ class GlobalSettings:
     exit_garage_raise_environment_failure = False
 
     # coffee env parameters
-    coffee_num_cups_train = [1, 2]
+    coffee_num_cups_train = [1]
     coffee_num_cups_test = [2, 3]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
     coffee_twist_sampler = True
@@ -429,14 +429,15 @@ class GlobalSettings:
     # vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, only answer either 'True' or 'False'."
     # vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, answer [the assertion you are evaluating]: True or False"
     vlm_system_instruction = """
-You are an AI researcher who will answer whether each assertion holds in the image. For each assertion, provide your answer in the following format:
-[assertion index]. [assertion]: True or False
+You are an AI researcher who will answer whether each assertion holds in the image. For each assertion, please respond with either “True” or “False” according to the format below:
+[assertion index]. [assertion]: True OR False
 """
     # vlm_system_instruction = "You are an AI researcher tasked with determining the truth value of each assertion about a scene. For each assertion, respond only with the assertion index and 'True' or 'False'."
     vlm_use_chat_mode = False
     query_vlm_for_each_assertion = False
     query_vlm_for_each_predicate = False
     vlm_invent_include_option_history = True
+    vlm_invent_try_to_use_gt_predicates = False
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"

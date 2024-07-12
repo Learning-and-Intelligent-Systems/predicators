@@ -313,6 +313,7 @@ class PyBulletEnv(BaseEnv):
             mask = seg_image == bodyId
             mask_dict[obj] = mask
 
+            Image.fromarray(mask).save(f'images/mask_{obj.name}.png')
         # for bodyId in range(1, p.getNumBodies(self._physics_client_id)):
         #     # Create a mask for the current body using the segmentation mask
         #     mask = seg_image == bodyId
@@ -528,6 +529,7 @@ class PyBulletEnv(BaseEnv):
                 init.data.copy(), simulator_state=joint_positions)
             # Attempt 1: Let's try to get a rendering directly first
             pybullet_init = self.get_observation(render=CFG.render_init_state)
+            pybullet_init.option_history = []
             # # <Original code
             # self._pybullet_robot.reset_state(self._extract_robot_state(init))
             # joint_positions = self._pybullet_robot.get_joints()

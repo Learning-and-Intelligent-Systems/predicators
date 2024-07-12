@@ -99,9 +99,9 @@ class VisImage:
         buffer = np.frombuffer(s, dtype="uint8")
 
         img_rgba = buffer.reshape(height, width, 4)
-        return img_rgba
-        # rgb, alpha = np.split(img_rgba, [3], axis=2)
-        # return rgb.astype("uint8")
+        # return img_rgba
+        rgb, alpha = np.split(img_rgba, [3], axis=2)
+        return rgb.astype("uint8")
 
 
 class ImagePatch:

@@ -17,7 +17,7 @@ ARGS:
   # - "make_failure_videos"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
-  num_train_tasks: 3 #0 # pybullet_coffee
+  num_train_tasks: 10 #0 # pybullet_coffee
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -28,6 +28,7 @@ FLAGS:
                             # 3 for blocks
   timeout: 300 #300
   log_file: "logs/vlm_predicate.log"
+  vlm_invent_try_to_use_gt_predicates: False
 
   # Env settings
   rgb_observation: False
@@ -37,7 +38,7 @@ FLAGS:
   coffee_twist_sampler: False
   coffee_num_cups_train: '[1]'
   coffee_no_rotated_jug: False
-  coffee_rotated_jug_ratio: 0.1
+  coffee_rotated_jug_ratio: 0.5
   # coffee_rotated_jug_ratio: 1
   coffee_combined_move_and_twist_policy: True
   coffee_mac_requires_jug_to_turn_on: True
@@ -65,8 +66,8 @@ FLAGS:
   llm_predicator_oracle_learned: False            # relaxation 1
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
-  # vlm_model_name: "gemini-1.5-pro"
-  vlm_model_name: "gpt-4o"
+  vlm_model_name: "gemini-1.5-pro"
+  # vlm_model_name: "gpt-4o"
   vlm_temperature: 0
   vlm_use_chat_mode: True
   query_vlm_for_each_assertion: False

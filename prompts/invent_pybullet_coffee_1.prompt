@@ -296,129 +296,126 @@ Operator-Twist:
     Option Spec: Twist(?robot:robot, ?jug:jug)
 
 The robot tried to excute its options on states that satisfied their preconditions and got the following results:
-Option Pour(robot1:robot, jug7:jug, cup9:cup) *failed* to executed on the following states (negative states):
+Option Twist(robot1:robot, jug6:jug) *successfully* executed on the following states (positive states):
+  state_0 with additional info:
+  {'coffee_machine3:coffee_machine',
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 0.8, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'table2:table'}
+  Previous option: Twist(robot1:robot, jug6:jug)
+
   state_1 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.5, 'z': 0.4, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
    'table2:table'}
-  Previous option: TurnMachineOn
+  Previous option: PickJug(robot1:robot, jug6:jug)
 
-  state_2 with additional info:
+Option Twist(robot1:robot, jug6:jug) *failed* to executed on the following states (negative states):
+  state_52 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
-  Previous option: Twist
+  Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
 
-Option Pour(robot1:robot, jug7:jug, cup8:cup) *failed* to executed on the following states (negative states):
   state_24 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.4, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
-  Previous option: None
+  Previous option: TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine)
 
-  state_16 with additional info:
+Option PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine) *successfully* executed on the following states (positive states):
+  state_50 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'cup8:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-  Previous option: Twist
-
-Option PlaceJugInMachine(robot1:robot, jug7:jug, coffee_machine3:coffee_machine) *successfully* executed on the following states (positive states):
-  state_21 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
+   'cup7:cup',
+   'jug6:jug',
    'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
    'table2:table'}
-  Previous option: PickJug
+  Previous option: PickJug(robot1:robot, jug6:jug)
 
-Option PlaceJugInMachine(robot1:robot, jug7:jug, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
+Option PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
   state_0 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 0.8, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
-  Previous option: Twist
+  Previous option: Twist(robot1:robot, jug6:jug)
 
-  state_18 with additional info:
+  state_5 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
-
-Option PickJug(robot1:robot, jug7:jug) *successfully* executed on the following states (positive states):
-  state_0 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-  Previous option: Twist
-
-  state_12 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
+   'cup7:cup',
+   'jug6:jug',
    'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
-  Previous option: PlaceJugInMachine
-
-Option PickJug(robot1:robot, jug7:jug) *failed* to executed on the following states (negative states):
-  state_18 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
-
-  state_21 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
-   'table2:table'}
-  Previous option: PickJug
+  Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
 
 Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *successfully* executed on the following states (positive states):
-  state_12 with additional info:
+  state_52 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
+   'cup7:cup',
+   'jug6:jug',
    'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
-  Previous option: PlaceJugInMachine
+  Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
 
 Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
   state_0 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
-   'robot1:robot': {'x': 0.7, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 0.8, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
-  Previous option: Twist
+  Previous option: Twist(robot1:robot, jug6:jug)
 
-  state_18 with additional info:
+  state_4 with additional info:
   {'coffee_machine3:coffee_machine',
-   'cup9:cup',
-   'jug7:jug',
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
+   'table2:table'}
+  Previous option: PickJug(robot1:robot, jug6:jug)
+
+Option PickJug(robot1:robot, jug6:jug) *successfully* executed on the following states (positive states):
+  state_0 with additional info:
+  {'coffee_machine3:coffee_machine',
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 0.8, 'y': 1.4, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'table2:table'}
+  Previous option: Twist(robot1:robot, jug6:jug)
+
+  state_5 with additional info:
+  {'coffee_machine3:coffee_machine',
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 1.0, 'y': 1.3, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
+   'table2:table'}
+  Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
+
+Option PickJug(robot1:robot, jug6:jug) *failed* to executed on the following states (negative states):
+  state_4 with additional info:
+  {'coffee_machine3:coffee_machine',
+   'cup7:cup',
+   'jug6:jug',
+   'robot1:robot': {'x': 1.0, 'y': 1.2, 'z': 0.3, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.1},
+   'table2:table'}
+  Previous option: PickJug(robot1:robot, jug6:jug)
+
+  state_32 with additional info:
+  {'coffee_machine3:coffee_machine',
+   'cup7:cup',
+   'jug6:jug',
    'robot1:robot': {'x': 0.7, 'y': 1.3, 'z': 0.6, 'tilt': 1.6, 'wrist': -1.6, 'fingers': 0.4},
    'table2:table'}
   Previous option: None
 
-Option Twist(robot1:robot, jug7:jug) *successfully* executed on the following states (positive states):
 
 Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integreated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy the precondition.
 

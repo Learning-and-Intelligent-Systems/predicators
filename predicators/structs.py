@@ -788,12 +788,13 @@ class _Option:
         objects = ", ".join(o.name for o in self.objects)
         params = ", ".join(str(round(p, 2)) for p in self.params)
         return f"{self.name}({objects}, {params})"
+    
+    def simple_str(self) -> str:
+        objects = ", ".join(o.name for o in self.objects)
+        return f"{self.name}({objects})"
 
     def eq_by_obj(self, other: _Option) -> bool:
-        try:
-            assert isinstance(other, _Option)
-        except:
-            breakpoint()
+        assert isinstance(other, _Option)
         self_obj = ", ".join(o.name for o in self.objects)
         self_name = self.name
         other_obj = ", ".join(o.name for o in other.objects)

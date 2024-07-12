@@ -118,12 +118,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Camera parameters.
     _camera_distance: ClassVar[float] = 1.3  #0.8
     # _camera_yaw: ClassVar[float] = 70
-    _camera_pitch: ClassVar[float] = -48
+    # _camera_pitch: ClassVar[float] = -48
     # _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
     # Yichao
     # _camera_yaw: ClassVar[float] = -70
     _camera_yaw: ClassVar[float] = 90
-    # _camera_pitch: ClassVar[float] = -28 # lower
+    _camera_pitch: ClassVar[float] = -30 # lower
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
     # Types
@@ -138,6 +138,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"] + 
         bbox_features)
 
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -149,6 +150,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._jug_filled = False
         self._jug_liquid_id = None
         self._obj_id_to_obj: Dict[int, Object] = {}
+
+        self.ns_to_sym_predicates: Dict[str, Predicate] = {
+            "JugInMachine": self._JugInMachine,
+            "RobotHoldingJug": self._Holding,
+            "GripperOpen": self._HandEmpty,
+            "JugHasCoffee": self._JugFilled,
+            # "RobotHoldingAboveCup": self._RobotAboveCup,
+            "JugSideToGripper": self._JugPickable,
+        }
 
         # Predicates
         self._CupFilled_NSP = NSPredicate("CupFilled", [self._cup_type],
@@ -379,101 +389,215 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         ## Load coffee machine.
 
         # Create the collision shape.
-        half_extents = (
-            cls.machine_x_len / 2,
+        # half_extents = (
+        #     cls.machine_x_len,
+        #     cls.machine_y_len / 2,
+        #     cls.machine_z_len / 2,
+        # )
+        # collision_id = p.createCollisionShape(
+        #     p.GEOM_BOX,
+        #     halfExtents=half_extents,
+        #     physicsClientId=physics_client_id)
+
+        # # Create the visual_shape.
+        # visual_id = p.createVisualShape(p.GEOM_BOX,
+        #                                 halfExtents=half_extents,
+        #                                 rgbaColor=(0.2, 0.2, 0.2, 1.0),
+        #                                 physicsClientId=physics_client_id)
+
+        # # Create the body.
+        # pose = (
+        #     cls.machine_x,
+        #     cls.machine_y,
+        #     cls.z_lb + cls.machine_z_len / 2,
+        # )
+        # orientation = cls._default_orn
+        # machine_id = p.createMultiBody(baseMass=0,
+        #                                baseCollisionShapeIndex=collision_id,
+        #                                baseVisualShapeIndex=visual_id,
+        #                                basePosition=pose,
+        #                                baseOrientation=orientation,
+        #                                physicsClientId=physics_client_id)
+
+        # bodies["machine_id"] = machine_id
+
+        # # Dispense top
+        # top_half_extents = (
+        #                     # cls.machine_x_len / 2,
+        #                     # cls.machine_x_len / 3,
+        #                     cls.machine_x_len * 5 / 6,
+        #                     cls.machine_top_y_len / 2,
+        #                     cls.machine_z_len / 6)
+        # collision_id = p.createCollisionShape(
+        #     p.GEOM_BOX,
+        #     halfExtents=top_half_extents,
+        #     physicsClientId=physics_client_id)
+
+        # # Create the visual_shape.
+        # visual_id = p.createVisualShape(p.GEOM_BOX,
+        #                                 halfExtents=top_half_extents,
+        #                                 rgbaColor=(0.2, 0.2, 0.2, 1.0),
+        #                                 physicsClientId=physics_client_id)
+
+        # # Create the body.
+        # pose = (
+        #     # cls.machine_x - cls.machine_x_len / 2,
+        #     # cls.machine_x - cls.machine_x_len / 6,
+        #     cls.machine_x - cls.machine_x_len / 6,
+        #     # cls.machine_y - cls.machine_y_len/2 - cls.machine_top_y_len / 2,
+        #     cls.machine_y - cls.machine_y_len/2 - cls.machine_top_y_len / 2,
+        #     cls.z_lb + cls.machine_z_len / 2 + cls.machine_z_len / 3,
+        # )
+        # orientation = cls._default_orn
+        # p.createMultiBody(baseMass=0,
+        #                     baseCollisionShapeIndex=collision_id,
+        #                     baseVisualShapeIndex=visual_id,
+        #                     basePosition=pose,
+        #                     baseOrientation=orientation,
+        #                     physicsClientId=physics_client_id)
+
+        # new body and top
+        # Create the first box (main body base)
+        half_extents_base = (
+            cls.machine_x_len,
             cls.machine_y_len / 2,
             cls.machine_z_len / 2,
         )
-        collision_id = p.createCollisionShape(
+        collision_id_base = p.createCollisionShape(
             p.GEOM_BOX,
-            halfExtents=half_extents,
-            physicsClientId=physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_BOX,
-                                        halfExtents=half_extents,
-                                        rgbaColor=(0.2, 0.2, 0.2, 1.0),
-                                        physicsClientId=physics_client_id)
-
-        # Create the body.
-        pose = (
+            halfExtents=half_extents_base,
+            physicsClientId=physics_client_id
+        )
+        visual_id_base = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_base,
+            rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            physicsClientId=physics_client_id
+        )
+        pose_base = (
             cls.machine_x,
             cls.machine_y,
-            cls.z_lb + cls.machine_z_len / 2,
+            cls.z_lb + cls.machine_z_len / 2,  # z
         )
-        orientation = cls._default_orn
-        machine_id = p.createMultiBody(baseMass=0,
-                                       baseCollisionShapeIndex=collision_id,
-                                       baseVisualShapeIndex=visual_id,
-                                       basePosition=pose,
-                                       baseOrientation=orientation,
-                                       physicsClientId=physics_client_id)
+        orientation_base = [0, 0, 0, 1]
 
-        bodies["machine_id"] = machine_id
-
-        # Dispense top
-        top_half_extents = (
-                            # cls.machine_x_len / 2,
-                            cls.machine_x_len / 3,
-                            cls.machine_top_y_len / 2,
-                            cls.machine_z_len / 6)
-        collision_id = p.createCollisionShape(
+        # Create the second box (top)
+        half_extents_top = (
+            cls.machine_x_len * 5 / 6,
+            cls.machine_top_y_len / 2,
+            cls.machine_z_len / 6,
+        )
+        collision_id_top = p.createCollisionShape(
             p.GEOM_BOX,
-            halfExtents=top_half_extents,
-            physicsClientId=physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_BOX,
-                                        halfExtents=top_half_extents,
-                                        rgbaColor=(0.2, 0.2, 0.2, 1.0),
-                                        physicsClientId=physics_client_id)
-
-        # Create the body.
-        pose = (
-            # cls.machine_x,
-            cls.machine_x - cls.machine_x_len / 6,
-            # cls.machine_y - cls.machine_y_len/2 - cls.machine_top_y_len / 2,
-            cls.machine_y - cls.machine_y_len/2 - cls.machine_top_y_len / 2,
-            cls.z_lb + cls.machine_z_len / 2 + cls.machine_z_len / 3,
+            halfExtents=half_extents_top,
+            physicsClientId=physics_client_id
         )
-        orientation = cls._default_orn
-        p.createMultiBody(baseMass=0,
-                            baseCollisionShapeIndex=collision_id,
-                            baseVisualShapeIndex=visual_id,
-                            basePosition=pose,
-                            baseOrientation=orientation,
-                            physicsClientId=physics_client_id)
+        visual_id_top = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_top,
+            rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            physicsClientId=physics_client_id
+        )
+        pose_top = (
+            -cls.machine_x_len / 6,  # x relative to base
+            -cls.machine_y_len / 2 - cls.machine_top_y_len / 2,  # y relative to base
+            # - cls.machine_top_y_len ,
+            # cls.machine_z_len / 2 + cls.machine_z_len / 3,  # z relative to base
+            cls.machine_z_len / 3
+        )
+        orientation_top = cls._default_orn
 
-        ## Create the dispense area -- base.
+        # Create the dispense area -- base.
+        # Define the dimensions for the dispense area
         dispense_radius = 2 * cls.jug_radius
         dispense_height = 0.005
+        half_extents_dispense_base = (
+            cls.machine_x_len, 
+            1.1 * dispense_radius + cls.jug_radius + 0.003,
+            dispense_height)
+        collision_id_dispense_base = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_dispense_base,
+            physicsClientId=physics_client_id)
+        visual_id_dispense_base = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_dispense_base,
+            rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            physicsClientId=physics_client_id)
+        # the relative position for the dispense area
+        pose_dispense_base = (
+            0,
+            - cls.machine_y_len - dispense_radius + 0.01,
+            - cls.machine_z_len / 2 ,
+        )
+        orientation_dispense_base = cls._default_orn
+
+        # Create the multibody with a fixed link
+        link_mass = 0
+        link_collision_id = collision_id_top
+        link_visual_id = visual_id_top
+        link_position = pose_top
+        link_orientation = orientation_top
+        link_inertial_frame_position = [0, 0, 0]
+        link_inertial_frame_orientation = [0, 0, 0, 1]
+        link_parent_frame_position = [0, 0, 0]
+        link_parent_frame_orientation = [0, 0, 0, 1]
+
+        machine_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id_base,
+            baseVisualShapeIndex=visual_id_base,
+            basePosition=pose_base,
+            baseOrientation=orientation_base,
+            linkMasses=[link_mass, link_mass],
+            linkCollisionShapeIndices=[collision_id_top, 
+                                       collision_id_dispense_base],
+            linkVisualShapeIndices=[visual_id_top, visual_id_dispense_base],
+            linkPositions=[pose_top, pose_dispense_base],
+            linkOrientations=[orientation_top, orientation_dispense_base],
+            linkInertialFramePositions=[link_inertial_frame_position,
+                                        link_inertial_frame_position],
+            linkInertialFrameOrientations=[link_inertial_frame_orientation,
+                                           link_inertial_frame_orientation],
+            linkParentIndices=[0, 0],
+            linkJointTypes=[p.JOINT_FIXED, p.JOINT_FIXED],
+            linkJointAxis=[[0, 0, 0], [0,0,0]],
+            physicsClientId=physics_client_id
+        )
+
+        bodies["machine_id"] = machine_id
+        # new end
+
+        ## Create the dispense area -- base.
+        # dispense_radius = 2 * cls.jug_radius
+        # dispense_height = 0.005
         pose = (cls.dispense_area_x, cls.dispense_area_y,
                 cls.z_lb + dispense_height)
         orientation = cls._default_orn
-        half_extents = (cls.machine_x_len / 2, 
-                        1.1 * dispense_radius + cls.jug_radius + 0.003,
-        # half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
-                        dispense_height)
+        # half_extents = (cls.machine_x_len, 
+        #                 1.1 * dispense_radius + cls.jug_radius + 0.003,
+        # # half_extents = (1.1 * dispense_radius, 1.1 * dispense_radius,
+        #                 dispense_height)
 
-        # Dispense area square.
-        collision_id = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            physicsClientId=physics_client_id)
+        # # Dispense area square.
+        # collision_id = p.createCollisionShape(
+        #     p.GEOM_BOX,
+        #     halfExtents=half_extents,
+        #     physicsClientId=physics_client_id)
 
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_BOX,
-                                        halfExtents=half_extents,
-                                        rgbaColor=(0.2, 0.2, 0.2, 1.0),
-                                        physicsClientId=physics_client_id)
+        # # Create the visual_shape.
+        # visual_id = p.createVisualShape(p.GEOM_BOX,
+        #                                 halfExtents=half_extents,
+        #                                 rgbaColor=(0.2, 0.2, 0.2, 1.0),
+        #                                 physicsClientId=physics_client_id)
 
-        # Create the body.
-        p.createMultiBody(baseMass=0,
-                          baseCollisionShapeIndex=collision_id,
-                          baseVisualShapeIndex=visual_id,
-                          basePosition=np.add(pose, (0, 0, -dispense_height)),
-                          baseOrientation=orientation,
-                          physicsClientId=physics_client_id)
+        # # Create the body.
+        # p.createMultiBody(baseMass=0,
+        #                   baseCollisionShapeIndex=collision_id,
+        #                   baseVisualShapeIndex=visual_id,
+        #                   basePosition=np.add(pose, (0, 0, -dispense_height)),
+        #                   baseOrientation=orientation,
+        #                   physicsClientId=physics_client_id)
         
         # Dispense area circle
         # Create the collision shape.
@@ -488,7 +612,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                         radius=dispense_radius + 
                                                 0.8*cls.jug_radius,
                                         length=dispense_height,
-                                        rgbaColor=(0.9, 0.9, 0.9, 1),
+                                        rgbaColor=(0.0, 0.0, 0.0, 1),
                                         physicsClientId=physics_client_id)
 
         # Create the body.
@@ -1044,7 +1168,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _create_pybullet_liquid_for_jug(self) -> Optional[int]:
         # current_liquid = state.get(cup, "current_liquid")
         # cup_cap = state.get(cup, "capacity_liquid")
-        liquid_height = self.jug_height * 0.65
+        liquid_height = self.jug_height * 0.7
         liquid_radius = self.jug_radius * 1.5
         # cx = state.get(jug, "x")
         # cy = state.get(jug, "y")
@@ -1052,6 +1176,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # for link_index in range(p.getNumJoints(self._jug_id, 
         #                             physicsClientId=self._physics_client_id)):
         #     # 0 for body, 1 for lid
+
         # add color to jug
         p.changeVisualShape(self._jug_id, 0, 
                                 rgbaColor=[0.2, 0.05, 0.0, 1], 

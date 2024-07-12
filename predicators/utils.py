@@ -408,9 +408,9 @@ def summarize_results_in_str(
             uniq_n_tn, uniq_n_fp = len(tn_states), len(fp_states)
 
             # if n_succ_states:
-            if n_tp and "tp" in categories_to_show:
-            # if n_tp and "tp" in categories_to_show and n_fp and\
-            #     "fp" in categories_to_show:
+            # if n_tp and "tp" in categories_to_show:
+            if n_tp and "tp" in categories_to_show and n_fp and\
+                "fp" in categories_to_show:
                 # [Simplified]
                 result_str.append(
                     f"Option {g_optn} *successfully* executed on the following "
@@ -460,9 +460,9 @@ def summarize_results_in_str(
 
             # GT Negative
             # if n_fail_states:
-            if n_fp and "fp" in categories_to_show:
-            # if n_tp and "tp" in categories_to_show and n_fp and\
-            #     "fp" in categories_to_show:
+            # if n_fp and "fp" in categories_to_show:
+            if n_tp and "tp" in categories_to_show and n_fp and\
+                "fp" in categories_to_show:
                 # [Simplified]
                 result_str.append(
                     f"Option {g_optn} *failed* to executed on the following " +
@@ -1641,7 +1641,7 @@ class RawState(PyBulletState):
     state_image: PIL.Image.Image = field(default_factory=PIL.Image.new)
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
-    option_history: Optional[str] = None
+    option_history: Optional[List[str]] = None
     bbox_features: Dict[Object, np.ndarray] = field(default_factory=lambda: 
                                             defaultdict(lambda: np.zeros(4)))
 
@@ -1665,6 +1665,17 @@ class RawState(PyBulletState):
         return VLMQuery(
             assertion,
             BoundingBox(image.left, image.lower, image.right, image.upper))
+    
+    def generate_previous_option_message(self) -> str:
+        """Generate the message for the previous option."""
+        assert self.option_history is not None
+        if len(self.option_history) == 0:
+            return "For context, this is at the beginning of a task, before "\
+                "the robot has done anything."
+        else:
+            return f"For context, this is right after the robot has "\
+            f"successfully executed its [{', '.join(self.option_history[-2:])}]"\
+            f" option sequence."
 
     def add_bbox_features(self) -> None:
         """Add the features about the bounding box to the objects."""
@@ -1787,10 +1798,10 @@ class RawState(PyBulletState):
 
     def crop_to_objects(self,
                         objects: Collection[Object],
-                        left_margin: int = 5,
+                        left_margin: int = 10,
                         lower_margin: int = 10,
                         right_margin: int = 10,
-                        top_margin: int = 5) -> ImagePatch:
+                        top_margin: int = 10) -> ImagePatch:
         state_ip = ImagePatch(self)
         return state_ip.crop_to_objects(objects, left_margin, lower_margin,
                                         right_margin, top_margin)
@@ -3325,9 +3336,14 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
             attention_image = state_ip.crop_to_bboxes(
                 [query.attention_box for query in queries])
             attention_image = attention_image.cropped_image_in_PIL
-            prompts = "\n".join([
+            # attention_image = state.labeled_image
+            # add information about the previous action here.
+            prompts = [state.generate_previous_option_message()]
+            # prompts = []
+            prompts.extend([
                 f"{i+1}. {query.query_str}" for i, query in enumerate(queries)
             ])
+            prompts = "\n".join(prompts)
             vlm_output = vlm.sample_completions(
                 prompt=prompts,
                 imgs=[attention_image],
@@ -3414,34 +3430,49 @@ class _MemoizedClassifier():
 
 
 def compare_abstract_accuracy(
-        env: BaseEnv, states: List[State],
-        est_preds_to_gt_preds: Dict[NSPredicate, Predicate]) -> None:
+        states: List[State],
+        ns_predicates: List[NSPredicate],
+        est_preds_to_gt_preds: Dict[str, Predicate]) -> None:
     num_evals, num_correct = 0, 0
+    num_not_found = 0
 
     for i, state in enumerate(states):
-        logging.info(f"\nEvaluating task {i}")
-        est_ground_atoms = abstract(state, env.ns_predicates)
+        # est_ground_atoms = abstract(state, env.ns_predicates)
+        est_ground_atoms = abstract(state, ns_predicates)
 
-        for est_pred, gt_pred in est_preds_to_gt_preds.items():
-            for choice in get_object_combinations(list(state), gt_pred.types):
-                num_evals += 1
-                gt_pred_holds = gt_pred.holds(state, choice)
-                # est_pred_holds = est_pred.holds(state, choice)
-                nsp_ground_atom = GroundAtom(est_pred, choice)
-                if gt_pred_holds:
-                    if nsp_ground_atom in est_ground_atoms:
-                        num_correct += 1
+        # for est_pred, gt_pred in est_preds_to_gt_preds.items():
+        for est_pred in ns_predicates:
+            if est_pred.name in est_preds_to_gt_preds:
+                gt_pred = est_preds_to_gt_preds[est_pred.name]
+            # for est_pred, gt_pred in est_preds_to_gt_preds.items():
+                for choice in get_object_combinations(list(state), gt_pred.types):
+                    num_evals += 1
+                    gt_pred_holds = gt_pred.holds(state, choice)
+                    # est_pred_holds = est_pred.holds(state, choice)
+                    nsp_ground_atom = GroundAtom(est_pred, choice)
+                    if gt_pred_holds:
+                        if nsp_ground_atom in est_ground_atoms:
+                            num_correct += 1
+                        else:
+                            state_name = f"state{i}"
+                            logging.info(f"Error found in {state_name}: "
+                                    f"the GT value for {gt_pred}({choice})"
+                                    f" is {gt_pred_holds}")
+                            state.labeled_image.save(f"images/{state_name}.png")
                     else:
-                        logging.info(f"The correct value is " +
-                                     f"{gt_pred}({choice})={gt_pred_holds}")
-                else:
-                    if nsp_ground_atom not in est_ground_atoms:
-                        num_correct += 1
-                    else:
-                        logging.info(f"The correct value is " +
-                                     f"{gt_pred}({choice})={gt_pred_holds}")
+                        if nsp_ground_atom not in est_ground_atoms:
+                            num_correct += 1
+                        else:
+                            state_name = f"state{i}"
+                            logging.info(f"Error found in {state_name}: "
+                                    f"the GT value for {gt_pred}({choice})"
+                                    f" is {gt_pred_holds}")
+                            state.labeled_image.save(f"images/{state_name}.png")
+            else:
+                num_not_found += 1
     logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. " +
-                 f"Accuracy: {num_correct/num_evals}.")
+                 f"Accuracy: {num_correct/num_evals}. "
+                 f"{num_not_found} NS-predicates not found.")
 
 
 def test_derived_predicates(env: BaseEnv, states: List[State],

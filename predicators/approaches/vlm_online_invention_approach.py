@@ -42,7 +42,7 @@ from predicators.settings import CFG
 from predicators.structs import Action, AnnotatedPredicate, Dataset, \
     GroundAtomTrajectory, GroundOptionRecord, LowLevelTrajectory, Object, \
     Optional, ParameterizedOption, Predicate, State, Task, Type, _Option, \
-    _TypedEntity
+    _TypedEntity, NSRT
 from predicators.utils import EnvironmentFailure, OptionExecutionFailure, \
     option_plan_to_policy
 
@@ -215,9 +215,10 @@ class VlmInventionApproach(NSRTLearningApproach):
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         """Learn from interacting with the offline dataset."""
         for i, task in enumerate(tasks):
-            task.init.state_image.save(f"images/init_state{i}.png")
-            task.init.labeled_image.save(f"images/init_label{i}.png")
+            task.init.state_image.save(f"images/init_state{i}.jpg")
+            task.init.labeled_image.save(f"images/init_label{i}.jpg")
         breakpoint()
+        self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 0
@@ -323,6 +324,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
+                    breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
@@ -411,6 +413,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 start_time = time.perf_counter()
                 self._learned_predicates = \
                     self._select_predicates_by_score_hillclimbing(
+                        ite,
                         all_candidates,
                         score_function,
                         initial_predicates = self._initial_predicates)
@@ -422,11 +425,20 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # breakpoint()
             # Finally, learn NSRTs via superclass, using all the kept predicates.
+
+            logging.debug(f"[ite {ite}] compare abstract accuracy of "
+                            f"{self.base_candidates}")
+            utils.compare_abstract_accuracy(
+                [s for traj in all_trajs for s in traj.states], 
+                sorted(self.base_candidates - self._initial_predicates),
+                env.ns_to_sym_predicates)
+            # breakpoint()
+            # When there is successful trajectories, maybe also use the positive
+            # data to learn the operators?
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
                               annotations=None,
                               fail_optn_dict=self.fail_optn_dict)
-            # breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
@@ -439,7 +451,18 @@ class VlmInventionApproach(NSRTLearningApproach):
             for p_nsrt in self._previous_nsrts:
                 if not p_nsrt.option in cur_options:
                     logging.debug(f"Adding back nsrt: {pformat(p_nsrt)}")
-                    self._nsrts.add(p_nsrt)
+                    # self._nsrts.add(p_nsrt)
+                    self._nsrts.add(NSRT(
+                        f"Op{len(self._nsrts)}",
+                        p_nsrt.parameters,
+                        p_nsrt.preconditions,
+                        p_nsrt.add_effects,
+                        p_nsrt.delete_effects,
+                        p_nsrt.ignore_effects,
+                        p_nsrt.option,
+                        p_nsrt.option_vars,
+                        p_nsrt._sampler
+                    ))
             # Add the initial nsrts back to the nsrts
             # for p_nsrts in self._init_nsrts:
             #     if not p_nsrts.option in cur_options:
@@ -465,10 +488,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                 print_cm=True)
             clf_acc = (tp + tn) / (tp + tn + fp + fn)
 
-            no_improvement = not (solve_rate > prev_solve_rate)
-            # no_improvement = no_improvement and not (clf_acc > prev_clf_acc)
-            # no_improvement = no_improvement and \
-            #     not (num_failed_plans < prev_num_failed_plans)
+            no_improvement = solve_rate <= prev_solve_rate
+            # no_improvement &= clf_acc <= prev_clf_acc
+            if solve_rate == prev_solve_rate:
+                no_improvement &= num_failed_plans >= prev_num_failed_plans
             logging.info(f"\n===ite {ite} finished. "
                          f"No improvement={no_improvement}\n"
                          f"Solve rate {num_solved / num_tasks} "
@@ -477,7 +500,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                          f"Prev num skeletons failed {prev_num_failed_plans}\n"
                          f"Clf accuracy: {clf_acc:.2f}. "
                          f"Prev clf accuracy: {prev_clf_acc:.2f}\n")
-            breakpoint()
+            # breakpoint()
 
             # Save the best model
             if solve_rate > best_solve_rate or\
@@ -578,11 +601,30 @@ class VlmInventionApproach(NSRTLearningApproach):
                     nsrt_plan, option_plan)
 
                 # Add it to the trajectory dictionary
-                self.task_to_trajs[i].append(
-                    LowLevelTrajectory(states,
-                                       actions,
-                                       _is_demo=True,
-                                       _train_task_idx=i))
+                if i in self.task_to_trajs:
+                    if len(states) < len(self.task_to_trajs[i][0].states):
+                        logging.info("Replacing the previous plan with a "
+                                     f"shorter traj {option_plan}")
+                        self.task_to_trajs[i] = [
+                            LowLevelTrajectory(states,
+                                                actions,
+                                                _is_demo=True,
+                                                _train_task_idx=i)]
+                    elif len(states) == len(self.task_to_trajs[i][0].states):
+                        self.task_to_trajs[i].append(
+                            LowLevelTrajectory(states,
+                                            actions,
+                                            _is_demo=True,
+                                            _train_task_idx=i))
+                    else:
+                        logging.info(f"Found a new plan {option_plan} but its"
+                                    "longer than the previous solution")
+                else:
+                    self.task_to_trajs[i] = [
+                        LowLevelTrajectory(states,
+                                        actions,
+                                        _is_demo=True,
+                                        _train_task_idx=i)]
 
             # The failed refinements (negative samples)
             # This result is either a Result tuple or an exception
@@ -637,7 +679,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                _train_task_idx=i))
 
                 # Failed part
-                ppp = [o.name for o in option_plan[:-1]]
+                ppp = [o.simple_str() for o in option_plan[:-1]]
                 _, _ = self._execute_succ_plan_and_track_state(
                     state,
                     env,
@@ -734,7 +776,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     option_start_state.add_bbox_features()
                                 # add plan prefix
                                 option_start_state.option_history = [
-                                    n.option.name for n in 
+                                    n.ground_option_str(
+                                            use_object_id=CFG.neu_sym_predicate
+                                        ) for n in 
                                     nsrt_plan[:nsrt_counter]]
                                 self.state_cache[
                                     state_hash] = option_start_state.copy()
@@ -761,7 +805,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     vlm_predicator_render_option_state)
                                 # add plan prefix
                                 option_start_state.option_history = [
-                                    n.option.name for n in 
+                                    n.ground_option_str(
+                                            use_object_id=CFG.neu_sym_predicate
+                                        ) for n in 
                                     nsrt_plan[:nsrt_counter]]
                                 if CFG.neu_sym_predicate:
                                     option_start_state.add_bbox_features()
@@ -841,11 +887,13 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def _select_predicates_by_score_hillclimbing(
             self,
+            ite: int,
             candidates: Dict[Predicate, float],
             score_function: _PredicateSearchScoreFunction,
             initial_predicates: Set[Predicate] = set(),
             atom_dataset: List[GroundAtomTrajectory] = [],
-            train_tasks: List[Task] = []) -> Set[Predicate]:
+            train_tasks: List[Task] = [],
+            ) -> Set[Predicate]:
         """Perform a greedy search over predicate sets."""
 
         # There are no goal states for this search; run until exhausted.
@@ -947,8 +995,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         #         preds_in_preconds.add(atom.predicate)
         # kept_predicates &= preds_in_preconds
 
-        logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
-                     f"{len(candidates)} candidates:")
+        logging.info(f"\n[ite {ite}] Selected {len(kept_predicates)} predicates"
+                     f" out of {len(candidates)} candidates:")
         for pred in kept_predicates:
             logging.info(f"\t{pred}")
         score_function.evaluate(kept_predicates)  # log useful numbers
@@ -1106,10 +1154,15 @@ class VlmInventionApproach(NSRTLearningApproach):
             #         break
 
             # Instantiate the predicate
-            exec(
-                '\n'.join([import_str, type_init_str, constants_str,
+            if CFG.vlm_invent_try_to_use_gt_predicates and \
+                        pred_name.strip("_") in self.env.ns_to_sym_predicates:
+                candidates.add(self.env.ns_to_sym_predicates[
+                        pred_name.strip("_")])
+            else:
+                exec(
+                    '\n'.join([import_str, type_init_str, constants_str,
                            code_str]), context)
-            candidates.add(context[pred_name])
+                candidates.add(context[pred_name])
 
         return candidates
 

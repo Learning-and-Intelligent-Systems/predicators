@@ -52,6 +52,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         JugInMachine = predicates["JugInMachine"]
         MachineOn = predicates["MachineOn"]
         CupFilled = predicates["CupFilled"]
+        JugPickable = predicates["JugPickable"]
 
         # MoveToTwistJug
         def _MoveToTwistJug_terminal(state: State, memory: Dict,
@@ -61,12 +62,20 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot, jug = objects
             return Twisting.holds(state, [robot, jug])
 
+        def _MoveToTwistJug_initiable(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> bool:
+            del memory, params
+            _, jug = objects
+            machine = state.get_objects(machine_type)[0]
+            return not JugInMachine.holds(state, [jug, machine])
+
         MoveToTwistJug = ParameterizedOption(
             "MoveToTwistJug",
             types=[robot_type, jug_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_move_to_twist_policy(),
-            initiable=lambda s, m, o, p: True,
+            initiable=_MoveToTwistJug_initiable,
             terminal=_MoveToTwistJug_terminal,
         )
         cls.move_to_twist_policy = MoveToTwistJug
@@ -90,6 +99,14 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         )
 
         # PickJug
+        def _PickJug_initial(state: State, memory: Dict,
+                             objects: Sequence[Object],
+                             params: Array) -> bool:
+            del memory, params
+            _, jug = objects
+            return JugPickable.holds(state, [jug])
+
+
         def _PickJug_terminal(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
@@ -103,7 +120,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, jug_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_pick_jug_policy(),
-            initiable=lambda s, m, o, p: True,
+            initiable=_PickJug_initial,
             terminal=_PickJug_terminal,
             annotation="Pick up the jug."
         )
@@ -220,7 +237,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory  # unused
             robot, jug = objects
             current_rot = state.get(jug, "rot")
-            norm_desired_rot = params[0] if params.shape[0] == 1 else 0.0
+            norm_desired_rot = params[0] if params.shape[0] == 1 else 0
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
@@ -502,6 +519,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 
         robot_type = types["robot"]
         jug_type = types["jug"]
+        machine_type = types["coffee_machine"]
+        JugInMachine = predicates["JugInMachine"]
 
         # TwistJug
         def _TwistJug_terminal(state: State, memory: Dict,
@@ -528,6 +547,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                                 cls.env_cls.robot_init_tilt,
                                 cls.env_cls.open_fingers],
                                             atol=1e-2)
+        
 
         TwistJug = ParameterizedOption(
             "TwistJug",
@@ -541,6 +561,15 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         )
         options.remove(TwistJug)
         options.add(TwistJug)
+
+        def _TwistJug_initiable(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> bool:
+            del memory, params
+            _, jug = objects
+            machine = state.get_objects(machine_type)[0]
+            return not JugInMachine.holds(state, [jug, machine])
+
 
         if CFG.coffee_combined_move_and_twist_policy:
             Twist = utils.LinearChainParameterizedOption(
