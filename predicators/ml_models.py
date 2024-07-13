@@ -1861,6 +1861,14 @@ class MPDQNFunction(MapleQFunction):
     # ideally use SmoothL1Loss, but to compare w no target, use MSELoss for now
     #     return nn.SmoothL1Loss()
     def _vectorize_state(self, state: State) -> Array:
+
+        # WHAT WE WANT IS THE CLOSEST 2 UNKNOWN OBJECTS
+        # LOOP THRU ALL PREDICATES TO COLLECT ALL OBJECTS WE HAVE INFO ABT
+        # LOOP THRU ALL OBJECTS TO CHECK WHICH ONES WE DONT HAVE INFO ABT
+
+        # take the relative position of object (obj position - rob position)
+
+
         vecs: List[Array] = []
         robot_pos = 0
         door_list = []
