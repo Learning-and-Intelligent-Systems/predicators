@@ -1779,6 +1779,8 @@ class MapleQFunction(MLPRegressor):
                     state,
                     goal=set(),  # goal not used
                     rng=self._rng)
+                if not option.initiable(state):
+                    import ipdb;ipdb.set_trace()
                 assert option.initiable(state)
                 sampled_options.append(option)
         if sampled_options == []:
@@ -1820,6 +1822,7 @@ class MPDQNFunction(MapleQFunction):
                 replay_buffer_sample_with_replacement)
         
         # our "current"q network
+        # import ipdb;ipdb.set_trace()
         self.qnet = MapleQFunction(seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
             max_train_iters=CFG.mlp_regressor_max_itr,
@@ -1872,25 +1875,8 @@ class MPDQNFunction(MapleQFunction):
                 vec = np.zeros(o.type.dim, dtype=np.float32)
             vecs.append(vec)
         vecs = np.concatenate(vecs)
-        has_middle_cell = 1
-        light_target = 0.75
-        if robot_pos==0:
-            has_left_cell=0
-        else:
-            has_left_cell=1
 
-        if robot_pos==CFG.grid_row_num_cells-1:
-            has_right_cell=0
-        else:
-            has_right_cell=1
-
-        # UR GONNA HAVE TO CHANGE THIS STUFF !!!!!! FOR MULTIPLE DOORS
-        # why is this now not even working for train time stuff :SKULL:
-        light_pos = vecs[-2]
-        light_target = vecs[-3]
         has_middle_door = 0
-        has_right_door = 0
-        has_left_door = 0
         door_move_key, door_move_target, \
                 door_turn_key, door_turn_target = (0,0,0,0)
         for door in door_list:
@@ -1905,40 +1891,25 @@ class MPDQNFunction(MapleQFunction):
                 # door_turn_key, door_turn_target)
 
             if robot_pos+1 == door_pos:
-                has_right_door = 1
                 door_move_key = state.get(door, "move_key")
                 door_move_target = state.get(door, "move_target")
                 door_turn_key = state.get(door, "turn_key")
                 door_turn_target = state.get(door, "turn_target")
 
             if robot_pos-1 == door_pos:
-                has_left_door = 1
                 door_move_key = state.get(door, "move_key")
                 door_move_target = state.get(door, "move_target")
                 door_turn_key = state.get(door, "turn_key")
                 door_turn_target = state.get(door, "turn_target")
-
-        if robot_pos == light_pos:
-            has_middle_light = 1
-        else:
-            has_middle_light = 0
-
-        if robot_pos+1 == light_pos:
-            has_right_light = 1
-        else:
-            has_right_light = 0
-
-        if robot_pos-1 == light_pos:
-            has_left_light = 1
-        else:
-            has_left_light = 0
         
-        light_level = vecs[-4]
+        vectorized_state = [
+                has_middle_door, door_move_key, door_move_target, \
+                door_turn_key, door_turn_target]
         
-        vectorized_state = [has_left_cell, has_left_door, has_left_light, has_middle_cell, \
-                has_middle_door, has_middle_light, has_right_cell, \
-                has_right_door, has_right_light, door_move_key, door_move_target, \
-                door_turn_key, door_turn_target, light_level, light_target]
+        # vectorized_state = [has_left_cell, has_left_door, has_left_light, has_middle_cell, \
+        #         has_middle_door, has_middle_light, has_right_cell, \
+        #         has_right_door, has_right_light, door_move_key, door_move_target, \
+        #         door_turn_key, door_turn_target, light_level, light_target]
         return vectorized_state
     
     def _vectorize_option(self, option: _Option) -> Array:
@@ -1976,7 +1947,7 @@ class MPDQNFunction(MapleQFunction):
         # Q-network.
 
         # REMEMBER U NEED TO CHANGE X_size IF U EVER CHANGE VECTORIZE STUFFS
-        X_size = 15 + len(
+        X_size = 7 + len(
             self._ordered_frozen_goals
         ) + 6 + self._max_num_params
         Y_size = 1
