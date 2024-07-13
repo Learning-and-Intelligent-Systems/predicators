@@ -49,6 +49,7 @@ import datetime
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     create_approach
+from predicators.approaches.bridge_policy_approach import RLBridgePolicyApproach
 from predicators.cogman import CogMan, run_episode_and_get_observations
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
@@ -60,6 +61,7 @@ from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Response, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from envs.grid_row import GridRowDoorEnv
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
@@ -260,7 +262,7 @@ def _run_pipeline(env: BaseEnv,
 
             # Evaluate approach after every online learning cycle.
             #CHANGE THIS TO HAVE MAPLEQ IF UR RUNNING BRIDGE POLICY
-            if cogman._approach.mapleq._q_function._x_dims:
+            if type(cogman._approach) is RLBridgePolicyApproach and cogman._approach.mapleq._q_function._x_dims:
                 a,b,c,d, e, f, g =(cogman._approach.mapleq._q_function.get_q_values())
                 good_light_q_values.append(a)
                 bad_light_q_values.append(b)
@@ -367,7 +369,8 @@ def _generate_interaction_results(
             monitor = utils.VideoMonitor(env.render)
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
-        env._reset_cells()
+        if type(env) is GridRowDoorEnv:
+            env._reset_cells()
         env_task = env.get_train_tasks()[request.train_task_idx]
         cogman.reset(env_task)
         observed_traj, _, _ = run_episode_and_get_observations(
@@ -533,7 +536,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = [
         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
     ]
-    env._reset_test_cells()
+    if type(env) is GridRowDoorEnv:
+        env._reset_test_cells()
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()
