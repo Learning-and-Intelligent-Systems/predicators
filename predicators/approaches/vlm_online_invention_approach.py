@@ -217,7 +217,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             task.init.state_image.save(f"images/init_state{i}.jpg")
             task.init.labeled_image.save(f"images/init_label{i}.jpg")
-        breakpoint()
+        # breakpoint()
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
@@ -324,7 +324,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    breakpoint()
+                    # breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
@@ -432,13 +432,14 @@ class VlmInventionApproach(NSRTLearningApproach):
                 [s for traj in all_trajs for s in traj.states], 
                 sorted(self.base_candidates - self._initial_predicates),
                 env.ns_to_sym_predicates)
-            # breakpoint()
+            breakpoint()
             # When there is successful trajectories, maybe also use the positive
             # data to learn the operators?
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
                               annotations=None,
                               fail_optn_dict=self.fail_optn_dict)
+            breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
@@ -680,6 +681,8 @@ class VlmInventionApproach(NSRTLearningApproach):
 
                 # Failed part
                 ppp = [o.simple_str() for o in option_plan[:-1]]
+                # ppp = [o.parent.parameterized_annotation(o.objects) for o in 
+                #         option_plan[:-1]]
                 _, _ = self._execute_succ_plan_and_track_state(
                     state,
                     env,
@@ -778,8 +781,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 option_start_state.option_history = [
                                     n.ground_option_str(
                                             use_object_id=CFG.neu_sym_predicate
-                                        ) for n in 
-                                    nsrt_plan[:nsrt_counter]]
+                                        ) for n in nsrt_plan[:nsrt_counter]]
+                                # option_start_state.option_history = [
+                                #     n.option.parameterized_annotation(
+                                #     n.option_objs)
+                                #     for n in nsrt_plan[:nsrt_counter]]
                                 self.state_cache[
                                     state_hash] = option_start_state.copy()
                             # For debugging incomplete options
@@ -807,8 +813,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 option_start_state.option_history = [
                                     n.ground_option_str(
                                             use_object_id=CFG.neu_sym_predicate
-                                        ) for n in 
-                                    nsrt_plan[:nsrt_counter]]
+                                        ) for n in nsrt_plan[:nsrt_counter]]
+                                # option_start_state.option_history = [
+                                #     n.option.parameterized_annotation(
+                                #     n.option_objs)
+                                #     for n in nsrt_plan[:nsrt_counter]]
                                 if CFG.neu_sym_predicate:
                                     option_start_state.add_bbox_features()
                                 self.state_cache[

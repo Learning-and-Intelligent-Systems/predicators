@@ -707,6 +707,7 @@ class ParameterizedOption:
     # self.types. The parameters will be contained in params_space.
     terminal: ParameterizedTerminal = field(repr=False)
     annotation: Optional[str] = None
+    parameterized_annotation: Optional[Callable[[_TypedEntity], str]] = None
 
     @cached_property
     def _hash(self) -> int:

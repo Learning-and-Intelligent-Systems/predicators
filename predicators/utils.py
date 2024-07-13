@@ -1431,7 +1431,9 @@ class LinearChainParameterizedOption(ParameterizedOption):
     def __init__(self,
                  name: str,
                  children: Sequence[ParameterizedOption],
-                 annotation: Optional[str] = None) -> None:
+                 annotation: Optional[str] = None,
+                 parameterized_annotation: Optional[Callable[[_TypedEntity], 
+                                                             str]] = None) -> None:
         assert len(children) > 0
         self._children = children
 
@@ -1450,7 +1452,8 @@ class LinearChainParameterizedOption(ParameterizedOption):
                          policy=self._policy,
                          initiable=self._initiable,
                          terminal=self._terminal,
-                         annotation=annotation)
+                         annotation=annotation,
+                         parameterized_annotation=parameterized_annotation)
 
     def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
@@ -1676,6 +1679,10 @@ class RawState(PyBulletState):
             return f"For context, this is right after the robot has "\
             f"successfully executed its [{', '.join(self.option_history[-2:])}]"\
             f" option sequence."
+            # msg = f"For context, this is right after the robot has "\
+            # f"successfully executed its action sequence: "\
+            # f"{self.option_history[-2:]}"
+            return msg
 
     def add_bbox_features(self) -> None:
         """Add the features about the bounding box to the objects."""

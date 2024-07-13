@@ -122,8 +122,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # _camera_target: ClassVar[Pose3D] = (0.75, 1.35, 0.42)
     # Yichao
     # _camera_yaw: ClassVar[float] = -70
-    _camera_yaw: ClassVar[float] = 90
-    _camera_pitch: ClassVar[float] = -30 # lower
+    _camera_yaw: ClassVar[float] = 70
+    _camera_pitch: ClassVar[float] = -38 # lower
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
     # Types
@@ -698,7 +698,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #                         rgbaColor=[0.3, 0.3, 0.3, 1], 
         #                         physicsClientId=physics_client_id)
         # Make the jug transparent
-        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.9], 
+        # p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.9], 
+        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,1], 
                                     physicsClientId=physics_client_id)
         # remove the lid
         p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0], 
