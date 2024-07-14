@@ -3318,16 +3318,17 @@ def get_path_to_predicators_root() -> str:
 
 def import_submodules(path: List[str], name: str) -> None:
     """Load all submodules on the given path.
-
-    Useful for finding subclasses of an abstract base class
-    automatically.
+    
+    Useful for finding subclasses of an abstract base class automatically.
     """
     if not TYPE_CHECKING:
         for _, module_name, _ in pkgutil.walk_packages(path):
             if "__init__" not in module_name:
-                # Important! We use an absolute import here to avoid issues
-                # with isinstance checking when using relative imports.
-                importlib.import_module(f"{name}.{module_name}")
+                try:
+                    # print(f"Importing module: {name}.{module_name}")
+                    importlib.import_module(f"{name}.{module_name}")
+                except ModuleNotFoundError as e:
+                    print(f"Error importing module: {name}.{module_name} - {e}")
 
 
 def update_config(args: Dict[str, Any]) -> None:
