@@ -33,7 +33,6 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         InDoorway = predicates["InDoorway"]
         InMainRoom = predicates["InMainRoom"]
         TouchingDoor = predicates["TouchingDoor"]
-        DoorIsOpen = predicates["DoorIsOpen"]
         DoorInRoom = predicates["DoorInRoom"]
         DoorsShareRoom = predicates["DoorsShareRoom"]
 
@@ -93,6 +92,7 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(move_to_door_nsrt)
 
         # OpenDoor
+        # IMPLEMENT OPENING DOORS W KEYS !!!
         robot = Variable("?robot", robot_type)
         door = Variable("?door", door_type)
         parameters = [door, robot]
@@ -102,7 +102,7 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(TouchingDoor, [robot, door]),
             LiftedAtom(InDoorway, [robot, door]),
         }
-        add_effects = {LiftedAtom(DoorIsOpen, [door])}
+        add_effects = {}
         delete_effects = {
             LiftedAtom(TouchingDoor, [robot, door]),
         }
@@ -110,7 +110,7 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Allow protected access because this is an oracle. Used in the sampler.
         env = get_or_create_env(env_name)
-        assert isinstance(env, DoorsEnv)
+        # assert isinstance(env, DoorsEnv)
         get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
 
         # Even though this option does not need to be parameterized, we make it
@@ -153,7 +153,6 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(InRoom, [robot, start_room]),
             LiftedAtom(InDoorway, [robot, door]),
-            LiftedAtom(DoorIsOpen, [door]),
             LiftedAtom(DoorInRoom, [door, start_room]),
             LiftedAtom(DoorInRoom, [door, end_room]),
         }
