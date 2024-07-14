@@ -324,6 +324,7 @@ class GlobalSettings:
     coffee_rotated_jug_ratio = 1
     coffee_combined_move_and_twist_policy = False
     coffee_mac_requires_jug_to_turn_on = False
+    coffee_move_back_after_place_and_push = True
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]
@@ -428,8 +429,12 @@ class GlobalSettings:
     # vlm_system_instruction = "You are an AI researcher who will answer whether an assertion is True or False in a scene. Answer either 'True' or 'False' but nothing else."
     # vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, only answer either 'True' or 'False'."
     # vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, answer [the assertion you are evaluating]: True or False"
+#     vlm_system_instruction = """
+# You are an AI researcher who will answer whether each assertion holds in the image. For each assertion, please respond with either “True” or “False” according to the format below:
+# [assertion index]. [assertion]: True OR False
+# """
     vlm_system_instruction = """
-You are an AI researcher who will answer whether each assertion holds in the image. For each assertion, please respond with either “True” or “False” according to the format below:
+You are an AI researcher who will answer whether each assertion holds in the image, given the context of the previous action and its previous truth value. For each assertion, please respond with either “True” or “False” according to the format below:
 [assertion index]. [assertion]: True OR False
 """
     # vlm_system_instruction = "You are an AI researcher tasked with determining the truth value of each assertion about a scene. For each assertion, respond only with the assertion index and 'True' or 'False'."

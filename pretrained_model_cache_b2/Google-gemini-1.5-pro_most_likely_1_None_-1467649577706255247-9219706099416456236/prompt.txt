@@ -1,0 +1,4 @@
+For context, this state is right after the robot has successfully executed its PickJug(robot1:robot, jug6:jug) action.
+1. robot1 is holding jug6 (which was False before executing the previous action)
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+1. robot1 is holding jug6 (which was False before executing the previous action): False 

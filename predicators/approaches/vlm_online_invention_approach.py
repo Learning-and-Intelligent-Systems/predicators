@@ -217,7 +217,6 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             task.init.state_image.save(f"images/init_state{i}.jpg")
             task.init.labeled_image.save(f"images/init_label{i}.jpg")
-        # breakpoint()
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
@@ -653,6 +652,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     self.task_to_plans[i].append(option_plan.copy())
 
                 state = env.reset(train_or_test='train', task_idx=i)
+                prev_state = None
                 # Successful part
                 if failed_opt_idx > 0:
                     states, actions = self._execute_succ_plan_and_track_state(
@@ -664,6 +664,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         task=i,
                         p_idx=p_idx,)
                     state = states[-1]
+                    prev_state = states[-2]
                     # Take the prefix of the pplan and use it to learn
                     #   operators.
                     if len(states) <= len(actions):
@@ -689,7 +690,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     nsrt_plan[failed_opt_idx:],
                     option_plan[-1:],
                     failed_opt=True,
-                    partial_plan_prefix=ppp)
+                    partial_plan_prefix=ppp,
+                    prev_state=prev_state)
         logging.debug("Collected Positive states for "
                       f"{list(self.succ_optn_dict.keys())}")
         logging.debug("Collected Negative states for "
@@ -706,6 +708,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             task: Optional[int] = None,
             p_idx: Optional[int] = None,
             partial_plan_prefix: Optional[List[str]] = None,
+            prev_state: Optional[State] = None
             ) -> Tuple[List[State], List[Action]]:
         """Similar to _execute_plan_and_track_state but only run in successful
         policy because we only need the initial state for the failed option.
@@ -742,6 +745,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 if CFG.neu_sym_predicate:
                     option_start_state.add_bbox_features()
                 option_start_state.option_history = partial_plan_prefix
+                option_start_state.prev_state = prev_state
                 self.state_cache[state_hash] = option_start_state.copy()
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
@@ -782,6 +786,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     n.ground_option_str(
                                             use_object_id=CFG.neu_sym_predicate
                                         ) for n in nsrt_plan[:nsrt_counter]]
+                                option_start_state.prev_state = states[-1] if\
+                                    len(states) > 0 else None
                                 # option_start_state.option_history = [
                                 #     n.option.parameterized_annotation(
                                 #     n.option_objs)
@@ -814,6 +820,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     n.ground_option_str(
                                             use_object_id=CFG.neu_sym_predicate
                                         ) for n in nsrt_plan[:nsrt_counter]]
+                                option_start_state.prev_state = states[-1] if\
+                                    len(states) > 0 else None
                                 # option_start_state.option_history = [
                                 #     n.option.parameterized_annotation(
                                 #     n.option_objs)

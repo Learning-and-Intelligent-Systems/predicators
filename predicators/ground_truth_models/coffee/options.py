@@ -78,7 +78,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=_MoveToTwistJug_initiable,
             terminal=_MoveToTwistJug_terminal,
         )
-        cls.move_to_twist_policy = MoveToTwistJug
+        cls.MoveToTwistParamOption = MoveToTwistJug
 
         # TwistJug
         def _TwistJug_terminal(state: State, memory: Dict,
@@ -153,6 +153,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             annotation="Place the jug in the machine.",
             parameterized_annotation=_PlaceJug_annotation
         )
+        cls.PlaceJugInMachine = PlaceJugInMachine
+
 
         # TurnMachineOn
         def _TurnMachineOn_initiable(state: State, memory: Dict,
@@ -182,6 +184,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             annotation="Turn the machine on.",
             parameterized_annotation=_TurnMachineOn_annotation
         )
+        cls.TurnMachineOn = TurnMachineOn
 
         # Pour
         def _Pour_initiable(state: State, memory: Dict,
@@ -599,15 +602,89 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             Twist = utils.LinearChainParameterizedOption(
                 "Twist",
                 [
-                    cls.move_to_twist_policy,
+                    cls.MoveToTwistParamOption,
                     TwistJug
                 ],
                 annotation="Rotate the jug to the desired rotation.",
                 parameterized_annotation=_Twist_parameterized_annotation
             )
             options.add(Twist)
+
+
+        if CFG.coffee_move_back_after_place_and_push:
+            def _MoveBackAfterPlaceOrPush_terminal(state: State, memory: Dict,
+                                            objects: Sequence[Object],
+                                            params: Array) -> bool:
+                del memory, params
+                robot = objects[0]
+                # y = state.get(robot, "y")
+                x = state.get(robot, "x")
+                y = state.get(robot, "y")
+                z = state.get(robot, "z")
+                robot_pos = (x, y, z)
+                target_x = cls.env_cls.robot_init_x
+                target_y = cls.env_cls.robot_init_y
+                target_z = cls.env_cls.robot_init_z
+                target_pos = (target_x, target_y, target_z)
+                return np.allclose(robot_pos, target_pos, atol=1e-2)
+
+            MoveBackAfterPlace = ParameterizedOption(
+                "MoveBackAfterPlace",
+                types=[robot_type, jug_type, machine_type],
+                params_space=Box(0, 1, (0, )),
+                policy=cls._create_move_back_after_place_or_push_policy(),
+                initiable=lambda s, m, o, p: True,
+                terminal=_MoveBackAfterPlaceOrPush_terminal,
+            )
+
+            MoveBackAfterPush = ParameterizedOption(
+                "MoveBackAfterPlace",
+                types=[robot_type, machine_type],
+                params_space=Box(0, 1, (0, )),
+                policy=cls._create_move_back_after_place_or_push_policy(),
+                initiable=lambda s, m, o, p: True,
+                terminal=_MoveBackAfterPlaceOrPush_terminal,
+            )
+
+            PlaceJugInMachine = utils.LinearChainParameterizedOption(
+                "PlaceJugInMachine",
+                [
+                    cls.PlaceJugInMachine,
+                    MoveBackAfterPlace
+                ]
+            )
+
+            TurnMachineOn = utils.LinearChainParameterizedOption(
+                "TurnMachineOn",
+                [
+                    cls.TurnMachineOn,
+                    MoveBackAfterPush
+                ]
+            )
+            options.remove(PlaceJugInMachine)
+            options.remove(TurnMachineOn)
+            options.add(PlaceJugInMachine)
+            options.add(TurnMachineOn)
         return options
 
+    @classmethod
+    def _create_move_back_after_place_or_push_policy(cls) -> ParameterizedPolicy:
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            del memory, params
+            robot = objects[0]
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            robot_pos = (x, y, z)
+            target_x = cls.env_cls.robot_init_x
+            target_y = cls.env_cls.robot_init_y
+            target_z = cls.env_cls.robot_init_z
+            target_pos = (target_x, target_y, target_z)
+            return cls._get_move_action(state, target_pos, robot_pos)
+
+
+        return policy
     @classmethod
     def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
 

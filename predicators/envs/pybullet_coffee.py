@@ -63,14 +63,19 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_y_len
     button_press_threshold: ClassVar[float] = 1e-3
+    machine_color: ClassVar[Tuple[float, float, float,
+                                    float]] = (0.1, 0.1, 0.1, 1)
     button_color_on: ClassVar[Tuple[float, float, float,
                                     float]] = (0.2, 0.5, 0.2, 1.0)
     plate_color_on: ClassVar[Tuple[float, float, float,
-                                   float]] = (0.9, 0.3, 0.0, 0.7)
+                                   float]] = machine_color
+                                #    float]] = (0.9, 0.3, 0.0, 0.7)
     button_color_off: ClassVar[Tuple[float, float, float,
                                      float]] = (0.5, 0.2, 0.2, 1.0)
     plate_color_off: ClassVar[Tuple[float, float, float,
-                                    float]] = (0.6, 0.6, 0.6, 0.5)
+                                    float]] = machine_color
+                                    # float]] = (0.6, 0.6, 0.6, 0.5)
+    jug_color: ClassVar[Tuple[float, float, float, float]] = (1,1,1,0.4)
     # Jug settings.
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
@@ -471,7 +476,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         visual_id_base = p.createVisualShape(
             p.GEOM_BOX,
             halfExtents=half_extents_base,
-            rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            # rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            rgbaColor=cls.machine_color,
             physicsClientId=physics_client_id
         )
         pose_base = (
@@ -495,7 +501,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         visual_id_top = p.createVisualShape(
             p.GEOM_BOX,
             halfExtents=half_extents_top,
-            rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            # rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            rgbaColor=cls.machine_color,
             physicsClientId=physics_client_id
         )
         pose_top = (
@@ -522,7 +529,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         visual_id_dispense_base = p.createVisualShape(
             p.GEOM_BOX,
             halfExtents=half_extents_dispense_base,
-            rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            # rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            rgbaColor=cls.machine_color,
             physicsClientId=physics_client_id)
         # the relative position for the dispense area
         pose_dispense_base = (
@@ -572,7 +580,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # dispense_radius = 2 * cls.jug_radius
         # dispense_height = 0.005
         pose = (cls.dispense_area_x, cls.dispense_area_y,
-                cls.z_lb + dispense_height)
+                # cls.z_lb + dispense_height)
+                cls.z_lb)
         orientation = cls._default_orn
         # half_extents = (cls.machine_x_len, 
         #                 1.1 * dispense_radius + cls.jug_radius + 0.003,
@@ -612,7 +621,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                         radius=dispense_radius + 
                                                 0.8*cls.jug_radius,
                                         length=dispense_height,
-                                        rgbaColor=(0.0, 0.0, 0.0, 1),
+                                        rgbaColor=cls.plate_color_off,
                                         physicsClientId=physics_client_id)
 
         # Create the body.
@@ -699,9 +708,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #                         physicsClientId=physics_client_id)
         # Make the jug transparent
         # p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,0.9], 
-        p.changeVisualShape(jug_id, 0, rgbaColor=[1,1,1,1], 
+        p.changeVisualShape(jug_id, 0, rgbaColor=cls.jug_color, 
                                     physicsClientId=physics_client_id)
-        # remove the lid
+        # # remove the lid
         p.changeVisualShape(jug_id, 1, rgbaColor=[1,1,1,0], 
                                     physicsClientId=physics_client_id)
         p.resetBasePositionAndOrientation(jug_id,
@@ -813,7 +822,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #                         physicsClientId=self._physics_client_id)
         # reset the empty jug
         p.changeVisualShape(self._jug_id, 0, 
-                                rgbaColor=[1,1,1,0.4], 
+                                rgbaColor=self.jug_color, 
                                 physicsClientId=self._physics_client_id)
         self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
         if self._jug_liquid_id is not None:
@@ -969,19 +978,19 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     -1,
                                     rgbaColor=self.button_color_on,
                                     physicsClientId=self._physics_client_id)
-                    p.changeVisualShape(self._dispense_area_id,
-                                    -1,
-                                    rgbaColor=self.plate_color_on,
-                                    physicsClientId=self._physics_client_id)
+                    # p.changeVisualShape(self._dispense_area_id,
+                    #                 -1,
+                    #                 rgbaColor=self.plate_color_on,
+                    #                 physicsClientId=self._physics_client_id)
             else:
                 p.changeVisualShape(self._button_id,
                                     -1,
                                     rgbaColor=self.button_color_on,
                                     physicsClientId=self._physics_client_id)
-                p.changeVisualShape(self._dispense_area_id,
-                                    -1,
-                                    rgbaColor=self.plate_color_on,
-                                    physicsClientId=self._physics_client_id)
+                # p.changeVisualShape(self._dispense_area_id,
+                #                     -1,
+                #                     rgbaColor=self.plate_color_on,
+                #                     physicsClientId=self._physics_client_id)
             # the jug is only filled if it's in the machine
             if self._JugInMachine_holds(state, [self._jug, self._machine]):
                 if not self._jug_filled:
@@ -1179,9 +1188,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #     # 0 for body, 1 for lid
 
         # add color to jug
-        p.changeVisualShape(self._jug_id, 0, 
-                                rgbaColor=[0.2, 0.05, 0.0, 1], 
-                                physicsClientId=self._physics_client_id)
+        # p.changeVisualShape(self._jug_id, 0, 
+        #                         rgbaColor=[0.2, 0.05, 0.0, 1], 
+        #                         physicsClientId=self._physics_client_id)
 
         collision_id = p.createCollisionShape(
             p.GEOM_CYLINDER,

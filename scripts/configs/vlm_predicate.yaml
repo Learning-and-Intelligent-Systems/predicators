@@ -17,7 +17,7 @@ ARGS:
   # - "make_failure_videos"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
-  num_train_tasks: 5 #0 # pybullet_coffee
+  num_train_tasks: 10 #0 # pybullet_coffee
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -42,6 +42,7 @@ FLAGS:
   # coffee_rotated_jug_ratio: 1
   coffee_combined_move_and_twist_policy: True
   coffee_mac_requires_jug_to_turn_on: True
+  coffee_move_back_after_place_and_push: True
 
   # Predicate refinement parameters
   grammar_search_score_function: "expected_nodes_created"

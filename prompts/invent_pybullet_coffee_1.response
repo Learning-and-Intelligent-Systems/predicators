@@ -10,8 +10,6 @@ def _JugInMachine_holds(state: RawState, objects: Sequence[Object]
     jug_name = jug.id_name
     machine_name = machine.id_name
 
-    if state.get(jug, "bbox_left") < state.get(machine, "bbox_left"):
-        return False
 
     attention_image = state.crop_to_objects([jug, machine])
     return state.evaluate_simple_assertion(

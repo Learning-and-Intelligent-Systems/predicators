@@ -1647,6 +1647,7 @@ class RawState(PyBulletState):
     option_history: Optional[List[str]] = None
     bbox_features: Dict[Object, np.ndarray] = field(default_factory=lambda: 
                                             defaultdict(lambda: np.zeros(4)))
+    prev_state: Optional[RawState] = None
 
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
@@ -1672,17 +1673,23 @@ class RawState(PyBulletState):
     def generate_previous_option_message(self) -> str:
         """Generate the message for the previous option."""
         assert self.option_history is not None
+        msg = "Evaluate the truth value of the following assertions in the "\
+                "current state as depicted by the image.\n"
+
         if len(self.option_history) == 0:
-            return "For context, this is at the beginning of a task, before "\
+            msg += "For context, this is at the beginning of a task, before "\
                 "the robot has done anything."
         else:
-            return f"For context, this is right after the robot has "\
-            f"successfully executed its [{', '.join(self.option_history[-2:])}]"\
-            f" option sequence."
-            # msg = f"For context, this is right after the robot has "\
-            # f"successfully executed its action sequence: "\
-            # f"{self.option_history[-2:]}"
-            return msg
+            # return f"For context, this is right after the robot has "\
+            # f"successfully executed its [{', '.join(self.option_history[-2:])}]"\
+            # f" option sequence."
+            # msg = f"For context, this state is right after the robot has "\
+            # f"successfully executed its {self.option_history[-1]} action."
+            msg += "For context, the state is right after the robot has"\
+                " successfully executed the action "\
+                f"{self.option_history[-1]}."
+        msg += " The assertions to evaluate in are:"
+        return msg
 
     def add_bbox_features(self) -> None:
         """Add the features about the bounding box to the objects."""
@@ -1788,10 +1795,11 @@ class RawState(PyBulletState):
         labeled_image_copy = copy.copy(self.labeled_image)
         option_history_copy = copy.copy(self.option_history)
         bbox_features_copy = copy.deepcopy(self.bbox_features)
+        prev_state_copy = self.prev_state.copy() if self.prev_state else None
         return RawState(pybullet_state_copy.data,
                         pybullet_state_copy.simulator_state, state_image_copy,
                         obj_mask_copy, labeled_image_copy, option_history_copy,
-                        bbox_features_copy)
+                        bbox_features_copy, prev_state_copy)
 
     def get_obj_mask(self, object: Object) -> Mask:
         """Return the mask for the object."""
@@ -3284,7 +3292,7 @@ def abstract(state: State,
         # Make the query, cache the results and add the ones that holds.
         if len(vlm_queries) > 0:
             vlm_atoms = query_vlm_for_atom_vals_with_VLMQuerys(
-                vlm_queries, state, vlm)
+                vlm_queries, state, vlm, base_ns_preds)
             atoms |= set(vlm_atoms)
 
     if len(derived_preds) > 0:
@@ -3298,7 +3306,8 @@ def abstract(state: State,
 def query_vlm_for_atom_vals_with_VLMQuerys(
         queries: Sequence[VLMQuery],
         state: RawState,
-        vlm: Optional[VisionLanguageModel] = None) -> Sequence[GroundAtom]:
+        vlm: Optional[VisionLanguageModel] = None,
+        all_ns_preds: Collection[Predicate] = None) -> Sequence[GroundAtom]:
     """Given a set of ground atoms, queries a VLM and gets the subset of these
     atoms that are true."""
     true_atom: Set[GroundAtom] = set()
@@ -3347,9 +3356,24 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
             # add information about the previous action here.
             prompts = [state.generate_previous_option_message()]
             # prompts = []
-            prompts.extend([
-                f"{i+1}. {query.query_str}" for i, query in enumerate(queries)
-            ])
+            # prompts.extend([
+            #     f"{i+1}. {query.query_str}" for i, query in enumerate(queries)
+            # ])
+            for i, query in enumerate(queries):
+                prompt_str = f"{i+1}. {query.query_str}"
+                if state.prev_state is not None:
+                    assert hasattr(query, "ground_atom")
+                    prev_state = state.prev_state
+                    # assert all_ns_preds is not None
+                    prev_atoms = abstract(prev_state, all_ns_preds)
+                    prev_value = query.ground_atom in prev_atoms
+                    # prev_value = query.ground_atom.predicate.holds(
+                    #                 prev_state, query.ground_atom.objects)
+                    
+                    prompt_str += f" (which was {prev_value} before the "\
+                        "successful execution of the the previous action)"
+                prompts.append(prompt_str)
+
             prompts = "\n".join(prompts)
             vlm_output = vlm.sample_completions(
                 prompt=prompts,
@@ -3363,6 +3387,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
 
             assert len(queries) == len(all_vlm_responses)
             for query, response in zip(queries, all_vlm_responses):
+                response = response.split(":")[1].strip()
                 ground_atom = query.ground_atom
                 if "true" in response:
                     true_atom.add(ground_atom)
