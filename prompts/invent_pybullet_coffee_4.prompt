@@ -238,42 +238,15 @@ The existing set of predicates are:
 
 Predicate CupFilled(?x) is defined by:
 ```python
-def __init__(self, use_gui: bool = True) -> None:
-    super().__init__(use_gui)
-
-    # Create the cups lazily because they can change size and color.
-    _cup_id_to_cup: Dict[int, Object] = {}
-    _cup_to_liquid_id: Dict[Object, Optional[int]] = {}
-    _cup_to_capacity: Dict[Object, float] = {}
-    # The status of the jug is not modeled inside PyBullet.
-    _jug_filled = False
-    _jug_liquid_id = None
-    _obj_id_to_obj: Dict[int, Object] = {}
-
-    ns_to_sym_predicates: Dict[str, Predicate] = {
-        "JugInMachine": _JugInMachine,
-        "RobotHoldingJug": _Holding,
-        "GripperOpen": _HandEmpty,
-        "JugHasCoffee": _JugFilled,
-        # "RobotHoldingAboveCup": _RobotAboveCup,
-        "JugSideToGripper": _JugPickable,
-    }
-
-    # Predicates
-    _CupFilled_NSP = NSPredicate("CupFilled", [_cup_type],
-                                      _CupFilled_NSP_holds)
-    _Holding_NSP = Predicate("Holding",
-                              [_robot_type, _jug_type],
-                              _Holding_NSP_holds)
-    _JugInMachine_NSP = Predicate("JugInMachine",
-                                [_jug_type, _machine_type],
-                                _JugInMachine_NSP_holds)
-    _JugPickable_NSP = Predicate("JugPickable", [_jug_type],
-                                _JugPickable_NSP_holds)
-    _JugFilled_NSP = Predicate("JugFilled", [_jug_type],
-                                _JugFilled_NSP_holds)
-    _OnTable_NSP = Predicate("OnTable", [_jug_type],
-                                _OnTable_NSP_holds)
+def _CupFilled_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                         ) -> bool:
+    """Determine if the cup is filled coffee.
+    """
+    cup, = objects
+    cup_name = cup.id_name
+    attention_image = state.crop_to_objects([cup])
+    return state.evaluate_simple_assertion(
+        f"{cup_name} has coffee in it", attention_image)
 _CupFilled_NSP = NSPredicate("CupFilled", [_cup_type],
                                           _CupFilled_NSP_holds)
 ```

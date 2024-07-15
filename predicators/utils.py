@@ -1692,8 +1692,11 @@ class RawState(PyBulletState):
                 " successfully executed the action "\
                 f"{self.option_history[-1]}."
             if CFG.nsp_pred_include_prev_image_in_prompt:
-                msg += " The state before the executing the action is depicted"\
-                    " by the image labeled with 'prev. state'"
+                msg += " The state before executing the action is depicted"\
+                    " by the image labeled with 'prev. state'."
+                msg += " Please carefully exanmine the images depicting the "\
+                    "'prev. state' and 'curr. state' before making a judgment."
+                msg += "\n"
         msg += " The assertions to evaluate in are:"
         return msg
 
@@ -3375,7 +3378,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
 
                 # annotate the prev image
                 image_width, image_height = prev_attn_image.size
-                font_size = int(image_height / 10)
+                font_size = max(int(image_height / 20), 30)
                 font = ImageFont.load_default().font_variant(size=font_size)
                 text = "prev. state"
                 draw = ImageDraw.Draw(prev_attn_image)
@@ -3384,7 +3387,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
                 text_x = image_width - text_width
-                text_y = image_height - text_height
+                text_y = image_height - text_height - 0.5 * font_size
                 draw.text((text_x, text_y), text, fill="red", font=font)
 
                 # annotate the curr image
@@ -3395,7 +3398,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
                 text_x = image_width - text_width
-                text_y = image_height - text_height
+                text_y = image_height - text_height - 0.5 * font_size
                 draw.text((text_x, text_y), text, fill="red", font=font)
 
             prompts = [state.generate_previous_option_message()]

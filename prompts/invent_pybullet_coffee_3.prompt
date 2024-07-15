@@ -284,7 +284,7 @@ Operator-Op3:
     Parameters: [?x0:cup, ?x1:jug, ?x2:robot]
     Preconditions: [RobotHoldingJug(?x2:robot, ?x1:jug)]
     Add Effects: [CupFilled(?x0:cup)]
-    Delete Effects: []
+    Delete Effects: [RobotHoldingJug(?x2:robot, ?x1:jug)]
     Ignore Effects: []
     Option Spec: Pour(?x2:robot, ?x1:jug, ?x0:cup)
 Operator-Op1:

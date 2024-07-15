@@ -132,6 +132,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     _camera_pitch: ClassVar[float] = -38 # lower
     # _camera_pitch: ClassVar[float] = -30 # even lower
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
+
     # Camera font view parameters.
     _camera_distance_front: ClassVar[float] = 1
     _camera_yaw_front: ClassVar[float] = 180

@@ -255,7 +255,7 @@ class PyBulletEnv(BaseEnv):
     def render_segmented_obj(self,
                              action: Optional[Action] = None,
                              caption: Optional[str] = None,
-                             render_front_view: bool = True,
+                             render_front_view: bool = False,
                              ) -> Tuple[Image.Image, Dict[Object, Mask]]:
         """Render the scene and the segmented objects in the scene."""
         # if not self.using_gui:
@@ -265,9 +265,12 @@ class PyBulletEnv(BaseEnv):
 
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=self._camera_target,
-            distance=self._camera_distance_front,
-            yaw=self._camera_yaw_front,
-            pitch=self._camera_pitch_front,
+            distance=self._camera_distance_front if render_front_view else
+                    self._camera_distance,
+            yaw=self._camera_yaw_front if render_front_view else
+                    self._camera_yaw,
+            pitch=self._camera_pitch_front if render_front_view else
+                    self._camera_pitch,
             roll=0,
             upAxisIndex=2,
             physicsClientId=self._physics_client_id)

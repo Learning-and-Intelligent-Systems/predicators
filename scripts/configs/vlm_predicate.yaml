@@ -43,7 +43,7 @@ FLAGS:
   coffee_combined_move_and_twist_policy: True
   coffee_mac_requires_jug_to_turn_on: True
   coffee_move_back_after_place_and_push: False
-  coffee_include_front_view: True
+  # coffee_include_front_view: True
 
   # Predicate refinement parameters
   grammar_search_score_function: "expected_nodes_created"
