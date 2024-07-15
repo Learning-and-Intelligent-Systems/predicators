@@ -109,6 +109,7 @@ class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
     def __init__(self,
                  state: State,
+                 attn_objects: List[Object] = [],
                  left: int = None,
                  lower: int = None,
                  right: int = None,
@@ -118,6 +119,7 @@ class ImagePatch:
                  queues: Tuple = None,
                  parent_img_patch: 'ImagePatch' = None) -> None:
 
+        self.attn_objects = attn_objects
         if state.labeled_image is None:
             image = state.state_image
         else:

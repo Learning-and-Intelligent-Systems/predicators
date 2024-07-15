@@ -1668,7 +1668,8 @@ class RawState(PyBulletState):
         the assertion is true or false."""
         return VLMQuery(
             assertion,
-            BoundingBox(image.left, image.lower, image.right, image.upper))
+            BoundingBox(image.left, image.lower, image.right, image.upper),
+            image.attn_objects)
     
     def generate_previous_option_message(self) -> str:
         """Generate the message for the previous option."""
@@ -1831,7 +1832,7 @@ class RawState(PyBulletState):
                         right_margin: int = 30,
                         top_margin: int = 30
                         ) -> ImagePatch:
-        state_ip = ImagePatch(self)
+        state_ip = ImagePatch(self, attn_objects=objects)
         return state_ip.crop_to_objects(objects, left_margin, lower_margin,
                                         right_margin, top_margin)
 
@@ -3376,6 +3377,12 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                     [query.attention_box for query in queries])
                 prev_attn_image = prev_attn_image.cropped_image_in_PIL
 
+                # prev_attn_image = state.prev_state.labeled_image
+                # if len(queries.objects) > 0:
+                #     prev_attn_image = state.prev_state.crop_to_objects(
+                #         queries.objects)
+                #     prev_attn_image = prev_attn_image.cropped_image_in_PIL
+
                 # annotate the prev image
                 image_width, image_height = prev_attn_image.size
                 font_size = max(int(image_height / 20), 30)
@@ -3482,6 +3489,7 @@ class VLMQuery:
     """A class to represent a query to a VLM."""
     query_str: str
     attention_box: BoundingBox
+    attn_objects: List[Object] = []
     ground_atom: Optional[GroundAtom] = None
 
 
