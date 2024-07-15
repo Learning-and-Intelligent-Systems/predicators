@@ -525,7 +525,7 @@ class CoffeeEnv(BaseEnv):
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
             
             if CFG.coffee_no_rotated_jug:
-                rot = -np.pi/4
+                rot = 0
             else:
                 # Auto
                 p = CFG.coffee_rotated_jug_ratio

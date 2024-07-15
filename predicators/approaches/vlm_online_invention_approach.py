@@ -215,8 +215,9 @@ class VlmInventionApproach(NSRTLearningApproach):
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         """Learn from interacting with the offline dataset."""
         for i, task in enumerate(tasks):
-            task.init.state_image.save(f"images/init_state{i}.jpg")
-            task.init.labeled_image.save(f"images/init_label{i}.jpg")
+            task.init.state_image.save(f"images/init_state{i}.png")
+            task.init.labeled_image.save(f"images/init_label{i}.png")
+        breakpoint()
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
@@ -323,7 +324,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    # breakpoint()
+                    if ite != 1:
+                        breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
@@ -431,14 +433,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                 [s for traj in all_trajs for s in traj.states], 
                 sorted(self.base_candidates - self._initial_predicates),
                 env.ns_to_sym_predicates)
-            breakpoint()
             # When there is successful trajectories, maybe also use the positive
             # data to learn the operators?
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
                               annotations=None,
                               fail_optn_dict=self.fail_optn_dict)
-            breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
@@ -516,13 +516,14 @@ class VlmInventionApproach(NSRTLearningApproach):
             prev_clf_acc = clf_acc
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
-            if solve_rate == 1 and num_failed_plans == 0:
+            # if solve_rate == 1 and num_failed_plans == 0:
+            if solve_rate == 1 and num_failed_plans/num_tasks < 1:
                 break
             time.sleep(5)
 
         logging.info("Invention finished.")
         logging.info(
-            f"\nBest solve rate {best_solve_rate} and num_failed_plan"
+            f"\nBest solve rate {best_solve_rate} and num_failed_plan "
             f"{num_failed_plans_at_best_solve_rate} first achieved at ite "
             f"{best_ite}; clf accuracy {clf_acc_at_best_solve_rate}")
         logging.info(f"Predicates learned {best_preds}")

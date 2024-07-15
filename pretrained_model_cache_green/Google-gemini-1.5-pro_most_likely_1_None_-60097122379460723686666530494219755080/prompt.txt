@@ -1,0 +1,5 @@
+Evaluate the truth value of the following assertions in the current state as depicted by the image.
+For context, the state is right after the robot has successfully executed the action TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine). The assertions to evaluate in are:
+1. jug6 is filled with coffee (which was False before the successful execution of the the previous action)
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+1. jug6 is filled with coffee: False 

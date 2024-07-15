@@ -254,7 +254,8 @@ class PyBulletEnv(BaseEnv):
 
     def render_segmented_obj(self,
                              action: Optional[Action] = None,
-                             caption: Optional[str] = None
+                             caption: Optional[str] = None,
+                             render_front_view: bool = True,
                              ) -> Tuple[Image.Image, Dict[Object, Mask]]:
         """Render the scene and the segmented objects in the scene."""
         # if not self.using_gui:
@@ -264,9 +265,9 @@ class PyBulletEnv(BaseEnv):
 
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=self._camera_target,
-            distance=self._camera_distance,
-            yaw=self._camera_yaw,
-            pitch=self._camera_pitch,
+            distance=self._camera_distance_front,
+            yaw=self._camera_yaw_front,
+            pitch=self._camera_pitch_front,
             roll=0,
             upAxisIndex=2,
             physicsClientId=self._physics_client_id)
@@ -313,7 +314,7 @@ class PyBulletEnv(BaseEnv):
             mask = seg_image == bodyId
             mask_dict[obj] = mask
 
-            Image.fromarray(mask).save(f'images/mask_{obj.name}.png')
+            # Image.fromarray(mask).save(f'images/mask_{obj.name}.png')
         # for bodyId in range(1, p.getNumBodies(self._physics_client_id)):
         #     # Create a mask for the current body using the segmentation mask
         #     mask = seg_image == bodyId

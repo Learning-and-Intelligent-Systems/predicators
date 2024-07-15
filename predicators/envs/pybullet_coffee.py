@@ -75,7 +75,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     plate_color_off: ClassVar[Tuple[float, float, float,
                                     float]] = machine_color
                                     # float]] = (0.6, 0.6, 0.6, 0.5)
-    jug_color: ClassVar[Tuple[float, float, float, float]] = (1,1,1,0.4)
+    jug_color: ClassVar[Tuple[float, float, float, float]] = (0.5,1,0,0.5)
     # Jug settings.
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
@@ -128,8 +128,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Yichao
     # _camera_yaw: ClassVar[float] = -70
     _camera_yaw: ClassVar[float] = 70
+    # _camera_yaw: ClassVar[float] = 80
     _camera_pitch: ClassVar[float] = -38 # lower
+    # _camera_pitch: ClassVar[float] = -30 # even lower
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
+    # Camera font view parameters.
+    _camera_distance_front: ClassVar[float] = 1
+    _camera_yaw_front: ClassVar[float] = 180
+    _camera_pitch_front: ClassVar[float] = -24
+    # _camera_target_front: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
@@ -490,6 +497,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Create the second box (top)
         half_extents_top = (
             cls.machine_x_len * 5 / 6,
+            # cls.machine_x_len * 2 / 3,
             cls.machine_top_y_len / 2,
             cls.machine_z_len / 6,
         )
@@ -507,6 +515,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         )
         pose_top = (
             -cls.machine_x_len / 6,  # x relative to base
+            # -cls.machine_x_len / 3,
             -cls.machine_y_len / 2 - cls.machine_top_y_len / 2,  # y relative to base
             # - cls.machine_top_y_len ,
             # cls.machine_z_len / 2 + cls.machine_z_len / 3,  # z relative to base

@@ -1674,7 +1674,10 @@ class RawState(PyBulletState):
         """Generate the message for the previous option."""
         assert self.option_history is not None
         msg = "Evaluate the truth value of the following assertions in the "\
-                "current state as depicted by the image.\n"
+                "current state as depicted by the image"
+        if CFG.nsp_pred_include_prev_image_in_prompt:
+            msg += " labeled with 'curr. state'"
+        msg += ".\n"
 
         if len(self.option_history) == 0:
             msg += "For context, this is at the beginning of a task, before "\
@@ -1688,6 +1691,9 @@ class RawState(PyBulletState):
             msg += "For context, the state is right after the robot has"\
                 " successfully executed the action "\
                 f"{self.option_history[-1]}."
+            if CFG.nsp_pred_include_prev_image_in_prompt:
+                msg += " The state before the executing the action is depicted"\
+                    " by the image labeled with 'prev. state'"
         msg += " The assertions to evaluate in are:"
         return msg
 
@@ -1813,10 +1819,15 @@ class RawState(PyBulletState):
 
     def crop_to_objects(self,
                         objects: Collection[Object],
-                        left_margin: int = 10,
-                        lower_margin: int = 10,
-                        right_margin: int = 10,
-                        top_margin: int = 10) -> ImagePatch:
+                        # left_margin: int = 15,
+                        # lower_margin: int = 15,
+                        # right_margin: int = 15,
+                        # top_margin: int = 20
+                        left_margin: int = 30,
+                        lower_margin: int = 30,
+                        right_margin: int = 30,
+                        top_margin: int = 30
+                        ) -> ImagePatch:
         state_ip = ImagePatch(self)
         return state_ip.crop_to_objects(objects, left_margin, lower_margin,
                                         right_margin, top_margin)
@@ -3354,6 +3365,39 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
             attention_image = attention_image.cropped_image_in_PIL
             # attention_image = state.labeled_image
             # add information about the previous action here.
+            prev_attn_image = None
+            if CFG.nsp_pred_include_prev_image_in_prompt and\
+                state.prev_state is not None:
+                prev_state_ip = ImagePatch(state.prev_state)
+                prev_attn_image = prev_state_ip.crop_to_bboxes(
+                    [query.attention_box for query in queries])
+                prev_attn_image = prev_attn_image.cropped_image_in_PIL
+
+                # annotate the prev image
+                image_width, image_height = prev_attn_image.size
+                font_size = int(image_height / 10)
+                font = ImageFont.load_default().font_variant(size=font_size)
+                text = "prev. state"
+                draw = ImageDraw.Draw(prev_attn_image)
+                # text_width, text_height = draw.textsize(text, font=font)
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                text_x = image_width - text_width
+                text_y = image_height - text_height
+                draw.text((text_x, text_y), text, fill="red", font=font)
+
+                # annotate the curr image
+                image_width, image_height = attention_image.size
+                text = "curr. state"
+                draw = ImageDraw.Draw(attention_image)
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                text_x = image_width - text_width
+                text_y = image_height - text_height
+                draw.text((text_x, text_y), text, fill="red", font=font)
+
             prompts = [state.generate_previous_option_message()]
             # prompts = []
             # prompts.extend([
@@ -3361,7 +3405,8 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
             # ])
             for i, query in enumerate(queries):
                 prompt_str = f"{i+1}. {query.query_str}"
-                if state.prev_state is not None:
+                if CFG.nsp_pred_include_prev_state_in_prompt and\
+                    state.prev_state is not None:
                     assert hasattr(query, "ground_atom")
                     prev_state = state.prev_state
                     # assert all_ns_preds is not None
@@ -3375,9 +3420,13 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 prompts.append(prompt_str)
 
             prompts = "\n".join(prompts)
+            imgs = []
+            if prev_attn_image is not None:
+                imgs.append(prev_attn_image)
+            imgs.append(attention_image)
             vlm_output = vlm.sample_completions(
                 prompt=prompts,
-                imgs=[attention_image],
+                imgs=imgs,
                 temperature=CFG.vlm_temperature,
                 seed=CFG.seed,
                 num_completions=1)

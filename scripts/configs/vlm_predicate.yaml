@@ -13,11 +13,11 @@ ARGS:
   # []
   - "debug"
   # - "load_approach"
-  - "use_gui"
+  # - "use_gui"
   # - "make_failure_videos"
 FLAGS:
   # num_train_tasks: 40 # pybullet_blocks 
-  num_train_tasks: 10 #0 # pybullet_coffee
+  num_train_tasks: 5 #0 # pybullet_coffee
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -42,7 +42,8 @@ FLAGS:
   # coffee_rotated_jug_ratio: 1
   coffee_combined_move_and_twist_policy: True
   coffee_mac_requires_jug_to_turn_on: True
-  coffee_move_back_after_place_and_push: True
+  coffee_move_back_after_place_and_push: False
+  coffee_include_front_view: True
 
   # Predicate refinement parameters
   grammar_search_score_function: "expected_nodes_created"
@@ -65,6 +66,8 @@ FLAGS:
   llm_predicator_use_grammar: False # always true?
   vlm_predicator_oracle_base_grammar: False
   llm_predicator_oracle_learned: False            # relaxation 1
+  nsp_pred_include_prev_state_in_prompt: True
+  nsp_pred_include_prev_image_in_prompt: False
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"
@@ -74,7 +77,7 @@ FLAGS:
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
-  pybullet_camera_width: 900
+  pybullet_camera_width: 1200
   pybullet_camera_height: 900
   vlm_invent_include_option_history: True
 START_SEED: 1

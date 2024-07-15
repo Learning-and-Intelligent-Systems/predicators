@@ -1,54 +1,47 @@
 ```python
-def _GripperOpen_holds(state: State, objects: Sequence[Object]
-                     ) -> bool:
-    """Check if the robot's gripper is open."""
-    robot, = objects
-    return state.get(robot, "fingers") > 0.3
-
-# Define the predicate name here 
-name: str = "GripperOpen"
-
-# A list of object-type variables for the predicate, using the ones defined in the environment
-param_types: Sequence[Type] = [_robot_type] 
-GripperOpen = NSPredicate(name, param_types, _GripperOpen_holds)
+def _JugHasCoffee_holds(state: RawState, objects: Sequence[Object]
+                         ) -> bool:
+    """Determine if the jug is filled with coffee.
+    """
+    jug, = objects
+    # return state.get(jug, "is_filled") > 0.5
+    jug_name = jug.id_name
+    attention_image = state.crop_to_objects([jug])
+    return state.evaluate_simple_assertion(
+        f"{jug_name} has coffee in it", attention_image)
+        # f"{jug_name} is filled with coffee", attention_image)
+_JugHasCoffee = NSPredicate("JugHasCoffee", [_jug_type],
+                                          _JugHasCoffee_holds)
 ```
 
 ```python
-def _RobotNearJug_holds(state: State, objects: Sequence[Object]
-                     ) -> bool:
-    """Check if the robot is near the jug."""
-    robot, jug = objects
-    robot_x = state.get(robot, "x")
-    robot_y = state.get(robot, "y")
+def _RobotHoldingAboveCup_holds(state: State, objects: Sequence[Object]) -> bool:
+    """Determine if the robot is holding a jug above a cup.
+    """
+    robot, jug, cup = objects
+    if state.get(robot, 'fingers') > 0.2:
+        return False
     jug_x = state.get(jug, "x")
     jug_y = state.get(jug, "y")
+    jug_z = state.get(robot, "z") - 0.0825
+    jug_pos = (jug_x, jug_y, jug_z)
+    pour_pos = (state.get(cup, "x") + 0.0135, 
+                state.get(cup, "y") + -0.10799999999999998, 
+                0.20625000000000002)
+    sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
+    return sq_dist_to_pour < 1
 
-    # Check if the robot is within a certain distance from the jug
-    distance_threshold = 0.3
-    if abs(robot_x - jug_x) <= distance_threshold and \
-       abs(robot_y - jug_y) <= distance_threshold:
-        return True
-    return False
+    # if not state.get(robot, 'fingers') < 0.2 or \
+    #    state.get(robot, 'wrist') > -1.55:
+    #     return False
 
-
-# Define the predicate name here 
-name: str = "RobotNearJug"
-
-# A list of object-type variables for the predicate, using the ones defined in the environment
-param_types: Sequence[Type] = [_robot_type, _jug_type] 
-RobotNearJug = NSPredicate(name, param_types, _RobotNearJug_holds)
-```
-
-```python
-def _JugUpright_holds(state: State, objects: Sequence[Object]
-                         ) -> bool:
-    """Determine if the jug is standing upright."""
-    return True
-    # jug, = objects
-    # jug_name = jug.id_name
-    # attention_image = state.crop_to_objects([jug])
+    # attention_image = state.crop_to_objects([robot, jug, cup])
     # return state.evaluate_simple_assertion(
-    #     f"{jug_name} is standing upright", attention_image)
-JugUpright = NSPredicate("JugUpright", [_jug_type],
-                                          _JugUpright_holds)
+    #     f"{robot.id_name} is holding {jug.id_name} above {cup.id_name}",
+    #     attention_image,
+    # )
+
+name: str = "RobotHoldingAboveCup"
+param_types: Sequence[Type] = [_robot_type, _jug_type, _cup_type]
+_RobotHoldingAboveCup = NSPredicate(name, param_types, _RobotHoldingAboveCup_holds)
 ```

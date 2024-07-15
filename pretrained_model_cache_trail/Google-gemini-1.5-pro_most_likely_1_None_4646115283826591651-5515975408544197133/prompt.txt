@@ -1,0 +1,5 @@
+Evaluate the truth value of the following assertions in the current state as depicted by the image.
+For context, the state is right after the robot has successfully executed the action Twist(robot1:robot, jug6:jug). The assertions to evaluate in are:
+1. jug6 is on platform of coffee_machine3 (which was True before the successful execution of the the previous action)
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+1. jug6 is on platform of coffee_machine3: False 

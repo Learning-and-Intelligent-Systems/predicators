@@ -434,7 +434,7 @@ class GlobalSettings:
 # [assertion index]. [assertion]: True OR False
 # """
     vlm_system_instruction = """
-You are an AI researcher who will answer whether each assertion holds in the image, given the context of the previous action and its previous truth value. For each assertion, please respond with either “True” or “False” according to the format below:
+You are an AI researcher who will answer whether each assertion holds in the image, given the context of the previous action and its previous truth value. For each assertion, please respond with either “True” or “False” according to the format below and nothing else:
 [assertion index]. [assertion]: True OR False
 """
     # vlm_system_instruction = "You are an AI researcher tasked with determining the truth value of each assertion about a scene. For each assertion, respond only with the assertion index and 'True' or 'False'."
@@ -727,6 +727,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     save_llm_pred_invent_dataset = True
     neu_sym_predicate = False
     reset_optn_state_dict_at_every_ite = False
+    nsp_pred_include_prev_state_in_prompt = True
+    nsp_pred_include_prev_image_in_prompt = False
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms
