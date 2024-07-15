@@ -1,7 +1,7 @@
 import logging
 import os
 import random
-from typing import List, Sequence, Tuple, Dict
+from typing import List, Sequence, Tuple, Dict, Optional
 
 import cv2
 import matplotlib.colors as mcolors
@@ -109,7 +109,6 @@ class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
     def __init__(self,
                  state: State,
-                 attn_objects: List[Object] = [],
                  left: int = None,
                  lower: int = None,
                  right: int = None,
@@ -117,7 +116,9 @@ class ImagePatch:
                  parent_left: int = 0,
                  parent_lower: int = 0,
                  queues: Tuple = None,
-                 parent_img_patch: 'ImagePatch' = None) -> None:
+                 parent_img_patch: 'ImagePatch' = None,
+                 attn_objects: Optional[List[Object]] = None,
+                 ) -> None:
 
         self.attn_objects = attn_objects
         if state.labeled_image is None:
@@ -251,10 +252,10 @@ class ImagePatch:
             The objects whose bounding box is to be used for cropping.
         """
         masks = [self.state.get_obj_mask(obj) for obj in objects]
-        try:
-            bboxes = [utils.mask_to_bbox(mask) for mask in masks]
-        except Exception as e:
-            breakpoint()
+        # try:
+        bboxes = [utils.mask_to_bbox(mask) for mask in masks]
+        # except Exception as e:
+        #     breakpoint()
 
             # left = min(left, x_indices.min() - left_margin)
             # lower = min(lower, self.height - y_indices.max() - lower_margin - 1)
@@ -262,8 +263,12 @@ class ImagePatch:
             # upper = max(upper, self.height - y_indices.min() + top_margin - 1)
         bbox = utils.smallest_bbox_from_bboxes(bboxes)
         # Crop the image
-        return self.crop(bbox.left - left_margin, bbox.lower - lower_margin,
+        try:
+            ip = self.crop(bbox.left - left_margin, bbox.lower - lower_margin,
                          bbox.right + right_margin, bbox.upper + top_margin)
+        except:
+            breakpoint()
+        return ip
 
     def crop_to_bboxes(self, bboxes) -> 'ImagePatch':
         bbox = utils.smallest_bbox_from_bboxes(bboxes)
@@ -315,7 +320,8 @@ class ImagePatch:
                           self.left,
                           self.lower,
                           queues=self.queues,
-                          parent_img_patch=self)
+                          parent_img_patch=self,
+                          attn_objects=self.attn_objects)
 
 
     def draw_text(self, fig: VisImage, text: str, position: Sequence[int],

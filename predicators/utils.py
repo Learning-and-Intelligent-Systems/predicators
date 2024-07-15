@@ -1698,7 +1698,7 @@ class RawState(PyBulletState):
                 msg += " Please carefully exanmine the images depicting the "\
                     "'prev. state' and 'curr. state' before making a judgment."
                 msg += "\n"
-        msg += " The assertions to evaluate in are:"
+        msg += " The assertions to evaluate are:"
         return msg
 
     def add_bbox_features(self) -> None:
@@ -3372,16 +3372,19 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
             prev_attn_image = None
             if CFG.nsp_pred_include_prev_image_in_prompt and\
                 state.prev_state is not None:
-                prev_state_ip = ImagePatch(state.prev_state)
-                prev_attn_image = prev_state_ip.crop_to_bboxes(
-                    [query.attention_box for query in queries])
-                prev_attn_image = prev_attn_image.cropped_image_in_PIL
+                # wrong: use the bbox of the current state to crop the prev img
+                # prev_state_ip = ImagePatch(state.prev_state)
+                # prev_attn_image = prev_state_ip.crop_to_bboxes(
+                #     [query.attention_box for query in queries])
+                # prev_attn_image = prev_attn_image.cropped_image_in_PIL
 
-                # prev_attn_image = state.prev_state.labeled_image
-                # if len(queries.objects) > 0:
-                #     prev_attn_image = state.prev_state.crop_to_objects(
-                #         queries.objects)
-                #     prev_attn_image = prev_attn_image.cropped_image_in_PIL
+                # right: crop the previous labeled image again
+                prev_attn_image = state.prev_state.labeled_image
+                all_objs = [obj for q in queries if q.attn_objects is not None 
+                                for obj in q.attn_objects]
+                if len(all_objs) > 0:
+                    prev_attn_image = state.prev_state.crop_to_objects(all_objs)
+                    prev_attn_image = prev_attn_image.cropped_image_in_PIL
 
                 # annotate the prev image
                 image_width, image_height = prev_attn_image.size
@@ -3426,7 +3429,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                     #                 prev_state, query.ground_atom.objects)
                     
                     prompt_str += f" (which was {prev_value} before the "\
-                        "successful execution of the the previous action)"
+                        "successful execution of the previous action)"
                 prompts.append(prompt_str)
 
             prompts = "\n".join(prompts)
@@ -3489,7 +3492,7 @@ class VLMQuery:
     """A class to represent a query to a VLM."""
     query_str: str
     attention_box: BoundingBox
-    attn_objects: List[Object] = []
+    attn_objects: Optional[List[Object]] = None
     ground_atom: Optional[GroundAtom] = None
 
 

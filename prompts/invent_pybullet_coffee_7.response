@@ -1,47 +1,19 @@
 ```python
-def _JugHasCoffee_holds(state: RawState, objects: Sequence[Object]
-                         ) -> bool:
-    """Determine if the jug is filled with coffee.
-    """
+def _JugSideToGripper_holds(state: State, objects: Sequence[Object]) -> bool:
+    """Determine if the jug's side is facing the robot gripper."""
     jug, = objects
-    # return state.get(jug, "is_filled") > 0.5
-    jug_name = jug.id_name
-    attention_image = state.crop_to_objects([jug])
+    
+    # jug_rot = state.get(jug, "rot")
+    # pick_jug_rot_tol = 2/10 * np.pi
+    # return abs(jug_rot) <= pick_jug_rot_tol
+    
+    # Crop the scene image to the smallest bounding box that include both objects
+    robot = state.get_objects(_robot_type)[0]
+    attention_image = state.crop_to_objects([robot, jug])
     return state.evaluate_simple_assertion(
-        f"{jug_name} has coffee in it", attention_image)
-        # f"{jug_name} is filled with coffee", attention_image)
-_JugHasCoffee = NSPredicate("JugHasCoffee", [_jug_type],
-                                          _JugHasCoffee_holds)
-```
+        f"{jug.id_name}'s handle is on the side of {robot.id_name}", attention_image)
 
-```python
-def _RobotHoldingAboveCup_holds(state: State, objects: Sequence[Object]) -> bool:
-    """Determine if the robot is holding a jug above a cup.
-    """
-    robot, jug, cup = objects
-    if state.get(robot, 'fingers') > 0.2:
-        return False
-    jug_x = state.get(jug, "x")
-    jug_y = state.get(jug, "y")
-    jug_z = state.get(robot, "z") - 0.0825
-    jug_pos = (jug_x, jug_y, jug_z)
-    pour_pos = (state.get(cup, "x") + 0.0135, 
-                state.get(cup, "y") + -0.10799999999999998, 
-                0.20625000000000002)
-    sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
-    return sq_dist_to_pour < 1
-
-    # if not state.get(robot, 'fingers') < 0.2 or \
-    #    state.get(robot, 'wrist') > -1.55:
-    #     return False
-
-    # attention_image = state.crop_to_objects([robot, jug, cup])
-    # return state.evaluate_simple_assertion(
-    #     f"{robot.id_name} is holding {jug.id_name} above {cup.id_name}",
-    #     attention_image,
-    # )
-
-name: str = "RobotHoldingAboveCup"
-param_types: Sequence[Type] = [_robot_type, _jug_type, _cup_type]
-_RobotHoldingAboveCup = NSPredicate(name, param_types, _RobotHoldingAboveCup_holds)
+name: str = "JugSideToGripper"
+param_types: Sequence[Type] = [_jug_type] 
+JugSideToGripper = NSPredicate(name, param_types, _JugSideToGripper_holds)
 ```
