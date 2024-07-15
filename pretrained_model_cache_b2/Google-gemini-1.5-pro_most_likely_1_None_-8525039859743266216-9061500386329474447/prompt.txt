@@ -1,5 +1,0 @@
-Evaluate the truth value of the following assertions in the current state as depicted by the image.
-For context, the state is right after the robot has successfully executed the action PickJug(robot1:robot, jug6:jug). The assertions to evaluate in are:
-1. robot1 is holding jug6
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-1. robot1 is holding jug6: True 

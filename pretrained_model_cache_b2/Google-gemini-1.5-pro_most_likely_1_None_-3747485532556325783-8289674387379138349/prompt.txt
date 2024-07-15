@@ -1,4 +1,0 @@
-For context, this state is right after the robot has successfully executed its TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) action.
-1. jug6 is in the coffee_machine3 (which was True before executing the previous action)
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-1. jug6 is in the coffee_machine3 (which was True before executing the previous action): False 
