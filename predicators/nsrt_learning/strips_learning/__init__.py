@@ -27,7 +27,7 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
     Return a list of PNADs with op (STRIPSOperator), datastore, and
     option_spec fields filled in (but not sampler).
     """
-    for cls in utils.get_all_subclasses(BaseSTRIPSLearner):        
+    for cls in utils.get_all_subclasses(BaseSTRIPSLearner):
         if not cls.__abstractmethods__ and \
            cls.get_name() == CFG.strips_learner:
             learner = cls(trajectories, train_tasks, predicates,

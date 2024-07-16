@@ -186,7 +186,7 @@ class OpenAIModel():
             model=model,
             messages=messages,
             seed=seed,
-            max_tokens=max_tokens,
+            # max_tokens=max_tokens,
             temperature=temperature,
         )
         if verbose:
@@ -210,9 +210,6 @@ class GoogleGeminiModel():
         assert "GOOGLE_API_KEY" in os.environ
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
         self._model = genai.GenerativeModel(self._model_name)  # pylint:disable=no-member
-
-    def get_id(self) -> str:
-        return f"Google-{self._model_name}"
 
 
 class OpenAILLM(LargeLanguageModel, OpenAIModel):
@@ -272,7 +269,7 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
             stop_token: Optional[str] = None,
             num_completions: int = 1) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
-        assert imgs is not None
+        assert imgs is None
         generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
             candidate_count=num_completions,
             temperature=temperature)
@@ -280,6 +277,9 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
             [prompt], generation_config=generation_config)  # type: ignore
         response.resolve()
         return [response.text]
+
+    def get_id(self) -> str:
+        return f"Google-{self._model_name}"
 
 
 class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
@@ -309,6 +309,9 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
             generation_config=generation_config)  # type: ignore
         response.resolve()
         return [response.text]
+
+    def get_id(self) -> str:
+        return f"Google-{self._model_name}"
 
 
 class OpenAIVLM(VisionLanguageModel, OpenAIModel):
