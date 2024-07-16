@@ -411,6 +411,22 @@ class SearchPruningApproach(NSRTLearningApproach):
         cfg = self._get_necessary_cfg_namespace()
         training_datapoints, validation_datapoints, _ = self._get_data_generation_datapoints()
 
+        if CFG.feasibility_search_device == 'cpu':
+            nsrts_dicts: List[Dict[str, NSRT]] = [
+                {str(nsrt): nsrt for nsrt in self._nsrts}]
+            for nsrt in self._nsrts:
+                if isinstance(nsrt.sampler, _LearnedSampler):
+                    nsrt.sampler.to('cpu').share_memory()
+        else:
+            nsrts_dicts: List[Dict[str, NSRT]] = [{str(nsrt): nsrt for nsrt in self._nsrts}] + \
+                [{str(nsrt): deepcopy(nsrt) for nsrt in self._nsrts}
+                 for _ in range(1, torch.cuda.device_count())]
+            for id, nsrts_dict in enumerate(nsrts_dicts):
+                device_name = f'cuda:{id}'
+                for nsrt in nsrts_dict.values():
+                    if isinstance(nsrt.sampler, _LearnedSampler):
+                        nsrt.sampler.to(device_name)
+
         torch.multiprocessing.set_start_method('forkserver')
         with torch.multiprocessing.Pool(CFG.feasibility_num_data_collection_threads) as pool:
             logging.info("DATA FOR BAD ACTIONS GATHERING - TRAINING DATA")
@@ -468,8 +484,11 @@ class SearchPruningApproach(NSRTLearningApproach):
 
         logging.basicConfig(filename=os.path.join(debug_dir, f"{seed}.log"), force=True, level=logging.DEBUG)
 
-        def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
-            return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful
+        def search_stop_condition(states: List[State], tree: BacktrackingTree) -> int:
+            current_depth = len(states) - 1
+            if tree.is_successful:
+                return -1
+            return current_depth - 1 if tree.num_tries >= CFG.sesame_max_samples_per_step else current_depth
         backtracking, is_successful = run_backtracking_for_data_generation(
             previous_states = [data_generation_datapoint.states[0]],
             goal = data_generation_datapoint.atoms_sequence[-1],
@@ -696,19 +715,20 @@ class SearchPruningApproach(NSRTLearningApproach):
         logging.info(f"Starting Depth {prefix_length}")
 
         # Running backtracking
-        def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
+        def search_stop_condition(states: List[State], tree: BacktrackingTree) -> int:
+            current_depth = len(states) - 1
             if current_depth < prefix_length:
                 if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful or \
                         [mb_subtree for _, mb_subtree in tree.failed_tries if mb_subtree is not None]:
                     logging.info(f"Finishing search on highest depth {current_depth}, {tree.num_tries} "
                                  f"tries, {CFG.sesame_max_samples_per_step} max samples")
-                return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful or \
+                return current_depth - 1 if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful or \
                     [mb_subtree for _,
-                        mb_subtree in tree.failed_tries if mb_subtree is not None]
+                        mb_subtree in tree.failed_tries if mb_subtree is not None] else current_depth
             if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful:
                 logging.info(f"Finishing search on depth {current_depth}, {tree.num_tries} "
                              f"tries, {CFG.sesame_max_samples_per_step} max samples")
-            return tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful
+            return current_depth - 1 if tree.num_tries >= CFG.sesame_max_samples_per_step or tree.is_successful else current_depth
         backtracking, _ = run_backtracking_for_data_generation(
             previous_states=states[:prefix_length],
             goal=atoms_sequence[-1],
@@ -724,7 +744,7 @@ class SearchPruningApproach(NSRTLearningApproach):
         )
         next_success_states = [
             subtree.state
-            for _, subtree, _ in backtracking.successful_tries
+            for _, subtree in backtracking.successful_tries
         ]
         next_failed_states = [
             mb_subtree.state
@@ -789,6 +809,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             pybullet_control_mode=CFG.pybullet_control_mode,
             pybullet_max_vel_norm=CFG.pybullet_max_vel_norm,
             feasibility_max_object_count=CFG.feasibility_max_object_count,
+            horizon=CFG.horizon,
             timeout=CFG.timeout
         )
 

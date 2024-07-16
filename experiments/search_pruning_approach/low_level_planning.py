@@ -24,8 +24,10 @@ class BacktrackingTree:
 
     _state: State
     _is_successful: bool = False
-    _successful_tries: List[Tuple[_Option, 'BacktrackingTree', float]] = field(default_factory=list)
-    _failed_tries: List[Tuple[_Option, Optional['BacktrackingTree']]] = field(default_factory=list)
+    _tries: List[Tuple[_Option, Optional['BacktrackingTree']]] = field(default_factory=list)
+
+    _num_successful_tries: int = 0
+
     _longest_failure: Optional[Tuple[_Option, 'BacktrackingTree']] = None
     _longest_failure_length: int = 0
 
@@ -34,11 +36,11 @@ class BacktrackingTree:
 
     @property
     def num_failed_tries(self) -> int:
-        return len(self._failed_tries)
+        return len(self._tries) - self._num_successful_tries
 
     @property
     def num_successful_tries(self) -> int:
-        return len(self._successful_tries)
+        return self._num_successful_tries
 
     @property
     def is_successful(self) -> bool:
@@ -46,10 +48,10 @@ class BacktrackingTree:
 
     @property
     def num_tries(self) -> int:
-        return len(self._successful_tries) + len(self._failed_tries)
+        return len(self._tries)
 
     @classmethod
-    def create_leaf(self, state: State) -> 'BacktrackingTree':
+    def create_leaf(cls, state: State) -> 'BacktrackingTree':
         return BacktrackingTree(state, _is_successful=True)
 
     @property
@@ -58,40 +60,39 @@ class BacktrackingTree:
 
     @property
     def failed_tries(self) -> Iterator[Tuple[_Option, Optional['BacktrackingTree']]]:
-        return iter(self._failed_tries)
+        for option, mb_tree in self._tries:
+            if mb_tree is None or not mb_tree.is_successful:
+                yield option, mb_tree
 
     @property
-    def successful_tries(self) -> Iterator[Tuple[_Option, 'BacktrackingTree', float]]:
-        return iter(self._successful_tries)
+    def successful_tries(self) -> Iterator[Tuple[_Option, 'BacktrackingTree']]:
+        for option, mb_tree in self._tries:
+            if mb_tree is not None and mb_tree.is_successful:
+                yield option, mb_tree
 
-    def append_failed_try(self, option: _Option, tree: Optional['BacktrackingTree']) -> None:
-        """ Adds a failed backtracking branch. Takes the ownership of the tree.
-        """
-        logging.info("APPEND FAILED TRY")
-        assert not self._frozen
-        if tree is not None:
-            tree._frozen = True
-        self._failed_tries.append((option, tree))
-        if tree is not None and tree._longest_failure_length + 1 > self._longest_failure_length:
-            self._longest_failure_length = tree._longest_failure_length + 1
-            self._longest_failure = (option, tree)
-            logging.info(f"NEW LONGEST FAILURE LENGTH OF {self._longest_failure_length}")
+    @property
+    def tries(self) -> Iterator[Tuple[_Option, Optional['BacktrackingTree']]]:
+        return iter(self._tries)
 
-    def append_successful_try(self, option: _Option, tree: 'BacktrackingTree', refinement_time: float) -> None:
+    def append_try(self, option: _Option, mb_tree: Optional['BacktrackingTree']) -> None:
         assert not self._frozen
-        tree._frozen = True
-        self._is_successful = True
-        self._successful_tries.append((option, tree, refinement_time))
+
+        if mb_tree is not None:
+            mb_tree._frozen = True
+            self._is_successful |= mb_tree.is_successful
+
+        self._tries.append((option, mb_tree))
+
+        if mb_tree is not None and mb_tree.is_successful:
+            self._num_successful_tries += 1
+
+        if mb_tree is not None and not mb_tree.is_successful and mb_tree._longest_failure_length + 1 > self._longest_failure_length:
+            self._longest_failure_length = mb_tree._longest_failure_length + 1
+            self._longest_failure = (option, mb_tree)
 
     @property
     def successful_trajectory(self) -> Tuple[List[State], List[_Option]]:
-        def visitor(tree: 'BacktrackingTree'):
-            if not tree._successful_tries:
-                return None
-            assert tree._is_successful
-            option, tree, _ = tree._successful_tries[0]
-            return option, tree
-        return self._visit(visitor)
+        return self._visit(lambda tree: next(tree.successful_tries) if tree.is_successful else None)
 
     @property
     def longest_failure(self) -> Tuple[List[State], List[_Option]]:
@@ -104,10 +105,10 @@ class BacktrackingTree:
         options: List[_Option] = []
         while True:
             states.append(tree.state)
-            next_action_tree = f(tree)
-            if next_action_tree is None:
+            mb_next_action_tree = f(tree)
+            if mb_next_action_tree is None:
                 return states, options
-            option, tree = next_action_tree
+            option, tree = mb_next_action_tree
             options.append(option)
 
 def run_low_level_search(
@@ -130,23 +131,22 @@ def run_low_level_search(
     but all previous steps did. Note that there are multiple low-level
     plans in general; we return the first one found (arbitrarily).
     """
-    assert CFG.sesame_propagate_failures in \
-        {"after_exhaust", "immediately", "never"}
     assert not CFG.sesame_check_expected_atoms or (len(skeleton) + 1 == len(atoms_sequence) and task.goal.issubset(atoms_sequence[-1]))
     end_time = time.perf_counter() + timeout
     rng_sampler = np.random.default_rng(seed)
     # Optimization: if the params_space for the NSRT option is empty, only
     # sample it once, because all samples are just empty (so equivalent).
-    def search_stop_condition(current_depth: int, tree: BacktrackingTree) -> bool:
+    def search_stop_condition(states: List[State], tree: BacktrackingTree) -> int:
         if tree.is_successful:
-            return True
+            return -1
+        current_depth = len(states) - 1
         if skeleton[current_depth].option.params_space.shape[0] == 0:
-            return bool(tree.num_failed_tries)
-        return tree.num_failed_tries >= CFG.sesame_max_samples_per_step
+            return current_depth - 1 if tree.num_failed_tries else current_depth
+        return current_depth - 1 if tree.num_failed_tries >= CFG.sesame_max_samples_per_step else current_depth
 
     logging.info([(nsrt.name, nsrt.objects) for nsrt in skeleton])
 
-    tree, mb_failure = _backtrack(
+    tree, _ = _backtrack(
         [task.init],
         max_horizon,
         skeleton,
@@ -160,14 +160,8 @@ def run_low_level_search(
         metrics,
         end_time,
     )
-    logging.info("1: IM HERE!!!!")
     if time.perf_counter() > end_time:
         raise PlanningTimeout("Backtracking timed out!", info={'backtracking_tree': tree})
-    if mb_failure:
-        failure, _ = mb_failure
-        raise _DiscoveredFailureException(
-            "Discovered a failure", failure,
-            {"longest_failed_refinement": tree.longest_failure})
     return tree, tree.is_successful
 
 def run_backtracking_for_data_generation(
@@ -177,7 +171,7 @@ def run_backtracking_for_data_generation(
     skeleton: List[_GroundNSRT],
     feasibility_classifier: Optional[FeasibilityClassifier],
     atoms_sequence: List[Set[GroundAtom]],
-    search_stop_condition: Callable[[int, BacktrackingTree], bool],
+    search_stop_condition: Callable[[List[State], BacktrackingTree], int],
     seed: int,
     timeout: float,
     metrics: Metrics,
@@ -185,14 +179,12 @@ def run_backtracking_for_data_generation(
 ) -> Tuple[BacktrackingTree, bool]: # TODO: update docstring
     """ Asssumes that the previous states could have been generated by the given skeleton
     """
-    assert CFG.sesame_propagate_failures in \
-        {"after_exhaust", "immediately", "never"}
     assert all(atom.holds(state) for atoms, state in zip(atoms_sequence, previous_states) for atom in atoms)
     assert not CFG.sesame_check_expected_atoms or (len(skeleton) + 1 == len(atoms_sequence) and goal.issubset(atoms_sequence[-1]))
 
     end_time = time.perf_counter() + timeout
     rng_sampler = np.random.default_rng(seed)
-    tree, mb_failure = _backtrack(
+    tree, _ = _backtrack(
         previous_states,
         max_horizon,
         skeleton,
@@ -208,75 +200,116 @@ def run_backtracking_for_data_generation(
     )
     if time.perf_counter() > end_time:
         return tree, False
-    if mb_failure:
-        failure, _ = mb_failure
-        raise _DiscoveredFailureException(
-            "Discovered a failure", failure,
-            {"longest_failed_refinement": tree.longest_failure})
     return tree, tree.is_successful
 
+def run_backjumping_low_level_search(
+    task: Task,
+    option_model: _OptionModelBase,
+    skeleton: List[_GroundNSRT],
+    backjumping_model: Callable[[List[State]], int],
+    atoms_sequence: List[Set[GroundAtom]],
+    seed: int,
+    timeout: float,
+    metrics: Metrics,
+    max_horizon: int,
+) -> Tuple[BacktrackingTree, bool]:
+    assert not CFG.sesame_check_expected_atoms or (len(skeleton) + 1 == len(atoms_sequence) and task.goal.issubset(atoms_sequence[-1]))
+    end_time = time.perf_counter() + timeout
+    rng_sampler = np.random.default_rng(seed)
+    def search_stop_condition(states: List[State], tree: BacktrackingTree) -> int:
+        if tree.is_successful:
+            return -1
+        current_depth = len(states) - 1
 
-def _backtrack( # TODO: add comments and docstring
+        # Optimization: if the params_space for the NSRT option is empty, only
+        # sample it once, because all samples are just empty (so equivalent).
+        if skeleton[current_depth].option.params_space.shape[0] == 0:
+            return current_depth - 1 if tree.num_failed_tries else current_depth
+
+        if tree.num_failed_tries < CFG.sesame_max_samples_per_step:
+            return current_depth
+
+        # Edge case for if there are no states for the backjumping model
+        if current_depth == 0:
+            return -1
+
+        return backjumping_model(states[1:])
+
+    logging.info([(nsrt.name, nsrt.objects) for nsrt in skeleton])
+
+    tree, _ = _backtrack(
+        [task.init],
+        max_horizon,
+        skeleton,
+        None,
+        2.0,
+        atoms_sequence,
+        search_stop_condition,
+        task.goal,
+        option_model,
+        rng_sampler,
+        metrics,
+        end_time,
+    )
+    if time.perf_counter() > end_time:
+        raise PlanningTimeout("Backtracking timed out!", info={'backtracking_tree': tree})
+    return tree, tree.is_successful
+
+def _backtrack(
     states: List[State],
     max_horizon: int,
     skeleton: List[_GroundNSRT],
     feasibility_classifier: Optional[FeasibilityClassifier],
     min_confidence: float,
     atoms_sequence: List[Set[GroundAtom]],
-    search_stop_condition: Callable[[int, BacktrackingTree], bool],
+    search_stop_condition: Callable[[List[State], BacktrackingTree], int],
     goal: Set[GroundAtom],
     option_model: _OptionModelBase,
     rng_sampler: np.random.Generator,
     metrics: Metrics,
     end_time: float,
-) -> Tuple[BacktrackingTree, Optional[Tuple[_DiscoveredFailure, int]]]:
-    # Shelves2DEnv.render_state_plt(states[-1], None)
-    # plt.show()
+) -> Tuple[BacktrackingTree, int]:
+    assert len(states) >= 1
+
     if "num_samples" not in metrics:
         metrics["num_samples"] = 0
-    assert len(states) >= 1
+
     current_depth = len(states) - 1
     max_depth = len(skeleton)
     current_state = states[-1]
+
     tree = BacktrackingTree(current_state)
     if current_depth == len(skeleton):
         if all(goal_atom.holds(current_state) for goal_atom in goal):
-            return BacktrackingTree.create_leaf(current_state), None
-        return tree, None
+            return BacktrackingTree.create_leaf(current_state), current_depth
+        return tree, current_depth
     if time.perf_counter() > end_time:
-        return tree, None
-
-    env_failure: Optional[_DiscoveredFailure] = None
-    deepest_next_env_failure: Optional[_DiscoveredFailure] = None
-    deepest_next_env_failure_depth: int = len(skeleton) + 1
+        return tree, current_depth
 
     nsrt = skeleton[current_depth]
-    while not search_stop_condition(current_depth, tree):
+    desired_depth = current_depth
+    while True:
+        if desired_depth == current_depth:
+            desired_depth = search_stop_condition(states, tree)
+        assert desired_depth <= current_depth
+        if current_depth != desired_depth:
+            break
+
         try_start_time = time.perf_counter()
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(current_state, goal, rng_sampler, skeleton[current_depth:])
         metrics["num_samples"] += 1
-        try:
-            next_state, num_actions = \
-                option_model.get_next_state_and_num_actions(current_state, option)
-        except EnvironmentFailure as e:
-            logging.info(f"Depth {current_depth}/{max_depth} Environment failure")
-            tree.append_failed_try(option, None)
-            if CFG.sesame_propagate_failures == "immediately":
-                return tree, (_DiscoveredFailure(e, nsrt), current_depth)
-            elif CFG.sesame_propagate_failures == "after_exhaust":
-                env_failure = _DiscoveredFailure(e, nsrt)
-            continue
+        next_state, num_actions = option_model.get_next_state_and_num_actions(current_state, option)
 
         if _check_static_object_changed(set(current_state) - set(nsrt.objects), current_state, next_state) or\
           num_actions > max_horizon or num_actions == 0:
             logging.info(f"Depth {current_depth}/{max_depth} State not changed")
-            tree.append_failed_try(option, None)
+            tree.append_try(option, None)
             continue
         if CFG.sesame_check_expected_atoms and not all(a.holds(next_state) for a in atoms_sequence[current_depth + 1]):
             logging.info(f"Depth {current_depth}/{max_depth} Expected atoms do not hold")
-            tree.append_failed_try(option, None) # REMOVED FAILURE MANAGEMENT FROM HERE
+            tree.append_try(option, None)
             continue
 
         next_states = states + [next_state]
@@ -285,18 +318,17 @@ def _backtrack( # TODO: add comments and docstring
             feasible, confidence = feasibility_classifier.classify(next_states, skeleton)
             if not feasible:
                 logging.info(f"Depth {current_depth}/{max_depth} Feasibility classifier does not hold")
-                tree.append_failed_try(option, BacktrackingTree(next_state))
+                tree.append_try(option, BacktrackingTree(next_state))
                 continue
             else:
                 logging.info(f"Depth {current_depth}/{max_depth} Feasibility classifier holds")
-                # Shelves2DEnv.render_state_plt(next_state, None).suptitle(skeleton[-1].name)
-                # plt.show()
+
         logging.info(f"Depth {current_depth}/{max_depth} Classifier Confidence {confidence}")
 
         try_end_time = time.perf_counter()
         refinement_time = try_end_time - try_start_time
 
-        next_tree, mb_next_env_failure = _backtrack(
+        next_tree, new_desired_depth = _backtrack(
             next_states,
             max_horizon - num_actions,
             skeleton,
@@ -310,40 +342,25 @@ def _backtrack( # TODO: add comments and docstring
             metrics,
             end_time,
         )
+        desired_depth = min(new_desired_depth, desired_depth)
+        tree.append_try(option, next_tree)
 
         if time.perf_counter() > end_time: # Timeout handling
             logging.info(f"Depth {current_depth}/{max_depth} Timeout")
-            tree.append_failed_try(option, BacktrackingTree(next_state))
-            return tree, None
+            return tree, current_depth
 
         if next_tree.is_successful:
             logging.info(f"Depth {current_depth}/{max_depth} Subtree Succeeded")
-            tree.append_successful_try(option, next_tree, refinement_time)
             continue
 
-        tree.append_failed_try(option, next_tree)
-
-        if feasibility_classifier is not None and confidence > min_confidence and CFG.feasibility_do_backjumping: # Backjumping handling
+        if feasibility_classifier is not None and confidence > min_confidence and CFG.feasibility_do_backjumping: # Feasibility Classifier related backjumping handling
+            assert desired_depth == current_depth
             logging.info(f"Depth {current_depth}/{max_depth} Backjumping, Current Confidence {confidence}, Min Confidence {float(min_confidence)}")
-            return tree, None
+            return tree, desired_depth
 
         logging.info(f"Depth {current_depth}/{max_depth} Subtree Failed")
 
-        if not mb_next_env_failure:
-            continue
-        if CFG.sesame_propagate_failures == "immediately":
-            return tree, mb_next_env_failure
-        elif CFG.sesame_propagate_failures == "after_exhaust":
-            _, next_env_failure_depth = mb_next_env_failure
-            if next_env_failure_depth <= deepest_next_env_failure_depth:
-                deepest_next_env_failure, deepest_next_env_failure_depth = mb_next_env_failure
-
-    if env_failure is not None:
-        return tree, (env_failure, current_depth)
-    elif deepest_next_env_failure is not None:
-        return tree, (deepest_next_env_failure, deepest_next_env_failure_depth)
-    else:
-        return tree, None
+    return tree, desired_depth
 
 def _check_static_object_changed(static_objs: Set[Object], state: State, next_state: State) -> bool:
     if not CFG.sesame_check_static_object_changes:
