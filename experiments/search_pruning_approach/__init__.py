@@ -396,7 +396,7 @@ class SearchPruningApproach(NSRTLearningApproach):
             states: Sequence[State],
             feasibility_dataset: FeasibilityDataset
         ) -> None:
-            for prefix_length in range(2, len(states)):
+            for prefix_length in range(2, len(states) + 1):
                 feasibility_dataset.add_negative_datapoint(skeleton, states[:prefix_length])
 
         self.add_data_for_bad_actions_gathering(seed, add_bad_action)
