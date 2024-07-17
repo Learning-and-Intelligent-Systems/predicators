@@ -1,4 +1,5 @@
 from experiments.search_pruning_approach import *
+from experiments.backjumping_approach import *
 from experiments.envs.identity_options import *
 from experiments.envs.shelves2d import *
 from experiments.envs.donuts import *
