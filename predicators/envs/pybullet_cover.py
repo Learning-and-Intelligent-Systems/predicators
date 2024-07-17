@@ -313,7 +313,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         # Get table state.
         state_dict[self._table] = np.array([], dtype=np.float32)
-        
+
         state = utils.PyBulletState(state_dict,
                                     simulator_state=joint_positions)
         assert set(state) == set(self._current_state), \

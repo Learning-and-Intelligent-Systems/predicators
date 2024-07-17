@@ -9,6 +9,7 @@ from __future__ import annotations
 import abc
 import logging
 from typing import Callable, Set, Tuple
+from pprint import pformat, pprint
 
 import numpy as np
 
@@ -111,6 +112,10 @@ class _OracleOptionModel(_OptionModelBase):
                 if option_copy.terminal(s):
                     return True
                 if last_state is not DefaultState and last_state.allclose(s):
+                    # logging.debug("last state:", 
+                    #               pformat(last_state.pretty_str()))
+                    # logging.debug("current state:", pformat(s.pretty_str()))
+                    # breakpoint()
                     raise utils.OptionExecutionFailure(
                         f"Option {option_copy} encounter repeated state in "
                         f"option model after {call_counter} terminal calls.")
@@ -131,6 +136,7 @@ class _OracleOptionModel(_OptionModelBase):
             #             breakpoint()
             #     except:
             #         pass
+            breakpoint()
             traj = utils.run_policy_with_simulator(
                 option_copy.policy,
                 self._simulator,
@@ -138,7 +144,7 @@ class _OracleOptionModel(_OptionModelBase):
                 _terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
         except utils.OptionExecutionFailure as e:
-            # logging.debug(f"Option model faillure: {str(e)}")
+            logging.debug(f"Option model faillure: {str(e)}")
             # If there is a failure during the execution of the option, treat
             # this as a noop.
             return state, 0
