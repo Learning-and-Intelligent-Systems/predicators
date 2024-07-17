@@ -136,7 +136,6 @@ class _OracleOptionModel(_OptionModelBase):
             #             breakpoint()
             #     except:
             #         pass
-            breakpoint()
             traj = utils.run_policy_with_simulator(
                 option_copy.policy,
                 self._simulator,
