@@ -2235,7 +2235,8 @@ def create_vlm_by_name(
     return OpenAIVLM(model_name)
 
 
-def create_llm_by_name(model_name: str) -> LargeLanguageModel:
+def create_llm_by_name(
+        model_name: str) -> LargeLanguageModel:  # pragma: no cover
     """Create particular llm using a provided name."""
     if "gemini" in model_name:
         return GoogleGeminiLLM(model_name)
