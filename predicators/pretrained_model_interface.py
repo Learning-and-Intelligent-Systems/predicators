@@ -186,7 +186,7 @@ class OpenAIModel():
             model=model,
             messages=messages,
             seed=seed,
-            # max_tokens=max_tokens,
+            max_tokens=max_tokens,
             temperature=temperature,
         )
         if verbose:
@@ -241,7 +241,7 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
             stop_token: Optional[str] = None,
             num_completions: int = 1) -> List[str]:  # pragma: no cover
         del imgs, seed, stop_token  # unused
-        messages = [{"text": prompt, "type": "text"}]
+        messages = [{"role": "user", "content": prompt, "type": "text"}]
         responses = [
             self.call_openai_api(messages,
                                  model=self._model_name,

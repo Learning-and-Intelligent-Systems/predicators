@@ -1,19 +1,15 @@
 """Approaches that use an LLM to learn STRIPS operators instead of performing
 symbolic learning of any kind."""
 
-import abc
-import functools
-import logging
 import re
-from collections import defaultdict
-from typing import Any, List, Optional, Set, Tuple, cast
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    STRIPSOperator, Task, Type, Variable
+from predicators.structs import PNAD, LiftedAtom, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, Segment, STRIPSOperator, Task, Type, \
+    Variable
 
 
 class LLMStripsLearner(BaseSTRIPSLearner):
@@ -32,7 +28,8 @@ class LLMStripsLearner(BaseSTRIPSLearner):
                          verbose)
         self._llm = utils.create_llm_by_name(CFG.llm_model_name)
         prompt_file = utils.get_path_to_predicators_root() + \
-        "/predicators/nsrt_learning/strips_learning/llm_op_learning_prompts/naive_no_examples.txt"
+        "/predicators/nsrt_learning/strips_learning/" + \
+        "llm_op_learning_prompts/naive_no_examples.txt"
         with open(prompt_file, "r", encoding="utf-8") as f:
             self._base_prompt = f.read()
         self._name_to_pred = {p.name: p for p in self._predicates}
@@ -66,7 +63,7 @@ class LLMStripsLearner(BaseSTRIPSLearner):
         return predicates
 
     def _parse_option_str_into_opt_name_and_arg_names(
-            self, line_str: str) -> List[Tuple[str, List[str]]]:
+            self, line_str: str) -> Tuple[str, List[str]]:
         match = re.match(r'action: (\w+)\(([^)]*)\)', line_str)
         if not match:
             raise ValueError("The input string is not in the expected format.")
@@ -75,7 +72,11 @@ class LLMStripsLearner(BaseSTRIPSLearner):
         args = [arg.strip() for arg in args]
         return skill_name, args
 
-    def _parse_operator_str_into_structured_elems(self, op_str: str):
+    def _parse_operator_str_into_structured_elems(
+        self, op_str: str
+    ) -> Tuple[str, Dict[str, str], List[Tuple[str, List[str]]], List[Tuple[
+            str, List[str]]], List[Tuple[str, List[str]]], Tuple[str,
+                                                                 List[str]]]:
         op_str_elems = op_str.split('\n')
         # Parse out operator name and args.
         name_and_args = op_str_elems[0]
@@ -102,8 +103,9 @@ class LLMStripsLearner(BaseSTRIPSLearner):
                 structured_del_effs, structured_action)
 
     def _convert_structured_precs_or_effs_into_lifted_atom_set(
-            self, structured_precs_or_effs, pred_name_to_pred,
-            op_var_name_to_op_var) -> Set[LiftedAtom]:
+            self, structured_precs_or_effs: List[Tuple[str, List[str]]],
+            pred_name_to_pred: Dict[str, Predicate],
+            op_var_name_to_op_var: Dict[str, Variable]) -> Set[LiftedAtom]:
         ret_atoms = set()
         for prec_name, prec_args_list in structured_precs_or_effs:
             if prec_name not in pred_name_to_pred:
@@ -122,15 +124,26 @@ class LLMStripsLearner(BaseSTRIPSLearner):
         return ret_atoms
 
     def _learn(self) -> List[PNAD]:
-        # (2) parse out ridiculous and malformed ops
-        # (3) create PNADs
-        # (4) add datastores based on matching?
-        # First, construct the prompt with all the necessary elements
-        # to send to the LLM.
+        """Overview of what's going on here:
+
+        1. Form a prompt that contains the object types, predicates, and
+        options in this env, as well as the training demonstration
+        trajectories.
+        2. Query an LLM to return operators given the above information
+        from (1).
+        3. Parse out symbolic operators from the LLM's response, with automatic
+        pruning of nonsensical/hallucinated operators. This is sufficient
+        info to make PNADs with empty datastores.
+        4. Associate data with each PNAD via our
+        _find_best_matching_pnad_and_sub procedure; this populates the
+        PNAD's datastore.
+        """
         prompt = self._base_prompt
         all_types = self._get_all_types_from_preds()
+        all_options = sorted(self._get_all_options_from_segs())
         type_name_to_type = {t.name: t for t in all_types}
         pred_name_to_pred = {p.name: p for p in self._predicates}
+        option_name_to_option = {o.name: o for o in all_options}
         prompt += "Types:\n"
         for t in sorted(all_types):
             prompt += f"- {t.name}\n"
@@ -138,34 +151,37 @@ class LLMStripsLearner(BaseSTRIPSLearner):
         for pred in sorted(self._predicates):
             prompt += f"- {pred.pddl_str()}\n"
         prompt += "\nActions:\n"
-        for act in sorted(self._get_all_options_from_segs()):
+        for act in all_options:
             prompt += act.pddl_str() + "\n"
         prompt += "\nTrajectory data:\n"
         for i, seg_traj in enumerate(self._segmented_trajs):
             curr_goal = self._train_tasks[i].goal
             prompt += f"Trajectory {i} (Goal: {str(curr_goal)}):\n"
-            for t, seg in enumerate(seg_traj):
-                # TODO: get segment init state and action and add to prompt
-                # Remember to get final state at the very end
-                prompt += f"State {t}: {str(seg.init_atoms)}\n"
+            for timestep, seg in enumerate(seg_traj):
+                prompt += f"State {timestep}: {str(seg.init_atoms)}\n"
                 curr_option = seg.get_option()
                 action = curr_option.name + "(" + ", ".join(
                     obj.name for obj in curr_option.objects) + ")"
-                prompt += f"Action {t}: {action}"
-            prompt += f"State {t + 1}: {str(seg.final_atoms)}"
+                prompt += f"Action {timestep}: {action}"
+            prompt += f"State {timestep + 1}: {str(seg.final_atoms)}"  # pylint:disable=undefined-loop-variable
             prompt += "\n"
         # Query the LLM to see what kinds of operators it proposes.
         llm_response = self._llm.sample_completions(prompt, None, 0.0,
                                                     CFG.seed)
         op_predictions = llm_response[0]
-        assert op_predictions[:10] == "Operators:"
-        specific_op_prediction = op_predictions[11:].split('\n\n')
-        # Now parse the operators into actual structured symbolic operators.
-        symbolic_ops = []
+        pattern = r'```\n(.*?)\n```'
+        matches = re.findall(pattern, op_predictions, re.DOTALL)
+        assert matches[0][:10] == "Operators:"
+        specific_op_prediction = matches[0][11:].split('\n\n')
+        # Now parse the operators into actual structured symbolic operators
+        # with associated option specs (i.e. PNADs, but without the
+        # datastores set).
+        pnads = []
         for op_pred in specific_op_prediction:
             incorrect_op = False
-            name_str, arg_dict, structured_precs, structured_add_effs, structured_del_effs, structured_action = self._parse_operator_str_into_structured_elems(
-                op_pred)
+            name_str, arg_dict, structured_precs, structured_add_effs, \
+                structured_del_effs, structured_action = \
+                self._parse_operator_str_into_structured_elems(op_pred)
             op_var_name_to_op_var = {}
             for arg_name_str, arg_type_str in arg_dict.items():
                 if arg_type_str not in type_name_to_type:
@@ -175,20 +191,47 @@ class LLMStripsLearner(BaseSTRIPSLearner):
                     arg_name_str, type_name_to_type[arg_type_str])
             if incorrect_op:
                 continue
-            preconditions = self._convert_structured_precs_or_effs_into_lifted_atom_set(
+            preconditions = \
+                self._convert_structured_precs_or_effs_into_lifted_atom_set(
                 structured_precs, pred_name_to_pred, op_var_name_to_op_var)
-            add_effs = self._convert_structured_precs_or_effs_into_lifted_atom_set(
+            add_effs = \
+                self._convert_structured_precs_or_effs_into_lifted_atom_set(
                 structured_add_effs, pred_name_to_pred, op_var_name_to_op_var)
-            del_effs = self._convert_structured_precs_or_effs_into_lifted_atom_set(
+            del_effs = \
+                self._convert_structured_precs_or_effs_into_lifted_atom_set(
                 structured_del_effs, pred_name_to_pred, op_var_name_to_op_var)
-            # NOTE: for now, we do not create operators with ignore effects! This could
-            # be done in the future by modifying the LLM query prompt.
-            symbolic_ops.append(
-                STRIPSOperator(name_str, op_var_name_to_op_var.values(),
-                               preconditions, add_effs, del_effs, set()))
-
-        import ipdb
-        ipdb.set_trace()
+            option_name_str, option_args_strs_list = structured_action
+            if option_name_str not in option_name_to_option:
+                continue
+            option = option_name_to_option[option_name_str]
+            option_arg_vars = []
+            for option_arg_str in option_args_strs_list:
+                if option_arg_str not in op_var_name_to_op_var:
+                    incorrect_op = True
+                    break
+                option_arg_vars.append(op_var_name_to_op_var[option_arg_str])
+            if incorrect_op:
+                continue
+            # NOTE: for now, we do not create operators with ignore effects!
+            # This could be done in the future by modifying the LLM query
+            # prompt.
+            symbolic_op = STRIPSOperator(name_str,
+                                         list(op_var_name_to_op_var.values()),
+                                         preconditions, add_effs, del_effs,
+                                         set())
+            pnad = PNAD(symbolic_op, [], (option, option_arg_vars))
+            pnads.append(pnad)
+        # Finally, populate the datastore of each PNAD.
+        curr_pnad: Optional[PNAD] = None
+        for seg_traj in self._segmented_trajs:
+            for seg in seg_traj:
+                objects = set(seg.states[0])
+                curr_pnad, var_to_obj_sub = \
+                    self._find_best_matching_pnad_and_sub(seg, objects, pnads)
+                if curr_pnad is not None:
+                    assert var_to_obj_sub is not None
+                    curr_pnad.add_to_datastore((seg, var_to_obj_sub))
+        return pnads
 
     @classmethod
     def get_name(cls) -> str:
