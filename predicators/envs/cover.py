@@ -32,6 +32,7 @@ class CoverEnv(BaseEnv):
                        ["is_block", "is_target", "width", "pose", "grasp"])
     _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
     _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+    _table_type = Type("table", [])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -52,6 +53,7 @@ class CoverEnv(BaseEnv):
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        self._table = Object("table", self._table_type)
 
     @classmethod
     def get_name(cls) -> str:
@@ -295,6 +297,7 @@ class CoverEnv(BaseEnv):
             # [hand, pose_x, pose_z]
             data[self._robot] = np.array(
                 [0.5, self.workspace_x, self.workspace_z])
+        data[self._table] = np.array([], dtype=np.float32)
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:

@@ -8,7 +8,8 @@ ENVS:
   stick_button:
     # NAME: "burger"
     # NAME: "pybullet_blocks"
-    NAME: "pybullet_coffee"
+    # NAME: "pybullet_coffee"
+    NAME: "pybullet_cover"
 ARGS: 
   # []
   - "debug"

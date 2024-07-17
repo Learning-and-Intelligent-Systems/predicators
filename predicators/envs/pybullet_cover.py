@@ -39,11 +39,16 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _target_height: ClassVar[float] = 0.0001
 
     # Types
+    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
     _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose", "grasp"])
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
-    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
-    _table_type = Type("table", [])
+                       ["is_block", "is_target", "width", "pose", "grasp"]+
+                       bbox_features)
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose"]+
+                        bbox_features)
+    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"]+bbox_features)
+    _table_type = Type("table", bbox_features)
+
+    _obj_id_to_obj: Dict[int, Object] = {}
 
     # _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
     #                             _Covers_NSP_holds)
@@ -161,6 +166,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         # Reset blocks based on the state.
         block_objs = state.get_objects(self._block_type)
+        self._obj_id_to_obj = {}
+        self._obj_id_to_obj[self._pybullet_robot.robot_id] = self._robot
+        self._obj_id_to_obj[self._table_id] = self._table
         self._block_id_to_block = {}
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
@@ -169,6 +177,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             width = width_unnorm / self._max_obj_width * max_width
             assert width == state.get(block_obj, "width")
             self._block_id_to_block[block_id] = block_obj
+            self._obj_id_to_obj[block_id] = block_obj
             bx = self.workspace_x
             # De-normalize block y to actual coordinates.
             y_norm = state.get(block_obj, "pose")
@@ -209,6 +218,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             width = width_unnorm / self._max_obj_width * max_width
             assert width == state.get(target_obj, "width")
             self._target_id_to_target[target_id] = target_obj
+            self._obj_id_to_obj[target_id] = target_obj
             tx = self.workspace_x
             # De-normalize target y to actual coordinates.
             y_norm = state.get(target_obj, "pose")
@@ -301,6 +311,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             state_dict[target] = np.array([0.0, 1.0, width, pose],
                                           dtype=np.float32)
 
+        # Get table state.
+        state_dict[self._table] = np.array([], dtype=np.float32)
+        
         state = utils.PyBulletState(state_dict,
                                     simulator_state=joint_positions)
         assert set(state) == set(self._current_state), \
