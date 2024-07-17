@@ -66,9 +66,10 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                                 objects: Sequence[Object],
                                 params: Array) -> bool:
             del memory, params
-            _, jug = objects
+            robot, jug = objects
             machine = state.get_objects(machine_type)[0]
-            return not JugInMachine.holds(state, [jug, machine])
+            return not JugInMachine.holds(state, [jug, machine]) and\
+                    not Holding.holds(state, [robot, jug])
 
         MoveToTwistJug = ParameterizedOption(
             "MoveToTwistJug",
@@ -76,6 +77,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             params_space=Box(0, 1, (0, )),
             policy=cls._create_move_to_twist_policy(),
             initiable=_MoveToTwistJug_initiable,
+            # initiable=lambda s, m, o, p: True,
             terminal=_MoveToTwistJug_terminal,
         )
         cls.MoveToTwistParamOption = MoveToTwistJug

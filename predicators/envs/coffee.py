@@ -507,6 +507,7 @@ class CoffeeEnv(BaseEnv):
                     cup_state_dict[cup] = {
                         "x": x,
                         "y": y,
+                        "z": self.z_lb + cap/2,
                         "capacity_liquid": cap,
                         "target_liquid": target,
                         "current_liquid": current,
@@ -553,6 +554,7 @@ class CoffeeEnv(BaseEnv):
             state_dict[self._jug] = {
                 "x": x,
                 "y": y,
+                "z": self.z_lb + self.jug_height / 2,
                 "rot": rot,
                 "is_held": 0.0,  # jug starts off not held
                 "is_filled": 0.0  # jug starts off empty

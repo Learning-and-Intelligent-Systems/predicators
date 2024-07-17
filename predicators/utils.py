@@ -1676,9 +1676,21 @@ class RawState(PyBulletState):
         assert self.option_history is not None
         msg = "Evaluate the truth value of the following assertions in the "\
                 "current state as depicted by the image"
-        if CFG.nsp_pred_include_prev_image_in_prompt:
+        if CFG.nsp_pred_include_prev_image_in_prompt and \
+            self.prev_state is not None:
             msg += " labeled with 'curr. state'"
+        if CFG.nsp_pred_include_state_str_in_prompt:
+            msg += " and the information below"
+        
         msg += ".\n"
+
+        if CFG.nsp_pred_include_state_str_in_prompt:
+            msg += f"We have the object positions and the robot's "\
+                    "proprioception:\n"
+            msg += self.dict_str(indent=2, object_features=False,
+                                 use_object_id=True,
+                                 position_proprio_features=True)
+            msg += "\n"
 
         if len(self.option_history) == 0:
             msg += "For context, this is at the beginning of a task, before "\
@@ -1692,6 +1704,14 @@ class RawState(PyBulletState):
             msg += "For context, the state is right after the robot has"\
                 " successfully executed the action "\
                 f"{self.option_history[-1]}."
+            if CFG.nsp_pred_include_state_str_in_prompt:
+                if self.prev_state is not None:
+                    msg += " The object position and robot proprioception "\
+                        "before executing the action is:\n"
+                    msg += self.prev_state.dict_str(indent=2, object_features=False,
+                                                    use_object_id=True,
+                                                    position_proprio_features=True)
+                    msg += "\n"
             if CFG.nsp_pred_include_prev_image_in_prompt:
                 msg += " The state before executing the action is depicted"\
                     " by the image labeled with 'prev. state'."
@@ -1730,7 +1750,8 @@ class RawState(PyBulletState):
     def dict_str(self,
                  indent: int = 0,
                  object_features: bool = True,
-                 use_object_id: bool = False) -> str:
+                 use_object_id: bool = False,
+                 position_proprio_features: bool = False) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:
@@ -1747,6 +1768,14 @@ class RawState(PyBulletState):
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
                     obj_dict[attribute] = value
+                if position_proprio_features:
+                    if obj.type.name == "robot" or \
+                        attribute in ["pose_x", "pose_y", "pose_z", "x", "y",
+                        "z"]:
+                        if isinstance(value, (float, int, np.float32)):
+                            value = round(float(value), 1)
+                        obj_dict[attribute] = value
+
             if use_object_id: obj_name = obj.id_name
             else: obj_name = obj.name
             state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
@@ -3412,6 +3441,8 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 draw.text((text_x, text_y), text, fill="red", font=font)
 
             prompts = [state.generate_previous_option_message()]
+            if CFG.nsp_pred_include_state_str_in_prompt:
+                pass
             # prompts = []
             # prompts.extend([
             #     f"{i+1}. {query.query_str}" for i, query in enumerate(queries)
@@ -3449,7 +3480,11 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
 
             assert len(queries) == len(all_vlm_responses)
             for query, response in zip(queries, all_vlm_responses):
-                response = response.split(":")[1].strip()
+                if ":" in response:
+                    response = response.split(":")[1].strip()
+                else:
+                    logging.warning(f"VLM didn't response as expected, "
+                                    f"response: {response}")
                 ground_atom = query.ground_atom
                 if "true" in response:
                     true_atom.add(ground_atom)

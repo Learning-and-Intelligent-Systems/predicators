@@ -67,7 +67,8 @@ FLAGS:
   vlm_predicator_oracle_base_grammar: False
   llm_predicator_oracle_learned: False            # relaxation 1
   nsp_pred_include_prev_state_in_prompt: True
-  nsp_pred_include_prev_image_in_prompt: False
+  nsp_pred_include_prev_image_in_prompt: True
+  nsp_pred_include_state_str_in_prompt: False
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"

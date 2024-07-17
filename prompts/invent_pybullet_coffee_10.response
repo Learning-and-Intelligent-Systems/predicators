@@ -3,15 +3,15 @@ def _JugSideToGripper_holds(state: State, objects: Sequence[Object]) -> bool:
     """Determine if the jug's side is facing the robot gripper."""
     jug, = objects
     
-    # jug_rot = state.get(jug, "rot")
-    # pick_jug_rot_tol = 2/10 * np.pi
-    # return abs(jug_rot) <= pick_jug_rot_tol
+    jug_rot = state.get(jug, "rot")
+    pick_jug_rot_tol = 1/5 * np.pi
+    return abs(jug_rot) <= pick_jug_rot_tol
     
     # Crop the scene image to the smallest bounding box that include both objects
-    robot = state.get_objects(_robot_type)[0]
-    attention_image = state.crop_to_objects([robot, jug])
-    return state.evaluate_simple_assertion(
-        f"{jug.id_name}'s handle is on the side of {robot.id_name}", attention_image)
+    # robot = state.get_objects(_robot_type)[0]
+    # attention_image = state.crop_to_objects([robot, jug])
+    # return state.evaluate_simple_assertion(
+    #     f"{jug.id_name}'s handle is on the side of {robot.id_name}", attention_image)
 
 name: str = "JugSideToGripper"
 param_types: Sequence[Type] = [_jug_type] 

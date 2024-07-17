@@ -1,5 +1,0 @@
-Evaluate the truth value of the following assertions in the current state as depicted by the image.
-For context, this is at the beginning of a task, before the robot has done anything. The assertions to evaluate in are:
-1. jug6's handle is on the side of robot1
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-1. jug6's handle is on the side of robot1: True

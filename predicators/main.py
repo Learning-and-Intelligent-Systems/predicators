@@ -91,8 +91,20 @@ def main() -> None:
     handlers: List[logging.Handler] = [colorlog_handler]
     if CFG.log_file:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        handlers.append(logging.FileHandler(CFG.log_file + timestamp,
-                                            mode='w'))
+        # handlers.append(logging.FileHandler(CFG.log_file + timestamp,
+        #                                     mode='w'))
+        # Handler for DEBUG level messages
+        debug_handler = logging.FileHandler(CFG.log_file + timestamp +
+                                            "_debug", mode='w')
+        debug_handler.setLevel(logging.DEBUG)
+        handlers.append(debug_handler)
+        
+        # Handler for INFO level messages
+        info_handler = logging.FileHandler(CFG.log_file + timestamp +
+                                        "_info", mode='w')
+        info_handler.setLevel(logging.INFO)
+        handlers.append(info_handler)
+
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
                         handlers=handlers,

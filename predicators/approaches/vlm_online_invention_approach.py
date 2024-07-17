@@ -155,13 +155,13 @@ class VlmInventionApproach(NSRTLearningApproach):
         results = []
         trajectories = []
         for idx, task in enumerate(tasks):
-            logging.info(f"Ite {ite}. Solving Task {idx}")
+            logging.debug(f"Ite {ite}. Solving Task {idx}")
             # logging.debug(f"Init: {init_atoms} \nGoals: {task.goal}")
             # task.init.labeled_image.save(f"images/trn_{idx}_init.png")
             try:
                 policy = self.solve(task, timeout=CFG.timeout)
             except (ApproachTimeout, ApproachFailure) as e:
-                logging.info(f"Planning failed: {str(e)}")
+                logging.debug(f"Planning failed: {str(e)}")
                 if "metrics" not in e.info:
                     # In the case of not dr-reachable
                     metrics, p_ref = None, []
@@ -217,6 +217,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             task.init.state_image.save(f"images/init_state{i}.png")
             task.init.labeled_image.save(f"images/init_label{i}.png")
+        # breakpoint()
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
@@ -319,7 +320,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # Use the results to prompt the llm
                     prompt = self._create_prompt(env, ite, 10, 2, 2, 
                                             categories_to_show=['tp', 'fp'])
-                    # breakpoint()
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
@@ -403,6 +403,20 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                      set(all_candidates))
                 logging.info("[Finish] Applying predicates to data....")
 
+                logging.info(f"[ite {ite}] compare abstract accuracy of "
+                                f"{self.base_candidates}")
+                utils.compare_abstract_accuracy(
+                    [s for traj in all_trajs for s in traj.states], 
+                    sorted(self.base_candidates - self._initial_predicates),
+                    env.ns_to_sym_predicates)
+                logging.info(f"Abstract accuracy of for the failed states")
+                utils.compare_abstract_accuracy(
+                    list(set(state for optn_dict in [self.fail_optn_dict]
+                                for g_optn in optn_dict.keys() for state in
+                                optn_dict[g_optn].states)), 
+                    sorted(self.base_candidates - self._initial_predicates),
+                    env.ns_to_sym_predicates)
+
                 logging.info("[Start] Predicate search from " +
                              f"{self._initial_predicates}...")
                 score_function = create_score_function(
@@ -426,12 +440,6 @@ class VlmInventionApproach(NSRTLearningApproach):
             # breakpoint()
             # Finally, learn NSRTs via superclass, using all the kept predicates.
 
-            logging.debug(f"[ite {ite}] compare abstract accuracy of "
-                            f"{self.base_candidates}")
-            utils.compare_abstract_accuracy(
-                [s for traj in all_trajs for s in traj.states], 
-                sorted(self.base_candidates - self._initial_predicates),
-                env.ns_to_sym_predicates)
             # When there is successful trajectories, maybe also use the positive
             # data to learn the operators?
             self._learn_nsrts(all_trajs,
@@ -669,7 +677,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                     #   operators.
                     if len(states) <= len(actions):
                         logging.warning("states is not 1 more than actions")
-                        breakpoint()
                         # hacky fix, should really figure out why the option
                         # plan
                         # actions = actions[:len(states)-1]
@@ -1017,10 +1024,10 @@ class VlmInventionApproach(NSRTLearningApproach):
         for pred in kept_predicates:
             logging.info(f"\t{pred}")
         score_function.evaluate(kept_predicates)  # log useful numbers
-        logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
-                     f"{len(candidates)} candidates:")
-        for pred in kept_predicates:
-            logging.info(f"\t{pred}")
+        # logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
+        #              f"{len(candidates)} candidates:")
+        # for pred in kept_predicates:
+        #     logging.info(f"\t{pred}")
 
         return set(kept_predicates)
 

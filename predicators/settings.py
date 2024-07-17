@@ -729,6 +729,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     reset_optn_state_dict_at_every_ite = False
     nsp_pred_include_prev_state_in_prompt = True
     nsp_pred_include_prev_image_in_prompt = False
+    nsp_pred_include_state_str_in_prompt = False
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms

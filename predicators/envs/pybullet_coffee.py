@@ -33,7 +33,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     pick_jug_y_padding: ClassVar[float] = 0.05
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-2
-    place_jug_in_machine_tol: ClassVar[float] = 1e-3
+    place_jug_in_machine_tol: ClassVar[float] = 1e-3/2
     jug_twist_offset: ClassVar[float] = 0.025
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
@@ -58,10 +58,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     machine_top_y_len: ClassVar[float] = 1.5 * machine_y_len
     machine_x: ClassVar[float] = x_ub - machine_x_len / 2 - init_padding
     machine_y: ClassVar[float] = y_ub - machine_y_len / 2 - init_padding
+    button_radius: ClassVar[float] = 0.2 * machine_y_len
     button_x: ClassVar[float] = machine_x
     button_y: ClassVar[float] = machine_y - machine_y_len / 2 - machine_top_y_len
-    button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
-    button_radius: ClassVar[float] = 0.2 * machine_y_len
+    # button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
+    button_z: ClassVar[float] = z_lb + machine_z_len - button_radius
     button_press_threshold: ClassVar[float] = 1e-3
     machine_color: ClassVar[Tuple[float, float, float,
                                     float]] = (0.1, 0.1, 0.1, 1)
@@ -76,7 +77,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     float]] = machine_color
                                     # float]] = (0.6, 0.6, 0.6, 0.5)
     jug_color: ClassVar[Tuple[float, float, float, float]] = (0.5,1,0,0.5)
-    # Jug settings.
+    # jug_color: ClassVar[Tuple[float, float, float, float]] = (1, 1, 0.5, 0.5)    # Jug settings.
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
     jug_init_x_lb: ClassVar[
@@ -144,11 +145,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     _table_type = Type("table", [] + bbox_features)
     _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"] + 
                                 bbox_features)
-    _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"] + 
+    _jug_type = Type("jug", ["x", "y", "z", "rot", "is_held", "is_filled"] + 
                             bbox_features)
     _machine_type = Type("coffee_machine", ["is_on"] + bbox_features)
     _cup_type = Type("cup",
-        ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"] + 
+        ["x", "y", "z", "capacity_liquid", "target_liquid", "current_liquid"] + 
         bbox_features)
 
 
@@ -903,7 +904,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Get cup states.
         for cup_id, cup in self._cup_id_to_cup.items():
 
-            (x, y, _), _ = p.getBasePositionAndOrientation(
+            (x, y, z), _ = p.getBasePositionAndOrientation(
                 cup_id, physicsClientId=self._physics_client_id)
 
             capacity = self._cup_to_capacity[cup]
@@ -924,13 +925,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             state_dict[cup] = {
                 "x": x,
                 "y": y,
+                "z": z,
                 "capacity_liquid": capacity,
                 "target_liquid": target_liquid,
                 "current_liquid": current_liquid,
             }
 
         # Get jug state.
-        (x, y, _), quat = p.getBasePositionAndOrientation(
+        (x, y, z), quat = p.getBasePositionAndOrientation(
             self._jug_id, physicsClientId=self._physics_client_id)
         rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
         # rot = p.getEulerFromQuaternion(quat)[2] + np.pi/2
@@ -939,6 +941,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         state_dict[self._jug] = {
             "x": x,
             "y": y,
+            "z": z,
             "rot": rot,
             "is_held": held,
             "is_filled": filled,

@@ -12,6 +12,7 @@ from io import BytesIO
 from typing import Collection, Dict, List, Optional, Union
 
 import google.generativeai as genai
+import numpy as np
 import imagehash
 import openai
 import PIL.Image
@@ -297,6 +298,40 @@ class GoogleGeminiVLM(VisionLanguageModel):
             num_completions: int = 1) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is not None
+        # try to use different keys
+        keys = [
+                os.getenv("GOOGLE_API_KEY"),
+                os.getenv("GOOGLE_API_KEY1"),
+                os.getenv("GGOGLE_API_KEY2"),
+                ]
+        genai.configure(api_key=np.random.choice(keys))
+        safety_settings = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_NONE"
+            },
+        ]
+        # pylint:disable=no-member
+        self._model = genai.GenerativeModel(
+            model_name=self._model_name,
+            safety_settings=safety_settings,
+            system_instruction=CFG.vlm_system_instruction)
+        if CFG.vlm_use_chat_mode:
+            self.chat_session = self._model.start_chat()
+        # end
+
         # pylint:disable=no-member
         generation_config = genai.types.GenerationConfig(
             candidate_count=num_completions, temperature=temperature)
