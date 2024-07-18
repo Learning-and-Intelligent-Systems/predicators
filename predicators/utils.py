@@ -2165,6 +2165,7 @@ def run_policy_with_simulator(
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
+                # breakpoint()
                 state = simulator(state, act)
                 actions.append(act)
                 states.append(state)

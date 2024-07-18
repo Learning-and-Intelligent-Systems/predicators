@@ -27,12 +27,23 @@ class CoverEnv(BaseEnv):
     workspace_x: ClassVar[float] = 1.35
     workspace_z: ClassVar[float] = 0.65
 
+    # # Types
+    # _block_type = Type("block",
+    #                    ["is_block", "is_target", "width", "pose", "grasp"])
+    # _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
+    # _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+    # _table_type = Type("table", [])
+
     # Types
+    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
     _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose", "grasp"])
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
-    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
-    _table_type = Type("table", [])
+                       ["is_block", "is_target", "width", "pose", "grasp"]+
+                       bbox_features)
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose"]+
+                        bbox_features)
+    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"]+bbox_features)
+    _table_type = Type("table", bbox_features)
+
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)

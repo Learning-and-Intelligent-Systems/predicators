@@ -217,7 +217,6 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             task.init.state_image.save(f"images/init_state{i}.png")
             task.init.labeled_image.save(f"images/init_label{i}.png")
-        breakpoint()
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
@@ -405,10 +404,10 @@ class VlmInventionApproach(NSRTLearningApproach):
 
                 logging.info(f"[ite {ite}] compare abstract accuracy of "
                                 f"{self.base_candidates}")
-                utils.compare_abstract_accuracy(
-                    [s for traj in all_trajs for s in traj.states], 
-                    sorted(self.base_candidates - self._initial_predicates),
-                    env.ns_to_sym_predicates)
+                # utils.compare_abstract_accuracy(
+                #     [s for traj in all_trajs for s in traj.states], 
+                #     sorted(self.base_candidates - self._initial_predicates),
+                #     env.ns_to_sym_predicates)
                 logging.info(f"Abstract accuracy of for the failed states")
                 utils.compare_abstract_accuracy(
                     list(set(state for optn_dict in [self.fail_optn_dict]

@@ -37,6 +37,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _offset: ClassVar[float] = 0.01
     pickplace_z: ClassVar[float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001
+    _obj_id_to_obj: Dict[int, Object] = {}
+
+    # _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
+    #                             _Covers_NSP_holds)
 
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
@@ -47,11 +51,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         bbox_features)
     _robot_type = Type("robot", ["hand", "pose_x", "pose_z"]+bbox_features)
     _table_type = Type("table", bbox_features)
-
-    _obj_id_to_obj: Dict[int, Object] = {}
-
-    # _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
-    #                             _Covers_NSP_holds)
 
     def _Covers_NSP_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
