@@ -67,5 +67,5 @@ def test_llm_op_learning():
                                verify_harmlessness=True,
                                annotations=None)
     learner._llm = _DummyLLM()  # pylint:disable=protected-access
-    pnads = learner._learn()
+    pnads = learner._learn()  # pylint:disable=protected-access
     assert len(pnads) == 2
