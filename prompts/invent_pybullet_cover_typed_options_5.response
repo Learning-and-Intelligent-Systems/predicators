@@ -1,0 +1,22 @@
+```python
+def _RobotHoldingBlock_holds(state: RawState, objects: Sequence[Object]) -> bool:
+    '''
+    Determine if the robot is holding a specific block.
+    '''
+    robot, block = objects
+    robot_name = robot.id_name
+    block_name = block.id_name
+
+    # Crop the scene image to focus on the robot and block.
+    attention_image = state.crop_to_objects([robot, block], left_margin=20, right_margin=20)
+    # Determine if the robot is holding the specific block.
+    return state.evaluate_simple_assertion(
+        f"{robot_name} is holding {block_name}.", attention_image)
+
+# Define the predicate name here 
+name: str = "RobotHoldingBlock"
+
+# A list of object-type variables for the predicate, using the ones defined in the environment
+param_types: Sequence[Type] = [_robot_type, _block_type] 
+RobotHoldingBlock = NSPredicate(name, param_types, _RobotHoldingBlock_holds)
+```

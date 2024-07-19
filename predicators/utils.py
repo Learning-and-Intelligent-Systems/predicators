@@ -5224,4 +5224,3 @@ def add_text_to_draw_img(
     # Add the text to the image
     draw.text(position, text, fill="red", font=font)
     return draw
-                                                                                  

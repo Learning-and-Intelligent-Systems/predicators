@@ -7,3 +7,5 @@ Is there any other predicates that might be useful?
 Pay special attention to object features that are different between in failed and success states, in particular involving objects related the option being considered.
 
 Pay special attention to object features that differ between failed and successful states, particularly those involving objects related to the option being considered.
+
+- Don't write predicates that quality adjacency such as X is near Y or X is close to Y as its not important.
