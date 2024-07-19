@@ -18,16 +18,17 @@ def _HandEmpty_holds(state: RawState, objects: Sequence[Object]) -> bool:
     Check if the robot is not holding any blocks.
     '''
     # robot, = objects
-    # # Crop a larger area around the robot to check for held objects.
-    # attention_image = state.crop_to_objects([robot], left_margin=50, right_margin=50)
-    # return state.evaluate_simple_assertion("The robot is not holding anything", attention_image)
-    for obj in state:
-        if obj.is_instance(_block_type) and \
-            state.get(obj, "grasp") != -1:
-            return False
-    return True
+    robot, = state.get_objects(_robot_type)
+    # Crop a larger area around the robot to check for held objects.
+    attention_image = state.crop_to_objects([robot], left_margin=50, right_margin=50)
+    return state.evaluate_simple_assertion("The robot is not holding anything", attention_image)
+    # for obj in state:
+    #     if obj.is_instance(_block_type) and \
+    #         state.get(obj, "grasp") != -1:
+    #         return False
+    # return True
 
-name: str = "HandEmpty(?x:robot)"
-param_types: Sequence[Type] = [_robot_type]
+name: str = "HandEmpty"
+param_types: Sequence[Type] = []
 HandEmpty = NSPredicate(name, param_types, _HandEmpty_holds)
 ```

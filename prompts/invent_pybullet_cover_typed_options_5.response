@@ -1,22 +1,25 @@
 ```python
-def _RobotHoldingBlock_holds(state: RawState, objects: Sequence[Object]) -> bool:
+def _BlockGrasped_holds(state: RawState, objects: Sequence[Object]) -> bool:
     '''
-    Determine if the robot is holding a specific block.
+    Determine if the block is grasped by the robot.
     '''
-    robot, block = objects
-    robot_name = robot.id_name
+    block, = objects
+    robot, = state.get_objects(_robot_type)
+    # return state.get(block, "grasp") != -1
     block_name = block.id_name
-
-    # Crop the scene image to focus on the robot and block.
-    attention_image = state.crop_to_objects([robot, block], left_margin=20, right_margin=20)
-    # Determine if the robot is holding the specific block.
+    robot_name = robot.id_name
+    attention_image = state.crop_to_objects([block, robot])
     return state.evaluate_simple_assertion(
-        f"{robot_name} is holding {block_name}.", attention_image)
+        f"{block_name} is grasped by {robot_name}", attention_image)
 
 # Define the predicate name here 
-name: str = "RobotHoldingBlock"
+name: str = "BlockGrasped"
 
 # A list of object-type variables for the predicate, using the ones defined in the environment
-param_types: Sequence[Type] = [_robot_type, _block_type] 
-RobotHoldingBlock = NSPredicate(name, param_types, _RobotHoldingBlock_holds)
+param_types: Sequence[Type] = [_block_type] 
+BlockGrasped = NSPredicate(name, param_types, _BlockGrasped_holds)
 ```
+
+This predicate uses the `evaluate_simple_assertion` to determine if the robot is actually grasping the block. This could be helpful to ensure the "Pick" action was successful before attempting a "Place" action.
+
+**Remember:** These are just examples, and the most effective predicates will depend on the specific details of your environment and task. You may need to experiment with different features and thresholds to find the predicates that best capture the relevant state information. 

@@ -41,10 +41,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     # _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
     #                             _Covers_NSP_holds)
-    ns_to_sym_predicates: Dict[str, Predicate] = {
-            # "...": self._Holding,
-            # "...": self._HandEmpty,
-        }
 
     def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -382,6 +378,14 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
                         bbox_features)
     _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"]+bbox_features)
     _table_type = Type("table", bbox_features)
+
+    def __init__(self, use_gui: bool = True) -> None:   
+        super().__init__(use_gui)
+
+        self.ns_to_sym_predicates: Dict[str, Predicate] = {
+            "HandEmpty": self._HandEmpty,
+            "BlockGrasped": self._Holding,
+        }
 
     @classmethod
     def get_name(cls) -> str:

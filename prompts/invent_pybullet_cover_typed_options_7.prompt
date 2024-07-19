@@ -234,109 +234,32 @@ where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left
 `pose_x`, `pose_y` and `pose_z` correspond to the 3d object position in the world frame, so they are not comparable to the bbox values.
 
 The existing set of predicates are:
-{'Covers(?x:block, ?y:target)'}
+{'BlockGrasped(?x:block)', 'HandEmpty()', 'Covers(?x:block, ?y:target)', 'RobotHasClearance(?x:robot)(?x:robot)'}
 
 
 The set of options the robot has are:
-Pick(?block:block): None
-Place(?target:target): None
+Pick(?x0:block): None
+Place(?x1:target): None
 
 Utilizing the exisiting predicates, we carefully designed following action operators:
-Operator-Place:
-    Parameters: [?block:block, ?target:target]
-    Preconditions: []
-    Add Effects: [Covers(?block:block, ?target:target)]
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: Place(?target:target)
-Operator-Pick:
-    Parameters: [?block:block]
+Operator-Op0:
+    Parameters: [?x0:block]
     Preconditions: []
     Add Effects: []
     Delete Effects: []
     Ignore Effects: []
-    Option Spec: Pick(?block:block)
+    Option Spec: Pick(?x0:block)
+Operator-Op1:
+    Parameters: [?x0:block, ?x1:target]
+    Preconditions: []
+    Add Effects: [Covers(?x0:block, ?x1:target)]
+    Delete Effects: []
+    Ignore Effects: []
+    Option Spec: Place(?x1:target)
 
 The robot tried to excute its options on states that satisfied their preconditions and got the following results:
-Option Pick(block4:block) *successfully* executed on the following states (positive states):
-  state_0 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.5},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: None
-
-  state_2 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.8},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: Place(target6:target)
-
-Option Pick(block4:block) *failed* to executed on the following states (negative states):
-  state_1 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.9},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: None
-
 Option Pick(block3:block) *successfully* executed on the following states (positive states):
-  state_3 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.5},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: None
-
-  state_5 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 1.0},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: Place(target5:target)
-
-Option Pick(block3:block) *failed* to executed on the following states (negative states):
-  state_4 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.3},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: None
-
-Option Place(target5:target) *successfully* executed on the following states (positive states):
-  state_4 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.3},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: None
-
-  state_9 with additional info:
-  {'block3:block',
-   'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.5},
-   'table2:table',
-   'target5:target',
-   'target6:target'}
-  Previous option: Pick(block3:block)
-
-Option Place(target5:target) *failed* to executed on the following states (negative states):
-  state_3 with additional info:
+  state_0 with additional info:
   {'block3:block',
    'block4:block',
    'robot1:robot': {'pose_y_norm': 0.5},
@@ -348,14 +271,14 @@ Option Place(target5:target) *failed* to executed on the following states (negat
   state_6 with additional info:
   {'block3:block',
    'block4:block',
-   'robot1:robot': {'pose_y_norm': 0.8},
+   'robot1:robot': {'pose_y_norm': 1.0},
    'table2:table',
    'target5:target',
    'target6:target'}
-  Previous option: Pick(block4:block)
+  Previous option: Place(target5:target)
 
-Option Place(target6:target) *successfully* executed on the following states (positive states):
-  state_4 with additional info:
+Option Pick(block3:block) *failed* to executed on the following states (negative states):
+  state_1 with additional info:
   {'block3:block',
    'block4:block',
    'robot1:robot': {'pose_y_norm': 0.3},
@@ -364,17 +287,56 @@ Option Place(target6:target) *successfully* executed on the following states (po
    'target6:target'}
   Previous option: None
 
-  state_14 with additional info:
+Option Pick(block4:block) *successfully* executed on the following states (positive states):
+  state_5 with additional info:
   {'block3:block',
    'block4:block',
    'robot1:robot': {'pose_y_norm': 0.5},
    'table2:table',
    'target5:target',
    'target6:target'}
+  Previous option: None
+
+  state_7 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 1.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Place(target5:target)
+
+Option Pick(block4:block) *failed* to executed on the following states (negative states):
+  state_1 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 0.3},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+Option Place(target6:target) *successfully* executed on the following states (positive states):
+  state_9 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 0.7},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
   Previous option: Pick(block4:block)
 
+  state_2 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 0.9},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
 Option Place(target6:target) *failed* to executed on the following states (negative states):
-  state_3 with additional info:
+  state_0 with additional info:
   {'block3:block',
    'block4:block',
    'robot1:robot': {'pose_y_norm': 0.5},
@@ -387,6 +349,44 @@ Option Place(target6:target) *failed* to executed on the following states (negat
   {'block3:block',
    'block4:block',
    'robot1:robot': {'pose_y_norm': 0.1},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block3:block)
+
+Option Place(target5:target) *successfully* executed on the following states (positive states):
+  state_18 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 0.2},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block3:block)
+
+  state_2 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 0.9},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+Option Place(target5:target) *failed* to executed on the following states (negative states):
+  state_0 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 0.5},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+  state_19 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'pose_y_norm': 0.5},
    'table2:table',
    'target5:target',
    'target6:target'}

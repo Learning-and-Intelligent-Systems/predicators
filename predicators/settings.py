@@ -765,6 +765,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.
                     "pybullet_cover": 1000,
+                    "pybullet_cover_typed_options": 1000,
                     "pybullet_blocks": 1000,
                     # to allow pour policies to finish
                     "pybullet_coffee": 2000,
