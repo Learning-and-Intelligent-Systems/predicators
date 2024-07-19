@@ -66,7 +66,7 @@ class GlobalSettings:
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
     # pybullet_cover env paramters
-    pybullet_cover_seperate_pick_place = False
+    cover_typed_options_no_sampler = False
 
     # bumpy cover env parameters
     bumpy_cover_num_bumps = 2

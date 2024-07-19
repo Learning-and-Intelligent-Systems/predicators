@@ -187,8 +187,10 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             del m  # unused
             # The pick parameter is a RELATIVE position, so we need to
             # add the pose of the object.
-            if CFG.env == "cover_typed_options":
-                pick_pose = s.get(o[0], "pose_y_norm") + p[0]
+            if CFG.env in ("cover_typed_options", 
+                            "pybullet_cover_typed_options"):
+                pick_pose = s.get(o[0], "pose_y_norm") + 0 if\
+                        CFG.cover_typed_options_no_sampler else p[0] 
                 pick_pose = min(max(pick_pose, 0.0), 1.0)
                 return Action(np.array([pick_pose], dtype=np.float32))
             return Action(p)
@@ -201,12 +203,20 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
                                                   _Pick_policy,
                                                   types=[block_type],
                                                   params_space=Box(
-                                                      lb, ub, (1, )))
+                                        lb, ub, (0 if 
+                                        CFG.cover_typed_options_no_sampler else
+                                        1, )))
 
         def _Place_policy(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> Action:
-            del state, memory, objects  # unused
-            return Action(params)  # action is simply the parameter
+            del memory  # unused
+            if CFG.cover_typed_options_no_sampler and (CFG.env in
+                    ("cover_typed_options", "pybullet_cover_typed_options")):
+                place_pose = state.get(objects[0], "pose_y_norm")
+                place_pose = min(max(place_pose, 0.0), 1.0)
+                return Action(np.array([place_pose], dtype=np.float32))
+            else:
+                return Action(params)  # action is simply the parameter
 
         place_types = [block_type, target_type]
         if CFG.env in ("cover_typed_options", 
@@ -217,7 +227,9 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             "Place",
             _Place_policy,  # use the parent class's policy
             types=place_types,
-            params_space=Box(0, 1, (1, )))
+            params_space=Box(lb, ub, (0 if 
+                            CFG.cover_typed_options_no_sampler else
+                            1, )))
 
         return {Pick, Place}
 
@@ -449,7 +461,8 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         # robot_type = types["robot"]
         # Pick
         option_types = [block_type]
-        params_space = Box(0, 1, (1, ))
+        params_space = Box(0, 1, (0 if CFG.cover_typed_options_no_sampler else
+                                  1, ))
         Pick = utils.LinearChainParameterizedOption(
             "Pick",
             [
@@ -491,7 +504,8 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         )
         # Place
         option_types = [target_type]
-        params_space = Box(0, 1, (1, ))
+        params_space = Box(0, 1, (0 if CFG.cover_typed_options_no_sampler else
+                                  1, ))
         Place = utils.LinearChainParameterizedOption(
             "Place",
             [

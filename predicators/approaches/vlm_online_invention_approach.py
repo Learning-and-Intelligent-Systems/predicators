@@ -324,6 +324,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
                     # if ite != 1:
                     #     breakpoint()
+                    breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
@@ -671,7 +672,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                         task=i,
                         p_idx=p_idx,)
                     state = states[-1]
-                    prev_state = states[-2]
+                    try:
+                        prev_state = states[-2]
+                    except:
+                        breakpoint()
                     # Take the prefix of the pplan and use it to learn
                     #   operators.
                     if len(states) <= len(actions):

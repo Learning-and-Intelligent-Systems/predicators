@@ -291,6 +291,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         state.get(t, "pose_y_norm") - state.get(t, "width") / 10)
                     ub = float(
                         state.get(t, "pose_y_norm") + state.get(t, "width") / 10)
+                logging.debug(f"Place sampler: lb={lb}, ub={ub}")
                 lb = max(lb, 0.0)
                 ub = min(ub, 1.0)
                 return np.array(rng.uniform(lb, ub, size=(1, )),

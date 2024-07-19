@@ -2165,7 +2165,6 @@ def run_policy_with_simulator(
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
-                # breakpoint()
                 state = simulator(state, act)
                 actions.append(act)
                 states.append(state)
@@ -3602,7 +3601,7 @@ def compare_abstract_accuracy(
             else:
                 num_not_found += 1
     logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. " +
-                 f"Accuracy: {num_correct/num_evals}. "
+                 f"Accuracy: {num_correct/num_evals if num_evals != 0 else 1}. "
                  f"{num_not_found} NS-predicates not found.")
 
 
@@ -5225,3 +5224,4 @@ def add_text_to_draw_img(
     # Add the text to the image
     draw.text(position, text, fill="red", font=font)
     return draw
+                                                                                  
