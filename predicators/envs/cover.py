@@ -37,11 +37,13 @@ class CoverEnv(BaseEnv):
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
     _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose_y_norm", "grasp"]+
-                       bbox_features)
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose_y_norm"]+
+                    ["is_block", "is_target", "width", "pose_y_norm", "grasp"]+
                         bbox_features)
-    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"]+bbox_features)
+    _target_type = Type("target", 
+                    ["is_block", "is_target", "width", "pose_y_norm"]+
+                        bbox_features)
+    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"]+
+                        bbox_features)
     _table_type = Type("table", bbox_features)
 
 
