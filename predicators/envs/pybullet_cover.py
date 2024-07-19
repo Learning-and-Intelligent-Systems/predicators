@@ -302,9 +302,14 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         max(CFG.cover_target_widths))
 
         # Get robot state.
-        rx, ry, rz, _, _, _, _, _ = self._pybullet_robot.get_state()
+        rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
+        fingers = self._fingers_joint_to_state(rf)
         hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
-        state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
+        if "hand_empty" in self._robot_type.feature_names:
+            state_dict[self._robot] = np.array([hand, rx, rz, fingers],
+                                               dtype=np.float32)
+        else:
+            state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
         joint_positions = self._pybullet_robot.get_joints()
 
         # Get block states.
@@ -367,16 +372,31 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         tasks = super()._get_tasks(num, rng)
         return self._add_pybullet_state_to_tasks(tasks)
 
+    def _fingers_joint_to_state(self, fingers_joint: float) -> float:
+        """Convert the finger joint values in PyBullet to values for the State.
+
+        The joint values given as input are the ones coming out of
+        self._pybullet_robot.get_state().
+        """
+        open_f = self._pybullet_robot.open_fingers
+        closed_f = self._pybullet_robot.closed_fingers
+        # Fingers in the State should be either 0 or 1.
+        return int(fingers_joint > (open_f + closed_f) / 2)
+
+
 class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
 
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
     _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose_y_norm", "grasp"]+
-                       bbox_features)
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose_y_norm"]+
-                        bbox_features)
-    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"]+bbox_features)
+                    ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
+                    bbox_features)
+    _target_type = Type("target", 
+                    ["is_block", "is_target", "width", "pose_y_norm"] +
+                    bbox_features)
+    _robot_type = Type("robot", 
+                    ["pose_y_norm", "pose_x", "pose_z", "hand_empty"] +
+                    bbox_features)
     _table_type = Type("table", bbox_features)
 
     def __init__(self, use_gui: bool = True) -> None:   

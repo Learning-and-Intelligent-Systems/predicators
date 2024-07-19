@@ -92,7 +92,9 @@ def create_move_end_effector_to_pose_option(
     move_to_pose_tol: float,
     max_vel_norm: float,
     finger_action_nudge_magnitude: float,
-) -> ParameterizedOption:
+    initiable: Callable[[State, Sequence[Object], Array], bool] =\
+        lambda _1, _2, _3, _4: True
+    ) -> ParameterizedOption:
     """A generic utility that creates a ParameterizedOption for moving the end
     effector to a target pose, given a function that takes in the current
     state, objects, and parameters, and returns the current pose and target
@@ -180,7 +182,7 @@ def create_move_end_effector_to_pose_option(
                                types=types,
                                params_space=params_space,
                                policy=_policy,
-                               initiable=lambda _1, _2, _3, _4: True,
+                               initiable=initiable,
                                terminal=_terminal)
 
 

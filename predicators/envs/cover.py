@@ -42,7 +42,7 @@ class CoverEnv(BaseEnv):
     _target_type = Type("target", 
                     ["is_block", "is_target", "width", "pose_y_norm"] +
                         bbox_features)
-    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"] +
+    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z", "hand_empty"] +
                         bbox_features)
     _table_type = Type("table", bbox_features)
 
@@ -52,12 +52,12 @@ class CoverEnv(BaseEnv):
 
         # Predicates
         self._IsBlock = Predicate("IsBlock", [self._block_type],
-                                  self._IsBlock_holds)
+                                self._IsBlock_holds)
         self._IsTarget = Predicate("IsTarget", [self._target_type],
-                                   self._IsTarget_holds)
+                                self._IsTarget_holds)
         self._Covers = Predicate("Covers",
-                                 [self._block_type, self._target_type],
-                                 self._Covers_holds)
+                                [self._block_type, self._target_type],
+                                self._Covers_holds)
         # IsClear(y) is Forall x:box. not Covers(x, y) -- quantify all but one
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
@@ -88,8 +88,10 @@ class CoverEnv(BaseEnv):
             if state.get(block, "grasp") != -1:
                 assert held_block is None
                 held_block = block
-            block_lb = state.get(block, "pose_y_norm") - state.get(block, "width") / 2
-            block_ub = state.get(block, "pose_y_norm") + state.get(block, "width") / 2
+            block_lb = state.get(block, "pose_y_norm") - state.get(block, 
+                        "width") / 2
+            block_ub = state.get(block, "pose_y_norm") + state.get(block, 
+                        "width") / 2
             if state.get(block,
                          "grasp") == -1 and block_lb <= pose <= block_ub:
                 assert above_block is None

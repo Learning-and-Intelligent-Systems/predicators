@@ -1,6 +1,7 @@
 """Ground-truth options for the cover environment."""
 
-from typing import ClassVar, Dict, List, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Sequence, Set, Tuple, Callable
+import logging
 
 import numpy as np
 from gym.spaces import Box
@@ -181,6 +182,7 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         block_type = types["block"]
         target_type = types["target"]
+        Covers = predicates["Covers"]
 
         def _Pick_policy(s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> Action:
@@ -214,15 +216,16 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
                     ("cover_typed_options", "pybullet_cover_typed_options")):
                 place_pose = state.get(objects[0], "pose_y_norm")
                 place_pose = min(max(place_pose, 0.0), 1.0)
+                # logging.debug(f"Placing at {place_pose}")
                 return Action(np.array([place_pose], dtype=np.float32))
             else:
                 return Action(params)  # action is simply the parameter
 
+        # when used in the option model pybullet_cover_typed_options
         place_types = [block_type, target_type]
-        if CFG.env in ("cover_typed_options", 
-                       "pybullet_cover_typed_options"):
-            # when used in the option model pybullet_cover_typed_options
+        if CFG.env in ("cover_typed_options"):
             place_types = [target_type]
+
         Place = utils.SingletonParameterizedOption(
             "Place",
             _Place_policy,  # use the parent class's policy
@@ -419,6 +422,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         # This could lead to slippage or bad grasps, but we haven't seen this
         # in practice, so we'll leave it as is instead of changing the State.
         HandEmpty = predicates["HandEmpty"]
+        Covers = predicates["Covers"]
         toggle_fingers_func = lambda s, _1, _2: (
             (pybullet_robot.open_fingers, pybullet_robot.closed_fingers)
             if HandEmpty.holds(s, []) else
@@ -463,6 +467,15 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         option_types = [block_type]
         params_space = Box(0, 1, (0 if CFG.cover_typed_options_no_sampler else
                                   1, ))
+        def pick_initiable(state: State, m: Dict, o: Sequence[Object],
+                            p: Array) -> bool:
+            del p
+            block, = o
+            if HandEmpty.holds(state, []):
+                return True
+            else:
+                return False
+
         Pick = utils.LinearChainParameterizedOption(
             "Pick",
             [
@@ -474,7 +487,9 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                     predicates=predicates,
                     types=types,
                     option_types=option_types,
-                    params_space=params_space),
+                    params_space=params_space,
+                    # initiable=pick_initiable,
+                    ),
                 # Move down to pick.
                 cls._create_cover_move_to_above_option(
                     name="MoveEndEffectorToPose",
@@ -489,7 +504,8 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot, "ToggleFingers", 
                     option_types,
                     params_space,
-                    toggle_fingers_func,
+                    lambda s, _1, _2: ((pybullet_robot.open_fingers, 
+                                        pybullet_robot.closed_fingers)),
                     CFG.pybullet_max_vel_norm, PyBulletCoverEnv.grasp_tol),
                 # Move back up.
                 cls._create_cover_move_to_above_option(
@@ -503,13 +519,25 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             ]
         )
         # Place
-        option_types = [target_type]
+        option_types = [block_type, target_type]
         params_space = Box(0, 1, (0 if CFG.cover_typed_options_no_sampler else
                                   1, ))
+
+        def place_initiable(state: State, m: Dict, o: Sequence[Object],
+                            p: Array) -> bool:
+            del p
+            block, target = o
+            # if HandEmpty.holds(state, []):
+            #     return False
+            for block in state.get_objects(block_type):
+                if Covers.holds(state, [block, target]):
+                    return False
+            return True
+
         Place = utils.LinearChainParameterizedOption(
             "Place",
             [
-                # Move to far above the location we will pick.
+                # Move to far above the location we will place.
                 cls._create_cover_move_to_above_option(
                     name="MoveEndEffectorToPrePose",
                     pybullet_robot=pybullet_robot,
@@ -517,7 +545,9 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                     predicates=predicates,
                     types=types,
                     option_types=option_types,
-                    params_space=params_space),
+                    params_space=params_space,
+                    # initiable=place_initiable,
+                    ),
                 # Move down to pick.
                 cls._create_cover_move_to_above_option(
                     name="MoveEndEffectorToPose",
@@ -532,7 +562,8 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot, "ToggleFingers", 
                     option_types,
                     params_space,
-                    toggle_fingers_func,
+                    lambda s, _1, _2: ((pybullet_robot.closed_fingers, 
+                                        pybullet_robot.open_fingers)),
                     CFG.pybullet_max_vel_norm, PyBulletCoverEnv.grasp_tol),
                 # Move back up.
                 cls._create_cover_move_to_above_option(
@@ -560,7 +591,9 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         cls, name: str, pybullet_robot: SingleArmPyBulletRobot,
         target_z: float, predicates: Dict[str, Predicate],
         types: Dict[str, Type], option_types: List[Type], 
-        params_space: Box) -> ParameterizedOption:
+        params_space: Box, initiable: Callable[[State, Dict, 
+            Sequence[Object], Array], bool] = lambda s, m, o, p: True
+        ) -> ParameterizedOption:
         """Create a ParameterizedOption for moving to above a block."""
         HandEmpty = predicates["HandEmpty"]
         robot_type = types["robot"]
@@ -572,7 +605,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             del params
             # assert not params
             # the object can either be a block or a target
-            object, = objects
+            object = objects[-1]
             robot, = state.get_objects(robot_type)
             hand = state.get(robot, "pose_y_norm")
             # De-normalize hand feature to actual table coordinates.
@@ -598,20 +631,15 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             pybullet_robot, name, option_types, params_space,
             _get_current_and_target_pose_and_finger_status,
             cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
-            cls._finger_action_nudge_magnitude)
+            cls._finger_action_nudge_magnitude, initiable)
 
 
-    # @classmethod
-    # def _create_cover_move_to_above_target_option(
-    #     cls, name: str, pybullet_robot: SingleArmPyBulletRobot,
-    #     target_z: float, predicates: Dict[str, Predicate],
-    #     types: Dict[str, Type]) -> ParameterizedOption:
-    #     """Create a ParameterizedOption for moving to above a block."""
     @classmethod
     def _create_cover_move_option(
             cls, name: str, pybullet_robot: SingleArmPyBulletRobot,
             target_z: float, predicates: Dict[str, Predicate],
-            types: Dict[str, Type]) -> ParameterizedOption:
+            types: Dict[str, Type],
+            ) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose in Cover."""
         option_types: Sequence[Type] = []
         params_space = Box(0, 1, (1, ))

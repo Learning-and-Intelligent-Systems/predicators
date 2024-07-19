@@ -204,10 +204,12 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         elif env_name == "bumpy_cover":
             option = Place
             option_vars = [block, target]
-        elif env_name in ("cover_typed_options", 
-                          "pybullet_cover_typed_options"):
+        elif env_name in ("cover_typed_options"):
             option = Place
             option_vars = [target]
+        elif env_name in ("pybullet_cover_typed_options"):
+            option = Place
+            option_vars = [block, target]
         elif env_name == "cover_place_hard":
             option = Place
             option_vars = [block, target]
@@ -291,7 +293,6 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         state.get(t, "pose_y_norm") - state.get(t, "width") / 10)
                     ub = float(
                         state.get(t, "pose_y_norm") + state.get(t, "width") / 10)
-                logging.debug(f"Place sampler: lb={lb}, ub={ub}")
                 lb = max(lb, 0.0)
                 ub = min(ub, 1.0)
                 return np.array(rng.uniform(lb, ub, size=(1, )),
