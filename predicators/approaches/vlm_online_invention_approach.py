@@ -404,10 +404,10 @@ class VlmInventionApproach(NSRTLearningApproach):
 
                 logging.info(f"[ite {ite}] compare abstract accuracy of "
                                 f"{self.base_candidates}")
-                # utils.compare_abstract_accuracy(
-                #     [s for traj in all_trajs for s in traj.states], 
-                #     sorted(self.base_candidates - self._initial_predicates),
-                #     env.ns_to_sym_predicates)
+                utils.compare_abstract_accuracy(
+                    [s for traj in all_trajs for s in traj.states], 
+                    sorted(self.base_candidates - self._initial_predicates),
+                    env.ns_to_sym_predicates)
                 logging.info(f"Abstract accuracy of for the failed states")
                 utils.compare_abstract_accuracy(
                     list(set(state for optn_dict in [self.fail_optn_dict]

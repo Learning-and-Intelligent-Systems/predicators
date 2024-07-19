@@ -149,7 +149,7 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                 objs = state.get_objects(block_type) + \
                     state.get_objects(target_type)
                 for obj in objs:
-                    pose = state.get(obj, "pose")
+                    pose = state.get(obj, "pose_y_norm")
                     width = state.get(obj, "width")
                     obj_regions.append((pose - width, pose + width))
                 for x in np.linspace(0, 1, 100):
@@ -188,7 +188,7 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             # The pick parameter is a RELATIVE position, so we need to
             # add the pose of the object.
             if CFG.env == "cover_typed_options":
-                pick_pose = s.get(o[0], "pose") + p[0]
+                pick_pose = s.get(o[0], "pose_y_norm") + p[0]
                 pick_pose = min(max(pick_pose, 0.0), 1.0)
                 return Action(np.array([pick_pose], dtype=np.float32))
             return Action(p)
@@ -560,7 +560,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             # the object can either be a block or a target
             object, = objects
             robot, = state.get_objects(robot_type)
-            hand = state.get(robot, "hand")
+            hand = state.get(robot, "pose_y_norm")
             # De-normalize hand feature to actual table coordinates.
             current_y = PyBulletCoverEnv.y_lb + (PyBulletCoverEnv.y_ub -
                                                  PyBulletCoverEnv.y_lb) * hand
@@ -569,7 +569,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             current_pose = Pose(current_position, home_orn)
 
             # Target_y -- y-coord of the object
-            y_norm = state.get(object, "pose")
+            y_norm = state.get(object, "pose_y_norm")
             target_y = PyBulletCoverEnv.y_lb + (PyBulletCoverEnv.y_ub -
                                                 PyBulletCoverEnv.y_lb) * y_norm
             target_position = (PyBulletCoverEnv.workspace_x, target_y, target_z)
@@ -610,7 +610,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                 params: Array) -> Tuple[Pose, Pose, str]:
             assert not objects
             robot, = state.get_objects(robot_type)
-            hand = state.get(robot, "hand")
+            hand = state.get(robot, "pose_y_norm")
             # De-normalize hand feature to actual table coordinates.
             current_y = PyBulletCoverEnv.y_lb + (PyBulletCoverEnv.y_ub -
                                                  PyBulletCoverEnv.y_lb) * hand

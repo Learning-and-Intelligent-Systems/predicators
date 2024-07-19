@@ -27,6 +27,7 @@ FLAGS:
   excluded_predicates: "all"
   min_perc_data_for_nsrt: 0 # 1 works for coffee (100) 0 works for coffee 50; 
                             # 3 for blocks
+  sesame_max_samples_per_step: 1 # for pybullet_cover; since we have oracle
   timeout: 300 #300
   log_file: "logs/vlm_predicate.log"
   vlm_invent_try_to_use_gt_predicates: False
@@ -34,7 +35,7 @@ FLAGS:
   # Env settings
   rgb_observation: False
   render_init_state: True # True for NSP
-  pybullet_control_mode: "reset"
+  # pybullet_control_mode: "reset"
   sesame_check_expected_atoms: False
   coffee_twist_sampler: False
   coffee_num_cups_train: '[1]'
@@ -80,7 +81,8 @@ FLAGS:
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
-  pybullet_camera_width: 1200
+  # pybullet_camera_width: 1200 # 1200 for coffee
+  pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   vlm_invent_include_option_history: True
 START_SEED: 1

@@ -29,19 +29,19 @@ class CoverEnv(BaseEnv):
 
     # # Types
     # _block_type = Type("block",
-    #                    ["is_block", "is_target", "width", "pose", "grasp"])
-    # _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
-    # _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+    #                    ["is_block", "is_target", "width", "pose_y_norm", "grasp"])
+    # _target_type = Type("target", ["is_block", "is_target", "width", "pose_y_norm"])
+    # _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"])
     # _table_type = Type("table", [])
 
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
     _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose", "grasp"]+
+                       ["is_block", "is_target", "width", "pose_y_norm", "grasp"]+
                        bbox_features)
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose"]+
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose_y_norm"]+
                         bbox_features)
-    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"]+bbox_features)
+    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"]+bbox_features)
     _table_type = Type("table", bbox_features)
 
 
@@ -86,8 +86,8 @@ class CoverEnv(BaseEnv):
             if state.get(block, "grasp") != -1:
                 assert held_block is None
                 held_block = block
-            block_lb = state.get(block, "pose") - state.get(block, "width") / 2
-            block_ub = state.get(block, "pose") + state.get(block, "width") / 2
+            block_lb = state.get(block, "pose_y_norm") - state.get(block, "width") / 2
+            block_ub = state.get(block, "pose_y_norm") + state.get(block, "width") / 2
             if state.get(block,
                          "grasp") == -1 and block_lb <= pose <= block_ub:
                 assert above_block is None
@@ -95,8 +95,8 @@ class CoverEnv(BaseEnv):
         # If we're not holding anything and we're above a block, grasp it.
         # The grasped block's pose stays the same.
         if held_block is None and above_block is not None:
-            grasp = pose - state.get(above_block, "pose")
-            next_state.set(self._robot, "hand", pose)
+            grasp = pose - state.get(above_block, "pose_y_norm")
+            next_state.set(self._robot, "pose_y_norm", pose)
             if "hand_empty" in self._robot_type.feature_names:
                 # See CoverEnvHandEmpty
                 next_state.set(self._robot, "hand_empty", 0)
@@ -116,15 +116,15 @@ class CoverEnv(BaseEnv):
             # placing onto some target.
             targets = state.get_objects(self._target_type)
             if self._allow_free_space_placing or \
-                any(state.get(targ, "pose")-state.get(targ, "width")/2
+                any(state.get(targ, "pose_y_norm")-state.get(targ, "width")/2
                     <= pose <=
-                    state.get(targ, "pose")+state.get(targ, "width")/2
+                    state.get(targ, "pose_y_norm")+state.get(targ, "width")/2
                     for targ in targets):
-                next_state.set(self._robot, "hand", pose)
+                next_state.set(self._robot, "pose_y_norm", pose)
                 if "hand_empty" in self._robot_type.feature_names:
                     # See CoverEnvHandEmpty
                     next_state.set(self._robot, "hand_empty", 1)
-                next_state.set(held_block, "pose", new_pose)
+                next_state.set(held_block, "pose_y_norm", new_pose)
                 next_state.set(held_block, "grasp", -1)
         return next_state
 
@@ -175,13 +175,13 @@ class CoverEnv(BaseEnv):
                      lw=1.,
                      label=label)
         # Draw hand
-        plt.scatter(state.get(self._robot, "hand"),
+        plt.scatter(state.get(self._robot, "pose_y_norm"),
                     0.05,
                     color="r",
                     s=100,
                     alpha=1.,
                     zorder=10,
-                    label="Hand")
+                    label="pose_y_norm")
         lw = 3
         height = 0.1
         cs = ["blue", "purple", "green", "yellow"]
@@ -192,12 +192,12 @@ class CoverEnv(BaseEnv):
             c = cs[i % len(cs)]
             if state.get(block, "grasp") != -1:
                 lcolor = "red"
-                pose = state.get(self._robot, "hand") - state.get(
+                pose = state.get(self._robot, "pose_y_norm") - state.get(
                     block, "grasp")
                 suffix = " (grasped)"
             else:
                 lcolor = "gray"
-                pose = state.get(block, "pose")
+                pose = state.get(block, "pose_y_norm")
                 suffix = ""
             rect = plt.Rectangle(
                 (pose - state.get(block, "width") / 2., -height / 2.),
@@ -214,7 +214,7 @@ class CoverEnv(BaseEnv):
             c = cs[i % len(cs)]
             lcolor = "gray"
             rect = plt.Rectangle(
-                (state.get(targ, "pose") - state.get(targ, "width") / 2.,
+                (state.get(targ, "pose_y_norm") - state.get(targ, "width") / 2.,
                  -height / 2.),
                 state.get(targ, "width"),
                 height,
@@ -238,12 +238,12 @@ class CoverEnv(BaseEnv):
         hand_regions = []
         for block in state.get_objects(self._block_type):
             hand_regions.append(
-                (state.get(block, "pose") - state.get(block, "width") / 2,
-                 state.get(block, "pose") + state.get(block, "width") / 2))
+                (state.get(block, "pose_y_norm") - state.get(block, "width") / 2,
+                 state.get(block, "pose_y_norm") + state.get(block, "width") / 2))
         for targ in state.get_objects(self._target_type):
             hand_regions.append(
-                (state.get(targ, "pose") - state.get(targ, "width") / 10,
-                 state.get(targ, "pose") + state.get(targ, "width") / 10))
+                (state.get(targ, "pose_y_norm") - state.get(targ, "width") / 10,
+                 state.get(targ, "pose_y_norm") + state.get(targ, "width") / 10))
         return hand_regions
 
     def _create_blocks_and_targets(self) -> Tuple[List[Object], List[Object]]:
@@ -313,14 +313,14 @@ class CoverEnv(BaseEnv):
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
             block = blocks[rng.choice(len(blocks))]
-            block_pose = state.get(block, "pose")
+            block_pose = state.get(block, "pose_y_norm")
             pick_pose = block_pose
             if self._initial_pick_offsets:
                 offset = rng.choice(self._initial_pick_offsets)
                 assert -1.0 < offset < 1.0, \
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
-            state.set(self._robot, "hand", pick_pose)
+            state.set(self._robot, "pose_y_norm", pick_pose)
             if "hand_empty" in self._robot_type.feature_names:
                 # See CoverEnvHandEmpty
                 state.set(self._robot, "hand_empty", 0)
@@ -340,9 +340,9 @@ class CoverEnv(BaseEnv):
     @staticmethod
     def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
         block, target = objects
-        block_pose = state.get(block, "pose")
+        block_pose = state.get(block, "pose_y_norm")
         block_width = state.get(block, "width")
-        target_pose = state.get(target, "pose")
+        target_pose = state.get(target, "pose_y_norm")
         target_width = state.get(target, "width")
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2) and \
@@ -396,7 +396,7 @@ class CoverEnvHandEmpty(CoverEnv):
 
         # Add attribute.
         self._robot_type = Type("robot",
-                                ["hand", "pose_x", "pose_z", "hand_empty"])
+                                ["pose_y_norm", "pose_x", "pose_z", "hand_empty"])
         # Override HandEmpty predicate.
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
@@ -434,7 +434,7 @@ class CoverEnvHierarchicalTypes(CoverEnv):
         self._parent_block_type = self._block_type
         self._block_type = Type(
             "block_derived",
-            ["is_block", "is_target", "width", "pose", "grasp"],
+            ["is_block", "is_target", "width", "pose_y_norm", "grasp"],
             parent=self._parent_block_type)
 
     @classmethod
@@ -489,10 +489,10 @@ class CoverEnvRegrasp(CoverEnv):
         # Construct the allowed hand regions from left to right.
         left_bound = 0.0
         targets = state.get_objects(self._target_type)
-        for targ in sorted(targets, key=lambda t: state.get(t, "pose")):
+        for targ in sorted(targets, key=lambda t: state.get(t, "pose_y_norm")):
             w = state.get(targ, "width")
-            targ_left = state.get(targ, "pose") - w / 2
-            targ_right = state.get(targ, "pose") + w / 2
+            targ_left = state.get(targ, "pose_y_norm") - w / 2
+            targ_right = state.get(targ, "pose_y_norm") + w / 2
             hand_regions.append((left_bound, targ_left - w))
             hand_regions.append((targ_left + w / 3, targ_right - w / 3))
             left_bound = targ_right + w
@@ -539,7 +539,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
         # Types
         # Need to now include y and gripper info in state.
-        # Removing "pose" because that's ambiguous.
+        # Removing "pose_y_norm" because that's ambiguous.
         # Also adding height to blocks.
         # The y position corresponds to the top of the block.
         # The x position corresponds to the center of the block.
@@ -549,7 +549,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Targets don't need y because they're constant.
         self._target_type = Type("target",
                                  ["is_block", "is_target", "width", "x"])
-        # Also removing "hand" because that's ambiguous.
+        # Also removing "pose_y_norm" because that's ambiguous.
         self._robot_type = Type("robot", ["x", "y", "grip", "holding"])
         self._block_hand_region_type = Type("block_hand_region",
                                             ["lb", "ub", "block_idx"])
@@ -762,7 +762,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                     s=100,
                     alpha=1.,
                     zorder=10,
-                    label="Hand")
+                    label="pose_y_norm")
         plt.plot([state.get(self._robot, "x"),
                   state.get(self._robot, "x")],
                  [1, state.get(self._robot, "y")],
@@ -1001,7 +1001,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     @staticmethod
     def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
-        # Overriding because of the change from "pose" to "x" and because
+        # Overriding because of the change from "pose_y_norm" to "x" and because
         # block's x-position is updated in every step of simulate and not just
         # at the end of a place() operation so we cannot allow the predicate to
         # hold when the block is in the air.
@@ -1033,9 +1033,9 @@ class CoverEnvPlaceHard(CoverEnv):
     # Repeating Types and Predicates for LLM input.
     # Types
     _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose", "grasp"])
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
-    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+                       ["is_block", "is_target", "width", "pose_y_norm", "grasp"])
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose_y_norm"])
+    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -1083,7 +1083,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
         # blocks. Otherwise the sampler couldn't possibly know which is which.
         self._block_type = Type(
             "block",
-            ["is_block", "is_target", "width", "pose", "grasp", "bumpy"])
+            ["is_block", "is_target", "width", "pose_y_norm", "grasp", "bumpy"])
 
         # Need to override predicate creation  for blocks because the types are
         # now different (in terms of equality).
@@ -1146,7 +1146,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
         for block in state.get_objects(self._block_type):
-            pose = state.get(block, "pose")
+            pose = state.get(block, "pose_y_norm")
             bumpy = abs(state.get(block, "bumpy") - 1.0) < 1e-3
             in_bumpy_region = not self._bumps_regional or \
                 pose > CFG.bumpy_cover_bumpy_region_start
@@ -1163,7 +1163,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
                 hand_regions.append((pose - state.get(block, "width") / 2,
                                      pose + state.get(block, "width") / 2))
         for targ in state.get_objects(self._target_type):
-            center = state.get(targ, "pose")
+            center = state.get(targ, "pose_y_norm")
             if CFG.bumpy_cover_right_targets:
                 center += 3 * state.get(targ, "width") / 4
             left = center - state.get(targ, "width") / 2
@@ -1228,7 +1228,7 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         if self._Holding_holds(state, objects):
             return False
         block, = objects
-        return state.get(block, "pose") > CFG.bumpy_cover_bumpy_region_start
+        return state.get(block, "pose_y_norm") > CFG.bumpy_cover_bumpy_region_start
 
     def _InSmoothRegion_holds(self, state: State,
                               objects: Sequence[Object]) -> bool:

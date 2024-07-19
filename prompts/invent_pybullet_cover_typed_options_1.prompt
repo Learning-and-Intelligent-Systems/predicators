@@ -238,26 +238,27 @@ The existing set of predicates are:
 
 
 The set of options the robot has are:
-PickPlace(): None
+Pick(?block:block): None
+Place(?target:target): None
 
 Utilizing the exisiting predicates, we carefully designed following action operators:
-Operator-Pick:
-    Parameters: [?block:block]
-    Preconditions: []
-    Add Effects: []
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: PickPlace()
 Operator-Place:
     Parameters: [?block:block, ?target:target]
     Preconditions: []
     Add Effects: [Covers(?block:block, ?target:target)]
     Delete Effects: []
     Ignore Effects: []
-    Option Spec: PickPlace()
+    Option Spec: Place(?target:target)
+Operator-Pick:
+    Parameters: [?block:block]
+    Preconditions: []
+    Add Effects: []
+    Delete Effects: []
+    Ignore Effects: []
+    Option Spec: Pick(?block:block)
 
 The robot tried to excute its options on states that satisfied their preconditions and got the following results:
-Option PickPlace() *successfully* executed on the following states (positive states):
+Option Pick(block4:block) *successfully* executed on the following states (positive states):
   state_0 with additional info:
   {'block3:block',
    'block4:block',
@@ -267,17 +268,27 @@ Option PickPlace() *successfully* executed on the following states (positive sta
    'target6:target'}
   Previous option: None
 
-  state_2 with additional info:
+  state_1 with additional info:
   {'block3:block',
    'block4:block',
    'robot1:robot': {'hand': 0.8},
    'table2:table',
    'target5:target',
    'target6:target'}
-  Previous option: PickPlace()
+  Previous option: Place(target6:target)
 
-Option PickPlace() *failed* to executed on the following states (negative states):
-  state_0 with additional info:
+Option Pick(block4:block) *failed* to executed on the following states (negative states):
+  state_2 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.9},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+Option Pick(block3:block) *successfully* executed on the following states (positive states):
+  state_3 with additional info:
   {'block3:block',
    'block4:block',
    'robot1:robot': {'hand': 0.5},
@@ -286,14 +297,100 @@ Option PickPlace() *failed* to executed on the following states (negative states
    'target6:target'}
   Previous option: None
 
-  state_2 with additional info:
+  state_5 with additional info:
   {'block3:block',
    'block4:block',
-   'robot1:robot': {'hand': 0.8},
+   'robot1:robot': {'hand': 1.0},
    'table2:table',
    'target5:target',
    'target6:target'}
-  Previous option: PickPlace()
+  Previous option: Place(target5:target)
+
+Option Pick(block3:block) *failed* to executed on the following states (negative states):
+  state_4 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.3},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+Option Place(target5:target) *successfully* executed on the following states (positive states):
+  state_2 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.9},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+  state_8 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.5},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block3:block)
+
+Option Place(target5:target) *failed* to executed on the following states (negative states):
+  state_3 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.5},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+  state_6 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.5},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Place(target6:target)
+
+Option Place(target6:target) *successfully* executed on the following states (positive states):
+  state_4 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.3},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+  state_12 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.5},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block4:block)
+
+Option Place(target6:target) *failed* to executed on the following states (negative states):
+  state_3 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 0.5},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: None
+
+  state_10 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'hand': 1.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Place(target5:target)
 
 
 Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integreated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy the precondition.

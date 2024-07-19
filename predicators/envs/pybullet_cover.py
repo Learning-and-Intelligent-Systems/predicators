@@ -13,7 +13,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
-    State, Type
+    State, Type, Predicate
 from predicators.utils import BoundingBox, NSPredicate, RawState, VLMQuery
 
 
@@ -41,16 +41,47 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     # _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
     #                             _Covers_NSP_holds)
+    ns_to_sym_predicates: Dict[str, Predicate] = {
+            # "...": self._Holding,
+            # "...": self._HandEmpty,
+        }
 
-    # Types
-    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose", "grasp"]+
-                       bbox_features)
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose"]+
-                        bbox_features)
-    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"]+bbox_features)
-    _table_type = Type("table", bbox_features)
+    def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
+            bool:
+        """Is the robot holding the block."""
+        block, = objects
+
+        # The block can't be held if the robot's hand is open.
+        # We know there is only one robot in this environment.
+        robot = state.get_objects(_robot_type)[0]
+        if self._GripperOpen_NSP_holds(state, [robot]):
+            return False
+
+        # Using simple heuristics to check if they have overlap
+        block_bbox = state.get_obj_bbox(block)
+        robot_bbox = state.get_obj_bbox(robot)
+        if block_bbox.right < robot_bbox.left or \
+            block_bbox.left > robot_bbox.right or\
+            block_bbox.upper < robot_bbox.lower or\
+            block_bbox.lower > robot_bbox.upper:
+            return False
+
+        block_name = block.id_name
+        attention_image = state.crop_to_objects([block, robot])
+
+        if CFG.save_nsp_image_patch_before_query:
+            attention_image.save(f"{CFG.image_dir}/holding({block_name}).png")
+
+        return state.evaluate_simple_assertion(
+            f"{block_name} is held by the robot", attention_image)
+
+    def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
+            bool:
+        """Is the robots gripper open."""
+        robot, = objects
+        finger_state = state.get(robot, "grasp")
+        assert finger_state in (0.0, 1.0)
+        return finger_state == 1.0
 
     def _Covers_NSP_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
@@ -147,7 +178,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             fingers = self._pybullet_robot.open_fingers
         else:
             fingers = self._pybullet_robot.closed_fingers
-        y_norm = state.get(self._robot, "hand")
+        y_norm = state.get(self._robot, "pose_y_norm")
         # De-normalize robot y to actual coordinates.
         ry = self.y_lb + (self.y_ub - self.y_lb) * y_norm
         rx = state.get(self._robot, "pose_x")
@@ -179,7 +210,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             self._obj_id_to_obj[block_id] = block_obj
             bx = self.workspace_x
             # De-normalize block y to actual coordinates.
-            y_norm = state.get(block_obj, "pose")
+            y_norm = state.get(block_obj, "pose_y_norm")
             by = self.y_lb + (self.y_ub - self.y_lb) * y_norm
             if state.get(block_obj, "grasp") != -1:
                 # If an object starts out held, it has a different z.
@@ -220,7 +251,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             self._obj_id_to_obj[target_id] = target_obj
             tx = self.workspace_x
             # De-normalize target y to actual coordinates.
-            y_norm = state.get(target_obj, "pose")
+            y_norm = state.get(target_obj, "pose_y_norm")
             ty = self.y_lb + (self.y_ub - self.y_lb) * y_norm
             tz = self._table_height + self._obj_len_hgt * 0.5
             p.resetBasePositionAndOrientation(
@@ -341,6 +372,17 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         return self._add_pybullet_state_to_tasks(tasks)
 
 class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
+
+    # Types
+    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
+    _block_type = Type("block",
+                       ["is_block", "is_target", "width", "pose_y_norm", "grasp"]+
+                       bbox_features)
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose_y_norm"]+
+                        bbox_features)
+    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"]+bbox_features)
+    _table_type = Type("table", bbox_features)
+
     @classmethod
     def get_name(cls) -> str:
         return "pybullet_cover_typed_options"
