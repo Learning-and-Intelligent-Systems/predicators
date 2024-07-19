@@ -20,6 +20,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {
             "cover", "cover_hierarchical_types", "cover_typed_options",
             "cover_regrasp", "cover_multistep_options", "pybullet_cover",
+            "pybullet_cover_typed_options",
             "cover_handempty", "bumpy_cover", "cover_place_hard"
         }
 
@@ -49,7 +50,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         "cover_regrasp", "cover_handempty"):
             PickPlace = options["PickPlace"]
         elif env_name in ("cover_typed_options", "cover_multistep_options",
-                          "bumpy_cover", "cover_place_hard"):
+                          "bumpy_cover", "cover_place_hard",
+                          "pybullet_cover_typed_options"):
             Pick, Place = options["Pick"], options["Place"]
 
         nsrts = set()
@@ -78,7 +80,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         elif env_name == "bumpy_cover":
             option = Pick
             option_vars = [block]
-        elif env_name in ("cover_typed_options", "cover_place_hard"):
+        elif env_name in ("cover_typed_options", "cover_place_hard",
+                          "pybullet_cover_typed_options"):
             option = Pick
             option_vars = [block]
         elif env_name == "cover_multistep_options":
@@ -152,7 +155,9 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     ub = float(state.get(b, "width") / 2)
                 elif env_name in ("cover", "pybullet_cover",
                                   "cover_hierarchical_types", "cover_regrasp",
-                                  "cover_handempty", "bumpy_cover"):
+                                  "cover_handempty", "bumpy_cover",
+                                  "pybullet_cover_typed_options",
+                                  ):
                     lb = float(
                         state.get(b, "pose") - state.get(b, "width") / 2)
                     lb = max(lb, 0.0)
@@ -199,7 +204,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         elif env_name == "bumpy_cover":
             option = Place
             option_vars = [block, target]
-        elif env_name in "cover_typed_options":
+        elif env_name in ("cover_typed_options", 
+                          "pybullet_cover_typed_options"):
             option = Place
             option_vars = [target]
         elif env_name == "cover_place_hard":

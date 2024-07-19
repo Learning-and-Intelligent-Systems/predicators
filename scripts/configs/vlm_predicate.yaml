@@ -9,7 +9,7 @@ ENVS:
     # NAME: "burger"
     # NAME: "pybullet_blocks"
     # NAME: "pybullet_coffee"
-    NAME: "pybullet_cover"
+    NAME: "pybullet_cover_typed_options"
 ARGS: 
   # []
   - "debug"
@@ -45,6 +45,7 @@ FLAGS:
   coffee_mac_requires_jug_to_turn_on: True
   coffee_move_back_after_place_and_push: False
   # coffee_include_front_view: True
+  pybullet_cover_seperate_pick_place: True
 
   # Predicate refinement parameters
   grammar_search_score_function: "expected_nodes_created"

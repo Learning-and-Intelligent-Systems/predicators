@@ -339,3 +339,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = super()._get_tasks(num, rng)
         return self._add_pybullet_state_to_tasks(tasks)
+
+class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
+    @classmethod
+    def get_name(cls) -> str:
+        return "pybullet_cover_typed_options"

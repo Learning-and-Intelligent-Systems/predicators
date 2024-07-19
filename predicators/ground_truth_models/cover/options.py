@@ -209,7 +209,9 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(params)  # action is simply the parameter
 
         place_types = [block_type, target_type]
-        if CFG.env == "cover_typed_options":
+        if CFG.env in ("cover_typed_options", 
+                       "pybullet_cover_typed_options"):
+            # when used in the option model pybullet_cover_typed_options
             place_types = [target_type]
         Place = utils.SingletonParameterizedOption(
             "Place",
@@ -390,7 +392,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"pybullet_cover"}
+        return {"pybullet_cover", "pybullet_cover_typed_options"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
@@ -440,9 +442,157 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                     predicates=predicates,
                     types=types)
             ])
+        
+        # Seperate Pick and Place option
+        block_type = types["block"]
+        target_type = types["target"]
+        # robot_type = types["robot"]
+        # Pick
+        option_types = [block_type]
+        params_space = Box(0, 1, (1, ))
+        Pick = utils.LinearChainParameterizedOption(
+            "Pick",
+            [
+                # Move to far above the location we will pick.
+                cls._create_cover_move_to_above_option(
+                    name="MoveEndEffectorToPrePose",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.workspace_z,
+                    predicates=predicates,
+                    types=types,
+                    option_types=option_types,
+                    params_space=params_space),
+                # Move down to pick.
+                cls._create_cover_move_to_above_option(
+                    name="MoveEndEffectorToPose",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.pickplace_z,
+                    predicates=predicates,
+                    types=types,
+                    option_types=option_types,
+                    params_space=params_space),
+                # Toggle finger       
+                create_change_fingers_option(
+                    pybullet_robot, "ToggleFingers", 
+                    option_types,
+                    params_space,
+                    toggle_fingers_func,
+                    CFG.pybullet_max_vel_norm, PyBulletCoverEnv.grasp_tol),
+                # Move back up.
+                cls._create_cover_move_to_above_option(
+                    name="MoveEndEffectorBackUp",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.workspace_z,
+                    predicates=predicates,
+                    types=types,
+                    option_types=option_types,
+                    params_space=params_space)
+            ]
+        )
+        # Place
+        option_types = [target_type]
+        params_space = Box(0, 1, (1, ))
+        Place = utils.LinearChainParameterizedOption(
+            "Place",
+            [
+                # Move to far above the location we will pick.
+                cls._create_cover_move_to_above_option(
+                    name="MoveEndEffectorToPrePose",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.workspace_z,
+                    predicates=predicates,
+                    types=types,
+                    option_types=option_types,
+                    params_space=params_space),
+                # Move down to pick.
+                cls._create_cover_move_to_above_option(
+                    name="MoveEndEffectorToPose",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.pickplace_z,
+                    predicates=predicates,
+                    types=types,
+                    option_types=option_types,
+                    params_space=params_space),
+                # Toggle finger       
+                create_change_fingers_option(
+                    pybullet_robot, "ToggleFingers", 
+                    option_types,
+                    params_space,
+                    toggle_fingers_func,
+                    CFG.pybullet_max_vel_norm, PyBulletCoverEnv.grasp_tol),
+                # Move back up.
+                cls._create_cover_move_to_above_option(
+                    name="MoveEndEffectorBackUp",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.workspace_z,
+                    predicates=predicates,
+                    types=types,
+                    option_types=option_types,
+                    params_space=params_space)
+            ]
+        )
 
-        return {PickPlace}
+        if CFG.env == "pybullet_cover":
+            return {PickPlace}
+        elif CFG.env == "pybullet_cover_typed_options":
+            # When using this, use the option model with options from
+            # cover_typed_no_param options
+            return {Pick, Place}
+        else:
+            raise NotImplementedError(f"Unsupported environment: {CFG.env}")
 
+    @classmethod
+    def _create_cover_move_to_above_option(
+        cls, name: str, pybullet_robot: SingleArmPyBulletRobot,
+        target_z: float, predicates: Dict[str, Predicate],
+        types: Dict[str, Type], option_types: List[Type], 
+        params_space: Box) -> ParameterizedOption:
+        """Create a ParameterizedOption for moving to above a block."""
+        HandEmpty = predicates["HandEmpty"]
+        robot_type = types["robot"]
+        home_orn = PyBulletCoverEnv.get_robot_ee_home_orn()
+
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose, Pose, str]:
+            del params
+            # assert not params
+            # the object can either be a block or a target
+            object, = objects
+            robot, = state.get_objects(robot_type)
+            hand = state.get(robot, "hand")
+            # De-normalize hand feature to actual table coordinates.
+            current_y = PyBulletCoverEnv.y_lb + (PyBulletCoverEnv.y_ub -
+                                                 PyBulletCoverEnv.y_lb) * hand
+            current_position = (state.get(robot, "pose_x"), current_y,
+                                state.get(robot, "pose_z"))
+            current_pose = Pose(current_position, home_orn)
+
+            # Target_y -- y-coord of the object
+            y_norm = state.get(object, "pose")
+            target_y = PyBulletCoverEnv.y_lb + (PyBulletCoverEnv.y_ub -
+                                                PyBulletCoverEnv.y_lb) * y_norm
+            target_position = (PyBulletCoverEnv.workspace_x, target_y, target_z)
+            target_pose = Pose(target_position, home_orn)
+            if HandEmpty.holds(state, []):
+                finger_status = "open"
+            else:
+                finger_status = "closed"
+            return current_pose, target_pose, finger_status
+
+        return create_move_end_effector_to_pose_option(
+            pybullet_robot, name, option_types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            cls._finger_action_nudge_magnitude)
+
+
+    # @classmethod
+    # def _create_cover_move_to_above_target_option(
+    #     cls, name: str, pybullet_robot: SingleArmPyBulletRobot,
+    #     target_z: float, predicates: Dict[str, Predicate],
+    #     types: Dict[str, Type]) -> ParameterizedOption:
+    #     """Create a ParameterizedOption for moving to above a block."""
     @classmethod
     def _create_cover_move_option(
             cls, name: str, pybullet_robot: SingleArmPyBulletRobot,

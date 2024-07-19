@@ -65,6 +65,9 @@ class GlobalSettings:
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
+    # pybullet_cover env paramters
+    pybullet_cover_seperate_pick_place = False
+
     # bumpy cover env parameters
     bumpy_cover_num_bumps = 2
     bumpy_cover_spaces_per_bump = 1
@@ -819,6 +822,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                 {
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
+                    "pybullet_cover_typed_options": 
+                        "oracle_cover_typed_options",
                     "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
