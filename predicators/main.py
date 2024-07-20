@@ -63,6 +63,11 @@ from predicators.structs import Dataset, InteractionRequest, \
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 from envs.grid_row import GridRowDoorEnv
 
+
+import cProfile
+import pstats
+import io
+
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
 
@@ -70,6 +75,8 @@ assert os.environ.get("PYTHONHASHSEED") == "0", \
 def main() -> None:
     """Main entry point for running approaches in environments."""
     script_start = time.perf_counter()
+    # pr = cProfile.Profile()
+    # pr.enable()
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
@@ -152,6 +159,12 @@ def main() -> None:
     _run_pipeline(env, cogman, approach_train_tasks, offline_dataset)
     script_time = time.perf_counter() - script_start
     logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
+    # pr.disable()
+    # s = io.StringIO()
+    # sortby = 'cumulative'
+    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    # ps.print_stats()
+    # print(s.getvalue())
 
 
 def _run_pipeline(env: BaseEnv,
@@ -283,7 +296,7 @@ def _run_pipeline(env: BaseEnv,
             print("HEYASEIHASIFHIHAOIDF", i)
             num_solved += results["num_solved"]
             print("CUMULATIVE NUM SOLVED: ", num_solved)
-            logging.debug("CUMULATIVE NUM SOLVED: " + str(num_solved))
+            logging.info("CUMULATIVE NUM SOLVED: " + str(num_solved))
             # print("fraction solved: ", num_solved / (i + 1))
             smooth_reward = sum(logs[-25:])/25
             smooth_rewards.append(smooth_reward)
@@ -296,6 +309,7 @@ def _run_pipeline(env: BaseEnv,
             learning_cycles.append(i + 1)
             cumulative_logs.append(num_solved)
             print(smooth_rewards, learning_cycles, logs, cumulative_logs)
+            logging.info(str(smooth_rewards) + str(learning_cycles) + str(logs) + str(cumulative_logs))
             # if smooth_reward>0.93:
             #     print("smooth reward.")
             #     generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
@@ -369,7 +383,7 @@ def _generate_interaction_results(
             monitor = utils.VideoMonitor(env.render)
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
-        if type(env) is GridRowDoorEnv:
+        if CFG.env == "grid_row_door":
             env._reset_cells()
         env_task = env.get_train_tasks()[request.train_task_idx]
         cogman.reset(env_task)
@@ -532,11 +546,10 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             video = monitor.get_video()
             utils.save_video(video_file, video)
 
-
     test_tasks = [
         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
     ]
-    if type(env) is GridRowDoorEnv:
+    if CFG.env == "grid_row_door":
         env._reset_test_cells()
     num_found_policy = 0
     num_solved = 0

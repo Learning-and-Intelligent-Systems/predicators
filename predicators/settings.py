@@ -279,7 +279,8 @@ class GlobalSettings:
     screws_num_screws_test = [25, 30]
 
     # doors env parameters
-    doors_room_map_size = 5
+    doors_room_map_size = 2
+    test_doors_room_map_size = 10
     doors_min_obstacles_per_room = 0
     doors_max_obstacles_per_room = 3
     doors_min_room_exists_frac = 0.25
@@ -568,7 +569,7 @@ class GlobalSettings:
     active_sampler_learning_feature_selection = "all"
     active_sampler_learning_knn_neighbors = 3
     active_sampler_learning_use_teacher = True
-    active_sampler_learning_num_samples = 100
+    active_sampler_learning_num_samples = 10
     active_sampler_learning_score_gamma = 0.5
     active_sampler_learning_fitted_q_iters = 5
     active_sampler_learning_explore_pursue_goal_interval = 5
@@ -714,7 +715,8 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
-                    "grid_row_door": 85
+                    "grid_row_door": 85,
+                    "doorknobs": 70
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
@@ -767,7 +769,8 @@ class GlobalSettings:
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
-                    "stick_button_move": 1000
+                    "stick_button_move": 1000,
+                    "doorknobs": 100
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into refining a single skeleton.
