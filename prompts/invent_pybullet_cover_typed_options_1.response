@@ -19,6 +19,7 @@ def _HandEmpty_holds(state: RawState, objects: Sequence[Object]) -> bool:
     '''
     # robot, = objects
     robot, = state.get_objects(_robot_type)
+    return state.get(robot, "hand_empty") > 0.5
     # Crop a larger area around the robot to check for held objects.
     attention_image = state.crop_to_objects([robot], left_margin=50, right_margin=50)
     return state.evaluate_simple_assertion("The robot is not holding anything", attention_image)

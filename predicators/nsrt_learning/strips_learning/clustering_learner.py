@@ -244,8 +244,10 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         optn_to_fail_data: Dict[str, 
             List[Tuple[State, Set[GroundAtom], List[Object]]]] = defaultdict(
                 list)
-        for optn_rec in self.fail_optn_dict.values():
+        for gop_str, optn_rec in self.fail_optn_dict.items():
+            # logging.debug(f"Accessing option record for {gop_str}")
             for s, ab_s in zip(optn_rec.states, optn_rec.abstract_states):
+                # logging.debug(f"Adding neg states for {optn_rec.option.name}")
                 optn_to_fail_data[optn_rec.option.name].append(
                     (s, ab_s, optn_rec.optn_objs)
                 )
@@ -254,6 +256,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
             init_preconditions = self._induce_preconditions_via_intersection(
                 pnad)
             option_name = pnad.option_spec[0].name
+            # logging.debug(f"fetching neg states for {option_name}")
             logging.debug(f"Search with "
                     f"{len(optn_to_fail_data[option_name])} negative and "
                     f"{len(pnad.datastore)} positive data for: {pnad}")

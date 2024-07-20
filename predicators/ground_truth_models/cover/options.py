@@ -527,11 +527,11 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                             p: Array) -> bool:
             del p
             block, target = o
-            # if HandEmpty.holds(state, []):
-            #     return False
-            for block in state.get_objects(block_type):
-                if Covers.holds(state, [block, target]):
-                    return False
+            if HandEmpty.holds(state, []):
+                return False
+            # for block in state.get_objects(block_type):
+            #     if Covers.holds(state, [block, target]):
+            #         return False
             return True
 
         Place = utils.LinearChainParameterizedOption(
@@ -546,7 +546,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                     types=types,
                     option_types=option_types,
                     params_space=params_space,
-                    # initiable=place_initiable,
+                    initiable=place_initiable,
                     ),
                 # Move down to pick.
                 cls._create_cover_move_to_above_option(

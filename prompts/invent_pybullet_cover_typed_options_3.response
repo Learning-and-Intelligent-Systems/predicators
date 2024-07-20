@@ -5,7 +5,11 @@ def _BlockGrasped_holds(state: RawState, objects: Sequence[Object]) -> bool:
     '''
     block, = objects
     robot, = state.get_objects(_robot_type)
+    
+    if state.get(robot, "hand_empty") == 1:
+        return False
     # return state.get(block, "grasp") != -1
+    
     block_name = block.id_name
     robot_name = robot.id_name
     attention_image = state.crop_to_objects([block, robot])

@@ -154,10 +154,16 @@ def count_classification_result_for_ops(
 
     for g_optn in ground_options:
         # Use atom states directly
-        succ_states = succ_optn_dict[g_optn].states
-        succ_abs_states = succ_optn_dict[g_optn].abstract_states
-        fail_states = fail_optn_dict[g_optn].states
-        fail_abs_states = fail_optn_dict[g_optn].abstract_states
+        if g_optn in succ_optn_dict:
+            succ_states = succ_optn_dict[g_optn].states
+            succ_abs_states = succ_optn_dict[g_optn].abstract_states
+        else:
+            succ_states, succ_abs_states = [], []
+        if g_optn in fail_optn_dict:
+            fail_states = fail_optn_dict[g_optn].states
+            fail_abs_states = fail_optn_dict[g_optn].abstract_states
+        else:
+            fail_states, fail_abs_states = [], []
         n_succ_states, n_fail_states = len(succ_states), len(fail_states)
         n_tot = n_succ_states + n_fail_states
 
@@ -3596,7 +3602,8 @@ def compare_abstract_accuracy(
                             state_name = f"state{i}"
                             logging.info(f"Error found in {state_name}: "
                                     f"the GT value for {gt_pred}({choice})"
-                                    f" is {gt_pred_holds}")
+                                    f" is {gt_pred_holds}, "
+                                    f"prev option: {state.option_history}")
                             state.labeled_image.save(f"images/{state_name}.png")
             else:
                 num_not_found += 1

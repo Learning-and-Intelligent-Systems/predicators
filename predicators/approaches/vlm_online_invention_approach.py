@@ -322,9 +322,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    # if ite != 1:
-                    #     breakpoint()
-                    breakpoint()
+                    if ite != 1:
+                        breakpoint()
+                    # breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
@@ -442,6 +442,8 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # When there is successful trajectories, maybe also use the positive
             # data to learn the operators?
+            logging.debug(f"has negative states for "
+                          f"{list(self.fail_optn_dict.keys())}")
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
                               annotations=None,
@@ -525,7 +527,14 @@ class VlmInventionApproach(NSRTLearningApproach):
             self._previous_nsrts = deepcopy(self._nsrts)
             # if solve_rate == 1 and num_failed_plans == 0:
             if solve_rate == 1 and num_failed_plans/num_tasks < 1:
-                break
+                if CFG.env in ["pybullet_coffee", "pybullet_blocks"]:
+                    # these are harder
+                    if num_failed_plans/num_tasks < 1:
+                        break
+                else:
+                # if CFG.env in ["pybullet_cover_typed_options"]:
+                    if num_failed_plans == 0:
+                        break
             time.sleep(5)
 
         logging.info("Invention finished.")
@@ -760,6 +769,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
                 use_object_id=CFG.neu_sym_predicate)
+            # logging.debug(f"found neg states for {gop_str}")
+            # logging.debug(f"have neg state for {self.fail_optn_dict.keys()}")
             self.fail_optn_dict[gop_str].append_state(
                 option_start_state,
                 utils.abstract(option_start_state,

@@ -47,6 +47,7 @@ FLAGS:
   coffee_move_back_after_place_and_push: False
   # coffee_include_front_view: True
   cover_typed_options_no_sampler: True
+  cover_initial_holding_prob: 0.0
 
   # Predicate refinement parameters
   grammar_search_score_function: "expected_nodes_created"
