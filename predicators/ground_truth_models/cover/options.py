@@ -213,8 +213,8 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
                           objects: Sequence[Object], params: Array) -> Action:
             del memory  # unused
             if CFG.cover_typed_options_no_sampler and (CFG.env in
-                    ("cover_typed_options", "pybullet_cover_typed_options")):
-                place_pose = state.get(objects[0], "pose_y_norm")
+                    ("pybullet_cover_typed_options")):
+                place_pose = state.get(objects[-1], "pose_y_norm")
                 place_pose = min(max(place_pose, 0.0), 1.0)
                 # logging.debug(f"Placing at {place_pose}")
                 return Action(np.array([place_pose], dtype=np.float32))
