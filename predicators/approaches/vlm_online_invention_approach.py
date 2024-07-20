@@ -322,9 +322,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                     response_file =\
                         f'./prompts/invent_{self.env_name}_{ite}.response'
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    if ite != 1:
-                        breakpoint()
-                    # breakpoint()
+                    # if ite != 1:
+                    #     breakpoint()
+                    breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
