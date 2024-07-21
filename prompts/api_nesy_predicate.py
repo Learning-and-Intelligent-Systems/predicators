@@ -17,8 +17,7 @@ class NSPredicate:
 
     _classifier : Callable[[State, Sequence[Object]], bool]
         The classifier function for the predicate. It takes a state and a
-        sequence of objects as input, and returns a boolean value. The sequence
-        of objects should correspond one-to-one with the 'types' attribute. The
+        sequence of objects as input, and returns a boolean value. The
         classifier returns True if the predicate holds for those objects in that
         state, and False otherwise.
     """

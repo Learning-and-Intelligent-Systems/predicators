@@ -1,14 +1,14 @@
 You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
 
 I will describe the API you should use for writing predicates and the environment the robot is in.
-# The API for `Predicate` and `State` is:
+# The API for `NSPredicate` and `State` is:
 [STRUCT_DEFINITION]
 
 # The Environment
 The environment includes the following object-type variables with features:
 [TYPES_IN_ENV]
-where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left, lower boundry of the object bounding box in the image starting from (0, 0) at the bottom left corner of the image.
-`pose_x`, `pose_y` and `pose_z` correspond to the 3d object position in the world frame, so they are not comparable to the bbox values.
+where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left, lower boundary of the object bounding box in the image starting from (0, 0) at the bottom left corner of the image.
+`pose_x`, `pose_y`, and `pose_z` correspond to the 3d object position in the world frame, so these are not comparable to the bbox values.
 
 The existing set of predicates are:
 [PREDICATES_IN_ENV]
@@ -16,13 +16,13 @@ The existing set of predicates are:
 The set of options the robot has are:
 [OPTIONS_IN_ENV]
 
-Utilizing the exisiting predicates, we carefully designed following action operators:
+Utilizing the existing predicates, we carefully designed the following action operators:
 [NSRTS_IN_ENV]
 
-The robot tried to excute its options on states that satisfied their preconditions and got the following results:
+The robot tried to execute its options in states that satisfied their operators' preconditions and got the following results:
 [OPERATOR_PERFORMACE]
 
-Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integreated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy the precondition.
+Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integrated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy them.
 
 Define each proposal in a Python block as follows:
 ```python

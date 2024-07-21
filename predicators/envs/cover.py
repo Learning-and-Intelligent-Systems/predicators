@@ -137,10 +137,12 @@ class CoverEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng,
+                                is_train=True)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng,
+                                is_train=False)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -254,20 +256,27 @@ class CoverEnv(BaseEnv):
                  state.get(targ, "pose_y_norm") + state.get(targ, "width") / 10))
         return hand_regions
 
-    def _create_blocks_and_targets(self) -> Tuple[List[Object], List[Object]]:
+    def _create_blocks_and_targets(self, is_train: Optional[bool] = True
+                                   ) -> Tuple[List[Object], List[Object]]:
         blocks = []
         targets = []
-        for i in range(CFG.cover_num_blocks):
+        num_blocks = CFG.cover_num_blocks_train if is_train else\
+                     CFG.cover_num_blocks_test
+        num_targets = CFG.cover_num_blocks_train if is_train else\
+                      CFG.cover_num_blocks_test
+
+        for i in range(num_blocks):
             blocks.append(Object(f"block{i}", self._block_type))
-        for i in range(CFG.cover_num_targets):
+        for i in range(num_targets):
             targets.append(Object(f"target{i}", self._target_type))
         return blocks, targets
 
     def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+                   rng: np.random.Generator,
+                   is_train: Optional[bool] = True) -> List[EnvironmentTask]:
         tasks = []
         # Create blocks and targets.
-        blocks, targets = self._create_blocks_and_targets()
+        blocks, targets = self._create_blocks_and_targets(is_train)
         # Create goals.
         goal1 = {GroundAtom(self._Covers, [blocks[0], targets[0]])}
         goals = [goal1]
@@ -280,7 +289,7 @@ class CoverEnv(BaseEnv):
             }
             goals.append(goal3)
         for i in range(num):
-            init = self._create_initial_state(blocks, targets, rng)
+            init = self._create_initial_state(blocks, targets, rng, is_train)
             assert init.get_objects(self._block_type) == blocks
             assert init.get_objects(self._target_type) == targets
             tasks.append(EnvironmentTask(init, goals[i % len(goals)]))
@@ -288,9 +297,11 @@ class CoverEnv(BaseEnv):
 
     def _create_initial_state(self, blocks: List[Object],
                               targets: List[Object],
-                              rng: np.random.Generator) -> State:
+                              rng: np.random.Generator,
+                              is_train: Optional[bool] = True
+                              ) -> State:
         data: Dict[Object, Array] = {}
-        assert len(CFG.cover_block_widths) == len(blocks)
+        assert len(CFG.cover_block_widths) >= len(blocks)
         for block, width in zip(blocks, CFG.cover_block_widths):
             while True:
                 pose = rng.uniform(width / 2, 1.0 - width / 2)
@@ -298,7 +309,7 @@ class CoverEnv(BaseEnv):
                     break
             # [is_block, is_target, width, pose, grasp]
             data[block] = np.array([1.0, 0.0, width, pose, -1.0])
-        assert len(CFG.cover_target_widths) == len(targets)
+        assert len(CFG.cover_target_widths) >= len(targets)
         for target, width in zip(targets, CFG.cover_target_widths):
             while True:
                 pose = rng.uniform(width / 2, 1.0 - width / 2)
@@ -833,7 +844,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _create_initial_state(self, blocks: List[Object],
                               targets: List[Object],
-                              rng: np.random.Generator) -> State:
+                              rng: np.random.Generator,
+                              is_train: Optional[bool] = True
+                              ) -> State:
         """Creates initial state by (1) placing targets and blocks in random
         locations such that each target has enough space on either side to
         ensure no covering placement will cause a collision (note that this is
@@ -841,8 +854,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         sufficiently tune the difficulty through hand region specification),
         and (2) choosing hand region intervals on the targets and blocks such
         that the problem is solvable."""
-        assert len(blocks) == CFG.cover_num_blocks
-        assert len(targets) == CFG.cover_num_targets
+        if is_train:
+            assert len(blocks) == CFG.cover_num_blocks_train
+            assert len(targets) == CFG.cover_num_targets_train
+        else:
+            assert len(blocks) == CFG.cover_num_blocks_test
+            assert len(targets) == CFG.cover_num_targets_test
 
         data: Dict[Object, Array] = {}
 

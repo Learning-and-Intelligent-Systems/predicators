@@ -8,9 +8,9 @@ class RawState:
 
     Methods:
     --------
-    crop_to_objects(self, objects: Collection[Object],
-                    left_margin: int = 5, lower_margin: int=10,
-                    right_margin: int=10, top_margin: int=5) -> Image:
+    crop_to_objects(self, objects: Sequence[Object],
+                    left_margin: int = 30, lower_margin: int = 30,
+                    right_margin: int = 30, top_margin: int = 30) -> Image:
         Crops the labeled image to only focus on the objects in the input.
     get(self, obj: Object, feature_name: str) -> Any:
         Looks up an object feature by name and returns the feature value.
@@ -19,11 +19,9 @@ class RawState:
     evaluate_simple_assertion(assertion: str, image: Image) -> bool:
         Evaluate a simple assertion about an image..
     """
-    def crop_to_objects(self, objects: Collection[Object],
-                        left_margin: int = 5,
-                        lower_margin: int=10, 
-                        right_margin: int=10, 
-                        top_margin: int=5) -> Image:
+    def crop_to_objects(self, objects: Sequence[Object],
+                        left_margin: int = 30, lower_margin: int = 30, 
+                        right_margin: int = 30, top_margin: int = 30) -> Image:
         """Crop the labeled_image to only include the specified objects, with
         optional margins around the objects.
 
@@ -41,38 +39,38 @@ class RawState:
             The cropped image.
         Examples:
         ---------
-        >>> # An example for predicate NothingNextTo
-        >>> def _NothingCloseTo_NSP_holds(state: RawState, objects: Sequence[Object])\
+        >>> # An example for predicate SwitchOn
+        >>> def _SwitchOn_NSP_holds(state: RawState, objects: Sequence[Object])\
         >>>     -> bool:
         >>>     '''
-        >>>     Determine if there is nothing close to the block on the left or
-        >>>     right side.
+        >>>     Determine if the light switch is in the on state.
         >>>     '''
-        >>>     block, = objects
+        >>>     switch, = objects
+        >>>     switch_name = switch.id_name
         >>>     ...
-        >>>     # Crop the scene image to the smallest bounding box that include both objects.
-        >>>     attention_image = state.crop_to_objects([block], left_margin=20, 
+        >>>     # Crop the scene image to focus.
+        >>>     attention_image = state.crop_to_objects([switch], left_margin=20, 
         >>>                         right_margin=20)
         >>>     return state.evaluate_simple_assertion(
-        >>>         f"There is nothing close to {block_name} on the left or right side.")
+        >>>         f"{switch_name} is in the on state.", attention_image)
         >>>
         >>> # An example for predicate OnTable
         >>> def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
         >>>         bool:
-        >>>     '''Determine if the block is directly resting on the table's 
+        >>>     '''Determine if the object is directly resting on the table's 
         >>>     surface.
         >>>     '''
-        >>>     apple, = objects
-        >>>     apple_name = apple.id_name
+        >>>     phone, = objects
+        >>>     phone_name = phone.id_name
         >>>     
         >>>     # Crop the scene image to the smallest bounding box that include both objects.
         >>>     # We know there is only one table in this environment.
         >>>     table = state.get_objects(_table_type)[0]
         >>>     table_name = table.id_name
-        >>>     attention_image = state.crop_to_objects([apple, table])
+        >>>     attention_image = state.crop_to_objects([phone, table])
 
         >>>     return state.evaluate_simple_assertion(
-        >>>         f"{apple_name} is directly resting on {table_name}'s surface.",
+        >>>         f"{phone_name} is directly resting on {table_name}'s surface.",
         >>>         attention_image)
         """
 
@@ -93,15 +91,16 @@ class RawState:
         
         Example:
         ---------
-        >>> # An example for predicate WristBent
+        >>> # An example for predicate GripperOpen
         >>> _robot_type = Type("robot", ["x", "y", "tilt", "wrist", "gripper"])
         >>> def _GripperOpen_holds(state: State, objects: Sequence[Object]
         >>>                     ) -> bool:
         >>>     robot, = objects
-        >>>     return state.get(robot, "gripper") == 1.0
-        >>> _WristBent = NSPredicate("GripperOpen", [_robot_type], _WristBent_holds)
+        >>>     return state.get(robot, "gripper") > 0.5
+        >>> _GripperOpen = NSPredicate("GripperOpen", [_robot_type], 
+        >>>                             _GripperOpen_holds)
         >>>
-        >>> # An example for classifying Covers
+        >>> # An example for predicate Covers
         >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
         >>>                         ) -> bool:
         >>>     '''
@@ -115,12 +114,17 @@ class RawState:
         >>>     if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
         >>>        state.get(target, "bbox_right") > state.get(block, "bbox_right"):
         >>>         return False
-        >>>     ...
-        >>>     return state.evaluate_simple_assertion(...)
+        >>>     block_id, target_id = block.id_name, target.id_name
+        >>>     attention_image = state.crop_to_objects([block, target])
+        >>>     return state.evaluate_simple_assertion(
+        >>>         f"{block_id} is on top of and covering {target_id}.", 
+        >>>         attention_image)
+        >>> _Covers = NSPredicate("Covers", [_block_type, _target_type],
+        >>>                       _Covers_holds)
         """
 
     def get_objects(self, object_type: Type) -> List[Object]:
-        """Return objects of the given type in the state.
+        """Return all objects of the given type in the state.
 
         Parameters:
         -----------
@@ -135,17 +139,19 @@ class RawState:
 
         Examples:
         ---------
-        >>> def _robot_hand_above_cup(state: State, cup: Object) -> bool:
+        >>> def _AppleInBowl_holds(state: State, objects: Sequence[Object]) -> bool:
+        >>>     apple, bowl = objects
         >>>     ...
         >>>
-        >>> def _HandNotAboveCup_holds(state: State,
+        >>> def _BowlEmpty_holds(state: State,
         >>>                            objects: Sequence[Object]) -> bool:
-        >>>     for cup in state.get_objects(_cup_type):
-        >>>         if _robot_hand_above_cup(state, cup):
+        >>>     bowl, = objects
+        >>>     for apple in state.get_objects(_apple_type):
+        >>>         if _AppleInBowl_holds(state, [bowl]):
         >>>             return False
         >>>     return True
-        >>> _HandNotAboveCup = NSPredicate("HandNotAboveCup", [], 
-        >>>                              _HandNotAboveCup_holds)
+        >>> _BowlEmpty = NSPredicate("BowlEmpty", [], 
+        >>>                              _BowlEmpty_holds)
         """
 
     def evaluate_simple_assertion(self, assertion: str, image: Image) -> bool:
@@ -175,17 +181,29 @@ class RawState:
         ---------
         >>> # An example for predicate Open
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{door_name} is open", attention_image)
+        >>> return state.evaluate_simple_assertion(f"{door_name} is open", 
+        >>>                                         attention_image)
 
-        >>> # An example for predicate CupOnTable
+        >>> # An example for predicate CupOnShelf
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{cup_name} is resting on {shelf_name}", attention_image)
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{cup_name} is resting on {shelf_name}", 
+        >>>             attention_image)
 
-        >>> # An example for predicate CupFilled
+        >>> # An example for predicate CupHasTeaBag
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{cup_name} is filled with liquid", attention_image)
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{cup_name} has a tea bag in it", attention_image)
 
         >>> # An example for predicate PluggedIn
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{coffee_machine_name} is plugged into a socket", attention_image)
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{coffee_machine_name} is plugged into a socket", 
+        >>>             attention_image)
+
+        >>> # An example for predicate Cooked
+        >>> ...
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{patty_name} is not raw and cooked", 
+        >>>             attention_image)
         """

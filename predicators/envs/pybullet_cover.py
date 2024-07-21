@@ -1,6 +1,6 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Sequence, Tuple
+from typing import Any, ClassVar, Dict, List, Sequence, Tuple, Optional
 
 import numpy as np
 import pybullet as p
@@ -15,7 +15,6 @@ from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
     State, Type, Predicate
 from predicators.utils import BoundingBox, NSPredicate, RawState, VLMQuery
-
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     """PyBullet Cover domain."""
@@ -39,8 +38,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _target_height: ClassVar[float] = 0.0001
     _obj_id_to_obj: Dict[int, Object] = {}
 
-    # _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
-    #                             _Covers_NSP_holds)
 
     def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -86,11 +83,11 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         block, target = objects
         # Necessary but not sufficient condition for covering: no part of the
         # target region is outside the block.
-        if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
-            state.get(target, "bbox_right") > state.get(block, "bbox_right"):
+        if state.get(target, "bbox_left") > state.get(block, "bbox_left") and\
+           state.get(target, "bbox_right") < state.get(block, "bbox_right"):
+            return True
+        else:
             return False
-
-        return _OnTable_NSP_holds(state, [block])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -127,8 +124,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         max_width = max(max(CFG.cover_block_widths),
                         max(CFG.cover_target_widths))
+        num_blocks = max(CFG.cover_num_blocks_train, CFG.cover_num_blocks_test)
         block_ids = []
-        for i in range(CFG.cover_num_blocks):
+        for i in range(num_blocks):
             color = cls._obj_colors[i % len(cls._obj_colors)]
             width = CFG.cover_block_widths[i] / max_width * cls._max_obj_width
             half_extents = (cls._obj_len_hgt / 2.0, width / 2.0,
@@ -139,8 +137,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                       physics_client_id))
         bodies["block_ids"] = block_ids
 
+        num_targets = max(CFG.cover_num_targets_train, 
+                          CFG.cover_num_targets_test)
         target_ids = []
-        for i in range(CFG.cover_num_targets):
+        for i in range(num_targets):
             color = cls._obj_colors[i % len(cls._obj_colors)]
             color = (color[0], color[1], color[2], 0.5)  # slightly transparent
             width = CFG.cover_target_widths[i] / max_width * cls._max_obj_width
@@ -368,8 +368,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         return "pybullet_cover"
 
     def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
-        tasks = super()._get_tasks(num, rng)
+                   rng: np.random.Generator,
+                   is_train: Optional[bool] = True) -> List[EnvironmentTask]:
+        tasks = super()._get_tasks(num, rng, is_train)
         return self._add_pybullet_state_to_tasks(tasks)
 
     def _fingers_joint_to_state(self, fingers_joint: float) -> float:
@@ -401,6 +402,10 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
 
     def __init__(self, use_gui: bool = True) -> None:   
         super().__init__(use_gui)
+
+        self._Covers_NSP = NSPredicate("Covers", [self._block_type, 
+                                                  self._target_type],
+                                self._Covers_NSP_holds)
 
         self.ns_to_sym_predicates: Dict[str, Predicate] = {
             "HandEmpty": self._HandEmpty,

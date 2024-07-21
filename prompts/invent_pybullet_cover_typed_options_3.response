@@ -6,7 +6,7 @@ def _BlockGrasped_holds(state: RawState, objects: Sequence[Object]) -> bool:
     block, = objects
     robot, = state.get_objects(_robot_type)
     
-    if state.get(robot, "hand_empty") == 1:
+    if state.get(robot, "fingers") > 0.5:
         return False
     # return state.get(block, "grasp") != -1
     

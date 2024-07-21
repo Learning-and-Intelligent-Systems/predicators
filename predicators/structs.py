@@ -1072,7 +1072,10 @@ class NSRT:
     def option_str_annotated(self) -> str:
         option_var_str = ", ".join([str(v) for v in self.option_vars])
         anno = self.option.annotation
-        return f"{self.option.name}({option_var_str}): {anno}"
+        if anno is None:
+            return f"{self.option.name}({option_var_str})"
+        else:
+            return f"{self.option.name}({option_var_str}): {anno}"
 
     @cached_property
     def _hash(self) -> int:

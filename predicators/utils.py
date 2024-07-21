@@ -560,7 +560,8 @@ def append_classification_result_for_ops(result_str: List[str], g_optn: str,
             state.dict_str(
                 indent=2,
                 object_features=not CFG.vlm_predicator_render_option_state,
-                use_object_id=CFG.vlm_predicator_render_option_state))
+                use_object_id=CFG.vlm_predicator_render_option_state,
+                position_proprio_features=True))
         if CFG.vlm_invent_include_option_history:
             result_str.append("  Previous option: " + 
                         (option_history if option_history != "" else "None"))
@@ -1765,19 +1766,18 @@ class RawState(PyBulletState):
             for attribute, value in zip(obj.type.feature_names, self[obj]):
                 # include if it's proprioception feature, or position/bbox
                 # feature, or object_features is True
-                if (obj.type.name == "robot" and \
-                    attribute not in ["bbox_left", "bbox_right", "bbox_upper",
-                                      "pose_x", "pose_y", "pose_z",
-                                      "bbox_lower"]) or object_features:
-                    #    attribute in ["pose_x", "pose_y", "pose_z", "bbox_left",
-                    # "bbox_right", "bbox_upper", "bbox_lower"] or\
-                    if isinstance(value, (float, int, np.float32)):
-                        value = round(float(value), 1)
-                    obj_dict[attribute] = value
-                if position_proprio_features:
-                    if obj.type.name == "robot" or \
-                        attribute in ["pose_x", "pose_y", "pose_z", "x", "y",
-                        "z"]:
+                # if (obj.type.name == "robot" and \
+                #     attribute not in ["bbox_left", "bbox_right", "bbox_upper",
+                #         "pose_x", "pose_y", "pose_z", "pose_y_norm",
+                #                       "bbox_lower"]) or object_features:
+                #     #    attribute in ["pose_x", "pose_y", "pose_z", "bbox_left",
+                #     # "bbox_right", "bbox_upper", "bbox_lower"] or\
+                #     if isinstance(value, (float, int, np.float32)):
+                #         value = round(float(value), 1)
+                #     obj_dict[attribute] = value
+                if (position_proprio_features and attribute in [
+                    # "pose_x", "pose_y", "pose_z", "x", "y", "z", 
+                    "fingers"]) or object_features:
                         if isinstance(value, (float, int, np.float32)):
                             value = round(float(value), 1)
                         obj_dict[attribute] = value
@@ -1857,7 +1857,7 @@ class RawState(PyBulletState):
         return mask_to_bbox(mask)
 
     def crop_to_objects(self,
-                        objects: Collection[Object],
+                        objects: Sequence[Object],
                         # left_margin: int = 15,
                         # lower_margin: int = 15,
                         # right_margin: int = 15,
