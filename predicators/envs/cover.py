@@ -308,7 +308,7 @@ class CoverEnv(BaseEnv):
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
         # For the non-PyBullet environments, pose_x and pose_z are constant.
-        if "hand_empty" in self._robot_type.feature_names or
+        if "hand_empty" in self._robot_type.feature_names or\
            "fingers" in self._robot_type.feature_names:
             # [hand, pose_x, pose_z, hand_empty]
             data[self._robot] = np.array(
