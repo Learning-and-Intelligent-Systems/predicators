@@ -36,21 +36,22 @@ FLAGS:
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
-  strips_learner: "cluster_and_intersect"
+  strips_learner: "cluster_intersect_and_search"
   # bilevel_plan_without_sim: True
-  # excluded_predicates: "all"
+  excluded_predicates: "all"
   sesame_max_samples_per_step: 1
   min_perc_data_for_nsrt: 0
   segmenter: "option_changes"
   neural_gaus_regressor_max_itr: 50000
   timeout: 300
+  log_file: "logs/vlm_predicate.log"
   pybullet_camera_width: 900
   pybullet_camera_height: 900
   video_fps: 20
 
   # Env settings
   burger_explicit_goal: True
-  sesame_max_skeletons_optimized: 2000
+  sesame_max_skeletons_optimized: 200
   rgb_observation: False
   render_init_state: False # True for NSP
 

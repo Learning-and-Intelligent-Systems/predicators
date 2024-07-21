@@ -125,6 +125,10 @@ class BurgerEnv(BaseEnv):
     @classmethod
     def get_name(cls) -> str:
         return "burger"
+    
+    @property
+    def oracle_proposed_predicates(self) -> Set[Predicate]:
+        return self.predicates
 
     @property
     def types(self) -> Set[Type]:
@@ -219,10 +223,12 @@ class BurgerEnv(BaseEnv):
                 "fingers": 0.0,
                 "dir": 3
             }
-            r, c = shuffled_spots[1]
-            state_dict[self._grill] = {"row": r, "col": c, "z": 0}
-            r, c = shuffled_spots[2]
-            state_dict[self._cutting_board] = {"row": r, "col": c, "z": 0}
+            partial_tasks = True
+            if not partial_tasks:
+                r, c = shuffled_spots[1]
+                state_dict[self._grill] = {"row": r, "col": c, "z": 0}
+                r, c = shuffled_spots[2]
+                state_dict[self._cutting_board] = {"row": r, "col": c, "z": 0}
 
             # Add patty
             r, c = shuffled_spots[3]
@@ -231,22 +237,23 @@ class BurgerEnv(BaseEnv):
             hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
 
             # Add tomato
-            r, c = shuffled_spots[4]
-            tomato = Object("tomato", self._tomato_type)
-            state_dict[tomato] = {"row": r, "col": c, "z": 0}
-            hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
+            if not partial_tasks:
+                r, c = shuffled_spots[4]
+                tomato = Object("tomato", self._tomato_type)
+                state_dict[tomato] = {"row": r, "col": c, "z": 0}
+                hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
 
-            # Add cheese
-            r, c = shuffled_spots[5]
-            cheese = Object("cheese", self._cheese_type)
-            state_dict[cheese] = {"row": r, "col": c, "z": 0}
-            hidden_state[cheese] = {"is_held": 0.0}
+                # Add cheese
+                r, c = shuffled_spots[5]
+                cheese = Object("cheese", self._cheese_type)
+                state_dict[cheese] = {"row": r, "col": c, "z": 0}
+                hidden_state[cheese] = {"is_held": 0.0}
 
-            # Add top bun
-            r, c = shuffled_spots[6]
-            top_bun = Object("top_bun", self._top_bun_type)
-            state_dict[top_bun] = {"row": r, "col": c, "z": 0}
-            hidden_state[top_bun] = {"is_held": 0.0}
+                # Add top bun
+                r, c = shuffled_spots[6]
+                top_bun = Object("top_bun", self._top_bun_type)
+                state_dict[top_bun] = {"row": r, "col": c, "z": 0}
+                hidden_state[top_bun] = {"is_held": 0.0}
 
             # Add bottom bun
             r, c = shuffled_spots[7]
@@ -282,9 +289,9 @@ class BurgerEnv(BaseEnv):
             # goal = set(goal_atoms)
             goal = {
                 GroundAtom(self._On, [patty, bottom_bun]),
-                GroundAtom(self._On, [cheese, patty]),
-                GroundAtom(self._On, [tomato, cheese]),
-                GroundAtom(self._On, [top_bun, tomato]),
+                # GroundAtom(self._On, [cheese, patty]),
+                # GroundAtom(self._On, [tomato, cheese]),
+                # GroundAtom(self._On, [top_bun, tomato]),
                 # GroundAtom(self._IsCooked, [patty]),
                 # GroundAtom(self._IsSliced, [tomato]),
                 # GroundAtom(self._GoalHack, [bottom_bun, patty, cheese, tomato,
