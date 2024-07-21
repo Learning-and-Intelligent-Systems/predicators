@@ -1959,12 +1959,14 @@ class MPDQNFunction(MapleQFunction):
                 if distance < closest_distance:
                     closest_object = object
                     closest_distance = distance
+                    
 
         for o in self._last_planner_state:
             if o.is_instance(dummy_env._robot_type):
-                x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x")))**2, (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y")))**2)
+                x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
                 break
-        # print("closest door", closest_object)
+        # print("closest door's open", closest_object.name, state.get(closest_object, "open") )
+
         vectorized_state = object_to_features[closest_object][:6] + [x,y]
         return vectorized_state
    
@@ -2100,7 +2102,7 @@ class MPDQNFunction(MapleQFunction):
 
             # bad value of opening door AFTER ITS ALREADY OPENED LIKE BRUH
 
-            if vectorized_action[0]==1 and vectorized_action[-1]<0.001 and vectorized_action[-1]>0 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
+            if vectorized_action[0]==1 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
                 bad_door_index.append(i)
                 print("BAD DOOR rwd, state, action ", reward, vectorized_state, vectorized_action)
 
@@ -2238,8 +2240,7 @@ class MPDQNFunction(MapleQFunction):
         if train_or_test=="train":
             self.update_target_network()
         if train_or_test == "test":
-            print("option scores", option_scores[:5])
-            logging.info("option scores" +  str(option_scores[:5]))
+            logging.info("option scores" + str(option_scores[:20]))
         # print("ACTION", self._vectorize_option(options[idx]))
         
         
@@ -2257,7 +2258,7 @@ class MPDQNFunction(MapleQFunction):
         # for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
         #     target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
 
-        if self._counter % 600 == 0:
+        if self._counter % 1500 == 0:
             self.target_qnet.load_state_dict(self.qnet.state_dict())
         self._counter+=1
 

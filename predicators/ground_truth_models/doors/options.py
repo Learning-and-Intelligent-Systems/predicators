@@ -350,7 +350,7 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
                              objects: Sequence[Object],
                              params: Array) -> Action:
             del memory  # unused
-            _ = objects
+            door, _ = objects
             delta_rot = params
             # current_rot = state.get(door, "rot")
             # target = current_rot + delta_rot
@@ -358,7 +358,7 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
 
         OpenDoor = SingletonParameterizedOption(
             "OpenDoor",
-            types=[robot_type],
+            types=[door_type, robot_type],
             # Even though this option does not need to be parameterized, we
             # make it so, because we want to match the parameter space of the
             # option that will get learned during option learning. This is

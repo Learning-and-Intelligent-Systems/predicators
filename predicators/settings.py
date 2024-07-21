@@ -701,7 +701,7 @@ class GlobalSettings:
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
             horizon=defaultdict(
-                lambda: 100,
+                lambda: 160,
                 {
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.
@@ -715,8 +715,7 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
-                    "grid_row_door": 85,
-                    "doorknobs": 70
+                    "grid_row_door": 85
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
@@ -769,8 +768,7 @@ class GlobalSettings:
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
-                    "stick_button_move": 1000,
-                    "doorknobs": 100
+                    "stick_button_move": 1000
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into refining a single skeleton.

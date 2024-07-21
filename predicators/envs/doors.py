@@ -842,7 +842,8 @@ class DoorKnobsEnv(DoorsEnv):
                 )
                 if abs(new_door_level - target) < self.open_door_thresh:
                     next_state.set(door, "open", 1.0)
-                    print("door opened!", door)
+                    next_state.set(doorknob, "open", 1.0)
+                    # print("door opened!", door,  next_state.get(door, "open"))
                     # import ipdb;ipdb.set_trace()
                 else:
                     next_state.set(door, "open", 0.0)

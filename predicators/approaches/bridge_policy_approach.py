@@ -381,7 +381,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self._initial_options = initial_options
         self.mapleq=MPDQNApproach(self._get_current_predicates(), \
                                    self._initial_options, self._types, \
-                                    self._action_space, self._train_tasks)
+                                    self._action_space, self._train_tasks, self.CallPlanner)
         self._current_control = ""
         try:
             option_policy = self._get_option_policy_by_planning(
@@ -491,7 +491,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         if not self._maple_initialized:
             self.mapleq = MPDQNApproach(self._get_current_predicates(),
                                          self._initial_options, self._types,
-                                         self._action_space, self._train_tasks)
+                                         self._action_space, self._train_tasks, self.CallPlanner)
             self._maple_initialized = True
             self._init_nsrts()
 

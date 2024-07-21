@@ -77,6 +77,7 @@ def main() -> None:
     script_start = time.perf_counter()
     # pr = cProfile.Profile()
     # pr.enable()
+
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
@@ -296,7 +297,7 @@ def _run_pipeline(env: BaseEnv,
             print("HEYASEIHASIFHIHAOIDF", i)
             num_solved += results["num_solved"]
             print("CUMULATIVE NUM SOLVED: ", num_solved)
-            logging.info("CUMULATIVE NUM SOLVED: " + str(num_solved))
+            logging.debug("CUMULATIVE NUM SOLVED: " + str(num_solved))
             # print("fraction solved: ", num_solved / (i + 1))
             smooth_reward = sum(logs[-25:])/25
             smooth_rewards.append(smooth_reward)
@@ -309,7 +310,6 @@ def _run_pipeline(env: BaseEnv,
             learning_cycles.append(i + 1)
             cumulative_logs.append(num_solved)
             print(smooth_rewards, learning_cycles, logs, cumulative_logs)
-            logging.info(str(smooth_rewards) + str(learning_cycles) + str(logs) + str(cumulative_logs))
             # if smooth_reward>0.93:
             #     print("smooth reward.")
             #     generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \

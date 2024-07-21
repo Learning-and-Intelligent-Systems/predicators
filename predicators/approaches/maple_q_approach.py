@@ -203,7 +203,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 class MPDQNApproach(MapleQApproach):
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task]) -> None:
+                 action_space: Box, train_tasks: List[Task], CallPlanner) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
 
@@ -211,6 +211,7 @@ class MPDQNApproach(MapleQApproach):
         assert CFG.strips_learner == "oracle"
         # The base sampler should also be unchanging and from the oracle.
         assert CFG.sampler_learner == "oracle"
+        self.CallPlanner = CallPlanner
 
         # Log all transition data.
         self._interaction_goals: List[Set[GroundAtom]] = []
@@ -231,3 +232,29 @@ class MPDQNApproach(MapleQApproach):
             n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
             num_lookahead_samples=CFG.
             active_sampler_learning_num_lookahead_samples)
+
+
+    def _update_maple_data(self) -> None:
+        start_idx = self._last_seen_segment_traj_idx + 1
+        new_trajs = self._segmented_trajs[start_idx:]
+
+        goal_offset = CFG.max_initial_demos
+        assert len(self._segmented_trajs) == goal_offset + \
+            len(self._interaction_goals)
+        new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
+
+        for traj_i, segmented_traj in enumerate(new_trajs):
+            self._last_seen_segment_traj_idx += 1
+            for seg_i, segment in enumerate(segmented_traj):
+                s = segment.states[0]
+                goal = new_traj_goals[traj_i]
+                o = segment.get_option()
+                ns = segment.states[-1]
+                reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                if o.parent == self.CallPlanner and reward == 1:
+                    reward += 0.5
+                    # import ipdb;ipdb.set_trace()
+
+                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+                self._q_function.add_datum_to_replay_buffer(
+                    (s, goal, o, ns, reward, terminal))

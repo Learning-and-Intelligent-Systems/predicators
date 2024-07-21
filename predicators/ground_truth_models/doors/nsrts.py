@@ -280,8 +280,9 @@ class DoorknobsGroundTruthNSRTFactory(DoorsGroundTruthNSRTFactory):
 
         # OpenDoor
         robot = Variable("?robot", robot_type)
-        parameters = [robot]
-        option_vars = [robot]
+        door = Variable("?door", door_type)
+        parameters = [door, robot]
+        option_vars = [door, robot]
         option = OpenDoor
         preconditions = set()
         add_effects = set()
