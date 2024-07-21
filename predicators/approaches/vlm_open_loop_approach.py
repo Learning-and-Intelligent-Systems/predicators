@@ -6,5 +6,4 @@ TODO: we probably want to ensure the model is prompted with entire
 trajectories (so all intermediate states), and not just the
 initial state and then the plan. we also probably want to not
 have to do sampler learning somehow?
-
 """
