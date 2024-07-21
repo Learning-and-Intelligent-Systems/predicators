@@ -437,7 +437,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                     "seconds")
             # [End moving out]
 
-            # breakpoint()
             # Finally, learn NSRTs via superclass, using all the kept predicates.
 
             # When there is successful trajectories, maybe also use the positive
@@ -477,7 +476,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             #     if not p_nsrts.option in cur_options:
             #         self._nsrts.add(p_nsrts)
             # self._nsrts |= self._reduced_nsrts
-            print("All NSRTS after learning", pformat(self._nsrts))
+            logging.info("All NSRTS after learning", pformat(self._nsrts))
 
             # Collect Data again
             # Set up load/save filename for interaction dataset

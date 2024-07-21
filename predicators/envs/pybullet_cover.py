@@ -305,7 +305,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
         fingers = self._fingers_joint_to_state(rf)
         hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
-        if "hand_empty" in self._robot_type.feature_names:
+        if "fingers" in self._robot_type.feature_names:
             state_dict[self._robot] = np.array([hand, rx, rz, fingers],
                                                dtype=np.float32)
         else:
@@ -395,7 +395,7 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
                     ["is_block", "is_target", "width", "pose_y_norm"] +
                     bbox_features)
     _robot_type = Type("robot", 
-                    ["pose_y_norm", "pose_x", "pose_z", "hand_empty"] +
+                    ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
                     bbox_features)
     _table_type = Type("table", bbox_features)
 

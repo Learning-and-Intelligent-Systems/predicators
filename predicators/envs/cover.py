@@ -42,7 +42,7 @@ class CoverEnv(BaseEnv):
     _target_type = Type("target", 
                     ["is_block", "is_target", "width", "pose_y_norm"] +
                         bbox_features)
-    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z", "hand_empty"] +
+    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
                         bbox_features)
     _table_type = Type("table", bbox_features)
 
@@ -104,6 +104,8 @@ class CoverEnv(BaseEnv):
             if "hand_empty" in self._robot_type.feature_names:
                 # See CoverEnvHandEmpty
                 next_state.set(self._robot, "hand_empty", 0)
+            if "fingers" in self._robot_type.feature_names:
+                next_state.set(self._robot, "fingers", 0)
             next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
         # Disallow placing on another block.
@@ -128,6 +130,8 @@ class CoverEnv(BaseEnv):
                 if "hand_empty" in self._robot_type.feature_names:
                     # See CoverEnvHandEmpty
                     next_state.set(self._robot, "hand_empty", 1)
+                if "fingers" in self._robot_type.feature_names:
+                    next_state.set(self._robot, "fingers", 1)
                 next_state.set(held_block, "pose_y_norm", new_pose)
                 next_state.set(held_block, "grasp", -1)
         return next_state
@@ -304,7 +308,8 @@ class CoverEnv(BaseEnv):
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
         # For the non-PyBullet environments, pose_x and pose_z are constant.
-        if "hand_empty" in self._robot_type.feature_names:
+        if "hand_empty" in self._robot_type.feature_names or
+           "fingers" in self._robot_type.feature_names:
             # [hand, pose_x, pose_z, hand_empty]
             data[self._robot] = np.array(
                 [0.5, self.workspace_x, self.workspace_z, 1])
@@ -328,6 +333,8 @@ class CoverEnv(BaseEnv):
             if "hand_empty" in self._robot_type.feature_names:
                 # See CoverEnvHandEmpty
                 state.set(self._robot, "hand_empty", 0)
+            if "fingers" in self._robot_type.feature_names:
+                state.set(self._robot, "fingers", 0)
             state.set(block, "grasp", pick_pose - block_pose)
         return state
 
