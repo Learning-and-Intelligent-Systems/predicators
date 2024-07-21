@@ -24,19 +24,22 @@ def _Holding_holds(state: RawState, objects: Sequence[Object]) -> bool:
     '''
     Determine if the robot is holding a block.
     '''
-    robot, block = objects
+    block, = objects
+    # oracle evaluation
+    return state.get(block, "held") >= 0.5
+
+    robot, = state.get_objects(_robot_type)
     robot_name = robot.id_name
     block_name = block.id_name
 
     # If the gripper is open, the robot can't be holding anything
-    if state.get(robot, "fingers") == 1.0:
+    if state.get(robot, "fingers") > 0.5:
         return False
     # Crop the scene image to the smallest bounding box that include both objects.
-    # attention_image = state.crop_to_objects([block, robot])
-    # return state.evaluate_simple_assertion(
-    #    f"{robot_name} is holding {block_name}", attention_image)
-    return state.get(block, "held") >= 0.5
+    attention_image = state.crop_to_objects([block, robot])
+    return state.evaluate_simple_assertion(
+       f"{robot_name} is holding {block_name}", attention_image)
 
-_Holding = NSPredicate("Holding", [_robot_type, _block_type], _Holding_holds)
+_Holding = NSPredicate("Holding", [_block_type], _Holding_holds)
 ```
 

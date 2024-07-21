@@ -251,7 +251,7 @@ where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left
 `pose_x`, `pose_y`, and `pose_z` correspond to the 3d object position in the world frame, so these are not comparable to the bbox values.
 
 The existing set of predicates are:
-{'On(?x:block, ?y:block)', 'OnTable(?x:block)'}
+{'On(?x:block, ?y:block)', 'Holding(?x:block)', 'GripperOpen(?x:robot)', 'Near(?x:block, ?y:block)', 'Clear(?x:block)', 'GripperClosed(?x:robot)', 'OnTable(?x:block)'}
 
 Predicate OnTable(?x) is defined by:
 ```python
@@ -322,82 +322,44 @@ _On_NSP = NSPredicate("On", [_block_type, _block_type],
 ```
 
 The set of options the robot has are:
-PutOnTable(?robot:robot): Put block on table
-Stack(?robot:robot, ?otherblock:block): Stack the block in hand onto block ?otherblock
-Pick(?robot:robot, ?block:block): Pick up block ?block
+Stack(?x2:robot, ?x0:block): Stack the block in hand onto block ?otherblock
+Pick(?x1:robot, ?x0:block): Pick up block ?block
+PutOnTable(?x1:robot): Put block on table
+Pick(?x2:robot, ?x1:block): Pick up block ?block
 
 Utilizing the existing predicates, we carefully designed the following action operators:
-Operator-Unstack:
-    Parameters: [?block:block, ?otherblock:block, ?robot:robot]
-    Preconditions: [On(?block:block, ?otherblock:block)]
-    Add Effects: []
-    Delete Effects: [On(?block:block, ?otherblock:block)]
+Operator-Op3:
+    Parameters: [?x0:block, ?x1:block, ?x2:robot]
+    Preconditions: [Clear(?x0:block), Holding(?x1:block)]
+    Add Effects: [GripperOpen(?x2:robot), On(?x1:block, ?x0:block)]
+    Delete Effects: [Clear(?x0:block), GripperClosed(?x2:robot), Holding(?x1:block)]
     Ignore Effects: []
-    Option Spec: Pick(?robot:robot, ?block:block)
-Operator-PutOnTable:
-    Parameters: [?block:block, ?robot:robot]
-    Preconditions: []
-    Add Effects: [OnTable(?block:block)]
-    Delete Effects: []
+    Option Spec: Stack(?x2:robot, ?x0:block)
+Operator-Op1:
+    Parameters: [?x0:block, ?x1:robot]
+    Preconditions: [Holding(?x0:block)]
+    Add Effects: [GripperOpen(?x1:robot), OnTable(?x0:block)]
+    Delete Effects: [GripperClosed(?x1:robot), Holding(?x0:block)]
     Ignore Effects: []
-    Option Spec: PutOnTable(?robot:robot)
-Operator-PickFromTable:
-    Parameters: [?block:block, ?robot:robot]
-    Preconditions: [OnTable(?block:block)]
-    Add Effects: []
-    Delete Effects: [OnTable(?block:block)]
+    Option Spec: PutOnTable(?x1:robot)
+Operator-Op0:
+    Parameters: [?x0:block, ?x1:block, ?x2:robot]
+    Preconditions: [Clear(?x1:block), GripperOpen(?x2:robot)]
+    Add Effects: [Clear(?x0:block), GripperClosed(?x2:robot), Holding(?x1:block)]
+    Delete Effects: [GripperOpen(?x2:robot), On(?x1:block, ?x0:block)]
     Ignore Effects: []
-    Option Spec: Pick(?robot:robot, ?block:block)
-Operator-Stack:
-    Parameters: [?block:block, ?otherblock:block, ?robot:robot]
-    Preconditions: []
-    Add Effects: [On(?block:block, ?otherblock:block)]
-    Delete Effects: []
+    Option Spec: Pick(?x2:robot, ?x1:block)
+Operator-Op2:
+    Parameters: [?x0:block, ?x1:robot]
+    Preconditions: [Clear(?x0:block), GripperOpen(?x1:robot)]
+    Add Effects: [GripperClosed(?x1:robot), Holding(?x0:block)]
+    Delete Effects: [GripperOpen(?x1:robot), OnTable(?x0:block)]
     Ignore Effects: []
-    Option Spec: Stack(?robot:robot, ?otherblock:block)
+    Option Spec: Pick(?x1:robot, ?x0:block)
 
 The robot tried to execute its options in states that satisfied their operators' preconditions and got the following results:
-Option Pick(robot1:robot, block5:block) *successfully* executed on the following states (positive states):
-  state_0 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'block6:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: None
-
-Option Pick(robot1:robot, block5:block) *failed* to executed on the following states (negative states):
-  state_17 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'block6:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: None
-
-Option Pick(robot1:robot, block4:block) *successfully* executed on the following states (positive states):
-  state_6 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'block6:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: None
-
-Option Pick(robot1:robot, block4:block) *failed* to executed on the following states (negative states):
-  state_15 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: None
-
 Option Stack(robot1:robot, block4:block) *successfully* executed on the following states (positive states):
-  state_42 with additional info:
+  state_14 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
@@ -406,24 +368,17 @@ Option Stack(robot1:robot, block4:block) *successfully* executed on the followin
   Previous option: Pick(robot1:robot, block5:block)
 
 Option Stack(robot1:robot, block4:block) *failed* to executed on the following states (negative states):
-  state_31 with additional info:
+  state_10 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: None
-
-  state_41 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
+   'block6:block',
    'robot1:robot': {'fingers': 0.0},
    'table2:table'}
   Previous option: Pick(robot1:robot, block4:block)
 
 Option Stack(robot1:robot, block5:block) *successfully* executed on the following states (positive states):
-  state_59 with additional info:
+  state_54 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
@@ -432,67 +387,22 @@ Option Stack(robot1:robot, block5:block) *successfully* executed on the followin
    'table2:table'}
   Previous option: Pick(robot1:robot, block6:block)
 
-  state_55 with additional info:
+  state_59 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
-   'block6:block',
    'robot1:robot': {'fingers': 0.0},
    'table2:table'}
-  Previous option: Pick(robot1:robot, block4:block)
+  Previous option: Pick(robot1:robot, block3:block)
 
 Option Stack(robot1:robot, block5:block) *failed* to executed on the following states (negative states):
-  state_31 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: None
-
-  state_51 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'block6:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: PutOnTable(robot1:robot)
-
-Option PutOnTable(robot1:robot) *successfully* executed on the following states (positive states):
-  state_69 with additional info:
+  state_46 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
    'robot1:robot': {'fingers': 0.0},
    'table2:table'}
   Previous option: Pick(robot1:robot, block5:block)
-
-  state_59 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'block6:block',
-   'robot1:robot': {'fingers': 0.0},
-   'table2:table'}
-  Previous option: Pick(robot1:robot, block6:block)
-
-Option PutOnTable(robot1:robot) *failed* to executed on the following states (negative states):
-  state_31 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: None
-
-  state_65 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-  Previous option: Stack(robot1:robot, block4:block)
 
 
 Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integrated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy them.

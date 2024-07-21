@@ -7,9 +7,9 @@ APPROACHES:
 ENVS:
   stick_button:
     # NAME: "burger"
-    NAME: "pybullet_cover_typed_options"
+    # NAME: "pybullet_cover_typed_options"
     # NAME: "pybullet_blocks"
-    # NAME: "pybullet_coffee"
+    NAME: "pybullet_coffee"
 ARGS: 
   # []
   - "debug"
@@ -17,20 +17,19 @@ ARGS:
   # - "use_gui"
   # - "make_failure_videos"
 FLAGS:
-  pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
+  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
   # pretrained_model_prompt_cache_dir: "pretrained_model_cache_blocks"
-  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
+  pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
+  num_train_tasks: 5 #0 # pybullet_coffee, cover
   # num_train_tasks: 40 # pybullet_blocks 
-  num_train_tasks: 5 #0 # pybullet_coffee
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
   strips_learner: "cluster_intersect_and_search"
   # predicate_search_strips_learner: "cluster_intersect_and_search"
   excluded_predicates: "all"
-  min_perc_data_for_nsrt: 0 # 1 works for coffee (100) 0 works for coffee 50; 
-                            # 3 for blocks
-  sesame_max_samples_per_step: 1 # for pybullet_cover; since we have oracle
+  min_perc_data_for_nsrt: 0 # works for coffee, cover; 
+  # min_perc_data_for_nsrt: 3 # works for blocks
   timeout: 300 #300
   log_file: "logs/vlm_predicate.log"
   vlm_invent_try_to_use_gt_predicates: False
@@ -38,7 +37,7 @@ FLAGS:
   # Env settings
   rgb_observation: False
   render_init_state: True # True for NSP
-  # pybullet_control_mode: "reset"
+  pybullet_control_mode: "reset" # need for blocks and coffee
   sesame_check_expected_atoms: False
   coffee_twist_sampler: False
   coffee_num_cups_train: '[1]'

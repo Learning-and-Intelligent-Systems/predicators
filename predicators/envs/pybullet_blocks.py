@@ -82,14 +82,20 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         }
 
     @property
-    def ns_predicates_to_predicates(self) -> Dict[NSPredicate, Predicate]:
+    def ns_to_sym_predicates(self) -> Dict[str, Predicate]:
         return {
-            self._On_NSP: self._On,
-            self._OnTable_NSP: self._OnTable,
-            self._GripperOpen_NSP: self._GripperOpen,
-            self._Holding_NSP: self._Holding,
-            self._Clear_NSP: self._Clear
-        }
+            "GripperOpen": self._GripperOpen,
+            "Holding": self._Holding,
+            "Clear": self._Clear,
+            }
+        # return {
+
+        #     self._On_NSP: self._On,
+        #     self._OnTable_NSP: self._OnTable,
+        #     self._GripperOpen_NSP: self._GripperOpen,
+        #     self._Holding_NSP: self._Holding,
+        #     self._Clear_NSP: self._Clear
+        # }
 
     @staticmethod
     def _Clear_NSP_holds(state: RawState, objects: Sequence[Object]) -> \

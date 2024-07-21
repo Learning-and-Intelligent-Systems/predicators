@@ -1,11 +1,10 @@
 You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
 
 I will describe the API you should use for writing predicates and the environment the robot is in.
-# The API for `Predicate` and `State` is:
+# The API for `NSPredicate` and `State` is:
 ```python
 class RawState:
-    """
-    A class representing the raw visual state of the world
+    """A class representing the raw visual state of the world.
 
     Attributes:
     -----------
@@ -14,9 +13,9 @@ class RawState:
 
     Methods:
     --------
-    crop_to_objects(self, objects: Collection[Object],
-                    left_margin: int = 5, lower_margin: int=10, 
-                    right_margin: int=10, top_margin: int=5) -> Image:
+    crop_to_objects(self, objects: Sequence[Object],
+                    left_margin: int = 30, lower_margin: int = 30,
+                    right_margin: int = 30, top_margin: int = 30) -> Image:
         Crops the labeled image to only focus on the objects in the input.
     get(self, obj: Object, feature_name: str) -> Any:
         Looks up an object feature by name and returns the feature value.
@@ -25,13 +24,10 @@ class RawState:
     evaluate_simple_assertion(assertion: str, image: Image) -> bool:
         Evaluate a simple assertion about an image..
     """
-    def crop_to_objects(self, objects: Collection[Object],
-                        left_margin: int = 5,
-                        lower_margin: int=10, 
-                        right_margin: int=10, 
-                        top_margin: int=5) -> Image:
-        """
-        Crop the labeled_image to only include the specified objects, with 
+    def crop_to_objects(self, objects: Sequence[Object],
+                        left_margin: int = 30, lower_margin: int = 30, 
+                        right_margin: int = 30, top_margin: int = 30) -> Image:
+        """Crop the labeled_image to only include the specified objects, with
         optional margins around the objects.
 
         Parameters:
@@ -48,44 +44,43 @@ class RawState:
             The cropped image.
         Examples:
         ---------
-        >>> # An example for predicate NothingNextTo
-        >>> def _NothingCloseTo_NSP_holds(state: RawState, objects: Sequence[Object])\
+        >>> # An example for predicate SwitchOn
+        >>> def _SwitchOn_NSP_holds(state: RawState, objects: Sequence[Object])\
         >>>     -> bool:
         >>>     '''
-        >>>     Determine if there is nothing close to the block on the left or
-        >>>     right side.
+        >>>     Determine if the light switch is in the on state.
         >>>     '''
-        >>>     block, = objects
+        >>>     switch, = objects
+        >>>     switch_name = switch.id_name
         >>>     ...
-        >>>     # Crop the scene image to the smallest bounding box that include both objects.
-        >>>     attention_image = state.crop_to_objects([block], left_margin=20, 
+        >>>     # Crop the scene image to focus.
+        >>>     attention_image = state.crop_to_objects([switch], left_margin=20, 
         >>>                         right_margin=20)
         >>>     return state.evaluate_simple_assertion(
-        >>>         f"There is nothing close to {block_name} on the left or right side.")
+        >>>         f"{switch_name} is in the on state.", attention_image)
         >>>
         >>> # An example for predicate OnTable
         >>> def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
         >>>         bool:
-        >>>     '''Determine if the block is directly resting on the table's 
+        >>>     '''Determine if the object is directly resting on the table's 
         >>>     surface.
         >>>     '''
-        >>>     apple, = objects
-        >>>     apple_name = apple.id_name
+        >>>     phone, = objects
+        >>>     phone_name = phone.id_name
         >>>     
         >>>     # Crop the scene image to the smallest bounding box that include both objects.
         >>>     # We know there is only one table in this environment.
         >>>     table = state.get_objects(_table_type)[0]
         >>>     table_name = table.id_name
-        >>>     attention_image = state.crop_to_objects([apple, table])
+        >>>     attention_image = state.crop_to_objects([phone, table])
 
         >>>     return state.evaluate_simple_assertion(
-        >>>         f"{apple_name} is directly resting on {table_name}'s surface.",
+        >>>         f"{phone_name} is directly resting on {table_name}'s surface.",
         >>>         attention_image)
         """
 
     def get(self, obj: Object, feature_name: str) -> Any:
-        """
-        Look up an object feature by name.
+        """Look up an object feature by name.
 
         Parameters:
         -----------
@@ -101,15 +96,16 @@ class RawState:
         
         Example:
         ---------
-        >>> # An example for predicate WristBent
+        >>> # An example for predicate GripperOpen
         >>> _robot_type = Type("robot", ["x", "y", "tilt", "wrist", "gripper"])
         >>> def _GripperOpen_holds(state: State, objects: Sequence[Object]
         >>>                     ) -> bool:
         >>>     robot, = objects
-        >>>     return state.get(robot, "gripper") == 1.0
-        >>> _WristBent = NSPredicate("GripperOpen", [_robot_type], _WristBent_holds)
+        >>>     return state.get(robot, "gripper") > 0.5
+        >>> _GripperOpen = NSPredicate("GripperOpen", [_robot_type], 
+        >>>                             _GripperOpen_holds)
         >>>
-        >>> # An example for classifying Covers
+        >>> # An example for predicate Covers
         >>> def _Covers_NSP_holds(state: State, objects: Sequence[Object]
         >>>                         ) -> bool:
         >>>     '''
@@ -123,13 +119,17 @@ class RawState:
         >>>     if state.get(target, "bbox_left") < state.get(block, "bbox_left") or\
         >>>        state.get(target, "bbox_right") > state.get(block, "bbox_right"):
         >>>         return False
-        >>>     ...
-        >>>     return state.evaluate_simple_assertion(...)
+        >>>     block_id, target_id = block.id_name, target.id_name
+        >>>     attention_image = state.crop_to_objects([block, target])
+        >>>     return state.evaluate_simple_assertion(
+        >>>         f"{block_id} is on top of and covering {target_id}.", 
+        >>>         attention_image)
+        >>> _Covers = NSPredicate("Covers", [_block_type, _target_type],
+        >>>                       _Covers_holds)
         """
 
     def get_objects(self, object_type: Type) -> List[Object]:
-        """
-        Return objects of the given type in the state
+        """Return all objects of the given type in the state.
 
         Parameters:
         -----------
@@ -144,24 +144,25 @@ class RawState:
 
         Examples:
         ---------
-        >>> def _robot_hand_above_cup(state: State, cup: Object) -> bool:
+        >>> def _AppleInBowl_holds(state: State, objects: Sequence[Object]) -> bool:
+        >>>     apple, bowl = objects
         >>>     ...
         >>>
-        >>> def _HandNotAboveCup_holds(state: State,
+        >>> def _BowlEmpty_holds(state: State,
         >>>                            objects: Sequence[Object]) -> bool:
-        >>>     for cup in state.get_objects(_cup_type):
-        >>>         if _robot_hand_above_cup(state, cup):
+        >>>     bowl, = objects
+        >>>     for apple in state.get_objects(_apple_type):
+        >>>         if _AppleInBowl_holds(state, [bowl]):
         >>>             return False
         >>>     return True
-        >>> _HandNotAboveCup = NSPredicate("HandNotAboveCup", [], 
-        >>>                              _HandNotAboveCup_holds)
+        >>> _BowlEmpty = NSPredicate("BowlEmpty", [], 
+        >>>                              _BowlEmpty_holds)
         """
 
     def evaluate_simple_assertion(self, assertion: str, image: Image) -> bool:
-        """
-        A function that takes a simple assertion as a string and 
-        an image as input, and returns a boolean indicating whether the 
-        assertion holds true for the image according to the VLM.
+        """A function that takes a simple assertion as a string and an image as
+        input, and returns a boolean indicating whether the assertion holds
+        true for the image according to the VLM.
 
         The assertion should be clear, unambiguous, and relatively simple, and 
         the image should have been cropped to only the relavant objects.
@@ -185,28 +186,39 @@ class RawState:
         ---------
         >>> # An example for predicate Open
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{door_name} is open", attention_image)
+        >>> return state.evaluate_simple_assertion(f"{door_name} is open", 
+        >>>                                         attention_image)
 
-        >>> # An example for predicate CupOnTable
+        >>> # An example for predicate CupOnShelf
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{cup_name} is resting on {shelf_name}", attention_image)
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{cup_name} is resting on {shelf_name}", 
+        >>>             attention_image)
 
-        >>> # An example for predicate CupFilled
+        >>> # An example for predicate CupHasTeaBag
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{cup_name} is filled with liquid", attention_image)
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{cup_name} has a tea bag in it", attention_image)
 
         >>> # An example for predicate PluggedIn
         >>> ...
-        >>> return state.evaluate_simple_assertion(f"{coffee_machine_name} is plugged into a socket", attention_image)
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{coffee_machine_name} is plugged into a socket", 
+        >>>             attention_image)
+
+        >>> # An example for predicate Cooked
+        >>> ...
+        >>> return state.evaluate_simple_assertion(
+        >>>             f"{patty_name} is not raw and cooked", 
+        >>>             attention_image)
         """
 
 class NSPredicate:
-    """
-    A class representing a predicate, a classifier that characterizes properties 
-    of states in the context of AI task planning.
-    A predicate is a function that takes a state and a sequence of objects as 
-    input, and returns a boolean value indicating whether a certain property 
-    holds for those objects in that state.
+    """A class representing a predicate, a classifier that characterizes
+    properties of states in the context of AI task planning. A predicate is a
+    function that takes a state and a sequence of objects as input, and returns
+    a boolean value indicating whether a certain property holds for those
+    objects in that state.
 
     Parameters:
     -----------
@@ -214,17 +226,16 @@ class NSPredicate:
         The name of the predicate.
 
     types : Sequence[Type]
-        The types of the objects that the predicate applies to. This sequence 
+        The types of the objects that the predicate applies to. This sequence
         length should match the number of objects passed to the classifier. Each
-        type corresponds one-to-one with an object in the sequence. 
+        type corresponds one-to-one with an object in the sequence.
 
     _classifier : Callable[[State, Sequence[Object]], bool]
         The classifier function for the predicate. It takes a state and a
-        sequence of objects as input, and returns a boolean value. The sequence
-        of objects should correspond one-to-one with the 'types' attribute. The 
-        classifier returns True if the predicate holds for those objects in that 
+        sequence of objects as input, and returns a boolean value. The
+        classifier returns True if the predicate holds for those objects in that
         state, and False otherwise.
-    """    
+    """
 ```
 
 # The Environment
@@ -236,23 +247,25 @@ _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers",
     "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
 _table_type = Type("table", [])
 ```
-where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left, lower boundry of the object bounding box in the image starting from (0, 0) at the bottom left corner of the image.
-`pose_x`, `pose_y` and `pose_z` correspond to the 3d object position in the world frame, so they are not comparable to the bbox values.
+where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left, lower boundary of the object bounding box in the image starting from (0, 0) at the bottom left corner of the image.
+`pose_x`, `pose_y`, and `pose_z` correspond to the 3d object position in the world frame, so these are not comparable to the bbox values.
 
 The existing set of predicates are:
-{'On(?x:block, ?y:block)', 'OnTable(?x:block)'}
+{'On(?x:block, ?y:block)', 'Holding(?x:block)', 'GripperOpen(?x:robot)', 'GripperClosed(?x:robot)', 'OnTable(?x:block)'}
 
 Predicate OnTable(?x) is defined by:
 ```python
 def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
         bool:
-    '''Determine if the block in objects is directly resting on the table's 
+    """Determine if the block in objects is directly resting on the table's
     surface in the scene image.
-    It first get the table in the environment, then crops the scene image 
-    to the smallest bounding box that includes both the block and the table, 
-    and finally evaluates a simple assertion about their relation.
-    No classification rules can be devised here so only a VLM query is used.
-    '''
+
+    It first get the table in the environment, then crops the scene
+    image to the smallest bounding box that includes both the block
+    and the table, and finally evaluates a simple assertion about
+    their relation. No classification rules can be devised here so
+    only a VLM query is used.
+    """
     block, = objects
     block_name = block.id_name
 
@@ -266,21 +279,21 @@ def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
         f"{block_name} is directly resting on {table_name}'s surface.",
         attention_image)
 _OnTable_NSP = NSPredicate("OnTable", [_block_type],
-                                    _OnTable_NSP_holds)
+                                        _OnTable_NSP_holds)
 ```
 Predicate On(?x, ?y) is defined by:
 ```python
 def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
-    '''
-    Determine if the first block in objects is directly on top of the second 
-    block with no blocks in between in the scene image, by using a 
+    """Determine if the first block in objects is directly on top of the
+    second block with no blocks in between in the scene image, by using a
     combination of rules and VLMs.
 
-    It first checks if the blocks are the same or if they are far away from 
-    each other. If neither condition is met, it crops the scene image to the 
-    smallest bounding box that includes both blocks and evaluates a simple 
-    assertion about their relative positions.
-    '''
+    It first checks if the blocks are the same or if they are far
+    away from each other. If neither condition is met, it crops the
+    scene image to the smallest bounding box that includes both
+    blocks and evaluates a simple assertion about their relative
+    positions.
+    """
 
     block1, block2 = objects
     block1_name, block2_name = block1.id_name, block2.id_name
@@ -302,10 +315,10 @@ def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
     # objects.
     attention_image = state.crop_to_objects([block1, block2])
     return state.evaluate_simple_assertion(
-        f"{block1_name} is directly on top of {block2_name} with no blocks"+
-         " in between.", attention_image)
+        f"{block1_name} is directly on top of {block2_name} with no blocks"
+        + " in between.", attention_image)
 _On_NSP = NSPredicate("On", [_block_type, _block_type],
-                                    _On_NSP_holds)
+                                   _On_NSP_holds)
 ```
 
 The set of options the robot has are:
@@ -314,125 +327,190 @@ Pick(?x1:robot, ?x0:block): Pick up block ?block
 PutOnTable(?x1:robot): Put block on table
 Pick(?x2:robot, ?x1:block): Pick up block ?block
 
-The existing action operators utilizing the predicates are:
-Operator-Op1:
-    Parameters: [?x0:block, ?x1:robot]
-    Preconditions: [Holding(?x1:robot, ?x0:block)]
-    Add Effects: [GripperOpen(?x1:robot), OnTable(?x0:block)]
-    Delete Effects: [Holding(?x1:robot, ?x0:block)]
-    Ignore Effects: []
-    Option Spec: PutOnTable(?x1:robot)
-Operator-Op2:
-    Parameters: [?x0:block, ?x1:robot]
-    Preconditions: [GripperOpen(?x1:robot), OnTable(?x0:block)]
-    Add Effects: [Holding(?x1:robot, ?x0:block)]
-    Delete Effects: [GripperOpen(?x1:robot), OnTable(?x0:block)]
-    Ignore Effects: []
-    Option Spec: Pick(?x1:robot, ?x0:block)
+Utilizing the existing predicates, we carefully designed the following action operators:
 Operator-Op0:
     Parameters: [?x0:block, ?x1:block, ?x2:robot]
     Preconditions: [GripperOpen(?x2:robot), On(?x1:block, ?x0:block)]
-    Add Effects: [Holding(?x2:robot, ?x1:block)]
+    Add Effects: [GripperClosed(?x2:robot), Holding(?x1:block)]
     Delete Effects: [GripperOpen(?x2:robot), On(?x1:block, ?x0:block)]
     Ignore Effects: []
     Option Spec: Pick(?x2:robot, ?x1:block)
-Operator-Op3:
+Operator-Op4:
     Parameters: [?x0:block, ?x1:block, ?x2:robot]
-    Preconditions: [Holding(?x2:robot, ?x1:block)]
-    Add Effects: [GripperOpen(?x2:robot), On(?x1:block, ?x0:block)]
-    Delete Effects: [Holding(?x2:robot, ?x1:block)]
+    Preconditions: [Holding(?x1:block), OnTable(?x0:block)]
+    Add Effects: [GripperOpen(?x2:robot)]
+    Delete Effects: [GripperClosed(?x2:robot), Holding(?x1:block)]
     Ignore Effects: []
     Option Spec: Stack(?x2:robot, ?x0:block)
+Operator-Op2:
+    Parameters: [?x0:block, ?x1:robot]
+    Preconditions: [GripperOpen(?x1:robot), OnTable(?x0:block)]
+    Add Effects: [GripperClosed(?x1:robot), Holding(?x0:block)]
+    Delete Effects: [GripperOpen(?x1:robot), OnTable(?x0:block)]
+    Ignore Effects: []
+    Option Spec: Pick(?x1:robot, ?x0:block)
+Operator-Op3:
+    Parameters: [?x0:block, ?x1:block, ?x2:robot]
+    Preconditions: [Holding(?x1:block)]
+    Add Effects: [GripperOpen(?x2:robot), On(?x1:block, ?x0:block)]
+    Delete Effects: [GripperClosed(?x2:robot), Holding(?x1:block)]
+    Ignore Effects: []
+    Option Spec: Stack(?x2:robot, ?x0:block)
+Operator-Op1:
+    Parameters: [?x0:block, ?x1:robot]
+    Preconditions: [Holding(?x0:block)]
+    Add Effects: [GripperOpen(?x1:robot), OnTable(?x0:block)]
+    Delete Effects: [GripperClosed(?x1:robot), Holding(?x0:block)]
+    Ignore Effects: []
+    Option Spec: PutOnTable(?x1:robot)
 
-The robot tried to excute its options and got the following results:
-Option Stack(robot1:robot, block5:block) *successfully* executed on the following states (positive states):
-  state_42 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'robot1:robot': {'fingers': 0.0},
-   'table2:table'}
-
-Option Stack(robot1:robot, block5:block) *failed* to executed on the following states (negative states):
-  state_40 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'robot1:robot': {'fingers': 0.0},
-   'table2:table'}
-
-Option Stack(robot1:robot, block4:block) *successfully* executed on the following states (positive states):
-  state_53 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'robot1:robot': {'fingers': 0.0},
-   'table2:table'}
-
-Option Stack(robot1:robot, block4:block) *failed* to executed on the following states (negative states):
-  state_25 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'block6:block',
-   'robot1:robot': {'fingers': 0.0},
-   'table2:table'}
-
-Option Pick(robot1:robot, block6:block) *successfully* executed on the following states (positive states):
-  state_3 with additional info:
-  {'block3:block',
-   'block4:block',
-   'block5:block',
-   'block6:block',
-   'robot1:robot': {'fingers': 1.0},
-   'table2:table'}
-
+The robot tried to execute its options in states that satisfied their operators' preconditions and got the following results:
 Option Pick(robot1:robot, block3:block) *successfully* executed on the following states (positive states):
-  state_0 with additional info:
+  state_73 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
    'robot1:robot': {'fingers': 1.0},
    'table2:table'}
+  Previous option: Stack(robot1:robot, block4:block)
+
+  state_1 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'block6:block',
+   'robot1:robot': {'fingers': 1.0},
+   'table2:table'}
+  Previous option: None
 
 Option Pick(robot1:robot, block3:block) *failed* to executed on the following states (negative states):
-  state_15 with additional info:
+  state_88 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
-   'block6:block',
    'robot1:robot': {'fingers': 1.0},
    'table2:table'}
+  Previous option: None
+
+  state_89 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'robot1:robot': {'fingers': 1.0},
+   'table2:table'}
+  Previous option: Stack(robot1:robot, block4:block)
 
 Option Pick(robot1:robot, block5:block) *successfully* executed on the following states (positive states):
-  state_0 with additional info:
+  state_141 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
    'robot1:robot': {'fingers': 1.0},
    'table2:table'}
+  Previous option: Stack(robot1:robot, block4:block)
+
+  state_88 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'robot1:robot': {'fingers': 1.0},
+   'table2:table'}
+  Previous option: None
 
 Option Pick(robot1:robot, block5:block) *failed* to executed on the following states (negative states):
-  state_3 with additional info:
+  state_1 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
    'block6:block',
    'robot1:robot': {'fingers': 1.0},
    'table2:table'}
+  Previous option: None
 
-Option PutOnTable(robot1:robot) *successfully* executed on the following states (positive states):
-  state_104 with additional info:
+  state_2 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'block6:block',
+   'robot1:robot': {'fingers': 1.0},
+   'table2:table'}
+  Previous option: Stack(robot1:robot, block5:block)
+
+Option Stack(robot1:robot, block5:block) *successfully* executed on the following states (positive states):
+  state_185 with additional info:
   {'block3:block',
    'block4:block',
    'block5:block',
    'block6:block',
    'robot1:robot': {'fingers': 0.0},
    'table2:table'}
+  Previous option: Pick(robot1:robot, block6:block)
 
-Option PutOnTable(robot1:robot) *failed* to executed on the following states (negative states):
+  state_144 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table'}
+  Previous option: Pick(robot1:robot, block3:block)
 
-Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integreated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy the precondition.
+Option Stack(robot1:robot, block5:block) *failed* to executed on the following states (negative states):
+  state_87 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table'}
+  Previous option: Pick(robot1:robot, block5:block)
+
+  state_222 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'block6:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table'}
+  Previous option: Pick(robot1:robot, block3:block)
+
+Option Stack(robot1:robot, block4:block) *successfully* executed on the following states (positive states):
+  state_245 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table'}
+  Previous option: Pick(robot1:robot, block5:block)
+
+  state_170 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'block6:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table'}
+  Previous option: Pick(robot1:robot, block6:block)
+
+Option Stack(robot1:robot, block4:block) *failed* to executed on the following states (negative states):
+  state_74 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'block6:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table'}
+  Previous option: Pick(robot1:robot, block6:block)
+
+  state_38 with additional info:
+  {'block3:block',
+   'block4:block',
+   'block5:block',
+   'block6:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table'}
+  Previous option: Pick(robot1:robot, block4:block)
+
+
+Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integrated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy them.
 
 Define each proposal in a Python block as follows:
 ```python
@@ -448,11 +526,11 @@ param_types: Sequence[Type] = ...
 <predicate_name> = NSPredicate(name, param_types, <predicate_name>_holds)
 ```
 
-When writing the proposals, *strictly* adhere to the following guidlines:
+When writing the proposals, *strictly* adhere to the following guidelines:
 - When defining classifier functions, try to 
     1. *first* use rules based on object features to identify scenarios where the predicate is *clearly* False (the robot can't be holding anything if its hand is open). 
     2. Then, use the `evaluate_simple_assertion` method *once* to cover the potential remaining cases. 
 Take the format of existing predicates for reference.
-- Each proposed predicates are semantically from the existing predicates and each other.
+- Each proposed predicate is semantically from the existing predicates and each other.
 - Don't write out the new operators.
 - Make use of helper functions such as the classifier function in the existing predicates and `evaluate_simple_assertion`, if they're helpful. But try not to use `evaluate_simple_assertion` in a loop.
