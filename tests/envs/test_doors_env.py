@@ -2,7 +2,7 @@
 import numpy as np
 
 from predicators import utils
-from predicators.envs.doors import DoorsEnv
+from predicators.envs.doors import DoorsEnv, DoorKnobsEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     State
@@ -229,3 +229,207 @@ def test_doors():
     # OpenDoor is not initiable if we're not touching the door.
     assert not OpenDoor.ground([right_door, robot],
                                [right_door_delta, 1.0]).initiable(state)
+
+
+
+def test_doorknobs():
+    """Tests for DoorKnobsEnv()."""
+    utils.reset_config({
+        "env": "doors",
+        "doors_room_map_size": 2,
+        "test_doors_room_map_size": 2,
+        "doors_min_obstacles_per_room": 1,
+        "doors_max_obstacles_per_room": 1,
+        "doors_min_room_exists_frac": 1.0,
+        "doors_max_room_exists_frac": 1.0,
+        "doors_draw_debug": True,
+        
+    })
+    env = DoorKnobsEnv()
+    for task in env.get_train_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    for task in env.get_test_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    assert len(env.predicates) == 5
+    DoorInRoom, DoorsShareRoom, InDoorway, InMainRoom, InRoom, \
+         = sorted(env.predicates)
+    assert DoorInRoom.name == "DoorInRoom"
+    assert DoorsShareRoom.name == "DoorsShareRoom"
+    assert InDoorway.name == "InDoorway"
+    assert InMainRoom.name == "InMainRoom"
+    assert InRoom.name == "InRoom"
+    assert env.goal_predicates == {InRoom}
+    assert len(get_gt_options(env.get_name())) == 3
+    MoveThroughDoor, MoveToDoor, OpenDoor = sorted(
+        get_gt_options(env.get_name()))
+    assert MoveThroughDoor.name == "MoveThroughDoor"
+    assert MoveToDoor.name == "MoveToDoor"
+    assert OpenDoor.name == "OpenDoor"
+    assert len(env.types) == 5
+    door_type, knob_type, obstacle_type, robot_type, room_type = sorted(env.types)
+    assert door_type.name == "door"
+    assert knob_type.name == "knob"
+    assert obstacle_type.name == "obstacle"
+    assert robot_type.name == "robot"
+    assert room_type.name == "room"
+    assert env.action_space.shape == (3, )
+    # Create a custom initial state, with all rooms in the 2x2 grid, with the
+    # robot starting out in the top left, and obstacles in the top right and
+    # bottom left rooms.
+    state = env.get_train_tasks()[0].init.copy()
+    robot, = state.get_objects(robot_type)
+    rooms = state.get_objects(room_type)
+    print("ROOMS", rooms)
+    assert len(rooms) == 4
+    # Recall that the obstacles include the walls.
+    expected_num_walls = 24
+    obstacles = state.get_objects(obstacle_type)
+    # Walls + 1 obstacle per room.
+    assert len(obstacles) == expected_num_walls + len(rooms)
+    doors = state.get_objects(door_type)
+    assert len(doors) == 4
+    # Remove the obstacle from the top left room.
+    top_left_obstacles = [o for o in obstacles if "-0-0-obstacle" in o.name]
+    assert len(top_left_obstacles) == 1
+    top_left_obstacle = top_left_obstacles[0]
+    state = utils.StateWithCache(
+        {o: state[o]
+         for o in state if o != top_left_obstacle}, state.cache)
+    # Put the robot in the middle of the top left room.
+    top_left_room, top_right_room, _, bottom_right_room = sorted(rooms)
+    room_cx = state.get(top_left_room, "x") + env.room_size / 2
+    room_cy = state.get(top_left_room, "y") + env.room_size / 2
+    state.set(robot, "x", room_cx)
+    state.set(robot, "y", room_cy)
+    # For later tests, make sure that the obstacle in the top right room is
+    # exactly in the center.
+    top_right_obstacles = [o for o in obstacles if "-0-1-obstacle" in o.name]
+    assert len(top_right_obstacles) == 1
+    top_right_obstacle = top_right_obstacles[0]
+    w = state.get(top_right_obstacle, "width")
+    h = state.get(top_right_obstacle, "height")
+    x = state.get(top_right_room, "x") + env.room_size / 2 - w
+    y = state.get(top_right_room, "y") + env.room_size / 2 - h
+    state.set(top_right_obstacle, "x", x)
+    state.set(top_right_obstacle, "y", y)
+    state.set(top_right_obstacle, "theta", 0.0)
+    # Since we moved obstacles around, the caches in the original env will be
+    # wrong. Make a new env to be safe.
+    old_env = env
+    print("OLD ENV ROOM TO DOORS", env._door_to_knob)
+    env = DoorKnobsEnv()
+    env._door_to_knob = old_env._door_to_knob
+    # Since we removed the obstacle, there should be no collisions.
+    assert not env.state_has_collision(state, [state.get(robot, "x"),state.get(robot, "y") ])
+    assert GroundAtom(InRoom, [robot, top_left_room]).holds(state)
+    assert GroundAtom(InMainRoom, [robot, top_left_room]).holds(state)
+    # Create a task with a goal to move to the bottom right room.
+    goal_atom = GroundAtom(InRoom, [robot, bottom_right_room])
+    goal = {goal_atom}
+    task = EnvironmentTask(state, goal)
+    env.render_state(state, task)
+
+    ## Test simulate ##
+
+    # Test that the robot is contained within the walls when moving in any
+    # direction, because the doors are initially closed.
+    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        action = Action(env.action_magnitude *
+                        np.array([dx, dy, 0.0], dtype=np.float32))
+        assert env.action_space.contains(action.arr)
+        s = state.copy()
+        for _ in range(50):
+            s = env.simulate(s, action)
+        # Should still be in the room.
+        assert GroundAtom(InRoom, [robot, top_left_room]).holds(state)
+
+    # Test opening the door on the right. First, find the door.
+    top_doors = [d for d in doors \
+        if GroundAtom(DoorInRoom, [d, top_left_room]).holds(state) and \
+           GroundAtom(DoorInRoom, [d, top_right_room]).holds(state)
+    ]
+    assert len(top_doors) == 1
+    top_door = top_doors[0]
+    # Move more than enough steps to touch the door.
+    action = Action(env.action_magnitude *
+                    np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    s = state.copy()
+    for _ in range(50):
+        s = env.simulate(s, action)
+    # The door should start off closed.
+    # The robot should now be in the doorway and touching the door.
+    assert GroundAtom(InDoorway, [robot, top_door]).holds(s)
+    assert not GroundAtom(InMainRoom, [robot, top_left_room]).holds(s)
+    # Now, open the door.
+    action = Action(np.array([0.0, 0.0, 0.75], dtype=np.float32))
+    s = env.simulate(s, action)
+    # The door should now be open.
+    # The robot should still be in the doorway, but not touching the door.
+    assert GroundAtom(InDoorway, [robot, top_door]).holds(s)
+
+    # Test obstacle collisions. Continuing from the previous state, if we
+    # move to the right, we should run into the obstacle at the center of
+    # the room, and not pass it.
+    action = Action(env.action_magnitude *
+                    np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    for _ in range(50):
+        s = env.simulate(s, action)
+    # The robot should still be on the left of the obstacle.
+    obstacle_x = s.get(top_right_obstacle, "x")
+    robot_x = s.get(robot, "x")
+    assert robot_x < obstacle_x
+
+    ## Test options ##
+
+    # Find the right door.
+    right_doors = [d for d in doors \
+        if GroundAtom(DoorInRoom, [d, top_right_room]).holds(state) and \
+           GroundAtom(DoorInRoom, [d, bottom_right_room]).holds(state)
+    ]
+    assert len(right_doors) == 1
+    right_door = right_doors[0]
+
+    # Test options working as expected.
+
+    option_plan = [
+        MoveToDoor.ground([robot, top_door], []),
+        OpenDoor.ground([top_door, robot], [0.75]),
+        MoveThroughDoor.ground([robot, top_door], []),
+        MoveToDoor.ground([robot, right_door], []),
+        OpenDoor.ground([right_door, robot], [0.75]),
+        MoveThroughDoor.ground([robot, right_door], []),
+    ]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert goal_atom.holds(traj.states[-1])
+    # Cover a few additional rendering cases.
+    env.render_state(traj.states[0], task, traj.actions[0])
+    env.render_state(traj.states[-1], task)
+
+    # Test options in cases where they are not initiable.
+
+    # MoveToDoor is not initiable if we're not already in the room.
+    assert not MoveToDoor.ground([robot, right_door], []).initiable(state)
+
+    # MoveThroughDoor is not initiable if we're not in the doorway.
+    assert not MoveThroughDoor.ground([robot, top_door], []).initiable(state)
+    # or if we're in the doorway, but the door isn't open.
+    action = Action(env.action_magnitude *
+                    np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    s = state.copy()
+    for _ in range(50):
+        s = env.simulate(s, action)
+    assert GroundAtom(InDoorway, [robot, top_door]).holds(s)
+    assert not MoveThroughDoor.ground([robot, top_door], []).initiable(s)
+
+    # OpenDoor is not initiable if we're not touching the door.
+    assert not OpenDoor.ground([right_door, robot],
+                               [0.75]).initiable(state)
