@@ -26,7 +26,7 @@ def _Holding_holds(state: RawState, objects: Sequence[Object]) -> bool:
     '''
     block, = objects
     # oracle evaluation
-    return state.get(block, "held") >= 0.5
+    # return state.get(block, "held") >= 0.5
 
     robot, = state.get_objects(_robot_type)
     robot_name = robot.id_name
