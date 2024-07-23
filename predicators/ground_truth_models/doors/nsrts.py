@@ -181,7 +181,7 @@ class DoorknobsGroundTruthNSRTFactory(DoorsGroundTruthNSRTFactory):
         return {"doorknobs"}
 
     @staticmethod
-    def get_nsrts(env_name: str, types: Dict[str, Type],
+    def get_nsrts(_: str, types: Dict[str, Type],
                   predicates: Dict[str, Predicate],
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
         # Types

@@ -1018,9 +1018,7 @@ class DoorKnobsEnv(DoorsEnv):
                     feat_dict = self._sample_doorknob_feats(
                         room_x, room_y, name, rng)
                     state_dict[doorknob] = feat_dict
-                    
                     self._door_to_knob[door] = doorknob
-                    # print("SETTING DOOR DICT", self._door_to_knob)
             # Sample obstacles for each room. Make them small and centered
             # enough that the robot should almost always be able to find a
             # collision-free path through the room.
@@ -1117,12 +1115,7 @@ class DoorKnobsEnv(DoorsEnv):
                 width = cls.hallway_width
                 height = cls.wall_depth
                 theta = state.get(obj, "theta")
-            elif obj.is_instance(cls._knob_type):
-                width = cls.hallway_width
-                height = cls.wall_depth
-                theta = state.get(obj, "theta")
-            else:
-                assert obj.is_instance(cls._obstacle_type)
+            elif obj.is_instance(cls._obstacle_type):
                 width = state.get(obj, "width")
                 height = state.get(obj, "height")
                 theta = state.get(obj, "theta")

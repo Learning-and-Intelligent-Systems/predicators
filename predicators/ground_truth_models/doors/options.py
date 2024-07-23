@@ -342,8 +342,7 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
             terminal=_MoveToDoor_terminal)
 
         # OpenDoor
-        def _OpenDoor_policy(_: State, memory: Dict,
-                             __: Sequence[Object],
+        def _OpenDoor_policy(_: State, memory: Dict, __: Sequence[Object],
                              params: Array) -> Action:
             del memory  # unused
             delta_rot = params
