@@ -4,10 +4,10 @@ import numpy as np
 from predicators import utils
 from predicators.envs.doors import DoorKnobsEnv, DoorsEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    State
-from predicators.ground_truth_models.doors.nsrts import DoorknobsGroundTruthNSRTFactory
-
+from predicators.ground_truth_models.doors.nsrts import \
+    DoorknobsGroundTruthNSRTFactory
+from predicators.structs import Action, EnvironmentTask, \
+    GroundAtom, Object, State
 
 def test_doors():
     """Tests for DoorsEnv()."""
@@ -324,9 +324,10 @@ def test_doorknobs():
     types = {t.name: t for t in env.types}
     predicates = {p.name: p for p in env.predicates}
     options = {o.name: o for o in options}
-    nsrts = DoorknobsGroundTruthNSRTFactory.get_nsrts("doorknobs", types, predicates, options )
+    nsrts = DoorknobsGroundTruthNSRTFactory.get_nsrts\
+        ("doorknobs", types,predicates, options)
     assert len(nsrts) == 4
-    env._door_to_knob = old_env._door_to_knob
+    env._door_to_knob = old_env._door_to_knob # pylint: disable=protected-access
     # Since we removed the obstacle, there should be no collisions.
     assert not env.state_has_collision(
         state,
