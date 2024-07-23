@@ -1953,7 +1953,6 @@ class MPDQNFunction(MapleQFunction):
             if o.is_instance(dummy_env._robot_type):
                 x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
                 break
-        # print("closest door's open", closest_object.name, state.get(closest_object, "open") )
 
         vectorized_state = object_to_features[closest_object][:6] + [x,y]
         return vectorized_state
@@ -1981,13 +1980,10 @@ class MPDQNFunction(MapleQFunction):
         # First, precompute the size of the input and output from the
         # Q-network.
 
-        # REMEMBER U NEED TO CHANGE X_size IF U EVER CHANGE VECTORIZE STUFFS
+        # REMEMBER U NEED TO CHANGE X_size IF U EVER CHANGE VECTORIZE STUFFS -- so change it for gridrowdoor
         X_size = 7 + 4 + self._max_num_params
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
-        if len(self._replay_buffer) == 0:
-            print("THERES NO DATA?")
-            return
         # Otherwise, start by vectorizing all data in the replay buffer.
         X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
         Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
@@ -1998,7 +1994,7 @@ class MPDQNFunction(MapleQFunction):
         #in doors env, good_move is when we try to callplanner AFTER door already open
         next_actions = []
         next_values = []
-        for i, (state, goal, option, next_state, reward,
+        for i, (state, _, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
@@ -2008,10 +2004,9 @@ class MPDQNFunction(MapleQFunction):
                 X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_action])
             except:
-                print("broadcase shape is wrong, please update X_size!")
-                import ipdb;ipdb.set_trace()
-            if reward > 0:
-                print("WE GOT REWARD")
+                print("Broadcase shape is incorrect, please update X_size!")
+                raise ValueError
+                
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
@@ -2045,10 +2040,7 @@ class MPDQNFunction(MapleQFunction):
             if best_next_value == 0.0:
                 Y_arr[i] = reward
             else:
-                try:
-                    vectorized_next_action = self._vectorize_option(next_best_action)
-                except:
-                    import ipdb; ipdb.set_trace()
+                vectorized_next_action = self._vectorize_option(next_best_action)
                 x = np.concatenate(
                     [vectorized_next_state, vectorized_next_action])
                 

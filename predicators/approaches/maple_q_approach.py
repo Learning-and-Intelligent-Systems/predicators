@@ -253,7 +253,6 @@ class MPDQNApproach(MapleQApproach):
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
                 if o.parent == self.CallPlanner and reward == 1:
                     reward += 0.5
-                    # import ipdb;ipdb.set_trace()
 
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
                 self._q_function.add_datum_to_replay_buffer(
