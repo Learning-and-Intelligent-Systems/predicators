@@ -251,17 +251,40 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                 optn_to_fail_data[optn_rec.option.name].append(
                     (s, ab_s, optn_rec.optn_objs)
                 )
+        
 
         for pnad in pnads:
+            # Take the data from the other PNAD of the same option as negative 
+            # data
+            option_name = pnad.option_spec[0].name
+            neg_data = optn_to_fail_data[option_name]
+            neg_data_from_pnad = []
+            if CFG.CIS_use_other_pnads_neg_data:
+                # Loop over the PNADs to find the other PNADs with the same option
+                # and add their data to the negative data
+                for other_pnad in pnads:
+                    # If its the same option; by name
+                    if other_pnad.option_spec[0] == pnad.option_spec[0]:
+                        # If its different pnad
+                        if pnad < other_pnad or pnad > other_pnad:
+                            for seg, sub in other_pnad.datastore:
+                                # sort the variables in the order of the option
+                                # parameters
+                                objs = [sub[v] for v in 
+                                            other_pnad.option_spec[1]]
+                                neg_data_from_pnad.append(
+                                    (seg.states[0], seg.init_atoms, objs)
+                                )
+            
             init_preconditions = self._induce_preconditions_via_intersection(
                 pnad)
-            option_name = pnad.option_spec[0].name
             # logging.debug(f"fetching neg states for {option_name}")
             logging.debug(f"Search with "
-                    f"{len(optn_to_fail_data[option_name])} negative and "
+                    f"{len(neg_data)} negatives, "
+                    f"{len(neg_data_from_pnad)} negatives from other pnads and "
                     f"{len(pnad.datastore)} positive data for: {pnad}")
             refined_preconditions = self._run_search(pnad, init_preconditions,
-                fail_data=optn_to_fail_data[option_name])
+                fail_data=neg_data + neg_data_from_pnad)
             logging.debug(f"Precondition before search {init_preconditions}")
 
             new_pnads.append(

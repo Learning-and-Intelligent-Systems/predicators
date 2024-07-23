@@ -31,21 +31,6 @@ _JugInMachine = NSPredicate("JugInMachine", [_jug_type, _machine_type],
 ```
 
 ```python
-def _RobotNearMachine_holds(state: RawState, objects: Sequence[Object]
-                         ) -> bool:
-    """Determine if the robot is near the machine.
-    """
-    return True
-    # robot, = objects
-    # robot_name = robot.id_name
-    # attention_image = state.crop_to_objects([robot])
-    # return state.evaluate_simple_assertion(
-    #    f"{robot_name} is close to the machine", attention_image)
-_RobotNearMachine = NSPredicate("RobotNearMachine", [_robot_type],
-                                          _RobotNearMachine_holds)
-```
-
-```python
 def _RobotHoldingJug_holds(state: RawState, objects: Sequence[Object]
                          ) -> bool:
     """Determine if the robot is holding the jug.

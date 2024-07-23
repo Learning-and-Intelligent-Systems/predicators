@@ -679,7 +679,8 @@ class CoffeeEnv(BaseEnv):
             pick_jug_rot_tol = self.pick_jug_rot_tol
         else:
             # in pb-coffee determine by grasp check
-            pick_jug_rot_tol = 2/10 * np.pi
+            # pick_jug_rot_tol = 1/5 * np.pi
+            pick_jug_rot_tol = 0.5
             # pick_jug_rot_tol = - np.pi / 4
 
         return abs(jug_rot) <= pick_jug_rot_tol

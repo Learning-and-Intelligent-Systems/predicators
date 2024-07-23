@@ -172,6 +172,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             "JugHasCoffee": self._JugFilled,
             # "RobotHoldingAboveCup": self._RobotAboveCup,
             "JugSideToGripper": self._JugPickable,
+            "JugUpright": Predicate("JugUpright", [self._jug_type],
+                                    lambda _1, _2: True),
+            "MachineOn": self._MachineOn,
         }
 
         # Predicates

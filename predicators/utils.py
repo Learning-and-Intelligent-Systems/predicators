@@ -417,6 +417,9 @@ def summarize_results_in_str(
             # if n_tp and "tp" in categories_to_show:
             if n_tp and "tp" in categories_to_show and n_fp and\
                 "fp" in categories_to_show:
+                # and n_fp because without false positives, there isn't 
+                # anything to learn
+
                 # [Simplified]
                 result_str.append(
                     f"Option {g_optn} *successfully* executed on the following "
@@ -427,10 +430,7 @@ def summarize_results_in_str(
                 # f"*successfully* executed on {n_succ_states}/{n_tot} states "+
                 # "(ground truth positive states).")
 
-                # and (n_succ_states/n_tot) < 1:
                 if n_tp and "tp" in categories_to_show and n_fp:  
-                    # and n_fp because without false positives, there isn't 
-                    # anything to learn
                     # [Detailed] True Positive
                     # result_str.append(
                     # f"  Out of the {n_succ_states} GT positive states, "+
@@ -478,7 +478,7 @@ def summarize_results_in_str(
                 # f"Option {g_optn} was applied on {n_tot} states and "+
                 # f"*failed* to executed on {n_fail_states}/{n_tot} states "+
                 # "(ground truth negative states).")
-                if n_fp and "fp" in categories_to_show:
+                if n_fp and "fp" in categories_to_show and n_tp:
                     # [Detailed] False Positive
                     # result_str.append(
                     # f"  Out of the {n_fail_states} GT negative states, "+
@@ -1776,8 +1776,9 @@ class RawState(PyBulletState):
                 #         value = round(float(value), 1)
                 #     obj_dict[attribute] = value
                 if (position_proprio_features and attribute in [
-                    # "pose_x", "pose_y", "pose_z", "x", "y", "z", 
-                    "fingers"]) or object_features:
+                    # "pose_x", "pose_y", "pose_z", "x", "y", "z",
+                    "rot", "fingers"
+                    ]) or object_features:
                         if isinstance(value, (float, int, np.float32)):
                             value = round(float(value), 1)
                         obj_dict[attribute] = value

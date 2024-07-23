@@ -1,32 +1,11 @@
 ```python
-def _JugHasCoffee_holds(state: RawState, objects: Sequence[Object]
-                         ) -> bool:
-    """Determine if the jug is filled with coffee.
-    """
-    jug, = objects
-    # return state.get(jug, "is_filled") > 0.5
-    jug_name = jug.id_name
-    attention_image = state.crop_to_objects([jug])
-    return state.evaluate_simple_assertion(
-        f"{jug_name} has coffee in it", attention_image)
-_JugHasCoffee = NSPredicate("JugHasCoffee", [_jug_type],
-                                          _JugHasCoffee_holds)
-```
-
-```python
 def _JugSideToGripper_holds(state: State, objects: Sequence[Object]) -> bool:
     """Determine if the jug's side is facing the robot gripper."""
     jug, = objects
     
     jug_rot = state.get(jug, "rot")
-    pick_jug_rot_tol = 1/5 * np.pi
+    pick_jug_rot_tol = 0.5
     return abs(jug_rot) <= pick_jug_rot_tol
-    
-    # Crop the scene image to the smallest bounding box that include both objects
-    # robot = state.get_objects(_robot_type)[0]
-    # attention_image = state.crop_to_objects([robot, jug])
-    # return state.evaluate_simple_assertion(
-    #     f"{jug.id_name}'s handle is on the side of {robot.id_name}", attention_image)
 
 name: str = "JugSideToGripper"
 param_types: Sequence[Type] = [_jug_type] 

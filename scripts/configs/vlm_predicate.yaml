@@ -8,8 +8,8 @@ ENVS:
   stick_button:
     # NAME: "burger"
     # NAME: "pybullet_cover_typed_options"
-    # NAME: "pybullet_blocks"
-    NAME: "pybullet_coffee"
+    NAME: "pybullet_blocks"
+    # NAME: "pybullet_coffee"
 ARGS: 
   # []
   - "debug"
@@ -18,14 +18,15 @@ ARGS:
   # - "make_failure_videos"
 FLAGS:
   # pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
-  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_blocks"
-  pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
-  num_train_tasks: 5 #0 # pybullet_coffee, cover
-  # num_train_tasks: 40 # pybullet_blocks 
+  pretrained_model_prompt_cache_dir: "pretrained_model_cache_blocks"
+  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
+  # num_train_tasks: 5 #0 # pybullet_coffee, cover
+  num_train_tasks: 40 # pybullet_blocks 
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
   strips_learner: "cluster_intersect_and_search"
+  CIS_use_other_pnads_neg_data: True
   # predicate_search_strips_learner: "cluster_intersect_and_search"
   excluded_predicates: "all"
   min_perc_data_for_nsrt: 0 # works for coffee, cover; 

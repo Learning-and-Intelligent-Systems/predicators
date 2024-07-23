@@ -42,4 +42,3 @@ def _Holding_holds(state: RawState, objects: Sequence[Object]) -> bool:
 
 _Holding = NSPredicate("Holding", [_block_type], _Holding_holds)
 ```
-

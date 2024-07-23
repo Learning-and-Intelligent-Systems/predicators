@@ -324,7 +324,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
                     # if ite != 1:
                     #     breakpoint()
-                    breakpoint()
+                    if ite == 5:
+                        breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
@@ -447,6 +448,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                               online_learning_cycle=None,
                               annotations=None,
                               fail_optn_dict=self.fail_optn_dict)
+            breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
