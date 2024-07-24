@@ -87,9 +87,11 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(DoorsShareRoom, [start_door, end_door]),
         }
         add_effects = {
-            LiftedAtom(TouchingDoor, [robot, end_door]),
             LiftedAtom(InDoorway, [robot, end_door])
         }
+        if env_name == "doors":
+            add_effects.add(LiftedAtom(TouchingDoor, [robot, end_door]))
+            
         delete_effects = {LiftedAtom(InDoorway, [robot, start_door])}
         ignore_effects = set()
         move_to_door_nsrt = NSRT("MoveToDoorFromDoorWay", parameters,
