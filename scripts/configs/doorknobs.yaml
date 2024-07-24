@@ -11,7 +11,7 @@ APPROACHES:
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
 ENVS:
-  grid_row:
+  doorknobs:
     NAME: "doorknobs"
 ARGS:
   - "debug"
