@@ -41,9 +41,9 @@ class BlocksEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.6
     y_ub: ClassVar[float] = 1.1
     pick_z: ClassVar[float] = 0.7
-    robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
-    robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2 - 0.4
-    robot_init_z: ClassVar[float] = pick_z - 0.25
+    robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2 + 0.2
+    robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2 + 0.3
+    robot_init_z: ClassVar[float] = pick_z - 0.45
     held_tol: ClassVar[float] = 0.5
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
@@ -327,6 +327,12 @@ class BlocksEnv(BaseEnv):
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self._block_size * (0.5 + pile_j)
             r, g, b = 0.4, 0.4, 0.8
+            if block.name == "block3":
+                x, y = 1.45, 1.04
+            if block.name == "block4":
+                x, y = 1.39, 1.035
+            if block.name == "block7":
+                x, y = 1.5, 1.035
             if "clear" in self._block_type.feature_names:
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
                 # clear]
@@ -344,10 +350,10 @@ class BlocksEnv(BaseEnv):
         data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
         state = State(data)
 
-        block = [b for b in block_to_pile_idx if b.name == "block0"][0]
-        state.set(block, "pose_x", rx)
-        state.set(block, "pose_y", ry)
-        state.set(block, "pose_z", rz)
+        # block = [b for b in block_to_pile_idx if b.name == "block0"][0]
+        # state.set(block, "pose_x", rx)
+        # state.set(block, "pose_y", ry)
+        # state.set(block, "pose_z", rz)
 
         return state
 

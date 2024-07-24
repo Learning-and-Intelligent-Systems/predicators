@@ -119,6 +119,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 physicsClientId=physics_client_id)
 
         # Add tray
+        offset_x = -0.1
+        offset_y = -0.4
+        offset_z = -0.55
 
         # bottom
         b = create_pybullet_block((139/255,69/255,19/255, 1.0),
@@ -127,7 +130,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 cls._obj_friction, cls._default_orn,
                                 physics_client_id)
         p.resetBasePositionAndOrientation(
-                b, [1.35, 0.45, 0.2],
+                b, [1.35 + offset_x, 0.45+offset_y, 0.2+offset_z],
                 cls._default_orn,
                 physicsClientId=physics_client_id)
         
@@ -138,7 +141,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 cls._obj_friction, cls._default_orn,
                                 physics_client_id)
         p.resetBasePositionAndOrientation(
-                b, [1.35, 0.45 - 3 * bs, 0.2 + 1.0 * bs / 2],
+                b, [1.35+ offset_x, 0.45 - 3 * bs+offset_y, 0.2 + 1.0 * bs / 2+offset_z],
                 cls._default_orn,
                 physicsClientId=physics_client_id)
         # side 2
@@ -148,7 +151,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 cls._obj_friction, cls._default_orn,
                                 physics_client_id)
         p.resetBasePositionAndOrientation(
-                b, [1.35, 0.45 + 3 * bs, 0.2 + 1.0 * bs / 2],
+                b, [1.35+ offset_x, 0.45 + 3 * bs+offset_y, 0.2 + 1.0 * bs / 2+offset_z],
                 cls._default_orn,
                 physicsClientId=physics_client_id)
         # side 3
@@ -158,7 +161,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 cls._obj_friction, cls._default_orn,
                                 physics_client_id)
         p.resetBasePositionAndOrientation(
-                b, [1.35 - 5 * bs, 0.45, 0.2 + 1.0 * bs / 2],
+                b, [1.35+ offset_x - 5 * bs, 0.45+offset_y, 0.2 + 1.0 * bs / 2+offset_z],
                 cls._default_orn,
                 physicsClientId=physics_client_id)
         # side 4
@@ -168,7 +171,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 cls._obj_friction, cls._default_orn,
                                 physics_client_id)
         p.resetBasePositionAndOrientation(
-                b, [1.35 + 5 * bs, 0.45, 0.2 + 1.0 * bs / 2],
+                b, [1.35+ offset_x + 5 * bs, 0.45+offset_y, 0.2 + 1.0 * bs / 2+offset_z],
                 cls._default_orn,
                 physicsClientId=physics_client_id)
 
