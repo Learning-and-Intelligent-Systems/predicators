@@ -60,9 +60,7 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(InMainRoom, [robot, room]),
             LiftedAtom(DoorInRoom, [door, room]),
         }
-        add_effects = {
-            LiftedAtom(InDoorway, [robot, door])
-        }
+        add_effects = {LiftedAtom(InDoorway, [robot, door])}
 
         if env_name == "doors":
             add_effects.add(LiftedAtom(TouchingDoor, [robot, door]))
@@ -86,12 +84,10 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(InDoorway, [robot, start_door]),
             LiftedAtom(DoorsShareRoom, [start_door, end_door]),
         }
-        add_effects = {
-            LiftedAtom(InDoorway, [robot, end_door])
-        }
+        add_effects = {LiftedAtom(InDoorway, [robot, end_door])}
         if env_name == "doors":
             add_effects.add(LiftedAtom(TouchingDoor, [robot, end_door]))
-            
+
         delete_effects = {LiftedAtom(InDoorway, [robot, start_door])}
         ignore_effects = set()
         move_to_door_nsrt = NSRT("MoveToDoorFromDoorWay", parameters,
@@ -99,7 +95,6 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                  ignore_effects, option, option_vars,
                                  null_sampler)
         nsrts.add(move_to_door_nsrt)
-
 
         # OpenDoor
         if env_name == "doors":
@@ -118,22 +113,25 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             }
             ignore_effects = set()
 
-            # Allow protected access because this is an oracle. Used in the sampler.
+            # Allow protected access because this is an oracle. \
+            #  Used in the sampler.
             env = get_or_create_env(env_name)
             assert isinstance(env, (DoorKnobsEnv, DoorsEnv))
             get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
 
-            # Even though this option does not need to be parameterized, we make it
-            # so, because we want to match the parameter space of the option that
-            # will get learned during option learning. This is useful for when we
+            # Even though this option does not need to be parameterized,
+            # we make it so, because we want to match the parameter
+            # space of the option that will get learned during option
+            # learning. This is useful for when we
             # want to use sampler_learner = "oracle" too.
             def open_door_sampler(state: State, goal: Set[GroundAtom],
-                              rng: np.random.Generator,
-                              objs: Sequence[Object]) -> Array:
+                                  rng: np.random.Generator,
+                                  objs: Sequence[Object]) -> Array:
                 del rng, goal  # unused
                 door, _ = objs
                 assert door.is_instance(door_type)
-                # Calculate the desired change in the doors "rotation" feature.
+                # Calculate the desired change in the doors
+                # "rotation" feature.
                 # Allow protected access because this is an oracle.
                 mass = state.get(door, "mass")
                 friction = state.get(door, "friction")
@@ -146,11 +144,11 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 # The door always changes from closed to open.
                 delta_open = 1.0
                 return np.array([delta_rot, delta_open], dtype=np.float32)
-            
+
             open_door_nsrt = NSRT("OpenDoor", parameters, preconditions,
-                              add_effects, delete_effects, ignore_effects,
-                              option, option_vars, open_door_sampler)
-        
+                                  add_effects, delete_effects, ignore_effects,
+                                  option, option_vars, open_door_sampler)
+
         elif env_name == "doorknobs":
             robot = Variable("?robot", robot_type)
             parameters = [robot]
@@ -162,15 +160,14 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             ignore_effects = set()
 
             def open_doorknob_sampler(_: State, goal: Set[GroundAtom],
-                              rng: np.random.Generator,
-                              __: Sequence[Object]) -> Array:
+                                      rng: np.random.Generator,
+                                      __: Sequence[Object]) -> Array:
                 del goal  # unused
                 return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
 
             open_door_nsrt = NSRT("OpenDoor", parameters, preconditions,
-                              add_effects, delete_effects, ignore_effects,
-                              option, option_vars, open_doorknob_sampler)
-        
+                                  add_effects, delete_effects, ignore_effects,
+                                  option, option_vars, open_doorknob_sampler)
 
         nsrts.add(open_door_nsrt)
 

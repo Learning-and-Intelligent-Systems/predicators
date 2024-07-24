@@ -82,7 +82,7 @@ class DoorsEnv(BaseEnv):
         return "doors"
 
     def simulate_moving(self, state: State, action: Action) -> State:
-        """helper function to simulate moving"""
+        """helper function to simulate moving."""
         assert self.action_space.contains(action.arr)
         dx, dy, _ = action.arr
         x = state.get(self._robot, "x")
@@ -332,8 +332,8 @@ class DoorsEnv(BaseEnv):
 
     def sample_obstacles(self, rooms: List, state_dict: Dict,
                          rng: np.random.Generator) -> None:
-        """helper function: for each room, sample obstacles
-        and add them to state dict"""
+        """helper function: for each room, sample obstacles and add them to
+        state dict."""
         for room in rooms:
             room_x = state_dict[room]["x"]
             room_y = state_dict[room]["y"]
