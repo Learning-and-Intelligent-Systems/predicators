@@ -289,6 +289,7 @@ class GlobalSettings:
     doors_birrt_num_iters = 100
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
+    timeout = 100
 
     # narrow_passage env parameters
     narrow_passage_open_door_refine_penalty = 0

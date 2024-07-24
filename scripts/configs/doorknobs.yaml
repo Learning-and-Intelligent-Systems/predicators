@@ -19,6 +19,5 @@ FLAGS:
   max_initial_demos: 0
   sampler_learner: "oracle"
   strips_learner: "oracle"
-  timeout: 100
 START_SEED: 0
 NUM_SEEDS: 5
