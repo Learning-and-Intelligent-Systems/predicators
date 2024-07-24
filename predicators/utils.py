@@ -3590,6 +3590,11 @@ def compare_abstract_accuracy(
         for est_pred in ns_predicates:
             if est_pred.name in est_preds_to_gt_preds:
                 gt_pred = est_preds_to_gt_preds[est_pred.name]
+                if gt_pred.arity != est_pred.arity:
+                    num_not_found += 1
+                    logging.info("proposed pred doesn't have the same arity as "
+                                 "the ground truth")
+                    continue
             # for est_pred, gt_pred in est_preds_to_gt_preds.items():
                 for choice in get_object_combinations(list(state), gt_pred.types):
                     num_evals += 1

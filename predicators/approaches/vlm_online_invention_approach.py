@@ -931,7 +931,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 
                 response = self._vlm.sample_completions(prompt,
                                              images,
-                                             temperature=CFG.llm_temperature,
+                                             temperature=0,
                                              seed=CFG.seed,
                                              num_completions=1
                                              )[0]

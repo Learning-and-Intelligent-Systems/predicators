@@ -4,8 +4,9 @@
 When writing the proposals, *strictly* adhere to the following guidelines:
 - When defining classifier functions, try to 
     1. *first* use rules based on object features to identify scenarios where the predicate is *clearly* False (the robot can't be holding anything if its hand is open). 
-    2. Then, use the `evaluate_simple_assertion` method *once* to cover the potential remaining cases. 
+    2. Then, if necessary, use the `evaluate_simple_assertion` method *once* to cover the potential remaining cases. 
 Take the format of existing predicates for reference.
 - Each proposed predicate is semantically from the existing predicates and each other.
 - Don't write out the new operators.
 - Make use of helper functions such as the classifier function in the existing predicates and `evaluate_simple_assertion`, if they're helpful. But try not to use `evaluate_simple_assertion` in a loop.
+- Don't use any undefined constants.
