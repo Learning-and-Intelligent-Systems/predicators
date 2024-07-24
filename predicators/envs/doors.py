@@ -743,34 +743,6 @@ class DoorKnobsEnv(DoorsEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-
-        # Predicates
-        self._InRoom = Predicate("InRoom", [self._robot_type, self._room_type],
-                                 self._InRoom_holds)
-        self._InDoorway = Predicate("InDoorway",
-                                    [self._robot_type, self._door_type],
-                                    self._InDoorway_holds)
-        self._InMainRoom = Predicate("InMainRoom",
-                                     [self._robot_type, self._room_type],
-                                     self._InMainRoom_holds)
-        self._DoorInRoom = Predicate("DoorInRoom",
-                                     [self._door_type, self._room_type],
-                                     self._DoorInRoom_holds)
-        # This predicate is needed as a precondition for moving from one
-        # door to another door in the same room.
-        self._DoorsShareRoom = Predicate("DoorsShareRoom",
-                                         [self._door_type, self._door_type],
-                                         self._DoorsShareRoom_holds)
-        # Static objects (always exist no matter the settings).
-        self._robot = Object("robby", self._robot_type)
-        # Hyperparameters from CFG.
-        self._room_map_size = CFG.doors_room_map_size
-        self._min_obstacles_per_room = CFG.doors_min_obstacles_per_room
-        self._max_obstacles_per_room = CFG.doors_max_obstacles_per_room
-        self._min_room_exists_frac = CFG.doors_min_room_exists_frac
-        self._max_room_exists_frac = CFG.doors_max_room_exists_frac
-        # See note in _sample_initial_state_from_map().
-        self._task_id_count = itertools.count()
         self._door_to_knob: Dict[Object, Object] = {}
         self._open_door_target_value = CFG.doorknobs_target_value
 
@@ -936,27 +908,6 @@ class DoorKnobsEnv(DoorsEnv):
         plt.axis("off")
         plt.tight_layout()
         return fig
-
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
-        tasks: List[EnvironmentTask] = []
-        for _ in range(num):
-            # Sample a room map.
-            room_map = self._sample_room_map(rng)
-            state = self._sample_initial_state_from_map(room_map, rng)
-            # Sample the goal.
-            rooms = state.get_objects(self._room_type)
-            candidate_goal_rooms = [
-                r for r in rooms
-                if not self._InRoom_holds(state, [self._robot, r])
-            ]
-            goal_room = candidate_goal_rooms[rng.choice(
-                len(candidate_goal_rooms))]
-            goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
-            goal = {goal_atom}
-            assert not goal_atom.holds(state)
-            tasks.append(EnvironmentTask(state, goal))
-        return tasks
 
     def _sample_initial_state_from_map(self, room_map: NDArray,
                                        rng: np.random.Generator) -> State:
@@ -1173,3 +1124,4 @@ class DoorKnobsEnv(DoorsEnv):
             "target_rot": target_rot,
             "open": 0.0,  # always start out closed
         }
+    
