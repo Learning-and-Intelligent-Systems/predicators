@@ -164,7 +164,7 @@ class GlobalSettings:
         {
             "pybullet_blocks": {
                 "fetch": (0.7071, 0.0, -0.7071, 0.0),
-                "panda": (0.7071, 0.7071, 0.0, 0.0),
+                "panda": (1.0, 0.0, 0.0, 0.0),
             }
         })
 

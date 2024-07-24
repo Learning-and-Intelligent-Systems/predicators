@@ -42,8 +42,8 @@ class BlocksEnv(BaseEnv):
     y_ub: ClassVar[float] = 1.1
     pick_z: ClassVar[float] = 0.7
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
-    robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
-    robot_init_z: ClassVar[float] = pick_z
+    robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2 - 0.4
+    robot_init_z: ClassVar[float] = pick_z - 0.25
     held_tol: ClassVar[float] = 0.5
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
@@ -326,7 +326,7 @@ class BlocksEnv(BaseEnv):
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self._block_size * (0.5 + pile_j)
-            r, g, b = 0.4, 0.4, 0.4
+            r, g, b = 0.4, 0.4, 0.8
             if "clear" in self._block_type.feature_names:
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
                 # clear]
@@ -342,7 +342,14 @@ class BlocksEnv(BaseEnv):
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
         rf = 1.0  # fingers start out open
         data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
-        return State(data)
+        state = State(data)
+
+        block = [b for b in block_to_pile_idx if b.name == "block0"][0]
+        state.set(block, "pose_x", rx)
+        state.set(block, "pose_y", ry)
+        state.set(block, "pose_z", rz)
+
+        return state
 
     def _sample_goal_from_piles(self, num_blocks: int,
                                 piles: List[List[Object]],

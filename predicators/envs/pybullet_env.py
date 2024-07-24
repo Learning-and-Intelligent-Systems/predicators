@@ -190,6 +190,7 @@ class PyBulletEnv(BaseEnv):
         self._current_observation = self._get_state()
 
         img = self.render()[0]
+        img = img[:, 200:-200]
         import imageio.v2 as iio
         iio.imsave("out.png", img)
         import sys; sys.exit(0)
