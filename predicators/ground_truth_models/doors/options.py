@@ -473,28 +473,6 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
         return initiable
 
     @classmethod
-    def _create_move_through_door_policy(
-            cls, action_space: Box) -> ParameterizedPolicy:
-
-        def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
-            del params  # unused
-            robot, _ = objects
-            desired_x, desired_y = memory["target"]
-            robot_x = state.get(robot, "x")
-            robot_y = state.get(robot, "y")
-            delta = np.subtract([desired_x, desired_y], [robot_x, robot_y])
-            delta_norm = np.linalg.norm(delta)
-            if delta_norm > DoorsEnv.action_magnitude:
-                delta = DoorsEnv.action_magnitude * delta / delta_norm
-            dx, dy = delta
-            action = Action(np.array([dx, dy, 0.0], dtype=np.float32))
-            assert action_space.contains(action.arr)
-            return action
-
-        return policy
-
-    @classmethod
     def _create_move_through_door_initiable(
             cls, predicates: Dict[str, Predicate]) -> ParameterizedInitiable:
 
