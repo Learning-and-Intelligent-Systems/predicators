@@ -140,8 +140,8 @@ class GlobalSettings:
 
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
-    pybullet_camera_width = 1674  # for high quality, use 1674
-    pybullet_camera_height = 900  # for high quality, use 900
+    pybullet_camera_width = 3 * 1674  # for high quality, use 1674
+    pybullet_camera_height = 3 * 900  # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
