@@ -90,17 +90,20 @@ def main() -> None:
     # handlers: List[logging.Handler] = [logging.StreamHandler()]
     handlers: List[logging.Handler] = [colorlog_handler]
     if CFG.log_file:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        CFG.log_file += f"{CFG.env}/seed{CFG.seed}/"
+        os.makedirs(CFG.log_file, exist_ok=True)
+
+        timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
         # handlers.append(logging.FileHandler(CFG.log_file + timestamp,
         #                                     mode='w'))
         # Handler for DEBUG level messages
-        debug_handler = logging.FileHandler(CFG.log_file + timestamp +
+        debug_handler = logging.FileHandler(CFG.log_file + "r" + timestamp +
                                             "_debug", mode='w')
         debug_handler.setLevel(logging.DEBUG)
         handlers.append(debug_handler)
         
         # Handler for INFO level messages
-        info_handler = logging.FileHandler(CFG.log_file + timestamp +
+        info_handler = logging.FileHandler(CFG.log_file + "r" + timestamp +
                                         "_info", mode='w')
         info_handler.setLevel(logging.INFO)
         handlers.append(info_handler)

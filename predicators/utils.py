@@ -135,6 +135,7 @@ def count_classification_result_for_ops(
         max_num_groundings: int = 2,  # Number of ground options per option.3
         max_num_examples: int = 2,  # Number of examples per ground option.
         categories_to_show: List[str] = ['tp', 'fp'],
+        ite: Optional[int] = 0,
 ) -> Tuple[int, int, int, int, str]:
 
     np.set_printoptions(precision=1)
@@ -327,6 +328,7 @@ def count_classification_result_for_ops(
             max_num_groundings,
             max_num_examples,
             categories_to_show,
+            ite,
         )
 
     if print_cm:
@@ -350,6 +352,7 @@ def summarize_results_in_str(
     max_num_groundings: int,
     max_num_examples: int,
     categories_to_show: List[str] = ['tp', 'fp'],
+    ite: Optional[int] = 0,
 ) -> str:
     result_str = []
     # What how to simplify the prompt?
@@ -448,7 +451,7 @@ def summarize_results_in_str(
                     #                   uniq_n_tp > max_num_examples)
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, tp_states, max_num_examples, "tp",
-                        state_hash_to_id)
+                        state_hash_to_id, ite)
 
                 # Ignored in the simplified prompt
                 # False Negative
@@ -462,7 +465,7 @@ def summarize_results_in_str(
                         uniq_n_fn > max_num_examples else ":"))
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, fn_states,
-                        max_num_examples, "fn", state_hash_to_id)
+                        max_num_examples, "fn", state_hash_to_id, ite)
 
             # GT Negative
             # if n_fail_states:
@@ -497,7 +500,7 @@ def summarize_results_in_str(
                     #                   "They are:")
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, fp_states, max_num_examples, "fp",
-                        state_hash_to_id)
+                        state_hash_to_id, ite)
 
                 # Ignored in the simplified prompt
                 # and (n_tn/n_fail_states) < 1:
@@ -512,7 +515,7 @@ def summarize_results_in_str(
                         uniq_n_tn > max_num_examples else ":"))
                     result_str = append_classification_result_for_ops(
                         result_str, g_optn, tn_states,
-                        max_num_examples, "tn", state_hash_to_id)
+                        max_num_examples, "tn", state_hash_to_id, ite)
                 
                 if not (n_fp and "fp" in categories_to_show) and \
                    not (n_tn and "tn" in categories_to_show):
@@ -524,7 +527,9 @@ def summarize_results_in_str(
 def append_classification_result_for_ops(result_str: List[str], g_optn: str,
                                          states: Set[RawState],
                                          max_num_examples: int, category: str,
-                                         state_hash_to_id: Dict) -> List[str]:
+                                         state_hash_to_id: Dict,
+                                         ite: Optional[int] = 0,
+                                         ) -> List[str]:
     shown_ppp = []
     num_shown = 0
     for _, state in enumerate(states):
@@ -543,7 +548,10 @@ def append_classification_result_for_ops(result_str: List[str], g_optn: str,
         if CFG.vlm_predicator_render_option_state:
             obs_name = "state_" + str(state_hash_to_id[hash(state)])
             f_suffix = ".png"
-            _, obs_dir = vlm_option_obs_save_name(g_optn, category, num_shown)
+            # _, obs_dir = vlm_option_obs_save_name(g_optn, category, num_shown)
+            # obs_dir += f"/{CFG.seed}_ite{ite}"
+            obs_dir = CFG.log_file + f"ite{ite}_obs/"
+            os.makedirs(obs_dir, exist_ok=True)
 
             # Write state name to the image for easy identification
             img_copy = state.labeled_image.copy()

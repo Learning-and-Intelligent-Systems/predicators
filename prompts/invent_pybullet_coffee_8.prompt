@@ -339,7 +339,7 @@ Option Twist(robot1:robot, jug6:jug) *successfully* executed on the following st
   state_0 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup7:cup',
-   'jug6:jug': {'rot': -0.1},
+   'jug6:jug': {'rot': 0.0},
    'robot1:robot': {'fingers': 0.4},
    'table2:table'}
   Previous option: Twist(robot1:robot, jug6:jug)
@@ -353,7 +353,7 @@ Option Twist(robot1:robot, jug6:jug) *successfully* executed on the following st
   Previous option: None
 
 Option Twist(robot1:robot, jug6:jug) *failed* to executed on the following states (negative states):
-  state_22 with additional info:
+  state_34 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup7:cup',
    'jug6:jug': {'rot': -0.0},
@@ -361,16 +361,16 @@ Option Twist(robot1:robot, jug6:jug) *failed* to executed on the following state
    'table2:table'}
   Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
 
-  state_23 with additional info:
+  state_10 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup7:cup',
-   'jug6:jug': {'rot': -0.1},
+   'jug6:jug': {'rot': -0.0},
    'robot1:robot': {'fingers': 0.4},
    'table2:table'}
   Previous option: TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine)
 
 Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *successfully* executed on the following states (positive states):
-  state_22 with additional info:
+  state_34 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup7:cup',
    'jug6:jug': {'rot': -0.0},
@@ -379,7 +379,7 @@ Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *successfully
   Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
 
 Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
-  state_5 with additional info:
+  state_10 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup7:cup',
    'jug6:jug': {'rot': -0.0},
@@ -391,7 +391,7 @@ Option PickJug(robot1:robot, jug6:jug) *successfully* executed on the following 
   state_0 with additional info:
   {'coffee_machine3:coffee_machine',
    'cup7:cup',
-   'jug6:jug': {'rot': -0.1},
+   'jug6:jug': {'rot': 0.0},
    'robot1:robot': {'fingers': 0.4},
    'table2:table'}
   Previous option: Twist(robot1:robot, jug6:jug)

@@ -241,197 +241,114 @@ class NSPredicate:
 # The Environment
 The environment includes the following object-type variables with features:
 ```python
-_robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers", "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
-_jug_type = Type("jug", ["x", "y", "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
-_cup_type = Type("cup", ["x", "y", "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
-_machine_type = Type("coffee_machine", ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
+_block_type = Type("block", ["pose_y_norm", "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
+_target_type = Type("target", ["pose_y_norm", "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
+_robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z", "fingers", "bbox_left", "bbox_right", "bbox_upper", "bbox_lower"])
 _table_type = Type("table", [])
 ```
 where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left, lower boundary of the object bounding box in the image starting from (0, 0) at the bottom left corner of the image.
 `pose_x`, `pose_y`, and `pose_z` correspond to the 3d object position in the world frame, so these are not comparable to the bbox values.
 
 The existing set of predicates are:
-{'CupFilled(?x:cup)'}
+{'HandEmpty()', 'Covers(?x:block, ?y:target)', 'RobotHasClearance(?x:robot)(?x:robot)'}
 
-Predicate CupFilled(?x) is defined by:
-```python
-def _CupFilled_NSP_holds(self, state: RawState, objects: Sequence[Object]
-                         ) -> bool:
-    """Determine if the cup is filled coffee.
-    """
-    cup, = objects
-    cup_name = cup.id_name
-    attention_image = state.crop_to_objects([cup])
-    return state.evaluate_simple_assertion(
-        f"{cup_name} has coffee in it", attention_image)
-_CupFilled_NSP = NSPredicate("CupFilled", [_cup_type],
-                                          _CupFilled_NSP_holds)
-```
 
 The set of options the robot has are:
-TurnMachineOn(?robot:robot, ?machine:coffee_machine): Turn the machine on.
-PickJug(?robot:robot, ?jug:jug): Pick up the jug.
-Pour(?robot:robot, ?jug:jug, ?cup:cup): Pour liquid from the jug to the cup
-Twist(?robot:robot, ?jug:jug): Rotate the jug to the desired rotation.
-PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:coffee_machine): Place the jug in the machine.
+Pick(?x0:block)
+Place(?x0:block, ?x1:target)
 
 Utilizing the existing predicates, we carefully designed the following action operators:
-Operator-PlaceJugInMachine:
-    Parameters: [?robot:robot, ?jug:jug, ?machine:coffee_machine]
-    Preconditions: []
-    Add Effects: []
-    Delete Effects: []
+Operator-Op1:
+    Parameters: [?x0:block, ?x1:target]
+    Preconditions: [NOT-HandEmpty()]
+    Add Effects: [Covers(?x0:block, ?x1:target), HandEmpty()]
+    Delete Effects: [NOT-Covers(?x0:block, ?x1:target), NOT-HandEmpty()]
     Ignore Effects: []
-    Option Spec: PlaceJugInMachine(?robot:robot, ?jug:jug, ?machine:coffee_machine)
-Operator-PickJugFromTable:
-    Parameters: [?robot:robot, ?jug:jug]
+    Option Spec: Place(?x0:block, ?x1:target)
+Operator-Op0:
+    Parameters: [?x0:block]
     Preconditions: []
-    Add Effects: []
-    Delete Effects: []
+    Add Effects: [NOT-HandEmpty()]
+    Delete Effects: [HandEmpty()]
     Ignore Effects: []
-    Option Spec: PickJug(?robot:robot, ?jug:jug)
-Operator-PourFromNowhere:
-    Parameters: [?robot:robot, ?jug:jug, ?cup:cup]
-    Preconditions: []
-    Add Effects: [CupFilled(?cup:cup)]
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: Pour(?robot:robot, ?jug:jug, ?cup:cup)
-Operator-TurnMachineOn:
-    Parameters: [?robot:robot, ?jug:jug, ?machine:coffee_machine]
-    Preconditions: []
-    Add Effects: []
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: TurnMachineOn(?robot:robot, ?machine:coffee_machine)
-Operator-Twist:
-    Parameters: [?robot:robot, ?jug:jug]
-    Preconditions: []
-    Add Effects: []
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: Twist(?robot:robot, ?jug:jug)
+    Option Spec: Pick(?x0:block)
 
 The robot tried to execute its options in states that satisfied their operators' preconditions and got the following results:
-Option Twist(robot1:robot, jug6:jug) *successfully* executed on the following states (positive states):
-  state_14 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
+Option Place(block3:block, target5:target) *successfully* executed on the following states (positive states):
+  state_6 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block3:block)
 
-  state_1 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: Twist(robot1:robot, jug6:jug)
+  state_10 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block4:block)
 
-Option Twist(robot1:robot, jug6:jug) *failed* to executed on the following states (negative states):
+Option Place(block3:block, target5:target) *failed* to executed on the following states (negative states):
+  state_8 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block4:block)
+
+  state_9 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block3:block)
+
+Option Place(block4:block, target6:target) *successfully* executed on the following states (positive states):
+  state_12 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block4:block)
+
+  state_4 with additional info:
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block3:block)
+
+Option Place(block4:block, target6:target) *failed* to executed on the following states (negative states):
   state_13 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': -0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
-
-  state_0 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': -0.1},
-   'robot1:robot': {'fingers': 0.1},
-   'table2:table'}
-  Previous option: PickJug(robot1:robot, jug6:jug)
-
-Option PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine) *successfully* executed on the following states (positive states):
-  state_0 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': -0.1},
-   'robot1:robot': {'fingers': 0.1},
-   'table2:table'}
-  Previous option: PickJug(robot1:robot, jug6:jug)
-
-Option PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
-  state_1 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: Twist(robot1:robot, jug6:jug)
-
-  state_2 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
-
-Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *successfully* executed on the following states (positive states):
-  state_13 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': -0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
-
-Option TurnMachineOn(robot1:robot, coffee_machine3:coffee_machine) *failed* to executed on the following states (negative states):
-  state_1 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: Twist(robot1:robot, jug6:jug)
-
-  state_2 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
-
-Option PickJug(robot1:robot, jug6:jug) *successfully* executed on the following states (positive states):
-  state_13 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': -0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: PlaceJugInMachine(robot1:robot, jug6:jug, coffee_machine3:coffee_machine)
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block4:block)
 
   state_14 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 0.0},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
-
-Option PickJug(robot1:robot, jug6:jug) *failed* to executed on the following states (negative states):
-  state_0 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': -0.1},
-   'robot1:robot': {'fingers': 0.1},
-   'table2:table'}
-  Previous option: PickJug(robot1:robot, jug6:jug)
-
-  state_17 with additional info:
-  {'coffee_machine3:coffee_machine',
-   'cup7:cup',
-   'jug6:jug': {'rot': 2.1},
-   'robot1:robot': {'fingers': 0.4},
-   'table2:table'}
-  Previous option: None
+  {'block3:block',
+   'block4:block',
+   'robot1:robot': {'fingers': 0.0},
+   'table2:table',
+   'target5:target',
+   'target6:target'}
+  Previous option: Pick(block3:block)
 
 
 Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integrated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy them.

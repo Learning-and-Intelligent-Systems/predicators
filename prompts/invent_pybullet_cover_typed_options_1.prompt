@@ -295,7 +295,7 @@ Option Place(block3:block, target5:target) *failed* to executed on the following
   Previous option: None
 
 Option Place(block4:block, target6:target) *successfully* executed on the following states (positive states):
-  state_12 with additional info:
+  state_8 with additional info:
   {'block3:block',
    'block4:block',
    'robot1:robot': {'fingers': 0.0},
@@ -317,11 +317,11 @@ Option Place(block4:block, target6:target) *failed* to executed on the following
   state_9 with additional info:
   {'block3:block',
    'block4:block',
-   'robot1:robot': {'fingers': 1.0},
+   'robot1:robot': {'fingers': 0.0},
    'table2:table',
    'target5:target',
    'target6:target'}
-  Previous option: Place(block3:block, target5:target)
+  Previous option: Pick(block3:block)
 
 
 Your task is to design predicates--*that are semantically different from the existing predicates*--so that when they are integrated into the preconditions of action operators, the negative states no longer satisfy the operators' precondition, while positive states still satisfy them.

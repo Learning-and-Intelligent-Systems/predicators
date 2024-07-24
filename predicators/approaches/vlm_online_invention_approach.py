@@ -215,8 +215,11 @@ class VlmInventionApproach(NSRTLearningApproach):
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         """Learn from interacting with the offline dataset."""
         for i, task in enumerate(tasks):
-            task.init.state_image.save(f"images/init_state{i}.png")
-            task.init.labeled_image.save(f"images/init_label{i}.png")
+            img_dir = os.path.join(CFG.log_file, "images")
+            os.makedirs(img_dir, exist_ok=True)
+            # task.init.state_image.save(CFG.log_file, f"images/init_state{i}.png")
+            task.init.labeled_image.save(os.path.join(img_dir, 
+                                        f"init_label{i}.png"))
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
@@ -319,11 +322,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # Use the results to prompt the llm
                     prompt = self._create_prompt(env, ite, 10, 2, 2, 
                                             categories_to_show=['tp', 'fp'])
-                    response_file =\
-                        f'./prompts/invent_{self.env_name}_{ite}.response'
+                    response_file = CFG.log_file + f"ite{ite}.response"
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    # if ite != 1:
-                    #     breakpoint()
+                    if ite != 1:
+                        breakpoint()
+                    # breakpoint()
                     new_proposals = self._get_llm_predictions(
                         prompt, response_file, manual_prompt,
                         regenerate_response)
@@ -524,8 +527,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
             # if solve_rate == 1 and num_failed_plans == 0:
-            if solve_rate == 1 and num_failed_plans/num_tasks < 1:
-                if CFG.env in ["pybullet_coffee", "pybullet_blocks"]:
+            if solve_rate == 1:
+                if CFG.env in ["pybullet_coffee"]:
                     # these are harder
                     if num_failed_plans/num_tasks < 1:
                         break
@@ -1137,11 +1140,13 @@ class VlmInventionApproach(NSRTLearningApproach):
             max_num_groundings=max_num_groundings,
             max_num_examples=max_num_examples,
             categories_to_show=categories_to_show,
+            ite=ite,
             )
         template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
         # Save the text prompt
-        with open(f'./prompts/invent_{self.env_name}_{ite}.prompt', 'w') as f:
+        with open(f"{CFG.log_file}/ite{ite}.prompt", 'w') as f:
+        # with open(f'./prompts/invent_{self.env_name}_{ite}.prompt', 'w') as f:
             f.write(template)
         prompt = template
 
