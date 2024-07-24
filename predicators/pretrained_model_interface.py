@@ -30,6 +30,10 @@ _CACHE_SEP = "\n####$$$###$$$####$$$$###$$$####$$$###$$$###\n"
 class PretrainedLargeModel(abc.ABC):
     """A pretrained large vision or language model."""
 
+    def __init__(self, system_instruction: Optional[str] = None):
+        """Initialize the model with a system instruction."""
+        self.system_instruction = system_instruction
+
     @abc.abstractmethod
     def get_id(self) -> str:
         """Get a string identifier for this model.
@@ -206,9 +210,10 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
     private API key for beta.openai.com.
     """
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, system_instruction: Optional[str] = None) -> None:
         """See https://platform.openai.com/docs/models for the list of
         available model names."""
+        super().__init__(system_instruction)
         self._model_name = model_name
         # Note that max_tokens is the maximum response length (not prompt).
         # From OpenAI docs: "The token count of your prompt plus max_tokens
@@ -245,9 +250,11 @@ class GoogleGeminiVLM(VisionLanguageModel):
     necessary API key to query the particular model name.
     """
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str,
+                 system_instruction: Optional[str] = None) -> None:
         """See https://ai.google.dev/models/gemini for the list of available
         model names."""
+        super().__init__(system_instruction)
         self._model_name = model_name
         assert "GOOGLE_API_KEY" in os.environ
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -273,7 +280,7 @@ class GoogleGeminiVLM(VisionLanguageModel):
         self._model = genai.GenerativeModel(
             model_name=self._model_name,
             safety_settings=safety_settings,
-            system_instruction=CFG.vlm_system_instruction)
+            system_instruction=self.system_instruction)
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()
 
@@ -327,7 +334,7 @@ class GoogleGeminiVLM(VisionLanguageModel):
         self._model = genai.GenerativeModel(
             model_name=self._model_name,
             safety_settings=safety_settings,
-            system_instruction=CFG.vlm_system_instruction)
+            system_instruction=self.system_instruction)
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()
         # end
@@ -352,8 +359,9 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
     """Interface for OpenAI's VLMs, including GPT-4 Turbo (and preview
     versions)."""
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, system_instruction: Optional[str] = None):
         """Initialize with a specific model name."""
+        super().__init__(system_instruction)
         self.model_name = model_name
         # Note that max_tokens is the maximum response length (not prompt).
         # From OpenAI docs: "The token count of your prompt plus max_tokens
@@ -407,7 +415,7 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
                 "system",
                 "content": [{
                     "type": "text",
-                    "text": CFG.vlm_system_instruction
+                    "text": self.system_instruction
                 }]
             })
         return system_message

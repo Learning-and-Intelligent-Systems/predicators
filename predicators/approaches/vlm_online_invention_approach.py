@@ -26,6 +26,7 @@ import numpy as np
 from gym.spaces import Box
 from tabulate import tabulate
 from tqdm import tqdm
+from PIL import Image
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
@@ -123,7 +124,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # self._candidates: Set[Predicate] = set()
         self._num_inventions = 0
         # Set up the VLM
-        self._vlm = OpenAILLMNEW(CFG.vlm_model_name)
+        self._vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         self._type_dict = {type.name: type for type in self._types}
 
     @classmethod
@@ -226,7 +227,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         propose_ite = 0
         max_invent_ite = 20
         add_new_proposal_at_every_ite = False  # Invent at every iterations
-        manual_prompt = True
+        manual_prompt = False
         regenerate_response = False
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
         best_solve_rate, best_ite, clf_acc = -np.inf, 0.0, 0.0
@@ -324,11 +325,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                                             categories_to_show=['tp', 'fp'])
                     response_file = CFG.log_file + f"ite{ite}.response"
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    if ite != 1:
-                        breakpoint()
-                    # breakpoint()
-                    new_proposals = self._get_llm_predictions(
-                        prompt, response_file, manual_prompt,
+                    # if ite != 1:
+                    #     breakpoint()
+                    breakpoint()
+                    new_proposals = self._get_vlm_proposals(
+                        prompt, ite, response_file, manual_prompt,
                         regenerate_response)
                 logging.info(
                     f"Done: created {len(new_proposals)} candidates:" +
@@ -900,9 +901,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                 logging.info(f"Saved dataset to {ds_fname}\n")
         return results
 
-    def _get_llm_predictions(
+    def _get_vlm_proposals(
             self,
             prompt: str,
+            ite: int, 
             response_file: str,
             manual_prompt: bool = False,
             regenerate_response: bool = False) -> Set[Predicate]:
@@ -911,16 +913,28 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # create a empty file for pasting chatGPT response
                 with open(response_file, 'w') as file:
                     pass
-                logging.info(f"## Please paste the response from the LLM " +
+                logging.info(f"## Please paste the response from the VLM " +
                              f"to {response_file}")
                 input("Press Enter when you have pasted the " + "response.")
             else:
-                raise NotImplementedError("Automatic prompt generation not "+\
-                                          "updated")
-                self._vlm.sample_completions(prompt,
+                # Load the images accompanying the prompt
+                images = []
+                obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
+                for filename in os.listdir(obs_dir):
+                    file_path = os.path.join(obs_dir, filename)
+                    if filename.lower().endswith(('.png', '.jpg')):
+                        img = Image.open(file_path)
+                        images.append(img)
+                
+                response = self._vlm.sample_completions(prompt,
+                                             images,
                                              temperature=CFG.llm_temperature,
                                              seed=CFG.seed,
-                                             save_file=response_file)[0]
+                                             num_completions=1
+                                             )[0]
+                with open(response_file, 'w') as f:
+                    f.write(response)
+
         new_candidates = self._parse_predicate_predictions(response_file)
         return new_candidates
 

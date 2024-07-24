@@ -7,9 +7,9 @@ APPROACHES:
 ENVS:
   stick_button:
     # NAME: "burger"
-    # NAME: "pybullet_cover_typed_options"
+    NAME: "pybullet_cover_typed_options"
     # NAME: "pybullet_blocks"
-    NAME: "pybullet_coffee"
+    # NAME: "pybullet_coffee"
 ARGS: 
   # []
   - "debug"
@@ -17,9 +17,9 @@ ARGS:
   # - "use_gui"
   # - "make_failure_videos"
 FLAGS:
-  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
+  pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
   # pretrained_model_prompt_cache_dir: "pretrained_model_cache_blocks"
-  pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
+  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
   # num_train_tasks: 40 # pybullet_blocks 
   num_train_tasks: 5 #0 # pybullet_coffee, cover
   num_test_tasks: 20
@@ -38,7 +38,7 @@ FLAGS:
   # Env settings
   rgb_observation: False
   render_init_state: True # True for NSP
-  pybullet_control_mode: "reset" # need for blocks and coffee
+  # pybullet_control_mode: "reset" # need for blocks and coffee
   sesame_check_expected_atoms: False
   coffee_twist_sampler: False
   coffee_num_cups_train: '[1]'

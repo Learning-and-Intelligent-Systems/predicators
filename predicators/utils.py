@@ -3238,11 +3238,12 @@ def create_vlm_predicate(
 
 
 def create_vlm_by_name(
-        model_name: str) -> VisionLanguageModel:  # pragma: no cover
+        model_name: str,
+        system_instruction: Optional[str] = None) -> VisionLanguageModel:  # pragma: no cover
     """Create particular vlm using a provided name."""
     if "gemini" in model_name:
-        return GoogleGeminiVLM(model_name)
-    return OpenAIVLM(model_name)
+        return GoogleGeminiVLM(model_name, system_instruction)
+    return OpenAIVLM(model_name, system_instruction)
 
 
 def query_vlm_for_atom_vals(
@@ -3351,7 +3352,7 @@ def abstract(state: State,
         # Make the query, cache the results and add the ones that holds.
         if len(vlm_queries) > 0:
             vlm_atoms = query_vlm_for_atom_vals_with_VLMQuerys(
-                vlm_queries, state, vlm, base_ns_preds)
+                vlm_queries, state, None, base_ns_preds)
             atoms |= set(vlm_atoms)
 
     if len(derived_preds) > 0:
@@ -3374,7 +3375,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
 
     # Init or reset vlm
     if vlm is None:
-        vlm = create_vlm_by_name(CFG.vlm_model_name)
+        vlm = create_vlm_by_name(CFG.vlm_model_name, CFG.vlm_system_instruction)
     else:
         if CFG.vlm_use_chat_mode:
             vlm.reset_chat_history()
