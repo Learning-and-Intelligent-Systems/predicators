@@ -1026,7 +1026,12 @@ class DoorKnobsEnv(DoorsEnv):
                 width = cls.hallway_width
                 height = cls.wall_depth
                 theta = state.get(obj, "theta")
-            elif obj.is_instance(cls._obstacle_type):
+            elif obj.is_instance(cls._knob_type):
+                width = cls.hallway_width
+                height = cls.wall_depth
+                theta = state.get(obj, "theta")
+            else:
+                assert obj.is_instance(cls._obstacle_type)
                 width = state.get(obj, "width")
                 height = state.get(obj, "height")
                 theta = state.get(obj, "theta")

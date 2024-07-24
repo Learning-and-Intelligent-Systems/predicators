@@ -23,6 +23,13 @@ class DoorsGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {"doors"}
 
+    def _MoveToDoor_policy(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
+            del state, objects, params  # unused
+            assert memory["action_plan"], "Motion plan did not reach its goal"
+            return memory["action_plan"].pop(0)
+    
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
@@ -37,12 +44,6 @@ class DoorsGroundTruthOptionFactory(GroundTruthOptionFactory):
         InRoom = predicates["InRoom"]
 
         # MoveToDoor
-        def _MoveToDoor_policy(state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> Action:
-            del state, objects, params  # unused
-            assert memory["action_plan"], "Motion plan did not reach its goal"
-            return memory["action_plan"].pop(0)
 
         def _MoveToDoor_terminal(state: State, memory: Dict,
                                  objects: Sequence[Object],
@@ -58,7 +59,7 @@ class DoorsGroundTruthOptionFactory(GroundTruthOptionFactory):
             # No parameters; the option always moves to the doorway center.
             params_space=Box(0, 1, (0, )),
             # The policy is a motion planner.
-            policy=_MoveToDoor_policy,
+            policy=cls._MoveToDoor_policy,
             # Only initiable when the robot is in a room for the doory.
             initiable=cls._create_move_to_door_initiable(predicates),
             terminal=_MoveToDoor_terminal)
@@ -315,12 +316,6 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
         InRoom = predicates["InRoom"]
 
         # MoveToDoor
-        def _MoveToDoor_policy(state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> Action:
-            del state, objects, params  # unused
-            assert memory["action_plan"], "Motion plan did not reach its goal"
-            return memory["action_plan"].pop(0)
 
         def _MoveToDoor_terminal(state: State, memory: Dict,
                                  objects: Sequence[Object],
@@ -336,7 +331,7 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
             # No parameters; the option always moves to the doorway center.
             params_space=Box(0, 1, (0, )),
             # The policy is a motion planner.
-            policy=_MoveToDoor_policy,
+            policy=cls._MoveToDoor_policy,
             # Only initiable when the robot is in a room for the doory.
             initiable=cls._create_move_to_door_initiable(predicates),
             terminal=_MoveToDoor_terminal)
