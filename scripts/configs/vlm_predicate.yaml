@@ -5,7 +5,7 @@ APPROACHES:
     NAME: "vlm_online_invention"
     FLAGS: []
 ENVS:
-  stick_button:
+  env:
     # NAME: "burger"
     NAME: "pybullet_cover_typed_options"
     # NAME: "pybullet_blocks"
@@ -32,7 +32,7 @@ FLAGS:
   min_perc_data_for_nsrt: 0 # works for coffee, cover; 
   # min_perc_data_for_nsrt: 3 # works for blocks
   timeout: 300 #300
-  log_file: "logs/"
+  log_file: "logs_nsp/"
   vlm_invent_try_to_use_gt_predicates: False
 
   # Env settings
@@ -90,5 +90,5 @@ FLAGS:
   pybullet_camera_height: 900
   vlm_invent_include_option_history: True
 START_SEED: 1
-NUM_SEEDS: 1
+NUM_SEEDS: 5
 ...

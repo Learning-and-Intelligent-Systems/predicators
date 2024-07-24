@@ -18,7 +18,6 @@ def _main():
     args = parser.parse_args()
 
     # generate configs--will only take the first one
-    # breakpoint()
     cfg = next(generate_run_configs(args.config))
     cmd_str = config_to_cmd_flags(cfg)
     cmd_flags = shlex.split(cmd_str)

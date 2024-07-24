@@ -1,6 +1,9 @@
 """
 Example command line:
     export OPENAI_API_KEY=<your API key>
+
+Example run:
+    python scripts/run_interactive_yaml.py -c vlm_predicate.yaml
 """
 import ast
 import base64
@@ -327,7 +330,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # f'./prompts/invent_{self.env_name}_{ite}.response'
                     # if ite != 1:
                     #     breakpoint()
-                    breakpoint()
+                    # breakpoint()
                     new_proposals = self._get_vlm_proposals(
                         prompt, ite, response_file, manual_prompt,
                         regenerate_response)
