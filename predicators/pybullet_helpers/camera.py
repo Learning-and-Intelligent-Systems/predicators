@@ -17,7 +17,7 @@ def create_gui_connection(
 
     Not covered by unit tests because unit tests need to be headless.
     """
-    physics_client_id = p.connect(p.GUI)
+    physics_client_id = p.connect(p.GUI, options='--background_color_red=0.0 --background_color_green=0.0 --background_color_blue=0.0')
     # Disable the PyBullet GUI preview windows for faster rendering.
     if disable_preview_windows:
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,

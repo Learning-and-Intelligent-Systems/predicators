@@ -38,7 +38,7 @@ class BlocksEnv(BaseEnv):
     x_lb: ClassVar[float] = 1.325
     x_ub: ClassVar[float] = 1.375
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
-    y_lb: ClassVar[float] = 0.4
+    y_lb: ClassVar[float] = 0.6
     y_ub: ClassVar[float] = 1.1
     pick_z: ClassVar[float] = 0.7
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
@@ -47,7 +47,7 @@ class BlocksEnv(BaseEnv):
     held_tol: ClassVar[float] = 0.5
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
-    collision_padding: ClassVar[float] = 2.0
+    collision_padding: ClassVar[float] = 1.0
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -290,7 +290,7 @@ class BlocksEnv(BaseEnv):
             init_state = self._sample_state_from_piles(piles, rng)
             while True:  # repeat until goal is not satisfied
                 goal = self._sample_goal_from_piles(num_blocks, piles, rng)
-                if not all(goal_atom.holds(init_state) for goal_atom in goal):
+                if True:  #not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
@@ -301,7 +301,7 @@ class BlocksEnv(BaseEnv):
         for block_num in range(num_blocks):
             block = Object(f"block{block_num}", self._block_type)
             # If coin flip, start new pile
-            if block_num == 0 or rng.uniform() < 0.2:
+            if True:  #block_num == 0 or rng.uniform() < 0.2:
                 piles.append([])
             # Add block to pile
             piles[-1].append(block)
@@ -326,7 +326,7 @@ class BlocksEnv(BaseEnv):
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self._block_size * (0.5 + pile_j)
-            r, g, b = rng.uniform(size=3)
+            r, g, b = 0.4, 0.4, 0.4
             if "clear" in self._block_type.feature_names:
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
                 # clear]
@@ -357,7 +357,7 @@ class BlocksEnv(BaseEnv):
         # Sample goal pile that is different from initial
         while True:
             goal_piles = self._sample_initial_piles(num_blocks, rng)
-            if goal_piles != piles:
+            if True:  #goal_piles != piles:
                 break
         # Create goal from piles
         goal_atoms = set()
@@ -373,8 +373,8 @@ class BlocksEnv(BaseEnv):
             self, rng: np.random.Generator,
             existing_xys: Set[Tuple[float, float]]) -> Tuple[float, float]:
         while True:
-            x = rng.uniform(self.x_lb, self.x_ub)
-            y = rng.uniform(self.y_lb, self.y_ub)
+            x = rng.uniform(1.25, 1.5)
+            y = rng.uniform(0.7, 1.1)
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
 

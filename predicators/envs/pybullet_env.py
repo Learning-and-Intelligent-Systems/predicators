@@ -93,9 +93,9 @@ class PyBulletEnv(BaseEnv):
         p.resetSimulation(physicsClientId=physics_client_id)
 
         # Load plane.
-        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
-                   useFixedBase=True,
-                   physicsClientId=physics_client_id)
+        # p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+        #            useFixedBase=True,
+        #            physicsClientId=physics_client_id)
 
         # Load robot.
         pybullet_robot = cls._create_pybullet_robot(physics_client_id)
@@ -188,6 +188,12 @@ class PyBulletEnv(BaseEnv):
         self._reset_state(state)
         # Converts the State into a PyBulletState.
         self._current_observation = self._get_state()
+
+        img = self.render()[0]
+        import imageio.v2 as iio
+        iio.imsave("out.png", img)
+        import sys; sys.exit(0)
+
         return self._current_observation.copy()
 
     def _reset_state(self, state: State) -> None:

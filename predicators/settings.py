@@ -77,9 +77,9 @@ class GlobalSettings:
 
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
-    blocks_num_blocks_test = [5, 6]
+    blocks_num_blocks_test = [12]
     blocks_holding_goals = False
-    blocks_block_size = 0.045  # use 0.0505 for real with panda
+    blocks_block_size = 0.025  # use 0.0505 for real with panda
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
@@ -140,8 +140,8 @@ class GlobalSettings:
 
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
-    pybullet_camera_width = 335  # for high quality, use 1674
-    pybullet_camera_height = 180  # for high quality, use 900
+    pybullet_camera_width = 1674  # for high quality, use 1674
+    pybullet_camera_height = 900  # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3

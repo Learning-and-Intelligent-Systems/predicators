@@ -106,6 +106,73 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                       physics_client_id))
         bodies["block_ids"] = block_ids
 
+        # add robot base
+        bs = 0.045
+        b = create_pybullet_block((1.0, 1.0, 1.0, 1.0),
+                              (5 * bs, 5 * bs, 5 * bs),
+                               cls._obj_mass,
+                                cls._obj_friction, cls._default_orn,
+                                physics_client_id)
+        p.resetBasePositionAndOrientation(
+                b, [0.75, 0.75, 0.0],
+                cls._default_orn,
+                physicsClientId=physics_client_id)
+
+        # Add tray
+
+        # bottom
+        b = create_pybullet_block((139/255,69/255,19/255, 1.0),
+                              (5 * bs, 3 * bs, 0.1 * bs),
+                               cls._obj_mass,
+                                cls._obj_friction, cls._default_orn,
+                                physics_client_id)
+        p.resetBasePositionAndOrientation(
+                b, [1.35, 0.45, 0.2],
+                cls._default_orn,
+                physicsClientId=physics_client_id)
+        
+        # side 1
+        b = create_pybullet_block((139/255,69/255,19/255, 1.0),
+                              (5 * bs, 0.1 * bs, 1.0 * bs),
+                               cls._obj_mass,
+                                cls._obj_friction, cls._default_orn,
+                                physics_client_id)
+        p.resetBasePositionAndOrientation(
+                b, [1.35, 0.45 - 3 * bs, 0.2 + 1.0 * bs / 2],
+                cls._default_orn,
+                physicsClientId=physics_client_id)
+        # side 2
+        b = create_pybullet_block((139/255,69/255,19/255, 1.0),
+                              (5 * bs, 0.1 * bs, 1.0 * bs),
+                               cls._obj_mass,
+                                cls._obj_friction, cls._default_orn,
+                                physics_client_id)
+        p.resetBasePositionAndOrientation(
+                b, [1.35, 0.45 + 3 * bs, 0.2 + 1.0 * bs / 2],
+                cls._default_orn,
+                physicsClientId=physics_client_id)
+        # side 3
+        b = create_pybullet_block((139/255,69/255,19/255, 1.0),
+                              (0.1 * bs, 3 * bs, 1.0 * bs),
+                               cls._obj_mass,
+                                cls._obj_friction, cls._default_orn,
+                                physics_client_id)
+        p.resetBasePositionAndOrientation(
+                b, [1.35 - 5 * bs, 0.45, 0.2 + 1.0 * bs / 2],
+                cls._default_orn,
+                physicsClientId=physics_client_id)
+        # side 4
+        b = create_pybullet_block((139/255,69/255,19/255, 1.0),
+                              (0.1 * bs, 3 * bs, 1.0 * bs),
+                               cls._obj_mass,
+                                cls._obj_friction, cls._default_orn,
+                                physics_client_id)
+        p.resetBasePositionAndOrientation(
+                b, [1.35 + 5 * bs, 0.45, 0.2 + 1.0 * bs / 2],
+                cls._default_orn,
+                physicsClientId=physics_client_id)
+
+
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
