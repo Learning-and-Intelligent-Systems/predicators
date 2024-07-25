@@ -125,7 +125,7 @@ class BilevelPlanningApproach(BaseApproach):
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
 
-        print("task, nsrts, preds", task, nsrts, preds )
+        # print("task, nsrts, preds", task, nsrts, preds )
         try:
             plan, atoms_seq, metrics = run_task_plan_once(
                 task,
