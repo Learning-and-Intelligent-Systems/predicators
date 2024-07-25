@@ -24,5 +24,6 @@ FLAGS:
   num_train_tasks: 1
   interactive_num_requests_per_cycle: 5
   online_nsrt_learning_requests_per_cycle: 5
+  timeout: 1000
 START_SEED: 0
 NUM_SEEDS: 5
