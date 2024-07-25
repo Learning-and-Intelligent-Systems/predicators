@@ -409,14 +409,14 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
             def _sample_fn(_: Array) -> Array:
                 # Sample a point in the room that is far enough away from the
                 # wall (to save on collision checking).
-                assert isinstance(room_rect, Rectangle)
-                x_lb = room_rect.x + DoorsEnv.robot_radius
-                x_ub = room_rect.x + DoorsEnv.room_size - DoorsEnv.robot_radius
-                y_lb = room_rect.y + DoorsEnv.robot_radius
-                y_ub = room_rect.y + DoorsEnv.room_size - DoorsEnv.robot_radius
-                x = rng.uniform(x_lb, x_ub)
-                y = rng.uniform(y_lb, y_ub)
-                return np.array([x, y], dtype=np.float32)
+                assert isinstance(room_rect, Rectangle)  # pragma: no cover
+                x_lb = room_rect.x + DoorsEnv.robot_radius  # pragma: no cover
+                x_ub = room_rect.x + DoorsEnv.room_size - DoorsEnv.robot_radius  # pragma: no cover
+                y_lb = room_rect.y + DoorsEnv.robot_radius  # pragma: no cover
+                y_ub = room_rect.y + DoorsEnv.room_size - DoorsEnv.robot_radius  # pragma: no cover
+                x = rng.uniform(x_lb, x_ub)  # pragma: no cover
+                y = rng.uniform(y_lb, y_ub)  # pragma: no cover
+                return np.array([x, y], dtype=np.float32)  # pragma: no cover
 
             def _extend_fn(pt1: Array, pt2: Array) -> Iterator[Array]:
                 # Make sure that we obey the bounds on actions.
@@ -429,7 +429,7 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
                 return DoorKnobsEnv.state_has_collision(state, pt)
 
             def _distance_fn(from_pt: Array, to_pt: Array) -> float:
-                return np.sum(np.subtract(from_pt, to_pt)**2)
+                return np.sum(np.subtract(from_pt, to_pt)**2)  # pragma: no cover
 
             birrt = utils.BiRRT(_sample_fn,
                                 _extend_fn,

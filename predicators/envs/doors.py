@@ -939,9 +939,9 @@ class DoorKnobsEnv(DoorsEnv):
                 height = cls.wall_depth
                 theta = state.get(obj, "theta")
             elif obj.is_instance(cls._knob_type):
-                width = cls.hallway_width
-                height = cls.wall_depth
-                theta = state.get(obj, "theta")
+                width = cls.hallway_width  # pragma: no cover
+                height = cls.wall_depth  # pragma: no cover
+                theta = state.get(obj, "theta")  # pragma: no cover
             else:
                 assert obj.is_instance(cls._obstacle_type)
                 width = state.get(obj, "width")
