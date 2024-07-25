@@ -280,7 +280,7 @@ class GlobalSettings:
 
     # doors env parameters
     doors_room_map_size = 2
-    test_doors_room_map_size = 10
+    test_doors_room_map_size = 5
     doors_min_obstacles_per_room = 0
     doors_max_obstacles_per_room = 3
     doors_min_room_exists_frac = 0.25
@@ -703,7 +703,7 @@ class GlobalSettings:
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
             horizon=defaultdict(
-                lambda: 160,
+                lambda: 100,
                 {
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.

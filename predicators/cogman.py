@@ -171,6 +171,7 @@ class CogMan:
     def _reset_policy(self, task: Task) -> None:
         """Call the approach or use the override policy."""
         if self._override_policy is not None:
+            
             self._current_policy = self._override_policy
         else:
             self._current_policy = self._approach.solve(task,
@@ -223,6 +224,7 @@ def run_episode_and_get_observations(
     if type(cogman._approach) is RLBridgePolicyApproach:
         cogman._approach._train_tasks = tasks
         cogman._approach._init_nsrts()
+        
     observations = [obs]
     actions: List[Action] = []
     curr_option: Optional[_Option] = None

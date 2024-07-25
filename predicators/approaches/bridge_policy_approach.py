@@ -395,6 +395,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         )
         self._bridge_called_state = State(data={})
         self._policy_logs: List[str] = []
+        self._current_task: Optional[Task] = None
+
 
     def _Can_plan(self, state: State, _: Sequence[Object]) -> bool:
         if (MapleQFunction._vectorize_state(self.mapleq._q_function, state) !=  # pylint: disable=protected-access
@@ -408,7 +410,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         """policy for CallPlanner option."""
         self._current_control = "planner"
         # create a new task where the init state is our current state
-        current_task = Task(state, self._train_tasks[0].goal)
+        current_task = Task(state, self._current_task.goal)
         option_policy = self._get_option_policy_by_planning(
             current_task, CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
@@ -481,6 +483,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                train_or_test: str = "test") -> Callable[[State], Action]:
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
+        self._current_task = task
         self._current_control = "planner"
         option_policy = self._get_option_policy_by_planning(task, timeout)
         self._current_policy = utils.option_policy_to_policy(
