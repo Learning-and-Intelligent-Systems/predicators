@@ -300,6 +300,7 @@ class DoorsEnv(BaseEnv):
                     state_dict[door] = feat_dict
 
                     if self.get_name() == "doorknobs":
+                        assert isinstance(self, DoorKnobsEnv)
                         #Create doorknobs
                         doorknob = Object(
                             f"room{task_id}-{r}-{c}-{name}-doorknob",

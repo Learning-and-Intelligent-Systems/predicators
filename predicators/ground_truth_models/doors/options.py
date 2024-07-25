@@ -298,7 +298,7 @@ class DoorsGroundTruthOptionFactory(GroundTruthOptionFactory):
 
 
 class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
-    """Ground-truth options for the doors environment."""
+    """Ground-truth options for the doorknobs environment."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
