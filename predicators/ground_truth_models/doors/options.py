@@ -23,13 +23,13 @@ class DoorsGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {"doors"}
 
+    @staticmethod
     def _MoveToDoor_policy(state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> Action:
-            del state, objects, params  # unused
-            assert memory["action_plan"], "Motion plan did not reach its goal"
-            return memory["action_plan"].pop(0)
-    
+                           objects: Sequence[Object], params: Array) -> Action:
+        del state, objects, params  # unused
+        assert memory["action_plan"], "Motion plan did not reach its goal"
+        return memory["action_plan"].pop(0)
+
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],

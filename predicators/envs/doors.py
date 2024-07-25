@@ -301,8 +301,9 @@ class DoorsEnv(BaseEnv):
 
                     if self.get_name() == "doorknobs":
                         #Create doorknobs
-                        doorknob = Object(f"room{task_id}-{r}-{c}-{name}-doorknob",
-                                        self._knob_type)
+                        doorknob = Object(
+                            f"room{task_id}-{r}-{c}-{name}-doorknob",
+                            self._knob_type)
                         feat_dict = self._sample_doorknob_feats(
                             room_x, room_y, name, rng)
                         state_dict[doorknob] = feat_dict
@@ -318,7 +319,7 @@ class DoorsEnv(BaseEnv):
                 room_cy = room_y + self.room_size / 2
                 rad = self.obstacle_initial_position_radius
                 num_obstacles = rng.integers(self._min_obstacles_per_room,
-                                            self._max_obstacles_per_room + 1)
+                                             self._max_obstacles_per_room + 1)
                 obstacle_rects_for_room: List[Rectangle] = []
                 for i in range(num_obstacles):
                     name = f"{room.name}-obstacle-{i}"
@@ -331,7 +332,11 @@ class DoorsEnv(BaseEnv):
                         h = rng.uniform(self.obstacle_size_lb,
                                         self.obstacle_size_ub)
                         theta = rng.uniform(-np.pi, np.pi)
-                        rect = Rectangle(x=x, y=y, width=w, height=h, theta=theta)
+                        rect = Rectangle(x=x,
+                                         y=y,
+                                         width=w,
+                                         height=h,
+                                         theta=theta)
                         # Prevent collisions just for aesthetic reasons.
                         collision_free = True
                         for existing_rect in obstacle_rects_for_room:
