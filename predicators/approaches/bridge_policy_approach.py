@@ -418,8 +418,10 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
         )
-
-        return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
+        if CFG.env == "grid_row_door":
+            return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        elif CFG.env == "doorknobs":
+            return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
 
     def call_planner_nsrt(self) -> NSRT:
         """CallPlanner NSRT."""

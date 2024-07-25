@@ -351,9 +351,9 @@ class GlobalSettings:
     sticky_table_num_sticky_tables = 1  # must be less than the num_tables
 
     # grid row env parameters
-    grid_row_num_cells = 100
-    test_grid_row_num_cells = 40
-    num_doors = 10
+    grid_row_num_cells = 5
+    test_grid_row_num_cells = 12
+    num_doors = 3
 
     # burger env parameters
     gridworld_num_rows = 4

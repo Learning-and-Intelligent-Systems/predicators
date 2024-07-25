@@ -251,7 +251,7 @@ class MPDQNApproach(MapleQApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
-                if o.parent == self.CallPlanner and reward == 1:
+                if o.parent == self.CallPlanner and reward == 1 and CFG.env == "doorknobs":
                     reward += 0.5
 
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
