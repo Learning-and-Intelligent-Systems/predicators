@@ -454,24 +454,24 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         all_ground_nsrts: Set[_GroundNSRT] = set()
         if CFG.sesame_grounder == "naive":
             for nsrt in nsrts:
-                all_objects = {o for t in self._train_tasks for o in t.init}
+                all_objects = {o for o in self._current_task.init}
                 all_ground_nsrts.update(
                     utils.all_ground_nsrts(nsrt, all_objects))
         elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
             all_objects = set()
-            for t in self._train_tasks:  # pylint: disable=protected-access
-                curr_task_objects = set(t.init)
-                curr_task_types = {o.type for o in t.init}
-                curr_init_atoms = utils.abstract(t.init, predicates)
-                all_ground_nsrts.update(
-                    utils.all_ground_nsrts_fd_translator(
-                        nsrts, curr_task_objects, predicates, curr_task_types,
-                        curr_init_atoms, t.goal))
-                all_objects.update(curr_task_objects)
+            t = self._current_task
+            curr_task_objects = set(t.init)
+            curr_task_types = {o.type for o in t.init}
+            curr_init_atoms = utils.abstract(t.init, predicates)
+            all_ground_nsrts.update(
+                utils.all_ground_nsrts_fd_translator(
+                    nsrts, curr_task_objects, predicates, curr_task_types,
+                    curr_init_atoms, t.goal))
+            all_objects.update(curr_task_objects)
         else:  # pragma: no cover
             raise ValueError(
                 f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
-        goals = [t.goal for t in self.mapleq._train_tasks]  # pylint: disable=protected-access
+        goals = [self._current_task.goal]  # pylint: disable=protected-access
         self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
             all_objects, goals, all_ground_nsrts, options)
         # self.mapleq._q_function.nsrts = nsrts
@@ -484,6 +484,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         self._current_task = task
+        # import ipdb;ipdb.set_trace()
         self._current_control = "planner"
         option_policy = self._get_option_policy_by_planning(task, timeout)
         self._current_policy = utils.option_policy_to_policy(
@@ -496,7 +497,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                          self._initial_options, self._types,
                                          self._action_space, self._train_tasks, self.CallPlanner)
             self._maple_initialized = True
-            self._init_nsrts()
+        self._init_nsrts()
 
         # self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
         #     all_objects, goals, all_ground_nsrts)

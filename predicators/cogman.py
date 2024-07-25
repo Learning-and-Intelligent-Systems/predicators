@@ -220,10 +220,6 @@ def run_episode_and_get_observations(
         tasks = [
         utils.strip_task(task, preds) for task in train_tasks
     ]
-    # print("TASKS",(tasks[0]))
-    if type(cogman._approach) is RLBridgePolicyApproach:
-        cogman._approach._train_tasks = tasks
-        cogman._approach._init_nsrts()
         
     observations = [obs]
     actions: List[Action] = []
