@@ -289,6 +289,10 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
+    # doorknobs env parameters
+    doorknobs_target_value = 0.75
+    test_doors_room_map_size = 10
+
     # narrow_passage env parameters
     narrow_passage_open_door_refine_penalty = 0
     narrow_passage_door_width_padding_lb = 1e-4
