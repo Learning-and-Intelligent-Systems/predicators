@@ -298,11 +298,56 @@ class DoorsEnv(BaseEnv):
                     feat_dict = self._sample_door_feats(
                         room_x, room_y, name, rng)
                     state_dict[door] = feat_dict
+
+                    if self.get_name() == "doorknobs":
+                        #Create doorknobs
+                        doorknob = Object(f"room{task_id}-{r}-{c}-{name}-doorknob",
+                                        self._knob_type)
+                        feat_dict = self._sample_doorknob_feats(
+                            room_x, room_y, name, rng)
+                        state_dict[doorknob] = feat_dict
+                        self._door_to_knob[door] = doorknob
             # Sample obstacles for each room. Make them small and centered
             # enough that the robot should almost always be able to find a
             # collision-free path through the room.
 
-            self.sample_obstacles(rooms, state_dict, rng)
+            for room in rooms:
+                room_x = state_dict[room]["x"]
+                room_y = state_dict[room]["y"]
+                room_cx = room_x + self.room_size / 2
+                room_cy = room_y + self.room_size / 2
+                rad = self.obstacle_initial_position_radius
+                num_obstacles = rng.integers(self._min_obstacles_per_room,
+                                            self._max_obstacles_per_room + 1)
+                obstacle_rects_for_room: List[Rectangle] = []
+                for i in range(num_obstacles):
+                    name = f"{room.name}-obstacle-{i}"
+                    obstacle = Object(name, self._obstacle_type)
+                    while True:
+                        x = rng.uniform(room_cx - rad, room_cx + rad)
+                        y = rng.uniform(room_cy - rad, room_cy + rad)
+                        w = rng.uniform(self.obstacle_size_lb,
+                                        self.obstacle_size_ub)
+                        h = rng.uniform(self.obstacle_size_lb,
+                                        self.obstacle_size_ub)
+                        theta = rng.uniform(-np.pi, np.pi)
+                        rect = Rectangle(x=x, y=y, width=w, height=h, theta=theta)
+                        # Prevent collisions just for aesthetic reasons.
+                        collision_free = True
+                        for existing_rect in obstacle_rects_for_room:
+                            if rect.intersects(existing_rect):
+                                collision_free = False
+                                break
+                        if collision_free:
+                            break
+                    obstacle_rects_for_room.append(rect)
+                    state_dict[obstacle] = {
+                        "x": x,
+                        "y": y,
+                        "width": w,
+                        "height": h,
+                        "theta": theta
+                    }
             # Always start out near the center of the room. If there are
             # collisions, we'll just resample another problem.
             start_idx = rng.choice(len(rooms))
@@ -329,48 +374,6 @@ class DoorsEnv(BaseEnv):
             state_with_cache = utils.StateWithCache(state.data, task_cache)
             if not self.state_has_collision(state_with_cache):
                 return state_with_cache
-
-    def sample_obstacles(self, rooms: List, state_dict: Dict,
-                         rng: np.random.Generator) -> None:
-        """helper function: for each room, sample obstacles and add them to
-        state dict."""
-        for room in rooms:
-            room_x = state_dict[room]["x"]
-            room_y = state_dict[room]["y"]
-            room_cx = room_x + self.room_size / 2
-            room_cy = room_y + self.room_size / 2
-            rad = self.obstacle_initial_position_radius
-            num_obstacles = rng.integers(self._min_obstacles_per_room,
-                                         self._max_obstacles_per_room + 1)
-            obstacle_rects_for_room: List[Rectangle] = []
-            for i in range(num_obstacles):
-                name = f"{room.name}-obstacle-{i}"
-                obstacle = Object(name, self._obstacle_type)
-                while True:
-                    x = rng.uniform(room_cx - rad, room_cx + rad)
-                    y = rng.uniform(room_cy - rad, room_cy + rad)
-                    w = rng.uniform(self.obstacle_size_lb,
-                                    self.obstacle_size_ub)
-                    h = rng.uniform(self.obstacle_size_lb,
-                                    self.obstacle_size_ub)
-                    theta = rng.uniform(-np.pi, np.pi)
-                    rect = Rectangle(x=x, y=y, width=w, height=h, theta=theta)
-                    # Prevent collisions just for aesthetic reasons.
-                    collision_free = True
-                    for existing_rect in obstacle_rects_for_room:
-                        if rect.intersects(existing_rect):
-                            collision_free = False
-                            break
-                    if collision_free:
-                        break
-                obstacle_rects_for_room.append(rect)
-                state_dict[obstacle] = {
-                    "x": x,
-                    "y": y,
-                    "width": w,
-                    "height": h,
-                    "theta": theta
-                }
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # The robot is in the room if its center is in the room.
@@ -743,11 +746,8 @@ class DoorsEnv(BaseEnv):
 class DoorKnobsEnv(DoorsEnv):
     """A 2D navigation environment with obstacles, rooms, and doors."""
     # Types
-    _robot_type = Type("robot", ["x", "y"])
     _door_type = Type("door", ["x", "y", "theta", "mass", "friction", "open"])
     _knob_type = Type("knob", ["x", "y", "theta", "rot", "target_rot", "open"])
-    _room_type = Type("room", ["x", "y"])
-    _obstacle_type = Type("obstacle", ["x", "y", "width", "height", "theta"])
     open_door_thresh: ClassVar[float] = 0.1
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -906,100 +906,6 @@ class DoorKnobsEnv(DoorsEnv):
         plt.axis("off")
         plt.tight_layout()
         return fig
-
-    def _sample_initial_state_from_map(self, room_map: NDArray,
-                                       rng: np.random.Generator) -> State:
-        # Sample until a collision-free state is found.
-        while True:
-            # For each task, we create a unique ID, which is included in the
-            # names of the objects created. This is important because we then
-            # perform caching based on the object names. For example, we want
-            # to compute the doors for a room only once. But the same room in
-            # the same location may have different doors between tasks, so we
-            # need to be careful to avoid accidental name collisions.
-            task_id = next(self._task_id_count)
-            state_dict = {}
-            num_rows, num_cols = room_map.shape
-            # Create the rooms.
-            rooms = []
-            for (r, c) in np.argwhere(room_map):
-                room = Object(f"room{task_id}-{r}-{c}", self._room_type)
-                rooms.append(room)
-                room_x = float(c * self.room_size)
-                room_y = float((num_rows - 1 - r) * self.room_size)
-                state_dict[room] = {
-                    "x": room_x,
-                    "y": room_y,
-                }
-                # Create obstacles for the room walls.
-                hall_top = (r > 0 and room_map[r - 1, c])
-                hall_bottom = (r < num_rows - 1 and room_map[r + 1, c])
-                hall_left = (c > 0 and room_map[r, c - 1])
-                hall_right = (c < num_cols - 1 and room_map[r, c + 1])
-                wall_rects = self._get_rectangles_for_room_walls(
-                    room_x, room_y, hall_top, hall_bottom, hall_left,
-                    hall_right)
-                for i, rect in enumerate(wall_rects):
-                    wall = Object(f"room{task_id}-{r}-{c}-wall-{i}",
-                                  self._obstacle_type)
-                    state_dict[wall] = {
-                        "x": rect.x,
-                        "y": rect.y,
-                        "height": rect.height,
-                        "width": rect.width,
-                        "theta": rect.theta,
-                    }
-                # Create doors for this room. Note that we only need to create
-                # bottom or left, because each door is on the bottom or left of
-                # some room (and top / right of another room).
-                for name, exists in [("bottom", hall_bottom),
-                                     ("left", hall_left)]:
-                    if not exists:
-                        continue
-                    door = Object(f"room{task_id}-{r}-{c}-{name}-door",
-                                  self._door_type)
-                    feat_dict = self._sample_door_feats(
-                        room_x, room_y, name, rng)
-                    state_dict[door] = feat_dict
-                    #Create doorknobs
-                    doorknob = Object(f"room{task_id}-{r}-{c}-{name}-doorknob",
-                                      self._knob_type)
-                    feat_dict = self._sample_doorknob_feats(
-                        room_x, room_y, name, rng)
-                    state_dict[doorknob] = feat_dict
-                    self._door_to_knob[door] = doorknob
-            # Sample obstacles for each room. Make them small and centered
-            # enough that the robot should almost always be able to find a
-            # collision-free path through the room.
-
-            self.sample_obstacles(rooms, state_dict, rng)
-
-            # Always start out near the center of the room. If there are
-            # collisions, we'll just resample another problem.
-            start_idx = rng.choice(len(rooms))
-            start_room = rooms[start_idx]
-            room_x = state_dict[start_room]["x"]
-            room_y = state_dict[start_room]["y"]
-            room_cx = room_x + self.room_size / 2
-            room_cy = room_y + self.room_size / 2
-            rad = self.obstacle_initial_position_radius
-            x = rng.uniform(room_cx - rad, room_cx + rad)
-            y = rng.uniform(room_cy - rad, room_cy + rad)
-            state_dict[self._robot] = {"x": x, "y": y}
-            state = utils.create_state_from_dict(state_dict)
-            # Create task-constant caches and store them in the sim state.
-            # We store in the sim state, rather than the environment, because
-            # the caches may be used by oracle options (which are external).
-            task_cache: Dict[str, Dict] = {
-                "static_geom": {},
-                "door_to_rooms": {},
-                "room_to_doors": {},
-                "door_to_doorway_geom": {},
-                "position_in_doorway": {},
-            }
-            state_with_cache = utils.StateWithCache(state.data, task_cache)
-            if not self.state_has_collision(state_with_cache):
-                return state_with_cache
 
     @classmethod
     def object_to_geom(cls,
