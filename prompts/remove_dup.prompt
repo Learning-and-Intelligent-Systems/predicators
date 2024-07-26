@@ -9,3 +9,5 @@ Pay special attention to object features that are different between in failed an
 Pay special attention to object features that differ between failed and successful states, particularly those involving objects related to the option being considered.
 
 - Don't write predicates that quality adjacency such as X is near Y or X is close to Y as its not important.
+
+Please propose as many relevant predicates as you can.

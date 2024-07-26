@@ -17,7 +17,7 @@ results
 eval_trajectories
 videos
 images
-logs
+logs*
 saved_approaches
 saved_datasets
 scripts/results

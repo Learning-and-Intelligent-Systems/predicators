@@ -5,6 +5,8 @@ Example command line:
 Example run:
     python scripts/run_interactive_yaml.py -c vlm_predicate.yaml
 """
+import traceback
+import shutil
 import ast
 import base64
 import importlib.util
@@ -323,17 +325,45 @@ class VlmInventionApproach(NSRTLearningApproach):
                         new_proposals = env.oracle_proposed_predicates -\
                                             self._initial_predicates
                 else:
-                    # Use the results to prompt the llm
-                    prompt = self._create_prompt(env, ite, 10, 2, 2, 
-                                            categories_to_show=['tp', 'fp'])
-                    response_file = CFG.log_file + f"ite{ite}.response"
-                    # f'./prompts/invent_{self.env_name}_{ite}.response'
-                    # if ite != 1:
+
+                    max_attempts = 5
+                    max_num_groundings, max_num_examples = 1, 2
+                    min_imgs, max_imgs = 6, 10
+                    for attempt in range(max_attempts):
+                        # Use the results to prompt the llm
+                        prompt = self._create_prompt(env, ite, 
+                                        max_num_options=10, 
+                                        max_num_groundings=max_num_groundings, 
+                                        max_num_examples=max_num_examples, 
+                                        categories_to_show=['tp', 'fp'])
+                        response_file = CFG.log_file + f"ite{ite}.response"
+
+                        # Load the images accompanying the prompt
+                        obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
+                        images = self._load_images_from_directory(obs_dir)
+
+                        logging.debug(f"Created {len(images)} images")
+                        if min_imgs <= len(images) <= max_imgs: break
+
+                        if len(images) > max_imgs:
+                            shutil.rmtree(obs_dir)
+                            if attempt % 2 == 0:
+                                max_num_groundings = max(1,max_num_groundings-1)
+                            else:
+                                max_num_examples = max(1,max_num_examples-1)
+                        else:
+                            # Adjust parameters for the next attempt
+                            if attempt % 2 == 0:
+                                max_num_groundings += 1
+                            else:
+                                max_num_examples += 1
+                    # if ite == 4:
                     #     breakpoint()
                     # breakpoint()
+
                     new_proposals = self._get_vlm_proposals(
-                        prompt, ite, response_file, manual_prompt,
-                        regenerate_response)
+                        prompt, images, ite, response_file, tasks, 
+                        manual_prompt, regenerate_response)
                 logging.info(
                     f"Done: created {len(new_proposals)} candidates:" +
                     f"{new_proposals}")
@@ -553,6 +583,15 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._nsrts = best_nsrt
         self._learned_predicates = best_preds
         return
+
+    def _load_images_from_directory(self, directory: str):
+        images = []
+        for filename in os.listdir(directory):
+            file_path = os.path.join(directory, filename)
+            if filename.lower().endswith(('.png', '.jpg')):
+                img = Image.open(file_path)
+                images.append(img)
+        return images
 
     def _process_interaction_result(self, env: BaseEnv,
                                     results: List[PlanningResult],
@@ -907,10 +946,13 @@ class VlmInventionApproach(NSRTLearningApproach):
     def _get_vlm_proposals(
             self,
             prompt: str,
+            images: List[Image.Image],
             ite: int, 
             response_file: str,
+            tasks: List[Task],
             manual_prompt: bool = False,
-            regenerate_response: bool = False) -> Set[Predicate]:
+            regenerate_response: bool = False,
+            ) -> Set[Predicate]:
         if not os.path.exists(response_file) or regenerate_response:
             if manual_prompt:
                 # create a empty file for pasting chatGPT response
@@ -920,15 +962,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                              f"to {response_file}")
                 input("Press Enter when you have pasted the " + "response.")
             else:
-                # Load the images accompanying the prompt
-                images = []
-                obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
-                for filename in os.listdir(obs_dir):
-                    file_path = os.path.join(obs_dir, filename)
-                    if filename.lower().endswith(('.png', '.jpg')):
-                        img = Image.open(file_path)
-                        images.append(img)
                 
+                self._vlm.reset_chat_session()
                 response = self._vlm.sample_completions(prompt,
                                              images,
                                              temperature=0,
@@ -938,7 +973,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                 with open(response_file, 'w') as f:
                     f.write(response)
 
-        new_candidates = self._parse_predicate_predictions(response_file)
+        new_candidates = self._parse_predicate_predictions(response_file,
+                                                            tasks)
         return new_candidates
 
     def _select_predicates_by_score_hillclimbing(
@@ -1170,7 +1206,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         return prompt
 
     def _parse_predicate_predictions(self,
-                                     prediction_file: str) -> Set[Predicate]:
+                                     prediction_file: str,
+                                     tasks: List[Task],
+                                     ) -> Set[Predicate]:
         # Read the prediction file
         with open(prediction_file, 'r') as file:
             response = file.read()
@@ -1191,7 +1229,10 @@ class VlmInventionApproach(NSRTLearningApproach):
             context[f"_{p.name}_NSP_holds"] = p._classifier
 
         type_init_str = self._env_type_str(self.env_source_code)
-        constants_str = self._constants_str(self.env_source_code)
+        # constants_str = self._constants_str(self.env_source_code)
+        exec(import_str, context)
+        exec(type_init_str, context)
+        
         for code_str in python_blocks:
             # Extract name from code block
             match = re.search(r'(\w+)\s*=\s*(NS)?Predicate', code_str)
@@ -1212,14 +1253,23 @@ class VlmInventionApproach(NSRTLearningApproach):
             #         break
 
             # Instantiate the predicate
-            if CFG.vlm_invent_try_to_use_gt_predicates and \
-                        pred_name.strip("_") in self.env.ns_to_sym_predicates:
-                candidates.add(self.env.ns_to_sym_predicates[
-                        pred_name.strip("_")])
+            # if CFG.vlm_invent_try_to_use_gt_predicates and \
+            #             pred_name.strip("_") in self.env.ns_to_sym_predicates:
+            #     candidates.add(self.env.ns_to_sym_predicates[
+            #             pred_name.strip("_")])
+            # else:
+            exec(code_str, context)
+
+            # Try to check if it's roughly runable. And only add it to
+            # our list if it is.
+            try:
+                utils.abstract(tasks[0].init, [context[pred_name]])
+            except Exception as e:
+                error_trace = traceback.format_exc()
+                logging.warning(f"Proposed predicate {pred_name} not "
+                                f"executable: {e}\n{error_trace}")
+                continue
             else:
-                exec(
-                    '\n'.join([import_str, type_init_str, constants_str,
-                           code_str]), context)
                 candidates.add(context[pred_name])
 
         return candidates

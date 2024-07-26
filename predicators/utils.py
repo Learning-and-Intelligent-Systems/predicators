@@ -418,8 +418,8 @@ def summarize_results_in_str(
 
             # if n_succ_states:
             # if n_tp and "tp" in categories_to_show:
-            if n_tp and "tp" in categories_to_show and n_fp and\
-                "fp" in categories_to_show:
+            if n_tp and "tp" in categories_to_show and\
+               n_fp and "fp" in categories_to_show:
                 # and n_fp because without false positives, there isn't 
                 # anything to learn
 
@@ -470,8 +470,8 @@ def summarize_results_in_str(
             # GT Negative
             # if n_fail_states:
             # if n_fp and "fp" in categories_to_show:
-            if n_tp and "tp" in categories_to_show and n_fp and\
-                "fp" in categories_to_show:
+            if n_tp and "tp" in categories_to_show and \
+               n_fp and "fp" in categories_to_show:
                 # [Simplified]
                 result_str.append(
                     f"Option {g_optn} *failed* to executed on the following " +
@@ -3590,7 +3590,7 @@ def compare_abstract_accuracy(
         for est_pred in ns_predicates:
             if est_pred.name in est_preds_to_gt_preds:
                 gt_pred = est_preds_to_gt_preds[est_pred.name]
-                if gt_pred.arity != est_pred.arity:
+                if gt_pred.types != est_pred.types:
                     num_not_found += 1
                     logging.info("proposed pred doesn't have the same arity as "
                                  "the ground truth")

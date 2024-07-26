@@ -1,4 +1,4 @@
-<predicate_name> = NSPredicate(name, param_types, <predicate_name>_holds)
+_<predicate_name>_NSP = NSPredicate(name, param_types, _<predicate_name>_NSP_holds)
 ```
 
 When writing the proposals, *strictly* adhere to the following guidelines:
@@ -10,3 +10,5 @@ Take the format of existing predicates for reference.
 - Don't write out the new operators.
 - Make use of helper functions such as the classifier function in the existing predicates and `evaluate_simple_assertion`, if they're helpful. But try not to use `evaluate_simple_assertion` in a loop.
 - Don't use any undefined constants.
+- Don't use object features that are not present in the definition of that object type.
+- Please propose as many relevant predicates as you can.

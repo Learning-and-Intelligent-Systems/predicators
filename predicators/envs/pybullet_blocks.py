@@ -19,7 +19,6 @@ from predicators.structs import Array, EnvironmentTask, Object, Predicate, \
     State, Type
 from predicators.utils import NSPredicate, RawState, VLMQuery
 
-
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
@@ -160,12 +159,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             bool:
         """Determine if the block in objects is directly resting on the table's
         surface in the scene image.
-
-        It first get the table in the environment, then crops the scene
-        image to the smallest bounding box that includes both the block
-        and the table, and finally evaluates a simple assertion about
-        their relation. No classification rules can be devised here so
-        only a VLM query is used.
         """
         block, = objects
         block_name = block.id_name
@@ -184,12 +177,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         """Determine if the first block in objects is directly on top of the
         second block with no blocks in between in the scene image, by using a
         combination of rules and VLMs.
-
-        It first checks if the blocks are the same or if they are far
-        away from each other. If neither condition is met, it crops the
-        scene image to the smallest bounding box that includes both
-        blocks and evaluates a simple assertion about their relative
-        positions.
         """
 
         block1, block2 = objects

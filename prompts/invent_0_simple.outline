@@ -26,7 +26,7 @@ Your task is to design predicates--*that are semantically different from the exi
 
 Define each proposal in a Python block as follows:
 ```python
-def <predicate_name>_holds(state: State, objects: Sequence[Object]) -> bool:
+def _<predicate_name>_NSP_holds(state: State, objects: Sequence[Object]) -> bool:
     # Implement the boolean classifier function here
     ...
 

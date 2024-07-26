@@ -7,8 +7,8 @@ APPROACHES:
 ENVS:
   env:
     # NAME: "burger"
-    NAME: "pybullet_cover_typed_options"
-    # NAME: "pybullet_blocks"
+    # NAME: "pybullet_cover_typed_options"
+    NAME: "pybullet_blocks"
     # NAME: "pybullet_coffee"
 ARGS: 
   # []
@@ -17,11 +17,11 @@ ARGS:
   # - "use_gui"
   # - "make_failure_videos"
 FLAGS:
-  pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
-  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_blocks"
+  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
+  pretrained_model_prompt_cache_dir: "pretrained_model_cache_blocks"
   # pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
-  # num_train_tasks: 40 # pybullet_blocks 
-  num_train_tasks: 5 #0 # pybullet_coffee, cover
+  num_train_tasks: 40 # pybullet_blocks 
+  # num_train_tasks: 5 #0 # pybullet_coffee, cover
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
@@ -38,7 +38,7 @@ FLAGS:
   # Env settings
   rgb_observation: False
   render_init_state: True # True for NSP
-  # pybullet_control_mode: "reset" # need for blocks and coffee
+  pybullet_control_mode: "reset" # need for blocks and coffee
   sesame_check_expected_atoms: False
   coffee_twist_sampler: False
   coffee_num_cups_train: '[1]'
@@ -70,7 +70,7 @@ FLAGS:
   reset_optn_state_dict_at_every_ite: False
   neu_sym_predicate: True # Needed for NSP
   vlm_predicator_render_option_state: True # Needed for NSP
-  llm_predicator_use_grammar: True # always true?
+  llm_predicator_use_grammar: False # always true?
   vlm_predicator_oracle_base_grammar: False
   llm_predicator_oracle_learned: False            # relaxation 1
   nsp_pred_include_prev_state_in_prompt: True
@@ -89,6 +89,6 @@ FLAGS:
   pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   vlm_invent_include_option_history: True
-START_SEED: 1
-NUM_SEEDS: 5
+START_SEED: 4
+NUM_SEEDS: 1
 ...
