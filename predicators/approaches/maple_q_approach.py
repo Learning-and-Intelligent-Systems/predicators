@@ -16,7 +16,7 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import MapleQFunction
+from predicators.ml_models import MapleQFunction, MPDQNFunction
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, InteractionRequest, \
     LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type, \
@@ -200,3 +200,62 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             goal = self._train_tasks[request.train_task_idx].goal
             self._interaction_goals.append(goal)
         return requests
+    
+
+class MPDQNApproach(MapleQApproach):
+    def __init__(self, initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task], CallPlanner) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks)
+
+        # The current implementation assumes that NSRTs are not changing.
+        assert CFG.strips_learner == "oracle"
+        # The base sampler should also be unchanging and from the oracle.
+        assert CFG.sampler_learner == "oracle"
+        self.CallPlanner = CallPlanner
+
+        # Log all transition data.
+        self._interaction_goals: List[Set[GroundAtom]] = []
+        self._last_seen_segment_traj_idx = -1
+
+        # Store the Q function. Note that this implicitly
+        # contains a replay buffer.
+        self._q_function = MPDQNFunction(
+            seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
+            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
+            num_lookahead_samples=CFG.
+            active_sampler_learning_num_lookahead_samples)
+
+
+    def _update_maple_data(self) -> None:
+        start_idx = self._last_seen_segment_traj_idx + 1
+        new_trajs = self._segmented_trajs[start_idx:]
+
+        goal_offset = CFG.max_initial_demos
+        assert len(self._segmented_trajs) == goal_offset + \
+            len(self._interaction_goals)
+        new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
+
+        for traj_i, segmented_traj in enumerate(new_trajs):
+            self._last_seen_segment_traj_idx += 1
+            for seg_i, segment in enumerate(segmented_traj):
+                s = segment.states[0]
+                goal = new_traj_goals[traj_i]
+                o = segment.get_option()
+                ns = segment.states[-1]
+                reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                if o.parent == self.CallPlanner and reward == 1 and CFG.env == "doorknobs":
+                    reward += 0.5
+
+                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+                self._q_function.add_datum_to_replay_buffer(
+                    (s, goal, o, ns, reward, terminal))

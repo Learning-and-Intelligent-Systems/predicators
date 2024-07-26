@@ -49,7 +49,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
-from predicators.approaches.maple_q_approach import MapleQApproach
+from predicators.approaches.maple_q_approach import MPDQNApproach
+from predicators.ml_models import MapleQFunction
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -379,33 +380,38 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         )
         initial_options.add(self.CallPlanner)
         self._initial_options = initial_options
-        self.mapleq=MapleQApproach(self._get_current_predicates(), \
+        self.mapleq=MPDQNApproach(self._get_current_predicates(), \
                                    self._initial_options, self._types, \
-                                    self._action_space, self._train_tasks)
-        self._current_control: Optional[str] = None
-        option_policy = self._get_option_policy_by_planning(
+                                    self._action_space, self._train_tasks, self.CallPlanner)
+        self._current_control = ""
+        try:
+            option_policy = self._get_option_policy_by_planning(
             self._train_tasks[0], CFG.timeout)
+        except:
+            import ipdb;ipdb.set_trace()
         self._current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
         )
         self._bridge_called_state = State(data={})
-        self._policy_logs: List[Optional[str]] = []
+        self._policy_logs: List[str] = []
+        self._current_task: Optional[Task] = None
+
 
     def _Can_plan(self, state: State, _: Sequence[Object]) -> bool:
-        if (self.mapleq._q_function._vectorize_state(state) !=  # pylint: disable=protected-access
-                self.mapleq._q_function._vectorize_state(  # pylint: disable=protected-access
+        if (MapleQFunction._vectorize_state(self.mapleq._q_function, state) !=  # pylint: disable=protected-access
+                MapleQFunction._vectorize_state(self.mapleq._q_function,  # pylint: disable=protected-access
                     self._bridge_called_state)).any():  # pylint: disable=protected-access
             return True
         return False
 
     def call_planner_policy(self, state: State, _: Dict, __: Sequence[Object],
-                            ___: Array) -> Action:
+                            params: Array) -> Action:
         """policy for CallPlanner option."""
         self._current_control = "planner"
         # create a new task where the init state is our current state
-        current_task = Task(state, self._train_tasks[0].goal)
+        current_task = Task(state, self._current_task.goal)
         option_policy = self._get_option_policy_by_planning(
             current_task, CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
@@ -413,8 +419,10 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
         )
-
-        return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        if CFG.env == "grid_row_door":
+            return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        elif CFG.env == "doorknobs":
+            return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
 
     def call_planner_nsrt(self) -> NSRT:
         """CallPlanner NSRT."""
@@ -441,6 +449,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
     def _init_nsrts(self) -> None:
         """Initializing nsrts for MAPLE Q."""
+        options = self._initial_options
         nsrts = self._get_current_nsrts()
         callplanner_nsrt = self.call_planner_nsrt()
         nsrts.add(callplanner_nsrt)
@@ -448,26 +457,26 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         all_ground_nsrts: Set[_GroundNSRT] = set()
         if CFG.sesame_grounder == "naive":
             for nsrt in nsrts:
-                all_objects = {o for t in self._train_tasks for o in t.init}
+                all_objects = {o for o in self._current_task.init}
                 all_ground_nsrts.update(
                     utils.all_ground_nsrts(nsrt, all_objects))
         elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
             all_objects = set()
-            for t in self.mapleq._train_tasks:  # pylint: disable=protected-access
-                curr_task_objects = set(t.init)
-                curr_task_types = {o.type for o in t.init}
-                curr_init_atoms = utils.abstract(t.init, predicates)
-                all_ground_nsrts.update(
-                    utils.all_ground_nsrts_fd_translator(
-                        nsrts, curr_task_objects, predicates, curr_task_types,
-                        curr_init_atoms, t.goal))
-                all_objects.update(curr_task_objects)
+            t = self._current_task
+            curr_task_objects = set(t.init)
+            curr_task_types = {o.type for o in t.init}
+            curr_init_atoms = utils.abstract(t.init, predicates)
+            all_ground_nsrts.update(
+                utils.all_ground_nsrts_fd_translator(
+                    nsrts, curr_task_objects, predicates, curr_task_types,
+                    curr_init_atoms, t.goal))
+            all_objects.update(curr_task_objects)
         else:  # pragma: no cover
             raise ValueError(
                 f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
-        goals = [t.goal for t in self.mapleq._train_tasks]  # pylint: disable=protected-access
+        goals = [self._current_task.goal]  # pylint: disable=protected-access
         self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
-            all_objects, goals, all_ground_nsrts)
+            all_objects, goals, all_ground_nsrts, options)
 
     def _solve(self,
                task: Task,
@@ -475,6 +484,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                train_or_test: str = "test") -> Callable[[State], Action]:
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
+        self._current_task = task
         self._current_control = "planner"
         option_policy = self._get_option_policy_by_planning(task, timeout)
         self._current_policy = utils.option_policy_to_policy(
@@ -483,13 +493,18 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             raise_error_on_repeated_state=True,
         )
         if not self._maple_initialized:
-            self.mapleq = MapleQApproach(self._get_current_predicates(),
+            self.mapleq = MPDQNApproach(self._get_current_predicates(),
                                          self._initial_options, self._types,
-                                         self._action_space, self._train_tasks)
+                                         self._action_space, self._train_tasks, self.CallPlanner)
             self._maple_initialized = True
-            self._init_nsrts()
+        self._init_nsrts()
 
+        # Prevent infinite loops by detecting if the bridge policy is called
+        # twice with the same state.
+        last_bridge_policy_state = DefaultState
+        
         def _policy(s: State) -> Action:
+            nonlocal last_bridge_policy_state
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
             try:
@@ -498,17 +513,18 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                     self._policy_logs.append(self._current_control)
                 return action
             except utils.OptionExecutionFailure:
-                logging.debug(f"Failed control: {self._current_control}")
+                if self._current_control == "bridge":
+                    logging.debug("failed" + self._current_control)
+
             # Switch control from planner to bridge.
-            assert self._current_control == "planner"
             self._current_control = "bridge"
+            self.mapleq._q_function._last_planner_state = s
             if train_or_test == "train":
                 self._policy_logs.append(self._current_control)
             self._bridge_called_state = s
             self._current_policy = self.mapleq._solve(  # pylint: disable=protected-access
                 task, timeout, train_or_test)
             action = self._current_policy(s)
-
             return action
 
         return _policy
@@ -522,6 +538,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         def _act_policy(s: State) -> Action:
             nonlocal just_starting
             if just_starting:
+                task = self._train_tasks[train_task_idx]
                 self._current_control = "planner"
                 option_policy = self._get_option_policy_by_planning(
                     task, CFG.timeout)
@@ -534,6 +551,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             return policy(s)
 
         def _termination_fn(s: State) -> bool:
+            task = self._train_tasks[train_task_idx]
             return task.goal_holds(s)
 
         # The request's acting policy is from mapleq
@@ -549,13 +567,12 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         # for efficiency.
         if not results:
             return None
+        all_states = []
+        all_actions = []
         policy_logs = self._policy_logs
         for i in range(len(results)):
             result = results[i]
             policy_log = policy_logs[:len(result.states[:-1])]
-            # We index max(j - 1, 0) to count for the case when CallPlanner
-            # is used, since "planner" is added to the corresponding policy_log.
-            # When j = 0, planner is always in control
             mapleq_states = [
                 state for j, state in enumerate(result.states[:-1])
                 if policy_log[j] == "bridge"
@@ -569,9 +586,11 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             mapleq_states.append(result.states[-1])
             new_traj = LowLevelTrajectory(mapleq_states, mapleq_actions)
             self._trajs.append(new_traj)
+            all_states.extend(mapleq_states)
+            all_actions.extend(mapleq_actions)
             policy_logs = policy_logs[len(result.states) - 1:]
-
         self.mapleq.get_interaction_requests()
         self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs))  # pylint: disable=protected-access
         self._policy_logs = []
         return None
+    

@@ -26,10 +26,15 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 from torch.utils.data import DataLoader, TensorDataset
 
+from predicators.envs.grid_row import GridRowDoorEnv
+from predicators.envs.doors import DoorKnobsEnv
 from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
     State, _GroundNSRT, _Option
+
+np.set_printoptions(threshold=np.inf)
+torch.set_printoptions(threshold=torch.inf)
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1357,7 +1362,7 @@ class MapleQFunction(MLPRegressor):
         self._epsilon = CFG.active_sampler_learning_exploration_epsilon
         self._min_epsilon = CFG.min_epsilon
         self._use_epsilon_annealing = CFG.use_epsilon_annealing
-        self._ep_reduction = 10*(self._epsilon-self._min_epsilon) \
+        self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
 
@@ -1474,6 +1479,7 @@ class MapleQFunction(MLPRegressor):
             batch_size: int) -> Iterator[Tuple[Tensor, Tensor]]:
         """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
         first, sample a minibatch of size batch_size to train on."""
+        torch.manual_seed(CFG.seed)
         train_dataset = TensorDataset(tensor_X, tensor_Y)
         train_dataloader = DataLoader(train_dataset,
                                       batch_size=batch_size,
@@ -1490,7 +1496,9 @@ class MapleQFunction(MLPRegressor):
 
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
-        self._initialize_net()
+        if not self._qfunc_init and CFG.approach == "rl_bridge_policy":
+            self._initialize_net()
+            self._qfunc_init = True
         self.to(self._device)
         # Create the loss function.
         loss_fn = self._create_loss_fn()
@@ -1594,4 +1602,456 @@ class MapleQFunction(MLPRegressor):
                     rng=self._rng)
                 assert option.initiable(state)
                 sampled_options.append(option)
+        return sampled_options
+
+class MPDQNFunction(MapleQFunction):
+    tau: float = 0.002
+    def __init__(self,
+                seed: int,
+                hid_sizes: List[int],
+                max_train_iters: MaxTrainIters,
+                clip_gradients: bool,
+                clip_value: float,
+                learning_rate: float,
+                weight_decay: float = 0,
+                use_torch_gpu: bool = False,
+                train_print_every: int = 1000,
+                n_iter_no_change: int = 10000000,
+                discount: float = 0.8,
+                num_lookahead_samples: int = 5,
+                replay_buffer_max_size: int = 1000000,
+                replay_buffer_sample_with_replacement: bool = True) -> None:
+        super().__init__(seed,
+                hid_sizes,
+                max_train_iters,
+                clip_gradients,
+                clip_value,
+                learning_rate,
+                weight_decay,
+                use_torch_gpu,
+                train_print_every,
+                n_iter_no_change,
+                discount,
+                num_lookahead_samples,
+                replay_buffer_max_size,
+                replay_buffer_sample_with_replacement)
+        
+        # our "current"q network
+        self.qnet = MapleQFunction(seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
+            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
+            num_lookahead_samples=CFG.
+            active_sampler_learning_num_lookahead_samples)
+
+        # target q network
+        self.target_qnet = MapleQFunction(seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
+            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
+            num_lookahead_samples=CFG.
+            active_sampler_learning_num_lookahead_samples)
+
+        self.target_qnet.load_state_dict(self.qnet.state_dict())
+        self._qfunc_init = False
+        self._last_planner_state = None
+        self._nsrts= {}
+     
+        self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
+        /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
+          *CFG.interactive_num_requests_per_cycle)
+        self._counter = 0
+
+    def set_grounding(self, objects: Set[Object],
+                      goals: Collection[Set[GroundAtom]],
+                      ground_nsrts: Collection[_GroundNSRT], nsrts) -> None:
+        """After initialization because NSRTs not learned at first."""
+        for ground_nsrt in ground_nsrts:
+            num_params = ground_nsrt.option.params_space.shape[0]
+            self._max_num_params = max(self._max_num_params, num_params)
+        self._ordered_objects = sorted(objects)
+        self._ordered_frozen_goals = sorted({frozenset(g) for g in goals})
+        self._num_ground_nsrts = len(ground_nsrts)
+        self._ordered_ground_nsrts = sorted(ground_nsrts)
+        self._ground_nsrt_to_idx = {
+            n: i
+            for i, n in enumerate(self._ordered_ground_nsrts)
+        }
+        self._nsrts = nsrts
+
+    def _vectorize_state(self, state: State) -> Array:
+
+        if CFG.env == "doorknobs":
+            dummy_env = DoorKnobsEnv()
+
+            predicates = dummy_env.predicates
+            informed_objects = set()
+
+            try:
+                for predicate in predicates:
+                    informed_objects.update(predicate.types)
+            except:
+                import ipdb;ipdb.set_trace()
+            
+            for o in state:
+                if o.is_instance(dummy_env._robot_type):
+                    robot = o
+                    break
+        
+            for o in state:
+                if o.is_instance(dummy_env._room_type) and dummy_env._InRoom_holds(state, [robot, o]):
+                    robot_room_geo =  DoorKnobsEnv.object_to_geom(o, state)
+                    robot_room = o
+                    break
+
+            unknown = []
+            object_to_features = {}
+            closest_object = None
+            closest_distance = np.inf
+            for object in state:
+                is_new = True
+                features = []
+                for obj_type in informed_objects:
+                    if (object.is_instance(obj_type)):
+                        is_new = False
+                object_geo = DoorKnobsEnv.object_to_geom(object, state)
+                if is_new and not object.is_instance(DoorKnobsEnv._obstacle_type) and robot_room_geo.intersects(object_geo):
+                    x = 0
+                    y = 0
+                    for feature in object.type.feature_names:
+                        if feature == "x":
+                            x = np.abs(state.get(object, "x")-state.get(robot, "x"))
+                            features.append(x)
+                        elif feature == "y":
+                            y = np.abs(state.get(object, "y")-state.get(robot, "y"))
+                            features.append(y)
+                        elif feature == "theta":
+                            continue
+                        else:
+                            features.append(state.get(object, feature))
+                    unknown.append(object)
+                    object_to_features[object] = features
+                    distance = x**2 + y**2
+                    if distance < closest_distance:
+                        closest_object = object
+                        closest_distance = distance
+                        
+
+            for o in self._last_planner_state:
+                if o.is_instance(dummy_env._robot_type):
+                    x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
+                    break
+
+            vectorized_state = object_to_features[closest_object][:6] + [x,y]
+            return vectorized_state
+        
+        elif CFG.env == "grid_row_door":
+            robot_pos = 0
+            door_list = []
+            for o in state:
+                if o.is_instance(GridRowDoorEnv._robot_type):
+                    robot_pos = state.get(o, "x")
+                    robot = o
+                if o.is_instance(GridRowDoorEnv._door_type):
+                    door_list.append(o)
+
+            has_middle_door = 0
+            door_move_key, door_move_target, \
+                    door_turn_key, door_turn_target = (0,0,0,0)
+            for door in door_list:
+                door_pos = state.get(door, "x")
+                if robot_pos == door_pos:
+                    has_middle_door = 1
+                    door_move_key = state.get(door, "move_key")
+                    door_move_target = state.get(door, "move_target")
+                    door_turn_key = state.get(door, "turn_key")
+                    door_turn_target = state.get(door, "turn_target")
+
+            last_x = self._last_planner_state.get(robot, "x")
+            
+            vectorized_state = [
+                    has_middle_door, door_move_key, door_move_target, \
+                    door_turn_key, door_turn_target]
+            # , np.abs(last_x - robot_pos)
+            
+            return vectorized_state
+   
+   
+    def _vectorize_option(self, option: _Option) -> Array:    
+        matches = [
+        i for (i,n) in enumerate(self._nsrts)
+        if n == option.parent
+        ]
+
+        assert len(matches) == 1
+        # Create discrete part.
+        discrete_vec = np.zeros(len(self._nsrts))
+        discrete_vec[matches[0]] = 1.0
+        # Create continuous part.
+        continuous_vec = np.zeros(self._max_num_params)
+        continuous_vec[:len(option.params)] = option.params
+        # Concatenate.
+        vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
+        return vec
+    
+    def train_q_function(self) -> None:
+        """Fit the model."""
+        # First, precompute the size of the input and output from the
+        # Q-network.
+
+        # REMEMBER U NEED TO CHANGE X_size IF U EVER CHANGE VECTORIZE STUFFS -- so change it for gridrowdoor
+        if CFG.env == "doorknobs":
+            X_size = 7 + 4 + self._max_num_params
+        elif CFG.env == "grid_row_door":
+            X_size = 12
+        Y_size = 1
+        # If there's no data in the replay buffer, we can't train.
+        # Otherwise, start by vectorizing all data in the replay buffer.
+        X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
+        Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
+        #in doors env, bad door is when we try to open the door AFTER its already open
+        bad_door_index=[]    
+        #in doors env, callplanner is when we try to callplanner AFTER door already open
+        callplanner_index=[]
+        #in doors env, good_move is when we try to callplanner AFTER door already open
+        next_actions = []
+        next_values = []
+        num_rwd = 0
+        bad_count = 0
+        callplanner_count = 0
+        for i, (state, _, option, next_state, reward,
+                terminal) in enumerate(self._replay_buffer):
+            if reward > 0:
+                num_rwd+=1
+            # Compute the input to the Q-function.
+            vectorized_state = self._vectorize_state(state)
+            # vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            try:
+                X_arr[i] = np.concatenate(
+                [vectorized_state, vectorized_action])
+            except:
+                print("Broadcase shape is incorrect, please update X_size!")
+                raise ValueError
+                
+            # Next, compute the target for Q-learning by sampling next actions.
+            vectorized_next_state = self._vectorize_state(next_state)
+            next_best_action = 0
+            if not terminal and self.qnet._y_dim != -1:
+                best_next_value = -np.inf
+                next_option_vecs: List[Array] = []
+                # We want to pick a total of num_lookahead_samples samples.
+                actions_to_vectors = {}
+                while len(next_option_vecs) < self._num_lookahead_samples:
+                    # Sample 1 per NSRT until we reach the target number.
+                    for next_option in \
+                        self._sample_applicable_options_from_state(
+                            next_state):
+                        next_option_vecs.append(
+                            self._vectorize_option(next_option))
+                        actions_to_vectors[next_option] = self._vectorize_option(next_option)
+                for next_option in \
+                        self._sample_applicable_options_from_state(
+                            next_state):
+                    x_hat = np.concatenate([
+                        vectorized_next_state, self._vectorize_option(next_option)
+                    ])
+                    q_x_hat = self.qnet.predict(x_hat)[0]
+                    
+                    if best_next_value<q_x_hat:
+                        best_next_value=q_x_hat
+                        next_best_action = next_option
+            else:
+                best_next_value = 0.0
+            target_predicted=0
+            if best_next_value == 0.0:
+                Y_arr[i] = reward
+            else:
+                vectorized_next_action = self._vectorize_option(next_best_action)
+                x = np.concatenate(
+                    [vectorized_next_state, vectorized_next_action])
+                
+                # as per double dqn, the q value is predicted by target_qnet and action is chosen by qnet
+                
+                target_predicted=self.target_qnet.predict(x)[0]
+                Y_arr[i] = reward + self._discount * target_predicted
+            next_actions.append(next_best_action)
+            next_values.append(target_predicted)
+            
+
+            # bad value of opening door AFTER ITS ALREADY OPENED LIKE BRUH
+            if CFG.env == "doorknobs":
+                
+                if vectorized_action[0]==1 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
+                    bad_door_index.append(i)
+                    if bad_count < 20:
+                        print("BAD DOOR rwd, state, action ", reward, vectorized_state, vectorized_action)
+                        bad_count+=1
+
+                if vectorized_action[1]==1 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
+                    callplanner_index.append(i)
+                    if callplanner_count < 20:
+                        print("CALL PLANNER rwd, state, action ", reward, vectorized_state, vectorized_action)
+                        callplanner_count+=1
+
+        # Finally, pass all this vectorized data to the training function.
+        # This will implicitly sample mini batches and train for a certain
+        # number of iterations. It will also normalize all the data.
+        Xx=X_arr
+        Yy=Y_arr
+        self.qnet.fit(X_arr, Y_arr)
+        if not self.target_qnet._disable_normalization:
+            Xx, self.target_qnet._input_shift, self.target_qnet._input_scale = _normalize_data(Xx)
+            Yy, self.target_qnet._output_shift, self.target_qnet._output_scale = _normalize_data(Yy)
+        if not self._qfunc_init:
+            # we need to init a bunch of stuff for qnet and target_qnet
+            # for training qnet to work
+            self.target_qnet._x_dims = tuple(Xx.shape[1:])
+            _, self.target_qnet._y_dim = Yy.shape
+
+            self.target_qnet._initialize_net()
+            self._qfunc_init = True
+        print("WE GOT REWARDS: ", num_rwd)
+        count = 0
+        for i in bad_door_index:
+            print("BAD DOOR")
+            print("predicted q value", Y_arr[i])
+            print("actual q value", self.qnet.predict(X_arr[i])[0])
+            if self.qnet.predict(X_arr[i])[0]!=0:
+                try:
+                    print("next best action: ", next_actions[i])
+                    print("next action predicted q value: ",next_values[i])
+                except: 
+                    import ipdb;ipdb.set_trace()
+            count+=1
+            if count == 20:
+                break
+
+        count = 0
+        for i in callplanner_index:
+            print("GOOD CALLPLANNER")
+            print("predicted q value", Y_arr[i])
+            print("actual q value",  self.qnet.predict(X_arr[i])[0])
+            if self.qnet.predict(X_arr[i])[0]!=0:
+                print("next best action: ", next_actions[i])
+                print("next action predicted q value: ",next_values[i])
+            count += 1
+            if count == 20:
+                break
+
+    def get_option(self,
+                   state: State,
+                   goal: Set[GroundAtom],
+                   num_samples_per_ground_nsrt: int,
+                   train_or_test: str = "test") -> _Option:
+        """Get the best option under Q, epsilon-greedy."""
+
+        # MODIFICATIONS: update target network at each time step
+        # Return a random option.
+        epsilon = self._epsilon
+        if train_or_test == "test":
+            epsilon = 0.0
+        
+        if self._rng.uniform() < epsilon:
+            options = self._sample_applicable_options_from_state(
+                state, num_samples_per_applicable_nsrt=1)
+            # Note that this assumes that the output of sampling is completely
+            # random, including in the order of ground NSRTs.
+            if self._use_epsilon_annealing and epsilon != 0:
+                self.decay_epsilon()
+            if train_or_test=="train":
+                self.update_target_network()
+            return options[0]
+        # Return the best option (approx argmax.)
+        options = self._sample_applicable_options_from_state(
+            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+        scores = [
+            self.predict_q_value(state, goal, option) for option in options
+        ]
+        option_scores=list(zip(options, scores))
+        option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
+        idx = np.argmax(scores)
+        # Decay epsilon
+        if self._use_epsilon_annealing and epsilon != 0:
+            self.decay_epsilon()
+        if train_or_test=="train":
+            self.update_target_network()
+        if train_or_test == "test":
+            logging.info("option scores" + str(option_scores[:20]))
+
+        return options[idx]
+    
+    def update_target_network(self):
+        # Soft polyak averaging:
+        # for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
+        #     target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
+        if CFG.env == "doorknobs":
+            update_freq = 1500
+        elif CFG.env == "grid_row_door":
+            update_freq = 600
+        else:
+            update_freq = 1000
+        if self._counter % update_freq == 0:
+            self.target_qnet.load_state_dict(self.qnet.state_dict())
+        self._counter+=1
+
+    def predict_q_value(self, state: State, goal: Set[GroundAtom],
+                        option: _Option) -> float:
+        """Predict the Q value."""
+        # MODIFICATIONS: predict with self.qnet instead of self
+        # Default value if not yet fit.
+        if self.qnet._y_dim == -1:
+            return 0.0
+        x = np.concatenate([
+            self._vectorize_state(state),
+            self._vectorize_option(option)
+        ])
+        y = self.qnet.predict(x)[0]
+        
+        return y
+    
+
+    def _sample_applicable_options_from_state(
+            self,
+            state: State,
+            num_samples_per_applicable_nsrt: int = 1) -> List[_Option]:
+        """Use NSRTs to sample options in the current state."""
+        # Create all applicable ground NSRTs.
+        state_objs = set(state)
+        applicable_nsrts = [
+            o for o in self._ordered_ground_nsrts if \
+            set(o.objects).issubset(state_objs) and all(
+            a.holds(state) for a in o.preconditions)
+        ]
+        # Randomize order of applicable NSRTs to assure that the output order
+        # of this function is completely randomized.
+        indices = list(range(len(applicable_nsrts)))
+        self._rng.shuffle(indices)
+        applicable_nsrts = [applicable_nsrts[i] for i in indices]
+        # Sample options per NSRT.
+        sampled_options: List[_Option] = []
+        for app_nsrt in applicable_nsrts:
+            #CHANGE THIS SO THAT U ONLY SAMPLE AN NSRT MULTIPLE TIMES IF IT REQUIRES A CONTINUOUS PARAMETER
+            for _ in range(num_samples_per_applicable_nsrt):
+                # Sample an option.
+                option = app_nsrt.sample_option(
+                    state,
+                    goal=set(),  # goal not used
+                    rng=self._rng)
+                if option.initiable(state):
+                    sampled_options.append(option)
+        if sampled_options == []:
+            import ipdb; ipdb.set_trace()
         return sampled_options
