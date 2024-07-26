@@ -1794,7 +1794,7 @@ class MapleQFunction(MLPRegressor):
 
 class MPDQNFunction(MapleQFunction):
     #basically, make 2 mapleqfunctions lol
-    tau: float = 0.001
+    tau: float = 0.0025
     def __init__(self,
                 seed: int,
                 hid_sizes: List[int],
