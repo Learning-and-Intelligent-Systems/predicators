@@ -336,11 +336,9 @@ class GridRowDoorEnv(GridRowEnv):
             }
             for i, cell in enumerate(self._cells):
                 state_dict[cell] = {"x": i + 0.5}
-
-            chosen_positions = rng.choice(CFG.test_grid_row_num_cells-1, size=len(door_list), replace=False)
             for i, door in enumerate(door_list):
                 state_dict[door]={
-                    "x": chosen_positions[i]+0.5,
+                    "x": i*3+2.5,
                     "move_key": 0.0,
                     "move_target": 0.5,
                     "turn_key": 0.0,
@@ -415,7 +413,7 @@ class GridRowDoorEnv(GridRowEnv):
                 state_dict[cell] = {"x": i + 0.5}
             door = Object("door", self._door_type)
             state_dict[door] =     {
-                     "x": rng.choice(range(1,len(self._cells)-1))-0.5,
+                     "x": rng.choice(range(3,len(self._cells)-2))-0.5,
                     "move_key": 0.0,
                     "move_target": 0.5,
                     "turn_key": 0.0,

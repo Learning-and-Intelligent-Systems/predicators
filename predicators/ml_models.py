@@ -1981,7 +1981,8 @@ class MPDQNFunction(MapleQFunction):
             
             vectorized_state = [
                     has_middle_door, door_move_key, door_move_target, \
-                    door_turn_key, door_turn_target, np.abs(last_x - robot_pos)]
+                    door_turn_key, door_turn_target]
+            # , np.abs(last_x - robot_pos)
             
             return vectorized_state
    
@@ -2012,7 +2013,7 @@ class MPDQNFunction(MapleQFunction):
         if CFG.env == "doorknobs":
             X_size = 7 + 4 + self._max_num_params
         elif CFG.env == "grid_row_door":
-            X_size = 13
+            X_size = 12
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         # Otherwise, start by vectorizing all data in the replay buffer.

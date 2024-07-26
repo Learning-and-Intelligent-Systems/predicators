@@ -351,7 +351,7 @@ class GlobalSettings:
     sticky_table_num_sticky_tables = 1  # must be less than the num_tables
 
     # grid row env parameters
-    grid_row_num_cells = 5
+    grid_row_num_cells = 6
     test_grid_row_num_cells = 12
     num_doors = 3
 
@@ -717,7 +717,7 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
-                    "grid_row_door": 85
+                    "grid_row_door": 30
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
