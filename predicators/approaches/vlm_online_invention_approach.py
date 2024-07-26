@@ -68,7 +68,21 @@ def are_equal_by_obj(list1: List[_Option], list2: List[_Option]) -> bool:
     return all(
         option1.eq_by_obj(option2) for option1, option2 in zip(list1, list2))
 
+def handle_remove_readonly(func, path, exc_info):
+    """
+    Error handler for `shutil.rmtree`.
 
+    If the error is due to an access error (read-only file),
+    it attempts to add write permission and then retries.
+    """
+    exc_type, exc_value, exc_tb = exc_info
+    if not os.access(path, os.W_OK):
+        # Try to add write permission
+        os.chmod(path, stat.S_IWUSR)
+        func(path)
+    else:
+        raise exc_value
+    
 def print_confusion_matrix(tp: float, tn: float, fp: float, fn: float) -> None:
     """Compate and print the confusion matrix."""
     precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
@@ -346,11 +360,15 @@ class VlmInventionApproach(NSRTLearningApproach):
                         if min_imgs <= len(images) <= max_imgs: break
 
                         if len(images) > max_imgs:
-                            shutil.rmtree(obs_dir)
+                            try:
+                                shutil.rmtree(obs_dir, 
+                                            onerror=handle_remove_readonly)
+                            except OSError as e:
+                                print(f"Error: {e.strerror} - {e.filename}")
                             if attempt % 2 == 0:
-                                max_num_groundings = max(1,max_num_groundings-1)
-                            else:
                                 max_num_examples = max(1,max_num_examples-1)
+                            else:
+                                max_num_groundings = max(1,max_num_groundings-1)
                         else:
                             # Adjust parameters for the next attempt
                             if attempt % 2 == 0:
