@@ -2027,6 +2027,8 @@ class MPDQNFunction(MapleQFunction):
         next_actions = []
         next_values = []
         num_rwd = 0
+        bad_count = 0
+        callplanner_count = 0
         for i, (state, _, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             if reward > 0:
@@ -2091,19 +2093,18 @@ class MPDQNFunction(MapleQFunction):
 
             # bad value of opening door AFTER ITS ALREADY OPENED LIKE BRUH
             if CFG.env == "doorknobs":
-                count = 0
+                
                 if vectorized_action[0]==1 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
                     bad_door_index.append(i)
-                    if count < 20:
+                    if bad_count < 20:
                         print("BAD DOOR rwd, state, action ", reward, vectorized_state, vectorized_action)
-                        count+=1
+                        bad_count+=1
 
-                count = 0
                 if vectorized_action[1]==1 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
                     callplanner_index.append(i)
-                    if count < 20:
+                    if callplanner_count < 20:
                         print("CALL PLANNER rwd, state, action ", reward, vectorized_state, vectorized_action)
-                        count+=1
+                        callplanner_count+=1
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain

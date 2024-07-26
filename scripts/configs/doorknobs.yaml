@@ -25,5 +25,6 @@ FLAGS:
   interactive_num_requests_per_cycle: 5
   online_nsrt_learning_requests_per_cycle: 5
   timeout: 1000
+  active_sampler_learning_num_samples: 10
 START_SEED: 0
 NUM_SEEDS: 5

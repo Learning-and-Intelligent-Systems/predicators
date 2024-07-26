@@ -253,9 +253,9 @@ def _run_pipeline(env: BaseEnv,
                 logging.info("Reached online_learning_max_transitions, "
                              "terminating")
                 break
-            if type(cogman._approach) is RLBridgePolicyApproach:
-                cogman._approach._train_tasks = train_tasks
-                cogman._approach._init_nsrts()
+            # if type(cogman._approach) is RLBridgePolicyApproach:
+            #     cogman._approach._train_tasks = train_tasks
+            #     cogman._approach._init_nsrts()
             interaction_requests = cogman.get_interaction_requests()
             if not interaction_requests:
                 logging.info("Did not receive any interaction requests, "
