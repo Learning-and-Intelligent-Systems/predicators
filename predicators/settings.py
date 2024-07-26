@@ -571,7 +571,7 @@ class GlobalSettings:
     active_sampler_learning_feature_selection = "all"
     active_sampler_learning_knn_neighbors = 3
     active_sampler_learning_use_teacher = True
-    active_sampler_learning_num_samples = 10
+    active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5
     active_sampler_learning_fitted_q_iters = 5
     active_sampler_learning_explore_pursue_goal_interval = 5
