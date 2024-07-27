@@ -27,5 +27,5 @@ FLAGS:
   max_initial_demos: 0
   sampler_learner: "oracle"
   strips_learner: "oracle"
-START_SEED: 0
-NUM_SEEDS: 5
+START_SEED: 1
+NUM_SEEDS: 3
