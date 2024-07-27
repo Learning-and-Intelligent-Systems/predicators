@@ -589,7 +589,7 @@ class GlobalSettings:
     # mpdqn function parameters
     use_epsilon_annealing = True
     min_epsilon = 0.05
-    polyak_tau = 0.004
+    polyak_tau = 0.006
     polyak_true = True
 
     # skill competence model parameters

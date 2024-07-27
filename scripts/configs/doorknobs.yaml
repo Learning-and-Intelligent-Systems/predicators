@@ -11,7 +11,7 @@ APPROACHES:
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
 ENVS:
-  tau_004_train2x2_test10x10:
+  tau_006_train2x2_test10x10:
     NAME: "doorknobs"
 ARGS:
   - "debug"
