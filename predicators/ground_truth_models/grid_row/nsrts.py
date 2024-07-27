@@ -172,7 +172,6 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         LightOn = predicates["LightOn"]
         LightOff = predicates["LightOff"]
         Adjacent = predicates["Adjacent"]
-        DoorInCell = predicates["DoorInCell"]
 
         # Options
         MoveRobot = options["MoveRobot"]
@@ -271,12 +270,12 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
 
         robot = Variable("?robot", robot_type)
         current_cell = Variable("?current_cell", cell_type)
-        door = Variable("?door", door_type)
-        parameters = [robot, current_cell, door]
+        # door = Variable("?door", door_type)
+        parameters = [robot, current_cell]
         option_vars = parameters
         option = MoveKey
         preconditions = {
-            LiftedAtom(DoorInCell, [door, current_cell]),
+            # LiftedAtom(DoorInCell, [door, current_cell]),
             LiftedAtom(RobotInCell, [robot, current_cell]),
         }
         add_effects = set()
@@ -296,12 +295,12 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
 
         robot = Variable("?robot", robot_type)
         current_cell = Variable("?current_cell", cell_type)
-        door = Variable("?door", door_type)
-        parameters = [robot, current_cell, door]
+        # door = Variable("?door", door_type)
+        parameters = [robot, current_cell]
         option_vars = parameters
         option = TurnKey
         preconditions = {
-            LiftedAtom(DoorInCell, [door, current_cell]),
+            # LiftedAtom(DoorInCell, [door, current_cell]),
             LiftedAtom(RobotInCell, [robot, current_cell]),
         }
         add_effects = set()
@@ -313,3 +312,4 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         nsrts.add(turn_key_nsrt)
 
         return nsrts
+    

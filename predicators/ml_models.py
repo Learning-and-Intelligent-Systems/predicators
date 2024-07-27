@@ -1365,6 +1365,7 @@ class MapleQFunction(MLPRegressor):
         self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
+        self._qfunc_init = False
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],

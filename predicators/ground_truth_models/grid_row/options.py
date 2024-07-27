@@ -148,7 +148,7 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
 
         MoveKey = utils.SingletonParameterizedOption(
             "MoveKey",
-            types=[robot_type, cell_type, door_type],
+            types=[robot_type, cell_type],
             policy=_move_key_policy,
             params_space=Box(-1.0, 1.0, (1, )),
         )
@@ -163,9 +163,10 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
 
         TurnKey = utils.SingletonParameterizedOption(
             "TurnKey",
-            types=[robot_type, cell_type, door_type],
+            types=[robot_type, cell_type],
             policy=_turn_key_policy,
             params_space=Box(-1.0, 1.0, (1, )),
         )
 
         return {MoveRobot, TurnOnLight, TurnOffLight, TurnKey, MoveKey}
+    
