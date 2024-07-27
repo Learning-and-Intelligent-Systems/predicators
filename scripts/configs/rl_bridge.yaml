@@ -11,7 +11,7 @@ APPROACHES:
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
 ENVS:
-  grid_row_door:
+  no_reset_cells_grid_row_door:
     NAME: "grid_row_door"
     FLAGS:
       max_num_steps_interaction_request: 100
