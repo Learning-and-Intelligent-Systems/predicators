@@ -343,14 +343,21 @@ class VlmInventionApproach(NSRTLearningApproach):
                     max_attempts = 5
                     max_num_groundings, max_num_examples = 1, 2
                     min_imgs, max_imgs = 6, 10
+
+                    if CFG.vlm_invent_predicates_in_stages:
+                        create_prompt_func =\
+                            self._create_invention_stage_one_prompt
+                    else:
+                        create_prompt_func =\
+                            self._create_one_step_program_invention_prompt
+
                     for attempt in range(max_attempts):
                         # Use the results to prompt the llm
-                        prompt = self._create_prompt(env, ite, 
+                        prompt, state_str = create_prompt_func(env, ite, 
                                         max_num_options=10, 
                                         max_num_groundings=max_num_groundings, 
                                         max_num_examples=max_num_examples, 
                                         categories_to_show=['tp', 'fp'])
-                        response_file = CFG.log_file + f"ite{ite}.response"
 
                         # Load the images accompanying the prompt
                         obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
@@ -378,10 +385,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                     # if ite == 4:
                     #     breakpoint()
                     # breakpoint()
-
                     new_proposals = self._get_vlm_proposals(
-                        prompt, images, ite, response_file, tasks, 
-                        manual_prompt, regenerate_response)
+                        env, prompt, images, ite, tasks, 
+                        manual_prompt, regenerate_response, state_str)
                 logging.info(
                     f"Done: created {len(new_proposals)} candidates:" +
                     f"{new_proposals}")
@@ -541,7 +547,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             solve_rate = num_solved / num_tasks
 
             # Print the new classification results with the new operators
-            tp, tn, fp, fn, _ = utils.count_classification_result_for_ops(
+            tp, tn, fp, fn, _, _ = utils.count_classification_result_for_ops(
                 self._nsrts,
                 self.succ_optn_dict,
                 self.fail_optn_dict,
@@ -963,31 +969,78 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def _get_vlm_proposals(
             self,
+            env: BaseEnv,
             prompt: str,
             images: List[Image.Image],
             ite: int, 
-            response_file: str,
             tasks: List[Task],
             manual_prompt: bool = False,
             regenerate_response: bool = False,
+            state_list_str: str = "",
             ) -> Set[Predicate]:
+        
+        if CFG.vlm_invent_predicates_in_stages:
+            response_file = CFG.log_file + f"ite{ite}_stage1.response"
+        else:
+            response_file = CFG.log_file + f"ite{ite}.response"
+
+        # Prompt the VLM to directly OR 
+        # first get nl_predicate proposals and then get ns_predicate 
+        # implementations.
         if not os.path.exists(response_file) or regenerate_response:
             if manual_prompt:
                 # create a empty file for pasting chatGPT response
                 with open(response_file, 'w') as file:
                     pass
                 logging.info(f"## Please paste the response from the VLM " +
-                             f"to {response_file}")
+                            f"to {response_file}")
                 input("Press Enter when you have pasted the " + "response.")
             else:
-                
                 self._vlm.reset_chat_session()
                 response = self._vlm.sample_completions(prompt,
-                                             images,
-                                             temperature=0,
-                                             seed=CFG.seed,
-                                             num_completions=1
-                                             )[0]
+                                            images,
+                                            temperature=0,
+                                            seed=CFG.seed,
+                                            num_completions=1
+                                            )[0]
+                with open(response_file, 'w') as f:
+                    f.write(response)
+        
+        if CFG.vlm_invent_predicates_in_stages:
+            # Get NL predicate dataset 
+            # --- for each state, the predicates that are true and false
+            with open(response_file, 'r') as file:
+                response = file.read()
+            # predicate_specs = parse_nl_predicate_predictions(response_file)
+            predicate_specs = response
+
+            # Generate prompt to write ns_predicates
+            s2_prompt = self._create_invention_stage_two_prompt(
+                                                            env,
+                                                            ite,
+                                                            state_list_str,
+                                                            predicate_specs)
+            # Save the query to a file
+            response_file = CFG.log_file + f"ite{ite}_stage2.response"
+            if not os.path.exists(response_file) or regenerate_response:
+                if manual_prompt:
+                    # create a empty file for pasting chatGPT response
+                    with open(response_file, 'w') as file:
+                        pass
+                    logging.info(f"## Please paste the response from the VLM " +
+                                f"to {response_file}")
+                    input("Press Enter when you have pasted the " + "response.")
+                else:
+                    # should try both with and without reset
+                    self._vlm.reset_chat_session()
+                    # query the VLM until they make the write predication
+                    response = self._vlm.sample_completions(
+                                            s2_prompt,
+                                            images,
+                                            temperature=0,
+                                            seed=CFG.seed,
+                                            num_completions=1
+                                            )[0]
                 with open(response_file, 'w') as f:
                     f.write(response)
 
@@ -1117,7 +1170,105 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         return set(kept_predicates)
 
-    def _create_prompt(
+    def _create_invention_stage_two_prompt(
+        self,
+        env: BaseEnv,
+        ite: int,
+        state_list_str: str,
+        predicate_specs: str,
+    ) -> str:
+        with open(f"prompts/invent_0_prog_syn.outline", 'r') as file:
+            template = file.read()
+
+        # Structure classes
+        with open('./prompts/api_raw_state.py', 'r') as f:
+            state_str = f.read()
+        with open('./prompts/api_nesy_predicate.py', 'r') as f:
+            pred_str = f.read()
+        template = template.replace('[STRUCT_DEFINITION]',
+                add_python_quote(state_str + '\n\n' + pred_str))
+
+        # Type Instances
+        with open(f"./prompts/types_{self.env_name}.py", 'r') as f:
+            type_instan_str = f.read()
+        type_instan_str = add_python_quote(type_instan_str)
+        template = template.replace("[TYPES_IN_ENV]", type_instan_str)
+
+        # Predicates
+        # If NSP, provide the GT goal NSPs, although they are never used.
+        pred_str_lst = []
+        pred_str_lst.append(self._init_predicate_str(env,
+                                                     self.env_source_code))
+        pred_str = '\n'.join(pred_str_lst)
+        template = template.replace("[PREDICATES_IN_ENV]", pred_str)
+
+        # List of states
+        template = template.replace("[LISTED_STATES]", state_list_str)
+
+        # Predicate Specs
+        template = template.replace("[PREDICATE_SPECS]", predicate_specs)
+
+        with open(f"{CFG.log_file}/ite{ite}_stage2.prompt", 'w') as f:
+            f.write(template)
+        prompt = template
+
+        return prompt
+
+    def _create_invention_stage_one_prompt(
+        self,
+        env: BaseEnv,
+        ite: int,
+        max_num_options: int = 10,  # Number of options to show
+        max_num_groundings: int = 2,  # Number of ground options per option.3
+        max_num_examples: int = 2,  # Number of examples per ground option.
+        categories_to_show: List[str] = ['tp', 'fp'],
+        seperate_prompt_per_option: bool = False,
+    ) -> str:
+        with open(f"prompts/invent_0_prog_free.outline", 'r') as file:
+            template = file.read()
+
+        # Predicates
+        # If NSP, provide the GT goal NSPs, although they are never used.
+        self.env_source_code = getsource(env.__class__)
+        pred_str_lst = []
+        pred_str_lst.append(self._init_predicate_str(
+                                                env,
+                                                self.env_source_code,
+                                                include_definition=False,
+                                                show_predicate_assertion=True,
+                                                ))
+        # if ite > 1:
+        #     pred_str_lst.append("The previously invented predicates are:")
+        #     pred_str_lst.append(self._invented_predicate_str(ite))
+        pred_str = '\n'.join(pred_str_lst)
+        template = template.replace("[PREDICATES_IN_ENV]", pred_str)
+
+        _, _, _, _, summary_str, state_str_set =\
+            utils.count_classification_result_for_ops(
+                self._nsrts,
+                self.succ_optn_dict,
+                self.fail_optn_dict,
+                return_str=True,
+                initial_ite=(ite == 0),
+                print_cm=True,
+                max_num_options=max_num_options,
+                max_num_groundings=max_num_groundings,
+                max_num_examples=max_num_examples,
+                categories_to_show=categories_to_show,
+                ite=ite,
+            )
+        template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
+
+        # Save the text prompt
+        with open(f"{CFG.log_file}/ite{ite}_stage1.prompt", 'w') as f:
+        # with open(f'./prompts/invent_{self.env_name}_{ite}.prompt', 'w') as f:
+            f.write(template)
+        prompt = template
+
+        return prompt, "\n".join(sorted(state_str_set))
+
+
+    def _create_one_step_program_invention_prompt(
         self,
         env: BaseEnv,
         ite: int,
@@ -1200,18 +1351,19 @@ class VlmInventionApproach(NSRTLearningApproach):
             nsrt_str.append(str(nsrt).replace("NSRT-", "Operator-"))
         template = template.replace("[NSRTS_IN_ENV]", '\n'.join(nsrt_str))
 
-        _, _, _, _, summary_str = utils.count_classification_result_for_ops(
-            self._nsrts,
-            self.succ_optn_dict,
-            self.fail_optn_dict,
-            return_str=True,
-            initial_ite=(ite == 0),
-            print_cm=True,
-            max_num_options=max_num_options,
-            max_num_groundings=max_num_groundings,
-            max_num_examples=max_num_examples,
-            categories_to_show=categories_to_show,
-            ite=ite,
+        _, _, _, _, summary_str, _ =\
+            utils.count_classification_result_for_ops(
+                self._nsrts,
+                self.succ_optn_dict,
+                self.fail_optn_dict,
+                return_str=True,
+                initial_ite=(ite == 0),
+                print_cm=True,
+                max_num_options=max_num_options,
+                max_num_groundings=max_num_groundings,
+                max_num_examples=max_num_examples,
+                categories_to_show=categories_to_show,
+                ite=ite,
             )
         template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
@@ -1221,7 +1373,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             f.write(template)
         prompt = template
 
-        return prompt
+        return prompt, None
 
     def _parse_predicate_predictions(self,
                                      prediction_file: str,
@@ -1335,56 +1487,72 @@ class VlmInventionApproach(NSRTLearningApproach):
             constants_str = textwrap.dedent(constants_str)
         return constants_str
 
-    def _init_predicate_str(self, env: BaseEnv, source_code: str) -> str:
+    def _init_predicate_str(self, env: BaseEnv, source_code: str,
+                            include_definition: bool = True,
+                            show_predicate_assertion: bool = False,
+                            ) -> str:
         """Extract the initial predicates from the environment source code If
         NSP, provide the GT goal NSPs, although they are never used."""
         init_pred_str = []
-        init_pred_str.append(
-            str({p.pretty_str_with_types()
-                #  for p in self._initial_predicates}) + "\n")
-                 for p in self.base_candidates}) + "\n")
+        
+        # Set of predicates
 
-        # Print the variable definitions
-        constants_str = self._constants_str(source_code)
-        if constants_str:
-            init_pred_str.append(
-                "The environment defines the following constants that can be "+\
-                "used in defining predicates:")
-            init_pred_str.append(add_python_quote(constants_str))
+        init_pred_str.append("\n".join(
+                                sorted({p.pretty_str_with_assertion() if 
+                                        show_predicate_assertion else 
+                                        p.pretty_str_with_types() 
+                                            for p in self.base_candidates})
+                              ) + "\n")
 
-        # Get the entire predicate instantiation code block.
-        predicate_pattern = r"(# Predicates.*?)(?=\n\s*\n|$)"
-        predicate_block = re.search(predicate_pattern, source_code, re.DOTALL)
-        if predicate_block is not None:
-            pred_instantiation_str = predicate_block.group()
+        if include_definition:
+            # Print the variable definitions
+            constants_str = self._constants_str(source_code)
+            if constants_str:
+                init_pred_str.append(
+                    "The environment defines the following constants that can be "+\
+                    "used in defining predicates:")
+                init_pred_str.append(add_python_quote(constants_str))
 
-            if CFG.neu_sym_predicate:
-                init_pred = [
-                    p for p in env.ns_predicates
-                    if p in self._initial_predicates
-                ]
-            else:
-                init_pred = self._initial_predicates
+            # Get the entire predicate instantiation code block.
+            predicate_pattern = r"(# Predicates.*?)(?=\n\s*\n|$)"
+            predicate_block = re.search(predicate_pattern, source_code, 
+                                        re.DOTALL)
+            if predicate_block is not None:
+                pred_instantiation_str = predicate_block.group()
 
-            for p in init_pred:
-
-                p_name = p.name
-                # Get the instatiation code for p from the code block
                 if CFG.neu_sym_predicate:
-                    p_instan_pattern = r"(self\._" + re.escape(p_name) +\
-                                    r"_NSP = NSPredicate\(.*?\n.*?\))"
+                    init_pred = [
+                        p for p in env.ns_predicates
+                        if p in self._initial_predicates
+                    ]
                 else:
-                    p_instan_pattern = r"(self\._" + re.escape(p_name) +\
-                                    r" = Predicate\(.*?\n.*?\))"
-                block = re.search(p_instan_pattern, pred_instantiation_str,
-                                  re.DOTALL)
-                if block is not None:
-                    p_instan_str = block.group()
-                    pred_str = "Predicate " + p.pretty_str()[1] +\
-                                " is defined by:\n" +\
-                                add_python_quote(p.classifier_str() +\
-                                p_instan_str)
-                    init_pred_str.append(pred_str.replace("self.", ""))
+                    init_pred = self._initial_predicates
+
+                for p in init_pred:
+
+                    p_name = p.name
+                    # Get the instatiation code for p from the code block
+                    if CFG.neu_sym_predicate:
+                        p_instan_pattern = r"(self\._" + re.escape(p_name) +\
+                                        r"_NSP = NSPredicate\(.*?\n.*?\))"
+                    else:
+                        p_instan_pattern = r"(self\._" + re.escape(p_name) +\
+                                        r" = Predicate\(.*?\n.*?\))"
+                    block = re.search(p_instan_pattern, pred_instantiation_str,
+                                        re.DOTALL)
+                    if block is not None:
+                        p_instan_str = block.group()
+
+                        # remove the parameterized assertion part
+                        # remove_pattern = r",\s*parameterized_assertion=.*?(\))"
+                        # p_instan_str = re.sub(remove_pattern, r"\1", 
+                        #                         p_instan_strs)
+
+                        pred_str = "Predicate " + p.pretty_str()[1] +\
+                                    " is defined by:\n" +\
+                                    add_python_quote(p.classifier_str() +\
+                                    p_instan_str)
+                        init_pred_str.append(pred_str.replace("self.", ""))
 
         return '\n'.join(init_pred_str)
 

@@ -11,3 +11,101 @@ Pay special attention to object features that differ between failed and successf
 - Don't write predicates that quality adjacency such as X is near Y or X is close to Y as its not important.
 
 Please propose as many relevant predicates as you can.
+
+
+Invent predicates that holds in the positive states but not in the negative states. 
+In your response,
+First, propose predicates in the format of:
+# Predicate Proposals
+1. <predicate1_name>(var1, var2, ...): <the assertion that this predicate is making>. 
+2. <predicate2_name>...
+3. ...
+
+The assertion should be very precise and unambiguous, and in terms of the predicate variables var1, ..., if there are any.
+
+Then, for each option, label whether the invented predicates are true for each state, with the format:
+# Predicate Evaluation
+* Option: <option_name_with_parameters>
+    * Positive State (state_x):
+        * <predicate1_name>(obj1, obj2,...): <the assertion this predicate is making>. <truth_value>. 
+        * <predicate2_name>...
+        * ...
+    * Positive State (state_y):
+        * ....
+    * Negative State (state_z):
+        * ...
+    * ...
+* Option: <option_name_with_parameters>
+...
+
+Certainly! Here’s an improved version of your template for inventing task-specific state abstraction predicates for effective and efficient robotic planning:
+
+---
+
+### Task-Specific State Abstraction Predicates Proposal
+
+**Context:** You are an expert AI researcher tasked with inventing task-specific state abstraction predicates to enhance the effectiveness and efficiency of robotic planning.
+
+**Existing Predicates:**
+```
+[PREDICATES_IN_ENV]
+```
+
+**Skill Execution Results:**
+```
+[OPERATOR_PERFORMANCE]
+```
+
+**Objective:** Invent predicates that hold in the positive states but not in the negative states. Specifically, for an option, a subset of the proposed predicates should all hold in the positive states, but not all of them (maybe none) should hold in the negative states.
+
+### Instructions for Response
+
+1. **Predicate Proposals:**
+    - Propose predicates in the following format:
+    ```plaintext
+    # Predicate Proposals
+    - <predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <A clear and precise assertion about the relationship or properties of the variables>.
+    ```
+    - Replace `<predicate_name>`, `<var1>`, `<var2>`, etc., with actual names.
+    - The assertion should be very clear, precise, and unambiguous, and in terms of the predicate variables `?var1`, `?var2`, etc., if applicable.
+
+2. **Predicate Evaluation:**
+    - For each option, label whether the relevant invented predicates are true for each state in the following format:
+    ```plaintext
+    # Predicate Evaluation
+    * Option: <option_name_with_parameters>
+        * positive state (state_<x>):
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * <predicate2_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * ...
+        * positive state (state_<y>):
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * ...
+        * negative state (state_<z>):
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * ...
+        * ...
+    ```
+
+### Example
+
+#### Predicate Proposals
+- On(?x:block, ?y:block): Block ?x is on top of block ?y.
+- Clear(?x:block): Block ?x has no block on top of it.
+
+#### Predicate Evaluation
+* Option: Move(?blockA, ?blockB)
+    * positive state (state_1):
+        * On(?blockA, ?blockB): Block ?blockA is on top of block ?blockB. True.
+        * Clear(?blockB): Block ?blockB has no block on top of it. True.
+    * positive state (state_2):
+        * On(?blockA, ?blockB): Block ?blockA is on top of block ?blockB. True.
+        * Clear(?blockB): Block ?blockB has no block on top of it. True.
+    * negative state (state_3):
+        * On(?blockA, ?blockB): Block ?blockA is on top of block ?blockB. False.
+        * Clear(?blockB): Block ?blockB has no block on top of it. False.
+    * ...
+
+---
+
+This improved template provides a structured and clear method for proposing and evaluating predicates, ensuring that the responses are precise and unambiguous.

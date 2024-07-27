@@ -136,7 +136,7 @@ def count_classification_result_for_ops(
         max_num_examples: int = 2,  # Number of examples per ground option.
         categories_to_show: List[str] = ['tp', 'fp'],
         ite: Optional[int] = 0,
-) -> Tuple[int, int, int, int, str]:
+) -> Tuple[int, int, int, int, str, str]:
 
     np.set_printoptions(precision=1)
     result_str = []
@@ -317,8 +317,9 @@ def count_classification_result_for_ops(
         accuracy_dict[str(optn)][g_optn]['acc'] = (n_tp + n_tn) / n_tot
 
     result_str = ""
+    state_str_set = set()
     if return_str:
-        result_str = summarize_results_in_str(
+        result_str, state_str_set = summarize_results_in_str(
             accuracy_dict,
             tp_state_dict,
             fp_state_dict,
@@ -334,7 +335,7 @@ def count_classification_result_for_ops(
     if print_cm:
         print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
 
-    return sum_tp, sum_tn, sum_fp, sum_fn, result_str
+    return sum_tp, sum_tn, sum_fp, sum_fn, result_str, state_str_set
 
 def remove_duplicates(seq):
     # remove duplicates from a list while preserving order
@@ -353,8 +354,9 @@ def summarize_results_in_str(
     max_num_examples: int,
     categories_to_show: List[str] = ['tp', 'fp'],
     ite: Optional[int] = 0,
-) -> str:
+) -> Tuple[str, Set[str]]:
     result_str = []
+    state_str_set = set()
     # What how to simplify the prompt?
     # 1. The g_opt with the highest non-1 accuracy, based on repeated states
     # 2. ''                                       , based on unique states
@@ -449,9 +451,11 @@ def summarize_results_in_str(
                     # [Simplified] True Positive
                     # result_str.append(f"To list {max_num_examples}:" if
                     #                   uniq_n_tp > max_num_examples)
-                    result_str = append_classification_result_for_ops(
-                        result_str, g_optn, tp_states, max_num_examples, "tp",
-                        state_hash_to_id, ite)
+                    result_str, state_str_set =\
+                        append_classification_result_for_ops(
+                            result_str, state_str_set, g_optn, tp_states, 
+                            max_num_examples, "tp",
+                            state_hash_to_id, ite)
 
                 # Ignored in the simplified prompt
                 # False Negative
@@ -463,9 +467,10 @@ def summarize_results_in_str(
                     "operators' precondition (false negatives)"+
                     (f", to list {max_num_examples}:" if
                         uniq_n_fn > max_num_examples else ":"))
-                    result_str = append_classification_result_for_ops(
-                        result_str, g_optn, fn_states,
-                        max_num_examples, "fn", state_hash_to_id, ite)
+                    result_str, state_str_set =\
+                        append_classification_result_for_ops(
+                            result_str, state_str_set, g_optn, fn_states,
+                            max_num_examples, "fn", state_hash_to_id, ite)
 
             # GT Negative
             # if n_fail_states:
@@ -498,9 +503,10 @@ def summarize_results_in_str(
                     # result_str.append(f"To list {max_num_examples}:" if
                     #                   uniq_n_fp > max_num_examples else
                     #                   "They are:")
-                    result_str = append_classification_result_for_ops(
-                        result_str, g_optn, fp_states, max_num_examples, "fp",
-                        state_hash_to_id, ite)
+                    result_str, state_str_set =\
+                        append_classification_result_for_ops(
+                            result_str, state_str_set, g_optn, fp_states, 
+                            max_num_examples, "fp", state_hash_to_id, ite)
 
                 # Ignored in the simplified prompt
                 # and (n_tn/n_fail_states) < 1:
@@ -513,26 +519,30 @@ def summarize_results_in_str(
                     "operators' precondition (true negatives)"+
                     (f", to list {max_num_examples}:" if
                         uniq_n_tn > max_num_examples else ":"))
-                    result_str = append_classification_result_for_ops(
-                        result_str, g_optn, tn_states,
+                    result_str, state_str_set =\
+                        append_classification_result_for_ops(
+                        result_str, state_str_set, g_optn, tn_states,
                         max_num_examples, "tn", state_hash_to_id, ite)
                 
                 if not (n_fp and "fp" in categories_to_show) and \
                    not (n_tn and "tn" in categories_to_show):
                     result_str.append("")
 
-    return '\n'.join(result_str)
+    return '\n'.join(result_str), state_str_set
 
 
-def append_classification_result_for_ops(result_str: List[str], g_optn: str,
+def append_classification_result_for_ops(result_str: List[str], 
+                                         state_str_set: Set[str],
+                                         g_optn: str,
                                          states: Set[RawState],
                                          max_num_examples: int, category: str,
                                          state_hash_to_id: Dict,
                                          ite: Optional[int] = 0,
-                                         ) -> List[str]:
+                                         ) -> Tuple[List[str], Set[str]]:
     shown_ppp = []
     num_shown = 0
     for _, state in enumerate(states):
+        str_for_this_state = []
         if num_shown == max_num_examples: break
 
         # Show states whose plan prefix are different
@@ -563,20 +573,25 @@ def append_classification_result_for_ops(result_str: List[str], g_optn: str,
             img_copy.save(os.path.join(obs_dir, obs_name + f_suffix))
             logging.debug(f"Saved Image {obs_name}")
             result_str.append("  " + obs_name + " with additional info:")
+            str_for_this_state.append("  " + obs_name + " with additional info:")
             # Should add proprio state
-        result_str.append(
-            state.dict_str(
+        state_dict_str = state.dict_str(
                 indent=2,
                 object_features=not CFG.vlm_predicator_render_option_state,
                 use_object_id=CFG.vlm_predicator_render_option_state,
-                position_proprio_features=True))
+                position_proprio_features=True)
+        result_str.append(state_dict_str)
+        str_for_this_state.append(state_dict_str + "\n")
+
         if CFG.vlm_invent_include_option_history:
-            result_str.append("  Previous option: " + 
-                        (option_history if option_history != "" else "None"))
+            prev_str = "  Previous option: " +\
+                        (option_history if option_history != "" else "None")
+            result_str.append(prev_str)
         result_str.append("")
         num_shown += 1
+        state_str_set.add("\n".join(str_for_this_state))
 
-    return result_str
+    return result_str, state_str_set
 
 
 def count_positives_for_ops(
@@ -1917,7 +1932,8 @@ class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
 
     def __init__(self, name: str, types: Sequence[Type],
-                 _classifier: Callable[[RawState, Sequence[Object]], bool]):
+                _classifier: Callable[[RawState, Sequence[Object]], bool]
+                ) -> None:
         self._original_classifier = _classifier
         super().__init__(name, types, _MemoizedClassifier(_classifier))
 

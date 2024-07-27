@@ -1,5 +1,3 @@
-# An example for predicate Open
-
 class RawState:
     """A class representing the raw visual state of the world.
 

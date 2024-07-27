@@ -57,7 +57,9 @@ class CoverEnv(BaseEnv):
                                 self._IsTarget_holds)
         self._Covers = Predicate("Covers",
                                 [self._block_type, self._target_type],
-                                self._Covers_holds)
+                                self._Covers_holds,
+                                lambda objs:
+                                f"{objs[0]} is covering {objs[1]}.")
         # IsClear(y) is Forall x:box. not Covers(x, y) -- quantify all but one
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)

@@ -239,7 +239,7 @@ class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
                                 option_specs: List[OptionSpec]) -> float:
         del candidate_predicates, low_level_trajs, segmented_trajs
         nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-        tp, tn, fp, fn, _ = utils.count_classification_result_for_ops(
+        tp, tn, fp, fn, _, _ = utils.count_classification_result_for_ops(
             nsrts, self.succ_optn_dict, self.fail_optn_dict)
         accuracy = round(
             (tp + tn) / (tp + tn + fp + fn), 2) if tp + tn + fp + fn > 0 else 0

@@ -294,7 +294,7 @@ class GoogleGeminiVLM(VisionLanguageModel):
         return f"Google-{self._model_name}"
 
     @retry(wait=wait_random_exponential(min=1, max=60),
-           stop=stop_after_attempt(60))
+           stop=stop_after_attempt(600))
     def _sample_completions(
             self,
             prompt: str,

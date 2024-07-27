@@ -321,6 +321,8 @@ class Predicate:
     # treated "specially" by the classifier.
     _classifier: Callable[[State, Sequence[Object]],
                           bool] = field(compare=False)
+    parameterized_assertion: Optional[Callable[[List[str]], str]] = field(
+        default=None)
 
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms."""
@@ -401,6 +403,26 @@ class Predicate:
             for i, t in enumerate(self.types))
         body_str = f"{self.name}({vars_str})"
         return body_str
+    
+    def pretty_str_with_assertion(self) -> str:
+        if hasattr(self._classifier, "pretty_str"):
+            # This is an invented predicate, from the predicate grammar.
+            pretty_str_f = getattr(self._classifier, "pretty_str")
+            return pretty_str_f()
+        # This is a known predicate, not from the predicate grammar.
+        var_names = []
+        vars_str = []
+        for i, t in enumerate(self.types):
+            vars_str.append(
+                f"{CFG.grammar_search_classifier_pretty_str_names[i]}:{t.name}")
+            var_names.append(CFG.grammar_search_classifier_pretty_str_names[i])
+        vars_str = ", ".join(vars_str)
+
+        body_str = f"{self.name}({vars_str})"
+        if hasattr(self, "parameterized_assertion") and\
+            self.parameterized_assertion is not None:
+            body_str += f": {self.parameterized_assertion(var_names)}"
+        return body_str
 
     def pddl_str(self) -> str:
         """Get a string representation suitable for writing out to a PDDL
@@ -458,7 +480,12 @@ class VLMPredicate(Predicate):
     classifier (i.e., one that returns simply raises some kind of error instead
     of actually outputting a value of any kind).
     """
-    get_vlm_query_str: Callable[[Sequence[Object]], str]
+    def __init__(self, name: str, types: Sequence[Type],
+                _classifier: Callable[[RawState, Sequence[Object]], bool],
+                get_vlm_query_str: Callable[[Sequence[Object]], str]) -> None:
+        self.get_vlm_query_str = get_vlm_query_str
+        super().__init__(name, types, _classifier)
+
 
 
 @dataclass(frozen=True, repr=False, eq=False)

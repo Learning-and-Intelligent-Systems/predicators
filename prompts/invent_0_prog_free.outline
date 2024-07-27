@@ -1,0 +1,38 @@
+Context: You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
+
+The existing predicates are:
+[PREDICATES_IN_ENV]
+
+The robot tried to execute its skills and got the following results:
+[OPERATOR_PERFORMACE]
+
+Objective: Invent predicates that holds in the positive states but not in the negative states. 
+Specifically, for an option, a subset of the proposed predicates should all hold in the positive states, but not all of them (maybe none) should hold in the negative states.
+
+Instructions for Response:
+1. **Predicate Proposals:**
+    - Propose predicates in the following format:
+    ```plaintext
+    # Predicate Proposals
+    - <predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <A clear and precise assertion about the relationship or properties of the variables>.
+    ```
+    - Replace `<predicate_name>`, `<var1>`, `<var2>`, etc., with actual names.
+    - The assertion should be very clear, precise, and unambiguous, and in terms of the predicate variables `?var1`, `?var2`, etc., if applicable.
+
+2. **Predicate Evaluation:**
+    - For each option, label whether the relevant invented predicates are true for each state in the following format:
+    ```plaintext
+    # Predicate Evaluation
+    * Option: <option_name_with_parameters>
+        * positive state (state_<x>):
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * <predicate2_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * ...
+        * positive state (state_<y>):
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * ...
+        * negative state (state_<z>):
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value>.
+            * ...
+        * ...
+    ```

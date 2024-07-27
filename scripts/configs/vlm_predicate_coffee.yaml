@@ -1,0 +1,95 @@
+# Use VLM to propose predicates.
+---
+APPROACHES:
+  learn_all:
+    NAME: "vlm_online_invention"
+    FLAGS: []
+ENVS:
+  env:
+    # NAME: "burger"
+    # NAME: "pybullet_cover_typed_options"
+    # NAME: "pybullet_blocks"
+    NAME: "pybullet_coffee"
+ARGS: 
+  # []
+  - "debug"
+  # - "load_approach"
+  # - "use_gui"
+  # - "make_failure_videos"
+FLAGS:
+  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_cover"
+  # pretrained_model_prompt_cache_dir: "pretrained_model_cache_blocks"
+  pretrained_model_prompt_cache_dir: "pretrained_model_cache_coffee"
+  # num_train_tasks: 40 # pybullet_blocks 
+  num_train_tasks: 5 #0 # pybullet_coffee, cover
+  num_test_tasks: 20
+  option_learner: no_learning # include all options by flagging no learning
+  sampler_learner: oracle
+  strips_learner: "cluster_intersect_and_search"
+  CIS_use_other_pnads_neg_data: True
+  # predicate_search_strips_learner: "cluster_intersect_and_search"
+  excluded_predicates: "all"
+  min_perc_data_for_nsrt: 0 # works for coffee, cover; 
+  # min_perc_data_for_nsrt: 3 # works for blocks
+  timeout: 300 #300
+  log_file: "logs_nsp/"
+  vlm_invent_try_to_use_gt_predicates: False
+
+  # Env settings
+  rgb_observation: False
+  render_init_state: True # True for NSP
+  pybullet_control_mode: "reset" # need for blocks and coffee
+  sesame_check_expected_atoms: False
+  coffee_twist_sampler: False
+  coffee_num_cups_train: '[1]'
+  coffee_no_rotated_jug: False
+  coffee_rotated_jug_ratio: 0.5
+  # coffee_rotated_jug_ratio: 1
+  coffee_combined_move_and_twist_policy: True
+  coffee_mac_requires_jug_to_turn_on: True
+  coffee_move_back_after_place_and_push: False
+  # coffee_include_front_view: True
+  cover_typed_options_no_sampler: True
+  cover_initial_holding_prob: 0.0
+
+  # Predicate refinement parameters
+  grammar_search_score_function: "expected_nodes_created"
+  # strips_learner: "cluster_intersect_and_search"
+  grammar_search_search_algorithm: "gbfs" #"hill_climbing"
+  grammar_search_predicate_cost_upper_bound: 10
+  grammar_search_grammar_use_single_feature: False
+  grammar_search_grammar_use_skip_grammar: False
+  grammar_search_grammar_includes_negation: True # relaxation 2
+  grammar_search_grammar_includes_foralls: False  # relaxation 2
+  grammar_search_prune_redundant_preds: False
+  load_llm_pred_invent_dataset: False
+  save_llm_pred_invent_dataset: False # can't pickle rendered states
+  # grammar_search_score_function: "operator_classification_error"
+
+  # NSP (using VLMs) setting
+  reset_optn_state_dict_at_every_ite: False
+  neu_sym_predicate: True # Needed for NSP
+  vlm_predicator_render_option_state: True # Needed for NSP
+  llm_predicator_use_grammar: False # always true?
+  vlm_predicator_oracle_base_grammar: False
+  llm_predicator_oracle_learned: False            # relaxation 1
+  nsp_pred_include_prev_state_in_prompt: True
+  nsp_pred_include_prev_image_in_prompt: True
+  nsp_pred_include_state_str_in_prompt: False
+  vlm_invent_predicates_in_stages: True
+  # More Predicate invent params (Same for all configurations)
+  save_nsp_image_patch_before_query: False
+  vlm_model_name: "gemini-1.5-pro"
+  # vlm_model_name: "gpt-4o"
+  vlm_temperature: 0
+  vlm_use_chat_mode: True
+  query_vlm_for_each_assertion: False
+  query_vlm_for_each_predicate: False
+  llm_openai_max_response_tokens: 4096
+  # pybullet_camera_width: 1200 # 1200 for coffee
+  pybullet_camera_width: 900 # 900 for cover and blocks
+  pybullet_camera_height: 900
+  vlm_invent_include_option_history: True
+START_SEED: 1
+NUM_SEEDS: 5
+...

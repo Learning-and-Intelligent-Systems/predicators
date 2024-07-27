@@ -68,9 +68,13 @@ class BlocksEnv(BaseEnv):
 
         # Predicates
         self._On = Predicate("On", [self._block_type, self._block_type],
-                             self._On_holds)
+                             self._On_holds,
+                            lambda objs:
+                f"{objs[0]} is directly on top of {objs[1]} with no blocks in between.")
         self._OnTable = Predicate("OnTable", [self._block_type],
-                                  self._OnTable_holds)
+                                  self._OnTable_holds,
+                            lambda objs: 
+                f"{objs[0]} is directly resting on the table's surface.")
         self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
                                       self._GripperOpen_holds)
         self._Holding = Predicate("Holding", [self._block_type],

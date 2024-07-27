@@ -1,0 +1,17 @@
+You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
+
+The existing set of predicates are:
+[PREDICATES_IN_ENV]
+
+The robot tried to execute its skills and got the following results:
+[OPERATOR_PERFORMACE]
+
+Invent predicates that holds in the positive states but not all of them (maybe none) hold in the negative states. 
+In your response,
+First, write predicates in the format of:
+<predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <the assertion that this predicate is making about the relationship or properties of the variables>. 
+Your should replace <predicate_name>, <var1> with the actual names. 
+The assertion should be very clear, precise and unambiguous, and in terms of the predicate vairables ?var1, ?var2, ..., if there is any.
+
+Then, for each skill, label weather the invented predicates is true for each state, with the format:
+<predicate_name>(<obj1>, <obj2>,...): <the assertion this predicate is making>. <truth_value>. 

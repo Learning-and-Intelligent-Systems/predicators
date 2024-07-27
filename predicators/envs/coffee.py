@@ -107,7 +107,9 @@ class CoffeeEnv(BaseEnv):
 
         # Predicates
         self._CupFilled = Predicate("CupFilled", [self._cup_type],
-                                    self._CupFilled_holds)
+                                    self._CupFilled_holds,
+                                    lambda objs:
+                                    f"{objs[0]} has coffee in it")
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._jug_type],
                                   self._Holding_holds)
