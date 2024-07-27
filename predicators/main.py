@@ -380,8 +380,8 @@ def _generate_interaction_results(
             monitor = utils.VideoMonitor(env.render)
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
-        if CFG.env == "grid_row_door":
-            env._reset_cells()
+        # if CFG.env == "grid_row_door":
+        #     env._reset_cells()
         try:
             env_task = env.get_train_tasks()[request.train_task_idx]
         except:
@@ -548,8 +548,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = [
         task.replace_goal_with_alt_goal() for task in env.get_test_tasks()
     ]
-    if CFG.env == "grid_row_door":
-        env._reset_test_cells()
+    # if CFG.env == "grid_row_door":
+    #     env._reset_test_cells()
     num_found_policy = 0
     num_solved = 0
     cogman.reset_metrics()
