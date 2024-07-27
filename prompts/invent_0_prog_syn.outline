@@ -37,6 +37,7 @@ param_types: Sequence[Type] = ...
 - When writing the proposals, strictly adhere to the following guidlines:
     - Use only object-type variables defined in the environment when defining  `param_types`.
     - Don't use any undefined constants;
+    - Don't use object features that are not present in the definition of that object type.
     - Adhere to the type hints in the predicate definition template.
     - Make use of helper functions such as the classifier function in the existing predicates, if they're helpful.
     - Your don't need to import anything.

@@ -86,8 +86,8 @@ FLAGS:
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
   llm_openai_max_response_tokens: 4096
-  # pybullet_camera_width: 1200 # 1200 for coffee
-  pybullet_camera_width: 900 # 900 for cover and blocks
+  pybullet_camera_width: 1200 # 1200 for coffee
+  # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   vlm_invent_include_option_history: True
 START_SEED: 1

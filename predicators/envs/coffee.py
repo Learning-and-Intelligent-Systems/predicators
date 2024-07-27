@@ -148,7 +148,7 @@ class CoffeeEnv(BaseEnv):
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
-        self._jug = Object("glass_jug", self._jug_type)
+        self._jug = Object("jug", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
         self._table = Object("table", self._table_type)
 
