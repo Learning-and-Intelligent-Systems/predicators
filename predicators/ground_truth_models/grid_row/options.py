@@ -97,7 +97,6 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
         robot_type = types["robot"]
         light_type = types["light"]
         cell_type = types["cell"]
-        door_type = types["door"]
 
         # MoveTo
         def _MoveTo_policy(state: State, memory: Dict,
