@@ -236,7 +236,7 @@ def test_doors():
 def test_doorknobs():
     """Tests for DoorKnobsEnv()."""
     utils.reset_config({
-        "env": "doors",
+        "env": "doorknobs",
         "doors_room_map_size": 2,
         "test_doors_room_map_size": 2,
         "doors_min_obstacles_per_room": 1,
@@ -325,6 +325,7 @@ def test_doorknobs():
     types = {t.name: t for t in env.types}
     predicates = {p.name: p for p in env.predicates}
     options = {o.name: o for o in options}
+    assert DoorknobsGroundTruthNSRTFactory.get_env_names() == {"doorknobs"}
     nsrts = DoorknobsGroundTruthNSRTFactory.get_nsrts\
         ("doorknobs", types,predicates, options)
     assert len(nsrts) == 4
