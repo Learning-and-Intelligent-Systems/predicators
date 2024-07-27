@@ -586,9 +586,10 @@ class GlobalSettings:
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
 
-    # maple q function parameters
+    # mpdqn function parameters
     use_epsilon_annealing = True
     min_epsilon = 0.05
+    polyak_tau = 0.0025
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
