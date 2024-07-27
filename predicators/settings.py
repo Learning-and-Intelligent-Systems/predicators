@@ -280,7 +280,7 @@ class GlobalSettings:
 
     # doors env parameters
     doors_room_map_size = 2
-    test_doors_room_map_size = 10
+    test_doors_room_map_size = 5
     doors_min_obstacles_per_room = 0
     doors_max_obstacles_per_room = 3
     doors_min_room_exists_frac = 0.25
@@ -589,7 +589,7 @@ class GlobalSettings:
     # mpdqn function parameters
     use_epsilon_annealing = True
     min_epsilon = 0.05
-    polyak_tau = 0.006
+    polyak_tau = 0.004
     polyak_true = True
 
     # skill competence model parameters
@@ -719,7 +719,8 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
-                    "grid_row_door": 30
+                    "grid_row_door": 30,
+                    "doorknobs": 200
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
