@@ -2196,17 +2196,19 @@ class MPDQNFunction(MapleQFunction):
     
     def update_target_network(self):
         # Soft polyak averaging:
-        for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
-            target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
-        # if CFG.env == "doorknobs":
-        #     update_freq = 1500
-        # elif CFG.env == "grid_row_door":
-        #     update_freq = 600
-        # else:
-        #     update_freq = 1000
-        # if self._counter % update_freq == 0:
-        #     self.target_qnet.load_state_dict(self.qnet.state_dict())
-        # self._counter+=1
+        if CFG.polyak_true:
+            for target_param, source_param in zip(self.target_qnet.parameters(), self.qnet.parameters()):
+                target_param.data.copy_((1-MPDQNFunction.tau) * target_param.data + (MPDQNFunction.tau) * source_param.data)
+        else:
+            if CFG.env == "doorknobs":
+                update_freq = 1500
+            elif CFG.env == "grid_row_door":
+                update_freq = 600
+            else:
+                update_freq = 1000
+            if self._counter % update_freq == 0:
+                self.target_qnet.load_state_dict(self.qnet.state_dict())
+            self._counter+=1
 
     def predict_q_value(self, state: State, goal: Set[GroundAtom],
                         option: _Option) -> float:

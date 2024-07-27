@@ -590,6 +590,7 @@ class GlobalSettings:
     use_epsilon_annealing = True
     min_epsilon = 0.05
     polyak_tau = 0.0025
+    polyak_true = True
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
