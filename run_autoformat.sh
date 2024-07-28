@@ -5,3 +5,4 @@ yapf -i -r --style .style.yapf tests
 yapf -i -r --style .style.yapf setup.py
 docformatter -i -r . --exclude venv predicators/third_party
 isort .
+# python3 predicators/main.py --env satellites-markov --approach gnn_option_policy 
