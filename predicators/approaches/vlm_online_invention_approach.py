@@ -32,6 +32,7 @@ from gym.spaces import Box
 from tabulate import tabulate
 from tqdm import tqdm
 from PIL import Image
+from PIL import ImageDraw, ImageFont
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
@@ -320,6 +321,19 @@ class VlmInventionApproach(NSRTLearningApproach):
             self._prev_learned_predicates: Set[Predicate] =\
                 self._learned_predicates
 
+            all_trajs = []            
+            # needs to be improved
+            if CFG.use_partial_plans_prefix_as_demo and num_solved == 0:
+                logging.info(f"Learning from only failed plans")
+                iterator = self.task_to_partial_trajs.items()
+            else:
+                logging.info(f"Learning from only full solution trajectories.")
+                iterator = self.task_to_trajs.items()
+            for _, trajs in iterator:
+                for traj in trajs:
+                    all_trajs.append(traj)
+            logging.info(f"Learning from {len(all_trajs)} trajectories.")
+
             if ite == 1 or no_improvement:  #or add_new_proposal_at_every_ite:
                 logging.info("Accquiring new predicates...")
                 # Invent only when there is no improvement in solve rate
@@ -343,45 +357,54 @@ class VlmInventionApproach(NSRTLearningApproach):
                     max_attempts = 5
                     max_num_groundings, max_num_examples = 1, 2
                     min_imgs, max_imgs = 6, 10
+                    obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
+                    shutil.rmtree(obs_dir,  onerror=handle_remove_readonly)
 
                     if CFG.vlm_invent_predicates_in_stages:
-                        create_prompt_func =\
-                            self._create_invention_stage_one_prompt
+                        if CFG.vlm_invent_from_trajs:
+                            create_prompt_func =\
+                                self._create_invention_from_traj_prompt
+                        else:
+                            create_prompt_func =\
+                                self._create_invention_from_pn_states_prompt
                     else:
                         create_prompt_func =\
                             self._create_one_step_program_invention_prompt
 
                     for attempt in range(max_attempts):
                         # Use the results to prompt the llm
-                        prompt, state_str = create_prompt_func(env, ite, 
+                        if CFG.vlm_invent_from_trajs:
+                            prompt, state_str = create_prompt_func(env, ite,
+                                                                   all_trajs)
+                            breakpoint()
+                            break
+                        else:
+                            prompt, state_str = create_prompt_func(env, ite, 
                                         max_num_options=10, 
                                         max_num_groundings=max_num_groundings, 
                                         max_num_examples=max_num_examples, 
                                         categories_to_show=['tp', 'fp'])
 
-                        # Load the images accompanying the prompt
-                        obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
-                        images = self._load_images_from_directory(obs_dir)
+                            # Load the images accompanying the prompt
+                            images = self._load_images_from_directory(obs_dir)
 
-                        logging.debug(f"Created {len(images)} images")
-                        if min_imgs <= len(images) <= max_imgs: break
+                            logging.debug(f"Created {len(images)} images")
+                            if min_imgs <= len(images) <= max_imgs: break
 
-                        if len(images) > max_imgs:
-                            try:
+                            if len(images) > max_imgs:
                                 shutil.rmtree(obs_dir, 
-                                            onerror=handle_remove_readonly)
-                            except OSError as e:
-                                print(f"Error: {e.strerror} - {e.filename}")
-                            if attempt % 2 == 0:
-                                max_num_examples = max(1,max_num_examples-1)
+                                                onerror=handle_remove_readonly)
+                                if attempt % 2 == 0:
+                                    max_num_examples = max(1,max_num_examples-1)
+                                else:
+                                    max_num_groundings = max(1,
+                                                        max_num_groundings-1)
                             else:
-                                max_num_groundings = max(1,max_num_groundings-1)
-                        else:
-                            # Adjust parameters for the next attempt
-                            if attempt % 2 == 0:
-                                max_num_groundings += 1
-                            else:
-                                max_num_examples += 1
+                                # Adjust parameters for the next attempt
+                                if attempt % 2 == 0:
+                                    max_num_groundings += 1
+                                else:
+                                    max_num_examples += 1
                     # if ite == 4:
                     #     breakpoint()
                     # breakpoint()
@@ -395,18 +418,6 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # [Start moving out]
             # Apply the candidate predicates to the data.
-            all_trajs = []            
-            # needs to be improved
-            if CFG.use_partial_plans_prefix_as_demo and num_solved == 0:
-                logging.info(f"Learning from only failed plans")
-                iterator = self.task_to_partial_trajs.items()
-            else:
-                logging.info(f"Learning from only full solution trajectories.")
-                iterator = self.task_to_trajs.items()
-            for _, trajs in iterator:
-                for traj in trajs:
-                    all_trajs.append(traj)
-            logging.info(f"Learning from {len(all_trajs)} trajectories.")
 
             if CFG.llm_predicator_oracle_learned:
                 self._learned_predicates = new_proposals
@@ -608,6 +619,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._learned_predicates = best_preds
         return
 
+    
     def _load_images_from_directory(self, directory: str):
         images = []
         for filename in os.listdir(directory):
@@ -1170,6 +1182,103 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         return set(kept_predicates)
 
+    def _create_invention_from_traj_prompt(self,
+                                        env: BaseEnv,
+                                        ite: int,
+                                        trajs: List[LowLevelTrajectory],
+                                        ) -> str:
+        obs_dir = CFG.log_file + f"ite{ite}_obs/"
+        os.makedirs(obs_dir, exist_ok=True)
+        with open(f"prompts/invent_0_prog_free_from_traj.outline", 'r') as file:
+            template = file.read()
+
+        # Predicates
+        # If NSP, provide the GT goal NSPs, although they are never used.
+        self.env_source_code = getsource(env.__class__)
+        pred_str_lst = []
+        pred_str_lst.append(self._init_predicate_str(
+                                                env,
+                                                self.env_source_code,
+                                                include_definition=False,
+                                                show_predicate_assertion=True,
+                                                ))
+        # if ite > 1:
+        #     pred_str_lst.append("The previously invented predicates are:")
+        #     pred_str_lst.append(self._invented_predicate_str(ite))
+        pred_str = '\n'.join(pred_str_lst)
+        template = template.replace("[PREDICATES_IN_ENV]", pred_str)
+        
+        # Pick the longest trajectory
+        # Filter trajectories where no consecutive actions are the same
+        # def has_consecutive_equal_actions(traj):
+        #     for i in range(len(traj.actions) - 1):
+        #         if traj.actions[i]._option.eq_by_obj(traj.actions[i + 1]._option):
+        #             return True
+        #     return False
+        # filtered_trajs = [traj for traj in trajs if 
+        #                     not has_consecutive_equal_actions(traj)]
+
+        # Filter trajectories where the first two actions are not the same
+        filtered_trajs = [traj for traj in trajs if len(traj.actions) > 1 
+                          and not traj.actions[0]._option.eq_by_obj(
+                              traj.actions[1]._option)]
+
+        # Pick the longest trajectory from the filtered list
+        if filtered_trajs:
+            traj = max(filtered_trajs, key=lambda traj: len(traj.states))
+        else:
+            traj = max(trajs, key=lambda traj: len(traj.states))
+        logging.debug("Selected action traj: "
+                      f"{[a._option.name for a in traj.actions]}")
+        
+        # Prepare the traj_str for the prompt
+        traj_str = []
+        state_str_lst = []
+        for i, a in enumerate(traj.actions):
+            # Append the state string 
+            s_name = "state_" + str(i)
+            s = traj.states[i]
+            traj_str.append(s_name + " with additional info:")
+            state_str_lst.append(s_name + " with additional info:")
+            state_dict_str = s.dict_str(
+                indent=2,
+                object_features=not CFG.vlm_predicator_render_option_state,
+                use_object_id=CFG.vlm_predicator_render_option_state,
+                position_proprio_features=True)
+            traj_str.append(state_dict_str + "\n")
+            state_str_lst.append(state_dict_str)
+            traj_str.append(f"action_{i}: " + a._option.simple_str(
+                            use_object_id=True) + "\n")
+
+            # Write state name to the image for easy identification and save
+            utils.save_image_with_label(s.labeled_image.copy(), s_name, obs_dir)
+            
+        # The final state
+        s_name = "state_" + str(i+1)
+        s = traj.states[i+1]
+        traj_str.append(s_name + " with additional info:")
+        state_str_lst.append(s_name + " with additional info:")
+        state_dict_str = s.dict_str(
+            indent=2,
+            object_features=not CFG.vlm_predicator_render_option_state,
+            use_object_id=CFG.vlm_predicator_render_option_state,
+            position_proprio_features=True)
+        traj_str.append(state_dict_str)
+        state_str_lst.append(state_dict_str)
+        utils.save_image_with_label(s.labeled_image.copy(), s_name, obs_dir)
+
+        traj_str = "\n".join(traj_str)
+        template = template.replace("[TRAJECTORY_STR]", traj_str)
+
+        # Save the text prompt
+        with open(f"{CFG.log_file}/ite{ite}_stage1_traj.prompt", 'w') as f:
+            f.write(template)
+        prompt = template
+        return prompt, "\n".join(state_str_lst)
+
+
+
+        
     def _create_invention_stage_two_prompt(
         self,
         env: BaseEnv,
@@ -1214,7 +1323,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         return prompt
 
-    def _create_invention_stage_one_prompt(
+    def _create_invention_from_pn_states_prompt(
         self,
         env: BaseEnv,
         ite: int,
@@ -1502,10 +1611,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                                         show_predicate_assertion else 
                                         p.pretty_str_with_types() 
                                             for p in self.base_candidates})
-                              ) + "\n")
+                              ) )
 
         if include_definition:
             # Print the variable definitions
+            init_pred_str.append("\n")
             constants_str = self._constants_str(source_code)
             if constants_str:
                 init_pred_str.append(

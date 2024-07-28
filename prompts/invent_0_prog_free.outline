@@ -11,16 +11,16 @@ Specifically, for an option, a subset of the proposed predicates should all hold
 
 Instructions for Response:
 1. **Predicate Proposals:**
-    - Propose predicates in the following format:
+    * Propose predicates in the following format:
     ```plaintext
     # Predicate Proposals
-    - <predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <A clear and precise assertion about the relationship or properties of the variables>.
+    * <predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <A clear and precise assertion about the relationship or properties of the variables>.
     ```
-    - Replace `<predicate_name>`, `<var1>`, `<var2>`, etc., with actual names.
-    - The assertion should be very clear, precise, and unambiguous, and in terms of the predicate variables `?var1`, `?var2`, etc., if applicable.
+    * Replace `<predicate_name>`, `<var1>`, `<var2>`, etc., with actual names.
+    * The assertion should be very clear, precise, and unambiguous, and in terms of the predicate variables `?var1`, `?var2`, etc., if applicable.
 
 2. **Predicate Evaluation:**
-    - For each option, label whether the relevant invented predicates are true for each state in the following format:
+    * For each option, label whether the relevant invented predicates are true for each state in the following format:
     ```plaintext
     # Predicate Evaluation
     * Option: <option_name_with_parameters>

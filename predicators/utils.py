@@ -84,6 +84,14 @@ if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
 
 
+def save_image_with_label(img_copy, s_name, obs_dir, f_suffix:str=".png"):
+    draw = ImageDraw.Draw(img_copy)
+    font = ImageFont.load_default().font_variant(size=50)
+    text_color = (0, 0, 0)  # white
+    draw.text((0, 0), s_name, fill=text_color, font=font)
+    img_copy.save(os.path.join(obs_dir, s_name + f_suffix))
+    logging.debug(f"Saved Image {s_name}")
+
 def print_confusion_matrix(tp: int, tn: int, fp: int, fn: int) -> None:
     precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
     recall = round(tp / (tp + fn), 2) if tp + fn > 0 else 0
@@ -569,7 +577,6 @@ def append_classification_result_for_ops(result_str: List[str],
             font = ImageFont.load_default().font_variant(size=50)
             text_color = (0, 0, 0)  # white
             draw.text((0, 0), obs_name, fill=text_color, font=font)
-
             img_copy.save(os.path.join(obs_dir, obs_name + f_suffix))
             logging.debug(f"Saved Image {obs_name}")
             result_str.append("  " + obs_name + " with additional info:")
@@ -1678,6 +1685,7 @@ class RawState(PyBulletState):
     bbox_features: Dict[Object, np.ndarray] = field(default_factory=lambda: 
                                             defaultdict(lambda: np.zeros(4)))
     prev_state: Optional[RawState] = None
+    next_state: Optional[RawState] = None
 
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it

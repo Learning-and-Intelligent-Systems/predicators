@@ -1,0 +1,35 @@
+Context: You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
+
+The existing predicates are:
+[PREDICATES_IN_ENV]
+
+A state (with image observations), action trajectory:
+[TRAJECTORY_STR]
+
+Objective: Propose new predicates that are important in describing the preconditions and effects of each of the actions in the trajectory. Propose at least one per action.
+
+Instructions for Response:
+1. Propose predicates in the following format:
+  ```plaintext
+  # Predicate Proposals
+  * <predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <A clear and precise assertion about the relationship or properties of the variables>.
+  * ...
+  ```
+  * Replace `<predicate_name>`, `<var1>`, `<var2>`, etc., with actual names.
+  * The assertion should be very clear, precise, and unambiguous, and in terms of the predicate variables `?<var1>`, `?<var2>`, etc., if applicable.
+
+2. Describe the predicates that each action in the trajectory changes, in the following format:
+  ```plaintext
+  # Predicate Values for Before and After Each Action
+  * action_<x>: <action_name_with_parameters>
+      * before (state_<x>):
+          * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value_before>.
+          * <predicate2_name>(<obj3>, <obj4>, ...): <The assertion this predicate is making>. <truth_value_before>.
+          * ...
+      * after (state_<y>):
+          * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. <truth_value_after>.
+          * <predicate2_name>(<obj3>, <obj4>, ...): <The assertion this predicate is making>. <truth_value_after>.
+          * ...
+  * action_<y>: ...
+  ```
+  * Replace `<obj1>`, `<obj2>`, etc., with actual object names in the state.

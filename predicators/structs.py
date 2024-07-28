@@ -817,8 +817,12 @@ class _Option:
         params = ", ".join(str(round(p, 2)) for p in self.params)
         return f"{self.name}({objects}, {params})"
     
-    def simple_str(self) -> str:
-        objects = ", ".join(o.name for o in self.objects)
+    def simple_str(self, use_object_id: bool = False) -> str:
+        if use_object_id:
+            objects = ", ".join(
+                [o.id_name + ":" + o.type.name for o in self.objects])
+        else:
+            objects = ", ".join(o.name for o in self.objects)
         return f"{self.name}({objects})"
 
     def eq_by_obj(self, other: _Option) -> bool:

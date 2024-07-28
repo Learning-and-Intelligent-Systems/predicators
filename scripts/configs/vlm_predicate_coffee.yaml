@@ -77,6 +77,7 @@ FLAGS:
   nsp_pred_include_prev_image_in_prompt: True
   nsp_pred_include_state_str_in_prompt: False
   vlm_invent_predicates_in_stages: True
+  vlm_invent_from_trajs: True
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"
