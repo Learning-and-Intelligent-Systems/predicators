@@ -651,35 +651,111 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Add a button. Could do this as a link on the machine, but since
         # both never move, it doesn't matter.
+        # button_height = cls.button_radius / 2
+        # collision_id = p.createCollisionShape(
+        #     p.GEOM_CYLINDER,
+        #     radius=cls.button_radius,
+        #     height=button_height,
+        #     physicsClientId=physics_client_id)
+
+        # # Create the visual_shape.
+        # visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+        #                                 radius=cls.button_radius,
+        #                                 length=button_height,
+        #                                 rgbaColor=(0.5, 0.2, 0.2, 1.0),
+        #                                 physicsClientId=physics_client_id)
+
+        # # Create the body.
+        # pose = (
+        #     cls.button_x,
+        #     cls.button_y,
+        #     cls.button_z,
+        # )
+
+        # # Facing outward.
+        # orientation = p.getQuaternionFromEuler([0.0, np.pi / 2, np.pi / 2])
+        # button_id = p.createMultiBody(baseMass=0,
+        #                               baseCollisionShapeIndex=collision_id,
+        #                               baseVisualShapeIndex=visual_id,
+        #                               basePosition=pose,
+        #                               baseOrientation=orientation,
+        #                               physicsClientId=physics_client_id)
+        # Add a button. Could do this as a link on the machine, but since
+        # both never move, it doesn't matter.
         button_height = cls.button_radius / 2
-        collision_id = p.createCollisionShape(
+        collision_id_button = p.createCollisionShape(
             p.GEOM_CYLINDER,
             radius=cls.button_radius,
             height=button_height,
             physicsClientId=physics_client_id)
 
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                        radius=cls.button_radius,
-                                        length=button_height,
-                                        rgbaColor=(0.5, 0.2, 0.2, 1.0),
-                                        physicsClientId=physics_client_id)
+        # Create the visual_shape for the button.
+        visual_id_button = p.createVisualShape(p.GEOM_CYLINDER,
+                                               radius=cls.button_radius,
+                                               length=button_height,
+                                               rgbaColor=cls.button_color_off,
+                                               physicsClientId=physics_client_id)
 
         # Create the body.
-        pose = (
+        pose_button = (
             cls.button_x,
             cls.button_y,
             cls.button_z,
         )
 
         # Facing outward.
-        orientation = p.getQuaternionFromEuler([0.0, np.pi / 2, np.pi / 2])
-        button_id = p.createMultiBody(baseMass=0,
-                                      baseCollisionShapeIndex=collision_id,
-                                      baseVisualShapeIndex=visual_id,
-                                      basePosition=pose,
-                                      baseOrientation=orientation,
-                                      physicsClientId=physics_client_id)
+        orientation_button = p.getQuaternionFromEuler([0.0, np.pi / 2, np.pi / 2])
+        # orientation_button = [0, 0, 0, 1]
+
+        # Add a light bar at the same position as the button.
+        half_extents_bar = (
+            cls.machine_z_len / 6 - 0.01, # z
+            cls.machine_x_len * 5 / 6, # x
+            cls.machine_top_y_len / 2 # y
+        )
+        collision_id_light_bar = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_bar,
+            physicsClientId=physics_client_id
+        )
+        visual_id_light_bar = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_bar,
+            # rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            rgbaColor=cls.button_color_off,
+            physicsClientId=physics_client_id
+        )
+
+        # The light bar will have the same pose and orientation as the button.
+        link_mass = 0
+        link_collision_ids = [collision_id_light_bar]
+        link_visual_ids = [visual_id_light_bar]
+        # relative position to the button
+        link_positions = [[cls.machine_z_len / 6 - 0.017, # larger is down
+                           cls.machine_x_len / 6 - 0.001, 
+                           cls.machine_top_y_len / 2 - 0.001]]  
+        link_orientations = [[0, 0, 0, 1]]  # same orientation as the button
+
+        button_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id_button,
+            baseVisualShapeIndex=visual_id_button,
+            basePosition=pose_button,
+            baseOrientation=orientation_button,
+            linkMasses=[link_mass],
+            linkCollisionShapeIndices=link_collision_ids,
+            linkVisualShapeIndices=link_visual_ids,
+            linkPositions=link_positions,
+            linkOrientations=link_orientations,
+            linkInertialFramePositions=[[0, 0, 0]],
+            linkInertialFrameOrientations=[[0, 0, 0, 1]],
+            linkParentIndices=[0],
+            linkJointTypes=[p.JOINT_FIXED],
+            linkJointAxis=[[0, 0, 0]],
+            physicsClientId=physics_client_id
+        )
+
+        # bodies["combined_button_light_bar_id"] = combined_button_light_bar_id
 
         bodies["button_id"] = button_id
 
@@ -696,12 +772,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
         # jug_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
+        #                     useFixedBase=True,
+        #                     globalScaling=0.45,
+        #                     physicsClientId=physics_client_id)
         jug_id = p.loadURDF(utils.get_env_asset_path("urdf/kettle.urdf"),
                             useFixedBase=True,
                             # globalScaling=0.075, # original jug
-                            # globalScaling=0.1, # enlarged jug
                             globalScaling=0.09, # enlarged jug
-                            # globalScaling=0.5,
                             physicsClientId=physics_client_id)
 
         # Assuming jug_id and physics_client_id are already defined
@@ -872,6 +949,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             -1,
                             rgbaColor=button_color,
                             physicsClientId=self._physics_client_id)
+        p.changeVisualShape(self._button_id,
+                            0,
+                            rgbaColor=button_color,
+                            physicsClientId=self._physics_client_id)
         p.changeVisualShape(self._dispense_area_id,
                             -1,
                             rgbaColor=plate_color,
@@ -994,6 +1075,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     -1,
                                     rgbaColor=self.button_color_on,
                                     physicsClientId=self._physics_client_id)
+                    p.changeVisualShape(self._button_id,
+                                    0,
+                                    rgbaColor=self.button_color_on,
+                                    physicsClientId=self._physics_client_id)
                     # p.changeVisualShape(self._dispense_area_id,
                     #                 -1,
                     #                 rgbaColor=self.plate_color_on,
@@ -1001,6 +1086,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             else:
                 p.changeVisualShape(self._button_id,
                                     -1,
+                                    rgbaColor=self.button_color_on,
+                                    physicsClientId=self._physics_client_id)
+                p.changeVisualShape(self._button_id,
+                                    0,
                                     rgbaColor=self.button_color_on,
                                     physicsClientId=self._physics_client_id)
                 # p.changeVisualShape(self._dispense_area_id,
