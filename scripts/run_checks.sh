@@ -27,7 +27,7 @@ else
 fi
 
 echo "Running unit tests."
-pytest -s tests/ --cov-config=.coveragerc --cov=predicators/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=10
+pytest -s tests/ --cov-config=.coveragerc --cov=predicators/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=0
 if [ $? -eq 0 ]; then
     echo "Unit tests passed."
 else
