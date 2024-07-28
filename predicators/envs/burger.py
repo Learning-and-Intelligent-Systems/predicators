@@ -54,7 +54,7 @@ class BurgerEnv(BaseEnv):
     Note that the default task planner is too slow -- fast downward is required.
     """
 
-    # Typesß
+    # Types
     _object_type = Type("object", [])
     _item_type = Type("item", [], _object_type)
     _station_type = Type("station", [], _object_type)
