@@ -254,5 +254,6 @@ class GNNOptionPolicyApproach(GNNApproach):
                 # Break early if we have timed out.
                 if time.perf_counter() - start_time > timeout:
                     break
-        print(f"Shooting: {all_num_act} actions with {tries} tries in {time.perf_counter() - start_time} seconds")
+        print(f"Shooting: {all_num_act} actions with {tries} tries in \
+              {time.perf_counter() - start_time} seconds")
         raise ApproachTimeout("Shooting timed out!")
