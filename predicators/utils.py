@@ -420,8 +420,16 @@ def summarize_results_in_str(
             # Assign a unique id to each state as hash
             for s in tp_states | fn_states | tn_states | fp_states:
                 state_hash = hash(s)
+
                 if state_hash not in state_hash_to_id:
                     state_hash_to_id[state_hash] = len(state_hash_to_id)
+
+                if hasattr(s, "next_state") and s.next_state is not None:
+                    n_state = s.next_state
+                    next_state_hash = hash(n_state)
+                    if next_state_hash not in state_hash_to_id:
+                        state_hash_to_id[next_state_hash] = len(
+                            state_hash_to_id)
 
             uniq_n_tp, uniq_n_fn = len(tp_states), len(fn_states)
             uniq_n_tn, uniq_n_fp = len(tn_states), len(fp_states)
@@ -434,9 +442,9 @@ def summarize_results_in_str(
                 # anything to learn
 
                 # [Simplified]
-                result_str.append(
-                    f"Option {g_optn} *successfully* executed on the following "
-                    + f"states (positive states):")
+                # result_str.append(
+                #     f"Action {g_optn} *successfully* executed on the following "
+                #     + f"states (positive states):")
                 # [Detailed]
                 # result_str.append(
                 # f"Option {g_optn} was applied on {n_tot} states and "+
@@ -486,9 +494,9 @@ def summarize_results_in_str(
             if n_tp and "tp" in categories_to_show and \
                n_fp and "fp" in categories_to_show:
                 # [Simplified]
-                result_str.append(
-                    f"Option {g_optn} *failed* to executed on the following " +
-                    f"states (negative states):")
+                # result_str.append(
+                #     f"Action {g_optn} *failed* to executed on the following " +
+                #     f"states (negative states):")
                 # # [Detailed]
                 # result_str.append(
                 # f"Option {g_optn} was applied on {n_tot} states and "+
@@ -549,9 +557,12 @@ def append_classification_result_for_ops(result_str: List[str],
                                          ) -> Tuple[List[str], Set[str]]:
     shown_ppp = []
     num_shown = 0
+    if CFG.vlm_predicator_render_option_state:
+        obs_dir = CFG.log_file + f"ite{ite}_obs/"
+        os.makedirs(obs_dir, exist_ok=True)
     for _, state in enumerate(states):
         str_for_this_state = []
-        if num_shown == max_num_examples: break
+        if num_shown >= max_num_examples: break
 
         # Show states whose plan prefix are different
         assert state.option_history is not None
@@ -564,22 +575,18 @@ def append_classification_result_for_ops(result_str: List[str],
         else:
             continue
         if CFG.vlm_predicator_render_option_state:
-            obs_name = "state_" + str(state_hash_to_id[hash(state)])
-            f_suffix = ".png"
-            # _, obs_dir = vlm_option_obs_save_name(g_optn, category, num_shown)
-            # obs_dir += f"/{CFG.seed}_ite{ite}"
-            obs_dir = CFG.log_file + f"ite{ite}_obs/"
-            os.makedirs(obs_dir, exist_ok=True)
-
             # Write state name to the image for easy identification
-            img_copy = state.labeled_image.copy()
-            draw = ImageDraw.Draw(img_copy)
-            font = ImageFont.load_default().font_variant(size=50)
-            text_color = (0, 0, 0)  # white
-            draw.text((0, 0), obs_name, fill=text_color, font=font)
-            img_copy.save(os.path.join(obs_dir, obs_name + f_suffix))
-            logging.debug(f"Saved Image {obs_name}")
-            result_str.append("  " + obs_name + " with additional info:")
+            obs_name = "state_" + str(state_hash_to_id[hash(state)])
+            save_image_with_label(state.labeled_image.copy(), obs_name, obs_dir)
+            if category == "tp":
+                result_str.append(f"Action {g_optn} *successfully* executed "+
+                                "on " + obs_name + " with additional info:")
+            elif category == "fp":
+                result_str.append(f"Action {g_optn} *failed* to executed "+
+                                "on " + obs_name + " with additional info:")
+            else:
+                raise NotImplementedError("Only tp and fp are supported")
+            # result_str.append("  " + obs_name + " with additional info:")
             str_for_this_state.append("  " + obs_name + " with additional info:")
             # Should add proprio state
         state_dict_str = state.dict_str(
@@ -594,9 +601,34 @@ def append_classification_result_for_ops(result_str: List[str],
             prev_str = "  Previous option: " +\
                         (option_history if option_history != "" else "None")
             result_str.append(prev_str)
-        result_str.append("")
         num_shown += 1
         state_str_set.add("\n".join(str_for_this_state))
+
+        # if showing the next state
+        if CFG.vlm_invention_positive_negative_include_next_state and \
+            state.next_state is not None:
+            str_for_this_state = []
+            n_state = state.next_state
+            obs_name = "state_" + str(state_hash_to_id[hash(n_state)])
+            result_str.append(f"\n  This action results in {obs_name} " + 
+                              "with additional info:")
+            # Todo: Make sure the dict has the hash for the next state
+            save_image_with_label(n_state.labeled_image.copy(), obs_name, 
+                                  obs_dir)
+            # result_str.append("  " + obs_name + " with additional info:")
+            str_for_this_state.append("  " + obs_name + 
+                                      " with additional info:")
+            n_state_dict_str = n_state.dict_str(
+                indent=2,
+                object_features=not CFG.vlm_predicator_render_option_state,
+                use_object_id=CFG.vlm_predicator_render_option_state,
+                position_proprio_features=True)
+            result_str.append(n_state_dict_str)
+            str_for_this_state.append(n_state_dict_str + "\n")
+            num_shown += 1
+            state_str_set.add("\n".join(str_for_this_state))
+        # Finished
+        result_str.append("")
 
     return result_str, state_str_set
 

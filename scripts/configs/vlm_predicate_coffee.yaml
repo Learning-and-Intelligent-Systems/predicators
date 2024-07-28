@@ -77,7 +77,8 @@ FLAGS:
   nsp_pred_include_prev_image_in_prompt: True
   nsp_pred_include_state_str_in_prompt: False
   vlm_invent_predicates_in_stages: True
-  vlm_invent_from_trajs: True
+  vlm_invent_from_trajs: False
+  vlm_invention_positive_negative_include_next_state: True
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"
@@ -90,7 +91,7 @@ FLAGS:
   pybullet_camera_width: 1200 # 1200 for coffee
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
-  vlm_invent_include_option_history: True
+  vlm_invent_include_option_history: False
 START_SEED: 1
 NUM_SEEDS: 5
 ...

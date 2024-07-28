@@ -10,27 +10,27 @@ Objective: Propose new predicates that are important in describing the precondit
 
 Instructions for Response:
 1. Propose predicates in the following format:
-  ```plaintext
-  # Predicate Proposals
-  * <predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <A clear and precise assertion about the relationship or properties of the variables>.
-  * ...
-  ```
-  * Replace `<predicate_name>`, `<var1>`, `<var2>`, etc., with actual names.
-  * The assertion should be very clear, precise, and unambiguous, and in terms of the predicate variables `?<var1>`, `?<var2>`, etc., if applicable.
+    ```plaintext
+    # Predicate Proposals
+    * <predicate_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <A clear and precise assertion about the relationship or properties of the variables>.
+    * ...
+    ```
+    * Replace `<predicate_name>`, `<var1>`, `<var2>`, etc., with actual names.
+    * The assertion should be very clear, precise, and unambiguous, and in terms of the predicate variables `?<var1>`, `?<var2>`, etc., if applicable.
 
 2. Describe the predicates that each action in the trajectory changes, in the following format:
-  ```plaintext
-  # Predicate Values for Before and After Each Action
-  * action_<x>: <action_name_with_parameters>
-      * preconditions:
-          * <predicate0_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. True.
-          * ...
-      * add effect:
-          * <predicate3_name>(<obj5>, <obj6>, ...): <The assertion this predicate is making>.
-          * ...
-      * delete effect:
-          * <predicate4_name>(<obj7>, <obj8>, ...): <The assertion this predicate is making>.
-          * ...  
-  * action_<y>: ...
-  ```
-  * Replace `<obj1>`, `<obj2>`, etc., with actual object names in the state.
+    ```plaintext
+    # Predicate Values for Before and After Each Action
+    * action_<x>: <action_name_with_parameters>
+        * preconditions:
+            * <predicate0_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>. True.
+            * ...
+        * add effect:
+            * <predicate3_name>(<obj5>, <obj6>, ...): <The assertion this predicate is making>.
+            * ...
+        * delete effect:
+            * <predicate4_name>(<obj7>, <obj8>, ...): <The assertion this predicate is making>.
+            * ...  
+    * action_<y>: ...
+    ```
+    * Replace `<obj1>`, `<obj2>`, etc., with actual object names in the state.

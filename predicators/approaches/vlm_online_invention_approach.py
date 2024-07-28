@@ -7,6 +7,8 @@ Example run:
 """
 import traceback
 import shutil
+import errno
+import stat
 import ast
 import base64
 import importlib.util
@@ -60,6 +62,16 @@ from predicators.structs import State, Object, Predicate, Type
 from predicators.utils import RawState, NSPredicate
 """
 
+def handle_remove_error(func, path, exc_info):
+    # Check if the error is a permission error
+    if not os.access(path, os.W_OK):
+        # Change the permissions of the directory or file
+        os.chmod(path, stat.S_IWUSR)
+        # Retry the operation
+        func(path)
+    else:
+        raise
+
 PlanningResult = namedtuple("PlanningResult", ['succeeded', 'info'])
 
 def are_equal_by_obj(list1: List[_Option], list2: List[_Option]) -> bool:
@@ -69,20 +81,6 @@ def are_equal_by_obj(list1: List[_Option], list2: List[_Option]) -> bool:
     return all(
         option1.eq_by_obj(option2) for option1, option2 in zip(list1, list2))
 
-def handle_remove_readonly(func, path, exc_info):
-    """
-    Error handler for `shutil.rmtree`.
-
-    If the error is due to an access error (read-only file),
-    it attempts to add write permission and then retries.
-    """
-    exc_type, exc_value, exc_tb = exc_info
-    if not os.access(path, os.W_OK):
-        # Try to add write permission
-        os.chmod(path, stat.S_IWUSR)
-        func(path)
-    else:
-        raise exc_value
     
 def print_confusion_matrix(tp: float, tn: float, fp: float, fn: float) -> None:
     """Compate and print the confusion matrix."""
@@ -248,7 +246,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         max_invent_ite = 20
         add_new_proposal_at_every_ite = False  # Invent at every iterations
         manual_prompt = False
-        regenerate_response = False
+        regenerate_response = True
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
         best_solve_rate, best_ite, clf_acc = -np.inf, 0.0, 0.0
         clf_acc_at_best_solve_rate = 0.0
@@ -355,10 +353,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                 else:
 
                     max_attempts = 5
-                    max_num_groundings, max_num_examples = 1, 2
+                    max_num_groundings, max_num_examples = 1, 1
                     min_imgs, max_imgs = 6, 10
                     obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
-                    shutil.rmtree(obs_dir,  onerror=handle_remove_readonly)
+                    if os.path.exists(obs_dir):
+                        shutil.rmtree(obs_dir, handle_remove_error)
 
                     if CFG.vlm_invent_predicates_in_stages:
                         if CFG.vlm_invent_from_trajs:
@@ -372,11 +371,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                             self._create_one_step_program_invention_prompt
 
                     for attempt in range(max_attempts):
+                        logging.debug(f"Prompt creation attempt {attempt}")
                         # Use the results to prompt the llm
                         if CFG.vlm_invent_from_trajs:
                             prompt, state_str = create_prompt_func(env, ite,
                                                                    all_trajs)
-                            breakpoint()
                             break
                         else:
                             prompt, state_str = create_prompt_func(env, ite, 
@@ -392,8 +391,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             if min_imgs <= len(images) <= max_imgs: break
 
                             if len(images) > max_imgs:
-                                shutil.rmtree(obs_dir, 
-                                                onerror=handle_remove_readonly)
+                                if os.path.exists(obs_dir):
+                                    shutil.rmtree(obs_dir, handle_remove_error)
                                 if attempt % 2 == 0:
                                     max_num_examples = max(1,max_num_examples-1)
                                 else:
@@ -407,7 +406,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                                     max_num_examples += 1
                     # if ite == 4:
                     #     breakpoint()
-                    # breakpoint()
                     new_proposals = self._get_vlm_proposals(
                         env, prompt, images, ite, tasks, 
                         manual_prompt, regenerate_response, state_str)
@@ -857,6 +855,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                self._get_current_predicates()),
                 g_nsrt.option_objs, g_nsrt.parent.option_vars, g_nsrt.option)
         else:
+            temp_optn_state_lst = []
             for steps in range(CFG.horizon):
                 try:
                     act = policy(state)
@@ -895,6 +894,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 #     for n in nsrt_plan[:nsrt_counter]]
                                 self.state_cache[
                                     state_hash] = option_start_state.copy()
+                                temp_optn_state_lst.append((option_start_state,
+                                                        None, None))
                             # For debugging incomplete options
                             states.append(option_start_state)
                             break
@@ -940,12 +941,15 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 use_object_id=CFG.neu_sym_predicate)
                             states.append(option_start_state)
                             first_option_action = True
-                            self.succ_optn_dict[gop_str].append_state(
-                                option_start_state,
-                                utils.abstract(option_start_state,
-                                               self._get_current_predicates()),
-                                g_nsrt.option_objs, g_nsrt.parent.option_vars,
-                                g_nsrt.option)
+                            # Save to a temp list to add next_state
+                            temp_optn_state_lst.append((option_start_state,
+                                                        g_nsrt, gop_str))
+                            # self.succ_optn_dict[gop_str].append_state(
+                            #     option_start_state,
+                            #     utils.abstract(option_start_state,
+                            #                    self._get_current_predicates()),
+                            #     g_nsrt.option_objs, g_nsrt.parent.option_vars,
+                            #     g_nsrt.option)
                             nsrt_counter += 1
                     else:
                         break
@@ -955,6 +959,20 @@ class VlmInventionApproach(NSRTLearningApproach):
                         actions.append(act)
                         first_option_action = False
                     env_step_counter += 1
+
+            # Add next state
+            for i in range(len(temp_optn_state_lst) - 1):
+                temp_optn_state_lst[i][0].next_state =\
+                    temp_optn_state_lst[i+1][0]
+
+            # Add the states to succ_optn_dict
+            for state, g_nsrt, gop_str in temp_optn_state_lst[:-1]:
+                self.succ_optn_dict[gop_str].append_state(
+                    state,
+                    utils.abstract(state, self._get_current_predicates()),
+                    g_nsrt.option_objs, g_nsrt.parent.option_vars, 
+                    g_nsrt.option)
+
             if steps == CFG.horizon - 1:
                 logging.warning("Processing stopped as steps reach the max.")
 
@@ -1025,6 +1043,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                 response = file.read()
             # predicate_specs = parse_nl_predicate_predictions(response_file)
             predicate_specs = response
+            if CFG.vlm_invention_positive_negative_include_next_state:
+                predicate_specs = self._parse_pad_labels_to_truth_values(
+                    predicate_specs)
+
 
             # Generate prompt to write ns_predicates
             s2_prompt = self._create_invention_stage_two_prompt(
@@ -1032,6 +1054,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                             ite,
                                                             state_list_str,
                                                             predicate_specs)
+            # breakpoint()
             # Save the query to a file
             response_file = CFG.log_file + f"ite{ite}_stage2.response"
             if not os.path.exists(response_file) or regenerate_response:
@@ -1059,6 +1082,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         new_candidates = self._parse_predicate_predictions(response_file,
                                                             tasks)
         return new_candidates
+    
+
 
     def _select_predicates_by_score_hillclimbing(
             self,
@@ -1333,7 +1358,12 @@ class VlmInventionApproach(NSRTLearningApproach):
         categories_to_show: List[str] = ['tp', 'fp'],
         seperate_prompt_per_option: bool = False,
     ) -> str:
-        with open(f"prompts/invent_0_prog_free.outline", 'r') as file:
+        if CFG.vlm_invention_positive_negative_include_next_state:
+            template_f = "prompts/invent_0_prog_free_pad.outline"
+        else:
+            template_f = "prompts/invent_0_prog_free.outline"
+
+        with open(template_f, 'r') as file:
             template = file.read()
 
         # Predicates
@@ -1702,3 +1732,88 @@ class VlmInventionApproach(NSRTLearningApproach):
                 "'NOT' or 'Forall' are defined by taking the negation or adding"
                 + "universal quantifiers over other existing predicates.")
         return '\n'.join(new_predicate_str)
+
+    def _parse_pad_labels_to_truth_values(self, resp: str) -> str:
+        """Parse the predicate_specs to include the next state predicates
+        as positive and negative examples.
+        """
+        # breakpoint()
+        proposals, evals = resp.split("# Action Preconditions and Effects")
+
+        state_dict = defaultdict(lambda: (set(), set()))
+
+        # Define regex patterns
+        action_pattern = re.compile(r'\* Action:.*?\n(.*?)(?=\* Action:|\Z)', re.DOTALL)
+        preconditions_pattern = re.compile(r'\* preconditions \(state_(\d+)\):'
+                                r'\n(.*?)(?=\* (add effect|delete effect)|$)',
+                                re.DOTALL)
+        add_effect_pattern = re.compile(r'\* add effect \(state_(\d+)\):'
+                            f'\n(.*?)(?=\* (preconditions|delete effect)|$)',
+                                re.DOTALL)
+        delete_effect_pattern = re.compile(r'\* delete effect \(state_(\d+)\):'
+                            f'\n(.*?)(?=\* (preconditions|add effect)|$)',
+                                re.DOTALL)
+
+        state_dict = defaultdict(lambda: (set(), set()))
+
+        for action_block in action_pattern.finditer(evals):
+            block_text = action_block.group(1)
+            
+            for match in preconditions_pattern.finditer(block_text):
+                state = match.group(1)
+                predicates = match.group(2)
+                for predicate in predicates.strip().split('\n'):
+                    cleaned_predicate = predicate.strip()
+                    if cleaned_predicate:
+                        state_dict[f'state_{state}'][0].add(cleaned_predicate)
+
+            for match in add_effect_pattern.finditer(block_text):
+                state = match.group(1)
+                predicates = match.group(2)
+                for predicate in predicates.strip().split('\n'):
+                    cleaned_predicate = predicate.strip()
+                    if cleaned_predicate and cleaned_predicate != 'None':
+                        state_dict[f'state_{state}'][0].add(cleaned_predicate)
+
+            for match in delete_effect_pattern.finditer(block_text):
+                state = match.group(1)
+                predicates = match.group(2)
+                for predicate in predicates.strip().split('\n'):
+                    cleaned_predicate = predicate.strip()
+                    if cleaned_predicate and cleaned_predicate != 'None':
+                        state_dict[f'state_{state}'][1].add(cleaned_predicate)
+        # print(state_dict)
+
+        predicate_format = re.compile(
+            r"\* ([A-Za-z0-9_]+)\(([^)]+)\): (.+)"
+        )
+
+        def filter_predicates(predicates_set):
+            return {predicate for predicate in predicates_set if predicate_format.match(predicate)}
+
+        filtered_state_dict = defaultdict(lambda: (set(), set()), {
+            state: (filter_predicates(preconditions), filter_predicates(effects))
+            for state, (preconditions, effects) in state_dict.items()
+        })
+
+        # pprint(filtered_state_dict)
+
+        # Iterate over the state_dict and modify predicates
+        state_str = []
+        for state in sorted(filtered_state_dict.keys()):
+            add_set, del_set = filtered_state_dict[state]
+            if not add_set and not del_set:
+                continue
+            state_str.append(state)
+            if add_set:
+                pos = "\n".join([f"{pred}: True" for pred in add_set])
+                state_str.append(pos)
+            if del_set:
+                neg = "\n".join([f"{pred}: False" for pred in del_set])
+                state_str.append(neg)
+        
+        state_str = "\n".join(state_str)
+
+        spec = proposals + "\n#Predicate Evaluation\n" + state_str
+
+        return spec

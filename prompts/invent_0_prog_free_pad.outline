@@ -1,0 +1,39 @@
+Context: You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
+
+The existing predicates are:
+[PREDICATES_IN_ENV]
+
+The robot tried to execute its skills and got the following results:
+[OPERATOR_PERFORMACE]
+
+Objective: Examine each object's property before and after each action's execution. Propose new predicates that are important in describing the preconditions (conditions that must be True for an action to be executed) and effects of each action. Propose at least one per action.
+For each predicate you generate, also propose variations that make similar or opposite assertions, so that any predicate relevant to the action is included and can be later refined or selected.
+
+Instructions for Response:
+1. Propose predicates in the following format:
+    ```plaintext
+    # Predicate Proposals
+    * <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+    * ...
+    ```
+    * Replace `<predicate1_name>`, `<var1>`, `<var2>`, etc., with actual names.
+    * The assertion should be very clear, precise, and unambiguous, and about the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable.
+
+2. Describe the predicates that each action requires and changes, in the following format:
+    ```plaintext
+    # Action Preconditions and Effects
+    * Action: <option_name_with_parameters>
+        * preconditions (state_<x>):
+            * <predicate0_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>.
+            * ...
+        * add effect (state_<y>):
+            * <predicate1_name>(<obj3>, <obj4>, ...): <The assertion this predicate is making>.
+            * ...  
+        * delete effect (state_<y>):
+            * <predicate2_name>(<obj5>, <obj6>, ...): <The assertion this predicate is making>.
+            * ...  
+    * Action: ...
+    ```
+    * Replace `<obj1>`, `<obj2>`, etc., with actual object names in the state.
+
+3. Do not response with anything besides the two sections outlined above. Do not use bold or italic fonts.
