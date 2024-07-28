@@ -54,13 +54,14 @@ class BurgerEnv(BaseEnv):
     Note that the default task planner is too slow -- fast downward is required.
     """
 
-    # Types
+    # Typesß
     _object_type = Type("object", [])
     _item_type = Type("item", [], _object_type)
     _station_type = Type("station", [], _object_type)
 
-    _robot_type = Type("robot", ["row", "col", "z", "fingers", "dir"],
-                       _object_type)
+    _robot_type = Type(
+        "robot", ["row", "col", "z", "fingers_open_fraction", "dir_facing"],
+        _object_type)
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
     _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
