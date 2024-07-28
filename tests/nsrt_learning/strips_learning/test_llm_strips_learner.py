@@ -1,5 +1,8 @@
 """Tests for methods in the BaseSTRIPSLearner class."""
 
+import glob
+import shutil
+
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
@@ -8,6 +11,7 @@ from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning.llm_strips_learner import \
     LLMStripsLearner
 from predicators.pretrained_model_interface import LargeLanguageModel
+from predicators.settings import CFG
 
 
 class _DummyLLM(LargeLanguageModel):
@@ -52,6 +56,10 @@ def test_llm_op_learning():
         "strips_learner": "llm",
         "num_train_tasks": 3
     })
+    # start by flushing the pretrained models cache!
+    for f in glob.glob(CFG.pretrained_model_prompt_cache_dir +
+                       "/dummy_most_likely*"):
+        shutil.rmtree(f)
     env = create_new_env("cover")
     train_tasks = [t.task for t in env.get_train_tasks()]
     predicates, _ = utils.parse_config_excluded_predicates(env)
