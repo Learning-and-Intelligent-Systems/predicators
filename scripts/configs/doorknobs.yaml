@@ -11,7 +11,7 @@ APPROACHES:
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
 ENVS:
-  tau_006_2train_5test:
+  oops_actually_tau_004:
     NAME: "doorknobs"
 ARGS:
   - "debug"
@@ -27,4 +27,4 @@ FLAGS:
   timeout: 1000
   active_sampler_learning_num_samples: 10
 START_SEED: 0
-NUM_SEEDS: 4
+NUM_SEEDS: 6
