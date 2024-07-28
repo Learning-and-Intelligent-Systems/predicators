@@ -199,8 +199,8 @@ class GNNOptionPolicyApproach(GNNApproach):
         start_time = time.perf_counter()
         memory: Dict = {}  # optionally updated by predict()
         # Keep trying until the timeout.
-        tries = 0
-        all_num_act = 0
+        tries: int = 0
+        all_num_act: int = 0
         while time.perf_counter() - start_time < timeout:
             tries += 1
             if tries > 2:
