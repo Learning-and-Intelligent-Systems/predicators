@@ -21,7 +21,7 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
         # Types
-        tomato_type = types["tomato"]
+        tomato_type = types["lettuce"]
         patty_type = types["patty"]
 
         grill_type = types["grill"]
@@ -69,7 +69,7 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Pick = options["Pick"]
         Place = options["Place"]
         Cook = options["Cook"]
-        Slice = options["Slice"]
+        Slice = options["Chop"]
 
         nsrts = set()
 

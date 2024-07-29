@@ -28,7 +28,7 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
         # top_bun_type = types["top_bun"]
         # bottom_bun_type = types["bottom_bun"]
         # cheese_type = types["cheese"]
-        tomato_type = types["tomato"]
+        tomato_type = types["lettuce"]
         patty_type = types["patty"]
 
         grill_type = types["grill"]
@@ -60,7 +60,7 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
             return IsSliced.holds(state, [tomato])
 
         Slice = ParameterizedOption(
-            "Slice",
+            "Chop",
             types=[robot_type, tomato_type, cutting_board_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_slice_policy(),
