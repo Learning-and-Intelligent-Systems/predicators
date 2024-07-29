@@ -63,7 +63,7 @@ class BurgerEnv(BaseEnv):
                        _object_type)
 
     _patty_type = Type("patty", ["row", "col", "z"], _item_type)
-    _tomato_type = Type("tomato", ["row", "col", "z"], _item_type)
+    _tomato_type = Type("lettuce", ["row", "col", "z"], _item_type)
     _cheese_type = Type("cheese", ["row", "col", "z"], _item_type)
     _bottom_bun_type = Type("bottom_bun", ["row", "col", "z"], _item_type)
     _top_bun_type = Type("top_bun", ["row", "col", "z"], _item_type)
@@ -245,7 +245,7 @@ class BurgerEnv(BaseEnv):
 
             # Add tomato
             r, c = shuffled_spots[4]
-            tomato = Object("tomato", self._tomato_type)
+            tomato = Object("lettuce", self._tomato_type)
             state_dict[tomato] = {"row": r, "col": c, "z": 0}
             hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
 
@@ -615,6 +615,7 @@ class BurgerEnv(BaseEnv):
         # blurry.
         fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=200)
         plt.suptitle(caption, wrap=True)
+        fontsize = 14
 
         # Plot vertical lines
         for i in range(self.num_cols + 1):
@@ -639,7 +640,7 @@ class BurgerEnv(BaseEnv):
             ax.text(x + 1 / 2,
                     y + (1 - img_size[1]) / 2,
                     self._robot.name,
-                    fontsize=10,
+                    fontsize=fontsize,
                     color="red",
                     ha="center",
                     va="top",
@@ -655,7 +656,7 @@ class BurgerEnv(BaseEnv):
             ax.text(x + 1 / 2,
                     y + (1 - img_size[1]) / 2,
                     self._grill.name,
-                    fontsize=10,
+                    fontsize=fontsize,
                     color="red",
                     ha="center",
                     va="top",
@@ -672,7 +673,7 @@ class BurgerEnv(BaseEnv):
             ax.text(x + 1 / 2,
                     y + (1 - img_size[1]) / 2,
                     self._cutting_board.name,
-                    fontsize=10,
+                    fontsize=fontsize,
                     color="red",
                     ha="center",
                     va="top",
@@ -689,9 +690,9 @@ class BurgerEnv(BaseEnv):
             self._cheese_type:
             mpimg.imread("predicators/envs/assets/imgs/cheese.png"),
             self._tomato_type:
-            mpimg.imread(utils.get_env_asset_path("imgs/whole_tomato.png")),
+            mpimg.imread(utils.get_env_asset_path("imgs/uncut_lettuce.png")),
             self._patty_type:
-            mpimg.imread(utils.get_env_asset_path("imgs/raw_patty.png"))
+            mpimg.imread(utils.get_env_asset_path("imgs/realistic_raw_patty_full.png"))
         }
         held_img_size = (0.3, 0.3)
         offset = held_img_size[1] * (1 / 3)
@@ -703,11 +704,11 @@ class BurgerEnv(BaseEnv):
             if "is_cooked" in state.simulator_state["state"][
                     item] and self._IsCooked_holds(state, [item]):
                 img = mpimg.imread(
-                    utils.get_env_asset_path("imgs/cooked_patty.png"))
+                    utils.get_env_asset_path("imgs/realistic_cooked_patty_full.png"))
             elif "is_sliced" in state.simulator_state["state"][
                     item] and self._IsSliced_holds(state, [item]):
                 img = mpimg.imread(
-                    utils.get_env_asset_path("imgs/sliced_tomato.png"))
+                    utils.get_env_asset_path("imgs/cut_lettuce.png"))
             zorder = state.get(item, "z")
             is_held = state.simulator_state["state"][item]["is_held"] > 0.5
             x, y = self.get_position(item, state)
@@ -742,7 +743,7 @@ class BurgerEnv(BaseEnv):
                     ax.text(x + (1 + held_img_size[0]) * (1 / 2),
                             y + offset + held_img_size[1] / 2,
                             item.name,
-                            fontsize=10,
+                            fontsize=fontsize,
                             color="red",
                             ha="left",
                             va="top",
@@ -757,7 +758,7 @@ class BurgerEnv(BaseEnv):
                             ax.text(x + 1 / 2,
                                     y + (1 + img_size[1]) / 2,
                                     item.name,
-                                    fontsize=10,
+                                    fontsize=fontsize,
                                     color="red",
                                     ha="center",
                                     va="bottom",
@@ -768,7 +769,7 @@ class BurgerEnv(BaseEnv):
                             ax.text(x,
                                     y + (0.1 * zorder) + (1 - img_size[1]) / 2,
                                     item.name,
-                                    fontsize=10,
+                                    fontsize=fontsize,
                                     color="red",
                                     ha="left",
                                     va="top",
@@ -782,7 +783,7 @@ class BurgerEnv(BaseEnv):
                             ax.text(x,
                                     y + (1 - img_size[1]) / 2,
                                     item.name,
-                                    fontsize=10,
+                                    fontsize=fontsize,
                                     color="red",
                                     ha="left",
                                     va="top",
@@ -793,7 +794,7 @@ class BurgerEnv(BaseEnv):
                             ax.text(x + 1 / 2,
                                     y + (1 - img_size[1]) / 2,
                                     item.name,
-                                    fontsize=10,
+                                    fontsize=fontsize,
                                     color="red",
                                     ha="center",
                                     va="top",
