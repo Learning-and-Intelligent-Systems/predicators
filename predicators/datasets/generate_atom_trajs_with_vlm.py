@@ -5,8 +5,11 @@ import glob
 import logging
 import os
 import re
+import textwrap
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from inspect import getsource
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple, cast
 
@@ -735,6 +738,159 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     return ground_atoms_trajs
 
 
+def _generate_ground_atoms_trajs_from_synthesized_predicates(
+        image_option_trajs: List[ImageOptionTrajectory], env: BaseEnv,
+        train_tasks: List[Task], known_predicates: Set[Predicate],
+        all_task_objs: Set[Object],
+        vlm: VisionLanguageModel) -> List[List[Set[GroundAtom]]]:
+    """Given a collection of ImageOptionTrajectories, query a VLM to generate
+    predicates over the object features, then generate a ground atom trajectory.
+    """
+    # Create a prompt based on the image option trajectory.
+    prompt, imgs = _create_prompt_from_image_option_traj(
+        image_option_trajs[0], env)
+
+    # Query the VLM to propose predicates.
+    response = vlm.sample_completions(prompt,
+                                      imgs,
+                                      0.0,
+                                      CFG.seed,
+                                      num_completions=1)[0]
+
+    # Parse the responses into a set of predicates
+    predicates = _parse_predicate_proposals(response, train_tasks, env)
+
+    # Generate the ground atom trajectories from the predicates.
+    ground_atoms_trajs = []
+    for image_option_traj in image_option_trajs:
+        ground_atoms_traj = []
+        assert image_option_traj.states is not None
+        for state in image_option_traj.states:
+            ground_atoms = utils.abstract(state, predicates | known_predicates)
+            ground_atoms_traj.append(ground_atoms)
+        ground_atoms_trajs.append(ground_atoms_traj)
+    return ground_atoms_trajs
+
+
+def add_python_quote(text: str) -> str:
+    return f"```python\n{text}\n```"
+
+
+def _create_prompt_from_image_option_traj(
+        image_option_traj: ImageOptionTrajectory,
+        env: BaseEnv) -> Tuple[str, List[PIL.Image.Image]]:
+    """Given an image option trajectory, create a prompt for the VLM."""
+    prompt_dir = "./datasets/vlm_input_data_prompts/vision_api/"
+    with open(prompt_dir + "prompt.output", "r") as f:
+        template = f.read()
+
+    # Predicate, State API
+    with open(prompt_dir + 'api_oo_state.py', 'r') as f:
+        state_str = f.read()
+    with open(prompt_dir + 'api_sym_predicate.py', 'r') as f:
+        pred_str = f.read()
+
+    template = template.replace(
+        '[STRUCT_DEFINITION]', add_python_quote(state_str + '\n\n' + pred_str))
+
+    # Object types
+    with open(prompt_dir + f"types_{env.get_name()}.py", 'r') as f:
+        type_instan_str = f.read()
+    type_instan_str = add_python_quote(type_instan_str)
+    template = template.replace("[TYPES_IN_ENV]", type_instan_str)
+
+    # Demo
+    demo_str = []
+    imgs = [img_list[0] for img_list in image_option_traj.imgs]
+    assert image_option_traj.states is not None
+    for i, a in enumerate(image_option_traj.actions):
+        state = image_option_traj.states[i]
+        demo_str.append(f"state {i}:")
+        demo_str.append(state.dict_str(indent=2, object_features=True))
+        demo_str.append(f"action {i}: {a.name}")
+    state = image_option_traj.states[i + 1]
+    demo_str.append(f"state {i+1}:")
+    demo_str.append(state.dict_str(indent=2, object_features=True))
+    demo_str_ = '\n'.join(demo_str)
+    template = template.replace("[DEMO_TRAJECTORY]", demo_str_)
+
+    with open(prompt_dir + 'prompt.prompt', 'w') as f:
+        f.write(template)
+
+    return template, imgs
+
+
+import_str = """
+import numpy as np
+from typing import Sequence
+from predicators.structs import State, Object, Predicate, Type
+from predicators.utils import RawState, NSPredicate
+"""
+
+
+def _env_type_str(source_code: str) -> str:
+    type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"
+    type_block = re.search(type_pattern, source_code, re.DOTALL)
+    if type_block is not None:
+        type_init_str = type_block.group()
+        type_init_str = textwrap.dedent(type_init_str)
+        # type_init_str = add_python_quote(type_init_str)
+        return type_init_str
+    else:
+        raise Exception("No type definitions found in the environment.")
+
+
+def _parse_predicate_proposals(
+    prediction_file: str,
+    tasks: List[Task],
+    env: BaseEnv,
+) -> Set[Predicate]:
+    # Read the prediction file
+    with open(prediction_file, 'r') as file:
+        response = file.read()
+
+    # Regular expression to match Python code blocks
+    pattern = re.compile(r'```python(.*?)```', re.DOTALL)
+    python_blocks = []
+    # Find all Python code blocks in the text
+    for match in pattern.finditer(response):
+        # Extract the Python code block and add it to the list
+        python_blocks.append(match.group(1).strip())
+
+    candidates = set()
+    context: Dict = {}
+
+    env_source_code = getsource(env.__class__)
+    type_init_str = _env_type_str(env_source_code)
+    # constants_str = self._constants_str(self.env_source_code)
+    exec(import_str, context)
+    exec(type_init_str, context)
+
+    for code_str in python_blocks:
+        # Extract name from code block
+        match = re.search(r'(\w+)\s*=\s*(NS)?Predicate', code_str)
+        if match is None:
+            raise ValueError("No predicate name found in the code block")
+        pred_name = match.group(1)
+        logging.info(f"Found definition for predicate {pred_name}")
+
+        exec(code_str, context)
+
+        # Try to check if it's roughly runable. And only add it to
+        # our list if it is.
+        try:
+            utils.abstract(tasks[0].init, [context[pred_name]])
+        except Exception as e:
+            error_trace = traceback.format_exc()
+            logging.warning(f"Proposed predicate {pred_name} not "
+                            f"executable: {e}\n{error_trace}")
+            continue
+        else:
+            candidates.add(context[pred_name])
+
+    return candidates
+
+
 def create_ground_atom_data_from_generated_demos(
         dataset: Dataset,
         env: BaseEnv,
@@ -816,9 +972,12 @@ def create_ground_atom_data_from_generated_demos(
     # Now, given these trajectories, we can query the VLM.
     if vlm is None:
         vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
-    ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
-        img_option_trajs, env, train_tasks, known_predicates, all_task_objs,
-        vlm)
+    if CFG.vlm_predicate_vision_api_generate_ground_atoms:
+        generate_func = _generate_ground_atoms_trajs_from_synthesized_predicates
+    else:
+        generate_func = _query_vlm_to_generate_ground_atoms_trajs
+    ground_atoms_trajs = generate_func(img_option_trajs, env, train_tasks,
+                                       known_predicates, all_task_objs, vlm)
     return Dataset(option_segmented_trajs, ground_atoms_trajs)
 
 

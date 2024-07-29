@@ -689,6 +689,7 @@ class GlobalSettings:
     # filepath to be used if offline_data_method is set to
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
+    vlm_predicate_vision_api_generate_ground_atoms = False
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

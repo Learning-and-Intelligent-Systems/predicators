@@ -203,6 +203,40 @@ class State:
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
+    def dict_str(self,
+                 indent: int = 0,
+                 object_features: bool = True,
+                 use_object_id: bool = False) -> str:
+        """Return a dictionary representation of the state."""
+        state_dict = {}
+        for obj in self:
+            obj_dict = {}
+            if obj.type.name == "robot" or object_features:
+                for attribute, value in zip(obj.type.feature_names, self[obj]):
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
+            if use_object_id: obj_name = obj.id_name
+            else: obj_name = obj.name
+            state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
+
+        # Create a string of n_space spaces
+        spaces = " " * indent
+
+        # Create a PrettyPrinter with a large width
+        dict_str = spaces + "{"
+        n_keys = len(state_dict.keys())
+        for i, (key, value) in enumerate(state_dict.items()):
+            value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+            if i == 0:
+                dict_str += f"'{key}': {{{value_str}}},\n"
+            elif i == n_keys - 1:
+                dict_str += spaces + f" '{key}': {{{value_str}}}"
+            else:
+                dict_str += spaces + f" '{key}': {{{value_str}}},\n"
+        dict_str += "}"
+        return dict_str
+
 
 DefaultState = State({})
 
@@ -783,7 +817,8 @@ class STRIPSOperator:
         remaining_params = {
             p
             for atom in self.preconditions | new_add_effects
-            | new_delete_effects for p in atom.variables
+            | new_delete_effects
+            for p in atom.variables
         } | set(option_vars)
         new_params = [p for p in self.parameters if p in remaining_params]
         return STRIPSOperator(self.name, new_params, self.preconditions,
