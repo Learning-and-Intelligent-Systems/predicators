@@ -37,5 +37,5 @@ Instructions for Response:
 
 3. In your response, please following the following guidelines:
     * Respond only with the two sections outlined above.
-    * Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1>, and <obj1> with actual names and types from the state dictionary provided. Do not use arguments with a float type.
+    * Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1>, and <obj1> with actual names and types from the state dictionary provided. Do not use types that are not present in the states (e.g., int or float).
     * Do not use bold or italic fonts in your response.

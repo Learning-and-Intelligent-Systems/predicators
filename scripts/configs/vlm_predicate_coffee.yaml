@@ -28,7 +28,8 @@ FLAGS:
   strips_learner: "cluster_intersect_and_search"
   CIS_use_other_pnads_neg_data: True
   # predicate_search_strips_learner: "cluster_intersect_and_search"
-  excluded_predicates: "all"
+  # excluded_predicates: "all"
+  excluded_predicates: "Holding,JugInMachine,MachineOn,OnTable,HandEmpty,RobotAboveCup,JugAboveCup,NotAboveCup,PressingButton,Twisting,NotSameCup,JugPickable"
   min_perc_data_for_nsrt: 0 # works for coffee, cover; 
   # min_perc_data_for_nsrt: 3 # works for blocks
   timeout: 300 #300
@@ -51,6 +52,7 @@ FLAGS:
   # coffee_include_front_view: True
   cover_typed_options_no_sampler: True
   cover_initial_holding_prob: 0.0
+  coffee_exclude_JugFilled_in_preconds: True
 
   # Predicate refinement parameters
   grammar_search_score_function: "expected_nodes_created"
@@ -92,6 +94,6 @@ FLAGS:
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   vlm_invent_include_option_history: False
-START_SEED: 1
+START_SEED: 4
 NUM_SEEDS: 1
 ...

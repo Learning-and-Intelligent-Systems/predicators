@@ -247,9 +247,11 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = Pour
         preconditions = {
             LiftedAtom(Holding, [robot, jug]),
-            LiftedAtom(JugFilled, [jug]),
+            # LiftedAtom(JugFilled, [jug]),
             LiftedAtom(NotAboveCup, [robot, jug]),
         }
+        if not CFG.coffee_exclude_JugFilled_in_preconds:
+            preconditions.add(LiftedAtom(JugFilled, [jug]))
         add_effects = {
             LiftedAtom(JugAboveCup, [jug, cup]),
             LiftedAtom(RobotAboveCup, [robot, cup]),
@@ -275,11 +277,13 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = Pour
         preconditions = {
             LiftedAtom(Holding, [robot, jug]),
-            LiftedAtom(JugFilled, [jug]),
+            # LiftedAtom(JugFilled, [jug]),
             LiftedAtom(JugAboveCup, [jug, other_cup]),
             LiftedAtom(RobotAboveCup, [robot, other_cup]),
             LiftedAtom(NotSameCup, [cup, other_cup]),
         }
+        if not CFG.coffee_exclude_JugFilled_in_preconds:
+            preconditions.add(LiftedAtom(JugFilled, [jug]))
         add_effects = {
             LiftedAtom(JugAboveCup, [jug, cup]),
             LiftedAtom(RobotAboveCup, [robot, cup]),

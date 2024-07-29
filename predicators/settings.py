@@ -328,6 +328,7 @@ class GlobalSettings:
     coffee_combined_move_and_twist_policy = False
     coffee_mac_requires_jug_to_turn_on = False
     coffee_move_back_after_place_and_push = False
+    coffee_exclude_JugFilled_in_preconds = False
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]

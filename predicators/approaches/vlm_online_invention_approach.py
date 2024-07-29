@@ -1054,7 +1054,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                             ite,
                                                             state_list_str,
                                                             predicate_specs)
-            # breakpoint()
             # Save the query to a file
             response_file = CFG.log_file + f"ite{ite}_stage2.response"
             if not os.path.exists(response_file) or regenerate_response:
@@ -1635,8 +1634,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         init_pred_str = []
         
         # Set of predicates
-        vlm_invent_prompt_include_all_candidates = False
-        vlm_invent_prompt_include_selected_predicates = True
+        vlm_invent_prompt_include_all_candidates = True
+        vlm_invent_prompt_include_selected_predicates = False
+
         if vlm_invent_prompt_include_all_candidates:
             predicates_shown = self.base_candidates
         elif vlm_invent_prompt_include_selected_predicates:
@@ -1647,7 +1647,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 sorted({p.pretty_str_with_assertion() if 
                                         show_predicate_assertion else 
                                         p.pretty_str_with_types() 
-                                            for p in self.predicates_shown})
+                                            for p in predicates_shown})
                               ) )
 
         if include_definition:
