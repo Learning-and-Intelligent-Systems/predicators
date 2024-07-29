@@ -1635,12 +1635,19 @@ class VlmInventionApproach(NSRTLearningApproach):
         init_pred_str = []
         
         # Set of predicates
-
+        vlm_invent_prompt_include_all_candidates = False
+        vlm_invent_prompt_include_selected_predicates = True
+        if vlm_invent_prompt_include_all_candidates:
+            predicates_shown = self.base_candidates
+        elif vlm_invent_prompt_include_selected_predicates:
+            predicates_shown = self._get_current_predicates()
+        else:
+            predicates_shown = self._initial_predicates
         init_pred_str.append("\n".join(
                                 sorted({p.pretty_str_with_assertion() if 
                                         show_predicate_assertion else 
                                         p.pretty_str_with_types() 
-                                            for p in self.base_candidates})
+                                            for p in self.predicates_shown})
                               ) )
 
         if include_definition:

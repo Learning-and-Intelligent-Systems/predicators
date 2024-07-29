@@ -93,5 +93,5 @@ FLAGS:
   pybullet_camera_height: 900
   vlm_invent_include_option_history: False
 START_SEED: 1
-NUM_SEEDS: 5
+NUM_SEEDS: 1
 ...

@@ -16,7 +16,6 @@ Instructions for Response:
     * <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
     * ...
     ```
-    * Replace `<predicate1_name>`, `<var1>`, `<var2>`, etc., with actual names.
     * The assertion should be very clear, precise, and unambiguous, and about the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable.
 
 2. Describe the predicates that each action requires and changes, in the following format:
@@ -24,16 +23,19 @@ Instructions for Response:
     # Action Preconditions and Effects
     * Action: <option_name_with_parameters>
         * preconditions (state_<x>):
-            * <predicate0_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>.
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>.
             * ...
         * add effect (state_<y>):
-            * <predicate1_name>(<obj3>, <obj4>, ...): <The assertion this predicate is making>.
+            * <predicate2_name>(<obj3>, <obj4>, ...): <The assertion this predicate is making>.
             * ...  
         * delete effect (state_<y>):
-            * <predicate2_name>(<obj5>, <obj6>, ...): <The assertion this predicate is making>.
+            * <predicate3_name>(<obj5>, <obj6>, ...): <The assertion this predicate is making>.
             * ...  
     * Action: ...
     ```
     * Replace `<obj1>`, `<obj2>`, etc., with actual object names in the state.
 
-3. Do not response with anything besides the two sections outlined above. Do not use bold or italic fonts.
+3. In your response, please following the following guidelines:
+    * Respond only with the two sections outlined above.
+    * Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1>, and <obj1> with actual names and types from the state dictionary provided. Do not use arguments with a float type.
+    * Do not use bold or italic fonts in your response.
