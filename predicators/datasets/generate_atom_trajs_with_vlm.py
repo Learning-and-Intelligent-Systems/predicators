@@ -134,6 +134,7 @@ def _generate_prompt_for_scene_labelling(
             curr_prompt_imgs = [
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
+            curr_prompt_imgs = [traj.cropped_imgs[i-1][1], traj.cropped_imgs[i-1][0]]
             curr_prompt += "\n\nSkill executed between states: "
             skill_name = traj.actions[i - 1].name + str(
                 traj.actions[i - 1].objects)
@@ -961,16 +962,53 @@ def create_ground_atom_data_from_generated_demos(
         # We assume that the state's simulator_state attribute is a dictionary,
         # and that the images for each state are accessed by the key "images".
         state_imgs: List[List[PIL.Image.Image]] = []
-        for state in curr_traj_states_for_vlm:
+        cropped_state_imgs: List[List[PIL.Image.Image]] = []
+        for i, state in enumerate(curr_traj_states_for_vlm):
             assert state.simulator_state is not None
             assert "images" in state.simulator_state
+            # For the non-initial states, get a cropped image that is a
+            # close-up of the relevant objects in the action that was taken.
+            # Assume the relevant objects are in the action's arguments.
+            prev_state = curr_traj_states_for_vlm[i-1]
+            relevant_states_for_crop = [state, prev_state]
+            if i != 0:
+                # Figure out which cells to include in the crop.
+                action = curr_traj_actions_for_vlm[i-1].get_option()
+                min_col = env.num_cols
+                max_col = 0
+                min_row = env.num_rows
+                max_row = 0
+                # Get the (x, y) position of each relevant object.
+                for o in action.objects:
+                    for s in relevant_states_for_crop:
+                        row = s.get(o, "row")
+                        col = s.get(o, "col")
+                        min_col = int(min(min_col, col))
+                        max_col = int(max(max_col, col))
+                        min_row = int(min(min_row, row))
+                        max_row = int(max(max_row, row))
+                # Count rows from the bottom rather than the top, because
+                # we actually want to index by traditional (x, y) in the numpy
+                # array.
+                temp = min_row
+                min_row = env.num_rows - 1 - max_row
+                max_row = env.num_rows - 1 - temp
+                # Assume that we can generate the intended crop from the first
+                # image in state.simulator_state["images"]
+                full_curr_img = state.simulator_state["images"][0]
+                full_prev_img = prev_state.simulator_state["images"][0]
+                approx_cell_size = full_curr_img.shape[0] // env.num_rows
+                cropped_curr_img = full_curr_img[min_row * approx_cell_size: (max_row + 1) * approx_cell_size, min_col * approx_cell_size: (max_col + 1) * approx_cell_size, :]
+                cropped_prev_img = full_prev_img[min_row * approx_cell_size: (max_row + 1) * approx_cell_size, min_col * approx_cell_size: (max_col + 1) * approx_cell_size, :]
+                cropped_imgs = [PIL.Image.fromarray(img_arr) for img_arr in [cropped_curr_img, cropped_prev_img]]
+                cropped_state_imgs.append(cropped_imgs)
             state_imgs.append([
                 PIL.Image.fromarray(img_arr)  # type: ignore
                 for img_arr in state.simulator_state["images"]
             ])
         img_option_trajs.append(
             ImageOptionTrajectory(
-                set(traj.states[0]), state_imgs,
+                set(traj.states[0]), state_imgs, cropped_state_imgs,
                 [act.get_option() for act in curr_traj_actions_for_vlm],
                 curr_traj_states_for_vlm, True, traj.train_task_idx))
         option_segmented_trajs.append(

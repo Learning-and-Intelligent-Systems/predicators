@@ -610,8 +610,8 @@ class BurgerEnv(BaseEnv):
         # The DPI has to be sufficiently high otherwise when the matplotlib
         # figure gets converted to a PIL image, text in the image can become
         # blurry.
-        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=200)
-        plt.suptitle(caption, wrap=True)
+        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=216)
+        # plt.suptitle(caption, wrap=True)
         fontsize = 14
 
         # Plot vertical lines
@@ -627,7 +627,7 @@ class BurgerEnv(BaseEnv):
         robot_direction = self.enum_to_dir[state.get(self._robot, "dir")]
         robot_img = mpimg.imread(
             utils.get_env_asset_path(f"imgs/robot_{robot_direction}.png"))
-        img_size = (0.8, 0.8)
+        img_size = (0.7, 0.7)
         ax.imshow(robot_img,
                   extent=[
                       x + (1 - img_size[0]) / 2, x + (1 + img_size[0]) / 2,
@@ -821,7 +821,7 @@ class BurgerEnv(BaseEnv):
         fig = self.render_state_plt(state, task, action, caption)
         # Create an in-memory binary stream.
         buf = io.BytesIO()
-        fig.savefig(buf, format='png')
+        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         # Rewind the stream to the beginning so that it can be read from.
         buf.seek(0)
         img = Image.open(buf)
@@ -841,6 +841,10 @@ class BurgerEnv(BaseEnv):
         # closing the buffers.
         ret_img = copy.deepcopy(jpeg_img)
         ret_arr = np.array(ret_img)
+
+        # import PIL.Image
+        # temp = PIL.Image.fromarray(ret_arr)
+        # import pdb; pdb.set_trace()
 
         buf.close()
         jpeg_buf.close()
