@@ -1191,6 +1191,7 @@ class ImageOptionTrajectory:
     """
     _objects: Collection[Object]
     _state_imgs: List[List[PIL.Image.Image]]
+    _cropped_state_imgs: List[List[PIL.Image.Image]]
     _actions: List[_Option]
     _states: Optional[List[State]] = field(default=None)
     _is_demo: bool = field(default=False)
@@ -1207,6 +1208,11 @@ class ImageOptionTrajectory:
     def imgs(self) -> List[List[PIL.Image.Image]]:
         """State images in the trajectory."""
         return self._state_imgs
+
+    @property
+    def cropped_imgs(self) -> List[List[PIL.Image.Image]]:
+        """Cropped versions of state images in the trajectory."""
+        return self._cropped_state_imgs
 
     @property
     def objects(self) -> Collection[Object]:
