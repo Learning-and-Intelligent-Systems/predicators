@@ -1785,7 +1785,7 @@ class RawState(PyBulletState):
             if CFG.nsp_pred_include_prev_image_in_prompt:
                 msg += " The state before executing the action is depicted"\
                     " by the image labeled with 'prev. state'."
-                msg += " Please carefully exanmine the images depicting the "\
+                msg += " Please carefully examine the images depicting the "\
                     "'prev. state' and 'curr. state' before making a judgment."
                 msg += "\n"
         msg += " The assertions to evaluate are:"

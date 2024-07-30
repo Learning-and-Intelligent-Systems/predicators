@@ -57,7 +57,7 @@ FLAGS:
   # Predicate refinement parameters
   grammar_search_score_function: "expected_nodes_created"
   # strips_learner: "cluster_intersect_and_search"
-  grammar_search_search_algorithm: "gbfs" #"hill_climbing"
+  grammar_search_search_algorithm: "gbfs" # "hill_climbing"
   grammar_search_predicate_cost_upper_bound: 10
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
@@ -72,7 +72,7 @@ FLAGS:
   reset_optn_state_dict_at_every_ite: False
   neu_sym_predicate: True # Needed for NSP
   vlm_predicator_render_option_state: True # Needed for NSP
-  llm_predicator_use_grammar: False # always true?
+  llm_predicator_use_grammar: True # always true?
   vlm_predicator_oracle_base_grammar: False
   llm_predicator_oracle_learned: False            # relaxation 1
   nsp_pred_include_prev_state_in_prompt: True
@@ -94,6 +94,6 @@ FLAGS:
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   vlm_invent_include_option_history: False
-START_SEED: 4
+START_SEED: 9
 NUM_SEEDS: 1
 ...

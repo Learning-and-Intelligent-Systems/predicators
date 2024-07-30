@@ -324,6 +324,11 @@ class Predicate:
     parameterized_assertion: Optional[Callable[[List[str]], str]] = field(
         default=None)
 
+    def __post_init__(self):
+        # Assert that each element in types is of the type Type
+        if not all(isinstance(t, Type) for t in self.types):
+            raise TypeError("All elements in 'types' must be of type 'Type'")
+
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms."""
         if self.arity == 0:

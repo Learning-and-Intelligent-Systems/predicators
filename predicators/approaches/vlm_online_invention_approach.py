@@ -1566,11 +1566,11 @@ class VlmInventionApproach(NSRTLearningApproach):
             #     candidates.add(self.env.ns_to_sym_predicates[
             #             pred_name.strip("_")])
             # else:
-            exec(code_str, context)
 
             # Try to check if it's roughly runable. And only add it to
             # our list if it is.
             try:
+                exec(code_str, context)
                 utils.abstract(tasks[0].init, [context[pred_name]])
             except Exception as e:
                 error_trace = traceback.format_exc()

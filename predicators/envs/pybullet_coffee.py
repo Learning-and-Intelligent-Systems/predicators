@@ -64,9 +64,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
     button_z: ClassVar[float] = z_lb + machine_z_len - button_radius
     button_press_threshold: ClassVar[float] = 1e-3
-    # machine_color: ClassVar[Tuple[float, float, float,
-    #                                 float]] = (0.1, 0.1, 0.1, 1)
-    machine_color: ClassVar[Tuple[float, float, float, float]] = (0.75, 0.75, 0.75, 1.0)
+    machine_color: ClassVar[Tuple[float, float, float, float]] =\
+        (0.1, 0.1, 0.1, 1) # Black
+        # (0.75, 0.75, 0.75, 1.0) # Grey
     button_color_on: ClassVar[Tuple[float, float, float,
                                     float]] = (0.2, 0.5, 0.2, 1.0)
     plate_color_on: ClassVar[Tuple[float, float, float,
@@ -77,9 +77,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     plate_color_off: ClassVar[Tuple[float, float, float,
                                     float]] = machine_color
                                     # float]] = (0.6, 0.6, 0.6, 0.5)
-    # jug_color: ClassVar[Tuple[float, float, float, float]] = (0.5,1,0,0.5)
-    jug_color: ClassVar[Tuple[float, float, float, float]] = (1.0, 1.0, 1.0, 1.0)
-    # jug_color: ClassVar[Tuple[float, float, float, float]] = (1, 1, 0.5, 0.5)    # Jug settings.
+    jug_color: ClassVar[Tuple[float, float, float, float]] =\
+        (0.5,1,0,0.5) # Green
+        # (1.0, 1.0, 1.0, 1.0) # White
+    # jug_color: ClassVar[Tuple[float, float, float, float]] = (1.0, 1.0, 1.0, 1.0)
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb) # kettle urdf
     # jug_height: ClassVar[float] = 0.2 * (z_ub - z_lb) # cup urdf
@@ -405,7 +406,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                           cls.table_pose,
                                           cls.table_orientation,
                                           physicsClientId=physics_client_id)
-        p.changeVisualShape(table_id, -1, rgbaColor=[0.1, 0.1, 0.1, 1], physicsClientId=physics_client_id)
+        # Uncomment to make the grey table black.
+        # p.changeVisualShape(table_id, -1, rgbaColor=[0.1, 0.1, 0.1, 1], 
+        #                     physicsClientId=physics_client_id)
         bodies["table_id"] = table_id
 
         ## Load coffee machine.
