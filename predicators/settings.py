@@ -479,6 +479,7 @@ class GlobalSettings:
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
     enable_harmless_op_pruning = False  # some methods may want this to be True
+    precondition_soft_intersection_threshold_percent = 0.8  # between 0 and 1
     backchaining_check_intermediate_harmlessness = False
     pnad_search_without_del = False
     pnad_search_timeout = 10.0
@@ -497,6 +498,7 @@ class GlobalSettings:
     # associated with their PNAD in order to not be pruned during operator
     # learning.
     cluster_and_intersect_min_datastore_fraction = 0.0
+    cluster_and_intersect_soft_intersection_for_preconditions = False
 
     # torch GPU usage setting
     use_torch_gpu = False
