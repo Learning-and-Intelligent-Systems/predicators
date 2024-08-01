@@ -8,7 +8,7 @@ from predicators.envs.satellites_markov import SatellitesMarkovEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
-from predicators.utils import null_sampler, Circle
+from predicators.utils import Circle, null_sampler
 
 
 class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -16,7 +16,10 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"satellites-markov", "satellites-markov_simple", "satellites-markov_medium"}
+        return {
+            "satellites-markov", "satellites-markov_simple",
+            "satellites-markov_medium"
+        }
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],
@@ -75,11 +78,9 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
             del goal  # unused
-            sat, obj = objs
+            _, obj = objs
             obj_x = state.get(obj, "x")
             obj_y = state.get(obj, "y")
-            sat_x = state.get(sat, "x")
-            sat_y = state.get(sat, "y")
             # dist
             min_dist = SatellitesMarkovEnv.radius * 3
             max_dist = SatellitesMarkovEnv.fov_dist - SatellitesMarkovEnv.radius
@@ -116,7 +117,8 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
             del goal  # unused
-            # Needs to fly to a random collision-free 
+            _, _ = objs
+            # Needs to fly to a random collision-free
             # location, away from any object
             dummy_env = SatellitesMarkovEnv()
             radius = max(dummy_env.radius + dummy_env.init_padding, \
@@ -140,9 +142,9 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     break
             return np.array([x, y], dtype=np.float32)
 
-        moveaway_nsrt = NSRT("MoveAway", parameters, preconditions, add_effects,
-                           delete_effects, ignore_effects, option, option_vars,
-                           moveaway_sampler)
+        moveaway_nsrt = NSRT("MoveAway", parameters, preconditions,
+                             add_effects, delete_effects, ignore_effects,
+                             option, option_vars, moveaway_sampler)
         nsrts.add(moveaway_nsrt)
 
         # Calibrate
@@ -277,4 +279,3 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(take_geiger_reading_nsrt)
 
         return nsrts
-

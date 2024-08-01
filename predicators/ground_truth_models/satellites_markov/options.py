@@ -16,7 +16,10 @@ class SatellitesMarkovGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"satellites-markov", "satellites-markov_simple", "satellites-markov_medium"}
+        return {
+            "satellites-markov", "satellites-markov_simple",
+            "satellites-markov_medium"
+        }
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
@@ -31,7 +34,7 @@ class SatellitesMarkovGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[sat_type, obj_type],
             params_space=Box(0, 1, (2, )),  # target absolute x/y
             policy=cls._create_move_to_policy())
-        
+
         MoveAway = utils.SingletonParameterizedOption(
             "MoveAway",
             types=[sat_type, obj_type],
@@ -62,14 +65,14 @@ class SatellitesMarkovGroundTruthOptionFactory(GroundTruthOptionFactory):
             "UseInfraRed",
             types=[sat_type, obj_type],
             policy=cls._create_use_instrument_policy())
-        
+
         UseGeiger = utils.SingletonParameterizedOption(
             "UseGeiger",
             types=[sat_type, obj_type],
             policy=cls._create_use_instrument_policy())
-        
-        return {MoveTo, MoveAway, Calibrate, ShootChemX, ShootChemY, UseCamera, \
-                UseInfraRed, UseGeiger}
+
+        return {MoveTo, MoveAway, Calibrate, ShootChemX, ShootChemY, \
+                UseCamera, UseInfraRed, UseGeiger}
 
     @classmethod
     def _create_move_away_policy(cls) -> ParameterizedPolicy:
@@ -91,7 +94,7 @@ class SatellitesMarkovGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(arr)
 
         return policy
-    
+
     @classmethod
     def _create_move_to_policy(cls) -> ParameterizedPolicy:
 

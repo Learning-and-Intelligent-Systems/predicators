@@ -1,13 +1,13 @@
 """A 2D continuous satellites domain loosely inspired by the IPC domain of the
 same name.
 
-This is a Markov version of Satellites Domain. Here:
-(1) Current low-level states are enough for making current decison, as the 
-satellites have to first MoveAway(). Before it can MoveTo(). 
-In this way "Sees" predicate won't be "remebered".
-(2) The objects are initially placed in a way that one satellite can't see
-two objects at the same time. This is to make sure that high-level plan/states
-are strictly a deterministic function of low-level states.
+This is a Markov version of Satellites Domain. Here: (1) Current low-
+level states are enough for making current decison, as the satellites
+have to first MoveAway(). Before it can MoveTo(). In this way "Sees"
+predicate won't be "remebered". (2) The objects are initially placed in
+a way that one satellite can't see two objects at the same time. This is
+to make sure that high-level plan/states are strictly a deterministic
+function of low-level states.
 """
 
 from typing import ClassVar, List, Optional, Sequence, Set
@@ -30,7 +30,8 @@ class SatellitesMarkovEnv(SatellitesEnv):
     radius: ClassVar[float] = 0.02
     init_padding: ClassVar[float] = 0.02
     fov_angle: ClassVar[float] = np.pi / 4
-    fov_dist: ClassVar[float] = 0.16 # this is the hypotenuse of isosceles triangle
+    fov_dist: ClassVar[
+        float] = 0.16  # this is the hypotenuse of isosceles triangle
     id_tol: ClassVar[float] = 1e-3
     location_tol: ClassVar[float] = 1e-3
 
@@ -49,7 +50,7 @@ class SatellitesMarkovEnv(SatellitesEnv):
         # Note: target_sat_x and target_sat_y are only used if we're not
         # doing calibration, shooting Chemical X or Y, or using an instrument.
         cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y, \
-            calibrate, shoot_chem_x, shoot_chem_y, use_instrument = action.arr
+        calibrate, shoot_chem_x, shoot_chem_y, use_instrument = action.arr
         next_state = state.copy()
         sat = self._xy_to_entity(state, cur_sat_x, cur_sat_y)
         obj = self._xy_to_entity(state, obj_x, obj_y)
@@ -175,9 +176,9 @@ class SatellitesMarkovEnv(SatellitesEnv):
         figsize = (8, 8)  # Increase the figure size for better visibility
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         plt.suptitle(caption, wrap=True)
-        
+
         legend_info = []  # Collect legend information here
-        
+
         # Draw the satellites and FOV triangles.
         for idx, sat in enumerate(state.get_objects(self._sat_type)):
             if state.get(sat, "read_obj_id") != -1:
@@ -186,19 +187,26 @@ class SatellitesMarkovEnv(SatellitesEnv):
                 color = "blue"
             else:
                 color = "red"
-            
+
             x = state.get(sat, "x")
             y = state.get(sat, "y")
             circ = utils.Circle(x, y, self.radius)
-            circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75, 
+            circ.plot(ax,
+                      facecolor=color,
+                      edgecolor="black",
+                      alpha=0.75,
                       linewidth=0.1)
             tri = self._get_fov_geom(state, sat)
             tri.plot(ax, color="purple", alpha=0.25, linewidth=0)
-            
+
             # Add satellite ID as text
             sat_id = int(idx)
-            ax.text(x + self.radius, y + self.radius, sat_id, fontsize=8, 
-                    color="black", verticalalignment='top')
+            ax.text(x + self.radius,
+                    y + self.radius,
+                    sat_id,
+                    fontsize=8,
+                    color="black",
+                    verticalalignment='top')
 
             # Collect instrument and capability information for legend
             calibration_obj_id = int(state.get(sat, "calibration_obj_id"))
@@ -210,13 +218,13 @@ class SatellitesMarkovEnv(SatellitesEnv):
                                 else ""
             shoots_chem_y = "ChemY" if state.get(sat, "shoots_chem_y") > 0.5 \
                                 else ""
-            
+
             capabilities = ", ".join(filter(None, [has_camera, has_infrared, \
                                                    has_geiger, shoots_chem_x, \
                                                     shoots_chem_y]))
             legend_info.append(f"Sat {sat_id}: Cali={calibration_obj_id}, \
                                {capabilities}")
-        
+
         # Draw the objects.
         for obj in state.get_objects(self._obj_type):
             x = state.get(obj, "x")
@@ -235,69 +243,90 @@ class SatellitesMarkovEnv(SatellitesEnv):
                 legend_info.append(f"Object {int(state.get(obj, 'id'))}: HasY")
             else:
                 circ.plot(ax, color="black", hatch="")
-            
+
             # Add object ID as text
             obj_id = int(state.get(obj, "id"))
-            ax.text(x + self.radius, y + self.radius, obj_id, fontsize=8, color="black", \
-                    verticalalignment='top')
+            ax.text(x + self.radius, y + self.radius, obj_id, \
+                    fontsize=8, color="black", verticalalignment='top')
 
             # legend_info.append(f"Object {obj_id}")
 
         if task is not None:
             # Draw the goal objects.
             for goal in list(task.goal):
-                goal_ori = goal._str
+                goal_ori = goal.get_str()
                 goal_shortened = self.shorten_goal(goal_ori)
                 legend_info.append(goal_shortened)
-        
+
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(-0.1, 1.1)
-        
+
         # Adding x and y axis labels and grid for better visibility
         ax.set_xlabel('X Coordinate')
         ax.set_ylabel('Y Coordinate')
         ax.grid(True)
-        
+
         # Adding legend
         legend_elements = [
-            plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='black', \
+            plt.Line2D([0], [0], marker='o', color='w', \
+                       markerfacecolor='black', \
                        markersize=5, label='Objs'),
-            plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='red', \
+            plt.Line2D([0], [0], marker='o', color='w', \
+                       markerfacecolor='red', \
                        markersize=5, label='Sats-unC-unR'),
-            plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', \
+            plt.Line2D([0], [0], marker='o', color='w', \
+                       markerfacecolor='blue', \
                        markersize=5, label='Sats-C-unR'),
-            plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='green', \
+            plt.Line2D([0], [0], marker='o', color='w', \
+                       markerfacecolor='green', \
                        markersize=5, label='Sats-C-R')
         ]
-        ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(0, 1.1), \
-                  fontsize=8)
-        
+        ax.legend(handles=legend_elements, loc='center left', \
+                  bbox_to_anchor=(0, 1.1), fontsize=8)
+
         # Adding legend information text
         legend_text = "\n".join(legend_info)
-        plt.figtext(0.25, 0.7, legend_text, horizontalalignment='left', fontsize=8, wrap=True)
-        
-        plt.tight_layout(rect=[0, 0, 0.7, 0.8])  # Adjust layout to make room for legend text
+        plt.figtext(0.25,
+                    0.7,
+                    legend_text,
+                    horizontalalignment='left',
+                    fontsize=8,
+                    wrap=True)
+
+        plt.tight_layout(rect=[0, 0, 0.7, 0.8
+                               ])  # Adjust layout to make room for legend text
         plt.close()
-        
+
         if save_path:
             fig.savefig(save_path, format='png', dpi=600)
-        
+
         return fig
 
     def shorten_goal(self, goal: str) -> str:
+        """Shorten a given goal string by replacing specific substrings with
+        shorter versions and removing certain patterns.
+
+        Args:
+            goal (str): The goal string to be shortened.
+
+        Returns:
+            str: The shortened goal string.
+        """
         goal_shortened = goal.replace("CameraReadingTaken", "Cam")
-        goal_shortened = goal_shortened.replace("InfraredReadingTaken", "Infr")
+        goal_shortened = goal_shortened.replace("InfraredReadingTaken", \
+                                                "Infr")
         goal_shortened = goal_shortened.replace("GeigerReadingTaken", "Geig")
         goal_shortened = goal_shortened.replace(":satellite", "")
         goal_shortened = goal_shortened.replace(":object", "")
         return goal_shortened
-    
+
     def _get_tasks(self, num: int, num_sat_lst: List[int],
                    num_obj_lst: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # note: fov dist is hypotenuse of isosceles triangle, not height
-        radius = max(self.radius + self.init_padding, self.fov_dist + self.init_padding)
+        radius = max(self.radius + self.init_padding,
+                     self.fov_dist + self.init_padding)
         for _ in range(num):
             state_dict = {}
             num_sat = num_sat_lst[rng.choice(len(num_sat_lst))]
@@ -337,7 +366,8 @@ class SatellitesMarkovEnv(SatellitesEnv):
                         "instrument": instrument,
                         "calibration_obj_id": calibration_obj_id,
                         "is_calibrated": 0.0,
-                        "read_obj_id": -1.0,  # dummy, different from all obj IDs
+                        "read_obj_id":
+                        -1.0,  # dummy, different from all obj IDs
                         "shoots_chem_x": shoots_chem_x,
                         "shoots_chem_y": shoots_chem_y,
                         "view_clear": 1.0
@@ -350,7 +380,8 @@ class SatellitesMarkovEnv(SatellitesEnv):
                         "instrument": instrument,
                         "calibration_obj_id": calibration_obj_id,
                         "is_calibrated": 0.0,
-                        "read_obj_id": -1.0,  # dummy, different from all obj IDs
+                        "read_obj_id":
+                        -1.0,  # dummy, different from all obj IDs
                         "shoots_chem_x": shoots_chem_x,
                         "shoots_chem_y": shoots_chem_y
                     }
@@ -371,7 +402,8 @@ class SatellitesMarkovEnv(SatellitesEnv):
                 while True:
                     x = rng.uniform()
                     y = rng.uniform()
-                    # objects must be far enough from satellites and other objects
+                    # objects must be far enough from satellites
+                    # and other objects
                     geom = utils.Circle(x, y, radius)
                     # Keep only if no intersections with existing objects.
                     if not any(geom.intersects(g) for g in collision_geoms):
@@ -425,10 +457,10 @@ class SatellitesMarkovEnv(SatellitesEnv):
             # Check if the entity is between the satellite and the object
             dot_product = (ent_x - sat_x) * (obj_x - sat_x) + (ent_y - sat_y) \
                 * (obj_y - sat_y)
-            if dot_product < 0: # before start
+            if dot_product < 0:  # before start
                 continue
 
-            if dot_product > dist_denom**2: # after end
+            if dot_product > dist_denom**2:  # after end
                 continue
 
             # Compute perpendicular distance from entity to line
@@ -437,8 +469,9 @@ class SatellitesMarkovEnv(SatellitesEnv):
             if dist < self.radius * 2:
                 return False
         return True
-    
-    def _ViewClear_holds(self, state: State, objects: Sequence[Object]) -> bool:
+
+    def _ViewClear_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         sat, = objects
         all_objects = list(state.get_objects(self._obj_type))
         view_clear = True
@@ -452,10 +485,11 @@ class SatellitesMarkovEnv(SatellitesEnv):
 
 class SatellitesSimpleEnv(SatellitesMarkovEnv):
     """A simple version of the SatellitesEnv that only has 1 object.
-       The satellites also have a feature indicating whether its view is clear.
-       "Sees" does not consider occlusion.
-       This allows us to learn all the predicates with the assumption that the 
-       predicates are a function of only their argument's states.
+
+    The satellites also have a feature indicating whether its view is
+    clear. "Sees" does not consider occlusion. This allows us to learn
+    all the predicates with the assumption that the predicates are a
+    function of only their argument's states.
     """
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -521,7 +555,7 @@ class SatellitesSimpleEnv(SatellitesMarkovEnv):
                                num_sat_lst=CFG.satellites_num_sat_test,
                                num_obj_lst=[1],
                                rng=self._test_rng)
-    
+
     def _Sees_holds(self, state: State, objects: Sequence[Object]) -> bool:
         sat, obj = objects
         triangle = self._get_fov_geom(state, sat)
@@ -532,18 +566,18 @@ class SatellitesSimpleEnv(SatellitesMarkovEnv):
         if not triangle.contains_point(obj_x, obj_y):
             return False
         return True
-    
-    def _ViewClear_holds(self, state: State, objects: Sequence[Object]) -> bool:
+
+    def _ViewClear_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         sat, = objects
         return state.get(sat, "view_clear") == 1
 
+
 class SatellitesMediumEnv(SatellitesMarkovEnv):
     """A medium version of the SatellitesEnv that only ever has 1 object.
-       "Sees" does not consider occlusion.
-    """
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
+    "Sees" does not consider occlusion.
+    """
 
     @classmethod
     def get_name(cls) -> str:
@@ -560,7 +594,7 @@ class SatellitesMediumEnv(SatellitesMarkovEnv):
                                num_sat_lst=CFG.satellites_num_sat_test,
                                num_obj_lst=[1],
                                rng=self._test_rng)
-    
+
     def _Sees_holds(self, state: State, objects: Sequence[Object]) -> bool:
         sat, obj = objects
         triangle = self._get_fov_geom(state, sat)

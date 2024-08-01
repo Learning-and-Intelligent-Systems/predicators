@@ -427,6 +427,10 @@ class GroundAtom(_Atom):
         assert isinstance(self.predicate, VLMPredicate)
         return self.predicate.get_vlm_query_str(self.objects)  # pylint:disable=no-member
 
+    def get_str(self) -> str:
+        """Get the string representation of this GroundAtom."""
+        return self._str
+
 
 @dataclass(frozen=True, eq=False)
 class Task:

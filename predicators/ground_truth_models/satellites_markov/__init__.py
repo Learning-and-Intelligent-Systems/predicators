@@ -4,5 +4,6 @@ from .nsrts import SatellitesMarkovGroundTruthNSRTFactory
 from .options import SatellitesMarkovGroundTruthOptionFactory
 
 __all__ = [
-    "SatellitesMarkovGroundTruthNSRTFactory", "SatellitesMarkovGroundTruthOptionFactory"
+    "SatellitesMarkovGroundTruthNSRTFactory",
+    "SatellitesMarkovGroundTruthOptionFactory"
 ]
