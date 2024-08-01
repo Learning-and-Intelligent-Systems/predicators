@@ -902,18 +902,19 @@ class LinearChainParameterizedOption(ParameterizedOption):
 
     This class is meant to help ParameterizedOption manual design.
 
-    The children are executed in order starting with the first in the sequence
-    and transitioning when the terminal function of each child is hit.
+    The children are executed in order starting with the first in the
+    sequence and transitioning when the terminal function of each child
+    is hit.
 
-    The children are assumed to chain together, so the initiable of the next
-    child should always be True when the previous child terminates. If this
-    is not the case, an AssertionError is raised.
+    The children are assumed to chain together, so the initiable of the
+    next child should always be True when the previous child terminates.
+    If this is not the case, an AssertionError is raised.
 
-    The children must all have the same types and params_space, which in turn
-    become the types and params_space for this ParameterizedOption.
+    The children must all have the same types and params_space, which in
+    turn become the types and params_space for this ParameterizedOption.
 
-    The LinearChainParameterizedOption has memory, which stores the current
-    child index.
+    The LinearChainParameterizedOption has memory, which stores the
+    current child index.
     """
 
     def __init__(self, name: str,
@@ -1809,12 +1810,12 @@ def run_hill_climbing(
 ) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
-    For each node, the best child node is always selected, if that child is
-    an improvement over the node. If no children improve on the node, look
-    at the children's children, etc., up to enforced_depth, where enforced_depth
-    0 corresponds to simple hill climbing. Terminate when no improvement can
-    be found. early_termination_heuristic_thresh allows for searching until
-    heuristic reaches a specified value.
+    For each node, the best child node is always selected, if that child
+    is an improvement over the node. If no children improve on the node,
+    look at the children's children, etc., up to enforced_depth, where
+    enforced_depth 0 corresponds to simple hill climbing. Terminate when
+    no improvement can be found. early_termination_heuristic_thresh
+    allows for searching until heuristic reaches a specified value.
 
     Lower heuristic is better.
     """
@@ -1929,13 +1930,15 @@ def run_policy_guided_astar(
 
     Stop the rollout prematurely if the policy returns None.
 
-    Note that unlike the other search functions, which take get_successors as
-    input, this function takes get_valid_actions and get_next_state as two
-    separate inputs. This is necessary because we need to anticipate the next
-    state conditioned on the action output by the policy.
+    Note that unlike the other search functions, which take
+    get_successors as input, this function takes get_valid_actions and
+    get_next_state as two separate inputs. This is necessary because we
+    need to anticipate the next state conditioned on the action output
+    by the policy.
 
-    The get_valid_actions generates (action, cost) tuples. For policy-generated
-    transitions, the costs are ignored, and rollout_step_cost is used instead.
+    The get_valid_actions generates (action, cost) tuples. For policy-
+    generated transitions, the costs are ignored, and rollout_step_cost
+    is used instead.
     """
 
     # Create a new successor function that rolls out the policy first.
@@ -3073,10 +3076,9 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
         types_str = " ".join(t.name for t in sorted(types))
     # Case 2: type hierarchy.
     else:
-        parent_to_children_types: Dict[Type, List[Type]] = {
-            t: []
-            for t in types
-        }
+        parent_to_children_types: Dict[Type,
+                                       List[Type]] = {t: []
+                                                      for t in types}
         for t in sorted(types):
             if t.parent:
                 parent_to_children_types[t.parent].append(t)
@@ -3606,11 +3608,11 @@ def query_ldl(
 ) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
-    Given an abstract state and goal, the rules are grounded in order. The
-    first applicable ground rule is used to return a ground NSRT.
+    Given an abstract state and goal, the rules are grounded in order.
+    The first applicable ground rule is used to return a ground NSRT.
 
-    If static_predicates is provided, it is used to avoid grounding rules with
-    nonsense preconditions like IsBall(robot).
+    If static_predicates is provided, it is used to avoid grounding
+    rules with nonsense preconditions like IsBall(robot).
 
     If no rule is applicable, returns None.
     """

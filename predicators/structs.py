@@ -216,8 +216,7 @@ class State:
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
                     obj_dict[attribute] = value
-            if use_object_id: obj_name = obj.id_name
-            else: obj_name = obj.name
+            obj_name = obj.name
             state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
 
         # Create a string of n_space spaces
@@ -501,11 +500,12 @@ DefaultTask = Task(DefaultState, set())
 class EnvironmentTask:
     """An initial observation and goal description.
 
-    Environments produce environment tasks and agents produce and solve tasks.
+    Environments produce environment tasks and agents produce and solve
+    tasks.
 
     In fully observed settings, the init_obs will be a State and the
-    goal_description will be a Set[GroundAtom]. For convenience, we can convert
-    an EnvironmentTask into a Task in those cases.
+    goal_description will be a Set[GroundAtom]. For convenience, we can
+    convert an EnvironmentTask into a Task in those cases.
     """
     init_obs: Observation
     goal_description: GoalDescription
@@ -817,8 +817,7 @@ class STRIPSOperator:
         remaining_params = {
             p
             for atom in self.preconditions | new_add_effects
-            | new_delete_effects
-            for p in atom.variables
+            | new_delete_effects for p in atom.variables
         } | set(option_vars)
         new_params = [p for p in self.parameters if p in remaining_params]
         return STRIPSOperator(self.name, new_params, self.preconditions,

@@ -1,0 +1,255 @@
+You are a robotic vision system whose job is to output a structured set of predicates useful for describing important concepts in the following demonstration of a task. You will be provided with a list of actions used during the task, as well as images of states before and after every action execution. 
+Generating predicates that change before and after each action. After this, generate any other predicates that perhaps do not change but are still important to describing the demonstration shown. For each predicate you generate, also generate some predicates that are synonyms and antonyms so that any predicate that is even tangentially relevant to the demonstrations is generated.
+
+I will describe the API you should use for writing predicates and the environment the robot is in.
+# API for Defining Predicates
+Class definitions for `Predicate` and `State` are:
+```python
+class State:
+    """A class representing the low-level state of the world.
+
+    Attributes:
+    -----------
+    data : Dict[Object, Array]
+        A dictionary mapping objects to their feature vectors. The feature vectors are numpy arrays.
+
+    simulator_state : Optional[Any]
+        Some environments may need to store additional simulator state. This field is provided for that purpose. It is optional and defaults to None.
+
+    Methods:
+    --------
+    get(self, obj: Object, feature_name: str) -> Any:
+        This method looks up an object feature by name. It returns the value of
+        the feature.
+
+    get_objects(self, object_type: Type) -> List[Object]:
+        This method returns objects of the given type in the order of
+        __iter__().
+    """
+    data: Dict[Object, Array]
+    # Some environments will need to store additional simulator state, so
+    # this field is provided.
+    simulator_state: Optional[Any] = None
+
+    def get(self, obj: Object, feature_name: str) -> Any:
+        """Look up an object feature by name.
+
+        Parameters:
+        -----------
+        obj : Object
+            The object whose feature value is to be retrieved.
+        feature_name : str
+            The name of the feature to be retrieved.
+
+        Returns:
+        --------
+        Any
+            The value of the specified feature for the given object.
+
+        Raises:
+        -------
+        ValueError
+            If the specified feature name is not found in the object's type feature names.
+        
+        Examples:
+        ---------
+        >>> # An example for predicate Covers
+        >>> _block_type = Type("block", ["is_block", "is_target", "width", 
+                "pose", "grasp"])
+        >>> _target_type = Type("target", ["is_block", "is_target", "width", 
+                "pose"])
+        >>> block1 = Object("block1", _block_type)
+        >>> target1 = Object("target1", _target_type)
+        >>> state = State({
+                block1: np.array([1.0, 0.0, 0.1, 0.2, -1.0]), 
+                target1: np.array([0.0, 1.0, 0.05, 0.4])})
+        >>> def _Covers_holds(state: State, objects: Sequence[Object]) -> 
+                    bool:
+        >>>     block, target = objects
+        >>>     block_pose = state.get(block, "pose")
+        >>>     block_width = state.get(block, "width")
+        >>>     target_pose = state.get(target, "pose")
+        >>>     target_width = state.get(target, "width")
+        >>>     return (block_pose-block_width/2 <= \
+                        target_pose-target_width/2) and \
+                        (block_pose+block_width/2 >= \
+                        target_pose+target_width/2) and \
+                        state.get(block, "grasp") == -1
+        >>> _Covers = Predicate("Covers", [_block_type, _target_type],
+                        _Covers_holds)
+
+        >>> # Another example for predicate On
+        >>> _block_type = Type("block", ["pose_x", "pose_y", "pose_z", 
+                            "held", "color_r", "color_g", "color_b"])
+        >>> block1 = Object("block1", _block_type)
+        >>> block2 = Object("block2", _block_type)
+        >>> state = State({
+                block1: np.array([1.0, 3.0, 0.2, 0.0, 1.0, 0.0, 0.0]),
+                block2: np.array([2.0, 3.0, 0.3, 0.0, 0.0, 1.0, 0.0])})
+        >>> on_tol = 0.01
+        >>> def _On_holds(self, state: State, objects: Sequence[Object]) ->\ 
+                bool:
+        >>>     block1, block2 = objects
+        >>>     if state.get(block1, "held") >= self.held_tol or \
+        >>>        state.get(block2, "held") >= self.held_tol:
+        >>>         return False
+        >>>     x1 = state.get(block1, "pose_x")
+        >>>     y1 = state.get(block1, "pose_y")
+        >>>     z1 = state.get(block1, "pose_z")
+        >>>     x2 = state.get(block2, "pose_x")
+        >>>     y2 = state.get(block2, "pose_y")
+        >>>     z2 = state.get(block2, "pose_z")
+        >>>     return np.allclose([x1, y1, z1], 
+                        [x2, y2, z2 + self._block_size],
+                        atol=on_tol)
+        >>> _On = Predicate("On", [_block_type, _block_type],
+                            _On_holds)
+        """
+
+    def get_objects(self, object_type: Type) -> List[Object]:
+        """Return objects of the given type in the order of __iter__().
+
+        Parameters:
+        -----------
+        object_type : Type
+            The type of the objects to be retrieved.
+
+        Returns:
+        --------
+        List[Object]
+            A list of objects of the specified type, in the order they are 
+            iterated over in the state.
+
+        Examples:
+        ---------
+        >>> _robot_type = Type("robot",
+                                ["x", "y", "z", "tilt", "wrist", "fingers"])
+        >>> _cup_type = Type("cup",
+            ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"])
+        >>> robot = Object("robby", _robot_type)
+        >>> cup1 = Object("cup1", _cup_type)
+        >>> cup2 = Object("cup2", _cup_type)
+        >>> state = State({
+                        robot: np.array([5.0, 5.0, 10.0, 0.0, 0.0, 0.4]),
+                        cup1: np.array([3.0, 2.0, 1.0, 0.75, 0.0]),
+                        cup2: np.array([5.0, 6.0, 1.5, 1.125, 0.0])})
+        >>> def _NotAboveCup_holds(state: State,
+        >>>                        objects: Sequence[Object]) -> bool:
+        >>>     robot, jug = objects
+        >>>     for cup in state.get_objects(_cup_type):
+        >>>         if _robot_jug_above_cup(state, cup):
+        >>>             return False
+        >>>     return True
+        >>> _NotAboveCup = Predicate("NotAboveCup", [_robot_type, _jug_type],
+                                    _NotAboveCup_holds)
+        """
+
+class Predicate:
+    """A class representing a predicate (a lifted classifier over states) in
+    the context of AI task planning. The function takes a state and a sequence
+    of objects as input, and returns a boolean value indicating whether the
+    property holds for those objects in that state.
+
+    Attributes:
+    -----------
+    name : str
+        The name of the predicate.
+
+    types : Sequence[Type]
+        The types of the objects that the predicate applies to. This sequence
+        should have the same length as the sequence of objects passed to the
+        classifier.
+
+    _classifier : Callable[[State, Sequence[Object]], bool]
+        The classifier function for the predicate. This function takes a state
+        and a sequence of objects as input, and returns a boolean value. The
+        objects in the sequence should correspond one-to-one with the types in
+        the 'types' attribute. The classifier should return True if the
+        predicate holds for those objects in that state, and False otherwise.
+    """
+    name: str
+    types: Sequence[Type]
+    _classifier: Callable[[State, Sequence[Object]], bool]
+
+```
+
+# The Environment
+The environment includes the following object-type variables:
+```python
+object_type = Type("object", ["x", "y", "z"])
+gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"],
+                    parent=object_type)
+on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
+hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
+                       parent=on_off_type)
+knob_type = Type("knob", ["x", "y", "z", "angle"], parent=on_off_type)
+switch_type = Type("switch", ["x", "y", "z", "angle"], parent=on_off_type)
+surface_type = Type("surface", ["x", "y", "z"], parent=object_type)
+kettle_type = Type("kettle", ["x", "y", "z"], parent=object_type)
+
+```
+
+# The demo trajectory is
+state 0:
+  {'burner1:surface': {'x': 0.2, 'y': 0.3, 'z': 1.6},
+   'burner2:surface': {'x': -0.2, 'y': 0.3, 'z': 1.6},
+   'burner3:surface': {'x': 0.2, 'y': 0.8, 'z': 1.6},
+   'burner4:surface': {'x': -0.2, 'y': 0.8, 'z': 1.6},
+   'gripper:gripper': {'x': 0.0, 'y': 0.6, 'z': 2.4, 'qw': 0.0, 'qx': 0.4, 'qy': 0.9, 'qz': -0.0},
+   'hinge1:hinge_door': {'x': -0.7, 'y': 0.6, 'z': 2.6, 'angle': 0.0},
+   'hinge2:hinge_door': {'x': -0.5, 'y': 0.6, 'z': 2.6, 'angle': 0.0},
+   'kettle:kettle': {'x': -0.3, 'y': 0.4, 'z': 1.9},
+   'knob1:knob': {'x': -0.1, 'y': 0.6, 'z': 2.2, 'angle': 0.0},
+   'knob2:knob': {'x': -0.3, 'y': 0.6, 'z': 2.2, 'angle': 0.0},
+   'knob3:knob': {'x': -0.1, 'y': 0.6, 'z': 2.3, 'angle': 0.0},
+   'knob4:knob': {'x': -0.3, 'y': 0.6, 'z': 2.3, 'angle': 0.0},
+   'light:switch': {'x': -0.4, 'y': 0.6, 'z': 2.3, 'angle': 0.0},
+   'microhandle:hinge_door': {'x': -0.6, 'y': 0.5, 'z': 1.8, 'angle': 0.0},
+   'slide:hinge_door': {'x': -0.1, 'y': 0.6, 'z': 2.6, 'angle': 0.0}}
+action 0: MoveAndTurnOnKnob
+state 1:
+  {'burner1:surface': {'x': 0.2, 'y': 0.3, 'z': 1.6},
+   'burner2:surface': {'x': -0.2, 'y': 0.3, 'z': 1.6},
+   'burner3:surface': {'x': 0.2, 'y': 0.8, 'z': 1.6},
+   'burner4:surface': {'x': -0.2, 'y': 0.8, 'z': 1.6},
+   'gripper:gripper': {'x': -0.3, 'y': 0.5, 'z': 2.4, 'qw': 0.5, 'qx': -0.5, 'qy': -0.5, 'qz': -0.4},
+   'hinge1:hinge_door': {'x': -0.7, 'y': 0.6, 'z': 2.6, 'angle': 0.0},
+   'hinge2:hinge_door': {'x': -0.5, 'y': 0.6, 'z': 2.6, 'angle': 0.0},
+   'kettle:kettle': {'x': -0.3, 'y': 0.4, 'z': 1.9},
+   'knob1:knob': {'x': -0.1, 'y': 0.6, 'z': 2.2, 'angle': 0.0},
+   'knob2:knob': {'x': -0.3, 'y': 0.6, 'z': 2.2, 'angle': 0.0},
+   'knob3:knob': {'x': -0.1, 'y': 0.6, 'z': 2.3, 'angle': 0.0},
+   'knob4:knob': {'x': -0.3, 'y': 0.6, 'z': 2.3, 'angle': -0.4},
+   'light:switch': {'x': -0.4, 'y': 0.6, 'z': 2.3, 'angle': 0.0},
+   'microhandle:hinge_door': {'x': -0.6, 'y': 0.5, 'z': 1.8, 'angle': 0.0},
+   'slide:hinge_door': {'x': -0.1, 'y': 0.6, 'z': 2.6, 'angle': 0.0}}
+action 1: PushKettleOntoBurner
+state 2:
+  {'burner1:surface': {'x': 0.2, 'y': 0.3, 'z': 1.6},
+   'burner2:surface': {'x': -0.2, 'y': 0.3, 'z': 1.6},
+   'burner3:surface': {'x': 0.2, 'y': 0.8, 'z': 1.6},
+   'burner4:surface': {'x': -0.2, 'y': 0.8, 'z': 1.6},
+   'gripper:gripper': {'x': -0.2, 'y': 0.6, 'z': 1.9, 'qw': 0.1, 'qx': -0.7, 'qy': -0.7, 'qz': 0.0},
+   'hinge1:hinge_door': {'x': -0.7, 'y': 0.6, 'z': 2.6, 'angle': 0.0},
+   'hinge2:hinge_door': {'x': -0.5, 'y': 0.6, 'z': 2.6, 'angle': 0.0},
+   'kettle:kettle': {'x': -0.3, 'y': 0.6, 'z': 1.9},
+   'knob1:knob': {'x': -0.1, 'y': 0.6, 'z': 2.2, 'angle': 0.0},
+   'knob2:knob': {'x': -0.3, 'y': 0.6, 'z': 2.2, 'angle': -1.2},
+   'knob3:knob': {'x': -0.1, 'y': 0.6, 'z': 2.3, 'angle': 0.0},
+   'knob4:knob': {'x': -0.3, 'y': 0.6, 'z': 2.3, 'angle': -0.4},
+   'light:switch': {'x': -0.4, 'y': 0.6, 'z': 2.3, 'angle': 0.0},
+   'microhandle:hinge_door': {'x': -0.6, 'y': 0.5, 'z': 1.8, 'angle': 0.0},
+   'slide:hinge_door': {'x': -0.1, 'y': 0.6, 'z': 2.6, 'angle': 0.0}}
+
+In your response, propose predicates in paragraphs as follows. For each proposal:
+- Identify which property from above does it correspond to.
+- Define predicate in a python block as follows:
+```python
+def classifier(state: State, objects: Sequence[Object]) -> bool:
+    # Implement the boolean classifier function here
+    ...
+    
+name: str = ... # Define the predicate name here
+param_types: Sequence[Type] = ... # A list of object-type variables for the predicate, using the ones defined in the environment
+<predicate_name> = Predicate(name, param_types, <predicate_name>_holds)
+```

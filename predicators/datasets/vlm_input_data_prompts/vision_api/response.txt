@@ -1,0 +1,50 @@
+The knob's angle changes from 0.0 to -0.4 between state 0 and state 1, suggesting the predicate `IsTurnedOn`. This predicate would be true if the angle of the knob is within a certain threshold of a target angle, indicating that the knob has been turned on.
+
+```python
+def IsTurnedOn_holds(state: State, objects: Sequence[Object]) -> bool:
+    knob = objects[0]
+    threshold = 0.3
+    target_angle = -0.4
+    return abs(state.get(knob, "angle") - target_angle) < threshold
+
+name: str = "IsTurnedOn"
+param_types: Sequence[Type] = [knob_type]
+IsTurnedOn = Predicate(name, param_types, IsTurnedOn_holds)
+```
+
+Synonyms: `IsActive`, `IsEngaged`, `IsActivated`
+Antonyms: `IsTurnedOff`, `IsInactive`, `IsDisengaged`, `IsDeactivated`
+
+The kettle's y position changes from 0.4 to 0.6 between state 1 and state 2, suggesting the predicate `OnBurner`. This predicate would be true if the kettle's position is within a certain tolerance of the burner's position, indicating that the kettle is on the burner.
+
+```python
+def OnBurner_holds(state: State, objects: Sequence[Object]) -> bool:
+    kettle, burner = objects
+    tolerance = 0.1
+    return all(abs(state.get(kettle, "x") - state.get(burner, "x")) < tolerance,
+               abs(state.get(kettle, "y") - state.get(burner, "y")) < tolerance)
+
+name: str = "OnBurner"
+param_types: Sequence[Type] = [kettle_type, surface_type]
+OnBurner = Predicate(name, param_types, OnBurner_holds)
+```
+
+Synonyms: `OnTopOf`, `PlacedOn`, `LocatedOn`
+Antonyms: `OffBurner`, `NotOn`, `AwayFrom`
+
+Although not explicitly changing in the given states, the gripper's pose suggests the predicate `GripperOpen`. This predicate would check if the gripper's quaternion values correspond to an open state.
+
+```python
+def GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
+    gripper = objects[0]
+    # Assuming open state corresponds to specific quaternion values
+    open_orientation = [0.0, 0.7, 0.7, 0.0] 
+    return all(abs(state.get(gripper, "q" + i) - open_orientation[i]) < 0.1 for i in range(4))
+
+name: str = "GripperOpen"
+param_types: Sequence[Type] = [gripper_type]
+GripperOpen = Predicate(name, param_types, GripperOpen_holds)
+```
+
+Synonyms: `GripperFree`, `GripperNotGrasping`
+Antonyms: `GripperClosed`, `GripperHolding`, `GripperGrasping` 

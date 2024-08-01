@@ -313,13 +313,14 @@ def task_plan(
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
 
-    This method is tightly coupled with task_plan_grounding -- the reason they
-    are separate methods is that it is sometimes possible to ground only once
-    and then plan multiple times (e.g. from different initial states, or to
-    different goals). To run task planning once, call task_plan_grounding to
-    get ground_nsrts and reachable_atoms; then create a heuristic using
-    utils.create_task_planning_heuristic; then call this method. See the tests
-    in tests/test_planning for usage examples.
+    This method is tightly coupled with task_plan_grounding -- the
+    reason they are separate methods is that it is sometimes possible to
+    ground only once and then plan multiple times (e.g. from different
+    initial states, or to different goals). To run task planning once,
+    call task_plan_grounding to get ground_nsrts and reachable_atoms;
+    then create a heuristic using utils.create_task_planning_heuristic;
+    then call this method. See the tests in tests/test_planning for
+    usage examples.
     """
     if not goal.issubset(reachable_atoms):
         logging.info(f"Detected goal unreachable. Goal: {goal}")
@@ -356,16 +357,17 @@ def _skeleton_generator(
     sesame_max_policy_guided_rollout: int = 0,
     use_visited_state_set: bool = False
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
-    """A* search over skeletons (sequences of ground NSRTs).
-    Iterates over pairs of (skeleton, atoms sequence).
+    """A* search over skeletons (sequences of ground NSRTs). Iterates over
+    pairs of (skeleton, atoms sequence).
 
     Note that we can't use utils.run_astar() here because we want to
-    yield multiple skeletons, whereas that utility method returns only
-    a single solution. Furthermore, it's easier to track and update our
+    yield multiple skeletons, whereas that utility method returns only a
+    single solution. Furthermore, it's easier to track and update our
     metrics dictionary if we re-implement the search here. If
-    use_visited_state_set is False (which is the default), then we may revisit
-    the same abstract states multiple times, unlike in typical A*. See
-    Issue #1117 for a discussion on why this is False by default.
+    use_visited_state_set is False (which is the default), then we may
+    revisit the same abstract states multiple times, unlike in typical
+    A*. See Issue #1117 for a discussion on why this is False by
+    default.
     """
 
     start_time = time.perf_counter()
@@ -890,11 +892,11 @@ def task_plan_with_option_plan_constraint(
     """Turn an option plan into a plan of ground NSRTs that achieves the goal
     from the initial atoms.
 
-    If atoms_seq is not None, the ground NSRT plan must also match up with
-    the given sequence of atoms. Otherwise, atoms are not checked.
+    If atoms_seq is not None, the ground NSRT plan must also match up
+    with the given sequence of atoms. Otherwise, atoms are not checked.
 
-    If no goal-achieving sequence of ground NSRTs corresponds to
-    the option plan, return None.
+    If no goal-achieving sequence of ground NSRTs corresponds to the
+    option plan, return None.
     """
     dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts, _ = task_plan_grounding(init_atoms,

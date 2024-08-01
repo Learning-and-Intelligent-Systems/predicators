@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from inspect import getsource
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple, cast
+from typing import Dict, Iterator, List, Match, Optional, Sequence, Set, \
+    Tuple, cast
 
 import dill as pkl
 import numpy as np
@@ -744,23 +745,27 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
         all_task_objs: Set[Object],
         vlm: VisionLanguageModel) -> List[List[Set[GroundAtom]]]:
     """Given a collection of ImageOptionTrajectories, query a VLM to generate
-    predicates over the object features, then generate a ground atom trajectory.
-    """
-    # Create a prompt based on the image option trajectory.
+    predicates over the object features, then generate a ground atom
+    trajectory."""
+    prompt_dir = "predicators/datasets/vlm_input_data_prompts/vision_api/"
+    # 1. Create a prompt based on the image option trajectory.
     prompt, imgs = _create_prompt_from_image_option_traj(
         image_option_trajs[0], env)
 
-    # Query the VLM to propose predicates.
+    # 2. Query the VLM to propose predicates.
     response = vlm.sample_completions(prompt,
                                       imgs,
                                       0.0,
                                       CFG.seed,
                                       num_completions=1)[0]
+    response_file = prompt_dir + "response.txt"
+    with open(response_file, 'w') as f:
+        f.write(response)
+    # 3. Parse the responses into a set of predicates
+    breakpoint()
+    predicates = _parse_predicate_proposals(response_file, train_tasks, env)
 
-    # Parse the responses into a set of predicates
-    predicates = _parse_predicate_proposals(response, train_tasks, env)
-
-    # Generate the ground atom trajectories from the predicates.
+    # 4. Generate the ground atom trajectories from the predicates.
     ground_atoms_trajs = []
     for image_option_traj in image_option_trajs:
         ground_atoms_traj = []
@@ -780,21 +785,21 @@ def _create_prompt_from_image_option_traj(
         image_option_traj: ImageOptionTrajectory,
         env: BaseEnv) -> Tuple[str, List[PIL.Image.Image]]:
     """Given an image option trajectory, create a prompt for the VLM."""
-    prompt_dir = "./datasets/vlm_input_data_prompts/vision_api/"
-    with open(prompt_dir + "prompt.output", "r") as f:
+    prompt_dir = "predicators/datasets/vlm_input_data_prompts/vision_api/"
+    with open(prompt_dir + "prompt.outline", "r") as f:
         template = f.read()
 
     # Predicate, State API
-    with open(prompt_dir + 'api_oo_state.py', 'r') as f:
+    with open(prompt_dir + 'api_oo_state.txt', 'r') as f:
         state_str = f.read()
-    with open(prompt_dir + 'api_sym_predicate.py', 'r') as f:
+    with open(prompt_dir + 'api_sym_predicate.txt', 'r') as f:
         pred_str = f.read()
 
     template = template.replace(
         '[STRUCT_DEFINITION]', add_python_quote(state_str + '\n\n' + pred_str))
 
     # Object types
-    with open(prompt_dir + f"types_{env.get_name()}.py", 'r') as f:
+    with open(prompt_dir + f"types_{env.get_name()}.txt", 'r') as f:
         type_instan_str = f.read()
     type_instan_str = add_python_quote(type_instan_str)
     template = template.replace("[TYPES_IN_ENV]", type_instan_str)
@@ -824,7 +829,6 @@ import_str = """
 import numpy as np
 from typing import Sequence
 from predicators.structs import State, Object, Predicate, Type
-from predicators.utils import RawState, NSPredicate
 """
 
 
@@ -853,9 +857,9 @@ def _parse_predicate_proposals(
     pattern = re.compile(r'```python(.*?)```', re.DOTALL)
     python_blocks = []
     # Find all Python code blocks in the text
-    for match in pattern.finditer(response):
+    for match_block in pattern.finditer(response):
         # Extract the Python code block and add it to the list
-        python_blocks.append(match.group(1).strip())
+        python_blocks.append(match_block.group(1).strip())
 
     candidates = set()
     context: Dict = {}
@@ -868,17 +872,18 @@ def _parse_predicate_proposals(
 
     for code_str in python_blocks:
         # Extract name from code block
-        match = re.search(r'(\w+)\s*=\s*(NS)?Predicate', code_str)
+        match: Optional[Match[str]] = re.search(r'(\w+)\s*=\s*(NS)?Predicate',
+                                                code_str)
         if match is None:
-            raise ValueError("No predicate name found in the code block")
+            logging.warning("No predicate name found in the code block")
+            continue
         pred_name = match.group(1)
         logging.info(f"Found definition for predicate {pred_name}")
-
-        exec(code_str, context)
 
         # Try to check if it's roughly runable. And only add it to
         # our list if it is.
         try:
+            exec(code_str, context)
             utils.abstract(tasks[0].init, [context[pred_name]])
         except Exception as e:
             error_trace = traceback.format_exc()

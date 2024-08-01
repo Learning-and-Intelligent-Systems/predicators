@@ -16,11 +16,12 @@ pylint_recursive.py
 results
 eval_trajectories
 videos
-logs
+images/
+logs*
 saved_approaches
 saved_datasets
 scripts/results
-pretrained_model_cache
+pretrained_model_cache*
 tests/datasets/mock_vlm_datasets/cache/
 machines.txt
 *_vision_data

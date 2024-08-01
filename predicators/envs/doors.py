@@ -82,7 +82,7 @@ class DoorsEnv(BaseEnv):
         return "doors"
 
     def simulate_moving(self, state: State, action: Action) -> State:
-        """helper function to simulate moving."""
+        """Helper function to simulate moving."""
         assert self.action_space.contains(action.arr)
         dx, dy, _ = action.arr
         x = state.get(self._robot, "x")

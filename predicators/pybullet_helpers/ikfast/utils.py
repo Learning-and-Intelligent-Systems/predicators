@@ -169,13 +169,13 @@ def free_joints_generator(
     """A generator that samples joint positions for free joints in the given
     robot that are within the joint limits.
 
-    The current joint positions of the robots will be used in conjunction with
-    max_distance to constrain the 'distance' of the sampled free joints from
-    their current positions.
+    The current joint positions of the robots will be used in
+    conjunction with max_distance to constrain the 'distance' of the
+    sampled free joints from their current positions.
 
-    This function yields the joint positions as a list of floats or a numpy
-    array (due to sampling). We avoid converting the numpy array to a list to
-    avoid unnecessary computation and memory.
+    This function yields the joint positions as a list of floats or a
+    numpy array (due to sampling). We avoid converting the numpy array
+    to a list to avoid unnecessary computation and memory.
     """
     free_joints = [joint_info.jointIndex for joint_info in free_joint_infos]
     current_positions = get_joint_positions(robot.robot_id, free_joints,
