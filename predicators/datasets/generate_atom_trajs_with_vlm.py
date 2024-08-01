@@ -684,7 +684,6 @@ def _query_vlm_to_generate_ground_atoms_trajs(
         vlm: VisionLanguageModel) -> List[List[Set[GroundAtom]]]:
     """Given a collection of ImageOptionTrajectories, query a VLM to convert
     these into ground atom trajectories."""
-    del all_task_objs  # Unused.
     if not CFG.grammar_search_vlm_atom_proposal_use_debug:
         logging.info("Querying VLM for candidate atom proposals...")
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
@@ -748,6 +747,7 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
     """Given a collection of ImageOptionTrajectories, query a VLM to generate
     predicates over the object features, then generate a ground atom
     trajectory."""
+    del all_task_objs  # Unused.
     prompt_dir = "predicators/datasets/vlm_input_data_prompts/vision_api/"
     candidates = set()
     for io_traj in image_option_trajs:
