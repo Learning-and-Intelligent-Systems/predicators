@@ -749,21 +749,23 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
     predicates over the object features, then generate a ground atom
     trajectory."""
     prompt_dir = "predicators/datasets/vlm_input_data_prompts/vision_api/"
-    # 1. Create a prompt based on the image option trajectory.
-    prompt, imgs = _create_prompt_from_image_option_traj(
-        image_option_trajs[0], env)
+    candidates = set()
+    for io_traj in image_option_trajs:
+        # 1. Create a prompt based on the image option trajectory.
+        prompt, imgs = _create_prompt_from_image_option_traj(io_traj, env)
 
-    # 2. Query the VLM to propose predicates.
-    response = vlm.sample_completions(prompt,
-                                      imgs,
-                                      0.0,
-                                      CFG.seed,
-                                      num_completions=1)[0]
-    response_file = prompt_dir + "response.txt"
-    with open(response_file, 'w', encoding="utf-8") as f:
-        f.write(response)
-    # 3. Parse the responses into a set of predicates
-    predicates = _parse_predicate_proposals(response_file, train_tasks, env)
+        # 2. Query the VLM to propose predicates.
+        response = vlm.sample_completions(prompt,
+                                        imgs,
+                                        0.0,
+                                        CFG.seed,
+                                        num_completions=1)[0]
+        response_file = prompt_dir + "response.txt"
+        with open(response_file, 'w', encoding="utf-8") as f:
+            f.write(response)
+        # 3. Parse the responses into a set of predicates
+        candidates |= _parse_predicate_proposals(response_file, train_tasks, 
+                                                 env)
 
     # 4. Generate the ground atom trajectories from the predicates.
     ground_atoms_trajs = []
@@ -771,7 +773,7 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
         ground_atoms_traj = []
         assert image_option_traj.states is not None
         for state in image_option_traj.states:
-            ground_atoms = utils.abstract(state, predicates | known_predicates)
+            ground_atoms = utils.abstract(state, candidates | known_predicates)
             ground_atoms_traj.append(ground_atoms)
         ground_atoms_trajs.append(ground_atoms_traj)
     return ground_atoms_trajs
