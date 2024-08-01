@@ -756,15 +756,15 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
 
         # 2. Query the VLM to propose predicates.
         response = vlm.sample_completions(prompt,
-                                        imgs,
-                                        0.0,
-                                        CFG.seed,
-                                        num_completions=1)[0]
+                                          imgs,
+                                          0.0,
+                                          CFG.seed,
+                                          num_completions=1)[0]
         response_file = prompt_dir + "response.txt"
         with open(response_file, 'w', encoding="utf-8") as f:
             f.write(response)
         # 3. Parse the responses into a set of predicates
-        candidates |= _parse_predicate_proposals(response_file, train_tasks, 
+        candidates |= _parse_predicate_proposals(response_file, train_tasks,
                                                  env)
 
     # 4. Generate the ground atom trajectories from the predicates.
@@ -780,7 +780,7 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
 
 
 def add_python_quote(text: str) -> str:
-    '''Add python quotes to a string.'''
+    """Add python quotes to a string."""
     return f"```python\n{text}\n```"
 
 
@@ -795,15 +795,17 @@ def _create_prompt_from_image_option_traj(
     # Predicate, State API
     with open(prompt_dir + 'api_oo_state.txt', 'r', encoding="utf-8") as f:
         state_str = f.read()
-    with open(prompt_dir + 'api_sym_predicate.txt', 'r', encoding="utf-8") as f:
+    with open(prompt_dir + 'api_sym_predicate.txt', 'r',
+              encoding="utf-8") as f:
         pred_str = f.read()
 
     template = template.replace(
         '[STRUCT_DEFINITION]', add_python_quote(state_str + '\n\n' + pred_str))
 
     # Object types
-    with open(prompt_dir + f"types_{env.get_name()}.txt", 'r', encoding="utf-8"
-              ) as f:
+    with open(prompt_dir + f"types_{env.get_name()}.txt",
+              'r',
+              encoding="utf-8") as f:
         type_instan_str = f.read()
     type_instan_str = add_python_quote(type_instan_str)
     template = template.replace("[TYPES_IN_ENV]", type_instan_str)

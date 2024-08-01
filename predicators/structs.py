@@ -203,9 +203,7 @@ class State:
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
-    def dict_str(self,
-                 indent: int = 0,
-                 object_features: bool = True) -> str:
+    def dict_str(self, indent: int = 0, object_features: bool = True) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:
