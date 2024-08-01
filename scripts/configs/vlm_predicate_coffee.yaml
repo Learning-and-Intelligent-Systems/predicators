@@ -94,6 +94,6 @@ FLAGS:
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   vlm_invent_include_option_history: False
-START_SEED: 9
+START_SEED: 5
 NUM_SEEDS: 1
 ...

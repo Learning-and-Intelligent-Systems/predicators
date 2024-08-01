@@ -1545,7 +1545,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Extract name from code block
             match = re.search(r'(\w+)\s*=\s*(NS)?Predicate', code_str)
             if match is None:
-                raise ValueError("No predicate name found in the code block")
+                logging.warning("No predicate name found in the code block")
+                continue
             pred_name = match.group(1)
             logging.info(f"Found definition for predicate {pred_name}")
 
