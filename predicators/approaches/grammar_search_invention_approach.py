@@ -1029,9 +1029,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 CFG.grammar_search_score_function, self._initial_predicates,
                 atom_dataset, candidates, self._train_tasks)
             self._learned_predicates = [
-                p for p in candidates.keys() if p.name in ["((0:robot).fingers<=[idx 0]0.5)", "Cooked0", "Whole0", "Chopped0"]
+                # p for p in candidates.keys() if p.name in [["((0:robot).fingers<=[idx 0]0.5)", "Cooked0", "Whole0", "Chopped0"]]
+                p for p in candidates.keys() if p.name in ["((0:robot).fingers<=[idx 0]0.5)", "Cooked0", "Whole0", "Diced0", "Cut0", "Sliced0", "Shredded0"]
             ]
-            # import pdb; pdb.set_trace()
+            import pdb; pdb.set_trace()
             # self._learned_predicates = \
             #     self._select_predicates_by_score_hillclimbing(
             #     candidates, score_function, self._initial_predicates,

@@ -58,6 +58,9 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
+        old_nsrts = nsrts
+        nsrts = set(n for n in nsrts if ("Op17" not in n.name and "Op18" not in n.name))
+        import pdb; pdb.set_trace()
 
         # Run task planning only and then greedily sample and execute in the
         # policy.
@@ -71,6 +74,7 @@ class BilevelPlanningApproach(BaseApproach):
             logging.debug("Current Task Plan:")
             for act in nsrt_plan:
                 logging.debug(act)
+            import pdb; pdb.set_trace
 
         # Run full bilevel planning.
         else:

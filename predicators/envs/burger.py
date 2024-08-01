@@ -280,6 +280,23 @@ class BurgerEnv(BaseEnv):
                            [bottom_bun, patty, cheese, tomato, top_bun])
             }
 
+            goal1 = {
+                GroundAtom(self._IsCooked, [patty])
+            }
+            goal2 = {
+                GroundAtom(self._IsSliced, [tomato])
+            }
+            goal3 = {
+                GroundAtom(self._IsCooked, [patty]),
+                GroundAtom(self._IsSliced, [tomato])
+            }
+            goal4 = {
+                GroundAtom(self._On, [patty, grill])
+            }
+            goal5 = {
+                GroundAtom(self._On, [cheese, patty])
+            }
+
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = {}
             state.simulator_state["state"] = hidden_state
