@@ -755,14 +755,14 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
         prompt, imgs = _create_prompt_from_image_option_traj(io_traj, env)
 
         # 2. Query the VLM to propose predicates.
-        # response = vlm.sample_completions(prompt,
-        #                                   imgs,
-        #                                   0.0,
-        #                                   CFG.seed,
-        #                                   num_completions=1)[0]
+        response = vlm.sample_completions(prompt,
+                                          imgs,
+                                          0.0,
+                                          CFG.seed,
+                                          num_completions=1)[0]
         response_file = prompt_dir + "response.txt"
-        # with open(response_file, 'w', encoding="utf-8") as f:
-        #     f.write(response)
+        with open(response_file, 'w', encoding="utf-8") as f:
+            f.write(response)
         # 3. Parse the responses into a set of predicates
         candidates |= _parse_predicate_proposals(response_file, train_tasks,
                                                  env)
@@ -826,7 +826,7 @@ def _create_prompt_from_image_option_traj(
     demo_str_ = '\n'.join(demo_str)
     template = template.replace("[DEMO_TRAJECTORY]", demo_str_)
 
-    with open(prompt_dir + 'prompt.prompt', 'w', encoding="utf-8") as f:
+    with open(prompt_dir + 'prompt.txt', 'w', encoding="utf-8") as f:
         f.write(template)
 
     return template, imgs
