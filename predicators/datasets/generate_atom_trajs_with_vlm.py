@@ -755,14 +755,14 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
         prompt, imgs = _create_prompt_from_image_option_traj(io_traj, env)
 
         # 2. Query the VLM to propose predicates.
-        response = vlm.sample_completions(prompt,
-                                          imgs,
-                                          0.0,
-                                          CFG.seed,
-                                          num_completions=1)[0]
+        # response = vlm.sample_completions(prompt,
+        #                                   imgs,
+        #                                   0.0,
+        #                                   CFG.seed,
+        #                                   num_completions=1)[0]
         response_file = prompt_dir + "response.txt"
-        with open(response_file, 'w', encoding="utf-8") as f:
-            f.write(response)
+        # with open(response_file, 'w', encoding="utf-8") as f:
+        #     f.write(response)
         # 3. Parse the responses into a set of predicates
         candidates |= _parse_predicate_proposals(response_file, train_tasks,
                                                  env)
@@ -848,8 +848,7 @@ def _env_type_str(source_code: str) -> str:
         type_init_str = textwrap.dedent(type_init_str)
         # type_init_str = add_python_quote(type_init_str)
         return type_init_str
-    else:
-        raise Exception("No type definitions found in the environment.")
+    raise Exception("No type definitions found in the environment.")
 
 
 def _parse_predicate_proposals(
@@ -877,12 +876,13 @@ def _parse_predicate_proposals(
     type_init_str = _env_type_str(env_source_code)
     # constants_str = self._constants_str(self.env_source_code)
     exec(import_str, context)
+    logging.debug("type_init_str: \n" + type_init_str)
     exec(type_init_str, context)
 
     for code_str in python_blocks:
         # Extract name from code block
-        match: Optional[Match[str]] = re.search(r'(\w+)\s*=\s*(NS)?Predicate',
-                                                code_str)
+        match: Optional[Match[str]] = re.search(
+            r'(\w+)(: Predicate)?\s*=\s*Predicate', code_str)
         if match is None:
             logging.warning("No predicate name found in the code block")
             continue

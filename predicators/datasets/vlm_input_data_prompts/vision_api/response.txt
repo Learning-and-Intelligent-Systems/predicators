@@ -1,50 +1,37 @@
-The knob's angle changes from 0.0 to -0.4 between state 0 and state 1, suggesting the predicate `IsTurnedOn`. This predicate would be true if the angle of the knob is within a certain threshold of a target angle, indicating that the knob has been turned on.
+The knob angle changes after the `MoveAndTurnOnKnob` action. This is indicated by the change in the `angle` attribute of the `knob2:knob` object. We can define a predicate `KnobRotated` to capture this property.
 
 ```python
-def IsTurnedOn_holds(state: State, objects: Sequence[Object]) -> bool:
+def KnobRotated_holds(state: State, objects: Sequence[Object]) -> bool:
     knob = objects[0]
-    threshold = 0.3
-    target_angle = -0.4
-    return abs(state.get(knob, "angle") - target_angle) < threshold
+    return not np.allclose(state.get(knob, "angle"), 0.0, atol=1e-2)
 
-name: str = "IsTurnedOn"
-param_types: Sequence[Type] = [knob_type]
-IsTurnedOn = Predicate(name, param_types, IsTurnedOn_holds)
+KnobRotated: Predicate = Predicate("KnobRotated", [knob_type], KnobRotated_holds)
 ```
 
-Synonyms: `IsActive`, `IsEngaged`, `IsActivated`
-Antonyms: `IsTurnedOff`, `IsInactive`, `IsDisengaged`, `IsDeactivated`
+Synonyms: `KnobTurned`, `KnobAdjusted`, `KnobManipulated`
+Antonyms: `KnobUnrotated`, `KnobReset`, `KnobUntouched`
 
-The kettle's y position changes from 0.4 to 0.6 between state 1 and state 2, suggesting the predicate `OnBurner`. This predicate would be true if the kettle's position is within a certain tolerance of the burner's position, indicating that the kettle is on the burner.
+The kettle's y position changes after the `PushKettleOntoBurner` action. This is indicated by the change in the `y` attribute of the `kettle:kettle` object. We can define a predicate `KettleOnBurner` to capture this property. Note that this predicate assumes a specific arrangement of the burner and the kettle's initial position.
 
 ```python
-def OnBurner_holds(state: State, objects: Sequence[Object]) -> bool:
-    kettle, burner = objects
-    tolerance = 0.1
-    return all(abs(state.get(kettle, "x") - state.get(burner, "x")) < tolerance,
-               abs(state.get(kettle, "y") - state.get(burner, "y")) < tolerance)
+def KettleOnBurner_holds(state: State, objects: Sequence[Object]) -> bool:
+    kettle = objects[0]
+    burner = objects[1]
+    return np.allclose(state.get(kettle, "y"), state.get(burner, "y"), atol=1e-2)
 
-name: str = "OnBurner"
-param_types: Sequence[Type] = [kettle_type, surface_type]
-OnBurner = Predicate(name, param_types, OnBurner_holds)
+KettleOnBurner: Predicate = Predicate("KettleOnBurner", [kettle_type, surface_type], KettleOnBurner_holds)
 ```
 
-Synonyms: `OnTopOf`, `PlacedOn`, `LocatedOn`
-Antonyms: `OffBurner`, `NotOn`, `AwayFrom`
+Synonyms: `KettlePositioned`, `KettlePlaced`, `KettleLocated`
+Antonyms: `KettleOffBurner`, `KettleRemoved`, `KettleDisplaced`
 
-Although not explicitly changing in the given states, the gripper's pose suggests the predicate `GripperOpen`. This predicate would check if the gripper's quaternion values correspond to an open state.
+Although there are no changes directly observed in the provided trajectory, the environment description suggests the existence of other important properties. For instance, the gripper can grasp objects. We can define a predicate `GripperOpen` based on the assumption that a specific range of finger values corresponds to an open gripper.
 
 ```python
 def GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
     gripper = objects[0]
-    # Assuming open state corresponds to specific quaternion values
-    open_orientation = [0.0, 0.7, 0.7, 0.0] 
-    return all(abs(state.get(gripper, "q" + i) - open_orientation[i]) < 0.1 for i in range(4))
+    # Assuming finger values above 0.5 indicate an open gripper
+    return state.get(gripper, "fingers") > 0.5
 
-name: str = "GripperOpen"
-param_types: Sequence[Type] = [gripper_type]
-GripperOpen = Predicate(name, param_types, GripperOpen_holds)
+GripperOpen: Predicate = Predicate("GripperOpen", [gripper_type], GripperOpen_holds)
 ```
-
-Synonyms: `GripperFree`, `GripperNotGrasping`
-Antonyms: `GripperClosed`, `GripperHolding`, `GripperGrasping` 
