@@ -205,8 +205,7 @@ class State:
 
     def dict_str(self,
                  indent: int = 0,
-                 object_features: bool = True,
-                 use_object_id: bool = False) -> str:
+                 object_features: bool = True) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:

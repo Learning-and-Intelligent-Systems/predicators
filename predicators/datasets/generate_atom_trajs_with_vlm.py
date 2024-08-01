@@ -684,6 +684,7 @@ def _query_vlm_to_generate_ground_atoms_trajs(
         vlm: VisionLanguageModel) -> List[List[Set[GroundAtom]]]:
     """Given a collection of ImageOptionTrajectories, query a VLM to convert
     these into ground atom trajectories."""
+    del all_task_objs  # Unused.
     if not CFG.grammar_search_vlm_atom_proposal_use_debug:
         logging.info("Querying VLM for candidate atom proposals...")
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
@@ -759,10 +760,9 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
                                       CFG.seed,
                                       num_completions=1)[0]
     response_file = prompt_dir + "response.txt"
-    with open(response_file, 'w') as f:
+    with open(response_file, 'w', encoding="utf-8") as f:
         f.write(response)
     # 3. Parse the responses into a set of predicates
-    breakpoint()
     predicates = _parse_predicate_proposals(response_file, train_tasks, env)
 
     # 4. Generate the ground atom trajectories from the predicates.
@@ -778,6 +778,7 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
 
 
 def add_python_quote(text: str) -> str:
+    '''Add python quotes to a string.'''
     return f"```python\n{text}\n```"
 
 
@@ -786,20 +787,21 @@ def _create_prompt_from_image_option_traj(
         env: BaseEnv) -> Tuple[str, List[PIL.Image.Image]]:
     """Given an image option trajectory, create a prompt for the VLM."""
     prompt_dir = "predicators/datasets/vlm_input_data_prompts/vision_api/"
-    with open(prompt_dir + "prompt.outline", "r") as f:
+    with open(prompt_dir + "prompt.outline", "r", encoding="utf-8") as f:
         template = f.read()
 
     # Predicate, State API
-    with open(prompt_dir + 'api_oo_state.txt', 'r') as f:
+    with open(prompt_dir + 'api_oo_state.txt', 'r', encoding="utf-8") as f:
         state_str = f.read()
-    with open(prompt_dir + 'api_sym_predicate.txt', 'r') as f:
+    with open(prompt_dir + 'api_sym_predicate.txt', 'r', encoding="utf-8") as f:
         pred_str = f.read()
 
     template = template.replace(
         '[STRUCT_DEFINITION]', add_python_quote(state_str + '\n\n' + pred_str))
 
     # Object types
-    with open(prompt_dir + f"types_{env.get_name()}.txt", 'r') as f:
+    with open(prompt_dir + f"types_{env.get_name()}.txt", 'r', encoding="utf-8"
+              ) as f:
         type_instan_str = f.read()
     type_instan_str = add_python_quote(type_instan_str)
     template = template.replace("[TYPES_IN_ENV]", type_instan_str)
@@ -813,13 +815,14 @@ def _create_prompt_from_image_option_traj(
         demo_str.append(f"state {i}:")
         demo_str.append(state.dict_str(indent=2, object_features=True))
         demo_str.append(f"action {i}: {a.name}")
-    state = image_option_traj.states[i + 1]
-    demo_str.append(f"state {i+1}:")
+    num_states = len(image_option_traj.states)
+    state = image_option_traj.states[-1]
+    demo_str.append(f"state {num_states}:")
     demo_str.append(state.dict_str(indent=2, object_features=True))
     demo_str_ = '\n'.join(demo_str)
     template = template.replace("[DEMO_TRAJECTORY]", demo_str_)
 
-    with open(prompt_dir + 'prompt.prompt', 'w') as f:
+    with open(prompt_dir + 'prompt.prompt', 'w', encoding="utf-8") as f:
         f.write(template)
 
     return template, imgs
@@ -833,6 +836,7 @@ from predicators.structs import State, Object, Predicate, Type
 
 
 def _env_type_str(source_code: str) -> str:
+    """Extract the type definitions from the environment source code."""
     type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"
     type_block = re.search(type_pattern, source_code, re.DOTALL)
     if type_block is not None:
@@ -849,8 +853,9 @@ def _parse_predicate_proposals(
     tasks: List[Task],
     env: BaseEnv,
 ) -> Set[Predicate]:
+    """Parse the prediction file to extract the proposed predicates."""
     # Read the prediction file
-    with open(prediction_file, 'r') as file:
+    with open(prediction_file, 'r', encoding="utf-8") as file:
         response = file.read()
 
     # Regular expression to match Python code blocks
