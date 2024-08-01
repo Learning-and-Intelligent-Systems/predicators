@@ -18,7 +18,7 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs import SatellitesEnv
+from predicators.envs.satellites import SatellitesEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
@@ -28,9 +28,9 @@ class SatellitesMarkovEnv(SatellitesEnv):
     """A 2D continuous satellites domain loosely inspired by the IPC domain of
     the same name."""
     radius: ClassVar[float] = 0.02
-    init_padding: ClassVar[float] = 0.05
+    init_padding: ClassVar[float] = 0.02
     fov_angle: ClassVar[float] = np.pi / 4
-    fov_dist: ClassVar[float] = 0.2 # this is the hypotenuse of isosceles triangle
+    fov_dist: ClassVar[float] = 0.16 # this is the hypotenuse of isosceles triangle
     id_tol: ClassVar[float] = 1e-3
     location_tol: ClassVar[float] = 1e-3
 
@@ -128,14 +128,14 @@ class SatellitesMarkovEnv(SatellitesEnv):
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
-                               num_sat_lst=CFG.satellites_num_sat_train,
-                               num_obj_lst=CFG.satellites_num_obj_train,
+                               num_sat_lst=CFG.satellites_markov_num_sat_train,
+                               num_obj_lst=CFG.satellites_markov_num_obj_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
-                               num_sat_lst=CFG.satellites_num_sat_test,
-                               num_obj_lst=CFG.satellites_num_obj_test,
+                               num_sat_lst=CFG.satellites_markov_num_sat_test,
+                               num_obj_lst=CFG.satellites_markov_num_obj_test,
                                rng=self._test_rng)
 
     @property
@@ -314,7 +314,8 @@ class SatellitesMarkovEnv(SatellitesEnv):
                 while True:
                     x = rng.uniform()
                     y = rng.uniform()
-                    geom = utils.Circle(x, y, radius)
+                    # satellites can be near each other, but not overlapping
+                    geom = utils.Circle(x, y, self.radius + self.init_padding)
                     # Keep only if no intersections with existing objects.
                     if not any(geom.intersects(g) for g in collision_geoms):
                         break
@@ -370,6 +371,7 @@ class SatellitesMarkovEnv(SatellitesEnv):
                 while True:
                     x = rng.uniform()
                     y = rng.uniform()
+                    # objects must be far enough from satellites and other objects
                     geom = utils.Circle(x, y, radius)
                     # Keep only if no intersections with existing objects.
                     if not any(geom.intersects(g) for g in collision_geoms):
@@ -447,108 +449,8 @@ class SatellitesMarkovEnv(SatellitesEnv):
                 break
         return view_clear
 
-    def _CalibrationTarget_holds(self, state: State,
-                                 objects: Sequence[Object]) -> bool:
-        sat, obj = objects
-        return abs(
-            state.get(sat, "calibration_obj_id") -
-            state.get(obj, "id")) < self.id_tol
 
-    @staticmethod
-    def _IsCalibrated_holds(state: State, objects: Sequence[Object]) -> bool:
-        sat, = objects
-        return state.get(sat, "is_calibrated") > 0.5
-
-    @staticmethod
-    def _HasCamera_holds(state: State, objects: Sequence[Object]) -> bool:
-        sat, = objects
-        return 0.0 < state.get(sat, "instrument") < 0.33
-
-    @staticmethod
-    def _HasInfrared_holds(state: State, objects: Sequence[Object]) -> bool:
-        sat, = objects
-        return 0.33 < state.get(sat, "instrument") < 0.66
-
-    @staticmethod
-    def _HasGeiger_holds(state: State, objects: Sequence[Object]) -> bool:
-        sat, = objects
-        return 0.66 < state.get(sat, "instrument") < 1.0
-
-    @staticmethod
-    def _ShootsChemX_holds(state: State, objects: Sequence[Object]) -> bool:
-        sat, = objects
-        return state.get(sat, "shoots_chem_x") > 0.5
-
-    @staticmethod
-    def _ShootsChemY_holds(state: State, objects: Sequence[Object]) -> bool:
-        sat, = objects
-        return state.get(sat, "shoots_chem_y") > 0.5
-
-    @staticmethod
-    def _HasChemX_holds(state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        return state.get(obj, "has_chem_x") > 0.5
-
-    @staticmethod
-    def _HasChemY_holds(state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        return state.get(obj, "has_chem_y") > 0.5
-
-    def _CameraReadingTaken_holds(self, state: State,
-                                  objects: Sequence[Object]) -> bool:
-        sat, obj = objects
-        return self._HasCamera_holds(state, [sat]) and \
-            abs(state.get(sat, "read_obj_id") -
-                state.get(obj, "id")) < self.id_tol
-
-    def _InfraredReadingTaken_holds(self, state: State,
-                                    objects: Sequence[Object]) -> bool:
-        sat, obj = objects
-        return self._HasInfrared_holds(state, [sat]) and \
-            abs(state.get(sat, "read_obj_id") -
-                state.get(obj, "id")) < self.id_tol
-
-    def _GeigerReadingTaken_holds(self, state: State,
-                                  objects: Sequence[Object]) -> bool:
-        sat, obj = objects
-        return self._HasGeiger_holds(state, [sat]) and \
-            abs(state.get(sat, "read_obj_id") -
-                state.get(obj, "id")) < self.id_tol
-
-    def _get_all_circles(self, state: State) -> Set[utils.Circle]:
-        """Get all entities in the state as utils.Circle objects."""
-        circles = set()
-        for ent in state:
-            x = state.get(ent, "x")
-            y = state.get(ent, "y")
-            circles.add(utils.Circle(x, y, self.radius))
-        return circles
-
-    def _get_fov_geom(self, state: State, sat: Object) -> utils.Triangle:
-        """Get the FOV of the given satellite as a utils.Triangle."""
-        x1 = state.get(sat, "x")
-        y1 = state.get(sat, "y")
-        theta_mid = state.get(sat, "theta")
-        theta_low = theta_mid - self.fov_angle / 2.0
-        x2 = x1 + self.fov_dist * np.cos(theta_low)
-        y2 = y1 + self.fov_dist * np.sin(theta_low)
-        theta_high = theta_mid + self.fov_angle / 2.0
-        x3 = x1 + self.fov_dist * np.cos(theta_high)
-        y3 = y1 + self.fov_dist * np.sin(theta_high)
-        return utils.Triangle(x1, y1, x2, y2, x3, y3)
-
-    def _xy_to_entity(self, state: State, x: float,
-                      y: float) -> Optional[Object]:
-        """Given x/y coordinates, return the entity (satellite or object) at
-        those coordinates."""
-        for ent in state:
-            if abs(state.get(ent, "x") - x) < self.location_tol and \
-               abs(state.get(ent, "y") - y) < self.location_tol:
-                return ent
-        return None
-
-
-class SatellitesSimpleEnv(SatellitesEnv):
+class SatellitesSimpleEnv(SatellitesMarkovEnv):
     """A simple version of the SatellitesEnv that only has 1 object.
        The satellites also have a feature indicating whether its view is clear.
        "Sees" does not consider occlusion.
@@ -635,7 +537,7 @@ class SatellitesSimpleEnv(SatellitesEnv):
         sat, = objects
         return state.get(sat, "view_clear") == 1
 
-class SatellitesMediumEnv(SatellitesEnv):
+class SatellitesMediumEnv(SatellitesMarkovEnv):
     """A medium version of the SatellitesEnv that only ever has 1 object.
        "Sees" does not consider occlusion.
     """

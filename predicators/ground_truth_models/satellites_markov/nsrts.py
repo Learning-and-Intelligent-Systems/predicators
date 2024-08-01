@@ -81,8 +81,8 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             sat_x = state.get(sat, "x")
             sat_y = state.get(sat, "y")
             # dist
-            min_dist = SatellitesMarkovEnv.radius * 4
-            max_dist = SatellitesMarkovEnv.fov_dist - SatellitesMarkovEnv.radius * 2
+            min_dist = SatellitesMarkovEnv.radius * 3
+            max_dist = SatellitesMarkovEnv.fov_dist - SatellitesMarkovEnv.radius
             dist = rng.uniform(min_dist, max_dist)
             # angle
             angle = rng.uniform(-np.pi, np.pi)
@@ -125,7 +125,8 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             for sat in state.get_objects(sat_type):
                 x = state.get(sat, "x")
                 y = state.get(sat, "y")
-                collision_geoms.add(Circle(x, y, dummy_env.radius))
+                collision_geoms.add(Circle(x, y, dummy_env.radius \
+                                            + dummy_env.init_padding))
             for obj in state.get_objects(obj_type):
                 x = state.get(obj, "x")
                 y = state.get(obj, "y")
@@ -276,3 +277,4 @@ class SatellitesMarkovGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(take_geiger_reading_nsrt)
 
         return nsrts
+

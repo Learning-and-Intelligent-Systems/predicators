@@ -326,6 +326,12 @@ class GlobalSettings:
     satellites_num_sat_test = [3, 4]
     satellites_num_obj_test = [4, 5]
 
+    # satellites-markov env parameters, fewer entities as it's more complex
+    satellites_markov_num_sat_train = [1, 2]
+    satellites_markov_num_obj_train = [1, 2]
+    satellites_markov_num_sat_test = [2, 3]
+    satellites_markov_num_obj_test = [2, 3]
+
     # sokoban env parameters
     # use Sokoban-huge-v0 to show-off, the bottleneck is just the gym env
     # initialization and resetting. use Sokoban-small-v0 for tests
