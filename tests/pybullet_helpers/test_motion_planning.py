@@ -139,8 +139,7 @@ def test_move_to_shelf():
     to forward-facing, so motion planning must be in position and
     orientation.
 
-    Also notably, the held object must be collision-checked like the
-    robot.
+    Also notably, the held object must be collision-checked like the robot.
     """
     utils.reset_config({"pybullet_control_mode": "reset"})
 

@@ -147,9 +147,8 @@ def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
 
     Return the set of included oracle options.
 
-    Note that "all" is not implemented because setting the
-    option_learner flag to "no_learning" is the preferred way to include
-    all options.
+    Note that "all" is not implemented because setting the option_learner flag
+    to "no_learning" is the preferred way to include all options.
     """
     if not CFG.included_options:
         return set()

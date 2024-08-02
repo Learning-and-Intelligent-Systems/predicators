@@ -18,17 +18,17 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
 class StickyTableEnv(BaseEnv):
     """An environment where a cube must be transported between tables.
 
-    Most of the tables are flat, but one is half is smooth and half is
-    sticky. When placing on the smooth side, the cube usually falls off;
-    when placing on the sticky side, it usually stays. When it falls
-    off, it falls onto the floor. It can be picked up from the floor.
+    Most of the tables are flat, but one is half is smooth and half is sticky.
+    When placing on the smooth side, the cube usually falls off; when placing
+    on the sticky side, it usually stays. When it falls off, it falls onto the
+    floor. It can be picked up from the floor.
 
     Note that unlike almost all of our other environments, there is real
     stochasticity in the outcomes of placing.
 
-    The action space is 2D. When the robot is holding nothing, the only
-    action that changes anything is clicking on the cube. When the robot
-    is holding the cube, the action places the cube at that location.
+    The action space is 2D. When the robot is holding nothing, the only action
+    that changes anything is clicking on the cube. When the robot is holding
+    the cube, the action places the cube at that location.
     """
     x_lb: ClassVar[float] = 0.0
     x_ub: ClassVar[float] = 1.0

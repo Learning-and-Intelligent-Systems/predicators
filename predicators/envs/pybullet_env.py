@@ -74,8 +74,7 @@ class PyBulletEnv(BaseEnv):
         """Returns physics client ID, robot, and dictionary containing other
         object IDs and any other info from pybullet that needs to be tracked.
 
-        This is a public class method because the oracle options use it
-        too.
+        This is a public class method because the oracle options use it too.
 
         Subclasses may override to load additional assets.
         """

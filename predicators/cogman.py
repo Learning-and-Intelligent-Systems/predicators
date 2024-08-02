@@ -1,12 +1,10 @@
 """Cognitive manager (CogMan).
 
-A wrapper around an approach that manages interaction with the
-environment.
+A wrapper around an approach that manages interaction with the environment.
 
-Implements a perception module, which produces a State at each time step
-based on the history of observations, and an execution monitor, which
-determines whether to re-query the approach at each time step based on
-the states.
+Implements a perception module, which produces a State at each time step based
+on the history of observations, and an execution monitor, which determines
+whether to re-query the approach at each time step based on the states.
 
 The name "CogMan" is due to Leslie Kaelbling.
 """

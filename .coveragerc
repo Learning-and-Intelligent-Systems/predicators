@@ -1,0 +1,25 @@
+[run]
+omit =
+    predicators/third_party/**
+    predicators/envs/kitchen.py
+    predicators/perception/kitchen_perceiver.py
+    predicators/ground_truth_models/kitchen/**
+    # Currently disabled due to flakiness in the SME dependency.
+    predicators/approaches/sme_pg3_analogy_approach.py
+
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Have to re-enable the standard pragma
+    # per https://coverage.readthedocs.io/en/latest/config.html#syntax
+    pragma: no cover
+
+    # Don't complain about abstract methods, they aren't run
+    @abstractmethod
+    @abc.abstractmethod
+
+    # Don't complain about TYPE_CHECKING imports.
+    if TYPE_CHECKING:
+
+    # Don't complain about longrun tests.
+    @longrun

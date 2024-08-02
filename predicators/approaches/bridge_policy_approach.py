@@ -402,7 +402,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
     def call_planner_policy(self, state: State, _: Dict, __: Sequence[Object],
                             ___: Array) -> Action:
-        """Policy for CallPlanner option."""
+        """policy for CallPlanner option."""
         self._current_control = "planner"
         # create a new task where the init state is our current state
         current_task = Task(state, self._train_tasks[0].goal)

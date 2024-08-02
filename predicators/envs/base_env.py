@@ -49,9 +49,8 @@ class BaseEnv(abc.ABC):
         representation is a member of self.action_space), NOT an option.
 
         This function is primarily used in the default option model, and
-        for implementing the default self.step(action). It is not meant
-        to be part of the "final system", where the environment is the
-        real world.
+        for implementing the default self.step(action). It is not meant to
+        be part of the "final system", where the environment is the real world.
         """
         raise NotImplementedError("Override me!")
 
@@ -137,8 +136,8 @@ class BaseEnv(abc.ABC):
         just for convenience, e.g., in test coverage.
 
         By default, calls render_state_plt, but subclasses may override,
-        e.g. if they do not use Matplotlib for rendering, and thus do
-        not define a render_state_plt() function.
+        e.g. if they do not use Matplotlib for rendering, and thus do not
+        define a render_state_plt() function.
         """
         fig = self.render_state_plt(state, task, action, caption)
         img = utils.fig2data(fig, dpi=CFG.render_state_dpi)
@@ -218,15 +217,25 @@ class BaseEnv(abc.ABC):
 
         By default, we assume JSON files are in the following format:
 
-        {     "objects": {         <object name>: <type name>     }
-        "init": {         <object name>: {             <feature name>:
-        <value>         }     }     "goal": {         <predicate name> :
-        [             [<object name>]         ]     } }
+        {
+            "objects": {
+                <object name>: <type name>
+            }
+            "init": {
+                <object name>: {
+                    <feature name>: <value>
+                }
+            }
+            "goal": {
+                <predicate name> : [
+                    [<object name>]
+                ]
+            }
+        }
 
         Instead of "goal", "language_goal" can also be used.
 
-        Environments can override this method to handle different
-        formats.
+        Environments can override this method to handle different formats.
         """
         with open(json_file, "r", encoding="utf-8") as f:
             json_dict = json.load(f)
@@ -343,12 +352,12 @@ class BaseEnv(abc.ABC):
     def step(self, action: Action) -> Observation:
         """Apply the action, update the state, and return an observation.
 
-        Note that this action is a low-level action (i.e., action.arr is
-        a member of self.action_space), NOT an option.
+        Note that this action is a low-level action (i.e., action.arr
+        is a member of self.action_space), NOT an option.
 
         By default, this function just calls self.simulate. However,
-        environments that maintain a more complicated internal state, or
-        that don't implement simulate(), may override this method.
+        environments that maintain a more complicated internal state,
+        or that don't implement simulate(), may override this method.
         """
         assert isinstance(self._current_observation, State)
         self._current_observation = self.simulate(self._current_observation,

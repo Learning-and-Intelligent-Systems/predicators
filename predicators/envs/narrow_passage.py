@@ -20,12 +20,12 @@ class NarrowPassageEnv(BaseEnv):
     by passing through a narrow passage, or by opening a door and passing
     through a wider passageway.
 
-    The action space is 3D, specifying (dx, dy, door). (dx, dy) defines
-    a robot movement, where the magnitude of the movement in each
-    direction is constrained by action_magnitude. door indicates a door-
-    opening action. If door > 0, any attempted movement is ignored (i.e.
-    treat dx and dy as 0) and the robot will open a closed door if
-    nearby it.
+    The action space is 3D, specifying (dx, dy, door).
+    (dx, dy) defines a robot movement, where the magnitude of the movement
+    in each direction is constrained by action_magnitude.
+    door indicates a door-opening action. If door > 0, any attempted
+    movement is ignored (i.e. treat dx and dy as 0) and the robot will open
+    a closed door if nearby it.
 
     Based on the TouchPoint and Doors environments.
     """

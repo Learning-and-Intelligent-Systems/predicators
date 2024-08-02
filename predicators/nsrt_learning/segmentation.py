@@ -129,10 +129,9 @@ def _segment_with_oracle(ll_traj: LowLevelTrajectory,
 
     If options are known, just uses _segment_with_option_changes().
 
-    Otherwise, starting at the beginning of the trajectory, keeps track
-    of which oracle ground NSRTs are applicable. When any of them have
-    their effects achieved, that marks the switch point between
-    segments.
+    Otherwise, starting at the beginning of the trajectory, keeps track of
+    which oracle ground NSRTs are applicable. When any of them have their
+    effects achieved, that marks the switch point between segments.
     """
     if ll_traj.actions and ll_traj.actions[0].has_option():
         assert CFG.option_learner == "no_learning"

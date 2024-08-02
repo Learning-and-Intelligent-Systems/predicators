@@ -1,10 +1,10 @@
 """An approach that performs active sampler learning.
 
-The current implementation assumes for convenience that NSRTs and
-options are 1:1 and share the same parameters (like a PDDL environment).
-It is straightforward conceptually to remove this assumption, because
-the approach uses its own NSRTs to select options, but it is difficult
-implementation-wise, so we're punting for now.
+The current implementation assumes for convenience that NSRTs and options are
+1:1 and share the same parameters (like a PDDL environment). It is
+straightforward conceptually to remove this assumption, because the approach
+uses its own NSRTs to select options, but it is difficult implementation-wise,
+so we're punting for now.
 
 See scripts/configs/active_sampler_learning.yaml for examples.
 """

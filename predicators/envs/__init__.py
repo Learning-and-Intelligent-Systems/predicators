@@ -39,9 +39,9 @@ def get_or_create_env(name: str) -> BaseEnv:
     relies on the environment's internal state (i.e., you should not
     call reset() or step()).
 
-    Also note that the GUI is always turned off for environments that
-    are newly created by this function. If you want to use the GUI, you
-    should create the environment explicitly through create_new_env().
+    Also note that the GUI is always turned off for environments that are
+    newly created by this function. If you want to use the GUI, you should
+    create the environment explicitly through create_new_env().
     """
     if name not in _MOST_RECENT_ENV_INSTANCE:
         logging.warning(

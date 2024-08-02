@@ -2,8 +2,8 @@
 
 Currently specific to the blocks environment.
 
-For safety, this script should be run before executing an LISDF plan on
-the real robot. If the plan looks jerky, fast, etc., don't execute it.
+For safety, this script should be run before executing an LISDF plan on the
+real robot. If the plan looks jerky, fast, etc., don't execute it.
 
 Quit early with the "q" key.
 """

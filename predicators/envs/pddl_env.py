@@ -65,11 +65,11 @@ class _PDDLEnvState(State):
 class _PDDLEnv(BaseEnv):
     """An environment induced by PDDL.
 
-    The state space is mostly unused. The continuous vectors are
-    dummies. What is actually used is state.simulator_state, which holds
-    the current ground atoms. Note that we need to use this pattern, as
-    opposed to just maintaining the ground atoms internally in the env,
-    because the predicate classifiers need access to the ground atoms.
+    The state space is mostly unused. The continuous vectors are dummies. What
+    is actually used is state.simulator_state, which holds the current ground
+    atoms. Note that we need to use this pattern, as opposed to just
+    maintaining the ground atoms internally in the env, because the predicate
+    classifiers need access to the ground atoms.
 
     The action space is hacked to conform to our convention that actions
     are fixed-dimensional vectors. Users of this class should not need

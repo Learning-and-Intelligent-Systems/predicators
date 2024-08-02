@@ -16,8 +16,8 @@ from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
 class GreedyLookaheadExplorer(BaseExplorer):
     """GreedyLookaheadExplorer implementation.
 
-    Sample a certain number of max-length trajectories and pick the one
-    that has the highest cumulative score.
+    Sample a certain number of max-length trajectories and pick the one that
+    has the highest cumulative score.
 
     The score function takes the atoms and state as input and returns a
     score, with higher better.

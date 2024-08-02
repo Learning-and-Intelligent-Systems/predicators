@@ -303,8 +303,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
 
     Also infers the dimensionality of the inputs and outputs from fit().
 
-    Also implements data balancing (optionally) and single-class
-    prediction.
+    Also implements data balancing (optionally) and single-class prediction.
     """
 
     def __init__(self, seed: int, balance_data: bool) -> None:

@@ -136,12 +136,11 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
     def _score_atoms_novelty(self, atoms: Set[GroundAtom]) -> float:
         """Score the novelty of a ground atom set, with higher better.
 
-        Score based on the number of times that this atom set has been
-        seen in the data, with object identities ignored (i.e., this is
-        lifted).
+        Score based on the number of times that this atom set has been seen in
+        the data, with object identities ignored (i.e., this is lifted).
 
-        Assumes that the size of the atom set is between
-        CFG.glib_min_goal_size and CFG.glib_max_goal_size (inclusive).
+        Assumes that the size of the atom set is between CFG.glib_min_goal_size
+        and CFG.glib_max_goal_size (inclusive).
         """
         assert CFG.glib_min_goal_size <= len(atoms) <= CFG.glib_max_goal_size
         canonical_atoms = self._get_canonical_lifted_atoms(atoms)
@@ -161,10 +160,9 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
 
         This is a helper for novelty scoring for GLIB.
 
-        This is an efficient approximation of what we really care about,
-        which is whether two atom sets unify. It's an approximation
-        because there are tricky cases where the sorting procedure is
-        ambiguous.
+        This is an efficient approximation of what we really care about, which
+        is whether two atom sets unify. It's an approximation because there are
+        tricky cases where the sorting procedure is ambiguous.
         """
         # Create a "signature" for each object, which will be used to break
         # ties when sorting based on predicates alone is not enough.

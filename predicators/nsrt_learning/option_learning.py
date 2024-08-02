@@ -515,18 +515,16 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 class _BehaviorCloningOptionLearner(_OptionLearnerBase):
     """Learn _LearnedNeuralParameterizedOption objects by behavior cloning.
 
-    See the docstring for _LearnedNeuralParameterizedOption for a
-    description of the option structure.
+    See the docstring for _LearnedNeuralParameterizedOption for a description
+    of the option structure.
 
-    In this paradigm, the option initiable and termination are
-    determined from the operators, so the main thing that needs to be
-    learned is the option policy. We learn this policy by behavior
-    cloning (fitting a regressor via supervised learning) in
-    learn_option_specs().
+    In this paradigm, the option initiable and termination are determined from
+    the operators, so the main thing that needs to be learned is the option
+    policy. We learn this policy by behavior cloning (fitting a regressor
+    via supervised learning) in learn_option_specs().
 
-    The is_parameterized kwarg is for a baseline that learns a policy
-    without continuous parameters. If it is False, the parameter space
-    is null.
+    The is_parameterized kwarg is for a baseline that learns a policy without
+    continuous parameters. If it is False, the parameter space is null.
     """
 
     def __init__(self,
