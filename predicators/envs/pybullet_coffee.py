@@ -170,14 +170,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._jug_liquid_id = None
         self._obj_id_to_obj: Dict[int, Object] = {}
 
-        self.ns_to_sym_predicates: Dict[str, Predicate] = {
-            "JugInMachine": self._JugInMachine,
-            "RobotHoldingJug": self._Holding,
-            "GripperOpen": self._HandEmpty,
-            "JugHasCoffee": self._JugFilled,
-            # "RobotHoldingAboveCup": self._RobotAboveCup,
-            "JugSideToGripper": self._JugPickable,
-            "MachineOn": self._MachineOn,
+        self.ns_to_sym_predicates: Dict[Tuple[str], Predicate] = {
+            ("JugInMachine"): self._JugInMachine,
+            ("RobotHoldingJug"): self._Holding,
+            ("GripperOpen"): self._HandEmpty,
+            ("JugHasCoffee"): self._JugFilled,
+            ("JugSideToGripper"): self._JugPickable,
+            ("MachineOn"): self._MachineOn,
         }
 
         # Predicates

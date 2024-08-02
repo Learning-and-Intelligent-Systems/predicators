@@ -53,7 +53,7 @@ from predicators.structs import Action, AnnotatedPredicate, Dataset, \
     Optional, ParameterizedOption, Predicate, State, Task, Type, _Option, \
     _TypedEntity, NSRT
 from predicators.utils import EnvironmentFailure, OptionExecutionFailure, \
-    option_plan_to_policy
+    option_plan_to_policy, get_value_from_tuple_key, has_key_in_tuple
 
 import_str = """
 import numpy as np
@@ -105,7 +105,6 @@ def print_confusion_matrix(tp: float, tn: float, fp: float, fn: float) -> None:
              ["False", fp, fn, "", "", "", "", ""],
              ["", "", "", precision, recall, specificity, accuracy, f1_score]]
     logging.info(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
-
 
 # Function to encode the image
 def encode_image(image_path: str) -> str:
@@ -351,7 +350,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                         new_proposals = env.oracle_proposed_predicates -\
                                             self._initial_predicates
                 else:
-
                     max_attempts = 5
                     max_num_groundings, max_num_examples = 1, 1
                     min_imgs, max_imgs = 6, 10
@@ -1562,24 +1560,26 @@ class VlmInventionApproach(NSRTLearningApproach):
             #         break
 
             # Instantiate the predicate
-            # if CFG.vlm_invent_try_to_use_gt_predicates and \
-            #             pred_name.strip("_") in self.env.ns_to_sym_predicates:
-            #     candidates.add(self.env.ns_to_sym_predicates[
-            #             pred_name.strip("_")])
-            # else:
-
-            # Try to check if it's roughly runable. And only add it to
-            # our list if it is.
-            try:
-                exec(code_str, context)
-                utils.abstract(tasks[0].init, [context[pred_name]])
-            except Exception as e:
-                error_trace = traceback.format_exc()
-                logging.warning(f"Proposed predicate {pred_name} not "
-                                f"executable: {e}\n{error_trace}")
-                continue
+            if CFG.vlm_invent_try_to_use_gt_predicates: 
+                if has_key_in_tuple_key(self.env.ns_to_sym_predicates, 
+                                 pred_name.strip("_")):
+                    candidates.add(get_value_from_tuple_key(
+                        self.env.ns_to_sym_predicates, pred_name.strip("_")))
+                else:
+                    logging.warning(f"{pred_name.strip("_")} isn't in the "
+                        "ns_to_sym_predicates dict, please consider adding it.")
             else:
-                candidates.add(context[pred_name])
+                # check if it's roughly runable, and add it to list if it is.
+                try:
+                    exec(code_str, context)
+                    utils.abstract(tasks[0].init, [context[pred_name]])
+                except Exception as e:
+                    error_trace = traceback.format_exc()
+                    logging.warning(f"Proposed predicate {pred_name} not "
+                                    f"executable: {e}\n{error_trace}")
+                    continue
+                else:
+                    candidates.add(context[pred_name])
 
         return candidates
 

@@ -34,7 +34,7 @@ FLAGS:
   # min_perc_data_for_nsrt: 3 # works for blocks
   timeout: 300 #300
   log_file: "logs_nsp/"
-  vlm_invent_try_to_use_gt_predicates: False
+  vlm_invent_try_to_use_gt_predicates: False # Oracle 2: GT NSP evaluation
 
   # Env settings
   rgb_observation: False
@@ -73,7 +73,7 @@ FLAGS:
   neu_sym_predicate: True # Needed for NSP
   vlm_predicator_render_option_state: True # Needed for NSP
   llm_predicator_use_grammar: True # always true?
-  vlm_predicator_oracle_base_grammar: False
+  vlm_predicator_oracle_base_grammar: False # Oracle model 1
   llm_predicator_oracle_learned: False            # relaxation 1
   nsp_pred_include_prev_state_in_prompt: True
   nsp_pred_include_prev_image_in_prompt: True

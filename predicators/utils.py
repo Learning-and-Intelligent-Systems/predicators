@@ -83,6 +83,17 @@ if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
         cuda_visible_devices[0] = "0"
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
 
+def has_key_in_tuple_key(dictionary: Dict[Tuple[str], Any], key: str) -> bool:
+    """Check if a dictionary has a key"""
+    return any(key in key_tuple for key_tuple in dictionary.keys())
+
+def get_value_from_tuple_key(dictionary: Dict[Tuple[str], Any], key: str):
+    """Get the value from a dictionary with a tuple key, to deal with many-to-
+    one mapping"""
+    for key_tuple, value in dictionary.items():
+        if key in key_tuple:
+            return value
+    return None  # Return None if the search_key is not found in any tuple
 
 def save_image_with_label(img_copy, s_name, obs_dir, f_suffix:str=".png"):
     draw = ImageDraw.Draw(img_copy)
@@ -3634,7 +3645,7 @@ class _MemoizedClassifier():
 def compare_abstract_accuracy(
         states: List[State],
         ns_predicates: List[NSPredicate],
-        est_preds_to_gt_preds: Dict[str, Predicate]) -> None:
+        est_preds_to_gt_preds: Dict[Tuple[str], Predicate]) -> None:
     num_evals, num_correct = 0, 0
     num_not_found = 0
 
@@ -3644,15 +3655,17 @@ def compare_abstract_accuracy(
 
         # for est_pred, gt_pred in est_preds_to_gt_preds.items():
         for est_pred in ns_predicates:
-            if est_pred.name in est_preds_to_gt_preds:
-                gt_pred = est_preds_to_gt_preds[est_pred.name]
+            if has_key_in_tuple_key(est_preds_to_gt_preds, est_pred.name):
+                gt_pred = get_value_from_tuple_key(est_preds_to_gt_preds, 
+                                                   est_pred.name)
                 if gt_pred.types != est_pred.types:
                     num_not_found += 1
                     logging.info("proposed pred doesn't have the same arity as "
                                  "the ground truth")
                     continue
             # for est_pred, gt_pred in est_preds_to_gt_preds.items():
-                for choice in get_object_combinations(list(state), gt_pred.types):
+                for choice in get_object_combinations(list(state), 
+                                                      gt_pred.types):
                     num_evals += 1
                     gt_pred_holds = gt_pred.holds(state, choice)
                     # est_pred_holds = est_pred.holds(state, choice)

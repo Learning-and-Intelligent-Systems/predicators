@@ -411,10 +411,10 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
                                                   self._target_type],
                                 self._Covers_NSP_holds)
 
-        self.ns_to_sym_predicates: Dict[str, Predicate] = {
-            "HandEmpty": self._HandEmpty,
-            "BlockGrasped": self._Holding,
-            "Holding": self._Holding,
+        self.ns_to_sym_predicates: Dict[Tuple[str], Predicate] = {
+            ("HandEmpty"): self._HandEmpty,
+            ("BlockGrasped"): self._Holding,
+            ("Holding"): self._Holding,
         }
 
     @property

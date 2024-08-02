@@ -72,7 +72,12 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Mapping from pybullet object id to Object instances
         # which can be used to get the segmented image for the object
         self._obj_id_to_obj: Dict[int, Object] = {}
-        self.vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
+
+        self.ns_to_sym_predicates: Dict[Tuple[str], Predicate] = {
+            ("GripperOpen"): self._GripperOpen,
+            ("Holding"): self._Holding,
+            ("Clear"): self._Clear,
+        }
 
     @property
     def ns_predicates(self) -> Set[NSPredicate]:
@@ -83,22 +88,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self._Holding_NSP, 
             self._Clear_NSP,
         }
-
-    @property
-    def ns_to_sym_predicates(self) -> Dict[str, Predicate]:
-        return {
-            "GripperOpen": self._GripperOpen,
-            "Holding": self._Holding,
-            "Clear": self._Clear,
-            }
-        # return {
-
-        #     self._On_NSP: self._On,
-        #     self._OnTable_NSP: self._OnTable,
-        #     self._GripperOpen_NSP: self._GripperOpen,
-        #     self._Holding_NSP: self._Holding,
-        #     self._Clear_NSP: self._Clear
-        # }
 
     @staticmethod
     def _Clear_NSP_holds(state: RawState, objects: Sequence[Object]) -> \
