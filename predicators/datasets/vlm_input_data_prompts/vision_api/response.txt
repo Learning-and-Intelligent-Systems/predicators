@@ -1,37 +1,9 @@
-The knob angle changes after the `MoveAndTurnOnKnob` action. This is indicated by the change in the `angle` attribute of the `knob2:knob` object. We can define a predicate `KnobRotated` to capture this property.
-
 ```python
-def KnobRotated_holds(state: State, objects: Sequence[Object]) -> bool:
-    knob = objects[0]
-    return not np.allclose(state.get(knob, "angle"), 0.0, atol=1e-2)
-
-KnobRotated: Predicate = Predicate("KnobRotated", [knob_type], KnobRotated_holds)
-```
-
-Synonyms: `KnobTurned`, `KnobAdjusted`, `KnobManipulated`
-Antonyms: `KnobUnrotated`, `KnobReset`, `KnobUntouched`
-
-The kettle's y position changes after the `PushKettleOntoBurner` action. This is indicated by the change in the `y` attribute of the `kettle:kettle` object. We can define a predicate `KettleOnBurner` to capture this property. Note that this predicate assumes a specific arrangement of the burner and the kettle's initial position.
-
-```python
-def KettleOnBurner_holds(state: State, objects: Sequence[Object]) -> bool:
-    kettle = objects[0]
-    burner = objects[1]
-    return np.allclose(state.get(kettle, "y"), state.get(burner, "y"), atol=1e-2)
-
-KettleOnBurner: Predicate = Predicate("KettleOnBurner", [kettle_type, surface_type], KettleOnBurner_holds)
-```
-
-Synonyms: `KettlePositioned`, `KettlePlaced`, `KettleLocated`
-Antonyms: `KettleOffBurner`, `KettleRemoved`, `KettleDisplaced`
-
-Although there are no changes directly observed in the provided trajectory, the environment description suggests the existence of other important properties. For instance, the gripper can grasp objects. We can define a predicate `GripperOpen` based on the assumption that a specific range of finger values corresponds to an open gripper.
-
-```python
-def GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
-    gripper = objects[0]
-    # Assuming finger values above 0.5 indicate an open gripper
-    return state.get(gripper, "fingers") > 0.5
-
-GripperOpen: Predicate = Predicate("GripperOpen", [gripper_type], GripperOpen_holds)
-```
+def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
+    block, target = objects
+    block_pose = state.get(block, 'pose')
+    block_width = state.get(block, 'width')
+    target_pose = state.get(target, 'pose')
+    target_width = state.get(target, 'width')
+    return (block_pose-block_width/2 <= target_pose-target_width/2) and (block_pose+block_width/2 >= target_pose+target_width/2) and state.get(block, 'grasp') == -1
+_Covers = Predicate('Covers', [_block_type, _target_type], _Covers_holds)```
