@@ -1,9 +1,25 @@
 You are highly skilled in robotic task planning, breaking down intricate and long-term tasks into distinct primitive actions.
-Consider the following skills a robotic agent can perform. Note that each of these skills has both discrete arguments (indicated by ????),
-as well as continuous arguments (indicated by ???) TODO: come up with decent naming scheme.
+Consider the following skills a robotic agent can perform. Note that each of these skills takes the form of a `ParameterizedOption` and may have both discrete arguments (indicated by the `types` field, referring to objects of particular types),
+as well as continuous arguments (indicated by `params_space` field).
 
 {options}
 
 You are only allowed to use the provided skills. It's essential to stick to the format of these basic skills. When creating a plan, replace
-these placeholders with specific items or continuous parameters. You can first describe the provided scene and what it indicates about the provided
+the arguments of each skill with specific items or continuous parameters. You can first describe the provided scene and what it indicates about the provided
 task objects to help you come up with a plan.
+
+Here is a list of objects present in this scene for this task, along with their type (formatted as <object_name>: <type_name>):
+{typed_objects}
+
+And here are the types TODO; say more!:
+{type_hierarchy}
+
+Finally, here is an expression corresponding to the task goal that must be achieved:
+{goal_str}
+
+Please provide your output in the following format (excluding the angle brackets and ellipsis, which are just for illustration purposes):
+<Explanation of scene + your reasoning>
+Plan:
+<skill 1 with discrete objects and continuous values specified>
+<skill 2 with discrete objects and continuous values specified>
+...
