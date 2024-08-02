@@ -748,9 +748,8 @@ def test_loading_txt_files():
     ).name == "PickPlace"
 
 
-def test_create_ground_atom_data_from_generated_demos():
-    """Tests for the create_ground_atom_data_from_generated_demos method."""
-    utils.reset_config({
+@pytest.mark.parametrize("config", [
+    {
         "env": "cover",
         "approach": "oracle",
         "offline_data_method": "demo",
@@ -759,7 +758,22 @@ def test_create_ground_atom_data_from_generated_demos():
         "num_train_tasks": 1,
         "included_options": "PickPlace",
         "excluded_predicates": "all",
-    })
+    },
+    {
+        "env": "cover",
+        "approach": "oracle",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": 1,
+        "included_options": "PickPlace",
+        "excluded_predicates": "all",
+        "vlm_predicate_vision_api_generate_ground_atoms": True
+    }
+])
+def test_create_ground_atom_data_from_generated_demos(config):
+    """Tests for the create_ground_atom_data_from_generated_demos method."""
+    utils.reset_config(config)
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     predicates, _ = utils.parse_config_excluded_predicates(env)
