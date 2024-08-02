@@ -28,10 +28,9 @@ class CoverEnv(BaseEnv):
     workspace_z: ClassVar[float] = 0.65
 
     # Types
-    _block_type = Type(
-        "block", ["is_block", "is_target", "width", "pose", "grasp"])
-    _target_type = Type("target",
-                                ["is_block", "is_target", "width", "pose"])
+    _block_type = Type("block",
+                       ["is_block", "is_target", "width", "pose", "grasp"])
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
     _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
 
     def __init__(self, use_gui: bool = True) -> None:
