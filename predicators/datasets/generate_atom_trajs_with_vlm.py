@@ -876,7 +876,6 @@ def _parse_predicate_proposals(
     type_init_str = _env_type_str(env_source_code)
     # constants_str = self._constants_str(self.env_source_code)
     exec(import_str, context)
-    logging.debug("type_init_str: \n" + type_init_str)
     exec(type_init_str, context)
 
     for code_str in python_blocks:
@@ -894,11 +893,13 @@ def _parse_predicate_proposals(
         try:
             exec(code_str, context)
             utils.abstract(tasks[0].init, [context[pred_name]])
-        except Exception as e:
+        except (TypeError, AttributeError) as e:
             error_trace = traceback.format_exc()
             logging.warning(f"Proposed predicate {pred_name} not "
                             f"executable: {e}\n{error_trace}")
             continue
+        except Exception as e:
+            logging.warning(f"An unexpected error occurred: {e}")
         else:
             candidates.add(context[pred_name])
 
