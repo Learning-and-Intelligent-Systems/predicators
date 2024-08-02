@@ -41,16 +41,20 @@ class _DummyVLM(VisionLanguageModel):
             if CFG.vlm_predicate_vision_api_generate_ground_atoms:
                 completion = (
                     "```python\n"
-                    "def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:\n"
+                    "def _Covers_holds(state: State, objects: Sequence[Object])"
+                    " -> bool:\n"
                     "    block, target = objects\n"
                     "    block_pose = state.get(block, 'pose')\n"
                     "    block_width = state.get(block, 'width')\n"
                     "    target_pose = state.get(target, 'pose')\n"
                     "    target_width = state.get(target, 'width')\n"
-                    "    return (block_pose-block_width/2 <= target_pose-target_width/2) and "
-                    "(block_pose+block_width/2 >= target_pose+target_width/2) and "
+                    "    return (block_pose-block_width/2 <= "
+                    "target_pose-target_width/2) and "
+                    "(block_pose+block_width/2 >= target_pose+target_width/2) "
+                    "and "
                     "state.get(block, 'grasp') == -1\n"
-                    "_Covers = Predicate('Covers', [_block_type, _target_type], _Covers_holds)"
+                    "_Covers = Predicate('Covers', [_block_type, _target_type],"
+                    " _Covers_holds)"
                     "```")
             elif "Please provide predicates" in prompt:
                 completion = "*Holding(spoon)\n*Fizz(buzz)\n" + \
