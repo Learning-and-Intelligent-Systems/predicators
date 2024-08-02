@@ -56,6 +56,10 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         to the base prompt for use at test time!"""
         pass
 
+    def _get_current_nsrts(self) -> Set[utils.NSRT]:
+        """This method doesn't explicitly learn NSRTs, so we simply
+        return the empty set."""
+        return set()
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         option_plan = self._query_vlm_for_option_plan(task)
@@ -70,11 +74,20 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         return _policy
 
 
-    def _query_vlm_for_option_plan(task: Task) -> Sequence[_Option]:
+    def _query_vlm_for_option_plan(self, task: Task) -> Sequence[_Option]:
         init_state = task.init
         assert init_state.simulator_state is not None
         assert isinstance(init_state.simulator_state["images"], List)
+        curr_options = sorted(self._initial_options)
         imgs = init_state.simulator_state["images"]
         filepath_to_vlm_prompt = utils.get_path_to_predicators_root() + \
-        "/predicators/approaches/vlm_planning_prompts"
-        # TODO: 
+        "/predicators/approaches/vlm_planning_prompts/no_few_shot.txt"
+        with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
+            base_prompt = f.read()
+        options_str = "\n".join(str(opt) for opt in curr_options)
+        objects_list = sorted(set(task.init))
+        objects_str = "\n".join(str(obj) for obj in objects_list)
+        goal_expr_list = sorted(set(task.goal))
+        goal_str = "\n".join(str(obj) for obj in goal_expr_list)
+        # TODO: generate the type hierarchy (which will require adjusting the prompt), then call the VLM
+        # TODO: parse the VLM's responses into an option plan!
