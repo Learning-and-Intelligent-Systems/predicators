@@ -77,8 +77,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     @property
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
-            self._On_NSP, self._OnTable_NSP, self._GripperOpen_NSP,
-            self._Holding_NSP, self._Clear_NSP
+            self._On_NSP, 
+            self._OnTable_NSP, 
+            self._GripperOpen_NSP,
+            self._Holding_NSP, 
+            self._Clear_NSP,
         }
 
     @property

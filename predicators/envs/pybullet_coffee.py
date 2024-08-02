@@ -177,8 +177,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             "JugHasCoffee": self._JugFilled,
             # "RobotHoldingAboveCup": self._RobotAboveCup,
             "JugSideToGripper": self._JugPickable,
-            "JugUpright": Predicate("JugUpright", [self._jug_type],
-                                    lambda _1, _2: True),
             "MachineOn": self._MachineOn,
         }
 
@@ -197,6 +195,27 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     self._JugFilled_NSP_holds)
         self._OnTable_NSP = Predicate("OnTable", [self._jug_type],
                                     self._OnTable_NSP_holds)
+        self._MachineOn_NSP = Predicate("MachineOn", [self._machine_type],
+                                    self._MachineOn_NSP_holds)
+
+    @property
+    def ns_predicates(self) -> Set[NSPredicate]:
+        return {self._CupFilled_NSP,
+                self._Holding_NSP,
+                self._JugInMachine_NSP,
+                self._JugPickable_NSP,
+                self._JugFilled_NSP,
+                self._OnTable_NSP,
+                self._MachineOn_NSP,
+                }
+    
+    def _MachineOn_NSP_holds(self, state: RawState, objects: Sequence[Object]
+                                ) -> bool:
+        machine, = objects
+        machine_name = machine.id_name
+        attention_image = state.crop_to_objects([machine])
+        return state.evaluate_simple_assertion(f"{machine_name} is on", 
+            attention_image)
 
     def _CupFilled_NSP_holds(self, state: RawState, objects: Sequence[Object]
                              ) -> bool:
@@ -281,15 +300,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             f"glass {jug_name} is directly resting on {table_name}'s surface.",
             attention_image)
 
-    @property
-    def ns_predicates(self) -> Set[NSPredicate]:
-        return {self._CupFilled_NSP,
-                self._Holding_NSP,
-                self._JugInMachine_NSP,
-                self._JugPickable_NSP,
-                self._JugFilled_NSP,
-                self._OnTable_NSP,
-                }
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:

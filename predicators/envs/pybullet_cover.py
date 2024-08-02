@@ -403,6 +403,10 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
     def __init__(self, use_gui: bool = True) -> None:   
         super().__init__(use_gui)
 
+        self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
+                                self._GripperOpen_NSP_holds)
+        self._Holding_NSP = NSPredicate("Holding", [self._block_type],
+                                self._Holding_NSP_holds)
         self._Covers_NSP = NSPredicate("Covers", [self._block_type, 
                                                   self._target_type],
                                 self._Covers_NSP_holds)
@@ -411,6 +415,14 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
             "HandEmpty": self._HandEmpty,
             "BlockGrasped": self._Holding,
             "Holding": self._Holding,
+        }
+
+    @property
+    def ns_predicates(self) -> Set[NSPredicate]:
+        return {
+            self._GripperOpen_NSP,
+            self._Holding_NSP, 
+            self._Covers_NSP,
         }
 
     @classmethod
