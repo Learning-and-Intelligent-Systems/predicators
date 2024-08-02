@@ -876,7 +876,7 @@ def _parse_predicate_proposals(
     type_init_str = _env_type_str(env_source_code)
     # constants_str = self._constants_str(self.env_source_code)
     # pylint: disable=exec-used
-    # Disabling exec-used warning because pylint dislike exec 
+    # Disabling exec-used warning because pylint dislike exec
     exec(import_str, context)
     exec(type_init_str, context)
     # pylint: enable=exec-used

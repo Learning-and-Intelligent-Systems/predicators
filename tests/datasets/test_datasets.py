@@ -748,8 +748,8 @@ def test_loading_txt_files():
     ).name == "PickPlace"
 
 
-@pytest.mark.parametrize("config", [
-    {
+@pytest.mark.parametrize(
+    "config", [{
         "env": "cover",
         "approach": "oracle",
         "offline_data_method": "demo",
@@ -758,8 +758,7 @@ def test_loading_txt_files():
         "num_train_tasks": 1,
         "included_options": "PickPlace",
         "excluded_predicates": "all",
-    },
-    {
+    }, {
         "env": "cover",
         "approach": "oracle",
         "offline_data_method": "demo",
@@ -769,8 +768,7 @@ def test_loading_txt_files():
         "included_options": "PickPlace",
         "excluded_predicates": "all",
         "vlm_predicate_vision_api_generate_ground_atoms": True
-    }
-])
+    }])
 def test_create_ground_atom_data_from_generated_demos(config):
     """Tests for the create_ground_atom_data_from_generated_demos method."""
     utils.reset_config(config)
