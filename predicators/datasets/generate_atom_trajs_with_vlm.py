@@ -875,8 +875,11 @@ def _parse_predicate_proposals(
     env_source_code = getsource(env.__class__)
     type_init_str = _env_type_str(env_source_code)
     # constants_str = self._constants_str(self.env_source_code)
+    # pylint: disable=exec-used
+    # Disabling exec-used warning because pylint dislike exec 
     exec(import_str, context)
     exec(type_init_str, context)
+    # pylint: enable=exec-used
 
     for code_str in python_blocks:
         # Extract name from code block
@@ -891,15 +894,17 @@ def _parse_predicate_proposals(
         # Try to check if it's roughly runable. And only add it to
         # our list if it is.
         try:
+            # pylint: disable=exec-used
             exec(code_str, context)
+            # pylint: enable=exec-used
             utils.abstract(tasks[0].init, [context[pred_name]])
         except (TypeError, AttributeError) as e:
+            # Was using Exception but pylint was complaining, so I'm
+            # adding specific exceptions to this tuple as we encounter them.
             error_trace = traceback.format_exc()
             logging.warning(f"Proposed predicate {pred_name} not "
                             f"executable: {e}\n{error_trace}")
             continue
-        except Exception as e:
-            logging.warning(f"An unexpected error occurred: {e}")
         else:
             candidates.add(context[pred_name])
 
