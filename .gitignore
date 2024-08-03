@@ -15,8 +15,8 @@ pylint_recursive.py
 .coverage
 results
 eval_trajectories
+images
 videos
-images/
 logs*
 saved_approaches
 saved_datasets
