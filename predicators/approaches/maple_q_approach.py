@@ -3,6 +3,18 @@
 learned.
 
 Base samplers and applicable actions are used to perform the argmax.
+
+Example command:
+    python predicators/main.py --approach maple_q --seed 0 \
+        --env cover \
+        --explorer maple_q \
+
+        --strips_learner oracle \
+        --sampler_learner oracle \
+        --online_nsrt_learning_requests_per_cycle 200 \
+        --num_online_learning_cycles 20 \
+        --max_num_steps_interaction_request 5 \
+        --horizon 2  # NOTE, otherwise too easy
 """
 
 from __future__ import annotations
