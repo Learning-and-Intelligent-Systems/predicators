@@ -11,15 +11,18 @@ task objects to help you come up with a plan.
 Here is a list of objects present in this scene for this task, along with their type (formatted as <object_name>: <type_name>):
 {typed_objects}
 
-And here are the types TODO; say more!:
+And here are the available types (formatted in PDDL style as `<type_name1> <type_name2>... - <parent_type_name>`). You can infer a hierarchy of types via this:
 {type_hierarchy}
 
 Finally, here is an expression corresponding to the task goal that must be achieved:
 {goal_str}
 
-Please provide your output in the following format (excluding the angle brackets and ellipsis, which are just for illustration purposes):
+Please return a plan that achieves the provided goal from an initial state depicted by the image(s) below.
+Please provide your output in the following format (excluding the angle brackets and ellipsis, which are just for illustration purposes).
+Be sure to include the parens '(' and ')', as well as square brackets '[' and ']' even if there are no objects/continuous parameters.
+Do not bold or italicize or otherwise apply any extra formaating to the plan text:
 <Explanation of scene + your reasoning>
 Plan:
-<skill 1 with discrete objects and continuous values specified>
-<skill 2 with discrete objects and continuous values specified>
+<skill 1 name>(<obj1_name>:<obj1_type_name>, <obj2_name>:<obj2_type_name>, ...)[<continuous_param1_value>, <continuous_param2_value>, ...]
+<skill 2 name>(<obj1_name>:<obj1_type_name>, <obj2_name>:<obj2_type_name>, ...)[<continuous_param1_value>, <continuous_param2_value>, ...]
 ...
