@@ -3,7 +3,7 @@ Example command line:
     export OPENAI_API_KEY=<your API key>
 
 Example run:
-    python scripts/run_interactive_yaml.py -c vlm_predicate.yaml
+    python scripts/run_interactive_yaml.py -c vlm_predicate_cover.yaml
 """
 import traceback
 import shutil
