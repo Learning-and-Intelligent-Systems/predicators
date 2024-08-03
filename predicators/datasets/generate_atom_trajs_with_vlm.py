@@ -848,7 +848,7 @@ def _env_type_str(source_code: str) -> str:
         type_init_str = textwrap.dedent(type_init_str)
         # type_init_str = add_python_quote(type_init_str)
         return type_init_str
-    raise Exception("No type definitions found in the environment.")
+    raise Exception("No type definitions found in the env") # pragma: no cover
 
 
 def _parse_predicate_proposals(
