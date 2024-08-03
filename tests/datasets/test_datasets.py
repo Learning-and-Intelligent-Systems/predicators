@@ -75,8 +75,7 @@ class _DummyVLM(VisionLanguageModel):
                     "    return block_color == 'blue'\n"
                     "_IsBlue = Predicate('IsBlue', [_block_type],"
                     " _IsBlue_holds)"
-                    "```\n"
-                    )
+                    "```\n")
             elif "Please provide predicates" in prompt:
                 completion = "*Holding(spoon)\n*Fizz(buzz)\n" + \
                     "*Submerged(teabag)\n*Submerged(spoon)\n*IsRobot(robby)"
