@@ -48,7 +48,6 @@ from predicators.approaches import ApproachFailure
 from predicators.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
 from predicators.planning import task_plan_with_option_plan_constraint
-from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
