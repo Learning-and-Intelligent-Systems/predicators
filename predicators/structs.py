@@ -31,6 +31,14 @@ class Type:
         """Dimensionality of the feature vector of this object type."""
         return len(self.feature_names)
 
+    def get_ancestors(self) -> Set[Type]:
+        curr_type = self
+        ancestors_set = set()
+        while curr_type is not None:
+            ancestors_set.add(curr_type)
+            curr_type = curr_type.parent
+        return ancestors_set
+
     def __call__(self, name: str) -> _TypedEntity:
         """Convenience method for generating _TypedEntities."""
         if name.startswith("?"):
