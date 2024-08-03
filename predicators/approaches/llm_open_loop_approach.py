@@ -9,7 +9,7 @@ Example command line:
         --num_test_tasks 1 \
         --debug
 
-Example using Gemini
+Example using Gemini:
     export GOOGLE_API_KEY=<your API key>
     python predicators/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
