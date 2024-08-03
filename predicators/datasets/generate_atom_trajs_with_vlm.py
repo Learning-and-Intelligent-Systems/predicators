@@ -748,7 +748,6 @@ def _generate_ground_atoms_with_vlm_oo_code_gen(
     predicates over the object features, then generate a ground atom
     trajectory."""
     del all_task_objs  # Unused.
-    prompt_dir = "predicators/datasets/vlm_input_data_prompts/vision_api/"
     candidates = set()
     for io_traj in image_option_trajs:
         # 1. Create a prompt based on the image option trajectory.
@@ -835,8 +834,9 @@ from predicators.structs import State, Object, Predicate, Type
 
 def _env_type_str(source_code: str) -> str:
     """Extract the type definitions from the environment source code.
+
     Requires the types be defined class variabled under `# Types` as in
-    cover, burger and kitchen
+    cover, burger and kitchen.
     """
     type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"
     type_block = re.search(type_pattern, source_code, re.DOTALL)
