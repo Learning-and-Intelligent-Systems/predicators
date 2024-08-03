@@ -15,12 +15,13 @@ pylint_recursive.py
 .coverage
 results
 eval_trajectories
+images
 videos
-logs
+logs*
 saved_approaches
 saved_datasets
 scripts/results
-pretrained_model_cache
+pretrained_model_cache*
 tests/datasets/mock_vlm_datasets/cache/
 machines.txt
 *_vision_data
