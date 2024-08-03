@@ -677,7 +677,7 @@ def _parse_vlmtraj_file_into_structured_trajs(
     return (output_state_trajs, output_action_trajs)
 
 
-def _query_vlm_to_generate_ground_atoms_trajs(
+def _generate_ground_atoms_with_vlm_pure_visual_preds(
         image_option_trajs: List[ImageOptionTrajectory], env: BaseEnv,
         train_tasks: List[Task], known_predicates: Set[Predicate],
         all_task_objs: Set[Object],
@@ -739,7 +739,7 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     return ground_atoms_trajs
 
 
-def _generate_ground_atoms_trajs_from_synthesized_predicates(
+def _generate_ground_atoms_with_vlm_oo_code_gen(
         image_option_trajs: List[ImageOptionTrajectory], env: BaseEnv,
         train_tasks: List[Task], known_predicates: Set[Predicate],
         all_task_objs: Set[Object],
@@ -760,12 +760,9 @@ def _generate_ground_atoms_trajs_from_synthesized_predicates(
                                           0.0,
                                           CFG.seed,
                                           num_completions=1)[0]
-        response_file = prompt_dir + "response.txt"
-        with open(response_file, 'w', encoding="utf-8") as f:
-            f.write(response)
+
         # 3. Parse the responses into a set of predicates
-        candidates |= _parse_predicate_proposals(response_file, train_tasks,
-                                                 env)
+        candidates |= _parse_predicate_proposals(response, train_tasks, env)
 
     # 4. Generate the ground atom trajectories from the predicates.
     ground_atoms_trajs = []
@@ -803,10 +800,7 @@ def _create_prompt_from_image_option_traj(
         '[STRUCT_DEFINITION]', add_python_quote(state_str + '\n\n' + pred_str))
 
     # Object types
-    with open(prompt_dir + f"types_{env.get_name()}.txt",
-              'r',
-              encoding="utf-8") as f:
-        type_instan_str = f.read()
+    type_instan_str = _env_type_str(getsource(env.__class__))
     type_instan_str = add_python_quote(type_instan_str)
     template = template.replace("[TYPES_IN_ENV]", type_instan_str)
 
@@ -840,7 +834,10 @@ from predicators.structs import State, Object, Predicate, Type
 
 
 def _env_type_str(source_code: str) -> str:
-    """Extract the type definitions from the environment source code."""
+    """Extract the type definitions from the environment source code.
+    Requires the types be defined class variabled under `# Types` as in
+    cover, burger and kitchen
+    """
     type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"
     type_block = re.search(type_pattern, source_code, re.DOTALL)
     if type_block is not None:
@@ -852,15 +849,11 @@ def _env_type_str(source_code: str) -> str:
 
 
 def _parse_predicate_proposals(
-    prediction_file: str,
+    response: str,
     tasks: List[Task],
     env: BaseEnv,
 ) -> Set[Predicate]:
     """Parse the prediction file to extract the proposed predicates."""
-    # Read the prediction file
-    with open(prediction_file, 'r', encoding="utf-8") as file:
-        response = file.read()
-
     # Regular expression to match Python code blocks
     pattern = re.compile(r'```python(.*?)```', re.DOTALL)
     python_blocks = []
@@ -993,9 +986,9 @@ def create_ground_atom_data_from_generated_demos(
     if vlm is None:
         vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
     if CFG.vlm_predicate_vision_api_generate_ground_atoms:
-        generate_func = _generate_ground_atoms_trajs_from_synthesized_predicates
+        generate_func = _generate_ground_atoms_with_vlm_oo_code_gen
     else:
-        generate_func = _query_vlm_to_generate_ground_atoms_trajs
+        generate_func = _generate_ground_atoms_with_vlm_pure_visual_preds
     ground_atoms_trajs = generate_func(img_option_trajs, env, train_tasks,
                                        known_predicates, all_task_objs, vlm)
     return Dataset(option_segmented_trajs, ground_atoms_trajs)
@@ -1168,7 +1161,7 @@ def create_ground_atom_data_from_saved_img_trajs(
     # atoms that might be relevant to decision-making.
     if vlm is None:
         vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
-    ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
+    ground_atoms_trajs = _generate_ground_atoms_with_vlm_pure_visual_preds(
         image_option_trajs, env, train_tasks, known_predicates, all_task_objs,
         vlm)
     # Finally, we just need to construct LowLevelTrajectories that we can

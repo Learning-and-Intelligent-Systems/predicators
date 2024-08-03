@@ -31,6 +31,7 @@ sas_plan
 downward/
 Gymnasium-Robotics/
 predicators/datasets/vlm_input_data_prompts/vision_api/prompt.txt
+predicators/datasets/vlm_input_data_prompts/vision_api/response.txt
 
 # Jetbrains IDEs
 .idea/

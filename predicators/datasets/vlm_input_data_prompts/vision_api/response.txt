@@ -1,9 +1,0 @@
-```python
-def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
-    block, target = objects
-    block_pose = state.get(block, 'pose')
-    block_width = state.get(block, 'width')
-    target_pose = state.get(target, 'pose')
-    target_width = state.get(target, 'width')
-    return (block_pose-block_width/2 <= target_pose-target_width/2) and (block_pose+block_width/2 >= target_pose+target_width/2) and state.get(block, 'grasp') == -1
-_Covers = Predicate('Covers', [_block_type, _target_type], _Covers_holds)```
