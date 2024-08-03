@@ -898,7 +898,7 @@ def _parse_predicate_proposals(
             exec(code_str, context)
             # pylint: enable=exec-used
             utils.abstract(tasks[0].init, [context[pred_name]])
-        except (TypeError, AttributeError) as e:
+        except (TypeError, AttributeError, ValueError) as e:
             # Was using Exception but pylint was complaining, so I'm
             # adding specific exceptions to this tuple as we encounter them.
             error_trace = traceback.format_exc()
