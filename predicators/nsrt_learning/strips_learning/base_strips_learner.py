@@ -72,10 +72,12 @@ class BaseSTRIPSLearner(abc.ABC):
                           f"pruning: {learned_pnads}")
             # Printing for debug
             for pnad in learned_pnads:
+                percentage = 0 if self._num_segments == 0 else\
+                    len(pnad.datastore) / float(self._num_segments)
                 logging.debug(
                     f"PNAD: {pnad.op.name} \n"
                     f"Total segments: {self._num_segments} "
-                    f"Percentage: {len(pnad.datastore)/float(self._num_segments)}"
+                    f"Percentage: {percentage}"
                 )
             learned_pnads = [
                 pnad for pnad in learned_pnads

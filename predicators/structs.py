@@ -150,8 +150,11 @@ class State:
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
         for obj in self:
-            assert len(self[obj]) == obj.type.dim or\
+            try:
+                assert len(self[obj]) == obj.type.dim or\
             len(self[obj])+4 == obj.type.dim # a hack for adding bbox features
+            except:
+                breakpoint()
 
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it

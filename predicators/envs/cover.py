@@ -1131,7 +1131,8 @@ class BumpyCoverEnv(CoverEnvRegrasp):
 
     def _create_initial_state(self, blocks: List[Object],
                               targets: List[Object],
-                              rng: np.random.Generator) -> State:
+                              rng: np.random.Generator, 
+                              is_train: bool = True) -> State:
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_target_widths) == len(targets)
         for target, width in zip(targets, CFG.cover_target_widths):
@@ -1169,7 +1170,15 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             # [is_block, is_target, width, pose, grasp, bumpy]
             data[block] = np.array([1.0, 0.0, width, pose, -1.0, bumpy])
         # [hand, pose_x, pose_z]
-        data[self._robot] = np.array([0.5, self.workspace_x, self.workspace_z])
+        if "hand_empty" in self._robot_type.feature_names or\
+           "fingers" in self._robot_type.feature_names:
+            # [hand, pose_x, pose_z, hand_empty]
+            data[self._robot] = np.array(
+                [0.5, self.workspace_x, self.workspace_z, 1])
+        else:
+            # [hand, pose_x, pose_z]
+            data[self._robot] = np.array(
+                [0.5, self.workspace_x, self.workspace_z])
         state = State(data)
         return state
 

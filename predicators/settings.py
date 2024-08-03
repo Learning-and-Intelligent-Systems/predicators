@@ -906,6 +906,16 @@ You are an AI researcher who will answer whether each assertion holds in the ima
 
             # Parameters specific to the cover environment.
             # cover env parameters
+            cover_num_blocks=defaultdict(
+                lambda: 2,
+                {
+                    # "cover_place_hard": 1,
+                })[args.get("env", "")],
+            cover_num_targets=defaultdict(
+                lambda: 2,
+                {
+                    # "cover_place_hard": 1,
+                })[args.get("env", "")],
             cover_num_blocks_train=defaultdict(
                 lambda: 2,
                 {

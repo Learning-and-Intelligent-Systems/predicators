@@ -53,7 +53,7 @@ from predicators.structs import Action, AnnotatedPredicate, Dataset, \
     Optional, ParameterizedOption, Predicate, State, Task, Type, _Option, \
     _TypedEntity, NSRT
 from predicators.utils import EnvironmentFailure, OptionExecutionFailure, \
-    option_plan_to_policy, get_value_from_tuple_key, has_key_in_tuple
+    option_plan_to_policy, get_value_from_tuple_key, has_key_in_tuple_key
 
 import_str = """
 import numpy as np
@@ -1566,7 +1566,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     candidates.add(get_value_from_tuple_key(
                         self.env.ns_to_sym_predicates, pred_name.strip("_")))
                 else:
-                    logging.warning(f"{pred_name.strip("_")} isn't in the "
+                    logging.warning(f"{pred_name} isn't in the "
                         "ns_to_sym_predicates dict, please consider adding it.")
             else:
                 # check if it's roughly runable, and add it to list if it is.
