@@ -27,15 +27,15 @@ class CoverEnv(BaseEnv):
     workspace_x: ClassVar[float] = 1.35
     workspace_z: ClassVar[float] = 0.65
 
+    # Types
+    _block_type = Type("block",
+                       ["is_block", "is_target", "width", "pose", "grasp"])
+    _target_type = Type("target", ["is_block", "is_target", "width", "pose"])
+    _robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        self._block_type = Type(
-            "block", ["is_block", "is_target", "width", "pose", "grasp"])
-        self._target_type = Type("target",
-                                 ["is_block", "is_target", "width", "pose"])
-        self._robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
         # Predicates
         self._IsBlock = Predicate("IsBlock", [self._block_type],
                                   self._IsBlock_holds)

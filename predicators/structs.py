@@ -211,6 +211,36 @@ class State:
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
+    def dict_str(self, indent: int = 0, object_features: bool = True) -> str:
+        """Return a dictionary representation of the state."""
+        state_dict = {}
+        for obj in self:
+            obj_dict = {}
+            if obj.type.name == "robot" or object_features:
+                for attribute, value in zip(obj.type.feature_names, self[obj]):
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
+            obj_name = obj.name
+            state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
+
+        # Create a string of n_space spaces
+        spaces = " " * indent
+
+        # Create a PrettyPrinter with a large width
+        dict_str = spaces + "{"
+        n_keys = len(state_dict.keys())
+        for i, (key, value) in enumerate(state_dict.items()):
+            value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+            if i == 0:
+                dict_str += f"'{key}': {{{value_str}}},\n"
+            elif i == n_keys - 1:
+                dict_str += spaces + f" '{key}': {{{value_str}}}"
+            else:
+                dict_str += spaces + f" '{key}': {{{value_str}}},\n"
+        dict_str += "}"
+        return dict_str
+
 
 DefaultState = State({})
 
@@ -475,11 +505,12 @@ DefaultTask = Task(DefaultState, set())
 class EnvironmentTask:
     """An initial observation and goal description.
 
-    Environments produce environment tasks and agents produce and solve tasks.
+    Environments produce environment tasks and agents produce and solve
+    tasks.
 
     In fully observed settings, the init_obs will be a State and the
-    goal_description will be a Set[GroundAtom]. For convenience, we can convert
-    an EnvironmentTask into a Task in those cases.
+    goal_description will be a Set[GroundAtom]. For convenience, we can
+    convert an EnvironmentTask into a Task in those cases.
     """
     init_obs: Observation
     goal_description: GoalDescription
@@ -600,6 +631,12 @@ class ParameterizedOption:
             objects=objects,
             params=params,
             memory=memory)
+
+    def pddl_str(self) -> str:
+        """Turn this option into a string that is PDDL-like."""
+        params_str = " ".join(f"?x{i} - {t.name}"
+                              for i, t in enumerate(self.types))
+        return f"{self.name}({params_str})"
 
 
 @dataclass(eq=False)

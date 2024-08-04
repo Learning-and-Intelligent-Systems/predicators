@@ -289,6 +289,10 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
+    # doorknobs env parameters
+    doorknobs_target_value = 0.75
+    test_doors_room_map_size = 10
+
     # narrow_passage env parameters
     narrow_passage_open_door_refine_penalty = 0
     narrow_passage_door_width_padding_lb = 1e-4
@@ -687,6 +691,7 @@ class GlobalSettings:
     # filepath to be used if offline_data_method is set to
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
+    vlm_predicate_vision_api_generate_ground_atoms = False
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
