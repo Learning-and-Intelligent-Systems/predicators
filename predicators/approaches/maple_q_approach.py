@@ -6,15 +6,29 @@ Base samplers and applicable actions are used to perform the argmax.
 
 Example command:
     python predicators/main.py --approach maple_q --seed 0 \
-        --env cover \
         --explorer maple_q \
-
+        --mlp_regressor_max_itr 640000 \
+        --active_sampler_learning_batch_size 512 \
+        --env regional_bumpy_cover \
+        --regional_bumpy_cover_include_impossible_nsrt True \
+        --bumpy_cover_init_bumpy_prob 0.0 \
+        --bumpy_cover_num_bumps 3 \
+        --bumpy_cover_spaces_per_bump 3 \
+        --cover_num_blocks 1 \
+        --cover_block_widths [0.01] \
+        --cover_num_targets 1 \
+        --cover_target_widths [0.008] \
         --strips_learner oracle \
         --sampler_learner oracle \
+        --bilevel_plan_without_sim True \
+        --max_initial_demos 0 \
         --online_nsrt_learning_requests_per_cycle 200 \
         --num_online_learning_cycles 20 \
+        --num_train_tasks 1000 \
+        --num_test_tasks 10 \
         --max_num_steps_interaction_request 5 \
-        --horizon 2  # NOTE, otherwise too easy
+        --horizon 2 \
+        --debug
 """
 
 from __future__ import annotations

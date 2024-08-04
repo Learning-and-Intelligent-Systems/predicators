@@ -1376,6 +1376,13 @@ class MapleQFunction(MLPRegressor):
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
+        ground_options = [(g_nsrt.option, tuple(g_nsrt.option_objs))
+                          for g_nsrt in ground_nsrts]
+        self._ordered_ground_options = sorted(ground_options)
+        self._ground_option_to_idx = {
+            go: i
+            for i, go in enumerate(self._ordered_ground_options)
+        }
 
     def get_option(self,
                    state: State,
@@ -1536,10 +1543,20 @@ class MapleQFunction(MLPRegressor):
         return vec
 
     def _vectorize_option(self, option: _Option) -> Array:
+        """Vectorize an option into a one-hot vector of the option index concat
+        with the option parameters."""
+        # Find the nsrt with the matching ParameterizedOption and object params
+        # as `option`. Note this assumes option_vars are in the same parameter
+        # space as nsrt parameters, which doesn't hold in many environments.
+        # matches = [
+        #     i for (n, i) in self._ground_nsrt_to_idx.items()
+        #     if n.option == option.parent
+        #     and tuple(n.objects) == tuple(option.objects)
+        # ]
         matches = [
-            i for (n, i) in self._ground_nsrt_to_idx.items()
-            if n.option == option.parent
-            and tuple(n.objects) == tuple(option.objects)
+            i
+            for ((param_optn, objs), i) in self._ground_option_to_idx.items()
+            if param_optn == option.parent and objs == tuple(option.objects)
         ]
         assert len(matches) == 1
         # Create discrete part.
