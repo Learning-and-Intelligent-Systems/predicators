@@ -2336,27 +2336,25 @@ def parse_model_output_into_option_plan(
         if parse_continuous_params:
             params_str_list = option_str_stripped.split('[')[1].strip(
                 ']').split(',')
-            for i, continouous_params_str in enumerate(params_str_list):
-                stripped_continuous_params_str = continouous_params_str.strip()
-                if len(stripped_continuous_params_str) == 0:
+            for i, continuous_params_str in enumerate(params_str_list):
+                stripped_continuous_param_str = continuous_params_str.strip()
+                if len(stripped_continuous_param_str) == 0:
                     continue
                 try:
-                    continuous_params_list = [
-                        float(float_str.strip()) for float_str in
-                        stripped_continuous_params_str.split(',')
-                    ]
+                    curr_cont_param = float(stripped_continuous_param_str)
                 except ValueError:
                     logging.info(f"Line {option_str} output by model has an "
                                  "invalid continouous parameter that can't be"
                                  "converted to a float.")
                     malformed = True
                     break
-                if len(continuous_params_list) != option.params_space.shape[0]:
-                    logging.info(f"Line {option_str} output by model has an "
-                                 "invalid continouous parameter that don't"
-                                 f"agree with {option}.")
-                    malformed = True
-                    break
+                continuous_params_list.append(curr_cont_param)
+            if len(continuous_params_list) != option.params_space.shape[0]:
+                logging.info(f"Line {option_str} output by model has "
+                             "invalid continouous parameter(s) that don't "
+                             f"agree with {option}{option.params_space}.")
+                malformed = True
+                break
         if not malformed:
             option_plan.append((option, objs_list, continuous_params_list))
     return option_plan

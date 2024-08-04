@@ -33,8 +33,13 @@ from predicators.structs import Action, Box, Dataset, ParameterizedOption, \
     Predicate, State, Task, Type, _Option
 
 
-class VLMOpenLoopApproach(BilevelPlanningApproach):
-    """VLMOpenLoopApproach definition."""
+class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
+    """VLMOpenLoopApproach definition.
+
+    NOTE: we don't test this approach because it requires an environment
+    that has rendering, and our current envs that have this are burger
+    and kitchen, which are slow/untestable on GitHub remote...
+    """
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -104,7 +109,13 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         return set()
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        option_plan = self._query_vlm_for_option_plan(task)
+        try:
+            option_plan = self._query_vlm_for_option_plan(task)
+        except Exception as e:
+            raise ApproachFailure(
+                f"VLM failed to produce coherent option plan. Reason: {e.info}"
+            )
+
         policy = utils.option_plan_to_policy(option_plan)
 
         def _policy(s: State) -> Action:
@@ -128,12 +139,14 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         imgs_for_vlm = []
         for img_num, pil_img in enumerate(pil_imgs):
             draw = ImageDraw.Draw(pil_img)
-            img_font = utils.get_scaled_default_font(draw, 20)
+            img_font = utils.get_scaled_default_font(draw, 10)
             img_with_txt = utils.add_text_to_draw_img(
                 draw, (50, 50), f"Initial state to plan from, Image {img_num}",
                 img_font)
             imgs_for_vlm.append(img_with_txt._image)  # pylint:disable=protected-access
-        options_str = "\n".join(str(opt) for opt in curr_options)
+        options_str = "\n".join(
+            str(opt) + ", params_space=" + str(opt.params_space)
+            for opt in curr_options)
         objects_list = sorted(set(task.init))
         objects_str = "\n".join(str(obj) for obj in objects_list)
         goal_expr_list = sorted(set(task.goal))
