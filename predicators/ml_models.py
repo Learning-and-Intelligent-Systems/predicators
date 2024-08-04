@@ -1350,6 +1350,10 @@ class MapleQFunction(MLPRegressor):
         self._ordered_frozen_goals: List[FrozenSet[GroundAtom]] = []
         self._ordered_ground_nsrts: List[_GroundNSRT] = []
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
+        self._ordered_ground_options: List[Tuple[ParameterizedOption,
+                                                 Tuple[Object]]] = []
+        self._ground_option_to_idx: Dict[Tuple[ParameterizedOption,
+                                               Tuple[Object]], int] = {}
         self._max_num_params = 0
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
@@ -1545,14 +1549,6 @@ class MapleQFunction(MLPRegressor):
     def _vectorize_option(self, option: _Option) -> Array:
         """Vectorize an option into a one-hot vector of the option index concat
         with the option parameters."""
-        # Find the nsrt with the matching ParameterizedOption and object params
-        # as `option`. Note this assumes option_vars are in the same parameter
-        # space as nsrt parameters, which doesn't hold in many environments.
-        # matches = [
-        #     i for (n, i) in self._ground_nsrt_to_idx.items()
-        #     if n.option == option.parent
-        #     and tuple(n.objects) == tuple(option.objects)
-        # ]
         matches = [
             i
             for ((param_optn, objs), i) in self._ground_option_to_idx.items()
