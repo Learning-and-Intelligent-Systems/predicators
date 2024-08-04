@@ -37,16 +37,15 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
                          action_space, train_tasks)
         # Set up the vlm and base prompt.
         self._vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
-        self._base_prompt_imgs = []
         filepath_to_vlm_prompt = utils.get_path_to_predicators_root() + \
         "/predicators/approaches/vlm_planning_prompts/no_few_shot.txt"
         if CFG.vlm_open_loop_use_training_demos:
             filepath_to_vlm_prompt = utils.get_path_to_predicators_root() + \
-        "/predicators/approaches/vlm_planning_prompts/no_few_shot.txt"
+        "/predicators/approaches/vlm_planning_prompts/few_shot.txt"
         with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
             self.base_prompt = f.read()
-        self.prompt_state_imgs_list: List[List[PIL.Image.Image]] = []
-        self.prompt_trajs_str = ""
+        self._prompt_state_imgs_list: List[List[PIL.Image.Image]] = []
+        self._prompt_demos_str = ""
 
     @classmethod
     def get_name(cls) -> str:
@@ -68,10 +67,10 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
             dataset.trajectories[0].states[0].simulator_state["images"], List)
         num_imgs_per_state = len(
             dataset.trajectories[0].states[0].simulator_state["images"])
-        self.prompt_trajs_str = ""
+        self._prompt_demos_str = ""
         for traj_num, traj in enumerate(dataset.trajectories):
             traj_goal = self._train_tasks[traj.train_task_idx].goal
-            self.prompt_trajs_str += f"Demonstration {traj_num}, Goal: {str(sorted(traj_goal))}\n"
+            self._prompt_demos_str += f"Demonstration {traj_num}, Goal: {str(sorted(traj_goal))}\n"
             for state_num, state in enumerate(traj.states):
                 assert len(
                     state.simulator_state["images"]) == num_imgs_per_state
@@ -83,11 +82,9 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
                         draw, (50, 50),
                         f"Demonstration {traj_num}, State {state_num}, Image {img_num}",
                         img_font)
-                    img_with_txt_np = np.array(img_with_txt)
-                    img_with_txt_pil = PIL.Image.fromarray(img_with_txt_np)
-                    self.prompt_state_imgs_list.append(img_with_txt_pil)
+                    self._prompt_state_imgs_list.append(img_with_txt._image)
             for action_num, action in enumerate(traj.actions):
-                self.prompt_trajs_str += f"Action {action_num}, from state {action_num} is {action.get_option()}\n"
+                self._prompt_demos_str += f"Action {action_num}, from state {action_num} is {action.get_option()}\n"
 
     def _get_current_nsrts(self) -> Set[utils.NSRT]:
         """This method doesn't explicitly learn NSRTs, so we simply return the
@@ -112,24 +109,47 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         assert isinstance(init_state.simulator_state["images"], List)
         curr_options = sorted(self._initial_options)
         imgs = init_state.simulator_state["images"]
-        imgs_for_vlm = [PIL.Image.fromarray(img_arr)
-                        for img_arr in imgs]  # type: ignore
+        pil_imgs = [PIL.Image.fromarray(img_arr)
+                    for img_arr in imgs]  # type: ignore
+        imgs_for_vlm = []
+        for img_num, pil_img in enumerate(pil_imgs):
+            draw = ImageDraw.Draw(pil_img)
+            img_font = utils.get_scaled_default_font(draw, 20)
+            img_with_txt = utils.add_text_to_draw_img(
+                draw, (50, 50),
+                f"Initial state to plan from, Image number {img_num}",
+                img_font)
+            imgs_for_vlm.append(img_with_txt._image)
         options_str = "\n".join(str(opt) for opt in curr_options)
         objects_list = sorted(set(task.init))
         objects_str = "\n".join(str(obj) for obj in objects_list)
         goal_expr_list = sorted(set(task.goal))
         type_hierarchy_str = utils.create_pddl_types_str(self._types)
         goal_str = "\n".join(str(obj) for obj in goal_expr_list)
-        prompt = self.base_prompt.format(options=options_str,
-                                         typed_objects=objects_str,
-                                         type_hierarchy=type_hierarchy_str,
-                                         goal_str=goal_str)
-        vlm_output = self._vlm.sample_completions(
-            prompt,
-            imgs_for_vlm,
-            temperature=CFG.vlm_temperature,
-            seed=CFG.seed,
-            num_completions=1)
+        if not CFG.vlm_open_loop_use_training_demos:
+            prompt = self.base_prompt.format(options=options_str,
+                                             typed_objects=objects_str,
+                                             type_hierarchy=type_hierarchy_str,
+                                             goal_str=goal_str)
+            vlm_output = self._vlm.sample_completions(
+                prompt,
+                imgs_for_vlm,
+                temperature=CFG.vlm_temperature,
+                seed=CFG.seed,
+                num_completions=1)
+        else:
+            prompt = self.base_prompt.format(
+                options=options_str,
+                demonstration_trajs=self._prompt_demos_str,
+                typed_objects=objects_str,
+                type_hierarchy=type_hierarchy_str,
+                goal_str=goal_str)
+            vlm_output = self._vlm.sample_completions(
+                prompt,
+                self._prompt_state_imgs_list + imgs_for_vlm,
+                temperature=CFG.vlm_temperature,
+                seed=CFG.seed,
+                num_completions=1)
         plan_prediction_txt = vlm_output[0]
         option_plan: List[_Option] = []
         try:
