@@ -1,6 +1,6 @@
 You are highly skilled in robotic task planning, breaking down intricate and long-term tasks into distinct primitive actions.
 Consider the following skills a robotic agent can perform. Note that each of these skills takes the form of a `ParameterizedOption` and may have both discrete arguments (indicated by the `types` field, referring to objects of particular types),
-as well as continuous arguments (indicated by `params_space` field).
+as well as continuous arguments (indicated by `params_space` field, which is formatted as `Box([<param1_lower_bound>, <param2_lower_bound>, ...], [<param1_upper_bound>, <param2_upper_bound>, ...], (<number_of_params>,), <datatype_of_all_params>)`).
 
 {options}
 
