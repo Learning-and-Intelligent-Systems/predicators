@@ -2280,8 +2280,8 @@ def parse_model_output_into_option_plan(
             break
         if parse_continuous_params and "[" not in option_str:
             logging.info(
-                f"Line {option_str} output by model doesn't contain a '[' and is thus improperly formatted."
-            )
+                f"Line {option_str} output by model doesn't contain a "
+                "'[' and is thus improperly formatted.")
             break
         option = option_name_to_option[option_name]
         # Now that we have the option, we need to parse out the objects
@@ -2320,7 +2320,7 @@ def parse_model_output_into_option_plan(
                              "invalid type name.")
                 malformed = True
                 break
-            elif option.types[i] not in type_name_to_type[
+            if option.types[i] not in type_name_to_type[
                     type_name].get_ancestors():
                 logging.info(f"Line {option_str} output by model has an "
                              "invalid type that doesn't agree with the option"

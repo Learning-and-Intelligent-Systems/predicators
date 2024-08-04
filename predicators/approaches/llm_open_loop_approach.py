@@ -135,7 +135,8 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         ParameterizedOptions coupled with a list of objects that will be used
         to ground the ParameterizedOption."""
         option_plan: List[Tuple[ParameterizedOption, Sequence[Object]]] = []
-        option_plan_with_cont_params = utils.parse_model_output_into_option_plan(
+        option_plan_with_cont_params = utils.\
+            parse_model_output_into_option_plan(
             llm_prediction, objects, self._types, self._initial_options, False)
         option_plan = [(elem[0], elem[1])
                        for elem in option_plan_with_cont_params]
