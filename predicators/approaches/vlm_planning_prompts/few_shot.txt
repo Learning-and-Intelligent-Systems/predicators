@@ -4,7 +4,17 @@ as well as continuous arguments (indicated by `params_space` field).
 
 {options}
 
-You are only allowed to use the provided skills. It's essential to stick to the format of these basic skills. When creating a plan, replace
+
+Here are a number of example demonstrations of solving a range of goals from an expert demonstrator. For each of these examples, you are provided 
+with the goal the demonstrator was trying to achieve, the plan (i.e., sequence of skills with discrete and continuous arguments specified), as well
+as images corresponding to the state of the environment at every timestep (starting at 0, when skill 0 is executed). Note that the state images
+are annotated with text indicating which demonstration and timestep they belong to. Additionally, note that a state might have more than one image
+associated with it.
+
+{demonstration_trajs}
+
+
+To solve the task presented below, you are only allowed to use the provided skills. It's essential to stick to the format of these basic skills. When creating a plan, replace
 the arguments of each skill with specific items or continuous parameters. You can first describe the provided scene and what it indicates about the provided
 task objects to help you come up with a plan.
 
