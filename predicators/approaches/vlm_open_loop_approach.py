@@ -113,7 +113,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
             option_plan = self._query_vlm_for_option_plan(task)
         except Exception as e:
             raise ApproachFailure(
-                f"VLM failed to produce coherent option plan. Reason: {e.info}"
+                f"VLM failed to produce coherent option plan. Reason: {e}"
             )
 
         policy = utils.option_plan_to_policy(option_plan)
