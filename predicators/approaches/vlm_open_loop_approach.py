@@ -16,6 +16,7 @@ from typing import Callable, List, Sequence, Set
 
 import numpy as np
 import PIL
+from PIL import ImageDraw
 
 from predicators import utils
 from predicators.approaches import ApproachFailure
@@ -39,8 +40,13 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         self._base_prompt_imgs = []
         filepath_to_vlm_prompt = utils.get_path_to_predicators_root() + \
         "/predicators/approaches/vlm_planning_prompts/no_few_shot.txt"
+        if CFG.vlm_open_loop_use_training_demos:
+            filepath_to_vlm_prompt = utils.get_path_to_predicators_root() + \
+        "/predicators/approaches/vlm_planning_prompts/no_few_shot.txt"
         with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
             self.base_prompt = f.read()
+        self.prompt_state_imgs_list: List[List[PIL.Image.Image]] = []
+        self.prompt_trajs_str = ""
 
     @classmethod
     def get_name(cls) -> str:
@@ -53,7 +59,35 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """Adds the images and plans from the training dataset to the base
         prompt for use at test time!"""
-        pass
+        if not CFG.vlm_open_loop_use_training_demos:
+            return None
+        # Crawl thru the dataset and pull out all the images.
+        # For each image, add text to it in the bototm left indicating the
+        # trajectory and timestep it's from.
+        assert isinstance(
+            dataset.trajectories[0].states[0].simulator_state["images"], List)
+        num_imgs_per_state = len(
+            dataset.trajectories[0].states[0].simulator_state["images"])
+        self.prompt_trajs_str = ""
+        for traj_num, traj in enumerate(dataset.trajectories):
+            traj_goal = self._train_tasks[traj.train_task_idx].goal
+            self.prompt_trajs_str += f"Demonstration {traj_num}, Goal: {str(sorted(traj_goal))}\n"
+            for state_num, state in enumerate(traj.states):
+                assert len(
+                    state.simulator_state["images"]) == num_imgs_per_state
+                for img_num, img in enumerate(state.simulator_state["images"]):
+                    pil_img = PIL.Image.fromarray(img)
+                    draw = ImageDraw.Draw(pil_img)
+                    img_font = utils.get_scaled_default_font(draw, 20)
+                    img_with_txt = utils.add_text_to_draw_img(
+                        draw, (50, 50),
+                        f"Demonstration {traj_num}, State {state_num}, Image {img_num}",
+                        img_font)
+                    img_with_txt_np = np.array(img_with_txt)
+                    img_with_txt_pil = PIL.Image.fromarray(img_with_txt_np)
+                    self.prompt_state_imgs_list.append(img_with_txt_pil)
+            for action_num, action in enumerate(traj.actions):
+                self.prompt_trajs_str += f"Action {action_num}, from state {action_num} is {action.get_option()}\n"
 
     def _get_current_nsrts(self) -> Set[utils.NSRT]:
         """This method doesn't explicitly learn NSRTs, so we simply return the
