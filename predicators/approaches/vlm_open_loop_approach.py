@@ -1,13 +1,19 @@
 """Open-loop vision-language model (VLM) planner approach based on the 'Look
 Before You Leap' paper (https://arxiv.org/abs/2311.17842). Depending on command
-line options, the VLM can be made to use the training trajectories as few-shot
-examples for solving the task, or directly solve the task with no few-shot
-prompting.
+line options (specifically --vlm_open_loop_use_training_demos), the VLM can be
+made to use the training trajectories as few-shot examples for solving the
+task, or directly solve the task with no few-shot prompting.
 
-python predicators/main.py --env burger --approach vlm_open_loop --seed
-0 --num_train_tasks 0 --num_test_tasks 1 --bilevel_plan_without_sim True
---make_failure_videos --sesame_task_planner fdopt --vlm_model_name
-gpt-4o
+Example command in burger that doesn't use few-shot examples:
+python predicators/main.py --env burger --approach vlm_open_loop --seed 0 \
+--num_train_tasks 0 --num_test_tasks 1 --bilevel_plan_without_sim True \
+--make_failure_videos --sesame_task_planner fdopt --vlm_model_name gpt-4o
+
+Example command that does have few-shot examples:
+python predicators/main.py --env burger --approach vlm_open_loop --seed 0 \
+--num_train_tasks 1 --num_test_tasks 1 --bilevel_plan_without_sim True \
+--make_failure_videos --sesame_task_planner fdopt --debug \
+--vlm_model_name gemini-1.5-pro-latest --vlm_open_loop_use_training_demos True
 """
 
 from __future__ import annotations
@@ -44,7 +50,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         "/predicators/approaches/vlm_planning_prompts/few_shot.txt"
         with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
             self.base_prompt = f.read()
-        self._prompt_state_imgs_list: List[List[PIL.Image.Image]] = []
+        self._prompt_state_imgs_list: List[PIL.Image.Image] = []
         self._prompt_demos_str = ""
 
     @classmethod
@@ -63,6 +69,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         # Crawl thru the dataset and pull out all the images.
         # For each image, add text to it in the bototm left indicating the
         # trajectory and timestep it's from.
+        assert dataset.trajectories[0].states[0].simulator_state is not None
         assert isinstance(
             dataset.trajectories[0].states[0].simulator_state["images"], List)
         num_imgs_per_state = len(
@@ -70,21 +77,26 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         self._prompt_demos_str = ""
         for traj_num, traj in enumerate(dataset.trajectories):
             traj_goal = self._train_tasks[traj.train_task_idx].goal
-            self._prompt_demos_str += f"Demonstration {traj_num}, Goal: {str(sorted(traj_goal))}\n"
+            self._prompt_demos_str += f"Demonstration {traj_num}, " + \
+                f"Goal: {str(sorted(traj_goal))}\n"
             for state_num, state in enumerate(traj.states):
+                assert state.simulator_state is not None
                 assert len(
                     state.simulator_state["images"]) == num_imgs_per_state
                 for img_num, img in enumerate(state.simulator_state["images"]):
-                    pil_img = PIL.Image.fromarray(img)
+                    pil_img = PIL.Image.fromarray(img)  # type: ignore
                     draw = ImageDraw.Draw(pil_img)
                     img_font = utils.get_scaled_default_font(draw, 20)
                     img_with_txt = utils.add_text_to_draw_img(
                         draw, (50, 50),
-                        f"Demonstration {traj_num}, State {state_num}, Image {img_num}",
+                        f"Demonstration {traj_num}, " + \
+                        f"State {state_num}, Image {img_num}",
                         img_font)
-                    self._prompt_state_imgs_list.append(img_with_txt._image)
+                    self._prompt_state_imgs_list.append(img_with_txt._image)  # pylint:disable=protected-access
             for action_num, action in enumerate(traj.actions):
-                self._prompt_demos_str += f"Action {action_num}, from state {action_num} is {action.get_option()}\n"
+                self._prompt_demos_str += f"Action {action_num}, from " + \
+                    f"state {action_num} is {action.get_option()}\n"
+        return None
 
     def _get_current_nsrts(self) -> Set[utils.NSRT]:
         """This method doesn't explicitly learn NSRTs, so we simply return the
@@ -109,17 +121,18 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
         assert isinstance(init_state.simulator_state["images"], List)
         curr_options = sorted(self._initial_options)
         imgs = init_state.simulator_state["images"]
-        pil_imgs = [PIL.Image.fromarray(img_arr)
-                    for img_arr in imgs]  # type: ignore
+        pil_imgs = [
+            PIL.Image.fromarray(img_arr)  # type: ignore
+            for img_arr in imgs
+        ]
         imgs_for_vlm = []
         for img_num, pil_img in enumerate(pil_imgs):
             draw = ImageDraw.Draw(pil_img)
             img_font = utils.get_scaled_default_font(draw, 20)
             img_with_txt = utils.add_text_to_draw_img(
-                draw, (50, 50),
-                f"Initial state to plan from, Image number {img_num}",
+                draw, (50, 50), f"Initial state to plan from, Image {img_num}",
                 img_font)
-            imgs_for_vlm.append(img_with_txt._image)
+            imgs_for_vlm.append(img_with_txt._image)  # pylint:disable=protected-access
         options_str = "\n".join(str(opt) for opt in curr_options)
         objects_list = sorted(set(task.init))
         objects_str = "\n".join(str(obj) for obj in objects_list)
@@ -156,7 +169,8 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):
             start_index = plan_prediction_txt.index("Plan:\n") + len("Plan:\n")
             parsable_plan_prediction = plan_prediction_txt[start_index:]
         except ValueError:
-            return "Marker not found in the input string."
+            raise ValueError("VLM output is badly formatted; cannot "
+                             "parse plan!")
         parsed_option_plan = utils.parse_model_output_into_option_plan(
             parsable_plan_prediction, objects_list, self._types,
             self._initial_options, True)
