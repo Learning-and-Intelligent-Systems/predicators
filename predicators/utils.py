@@ -44,8 +44,9 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
-from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    OpenAIVLM, VisionLanguageModel
+from predicators.pretrained_model_interface import GoogleGeminiLLM, \
+    GoogleGeminiVLM, LargeLanguageModel, OpenAILLM, OpenAIVLM, \
+    VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -2224,6 +2225,14 @@ def create_vlm_predicate(
         raise Exception("VLM predicate classifier should never be called!")
 
     return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
+
+
+def create_llm_by_name(
+        model_name: str) -> LargeLanguageModel:  # pragma: no cover
+    """Create particular llm using a provided name."""
+    if "gemini" in model_name:
+        return GoogleGeminiLLM(model_name)
+    return OpenAILLM(model_name)
 
 
 def create_vlm_by_name(

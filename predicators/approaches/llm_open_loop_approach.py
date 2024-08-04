@@ -9,6 +9,15 @@ Example command line:
         --num_test_tasks 1 \
         --debug
 
+Example using Gemini:
+    export GOOGLE_API_KEY=<your API key>
+    python predicators/main.py --approach llm_open_loop --seed 0 \
+        --strips_learner oracle \
+        --env pddl_blocks_procedural_tasks \
+        --num_train_tasks 3 \
+        --num_test_tasks 1 \
+        --debug --llm_model_name gemini-1.5-flash
+
 Easier setting:
     python predicators/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
@@ -39,10 +48,10 @@ from predicators.approaches import ApproachFailure
 from predicators.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
 from predicators.planning import task_plan_with_option_plan_constraint
-from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
+from predicators.utils import create_llm_by_name
 
 
 class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
@@ -54,7 +63,7 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         # Set up the LLM.
-        self._llm = OpenAILLM(CFG.llm_model_name)
+        self._llm = create_llm_by_name(CFG.llm_model_name)
         # Set after learning.
         self._prompt_prefix = ""
 

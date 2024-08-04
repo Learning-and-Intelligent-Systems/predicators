@@ -49,6 +49,7 @@ KETTLE_ON_BURNER4_POS = [-0.269, 0.65, 1.626]
 class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
 
+    # Types
     object_type = Type("object", ["x", "y", "z"])
     gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"],
                         parent=object_type)

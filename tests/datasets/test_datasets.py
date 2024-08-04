@@ -38,7 +38,45 @@ class _DummyVLM(VisionLanguageModel):
         completions = []
         for _ in range(num_completions):
             # If the query is asking for atom proposals.
-            if "Please provide predicates" in prompt:
+            if CFG.vlm_predicate_vision_api_generate_ground_atoms:
+                completion = (
+                    "```python\n"
+                    "def _Covers_holds(state: State, objects: Sequence[Object])"
+                    " -> bool:\n"
+                    "    block, target = objects\n"
+                    "    block_pose = state.get(block, 'pose')\n"
+                    "    block_width = state.get(block, 'width')\n"
+                    "    target_pose = state.get(target, 'pose')\n"
+                    "    target_width = state.get(target, 'width')\n"
+                    "    return (block_pose-block_width/2 <= "
+                    "target_pose-target_width/2) and "
+                    "(block_pose+block_width/2 >= target_pose+target_width/2) "
+                    "and "
+                    "state.get(block, 'grasp') == -1\n"
+                    "_Covers = Predicate('Covers', [_block_type, _target_type],"
+                    " _Covers_holds)"
+                    "```\n"
+                    ""
+                    "```python\n"
+                    "# An example of predicate name not found\n"
+                    "def _HandEmpty_holds(state: State, objects: "
+                    " Sequence[Object]) -> bool:\n"
+                    "    ... \n"
+                    "# The predicate is instantiated similar to above"
+                    "..."
+                    "```\n"
+                    ""
+                    "```python\n"
+                    "# An example of attribute error\n"
+                    "def _IsBlue_holds(state: State, objects: "
+                    " Sequence[Object]) -> bool:\n"
+                    "    block, = objects\n"
+                    "    block_color = state.get(block, 'color')\n"
+                    "    return block_color == 'blue'\n"
+                    "_IsBlue = Predicate('IsBlue', [_block_type],"
+                    " _IsBlue_holds)"
+                    "```\n")
+            elif "Please provide predicates" in prompt:
                 completion = "*Holding(spoon)\n*Fizz(buzz)\n" + \
                     "*Submerged(teabag)\n*Submerged(spoon)\n*IsRobot(robby)"
             # Else, if the query is asking for particular values.
@@ -748,9 +786,8 @@ def test_loading_txt_files():
     ).name == "PickPlace"
 
 
-def test_create_ground_atom_data_from_generated_demos():
-    """Tests for the create_ground_atom_data_from_generated_demos method."""
-    utils.reset_config({
+@pytest.mark.parametrize(
+    "config", [{
         "env": "cover",
         "approach": "oracle",
         "offline_data_method": "demo",
@@ -759,7 +796,20 @@ def test_create_ground_atom_data_from_generated_demos():
         "num_train_tasks": 1,
         "included_options": "PickPlace",
         "excluded_predicates": "all",
-    })
+    }, {
+        "env": "cover",
+        "approach": "oracle",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": 1,
+        "included_options": "PickPlace",
+        "excluded_predicates": "all",
+        "vlm_predicate_vision_api_generate_ground_atoms": True
+    }])
+def test_create_ground_atom_data_from_generated_demos(config):
+    """Tests for the create_ground_atom_data_from_generated_demos method."""
+    utils.reset_config(config)
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     predicates, _ = utils.parse_config_excluded_predicates(env)
