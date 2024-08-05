@@ -119,6 +119,9 @@ class BurgerEnv(BaseEnv):
         self._GoalHack3 = Predicate("GoalHack3", [
             self._bottom_bun_type, self._tomato_type], self._GoalHack3_holds
         )
+        self._GoalHack4 = Predicate("GoalHack4", [
+            self._patty_type, self._tomato_type], self._GoalHack4_holds
+        )
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robot", self._robot_type)
@@ -310,9 +313,13 @@ class BurgerEnv(BaseEnv):
             }
             goal4 = {
                 GroundAtom(self._On, [tomato, patty]),
-                GroundAtom(self._On, [patty, cutting_board])
+                GroundAtom(self._On, [patty, self._grill]),
+                GroundAtom(self._IsSliced, [tomato])
             }
-            alt_goal4 = goal4
+            alt_goal4 = {
+                GroundAtom(self._On, [patty, self._grill]),
+                GroundAtom(self._GoalHack4, [patty, tomato])
+            }
             training_goals = [goal2, goal3, goal4]
             alt_training_goals = [alt_goal2, alt_goal3, alt_goal4]
 
@@ -341,9 +348,11 @@ class BurgerEnv(BaseEnv):
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
             if train_or_test == "train":
-                idx = i % len(training_goals)
-                goal = training_goals[idx]
-                alt_goal = alt_training_goals[idx]
+                # idx = i % len(training_goals)
+                # goal = training_goals[idx]
+                # alt_goal = alt_training_goals[idx]
+                goal = goal4
+                alt_goal = alt_goal4
             else:
                 goal = goal5
                 alt_goal = alt_goal5
@@ -474,6 +483,14 @@ class BurgerEnv(BaseEnv):
         bb_z = state.get(bottom_bun, "z")
         l_z = state.get(tomato, "z")
         return bb_z < l_z and self._On_holds(state, [tomato, bottom_bun]) and self._IsSliced_holds(state, [tomato])
+
+    def _GoalHack4_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        patty, tomato = objects
+        atoms = [
+            self._On_holds(state, [lettuce, patty]),
+            self._IsSliced_holds(state, [tomato])
+        ]
+        return all(atoms)
 
     @classmethod
     def get_position(cls, obj: Object, state: State) -> Tuple[int, int]:
@@ -810,21 +827,34 @@ class BurgerEnv(BaseEnv):
             ax.imshow(img, extent=extent, zorder=zorder)
             if CFG.burger_render_set_of_marks:
                 if is_held:
-                    ax.text(x + (1 + held_img_size[0]) * (1 / 2),
+                    rx, ry = self.get_position(self._robot, state)
+                    # If the robot is on the right edge, put text labels for
+                    # held items on the left side so that they don't extend past
+                    # the edge of the grid and make the image larger.
+                    if rx == self.num_cols - 1:
+                        horizontal_align = "right"
+                        text_x = x + (1 - held_img_size[0]) * (1 / 2)
+                    else:
+                        horizontal_align = "left"
+                        text_x = x + (1 - held_img_size[0]) * (1 / 2)
+                    ax.text(text_x,
                             y + offset + held_img_size[1] / 2,
                             item.name,
                             fontsize=fontsize,
                             color="red",
-                            ha="left",
+                            ha=horizontal_align,
                             va="top",
                             bbox=dict(facecolor="black",
                                       alpha=0.5,
                                       boxstyle="square,pad=0.0"))
                 else:
                     if zorder > 0:
-                        if self._On_holds(
+                        # If the item is on the grill or cutting board, and
+                        # there is not an item on top of it, then put its text
+                        # label near the top of the cell.
+                        if (self._On_holds(
                                 state, [item, self._grill]) or self._On_holds(
-                                    state, [item, self._cutting_board]):
+                                    state, [item, self._cutting_board])) and self._Clear_holds(state, [item]):
                             ax.text(x + 1 / 2,
                                     y + (1 + img_size[1]) / 2,
                                     item.name,
@@ -847,6 +877,9 @@ class BurgerEnv(BaseEnv):
                                               alpha=0.5,
                                               boxstyle="square,pad=0.0"))
                     else:
+                        # If something is on top of this item or this item is on
+                        # something else, then put the text label on the left
+                        # side of the cell.
                         if not self._Clear_holds(
                                 state, [item]) or not self._OnNothing_holds(
                                     state, [item]):
