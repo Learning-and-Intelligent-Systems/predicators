@@ -178,16 +178,18 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         MoveRobot = options["MoveRobot"]
         TurnOnLight = options["TurnOnLight"]
         TurnOffLight = options["TurnOffLight"]
-        OpenDoor = options["OpenDoor"]
+        # OpenDoor = options["OpenDoor"]
+        MoveKey = options["MoveKey"]
+        TurnKey = options["TurnKey"]
 
         nsrts = set()
 
         def light_sampler(state: State, goal: Set[GroundAtom],
-                          rng: np.random.Generator,
+                          _: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
             # Note: just return a random value from -1 to 1
-            return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
+            return np.array([0.75], dtype=np.float32)
 
         # MoveRobot
         robot = Variable("?robot", robot_type)
@@ -260,20 +262,19 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
                                    option, option_vars, light_sampler)
         nsrts.add(turn_light_off_nsrt)
 
-        # OpenDoor
-        def door_sampler(state: State, goal: Set[GroundAtom],
-                         rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
+        # MoveKey
+        def move_key_sampler(state: State, goal: Set[GroundAtom],
+                             rng: np.random.Generator,
+                             objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Note: return 1.0 to show door is now open
-            return np.array([rng.uniform(1.0, 1.0)], dtype=np.float32)
+            return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
 
         robot = Variable("?robot", robot_type)
         current_cell = Variable("?current_cell", cell_type)
         door = Variable("?door", door_type)
         parameters = [robot, current_cell, door]
         option_vars = parameters
-        option = OpenDoor
+        option = MoveKey
         preconditions = {
             LiftedAtom(DoorInCell, [door, current_cell]),
             LiftedAtom(RobotInCell, [robot, current_cell]),
@@ -281,9 +282,34 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         add_effects = set()
         delete_effects = set()
         ignore_effects = set()
-        open_door_nsrt = NSRT("OpenDoor", parameters, preconditions,
-                              add_effects, delete_effects, ignore_effects,
-                              option, option_vars, door_sampler)
-        nsrts.add(open_door_nsrt)
+        move_key_nsrt = NSRT("MoveKey", parameters, preconditions, add_effects,
+                             delete_effects, ignore_effects, option,
+                             option_vars, move_key_sampler)
+        nsrts.add(move_key_nsrt)
+
+        # TurnKey
+        def turn_key_sampler(state: State, goal: Set[GroundAtom],
+                             rng: np.random.Generator,
+                             objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            return np.array([rng.uniform(-1.0, 1.0)], dtype=np.float32)
+
+        robot = Variable("?robot", robot_type)
+        current_cell = Variable("?current_cell", cell_type)
+        door = Variable("?door", door_type)
+        parameters = [robot, current_cell, door]
+        option_vars = parameters
+        option = TurnKey
+        preconditions = {
+            LiftedAtom(DoorInCell, [door, current_cell]),
+            LiftedAtom(RobotInCell, [robot, current_cell]),
+        }
+        add_effects = set()
+        delete_effects = set()
+        ignore_effects = set()
+        turn_key_nsrt = NSRT("TurnKey", parameters, preconditions, add_effects,
+                             delete_effects, ignore_effects, option,
+                             option_vars, turn_key_sampler)
+        nsrts.add(turn_key_nsrt)
 
         return nsrts

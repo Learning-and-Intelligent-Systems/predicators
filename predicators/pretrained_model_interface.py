@@ -203,48 +203,8 @@ class OpenAIModel():
         return completion.choices[0].message.content
 
 
-class OpenAILLM(LargeLanguageModel, OpenAIModel):
-    """Interface to openAI LLMs.
-
-    Assumes that an environment variable OPENAI_API_KEY is set to a
-    private API key for beta.openai.com.
-    """
-
-    def __init__(self, model_name: str, system_instruction: Optional[str] = None) -> None:
-        """See https://platform.openai.com/docs/models for the list of
-        available model names."""
-        super().__init__(system_instruction)
-        self._model_name = model_name
-        # Note that max_tokens is the maximum response length (not prompt).
-        # From OpenAI docs: "The token count of your prompt plus max_tokens
-        # cannot exceed the model's context length."
-        self._max_tokens = CFG.llm_openai_max_response_tokens
-        self.set_openai_key()
-
-    def get_id(self) -> str:
-        return f"openai-{self._model_name}"
-
-    def _sample_completions(
-            self,
-            prompt: str,
-            imgs: Optional[List[PIL.Image.Image]],
-            temperature: float,
-            seed: int,
-            stop_token: Optional[str] = None,
-            num_completions: int = 1) -> List[str]:  # pragma: no cover
-        del imgs, seed, stop_token  # unused
-        messages = [{"text": prompt, "type": "text"}]
-        responses = [
-            self.call_openai_api(messages,
-                                 model=self._model_name,
-                                 temperature=temperature)
-            for _ in range(num_completions)
-        ]
-        return responses
-
-
-class GoogleGeminiVLM(VisionLanguageModel):
-    """Interface to the Google Gemini VLM (1.5).
+class GoogleGeminiModel(PretrainedLargeModel):
+    """Common interface and methods for all Gemini-based models.
 
     Assumes that an environment variable GOOGLE_API_KEY is set with the
     necessary API key to query the particular model name.
@@ -290,8 +250,85 @@ class GoogleGeminiVLM(VisionLanguageModel):
         assert hasattr(self, "chat_session")
         self.chat_session = self._model.start_chat()
 
+
+
+class OpenAILLM(LargeLanguageModel, OpenAIModel):
+    """Interface to openAI LLMs.
+
+    Assumes that an environment variable OPENAI_API_KEY is set to a
+    private API key for beta.openai.com.
+    """
+
+    def __init__(self, model_name: str, system_instruction: Optional[str] = None) -> None:
+        """See https://platform.openai.com/docs/models for the list of
+        available model names."""
+        super().__init__(system_instruction)
+        self._model_name = model_name
+        # Note that max_tokens is the maximum response length (not prompt).
+        # From OpenAI docs: "The token count of your prompt plus max_tokens
+        # cannot exceed the model's context length."
+        self._max_tokens = CFG.llm_openai_max_response_tokens
+        self.set_openai_key()
+
+    def get_id(self) -> str:
+        return f"openai-{self._model_name}"
+
+    def _sample_completions(
+            self,
+            prompt: str,
+            imgs: Optional[List[PIL.Image.Image]],
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
+        del imgs, seed, stop_token  # unused
+        messages = [{"role": "user", "content": prompt, "type": "text"}]
+        responses = [
+            self.call_openai_api(messages,
+                                 model=self._model_name,
+                                 temperature=temperature)
+            for _ in range(num_completions)
+        ]
+        return responses
+
+
+class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
+    """Interface to the Google Gemini VLM (1.5).
+
+    Assumes that an environment variable GOOGLE_API_KEY is set with the
+    necessary API key to query the particular model name.
+    """
+
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(10))
+    def _sample_completions(
+            self,
+            prompt: str,
+            imgs: Optional[List[PIL.Image.Image]],
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
+        del seed, stop_token  # unused
+        assert imgs is None
+        generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
+            candidate_count=num_completions,
+            temperature=temperature)
+        response = self._model.generate_content(
+            [prompt], generation_config=generation_config)  # type: ignore
+        response.resolve()
+        return [response.text]
+
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
+
+
+class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
+    """Interface to the Google Gemini VLM (1.5).
+
+    Assumes that an environment variable GOOGLE_API_KEY is set with the
+    necessary API key to query the particular model name.
+    """
 
     @retry(wait=wait_random_exponential(min=1, max=60),
            stop=stop_after_attempt(600))
@@ -353,6 +390,9 @@ class GoogleGeminiVLM(VisionLanguageModel):
                 generation_config=generation_config)  # type: ignore
         response.resolve()
         return [response.text]
+
+    def get_id(self) -> str:
+        return f"Google-{self._model_name}"
 
 
 class OpenAIVLM(VisionLanguageModel, OpenAIModel):

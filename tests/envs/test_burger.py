@@ -20,10 +20,15 @@ def test_burger():
         "option_model_terminate_on_repeat": False,
         "sesame_max_skeletons_optimized": 1000,
         "sesame_max_samples_per_step": 1,
-        "sesame_task_planner": "fdopt"
+        "sesame_task_planner": "fdopt",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "seed": 0
     })
-
     env = BurgerEnv()
+    # This should really test this for however many train/test tasks we will use
+    # in our experiments (e.g 50 for each instead of 1), but because the image
+    # rendering is so slow, I set this to 1 here.
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -40,30 +45,35 @@ def test_burger():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     assert len(nsrts) == 15
     task = env.get_train_tasks()[0]
+    # The nsrts that are commented out are used when the "full" goal is used
+    # in the tasks. Because we are still getting predicate invention to work
+    # in BurgerEnv, we are not yet using the "full" goal. Because the full goal
+    # won't be in the environment's task's goals, we won't test a plan that
+    # achieves that goal in the tests for now.
     MoveWhenFacingOneStack = [
         n for n in nsrts if n.name == "MoveWhenFacingOneStack"
     ][0]
     MoveWhenFacingTwoStack = [
         n for n in nsrts if n.name == "MoveWhenFacingTwoStack"
     ][0]
-    MoveWhenFacingThreeStack = [
-        n for n in nsrts if n.name == "MoveWhenFacingThreeStack"
-    ][0]
-    MoveWhenFacingFourStack = [
-        n for n in nsrts if n.name == "MoveWhenFacingFourStack"
-    ][0]
+    # MoveWhenFacingThreeStack = [
+    #     n for n in nsrts if n.name == "MoveWhenFacingThreeStack"
+    # ][0]
+    # MoveWhenFacingFourStack = [
+    #     n for n in nsrts if n.name == "MoveWhenFacingFourStack"
+    # ][0]
     MoveFromNothingToOneStack = [
         n for n in nsrts if n.name == "MoveFromNothingToOneStack"
     ][0]
     MoveFromNothingToTwoStack = [
         n for n in nsrts if n.name == "MoveFromNothingToTwoStack"
     ][0]
-    MoveFromNothingToFourStack = [
-        n for n in nsrts if n.name == "MoveFromNothingToFourStack"
-    ][0]
-    MoveFromOneStackToThreeStack = [
-        n for n in nsrts if n.name == "MoveFromOneStackToThreeStack"
-    ][0]
+    # MoveFromNothingToFourStack = [
+    #     n for n in nsrts if n.name == "MoveFromNothingToFourStack"
+    # ][0]
+    # MoveFromOneStackToThreeStack = [
+    #     n for n in nsrts if n.name == "MoveFromOneStackToThreeStack"
+    # ][0]
     PickSingleAdjacent = [n for n in nsrts
                           if n.name == "PickSingleAdjacent"][0]
     PickFromStack = [n for n in nsrts if n.name == "PickFromStack"][0]
@@ -82,7 +92,12 @@ def test_burger():
     bottom_bun = [obj for obj in task.init if obj.name == "bottom_bun"][0]
 
     plan = [
-        MoveWhenFacingOneStack.ground([robot, patty, grill]),
+        MoveFromNothingToOneStack.ground([robot, tomato]),
+        PickSingleAdjacent.ground([robot, tomato]),
+        MoveFromNothingToOneStack.ground([robot, cutting_board]),
+        Place.ground([robot, tomato, cutting_board]),
+        Slice.ground([robot, tomato, cutting_board]),
+        MoveWhenFacingTwoStack.ground([robot, patty, tomato, cutting_board]),
         PickSingleAdjacent.ground([robot, patty]),
         MoveFromNothingToOneStack.ground([robot, grill]),
         Place.ground([robot, patty, grill]),
@@ -93,24 +108,39 @@ def test_burger():
         MoveWhenFacingTwoStack.ground([robot, cheese, patty, bottom_bun]),
         PickSingleAdjacent.ground([robot, cheese]),
         MoveFromNothingToTwoStack.ground([robot, patty, bottom_bun]),
-        Place.ground([robot, cheese, patty]),
-        MoveWhenFacingThreeStack.ground(
-            [robot, tomato, cheese, patty, bottom_bun]),
-        PickSingleAdjacent.ground([robot, tomato]),
-        MoveFromNothingToOneStack.ground([robot, cutting_board]),
-        Place.ground([robot, tomato, cutting_board]),
-        Slice.ground([robot, tomato, cutting_board]),
-        PickFromStack.ground([robot, tomato, cutting_board]),
-        MoveFromOneStackToThreeStack.ground(
-            [robot, cheese, patty, bottom_bun, cutting_board]),
-        Place.ground([robot, tomato, cheese]),
-        MoveWhenFacingFourStack.ground(
-            [robot, top_bun, tomato, cheese, patty, bottom_bun]),
-        PickSingleAdjacent.ground([robot, top_bun]),
-        MoveFromNothingToFourStack.ground(
-            [robot, tomato, cheese, patty, bottom_bun]),
-        Place.ground([robot, top_bun, tomato])
+        Place.ground([robot, cheese, patty])
     ]
+
+    # plan = [
+    #     MoveWhenFacingOneStack.ground([robot, patty, grill]),
+    #     PickSingleAdjacent.ground([robot, patty]),
+    #     MoveFromNothingToOneStack.ground([robot, grill]),
+    #     Place.ground([robot, patty, grill]),
+    #     Cook.ground([robot, patty, grill]),
+    #     PickFromStack.ground([robot, patty, grill]),
+    #     MoveWhenFacingOneStack.ground([robot, bottom_bun, grill]),
+    #     Place.ground([robot, patty, bottom_bun]),
+    #     MoveWhenFacingTwoStack.ground([robot, cheese, patty, bottom_bun]),
+    #     PickSingleAdjacent.ground([robot, cheese]),
+    #     MoveFromNothingToTwoStack.ground([robot, patty, bottom_bun]),
+    #     Place.ground([robot, cheese, patty]),
+    #     MoveWhenFacingThreeStack.ground(
+    #         [robot, tomato, cheese, patty, bottom_bun]),
+    #     PickSingleAdjacent.ground([robot, tomato]),
+    #     MoveFromNothingToOneStack.ground([robot, cutting_board]),
+    #     Place.ground([robot, tomato, cutting_board]),
+    #     Slice.ground([robot, tomato, cutting_board]),
+    #     PickFromStack.ground([robot, tomato, cutting_board]),
+    #     MoveFromOneStackToThreeStack.ground(
+    #         [robot, cheese, patty, bottom_bun, cutting_board]),
+    #     Place.ground([robot, tomato, cheese]),
+    #     MoveWhenFacingFourStack.ground(
+    #         [robot, top_bun, tomato, cheese, patty, bottom_bun]),
+    #     PickSingleAdjacent.ground([robot, top_bun]),
+    #     MoveFromNothingToFourStack.ground(
+    #         [robot, tomato, cheese, patty, bottom_bun]),
+    #     Place.ground([robot, top_bun, tomato])
+    # ]
 
     option_plan = [n.option.ground(n.option_objs, []) for n in plan]
     policy = utils.option_plan_to_policy(option_plan)
@@ -125,11 +155,10 @@ def test_burger():
                                    utils.HumanDemonstrationFailure,
                                },
                                monitor=None)
+    assert task.task.goal_holds(traj.states[-1])
 
     # Test _AdjacentToNothing_holds
-    state = task.init
-    state.set(robot, "col", 1)
-    state.set(top_bun, "col", 2)
+    state = task.init.copy()
     abstract_state = utils.abstract(state, env.predicates)
     AdjacentToNothing = [
         p for p in env.predicates if p.name == "AdjacentToNothing"
@@ -139,8 +168,8 @@ def test_burger():
     # Test _OnNothing_holds
     OnNothing = [p for p in env.predicates if p.name == "OnNothing"][0]
     assert GroundAtom(OnNothing,
-                      [top_bun]) not in utils.abstract(traj.states[-1],
-                                                       env.predicates)
+                      [cheese]) not in utils.abstract(traj.states[-1],
+                                                      env.predicates)
 
     # Test _GoalHack_holds
     GoalHack = [p for p in env.predicates if p.name == "GoalHack"][0]
@@ -151,25 +180,29 @@ def test_burger():
     # Test get_cell_in_direction
     x, y = env.get_cell_in_direction(1, 1, "left")
     assert x == 0 and y == 1
+    x, y = env.get_cell_in_direction(1, 1, "right")
+    assert x == 2 and y == 1
     x, y = env.get_cell_in_direction(1, 1, "up")
     assert x == 1 and y == 2
+    x, y = env.get_cell_in_direction(1, 1, "down")
+    assert x == 1 and y == 0
     x, y = env.get_cell_in_direction(1, 1, "no_change")
     assert x == 1 and y == 1
 
     # Test collision
-    state.set(robot, "col", 2)  # robot is at (2, 2)
+    state.set(robot, "col", 3)  # robot is at (2, 3))
     action = Action(np.array([1, 0, -1, 0, 0], dtype=np.float32))
     next_state = env.simulate(state, action)
     assert env.get_position(robot,
                             next_state) == env.get_position(robot, state)
 
     # Test placing on the ground
-    state = traj.states[5]
+    state = traj.states[2]
     action = Action(np.array([0, 0, -1, 0, 1], dtype=np.float32))
     next_state = env.simulate(state, action)
-    assert env.get_position(patty, next_state) == env.get_position(
-        patty, traj.states[4])
-    assert next_state.get(patty, "z") == 0
+    assert env.get_position(tomato, next_state) == env.get_position(
+        tomato, traj.states[0])
+    assert next_state.get(tomato, "z") == 0
 
     # Test rendering
     env.render_state_plt(traj.states[0], task)
@@ -190,7 +223,7 @@ def test_burger():
     plt.close()
 
     # Test move option when already adjacent but not facing
-    state = task.init
+    state = task.init.copy()
     state.set(grill, "col", 2)
     state.set(grill, "row", 3)
     Move = [o for o in options if o.name == "Move"][0]
@@ -200,7 +233,7 @@ def test_burger():
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 0
 
-    state = task.init
+    state = task.init.copy()
     state.set(grill, "col", 2)
     state.set(grill, "row", 1)
     Move = [o for o in options if o.name == "Move"][0]
@@ -210,7 +243,7 @@ def test_burger():
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 2
 
-    state = task.init
+    state = task.init.copy()
     state.set(grill, "col", 1)
     state.set(grill, "row", 2)
     Move = [o for o in options if o.name == "Move"][0]
@@ -220,7 +253,7 @@ def test_burger():
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 1
 
-    state = task.init
+    state = task.init.copy()
     state.set(grill, "col", 3)
     state.set(grill, "row", 2)
     state.set(robot, "dir", 1)
@@ -230,3 +263,15 @@ def test_burger():
     action = option.policy(state)
     next_state = env.step(action)
     assert next_state.get(robot, "dir") == 3
+
+    # Test _get_edge_cells_for_object_placement()
+    # This isn't a real test because we aren't going to verify that the
+    # edge cells that this function outputs satisfy all the constraints we want
+    # them to satisy (edge cells such that the robot will never be adjacent to
+    # more than one of these edge cells at any time).
+    rng = np.random.default_rng(0)
+    # 50 is an arbitrary number here. We just want to call this function many
+    # times to get all possible outcomes to happen at least once for coverage
+    # purposes.
+    for _ in range(50):
+        _ = env.get_edge_cells_for_object_placement(rng)

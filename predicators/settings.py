@@ -294,6 +294,10 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
+    # doorknobs env parameters
+    doorknobs_target_value = 0.75
+    test_doors_room_map_size = 10
+
     # narrow_passage env parameters
     narrow_passage_open_door_refine_penalty = 0
     narrow_passage_door_width_padding_lb = 1e-4
@@ -717,6 +721,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
+    grammar_search_parallelize_vlm_labeling = True
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
@@ -745,6 +750,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # filepath to be used if offline_data_method is set to
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
+    vlm_predicate_vision_api_generate_ground_atoms = False
 
     # LLM predicate invention algorithm parameters
     llm_predicator_use_grammar = True

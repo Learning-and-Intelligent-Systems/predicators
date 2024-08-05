@@ -1,0 +1,27 @@
+You are a robotic vision system whose job is to output a structured set of predicates useful for describing important concepts in the following demonstration of a task. You will be provided with a list of actions used during the task, as well as images of states before and after every action execution. 
+Generating predicates that change before and after each action. After this, generate any other predicates that perhaps do not change but are still important to describing the demonstration shown. For each predicate you generate, also generate some predicates that are synonyms and antonyms so that any predicate that is even tangentially relevant to the demonstrations is generated.
+
+I will describe the API you should use for writing predicates and the environment the robot is in.
+# API for Defining Predicates
+Class definitions for `Predicate` and `State` are:
+[STRUCT_DEFINITION]
+
+# The Environment
+The environment includes the following object-type variables:
+[TYPES_IN_ENV]
+
+# The demo trajectory is
+[DEMO_TRAJECTORY]
+
+In your response, propose predicates in paragraphs as follows. For each proposal:
+- Identify which property from above does it correspond to.
+- Define predicate in a python block as follows:
+```python
+def classifier(state: State, objects: Sequence[Object]) -> bool:
+    # Implement the boolean classifier function here
+    ...
+    
+name: str = ... # Define the predicate name here
+param_types: Sequence[Type] = ... # A list of object-type variables for the predicate, using the ones defined in the environment
+<predicate_name> = Predicate(name, param_types, <predicate_name>_holds)
+```

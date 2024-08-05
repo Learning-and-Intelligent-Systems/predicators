@@ -786,6 +786,12 @@ class ParameterizedOption:
             params=params,
             memory=memory)
 
+    def pddl_str(self) -> str:
+        """Turn this option into a string that is PDDL-like."""
+        params_str = " ".join(f"?x{i} - {t.name}"
+                              for i, t in enumerate(self.types))
+        return f"{self.name}({params_str})"
+
 
 @dataclass(eq=False)
 class _Option:
