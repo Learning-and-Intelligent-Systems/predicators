@@ -20,8 +20,8 @@ from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
-    GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    State, STRIPSOperator, Type, Variable, VLMPredicate
+    GroundAtom, LowLevelTrajectory, Object, ParameterizedOption, Predicate, \
+    Segment, State, STRIPSOperator, Type, Variable, VLMPredicate
 from predicators.utils import GoalCountHeuristic, _PyperplanHeuristicWrapper, \
     _TaskPlanningHeuristic
 
@@ -3457,3 +3457,71 @@ def test_oracle_feature_selection():
         utils.construct_active_sampler_input(state, [robot, cup], params,
                                              NavigateToCup)
     assert "Oracle feature selection" in str(e)
+
+
+def test_parse_model_output_into_option_plan():
+    """Test the utility function that turns a prediction by a large model into
+    a structure from which an option plan can be made."""
+    # NOTE: all these tests are for the failure cases of this function, since
+    # the success cases are covered when we test the LLMOpenLoopApproach
+    utils.reset_config()
+    options = get_gt_options("cover")
+    options_str = "wakanda\n"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [], [], options,
+                                                  False)) == 0
+    options_str = "PickPlace()\n"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [], [], options,
+                                                  True)) == 0
+    options_str = "PickPlace(\n"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [], [], options,
+                                                  False)) == 0
+    options_str = "PickPlace(forever)\n"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [], [], options,
+                                                  False)) == 0
+    obj_type = Type("object_type", [])
+    obj = Object("obj", obj_type)
+    options_str = "PickPlace(canard:object_type)\n"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  False)) == 0
+    options_str = "PickPlace(obj:canard_type)\n"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  False)) == 0
+    options_str = "PickPlace(obj:object_type)\n"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  False)) == 0
+    options_str = "PickPlace()[ ,]"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  True)) == 0
+    options_str = "PickPlace()[not_a_param]"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  True)) == 0
+    options_str = "PickPlace()[0.5, 0.5]"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  True)) == 0
+    options = get_gt_options("blocks")
+    options_str = "Pick(obj:object_type)"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  False)) == 0
+    options_str = "Pick()"
+    assert len(
+        utils.parse_model_output_into_option_plan(options_str, [obj],
+                                                  [obj_type], options,
+                                                  False)) == 0
