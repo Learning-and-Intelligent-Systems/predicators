@@ -29,7 +29,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
-    State, _GroundNSRT, _Option
+    ParameterizedOption, State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1351,6 +1351,10 @@ class MapleQFunction(MLPRegressor):
         self._ordered_frozen_goals: List[FrozenSet[GroundAtom]] = []
         self._ordered_ground_nsrts: List[_GroundNSRT] = []
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
+        self._ordered_ground_options: List[Tuple[ParameterizedOption,
+                                                 Tuple[Object, ...]]] = []
+        self._ground_option_to_idx: Dict[Tuple[ParameterizedOption,
+                                               Tuple[Object, ...]], int] = {}
         self._max_num_params = 0
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
@@ -1376,6 +1380,14 @@ class MapleQFunction(MLPRegressor):
         self._ground_nsrt_to_idx = {
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
+        }
+        self._ordered_ground_options = sorted(
+            [(g_nsrt.option, tuple(g_nsrt.option_objs))
+             for g_nsrt in ground_nsrts],
+            key=lambda x: x[0])
+        self._ground_option_to_idx = {
+            go: i
+            for i, go in enumerate(self._ordered_ground_options)
         }
 
     def get_option(self,
@@ -1537,10 +1549,12 @@ class MapleQFunction(MLPRegressor):
         return vec
 
     def _vectorize_option(self, option: _Option) -> Array:
+        """Vectorize an option into a one-hot vector of the option index concat
+        with the option parameters."""
         matches = [
-            i for (n, i) in self._ground_nsrt_to_idx.items()
-            if n.option == option.parent
-            and tuple(n.objects) == tuple(option.objects)
+            i
+            for ((param_optn, objs), i) in self._ground_option_to_idx.items()
+            if param_optn == option.parent and objs == tuple(option.objects)
         ]
         assert len(matches) == 1
         # Create discrete part.

@@ -3,6 +3,21 @@
 learned.
 
 Base samplers and applicable actions are used to perform the argmax.
+
+Example command:
+    python predicators/main.py --approach maple_q --seed 0 \
+        --explorer maple_q \
+        --mlp_regressor_max_itr 640000 \
+        --active_sampler_learning_batch_size 512 \
+        --env cover \
+        --strips_learner oracle \
+        --sampler_learner oracle \
+        --max_initial_demos 0 \
+        --num_train_tasks 1000 \
+        --num_test_tasks 10 \
+        --max_num_steps_interaction_request 5 \
+        --horizon 2 \
+        --debug
 """
 
 from __future__ import annotations
