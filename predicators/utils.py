@@ -2292,6 +2292,7 @@ def parse_model_output_into_option_plan(
         except ValueError:
             logging.info(
                 f"Line {option_str} output by model is improperly formatted.")
+            break
         typed_objects_str_list = option_str_stripped[
             start_index:end_index].split(',')
         objs_list = []
@@ -2320,10 +2321,20 @@ def parse_model_output_into_option_plan(
                              "invalid type name.")
                 malformed = True
                 break
-            if option.types[i] not in type_name_to_type[
-                    type_name].get_ancestors():
+            try:
+                if option.types[i] not in type_name_to_type[
+                        type_name].get_ancestors():
+                    logging.info(
+                        f"Line {option_str} output by model has an "
+                        "invalid type that doesn't agree with the option"
+                        f"{option}")
+                    malformed = True
+                    break
+            except IndexError:
+                # In this case, there's more supplied arguments than the
+                # option has.
                 logging.info(f"Line {option_str} output by model has an "
-                             "invalid type that doesn't agree with the option"
+                             "too many object arguments for option"
                              f"{option}")
                 malformed = True
                 break
