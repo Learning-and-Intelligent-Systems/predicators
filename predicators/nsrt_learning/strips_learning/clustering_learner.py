@@ -10,9 +10,9 @@ from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, \
-    ParameterizedOption, Predicate, STRIPSOperator, VarToObjSub, State, \
-    GroundAtom, GroundOptionRecord, Object
+from predicators.structs import PNAD, Datastore, DummyOption, GroundAtom, \
+    GroundOptionRecord, LiftedAtom, Object, ParameterizedOption, Predicate, \
+    State, STRIPSOperator, VarToObjSub
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
@@ -193,15 +193,18 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
                 ret_pnads.append(pnad)
         return ret_pnads
 
+
 class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
-    """A clustering-based STRIPS learner that learns preconditions via 
-    intersection and search over predicate subsets w.r.t. the classification
-    accuracy + simplicity objective that uses the ground truth positive and
-    negative states for each option.
-    Note that in the standard intersection step, Atom with objects not in effect
-    and option is remove (presumbly as a form of regularization) but this is not
-    need here and we can let search do the work.
+    """A clustering-based STRIPS learner that learns preconditions via
+    intersection and search over predicate subsets w.r.t.
+
+    the classification accuracy + simplicity objective that uses the
+    ground truth positive and negative states for each option. Note that
+    in the standard intersection step, Atom with objects not in effect
+    and option is remove (presumbly as a form of regularization) but
+    this is not need here and we can let search do the work.
     """
+
     def __init__(self, *args, fail_optn_dict: Dict[str, GroundOptionRecord],
                  **kwargs):
         super().__init__(*args, **kwargs)
@@ -236,25 +239,23 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
     #         else:
     #             preconditions &= lifted_atoms
     #     return preconditions
-    
+
     def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
         new_pnads = []
-        
+
         # Cluster the states in the fail_optn_dict sorted with by option name
-        optn_to_fail_data: Dict[str, 
-            List[Tuple[State, Set[GroundAtom], List[Object]]]] = defaultdict(
-                list)
+        optn_to_fail_data: Dict[str,
+                                List[Tuple[State, Set[GroundAtom],
+                                           List[Object]]]] = defaultdict(list)
         for gop_str, optn_rec in self.fail_optn_dict.items():
             # logging.debug(f"Accessing option record for {gop_str}")
             for s, ab_s in zip(optn_rec.states, optn_rec.abstract_states):
                 # logging.debug(f"Adding neg states for {optn_rec.option.name}")
                 optn_to_fail_data[optn_rec.option.name].append(
-                    (s, ab_s, optn_rec.optn_objs)
-                )
-        
+                    (s, ab_s, optn_rec.optn_objs))
 
         for pnad in pnads:
-            # Take the data from the other PNAD of the same option as negative 
+            # Take the data from the other PNAD of the same option as negative
             # data
             option_name = pnad.option_spec[0].name
             neg_data = optn_to_fail_data[option_name]
@@ -270,21 +271,24 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                             for seg, sub in other_pnad.datastore:
                                 # sort the variables in the order of the option
                                 # parameters
-                                objs = [sub[v] for v in 
-                                            other_pnad.option_spec[1]]
+                                objs = [
+                                    sub[v] for v in other_pnad.option_spec[1]
+                                ]
                                 neg_data_from_pnad.append(
-                                    (seg.states[0], seg.init_atoms, objs)
-                                )
-            
+                                    (seg.states[0], seg.init_atoms, objs))
+
             init_preconditions = self._induce_preconditions_via_intersection(
                 pnad)
             # logging.debug(f"fetching neg states for {option_name}")
-            logging.debug(f"Search with "
-                    f"{len(neg_data)} negatives, "
-                    f"{len(neg_data_from_pnad)} negatives from other pnads and "
-                    f"{len(pnad.datastore)} positive data for: {pnad}")
-            refined_preconditions = self._run_search(pnad, init_preconditions,
-                fail_data=neg_data + neg_data_from_pnad)
+            logging.debug(
+                f"Search with "
+                f"{len(neg_data)} negatives, "
+                f"{len(neg_data_from_pnad)} negatives from other pnads and "
+                f"{len(pnad.datastore)} positive data for: {pnad}")
+            refined_preconditions = self._run_search(pnad,
+                                                     init_preconditions,
+                                                     fail_data=neg_data +
+                                                     neg_data_from_pnad)
             logging.debug(f"Precondition before search {init_preconditions}")
 
             new_pnads.append(
@@ -292,12 +296,13 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                      pnad.datastore, pnad.option_spec))
 
         return new_pnads
-    
-    def _run_search(self, pnad: PNAD, init_preconditions: Set[LiftedAtom],
-                    fail_data: List[Tuple[State, Set[GroundAtom], List[Object]]]
-                    ) -> FrozenSet[LiftedAtom]:
-        """Run search to find a single precondition set for the pnad operator.
-        """
+
+    def _run_search(
+        self, pnad: PNAD, init_preconditions: Set[LiftedAtom],
+        fail_data: List[Tuple[State, Set[GroundAtom], List[Object]]]
+    ) -> FrozenSet[LiftedAtom]:
+        """Run search to find a single precondition set for the pnad
+        operator."""
         initial_state = frozenset(init_preconditions)
         check_goal = lambda s: False
         # the classification function
@@ -305,25 +310,22 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         succ_data = pnad.datastore
         score_func = functools.partial(self._score_preconditions, pnad,
                                        succ_data, fail_data)
-        path, _ = utils.run_gbfs(initial_state,
-                                 check_goal,
-                                 self._get_precondition_successors,
-                                 score_func)
+        path, _ = utils.run_gbfs(initial_state, check_goal,
+                                 self._get_precondition_successors, score_func)
 
         # log info
         ret_precon = path[-1]
         logging.debug(f"Search finished: selected:")
         score_func(ret_precon)
         return ret_precon
-    
+
     @staticmethod
-    def _score_preconditions(
-            pnad: PNAD, 
-            succ_data: Datastore, 
-            fail_data: List[Tuple[State, Set[GroundAtom], List[Object]]], 
-            preconditions: FrozenSet[LiftedAtom]):
-        '''Score a precondition based on the succ_states in the datastore and
-        failed states in the fail_optn_dict.'''
+    def _score_preconditions(pnad: PNAD, succ_data: Datastore,
+                             fail_data: List[Tuple[State, Set[GroundAtom],
+                                                   List[Object]]],
+                             preconditions: FrozenSet[LiftedAtom]):
+        """Score a precondition based on the succ_states in the datastore and
+        failed states in the fail_optn_dict."""
         # The positive states are the states in the pnad, the negative states
         # are all the states in fail_optn_dict with the same option.
         # Get the tp, fn, tn, fp states for each ground_option
@@ -338,9 +340,9 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         # substituion of the option
         # assume succ_states is a Datastore here
         # For succ_states, we only need to ground the operator with the
-        # var_to_obj substitution in the state because we've assumed the the 
+        # var_to_obj substitution in the state because we've assumed the the
         # precondition doesn't have any variables that are not in the effect
-        # and option. 
+        # and option.
         # If we want to remove this assumption then we can try to ground them
         # with varToObj substitution consistent with the option and effect..
         for seg, var_to_obj in succ_data:
@@ -352,18 +354,18 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                 tp_states.append(seg.states[0])
             else:
                 fn_states.append(seg.states[0])
-        
+
         # For the fail_states, we only have a partial sub. for the options
         # and we need to compute the false positives and true negatives based on
         # the ground nsrts with substitutions consistent with the option.
         for state, atom_state, optn_objs in fail_data:
-            # we need to use optn_var from the pnad instead of the from the 
+            # we need to use optn_var from the pnad instead of the from the
             # self.fail_optn_dict because the var name in the pnad (which is
             # the same as in candidate_op) is different from the var name in
             # the fail_optn_dict.
             ground_nsrts = utils.all_ground_operators_given_partial(
                 candidate_op, set(state), dict(zip(optn_var, optn_objs)))
-            
+
             if any([
                     gnsrt.preconditions.issubset(atom_state)
                     for gnsrt in ground_nsrts
@@ -371,7 +373,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                 fp_states.append(state)
             else:
                 tn_states.append(state)
-        
+
         # Convert the states to string
         n_tp, n_fn = len(tp_states), len(fn_states)
         n_tn, n_fp = len(tn_states), len(fp_states)

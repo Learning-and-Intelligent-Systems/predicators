@@ -59,8 +59,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
-                     annotations: Optional[List[Any]],
-                     **kwargs) -> None:
+                     annotations: Optional[List[Any]], **kwargs) -> None:
         dataset_fname, _ = utils.create_dataset_filename_str(
             saving_ground_atoms=True,
             online_learning_cycle=online_learning_cycle)

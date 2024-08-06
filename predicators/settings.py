@@ -55,6 +55,7 @@ class GlobalSettings:
     # either of its arguments is not None.
     allow_state_allclose_comparison_despite_simulator_state = False
 
+    env_include_bbox_features = False
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_degenerate_oracle_samplers = False
@@ -437,10 +438,10 @@ class GlobalSettings:
     # vlm_system_instruction = "You are an AI researcher who will answer whether an assertion is True or False in a scene. Answer either 'True' or 'False' but nothing else."
     # vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, only answer either 'True' or 'False'."
     # vlm_system_instruction = "You are an AI researcher who will answer whether each assertion holds in a scene. For each assertion, answer [the assertion you are evaluating]: True or False"
-#     vlm_system_instruction = """
-# You are an AI researcher who will answer whether each assertion holds in the image. For each assertion, please respond with either “True” or “False” according to the format below:
-# [assertion index]. [assertion]: True OR False
-# """
+    #     vlm_system_instruction = """
+    # You are an AI researcher who will answer whether each assertion holds in the image. For each assertion, please respond with either “True” or “False” according to the format below:
+    # [assertion index]. [assertion]: True OR False
+    # """
     vlm_system_instruction = """
 You are an AI researcher who will answer whether each assertion holds in the image, given the context of the previous action and its previous truth value. For each assertion, please respond with either “True” or “False” according to the format below and nothing else:
 [assertion index]. [assertion]: True OR False
@@ -605,6 +606,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
+    online_learning_assert_no_exclude_pred = True
 
     # active sampler learning parameters
     active_sampler_learning_model = "myopic_classifier_mlp"
@@ -629,6 +631,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # maple q function parameters
     use_epsilon_annealing = True
     min_epsilon = 0.05
+    maple_assert_oracle_strips = True
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
@@ -834,8 +837,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                 {
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
-                    "pybullet_cover_typed_options": 
-                        "oracle_cover_typed_options",
+                    "pybullet_cover_typed_options":
+                    "oracle_cover_typed_options",
                     "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 

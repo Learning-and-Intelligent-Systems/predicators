@@ -4,28 +4,52 @@ learned.
 
 Base samplers and applicable actions are used to perform the argmax.
 
-Example command:
+Example command for default approach:
     python predicators/main.py --approach maple_q --seed 0 \
-        --explorer maple_q \
-        --mlp_regressor_max_itr 640000 \
-        --active_sampler_learning_batch_size 512 \
-        --env cover \
+        --explorer maple_q --mlp_regressor_max_itr 640000 \
+        --online_nsrt_learning_requests_per_cycle 200\
+        --active_sampler_learning_batch_size 512 --env cover \
         --strips_learner oracle \
-        --sampler_learner oracle \
-        --max_initial_demos 0 \
-        --num_train_tasks 1000 \
-        --num_test_tasks 10 \
-        --max_num_steps_interaction_request 5 \
-        --horizon 2 \
+        --sampler_learner oracle --max_initial_demos 0 --num_train_tasks 1000 \
+        --num_test_tasks 10 --max_num_steps_interaction_request 5 \
+        --num_online_learning_cycles 20 --horizon 2 \
+        --debug
+>>> solve rate: 9/10
+
+Example command that uses doesn't use operators to help select actions:
+    python predicators/main.py --approach maple_q --seed 0 \
+        --explorer maple_q --mlp_regressor_max_itr 640000 \
+        --online_nsrt_learning_requests_per_cycle 200\
+        --active_sampler_learning_batch_size 512 --env cover \
+        --sampler_learner oracle --max_initial_demos 0 --num_train_tasks 1000 \
+        --num_test_tasks 10 --max_num_steps_interaction_request 5 \
+        --num_online_learning_cycles 20 --horizon 2 \
+        --excluded_predicates all --maple_assert_oracle_strips False \
+        --online_learning_assert_no_exclude_pred False \
+        --debug
+
+Example command that uses vision policy:
+    python predicators/main.py --approach maple_q --seed 0 \
+        --explorer maple_q --mlp_regressor_max_itr 640000 \
+        --online_nsrt_learning_requests_per_cycle 200\
+        --active_sampler_learning_batch_size 512 \
+        --env pybullet_cover_typed_options \
+        --sampler_learner oracle --max_initial_demos 0 --num_train_tasks 1000 \
+        --num_test_tasks 10 --max_num_steps_interaction_request 1000 \
+        --num_online_learning_cycles 20 --horizon 1000 \
+        --excluded_predicates all --maple_assert_oracle_strips False \
+        --online_learning_assert_no_exclude_pred False \
         --debug
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable, List, Optional, Set
+import logging
 
 import dill as pkl
 from gym.spaces import Box
+from pprint import pformat
 
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
@@ -36,7 +60,7 @@ from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, InteractionRequest, \
     LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type, \
     _GroundNSRT, _Option
-
+from predicators.ground_truth_models import get_gt_nsrts
 
 class MapleQApproach(OnlineNSRTLearningApproach):
     """A parameterized action RL approach inspired by MAPLE."""
@@ -48,7 +72,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                          action_space, train_tasks)
 
         # The current implementation assumes that NSRTs are not changing.
-        assert CFG.strips_learner == "oracle"
+        if CFG.maple_assert_oracle_strips:
+            assert CFG.strips_learner == "oracle"
         # The base sampler should also be unchanging and from the oracle.
         assert CFG.sampler_learner == "oracle"
 
@@ -128,6 +153,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                      annotations: Optional[List[Any]]) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
+        if not CFG.online_learning_assert_no_exclude_pred:
+            self._nsrts = get_gt_nsrts(CFG.env, set(),
+                                        self._initial_options)
+            logging.info(f"Setting NSRTs to empty:\n{pformat(self._nsrts)}")
         if CFG.approach == "active_sampler_learning":
             # Check the assumption that operators and options are 1:1.
             # This is just an implementation convenience.
@@ -171,6 +200,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
+        num_seg_traj = sum([len(traj) for traj in self._segmented_trajs])
+        logging.info(f"Collected {num_seg_traj} segmented trajectories.")
         self._update_maple_data()
         # Re-learn Q function.
         self._q_function.train_q_function()

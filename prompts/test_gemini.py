@@ -1,5 +1,4 @@
-"""
-Install the Google AI Python SDK
+"""Install the Google AI Python SDK.
 
 $ pip install google-generativeai
 

@@ -36,30 +36,30 @@ class CoverEnv(BaseEnv):
 
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _block_type = Type("block",
-                    ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
-                        bbox_features)
-    _target_type = Type("target", 
-                    ["is_block", "is_target", "width", "pose_y_norm"] +
-                        bbox_features)
-    _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
-                        bbox_features)
-    _table_type = Type("table", bbox_features)
-
+    _block_type = Type(
+        "block", ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
+        (bbox_features if CFG.env_include_bbox_features else []))
+    _target_type = Type(
+        "target", ["is_block", "is_target", "width", "pose_y_norm"] +
+        (bbox_features if CFG.env_include_bbox_features else []))
+    _robot_type = Type(
+        "robot", ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
+        (bbox_features if CFG.env_include_bbox_features else []))
+    _table_type = Type("table",
+                       bbox_features if CFG.env_include_bbox_features else [])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Predicates
         self._IsBlock = Predicate("IsBlock", [self._block_type],
-                                self._IsBlock_holds)
+                                  self._IsBlock_holds)
         self._IsTarget = Predicate("IsTarget", [self._target_type],
-                                self._IsTarget_holds)
-        self._Covers = Predicate("Covers",
-                                [self._block_type, self._target_type],
-                                self._Covers_holds,
-                                lambda objs:
-                                f"{objs[0]} is covering {objs[1]}.")
+                                   self._IsTarget_holds)
+        self._Covers = Predicate(
+            "Covers", [self._block_type, self._target_type],
+            self._Covers_holds,
+            lambda objs: f"{objs[0]} is covering {objs[1]}.")
         # IsClear(y) is Forall x:box. not Covers(x, y) -- quantify all but one
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
@@ -90,10 +90,10 @@ class CoverEnv(BaseEnv):
             if state.get(block, "grasp") != -1:
                 assert held_block is None
                 held_block = block
-            block_lb = state.get(block, "pose_y_norm") - state.get(block, 
-                        "width") / 2
-            block_ub = state.get(block, "pose_y_norm") + state.get(block, 
-                        "width") / 2
+            block_lb = state.get(block,
+                                 "pose_y_norm") - state.get(block, "width") / 2
+            block_ub = state.get(block,
+                                 "pose_y_norm") + state.get(block, "width") / 2
             if state.get(block,
                          "grasp") == -1 and block_lb <= pose <= block_ub:
                 assert above_block is None
@@ -139,12 +139,14 @@ class CoverEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng,
-                                is_train=True)
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng,
+                               is_train=True)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng,
-                                is_train=False)
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               rng=self._test_rng,
+                               is_train=False)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -225,16 +227,15 @@ class CoverEnv(BaseEnv):
         for i, targ in enumerate(state.get_objects(self._target_type)):
             c = cs[i % len(cs)]
             lcolor = "gray"
-            rect = plt.Rectangle(
-                (state.get(targ, "pose_y_norm") - state.get(targ, "width") / 2.,
-                 -height / 2.),
-                state.get(targ, "width"),
-                height,
-                linewidth=lw,
-                edgecolor=lcolor,
-                facecolor=c,
-                alpha=targ_alpha,
-                label=f"target{i}")
+            rect = plt.Rectangle((state.get(targ, "pose_y_norm") -
+                                  state.get(targ, "width") / 2., -height / 2.),
+                                 state.get(targ, "width"),
+                                 height,
+                                 linewidth=lw,
+                                 edgecolor=lcolor,
+                                 facecolor=c,
+                                 alpha=targ_alpha,
+                                 label=f"target{i}")
             ax.add_patch(rect)
         plt.xlim(-0.2, 1.2)
         plt.ylim(-0.25, 0.5)
@@ -249,17 +250,21 @@ class CoverEnv(BaseEnv):
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
         for block in state.get_objects(self._block_type):
-            hand_regions.append(
-                (state.get(block, "pose_y_norm") - state.get(block, "width") / 2,
-                 state.get(block, "pose_y_norm") + state.get(block, "width") / 2))
+            hand_regions.append((state.get(block, "pose_y_norm") -
+                                 state.get(block, "width") / 2,
+                                 state.get(block, "pose_y_norm") +
+                                 state.get(block, "width") / 2))
         for targ in state.get_objects(self._target_type):
-            hand_regions.append(
-                (state.get(targ, "pose_y_norm") - state.get(targ, "width") / 10,
-                 state.get(targ, "pose_y_norm") + state.get(targ, "width") / 10))
+            hand_regions.append((state.get(targ, "pose_y_norm") -
+                                 state.get(targ, "width") / 10,
+                                 state.get(targ, "pose_y_norm") +
+                                 state.get(targ, "width") / 10))
         return hand_regions
 
-    def _create_blocks_and_targets(self, is_train: Optional[bool] = True
-                                   ) -> Tuple[List[Object], List[Object]]:
+    def _create_blocks_and_targets(
+            self,
+            is_train: Optional[bool] = True
+    ) -> Tuple[List[Object], List[Object]]:
         blocks = []
         targets = []
         num_blocks = CFG.cover_num_blocks_train if is_train else\
@@ -273,7 +278,8 @@ class CoverEnv(BaseEnv):
             targets.append(Object(f"target{i}", self._target_type))
         return blocks, targets
 
-    def _get_tasks(self, num: int,
+    def _get_tasks(self,
+                   num: int,
                    rng: np.random.Generator,
                    is_train: Optional[bool] = True) -> List[EnvironmentTask]:
         tasks = []
@@ -297,11 +303,11 @@ class CoverEnv(BaseEnv):
             tasks.append(EnvironmentTask(init, goals[i % len(goals)]))
         return tasks
 
-    def _create_initial_state(self, blocks: List[Object],
+    def _create_initial_state(self,
+                              blocks: List[Object],
                               targets: List[Object],
                               rng: np.random.Generator,
-                              is_train: Optional[bool] = True
-                              ) -> State:
+                              is_train: Optional[bool] = True) -> State:
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_block_widths) >= len(blocks)
         for block, width in zip(blocks, CFG.cover_block_widths):
@@ -419,8 +425,8 @@ class CoverEnvHandEmpty(CoverEnv):
         super().__init__(use_gui)
 
         # Add attribute.
-        self._robot_type = Type("robot",
-                                ["pose_y_norm", "pose_x", "pose_z", "hand_empty"])
+        self._robot_type = Type(
+            "robot", ["pose_y_norm", "pose_x", "pose_z", "hand_empty"])
         # Override HandEmpty predicate.
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
@@ -844,11 +850,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         plt.tight_layout()
         return fig
 
-    def _create_initial_state(self, blocks: List[Object],
+    def _create_initial_state(self,
+                              blocks: List[Object],
                               targets: List[Object],
                               rng: np.random.Generator,
-                              is_train: Optional[bool] = True
-                              ) -> State:
+                              is_train: Optional[bool] = True) -> State:
         """Creates initial state by (1) placing targets and blocks in random
         locations such that each target has enough space on either side to
         ensure no covering placement will cause a collision (note that this is
@@ -1062,9 +1068,10 @@ class CoverEnvPlaceHard(CoverEnv):
 
     # Repeating Types and Predicates for LLM input.
     # Types
-    _block_type = Type("block",
-                       ["is_block", "is_target", "width", "pose_y_norm", "grasp"])
-    _target_type = Type("target", ["is_block", "is_target", "width", "pose_y_norm"])
+    _block_type = Type(
+        "block", ["is_block", "is_target", "width", "pose_y_norm", "grasp"])
+    _target_type = Type("target",
+                        ["is_block", "is_target", "width", "pose_y_norm"])
     _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"])
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -1111,9 +1118,9 @@ class BumpyCoverEnv(CoverEnvRegrasp):
 
         # Need to include "bumpy" feature to distinguish bumpy from smooth
         # blocks. Otherwise the sampler couldn't possibly know which is which.
-        self._block_type = Type(
-            "block",
-            ["is_block", "is_target", "width", "pose_y_norm", "grasp", "bumpy"])
+        self._block_type = Type("block", [
+            "is_block", "is_target", "width", "pose_y_norm", "grasp", "bumpy"
+        ])
 
         # Need to override predicate creation  for blocks because the types are
         # now different (in terms of equality).
@@ -1129,9 +1136,10 @@ class BumpyCoverEnv(CoverEnvRegrasp):
     def get_name(cls) -> str:
         return "bumpy_cover"
 
-    def _create_initial_state(self, blocks: List[Object],
+    def _create_initial_state(self,
+                              blocks: List[Object],
                               targets: List[Object],
-                              rng: np.random.Generator, 
+                              rng: np.random.Generator,
                               is_train: bool = True) -> State:
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_target_widths) == len(targets)
@@ -1267,7 +1275,8 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         if self._Holding_holds(state, objects):
             return False
         block, = objects
-        return state.get(block, "pose_y_norm") > CFG.bumpy_cover_bumpy_region_start
+        return state.get(block,
+                         "pose_y_norm") > CFG.bumpy_cover_bumpy_region_start
 
     def _InSmoothRegion_holds(self, state: State,
                               objects: Sequence[Object]) -> bool:

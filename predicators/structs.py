@@ -324,8 +324,8 @@ class Predicate:
     # treated "specially" by the classifier.
     _classifier: Callable[[State, Sequence[Object]],
                           bool] = field(compare=False)
-    parameterized_assertion: Optional[Callable[[List[str]], str]] = field(
-        default=None)
+    parameterized_assertion: Optional[Callable[[List[str]],
+                                               str]] = field(default=None)
 
     def __post_init__(self):
         # Assert that each element in types is of the type Type
@@ -411,7 +411,7 @@ class Predicate:
             for i, t in enumerate(self.types))
         body_str = f"{self.name}({vars_str})"
         return body_str
-    
+
     def pretty_str_with_assertion(self) -> str:
         if hasattr(self._classifier, "pretty_str"):
             # This is an invented predicate, from the predicate grammar.
@@ -422,9 +422,11 @@ class Predicate:
         vars_str = []
         for i, t in enumerate(self.types):
             vars_str.append(
-                f"{CFG.grammar_search_classifier_pretty_str_names[i]}:{t.name}")
+                f"{CFG.grammar_search_classifier_pretty_str_names[i]}:{t.name}"
+            )
             var_names.append(
-                f"{t.name} {CFG.grammar_search_classifier_pretty_str_names[i]}")
+                f"{t.name} {CFG.grammar_search_classifier_pretty_str_names[i]}"
+            )
         vars_str = ", ".join(vars_str)
 
         body_str = f"{self.name}({vars_str})"
@@ -489,12 +491,12 @@ class VLMPredicate(Predicate):
     classifier (i.e., one that returns simply raises some kind of error instead
     of actually outputting a value of any kind).
     """
+
     def __init__(self, name: str, types: Sequence[Type],
-                _classifier: Callable[[RawState, Sequence[Object]], bool],
-                get_vlm_query_str: Callable[[Sequence[Object]], str]) -> None:
+                 _classifier: Callable[[RawState, Sequence[Object]], bool],
+                 get_vlm_query_str: Callable[[Sequence[Object]], str]) -> None:
         self.get_vlm_query_str = get_vlm_query_str
         super().__init__(name, types, _classifier)
-
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -831,7 +833,7 @@ class _Option:
         objects = ", ".join(o.name for o in self.objects)
         params = ", ".join(str(round(p, 2)) for p in self.params)
         return f"{self.name}({objects}, {params})"
-    
+
     def simple_str(self, use_object_id: bool = False) -> str:
         if use_object_id:
             objects = ", ".join(

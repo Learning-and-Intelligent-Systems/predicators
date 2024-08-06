@@ -1,7 +1,7 @@
 """This directory contains algorithms for STRIPS operator learning."""
 
-from typing import Any, List, Optional, Set
 import logging
+from typing import Any, List, Optional, Set
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \

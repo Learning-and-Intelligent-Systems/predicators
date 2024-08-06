@@ -55,7 +55,6 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         TurnMachineOn = options["TurnMachineOn"]
         Pour = options["Pour"]
 
-
         nsrts = set()
 
         if not CFG.coffee_combined_move_and_twist_policy:
@@ -77,9 +76,9 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             }
             ignore_effects: Set[Predicate] = set()
             move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters,
-                                        preconditions, add_effects,
-                                        delete_effects, ignore_effects, option,
-                                        option_vars, null_sampler)
+                                          preconditions, add_effects,
+                                          delete_effects, ignore_effects,
+                                          option, option_vars, null_sampler)
             nsrts.add(move_to_twist_jug_nsrt)
 
             # TwistJug
@@ -103,10 +102,11 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             ignore_effects = set()
 
             def twist_jug_sampler(state: State, goal: Set[GroundAtom],
-                                rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                  rng: np.random.Generator,
+                                  objs: Sequence[Object]) -> Array:
                 del state, goal, objs  # unused
-                return np.array(rng.uniform(-1, 1, size=(1, )), dtype=np.float32)
+                return np.array(rng.uniform(-1, 1, size=(1, )),
+                                dtype=np.float32)
 
             twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions,
                                 add_effects, delete_effects, ignore_effects,
@@ -130,12 +130,10 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 add_effects.add(LiftedAtom(JugPickable, [jug]))
             delete_effects = set()
             ignore_effects: Set[Predicate] = set()
-            twist_nsrt = NSRT("Twist", parameters,
-                                        preconditions, add_effects,
-                                        delete_effects, ignore_effects, option,
-                                        option_vars, null_sampler)
+            twist_nsrt = NSRT("Twist", parameters, preconditions, add_effects,
+                              delete_effects, ignore_effects, option,
+                              option_vars, null_sampler)
             nsrts.add(twist_nsrt)
-
 
         # PickJugFromTable
         robot = Variable("?robot", robot_type)

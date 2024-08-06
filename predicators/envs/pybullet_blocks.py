@@ -19,6 +19,7 @@ from predicators.structs import Array, EnvironmentTask, Object, Predicate, \
     State, Type
 from predicators.utils import NSPredicate, RawState, VLMQuery
 
+
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
@@ -55,7 +56,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Predicates
         self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
-                                        self._On_NSP_holds)
+                                   self._On_NSP_holds)
         self._OnTable_NSP = NSPredicate("OnTable", [self._block_type],
                                         self._OnTable_NSP_holds)
         self._Holding_NSP = NSPredicate("Holding", [self._block_type],
@@ -82,10 +83,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     @property
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
-            self._On_NSP, 
-            self._OnTable_NSP, 
+            self._On_NSP,
+            self._OnTable_NSP,
             self._GripperOpen_NSP,
-            self._Holding_NSP, 
+            self._Holding_NSP,
             self._Clear_NSP,
         }
 
@@ -151,8 +152,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
             bool:
         """Determine if the block in objects is directly resting on the table's
-        surface in the scene image.
-        """
+        surface in the scene image."""
         block, = objects
         block_name = block.id_name
 
@@ -169,8 +169,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
         """Determine if the first block in objects is directly on top of the
         second block with no blocks in between in the scene image, by using a
-        combination of rules and VLMs.
-        """
+        combination of rules and VLMs."""
 
         block1, block2 = objects
         block1_name, block2_name = block1.id_name, block2.id_name

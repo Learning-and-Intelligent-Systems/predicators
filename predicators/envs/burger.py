@@ -123,7 +123,7 @@ class BurgerEnv(BaseEnv):
     @classmethod
     def get_name(cls) -> str:
         return "burger"
-    
+
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:
         return self.predicates
@@ -222,7 +222,6 @@ class BurgerEnv(BaseEnv):
         state_dict = {}
         hidden_state = {}
 
-<<<<<<< HEAD
         spots_for_objects = self.get_accessible_edge_cells(rng)
         # num_tasks = num
         # if num == 1:
@@ -232,6 +231,10 @@ class BurgerEnv(BaseEnv):
             # for _ in range(num_tasks):
             shuffled_spots = spots_for_objects.copy()
             rng.shuffle(shuffled_spots)
+            # Add robot, grill, and cutting board
+            r, c = shuffled_spots[0]
+            state_dict[self._robot] = {
+                "row": 2,  # assumes 5x5 grid
                 "col": 2,  # assumes 5x5 grid
                 "z": 0,
                 "fingers": 0.0,
@@ -288,7 +291,6 @@ class BurgerEnv(BaseEnv):
                            [bottom_bun, patty, cheese, tomato, top_bun])
             }
 
->>>>>>> origin/master
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = {}
             state.simulator_state["state"] = hidden_state

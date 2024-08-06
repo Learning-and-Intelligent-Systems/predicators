@@ -98,13 +98,15 @@ def main() -> None:
         #                                     mode='w'))
         # Handler for DEBUG level messages
         debug_handler = logging.FileHandler(CFG.log_file + "r" + timestamp +
-                                            "_debug", mode='w')
+                                            "_debug",
+                                            mode='w')
         debug_handler.setLevel(logging.DEBUG)
         handlers.append(debug_handler)
-        
+
         # Handler for INFO level messages
         info_handler = logging.FileHandler(CFG.log_file + "r" + timestamp +
-                                        "_info", mode='w')
+                                           "_info",
+                                           mode='w')
         info_handler.setLevel(logging.INFO)
         handlers.append(info_handler)
 
@@ -235,8 +237,6 @@ def _run_pipeline(env: BaseEnv,
             # Self Online Learning.
             if CFG.approach == "vlm_online_invention":
                 learning_start = time.perf_counter()
-                # train_tasks[0].init.state_image.save("images/task0_init.png")
-                # breakpoint()
                 cogman.learn_from_tasks(env, train_tasks)
                 learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {
@@ -524,6 +524,11 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 total_num_execution_timeouts += 1
             elif isinstance(e, ApproachFailure):
                 total_num_execution_failures += 1
+            caught_exception = True
+        except utils.OptionExecutionFailure as e:
+            log_message = ("Approach failed at policy execution time with "
+                           f"error: {e}")
+            total_num_execution_failures += 1
             caught_exception = True
         if solved:
             log_message = "SOLVED"

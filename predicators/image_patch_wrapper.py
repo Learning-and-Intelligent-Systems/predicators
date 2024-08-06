@@ -1,7 +1,7 @@
 import logging
 import os
 import random
-from typing import List, Sequence, Tuple, Dict, Optional
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import matplotlib.colors as mcolors
@@ -107,18 +107,19 @@ class VisImage:
 class ImagePatch:
     # class ImagePatch:
     # def __init__(self, image: np.ndarray, *args, **kwargs):
-    def __init__(self,
-                 state: State,
-                 left: int = None,
-                 lower: int = None,
-                 right: int = None,
-                 upper: int = None,
-                 parent_left: int = 0,
-                 parent_lower: int = 0,
-                 queues: Tuple = None,
-                 parent_img_patch: 'ImagePatch' = None,
-                 attn_objects: Optional[List[Object]] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        state: State,
+        left: int = None,
+        lower: int = None,
+        right: int = None,
+        upper: int = None,
+        parent_left: int = 0,
+        parent_lower: int = 0,
+        queues: Tuple = None,
+        parent_img_patch: 'ImagePatch' = None,
+        attn_objects: Optional[List[Object]] = None,
+    ) -> None:
 
         self.attn_objects = attn_objects
         if state.labeled_image is None:
@@ -230,9 +231,9 @@ class ImagePatch:
                 dy += 15
 
             img_np = self.draw_text(vis_image,
-                                    obj.id, 
+                                    obj.id,
                                     (coords_x[len(coords_x) // 2],
-                                    coords_y[len(coords_y) // 2] - 8 + dy),
+                                     coords_y[len(coords_y) // 2] - 8 + dy),
                                     color=color)
 
         img_np = vis_image.get_image()
@@ -259,15 +260,15 @@ class ImagePatch:
         # except Exception as e:
         #     breakpoint()
 
-            # left = min(left, x_indices.min() - left_margin)
-            # lower = min(lower, self.height - y_indices.max() - lower_margin - 1)
-            # right = max(right, x_indices.max() + right_margin)
-            # upper = max(upper, self.height - y_indices.min() + top_margin - 1)
+        # left = min(left, x_indices.min() - left_margin)
+        # lower = min(lower, self.height - y_indices.max() - lower_margin - 1)
+        # right = max(right, x_indices.max() + right_margin)
+        # upper = max(upper, self.height - y_indices.min() + top_margin - 1)
         bbox = utils.smallest_bbox_from_bboxes(bboxes)
         # Crop the image
         try:
             ip = self.crop(bbox.left - left_margin, bbox.lower - lower_margin,
-                         bbox.right + right_margin, bbox.upper + top_margin)
+                           bbox.right + right_margin, bbox.upper + top_margin)
         except:
             breakpoint()
         return ip

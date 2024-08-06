@@ -84,25 +84,29 @@ if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
         cuda_visible_devices[0] = "0"
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
 
+
 def has_key_in_tuple_key(dictionary: Dict[Tuple[str], Any], key: str) -> bool:
-    """Check if a dictionary has a key"""
+    """Check if a dictionary has a key."""
     return any(key in key_tuple for key_tuple in dictionary.keys())
+
 
 def get_value_from_tuple_key(dictionary: Dict[Tuple[str], Any], key: str):
     """Get the value from a dictionary with a tuple key, to deal with many-to-
-    one mapping"""
+    one mapping."""
     for key_tuple, value in dictionary.items():
         if key in key_tuple:
             return value
     return None  # Return None if the search_key is not found in any tuple
 
-def save_image_with_label(img_copy, s_name, obs_dir, f_suffix:str=".png"):
+
+def save_image_with_label(img_copy, s_name, obs_dir, f_suffix: str = ".png"):
     draw = ImageDraw.Draw(img_copy)
     font = ImageFont.load_default().font_variant(size=50)
     text_color = (0, 0, 0)  # white
     draw.text((0, 0), s_name, fill=text_color, font=font)
     img_copy.save(os.path.join(obs_dir, s_name + f_suffix))
     logging.debug(f"Saved Image {s_name}")
+
 
 def print_confusion_matrix(tp: int, tn: int, fp: int, fn: int) -> None:
     precision = round(tp / (tp + fp), 2) if tp + fp > 0 else 0
@@ -145,17 +149,17 @@ def reduce_nsrts(nsrts: Set[NSRT]) -> Set[NSRT]:
 
 
 def count_classification_result_for_ops(
-        nsrts: Set[NSRT],
-        succ_optn_dict: Dict[str, GroundOptionRecord],
-        fail_optn_dict: Dict[str, GroundOptionRecord],
-        return_str: bool = False,
-        initial_ite: bool = False,
-        print_cm: bool = False,
-        max_num_options: int = 10,  # Number of options to show
-        max_num_groundings: int = 2,  # Number of ground options per option.3
-        max_num_examples: int = 2,  # Number of examples per ground option.
-        categories_to_show: List[str] = ['tp', 'fp'],
-        ite: Optional[int] = 0,
+    nsrts: Set[NSRT],
+    succ_optn_dict: Dict[str, GroundOptionRecord],
+    fail_optn_dict: Dict[str, GroundOptionRecord],
+    return_str: bool = False,
+    initial_ite: bool = False,
+    print_cm: bool = False,
+    max_num_options: int = 10,  # Number of options to show
+    max_num_groundings: int = 2,  # Number of ground options per option.3
+    max_num_examples: int = 2,  # Number of examples per ground option.
+    categories_to_show: List[str] = ['tp', 'fp'],
+    ite: Optional[int] = 0,
 ) -> Tuple[int, int, int, int, str, str]:
 
     np.set_printoptions(precision=1)
@@ -357,11 +361,13 @@ def count_classification_result_for_ops(
 
     return sum_tp, sum_tn, sum_fp, sum_fn, result_str, state_str_set
 
+
 def remove_duplicates(seq):
     # remove duplicates from a list while preserving order
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
+
 
 def summarize_results_in_str(
     accuracy_dict: Dict,
@@ -450,7 +456,7 @@ def summarize_results_in_str(
             # if n_tp and "tp" in categories_to_show:
             if n_tp and "tp" in categories_to_show and\
                n_fp and "fp" in categories_to_show:
-                # and n_fp because without false positives, there isn't 
+                # and n_fp because without false positives, there isn't
                 # anything to learn
 
                 # [Simplified]
@@ -463,7 +469,7 @@ def summarize_results_in_str(
                 # f"*successfully* executed on {n_succ_states}/{n_tot} states "+
                 # "(ground truth positive states).")
 
-                if n_tp and "tp" in categories_to_show and n_fp:  
+                if n_tp and "tp" in categories_to_show and n_fp:
                     # [Detailed] True Positive
                     # result_str.append(
                     # f"  Out of the {n_succ_states} GT positive states, "+
@@ -481,7 +487,7 @@ def summarize_results_in_str(
                     #                   uniq_n_tp > max_num_examples)
                     result_str, state_str_set =\
                         append_classification_result_for_ops(
-                            result_str, state_str_set, g_optn, tp_states, 
+                            result_str, state_str_set, g_optn, tp_states,
                             max_num_examples, "tp",
                             state_hash_to_id, ite)
 
@@ -489,12 +495,12 @@ def summarize_results_in_str(
                 # False Negative
                 if n_fn and "fn" in categories_to_show:
                     result_str.append(
-                    f"  Out of the {n_succ_states} GT positive states, "+
-                    f"with the current predicates and operators, "+
-                    f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "+
-                    "operators' precondition (false negatives)"+
-                    (f", to list {max_num_examples}:" if
-                        uniq_n_fn > max_num_examples else ":"))
+                        f"  Out of the {n_succ_states} GT positive states, " +
+                        f"with the current predicates and operators, " +
+                        f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "
+                        + "operators' precondition (false negatives)" +
+                        (f", to list {max_num_examples}:"
+                         if uniq_n_fn > max_num_examples else ":"))
                     result_str, state_str_set =\
                         append_classification_result_for_ops(
                             result_str, state_str_set, g_optn, fn_states,
@@ -533,7 +539,7 @@ def summarize_results_in_str(
                     #                   "They are:")
                     result_str, state_str_set =\
                         append_classification_result_for_ops(
-                            result_str, state_str_set, g_optn, fp_states, 
+                            result_str, state_str_set, g_optn, fp_states,
                             max_num_examples, "fp", state_hash_to_id, ite)
 
                 # Ignored in the simplified prompt
@@ -541,17 +547,17 @@ def summarize_results_in_str(
                 if n_tn and "tn" in categories_to_show:
                     # True Negative
                     result_str.append(
-                    f"  Out of the {n_fail_states} GT negative states, "+
-                    f"with the current predicates and operators, "+
-                    f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "+
-                    "operators' precondition (true negatives)"+
-                    (f", to list {max_num_examples}:" if
-                        uniq_n_tn > max_num_examples else ":"))
+                        f"  Out of the {n_fail_states} GT negative states, " +
+                        f"with the current predicates and operators, " +
+                        f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "
+                        + "operators' precondition (true negatives)" +
+                        (f", to list {max_num_examples}:"
+                         if uniq_n_tn > max_num_examples else ":"))
                     result_str, state_str_set =\
                         append_classification_result_for_ops(
                         result_str, state_str_set, g_optn, tn_states,
                         max_num_examples, "tn", state_hash_to_id, ite)
-                
+
                 if not (n_fp and "fp" in categories_to_show) and \
                    not (n_tn and "tn" in categories_to_show):
                     result_str.append("")
@@ -559,14 +565,16 @@ def summarize_results_in_str(
     return '\n'.join(result_str), state_str_set
 
 
-def append_classification_result_for_ops(result_str: List[str], 
-                                         state_str_set: Set[str],
-                                         g_optn: str,
-                                         states: Set[RawState],
-                                         max_num_examples: int, category: str,
-                                         state_hash_to_id: Dict,
-                                         ite: Optional[int] = 0,
-                                         ) -> Tuple[List[str], Set[str]]:
+def append_classification_result_for_ops(
+    result_str: List[str],
+    state_str_set: Set[str],
+    g_optn: str,
+    states: Set[RawState],
+    max_num_examples: int,
+    category: str,
+    state_hash_to_id: Dict,
+    ite: Optional[int] = 0,
+) -> Tuple[List[str], Set[str]]:
     shown_ppp = []
     num_shown = 0
     if CFG.vlm_predicator_render_option_state:
@@ -579,7 +587,7 @@ def append_classification_result_for_ops(result_str: List[str],
         # Show states whose plan prefix are different
         assert state.option_history is not None
         option_history = ", ".join(state.option_history[-1:])
-        # e.g. pick would fell in a state where the jug is not in the 
+        # e.g. pick would fell in a state where the jug is not in the
         # correct rotation (ppp == []) and a state where the jug is already
         # in hand (ppp == [pick]) due to different reasons.
         if option_history not in shown_ppp:
@@ -589,23 +597,25 @@ def append_classification_result_for_ops(result_str: List[str],
         if CFG.vlm_predicator_render_option_state:
             # Write state name to the image for easy identification
             obs_name = "state_" + str(state_hash_to_id[hash(state)])
-            save_image_with_label(state.labeled_image.copy(), obs_name, obs_dir)
+            save_image_with_label(state.labeled_image.copy(), obs_name,
+                                  obs_dir)
             if category == "tp":
-                result_str.append(f"Action {g_optn} *successfully* executed "+
-                                "on " + obs_name + " with additional info:")
+                result_str.append(f"Action {g_optn} *successfully* executed " +
+                                  "on " + obs_name + " with additional info:")
             elif category == "fp":
-                result_str.append(f"Action {g_optn} *failed* to executed "+
-                                "on " + obs_name + " with additional info:")
+                result_str.append(f"Action {g_optn} *failed* to executed " +
+                                  "on " + obs_name + " with additional info:")
             else:
                 raise NotImplementedError("Only tp and fp are supported")
             # result_str.append("  " + obs_name + " with additional info:")
-            str_for_this_state.append("  " + obs_name + " with additional info:")
+            str_for_this_state.append("  " + obs_name +
+                                      " with additional info:")
             # Should add proprio state
         state_dict_str = state.dict_str(
-                indent=2,
-                object_features=not CFG.vlm_predicator_render_option_state,
-                use_object_id=CFG.vlm_predicator_render_option_state,
-                position_proprio_features=True)
+            indent=2,
+            object_features=not CFG.vlm_predicator_render_option_state,
+            use_object_id=CFG.vlm_predicator_render_option_state,
+            position_proprio_features=True)
         result_str.append(state_dict_str)
         str_for_this_state.append(state_dict_str + "\n")
 
@@ -622,13 +632,13 @@ def append_classification_result_for_ops(result_str: List[str],
             str_for_this_state = []
             n_state = state.next_state
             obs_name = "state_" + str(state_hash_to_id[hash(n_state)])
-            result_str.append(f"\n  This action results in {obs_name} " + 
+            result_str.append(f"\n  This action results in {obs_name} " +
                               "with additional info:")
             # Todo: Make sure the dict has the hash for the next state
-            save_image_with_label(n_state.labeled_image.copy(), obs_name, 
+            save_image_with_label(n_state.labeled_image.copy(), obs_name,
                                   obs_dir)
             # result_str.append("  " + obs_name + " with additional info:")
-            str_for_this_state.append("  " + obs_name + 
+            str_for_this_state.append("  " + obs_name +
                                       " with additional info:")
             n_state_dict_str = n_state.dict_str(
                 indent=2,
@@ -1509,12 +1519,14 @@ class LinearChainParameterizedOption(ParameterizedOption):
     current child index.
     """
 
-    def __init__(self,
-                 name: str,
-                 children: Sequence[ParameterizedOption],
-                 annotation: Optional[str] = None,
-                 parameterized_annotation: Optional[Callable[[_TypedEntity], 
-                                                             str]] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        children: Sequence[ParameterizedOption],
+        annotation: Optional[str] = None,
+        parameterized_annotation: Optional[Callable[[_TypedEntity],
+                                                    str]] = None
+    ) -> None:
         assert len(children) > 0
         self._children = children
 
@@ -1726,8 +1738,8 @@ class RawState(PyBulletState):
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
     option_history: Optional[List[str]] = None
-    bbox_features: Dict[Object, np.ndarray] = field(default_factory=lambda: 
-                                            defaultdict(lambda: np.zeros(4)))
+    bbox_features: Dict[Object, np.ndarray] = field(
+        default_factory=lambda: defaultdict(lambda: np.zeros(4)))
     prev_state: Optional[RawState] = None
     next_state: Optional[RawState] = None
 
@@ -1752,7 +1764,7 @@ class RawState(PyBulletState):
             assertion,
             BoundingBox(image.left, image.lower, image.right, image.upper),
             image.attn_objects)
-    
+
     def generate_previous_option_message(self) -> str:
         """Generate the message for the previous option."""
         assert self.option_history is not None
@@ -1763,13 +1775,14 @@ class RawState(PyBulletState):
             msg += " labeled with 'curr. state'"
         if CFG.nsp_pred_include_state_str_in_prompt:
             msg += " and the information below"
-        
+
         msg += ".\n"
 
         if CFG.nsp_pred_include_state_str_in_prompt:
             msg += f"We have the object positions and the robot's "\
                     "proprioception:\n"
-            msg += self.dict_str(indent=2, object_features=False,
+            msg += self.dict_str(indent=2,
+                                 object_features=False,
                                  use_object_id=True,
                                  position_proprio_features=True)
             msg += "\n"
@@ -1790,9 +1803,11 @@ class RawState(PyBulletState):
                 if self.prev_state is not None:
                     msg += " The object position and robot proprioception "\
                         "before executing the action is:\n"
-                    msg += self.prev_state.dict_str(indent=2, object_features=False,
-                                                    use_object_id=True,
-                                                    position_proprio_features=True)
+                    msg += self.prev_state.dict_str(
+                        indent=2,
+                        object_features=False,
+                        use_object_id=True,
+                        position_proprio_features=True)
                     msg += "\n"
             if CFG.nsp_pred_include_prev_image_in_prompt:
                 msg += " The state before executing the action is depicted"\
@@ -1817,15 +1832,15 @@ class RawState(PyBulletState):
         if idx >= standard_feature_len:
             # When setting the bounding box features for the first time
             # So we'd first append 4 dimension and try to set again
-            self.bbox_features[obj][idx-standard_feature_len] = feature_val
+            self.bbox_features[obj][idx - standard_feature_len] = feature_val
         else:
             self.data[obj][idx] = feature_val
-    
+
     def get(self, obj: Object, feature_name: str) -> Any:
         idx = obj.type.feature_names.index(feature_name)
         standard_feature_len = len(self.data[obj])
         if idx >= standard_feature_len:
-            return self.bbox_features[obj][idx-standard_feature_len]
+            return self.bbox_features[obj][idx - standard_feature_len]
         else:
             return self.data[obj][idx]
 
@@ -1851,12 +1866,13 @@ class RawState(PyBulletState):
                 #         value = round(float(value), 1)
                 #     obj_dict[attribute] = value
                 if (position_proprio_features and attribute in [
-                    # "pose_x", "pose_y", "pose_z", "x", "y", "z",
-                    "rot", "fingers"
-                    ]) or object_features:
-                        if isinstance(value, (float, int, np.float32)):
-                            value = round(float(value), 1)
-                        obj_dict[attribute] = value
+                        # "pose_x", "pose_y", "pose_z", "x", "y", "z",
+                        "rot",
+                        "fingers"
+                ]) or object_features:
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
 
             if use_object_id: obj_name = obj.id_name
             else: obj_name = obj.name
@@ -1932,17 +1948,17 @@ class RawState(PyBulletState):
         mask = self.get_obj_mask(object)
         return mask_to_bbox(mask)
 
-    def crop_to_objects(self,
-                        objects: Sequence[Object],
-                        # left_margin: int = 15,
-                        # lower_margin: int = 15,
-                        # right_margin: int = 15,
-                        # top_margin: int = 20
-                        left_margin: int = 30,
-                        lower_margin: int = 30,
-                        right_margin: int = 30,
-                        top_margin: int = 30
-                        ) -> ImagePatch:
+    def crop_to_objects(
+            self,
+            objects: Sequence[Object],
+            # left_margin: int = 15,
+            # lower_margin: int = 15,
+            # right_margin: int = 15,
+            # top_margin: int = 20
+            left_margin: int = 30,
+            lower_margin: int = 30,
+            right_margin: int = 30,
+            top_margin: int = 30) -> ImagePatch:
         state_ip = ImagePatch(self, attn_objects=objects)
         return state_ip.crop_to_objects(objects, left_margin, lower_margin,
                                         right_margin, top_margin)
@@ -1983,9 +1999,9 @@ def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
 class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
 
-    def __init__(self, name: str, types: Sequence[Type],
-                _classifier: Callable[[RawState, Sequence[Object]], bool]
-                ) -> None:
+    def __init__(
+            self, name: str, types: Sequence[Type],
+            _classifier: Callable[[RawState, Sequence[Object]], bool]) -> None:
         self._original_classifier = _classifier
         super().__init__(name, types, _MemoizedClassifier(_classifier))
 
@@ -3306,8 +3322,9 @@ def create_vlm_predicate(
 
 
 def create_vlm_by_name(
-        model_name: str,
-        system_instruction: Optional[str] = None) -> VisionLanguageModel:  # pragma: no cover
+    model_name: str,
+    system_instruction: Optional[str] = None
+) -> VisionLanguageModel:  # pragma: no cover
     """Create particular vlm using a provided name."""
     if "gemini" in model_name:
         return GoogleGeminiVLM(model_name, system_instruction)
@@ -3451,7 +3468,8 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
 
     # Init or reset vlm
     if vlm is None:
-        vlm = create_vlm_by_name(CFG.vlm_model_name, CFG.vlm_system_instruction)
+        vlm = create_vlm_by_name(CFG.vlm_model_name,
+                                 CFG.vlm_system_instruction)
     else:
         if CFG.vlm_use_chat_mode:
             vlm.reset_chat_history()
@@ -3501,10 +3519,13 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
 
                 # right: crop the previous labeled image again
                 prev_attn_image = state.prev_state.labeled_image
-                all_objs = [obj for q in queries if q.attn_objects is not None 
-                                for obj in q.attn_objects]
+                all_objs = [
+                    obj for q in queries if q.attn_objects is not None
+                    for obj in q.attn_objects
+                ]
                 if len(all_objs) > 0:
-                    prev_attn_image = state.prev_state.crop_to_objects(all_objs)
+                    prev_attn_image = state.prev_state.crop_to_objects(
+                        all_objs)
                     prev_attn_image = prev_attn_image.cropped_image_in_PIL
 
                 # annotate the prev image
@@ -3550,7 +3571,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                     prev_value = query.ground_atom in prev_atoms
                     # prev_value = query.ground_atom.predicate.holds(
                     #                 prev_state, query.ground_atom.objects)
-                    
+
                     prompt_str += f" (which was {prev_value} before the "\
                         "successful execution of the previous action)"
                 prompts.append(prompt_str)
@@ -3652,8 +3673,7 @@ class _MemoizedClassifier():
 
 
 def compare_abstract_accuracy(
-        states: List[State],
-        ns_predicates: List[NSPredicate],
+        states: List[State], ns_predicates: List[NSPredicate],
         est_preds_to_gt_preds: Dict[Tuple[str], Predicate]) -> None:
     num_evals, num_correct = 0, 0
     num_not_found = 0
@@ -3665,15 +3685,16 @@ def compare_abstract_accuracy(
         # for est_pred, gt_pred in est_preds_to_gt_preds.items():
         for est_pred in ns_predicates:
             if has_key_in_tuple_key(est_preds_to_gt_preds, est_pred.name):
-                gt_pred = get_value_from_tuple_key(est_preds_to_gt_preds, 
+                gt_pred = get_value_from_tuple_key(est_preds_to_gt_preds,
                                                    est_pred.name)
                 if gt_pred.types != est_pred.types:
                     num_not_found += 1
-                    logging.info("proposed pred doesn't have the same arity as "
-                                 "the ground truth")
+                    logging.info(
+                        "proposed pred doesn't have the same arity as "
+                        "the ground truth")
                     continue
             # for est_pred, gt_pred in est_preds_to_gt_preds.items():
-                for choice in get_object_combinations(list(state), 
+                for choice in get_object_combinations(list(state),
                                                       gt_pred.types):
                     num_evals += 1
                     gt_pred_holds = gt_pred.holds(state, choice)
@@ -3684,25 +3705,30 @@ def compare_abstract_accuracy(
                             num_correct += 1
                         else:
                             state_name = f"state{i}"
-                            logging.info(f"Error found in {state_name}: "
-                                    f"the GT value for {gt_pred}({choice})"
-                                    f" is {gt_pred_holds}")
-                            state.labeled_image.save(f"images/{state_name}.png")
+                            logging.info(
+                                f"Error found in {state_name}: "
+                                f"the GT value for {gt_pred}({choice})"
+                                f" is {gt_pred_holds}")
+                            state.labeled_image.save(
+                                f"images/{state_name}.png")
                     else:
                         if nsp_ground_atom not in est_ground_atoms:
                             num_correct += 1
                         else:
                             state_name = f"state{i}"
-                            logging.info(f"Error found in {state_name}: "
-                                    f"the GT value for {gt_pred}({choice})"
-                                    f" is {gt_pred_holds}, "
-                                    f"prev option: {state.option_history}")
-                            state.labeled_image.save(f"images/{state_name}.png")
+                            logging.info(
+                                f"Error found in {state_name}: "
+                                f"the GT value for {gt_pred}({choice})"
+                                f" is {gt_pred_holds}, "
+                                f"prev option: {state.option_history}")
+                            state.labeled_image.save(
+                                f"images/{state_name}.png")
             else:
                 num_not_found += 1
-    logging.info(f"Evaluated {num_evals} predicates, {num_correct} correct. " +
-                 f"Accuracy: {num_correct/num_evals if num_evals != 0 else 1}. "
-                 f"{num_not_found} NS-predicates not found.")
+    logging.info(
+        f"Evaluated {num_evals} predicates, {num_correct} correct. " +
+        f"Accuracy: {num_correct/num_evals if num_evals != 0 else 1}. "
+        f"{num_not_found} NS-predicates not found.")
 
 
 def test_derived_predicates(env: BaseEnv, states: List[State],

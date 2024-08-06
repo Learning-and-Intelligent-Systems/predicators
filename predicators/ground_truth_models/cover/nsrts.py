@@ -20,8 +20,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {
             "cover", "cover_hierarchical_types", "cover_typed_options",
             "cover_regrasp", "cover_multistep_options", "pybullet_cover",
-            "pybullet_cover_typed_options",
-            "cover_handempty", "bumpy_cover", "cover_place_hard"
+            "pybullet_cover_typed_options", "cover_handempty", "bumpy_cover",
+            "cover_place_hard"
         }
 
     @staticmethod
@@ -153,19 +153,28 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 if env_name == "cover_typed_options":
                     lb = float(-state.get(b, "width") / 2)
                     ub = float(state.get(b, "width") / 2)
-                elif env_name in ("cover", "pybullet_cover",
-                                  "cover_hierarchical_types", "cover_regrasp",
-                                  "cover_handempty", "bumpy_cover",
-                                  "pybullet_cover_typed_options",
-                                  ):
+                elif env_name in (
+                        "cover",
+                        "pybullet_cover",
+                        "cover_hierarchical_types",
+                        "cover_regrasp",
+                        "cover_handempty",
+                        "bumpy_cover",
+                        "pybullet_cover_typed_options",
+                ):
                     lb = float(
-                        state.get(b, "pose_y_norm") - state.get(b, "width") / 2)
+                        state.get(b, "pose_y_norm") -
+                        state.get(b, "width") / 2)
                     lb = max(lb, 0.0)
+                    lb = min(lb, 1.0)
                     ub = float(
-                        state.get(b, "pose_y_norm") + state.get(b, "width") / 2)
+                        state.get(b, "pose_y_norm") +
+                        state.get(b, "width") / 2)
                     ub = min(ub, 1.0)
+                    ub = max(ub, 0.0)
                 elif env_name == ("cover_place_hard"):
-                    return np.array([state.get(b, "pose_y_norm")], dtype=np.float32)
+                    return np.array([state.get(b, "pose_y_norm")],
+                                    dtype=np.float32)
                 return np.array(rng.uniform(lb, ub, size=(1, )),
                                 dtype=np.float32)
 
@@ -286,15 +295,21 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     lb = center - state.get(t, "width") / 2
                     ub = center + state.get(t, "width") / 2
                 elif env_name == "cover_place_hard":
-                    lb = float(state.get(t, "pose_y_norm") - state.get(t, "width"))
-                    ub = float(state.get(t, "pose_y_norm") + state.get(t, "width"))
+                    lb = float(
+                        state.get(t, "pose_y_norm") - state.get(t, "width"))
+                    ub = float(
+                        state.get(t, "pose_y_norm") + state.get(t, "width"))
                 else:
                     lb = float(
-                        state.get(t, "pose_y_norm") - state.get(t, "width") / 10)
+                        state.get(t, "pose_y_norm") -
+                        state.get(t, "width") / 10)
                     ub = float(
-                        state.get(t, "pose_y_norm") + state.get(t, "width") / 10)
+                        state.get(t, "pose_y_norm") +
+                        state.get(t, "width") / 10)
                 lb = max(lb, 0.0)
+                lb = min(lb, 1.0)
                 ub = min(ub, 1.0)
+                ub = max(ub, 0.0)
                 return np.array(rng.uniform(lb, ub, size=(1, )),
                                 dtype=np.float32)
 
@@ -324,7 +339,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 del goal, rng  # this sampler is deterministic
                 assert len(objs) == 1
                 held_obj = objs[0]
-                x = state.get(held_obj, "pose_y_norm") + state.get(held_obj, "grasp")
+                x = state.get(held_obj, "pose_y_norm") + state.get(
+                    held_obj, "grasp")
                 return np.array([x], dtype=np.float32)
 
             place_on_table_nsrt = NSRT("PlaceOnTable", parameters,
@@ -517,8 +533,10 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # and others that might exist already in the bumpy region.
             for num_samples in range(max_sampling_attempts):
                 for other_block in other_blocks:
-                    if (abs(state.get(other_block, "pose_y_norm") - curr_pose_sample)
-                            <= (w + 0.5 * state.get(other_block, "width"))):
+                    if (abs(
+                            state.get(other_block, "pose_y_norm") -
+                            curr_pose_sample) <=
+                        (w + 0.5 * state.get(other_block, "width"))):
                         break
                 else:
                     break

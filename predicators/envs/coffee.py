@@ -1,7 +1,7 @@
 """An environment where a robot must brew and pour coffee."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 import logging
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -13,6 +13,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
+
 
 class CoffeeEnv(BaseEnv):
     """An environment where a robot must brew and pour coffee."""
@@ -98,18 +99,17 @@ class CoffeeEnv(BaseEnv):
     _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
     _jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"])
     _machine_type = Type("coffee_machine", ["is_on"])
-    _cup_type = Type("cup",
+    _cup_type = Type(
+        "cup",
         ["x", "y", "capacity_liquid", "target_liquid", "current_liquid"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-
         # Predicates
         self._CupFilled = Predicate("CupFilled", [self._cup_type],
                                     self._CupFilled_holds,
-                                    lambda objs:
-                                    f"{objs[0]} has coffee in it")
+                                    lambda objs: f"{objs[0]} has coffee in it")
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._jug_type],
                                   self._Holding_holds)
@@ -445,9 +445,11 @@ class CoffeeEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, num_cups_lst: List[int],
-                   rng: np.random.Generator, is_train: bool = False
-                   ) -> List[EnvironmentTask]:
+    def _get_tasks(self,
+                   num: int,
+                   num_cups_lst: List[int],
+                   rng: np.random.Generator,
+                   is_train: bool = False) -> List[EnvironmentTask]:
         tasks = []
         # Create the parts of the initial state that do not change between
         # tasks, which includes the robot and the machine.
@@ -509,7 +511,7 @@ class CoffeeEnv(BaseEnv):
                     cup_state_dict[cup] = {
                         "x": x,
                         "y": y,
-                        "z": self.z_lb + cap/2,
+                        "z": self.z_lb + cap / 2,
                         "capacity_liquid": cap,
                         "target_liquid": target,
                         "current_liquid": current,
@@ -526,16 +528,16 @@ class CoffeeEnv(BaseEnv):
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
-            
+
             if CFG.coffee_no_rotated_jug:
                 rot = 0
             else:
                 # Auto
                 p = CFG.coffee_rotated_jug_ratio
-                add_rotation = rng.choice([True, False], p=[p, 1-p])
+                add_rotation = rng.choice([True, False], p=[p, 1 - p])
                 if add_rotation:
                     logging.info(f"Adding rotation to jug to task {task_idx}")
-                    # rot = rng.uniform(self.jug_init_rot_lb, 
+                    # rot = rng.uniform(self.jug_init_rot_lb,
                     #                   self.jug_init_rot_ub)
                     rot = self.jug_init_rot_ub
                 else:
@@ -550,7 +552,7 @@ class CoffeeEnv(BaseEnv):
                 #         rot = self.jug_init_rot_ub
                 # else:
                 #     logging.info(f"Add rotated to jug to task {task_idx}")
-                #     rot = rng.uniform(self.jug_init_rot_lb, 
+                #     rot = rng.uniform(self.jug_init_rot_lb,
                 #                       self.jug_init_rot_ub)
 
             state_dict[self._jug] = {
@@ -604,8 +606,7 @@ class CoffeeEnv(BaseEnv):
         return not self._JugInMachine_holds(state, [jug, self._machine])
 
     def _Twisting_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        """The robot gripper is in the twisting position.
-        """
+        """The robot gripper is in the twisting position."""
         robot, jug = objects
         x = state.get(robot, "x")
         y = state.get(robot, "y")
@@ -672,7 +673,7 @@ class CoffeeEnv(BaseEnv):
         cup1, cup2 = objects
         return cup1 != cup2
 
-    def _JugPickable_holds(self, state: State, 
+    def _JugPickable_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
         jug, = objects
         jug_rot = state.get(jug, "rot")
@@ -686,7 +687,6 @@ class CoffeeEnv(BaseEnv):
             # pick_jug_rot_tol = - np.pi / 4
 
         return abs(jug_rot) <= pick_jug_rot_tol
-            
 
     def _robot_jug_above_cup(self, state: State, cup: Object) -> bool:
         if not self._Holding_holds(state, [self._robot, self._jug]):

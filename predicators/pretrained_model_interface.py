@@ -12,8 +12,8 @@ from io import BytesIO
 from typing import Collection, Dict, List, Optional, Union
 
 import google.generativeai as genai
-import numpy as np
 import imagehash
+import numpy as np
 import openai
 import PIL.Image
 from tenacity import retry, stop_after_attempt, wait_random_exponential
@@ -210,7 +210,8 @@ class GoogleGeminiModel(PretrainedLargeModel):
     necessary API key to query the particular model name.
     """
 
-    def __init__(self, model_name: str,
+    def __init__(self,
+                 model_name: str,
                  system_instruction: Optional[str] = None) -> None:
         """See https://ai.google.dev/models/gemini for the list of available
         model names."""
@@ -251,7 +252,6 @@ class GoogleGeminiModel(PretrainedLargeModel):
         self.chat_session = self._model.start_chat()
 
 
-
 class OpenAILLM(LargeLanguageModel, OpenAIModel):
     """Interface to openAI LLMs.
 
@@ -259,7 +259,9 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
     private API key for beta.openai.com.
     """
 
-    def __init__(self, model_name: str, system_instruction: Optional[str] = None) -> None:
+    def __init__(self,
+                 model_name: str,
+                 system_instruction: Optional[str] = None) -> None:
         """See https://platform.openai.com/docs/models for the list of
         available model names."""
         super().__init__(system_instruction)
@@ -344,10 +346,10 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
         assert imgs is not None
         # try to use different keys
         keys = [
-                os.getenv("GOOGLE_API_KEY"),
-                os.getenv("GOOGLE_API_KEY1"),
-                os.getenv("GGOGLE_API_KEY2"),
-                ]
+            os.getenv("GOOGLE_API_KEY"),
+            os.getenv("GOOGLE_API_KEY1"),
+            os.getenv("GGOGLE_API_KEY2"),
+        ]
         genai.configure(api_key=np.random.choice(keys))
         safety_settings = [
             {
@@ -399,7 +401,9 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
     """Interface for OpenAI's VLMs, including GPT-4 Turbo (and preview
     versions)."""
 
-    def __init__(self, model_name: str, system_instruction: Optional[str] = None):
+    def __init__(self,
+                 model_name: str,
+                 system_instruction: Optional[str] = None):
         """Initialize with a specific model name."""
         super().__init__(system_instruction)
         self.model_name = model_name

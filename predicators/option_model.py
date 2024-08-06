@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Callable, Set, Tuple
 from pprint import pformat, pprint
+from typing import Callable, Set, Tuple
 
 import numpy as np
 
@@ -112,7 +112,7 @@ class _OracleOptionModel(_OptionModelBase):
                 if option_copy.terminal(s):
                     return True
                 if last_state is not DefaultState and last_state.allclose(s):
-                    # logging.debug("last state:", 
+                    # logging.debug("last state:",
                     #               pformat(last_state.pretty_str()))
                     # logging.debug("current state:", pformat(s.pretty_str()))
                     # breakpoint()

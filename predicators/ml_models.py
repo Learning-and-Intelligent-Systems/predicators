@@ -1442,6 +1442,7 @@ class MapleQFunction(MLPRegressor):
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
+            logging.info("No data in replay buffer, cannot train.")
             return
         # Otherwise, start by vectorizing all data in the replay buffer.
         X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
@@ -1607,6 +1608,7 @@ class MapleQFunction(MLPRegressor):
                     state,
                     goal=set(),  # goal not used
                     rng=self._rng)
-                assert option.initiable(state)
+                if CFG.maple_assert_oracle_strips:
+                    assert option.initiable(state)
                 sampled_options.append(option)
         return sampled_options

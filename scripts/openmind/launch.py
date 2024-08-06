@@ -1,5 +1,5 @@
-"""Launch openmind experiments defined by config files, adapted from 
-supercloud/launch.py
+"""Launch openmind experiments defined by config files, adapted from
+supercloud/launch.py.
 
 Usage example:
 
@@ -13,12 +13,14 @@ from scripts.cluster_utils import DEFAULT_BRANCH, SUPERCLOUD_IP, \
     generate_run_configs
 from scripts.openmind.submit_openmind_job import submit_openmind_job
 
+
 def _main() -> None:
     # Set up argparse.
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=str)
     args = parser.parse_args()
     _launch_experiments(args.config)
+
 
 def _launch_experiments(config_file: str) -> None:
     # Loop over run configs.

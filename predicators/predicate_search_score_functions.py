@@ -7,8 +7,8 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
-    Set, Tuple, Optional
+from typing import Callable, Collection, Dict, FrozenSet, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 from tabulate import tabulate
@@ -136,7 +136,6 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     succ_optn_dict: Optional[Dict[str, GroundOptionRecord]]
     fail_optn_dict: Optional[Dict[str, GroundOptionRecord]]
 
-
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         total_cost = sum(self._candidates[pred]
                          for pred in candidate_predicates)
@@ -168,10 +167,10 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                 verbose=False,
                 annotations=None,
                 strips_learner=CFG.predicate_search_strips_learner,
-                fail_optn_dict=self.fail_optn_dict if CFG.
-                 predicate_search_strips_learner=="cluster_intersect_and_search"
-                    else None)
-            
+                fail_optn_dict=self.fail_optn_dict
+                if CFG.predicate_search_strips_learner
+                == "cluster_intersect_and_search" else None)
+
         except TimeoutError:
             logging.info(
                 "Warning: Operator Learning timed out! Skipping evaluation.")

@@ -40,6 +40,7 @@ FLAGS:
   render_init_state: True # True for NSP
   pybullet_control_mode: "reset" # need for blocks and coffee
   sesame_check_expected_atoms: False
+  env_include_bbox_features: True
   coffee_twist_sampler: False
   coffee_num_cups_train: '[1]'
   coffee_no_rotated_jug: False

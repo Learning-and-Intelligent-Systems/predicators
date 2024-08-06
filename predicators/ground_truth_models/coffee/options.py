@@ -2,7 +2,7 @@
 
 import logging
 from functools import lru_cache
-from typing import ClassVar, Dict, Sequence, Set, Tuple, List
+from typing import ClassVar, Dict, List, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -63,8 +63,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Twisting.holds(state, [robot, jug])
 
         def _MoveToTwistJug_initiable(state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> bool:
+                                      objects: Sequence[Object],
+                                      params: Array) -> bool:
             del memory, params
             robot, jug = objects
             machine = state.get_objects(machine_type)[0]
@@ -102,12 +102,10 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # PickJug
         def _PickJug_initial(state: State, memory: Dict,
-                             objects: Sequence[Object],
-                             params: Array) -> bool:
+                             objects: Sequence[Object], params: Array) -> bool:
             del memory, params
             _, jug = objects
             return JugPickable.holds(state, [jug])
-
 
         def _PickJug_terminal(state: State, memory: Dict,
                               objects: Sequence[Object],
@@ -129,8 +127,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=_PickJug_initial,
             terminal=_PickJug_terminal,
             annotation="Pick up the jug.",
-            parameterized_annotation=_PickJug_annotation
-        )
+            parameterized_annotation=_PickJug_annotation)
 
         # PlaceJugInMachine
         def _PlaceJugInMachine_terminal(state: State, memory: Dict,
@@ -153,15 +150,14 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=lambda s, m, o, p: True,
             terminal=_PlaceJugInMachine_terminal,
             annotation="Place the jug in the machine.",
-            parameterized_annotation=_PlaceJug_annotation
-        )
+            parameterized_annotation=_PlaceJug_annotation)
         cls.PlaceJugInMachine = PlaceJugInMachine
-
 
         # TurnMachineOn
         def _TurnMachineOn_initiable(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-            del memory, params # unused
+                                     objects: Sequence[Object],
+                                     params: Array) -> bool:
+            del memory, params  # unused
             robot, _ = objects
             return HandEmpty.holds(state, [robot])
 
@@ -184,8 +180,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=_TurnMachineOn_initiable,
             terminal=_TurnMachineOn_terminal,
             annotation="Turn the machine on.",
-            parameterized_annotation=_TurnMachineOn_annotation
-        )
+            parameterized_annotation=_TurnMachineOn_annotation)
         cls.TurnMachineOn = TurnMachineOn
 
         # Pour
@@ -213,12 +208,11 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=_Pour_initiable,
             terminal=_Pour_terminal,
             annotation="Pour liquid from the jug to the cup",
-            parameterized_annotation=_Pour_annotation
-        )
+            parameterized_annotation=_Pour_annotation)
 
         return {
-            PickJug, PlaceJugInMachine, TurnMachineOn, Pour,
-            MoveToTwistJug, TwistJug
+            PickJug, PlaceJugInMachine, TurnMachineOn, Pour, MoveToTwistJug,
+            TwistJug
         }
 
     @classmethod
@@ -313,8 +307,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # If at the correct x and z position and behind in the y direction,
             # move directly toward the target.
             if target_y > y and xz_handle_sq_dist < cls.pick_policy_tol:
-                return cls._get_move_action(state, handle_pos, robot_pos, dtilt, 
-                                            dwrist)
+                return cls._get_move_action(state, handle_pos, robot_pos,
+                                            dtilt, dwrist)
             # If close enough to the penultimate waypoint in the x/y plane,
             # move to the waypoint (in the z direction).
             if xy_waypoint_sq_dist < cls.pick_policy_tol:
@@ -572,7 +566,6 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                                 cls.env_cls.robot_init_tilt,
                                 cls.env_cls.open_fingers],
                                             atol=1e-2)
-        
 
         TwistJug = ParameterizedOption(
             "TwistJug",
@@ -595,28 +588,23 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         #     machine = state.get_objects(machine_type)[0]
         #     return not JugInMachine.holds(state, [jug, machine])
 
-
-        def _Twist_parameterized_annotation(entities: List[_TypedEntity]) -> str:
+        def _Twist_parameterized_annotation(
+                entities: List[_TypedEntity]) -> str:
             _, jug = entities
             return f"Rotate {jug.id_name} to a desiable orientation."
 
         if CFG.coffee_combined_move_and_twist_policy:
             Twist = utils.LinearChainParameterizedOption(
-                "Twist",
-                [
-                    cls.MoveToTwistParamOption,
-                    TwistJug
-                ],
+                "Twist", [cls.MoveToTwistParamOption, TwistJug],
                 annotation="Rotate the jug to the desired rotation.",
-                parameterized_annotation=_Twist_parameterized_annotation
-            )
+                parameterized_annotation=_Twist_parameterized_annotation)
             options.add(Twist)
 
-
         if CFG.coffee_move_back_after_place_and_push:
+
             def _MoveBackAfterPlaceOrPush_terminal(state: State, memory: Dict,
-                                            objects: Sequence[Object],
-                                            params: Array) -> bool:
+                                                   objects: Sequence[Object],
+                                                   params: Array) -> bool:
                 del memory, params
                 robot = objects[0]
                 # y = state.get(robot, "y")
@@ -650,19 +638,10 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 
             PlaceJugInMachine = utils.LinearChainParameterizedOption(
                 "PlaceJugInMachine",
-                [
-                    cls.PlaceJugInMachine,
-                    MoveBackAfterPlace
-                ]
-            )
+                [cls.PlaceJugInMachine, MoveBackAfterPlace])
 
             TurnMachineOn = utils.LinearChainParameterizedOption(
-                "TurnMachineOn",
-                [
-                    cls.TurnMachineOn,
-                    MoveBackAfterPush
-                ]
-            )
+                "TurnMachineOn", [cls.TurnMachineOn, MoveBackAfterPush])
             options.remove(PlaceJugInMachine)
             options.remove(TurnMachineOn)
             options.add(PlaceJugInMachine)
@@ -670,7 +649,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         return options
 
     @classmethod
-    def _create_move_back_after_place_or_push_policy(cls) -> ParameterizedPolicy:
+    def _create_move_back_after_place_or_push_policy(
+            cls) -> ParameterizedPolicy:
+
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory, params
@@ -685,8 +666,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             target_pos = (target_x, target_y, target_z)
             return cls._get_move_action(state, target_pos, robot_pos)
 
-
         return policy
+
     @classmethod
     def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
 
@@ -924,7 +905,6 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 logging.debug(f"action arr type: {type(action_arr)}")
                 logging.debug(f"action arr: {action_arr}")
             return Action(action_arr)
-
 
         current_tilt = state.get(robot, "tilt")
         current_wrist = state.get(robot, "wrist")

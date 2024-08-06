@@ -22,7 +22,8 @@ class MapleQExplorer(BaseExplorer):
                  q_function: MapleQFunction) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
-        assert CFG.strips_learner == "oracle"
+        if CFG.maple_assert_oracle_strips:
+            assert CFG.strips_learner == "oracle"
         # The base sampler should also be unchanging and from the oracle.
         assert CFG.sampler_learner == "oracle"
 

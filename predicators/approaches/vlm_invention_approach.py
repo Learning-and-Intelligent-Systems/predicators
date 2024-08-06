@@ -1,6 +1,6 @@
-"""
-Example command line:
-    export OPENAI_API_KEY=<your API key>
+"""Example command line:
+
+export OPENAI_API_KEY=<your API key>
 """
 import base64
 import json

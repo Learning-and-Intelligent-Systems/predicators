@@ -73,6 +73,7 @@ class BaseEnv(abc.ABC):
 
     def oracle_proposed_predicates(self) -> Set[Predicate]:
         """Get the set of predicates that the oracle should roughly propose.
+
         By default the same as the predicates, but can be overridden.
         """
         return self.predicates

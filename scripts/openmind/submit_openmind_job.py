@@ -61,15 +61,14 @@ rm -rf /state/partition1/user/$USER
 
 
 def submit_openmind_job(entry_point: str,
-                          job_name: str,
-                          log_dir: str,
-                          logfile_prefix: str,
-                          args_and_flags_str: str,
-                          start_seed: int,
-                          num_seeds: int,
-                          use_gpu: bool = False,
-                          use_mujoco: bool = False
-                          ) -> None:
+                        job_name: str,
+                        log_dir: str,
+                        logfile_prefix: str,
+                        args_and_flags_str: str,
+                        start_seed: int,
+                        num_seeds: int,
+                        use_gpu: bool = False,
+                        use_mujoco: bool = False) -> None:
     """Launch the openmind job."""
     assert entry_point in ("main.py", "train_refinement_estimator.py")
     os.makedirs(log_dir, exist_ok=True)

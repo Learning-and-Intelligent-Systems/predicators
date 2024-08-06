@@ -1,6 +1,6 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Sequence, Tuple, Optional, Set
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -13,8 +13,9 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
-    State, Type, Predicate
+    Predicate, State, Type
 from predicators.utils import BoundingBox, NSPredicate, RawState, VLMQuery
+
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     """PyBullet Cover domain."""
@@ -137,7 +138,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                       physics_client_id))
         bodies["block_ids"] = block_ids
 
-        num_targets = max(CFG.cover_num_targets_train, 
+        num_targets = max(CFG.cover_num_targets_train,
                           CFG.cover_num_targets_test)
         target_ids = []
         for i in range(num_targets):
@@ -309,7 +310,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             state_dict[self._robot] = np.array([hand, rx, rz, fingers],
                                                dtype=np.float32)
         else:
-            state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
+            state_dict[self._robot] = np.array([hand, rx, rz],
+                                               dtype=np.float32)
         joint_positions = self._pybullet_robot.get_joints()
 
         # Get block states.
@@ -367,7 +369,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def get_name(cls) -> str:
         return "pybullet_cover"
 
-    def _get_tasks(self, num: int,
+    def _get_tasks(self,
+                   num: int,
                    rng: np.random.Generator,
                    is_train: Optional[bool] = True) -> List[EnvironmentTask]:
         tasks = super()._get_tasks(num, rng, is_train)
@@ -389,27 +392,28 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
 
     # Types
     bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _block_type = Type("block",
-                    ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
-                    bbox_features)
-    _target_type = Type("target", 
-                    ["is_block", "is_target", "width", "pose_y_norm"] +
-                    bbox_features)
-    _robot_type = Type("robot", 
-                    ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
-                    bbox_features)
-    _table_type = Type("table", bbox_features)
+    _block_type = Type(
+        "block", ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
+        (bbox_features if CFG.env_include_bbox_features else []))
+    _target_type = Type(
+        "target", ["is_block", "is_target", "width", "pose_y_norm"] +
+        (bbox_features if CFG.env_include_bbox_features else []))
+    _robot_type = Type(
+        "robot", ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
+        (bbox_features if CFG.env_include_bbox_features else []))
+    _table_type = Type("table",
+                       bbox_features if CFG.env_include_bbox_features else [])
 
-    def __init__(self, use_gui: bool = True) -> None:   
+    def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
-                                self._GripperOpen_NSP_holds)
+                                            self._GripperOpen_NSP_holds)
         self._Holding_NSP = NSPredicate("Holding", [self._block_type],
-                                self._Holding_NSP_holds)
-        self._Covers_NSP = NSPredicate("Covers", [self._block_type, 
-                                                  self._target_type],
-                                self._Covers_NSP_holds)
+                                        self._Holding_NSP_holds)
+        self._Covers_NSP = NSPredicate("Covers",
+                                       [self._block_type, self._target_type],
+                                       self._Covers_NSP_holds)
 
         self.ns_to_sym_predicates: Dict[Tuple[str], Predicate] = {
             ("HandEmpty"): self._HandEmpty,
@@ -421,7 +425,7 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
             self._GripperOpen_NSP,
-            self._Holding_NSP, 
+            self._Holding_NSP,
             self._Covers_NSP,
         }
 
