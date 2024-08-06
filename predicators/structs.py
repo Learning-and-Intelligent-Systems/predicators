@@ -51,6 +51,16 @@ class Type:
         """Dimensionality of the feature vector of this object type."""
         return len(self.feature_names)
 
+    def get_ancestors(self) -> Set[Type]:
+        """Get the set of all types that are ancestors (i.e. parents,
+        grandparents, great-grandparents, etc.) of the current type."""
+        curr_type: Optional[Type] = self
+        ancestors_set = set()
+        while curr_type is not None:
+            ancestors_set.add(curr_type)
+            curr_type = curr_type.parent
+        return ancestors_set
+
     def __call__(self, name: str) -> _TypedEntity:
         """Convenience method for generating _TypedEntities."""
         if name.startswith("?"):

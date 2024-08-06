@@ -3306,6 +3306,14 @@ def create_vlm_predicate(
     return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
 
 
+def create_llm_by_name(
+        model_name: str) -> LargeLanguageModel:  # pragma: no cover
+    """Create particular llm using a provided name."""
+    if "gemini" in model_name:
+        return GoogleGeminiLLM(model_name)
+    return OpenAILLM(model_name)
+
+
 def create_vlm_by_name(
     model_name: str,
     system_instruction: Optional[str] = None
@@ -3316,12 +3324,132 @@ def create_vlm_by_name(
     return OpenAIVLM(model_name, system_instruction)
 
 
-def create_llm_by_name(
-        model_name: str) -> LargeLanguageModel:  # pragma: no cover
-    """Create particular llm using a provided name."""
-    if "gemini" in model_name:
-        return GoogleGeminiLLM(model_name)
-    return OpenAILLM(model_name)
+def parse_model_output_into_option_plan(
+    model_prediction: str, objects: Collection[Object],
+    types: Collection[Type], options: Collection[ParameterizedOption],
+    parse_continuous_params: bool
+) -> List[Tuple[ParameterizedOption, Sequence[Object], Sequence[float]]]:
+    """Assuming text for an option plan that is predicted as text by a large
+    model, parse it into a sequence of ParameterizedOptions coupled with a list
+    of objects and continuous parameters that will be used to ground the
+    ParameterizedOption.
+
+    We assume the model's output is such that each line is formatted as
+    option_name(obj0:type0, obj1:type1,...)[continuous_param0,
+    continuous_param1, ...].
+    """
+    option_plan: List[Tuple[ParameterizedOption, Sequence[Object],
+                            Sequence[float]]] = []
+    # Setup dictionaries enabling us to easily map names to specific
+    # Python objects during parsing.
+    option_name_to_option = {op.name: op for op in options}
+    type_name_to_type = {typ.name: typ for typ in types}
+    obj_name_to_obj = {o.name: o for o in objects}
+    options_str_list = model_prediction.split('\n')
+    for option_str in options_str_list:
+        option_str_stripped = option_str.strip()
+        option_name = option_str_stripped.split('(')[0]
+        # Skip empty option strs.
+        if not option_str:
+            continue
+        if option_name not in option_name_to_option.keys() or \
+            "(" not in option_str:
+            logging.info(
+                f"Line {option_str} output by model doesn't "
+                "contain a valid option name. Terminating option plan "
+                "parsing.")
+            break
+        if parse_continuous_params and "[" not in option_str:
+            logging.info(
+                f"Line {option_str} output by model doesn't contain a "
+                "'[' and is thus improperly formatted.")
+            break
+        option = option_name_to_option[option_name]
+        # Now that we have the option, we need to parse out the objects
+        # along with specified types.
+        try:
+            start_index = option_str_stripped.index('(') + 1
+            end_index = option_str_stripped.index(')', start_index)
+        except ValueError:
+            logging.info(
+                f"Line {option_str} output by model is improperly formatted.")
+            break
+        typed_objects_str_list = option_str_stripped[
+            start_index:end_index].split(',')
+        objs_list = []
+        continuous_params_list = []
+        malformed = False
+        for i, type_object_string in enumerate(typed_objects_str_list):
+            object_type_str_list = type_object_string.strip().split(':')
+            # We expect this list to be [object_name, type_name].
+            if len(object_type_str_list) != 2:
+                logging.info(f"Line {option_str} output by model has a "
+                             "malformed object-type list.")
+                malformed = True
+                break
+            object_name = object_type_str_list[0]
+            type_name = object_type_str_list[1]
+            if object_name not in obj_name_to_obj.keys():
+                logging.info(f"Line {option_str} output by model has an "
+                             "invalid object name.")
+                malformed = True
+                break
+            obj = obj_name_to_obj[object_name]
+            # Check that the type of this object agrees
+            # with what's expected given the ParameterizedOption.
+            if type_name not in type_name_to_type:
+                logging.info(f"Line {option_str} output by model has an "
+                             "invalid type name.")
+                malformed = True
+                break
+            try:
+                if option.types[i] not in type_name_to_type[
+                        type_name].get_ancestors():
+                    logging.info(
+                        f"Line {option_str} output by model has an "
+                        "invalid type that doesn't agree with the option"
+                        f"{option}")
+                    malformed = True
+                    break
+            except IndexError:
+                # In this case, there's more supplied arguments than the
+                # option has.
+                logging.info(f"Line {option_str} output by model has an "
+                             "too many object arguments for option"
+                             f"{option}")
+                malformed = True
+                break
+            objs_list.append(obj)
+        # The types of the objects match, but we haven't yet checked if
+        # all arguments of the option have an associated object.
+        if len(objs_list) != len(option.types):
+            malformed = True
+        # Now, we attempt to parse out the continuous parameters.
+        if parse_continuous_params:
+            params_str_list = option_str_stripped.split('[')[1].strip(
+                ']').split(',')
+            for i, continuous_params_str in enumerate(params_str_list):
+                stripped_continuous_param_str = continuous_params_str.strip()
+                if len(stripped_continuous_param_str) == 0:
+                    continue
+                try:
+                    curr_cont_param = float(stripped_continuous_param_str)
+                except ValueError:
+                    logging.info(f"Line {option_str} output by model has an "
+                                 "invalid continouous parameter that can't be"
+                                 "converted to a float.")
+                    malformed = True
+                    break
+                continuous_params_list.append(curr_cont_param)
+            if len(continuous_params_list) != option.params_space.shape[0]:
+                logging.info(f"Line {option_str} output by model has "
+                             "invalid continouous parameter(s) that don't "
+                             f"agree with {option}{option.params_space}.")
+                malformed = True
+                break
+        if not malformed:
+            option_plan.append((option, objs_list, continuous_params_list))
+    return option_plan
 
 
 def query_vlm_for_atom_vals(
@@ -4492,12 +4620,8 @@ def _atoms_to_pyperplan_facts(
 ############################## End Pyperplan Glue ##############################
 
 
-def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
-                       predicates: Collection[Predicate],
-                       types: Collection[Type], domain_name: str) -> str:
-    """Create a PDDL domain str from STRIPSOperators or NSRTs."""
-    # Sort everything to ensure determinism.
-    preds_lst = sorted(predicates)
+def create_pddl_types_str(types: Collection[Type]) -> str:
+    """Create a PDDL-style types string that handles hierarchy correctly."""
     # Case 1: no type hierarchy.
     if all(t.parent is None for t in types):
         types_str = " ".join(t.name for t in sorted(types))
@@ -4524,6 +4648,16 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
             else:
                 child_type_str = " ".join(t.name for t in child_types)
                 types_str += f"\n    {child_type_str} - {parent_type.name}"
+    return types_str
+
+
+def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
+                       predicates: Collection[Predicate],
+                       types: Collection[Type], domain_name: str) -> str:
+    """Create a PDDL domain str from STRIPSOperators or NSRTs."""
+    # Sort everything to ensure determinism.
+    preds_lst = sorted(predicates)
+    types_str = create_pddl_types_str(types)
     ops_lst = sorted(operators)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
