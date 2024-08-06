@@ -7,7 +7,7 @@ as well as continuous arguments (indicated by `params_space` field, which is for
 
 Here are a number of example demonstrations of solving a range of goals from an expert demonstrator. For each of these examples, you are provided 
 with the goal the demonstrator was trying to achieve, the plan (i.e., sequence of skills with discrete and continuous arguments specified), as well
-as images corresponding to the state of the environment at every timestep (starting at 0, when skill 0 is executed). Note that the state images
+as images corresponding to the state of the environment at every timestep (starting at 0, when the 0th skill is executed). Note that the state images
 are annotated with text indicating which demonstration and timestep they belong to. Additionally, note that a state might have more than one image
 associated with it.
 
