@@ -90,14 +90,24 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                     state.simulator_state["images"]) == num_imgs_per_state
                 for img_num, img in enumerate(state.simulator_state["images"]):
                     pil_img = PIL.Image.fromarray(img)  # type: ignore
+                    width, height = pil_img.size
+                    font_size = 15
+                    text = f"Demonstration {traj_num}, " + \
+                        f"State {state_num}, Image {img_num}"
                     draw = ImageDraw.Draw(pil_img)
-                    img_font = utils.get_scaled_default_font(draw, 20)
-                    img_with_txt = utils.add_text_to_draw_img(
-                        draw, (50, 50),
-                        f"Demonstration {traj_num}, " + \
-                        f"State {state_num}, Image {img_num}",
-                        img_font)
-                    self._prompt_state_imgs_list.append(img_with_txt._image)  # pylint:disable=protected-access
+                    font = utils.get_scaled_default_font(draw, font_size)
+                    text_width, text_height = draw.textbbox((0, 0),
+                                                            text,
+                                                            font=font)[2:]
+                    # Create a new image with additional space for text!
+                    new_image = PIL.Image.new(
+                        "RGB", (width, height + text_height + 10), "white")
+                    new_image.paste(pil_img, (0, 0))
+                    draw = ImageDraw.Draw(new_image)
+                    text_x = (width - text_width) / 2
+                    text_y = height + 5
+                    draw.text((text_x, text_y), text, font=font, fill="black")
+                    self._prompt_state_imgs_list.append(draw._image)  # pylint:disable=protected-access
             for action_num, action in enumerate(traj.actions):
                 self._prompt_demos_str += f"Action {action_num}, from " + \
                     f"state {action_num} is {action.get_option()}\n"
