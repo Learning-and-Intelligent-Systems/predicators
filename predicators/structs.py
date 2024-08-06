@@ -149,12 +149,8 @@ class State:
 
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
-        for obj in self:
-            try:
-                assert len(self[obj]) == obj.type.dim or\
+        assert len(self[obj]) == obj.type.dim or\
             len(self[obj])+4 == obj.type.dim # a hack for adding bbox features
-            except:
-                breakpoint()
 
     def __hash__(self):
         # Convert the dictionary to a tuple of key-value pairs and hash it
@@ -179,12 +175,7 @@ class State:
     def get(self, obj: Object, feature_name: str) -> Any:
         """Look up an object feature by name."""
         idx = obj.type.feature_names.index(feature_name)
-        try:
-            val = self.data[obj][idx]
-        except Exception as e:
-            print(str(e))
-            breakpoint()
-        return val
+        return self.data[obj][idx]
 
     def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
         """Set the value of an object feature by name."""
@@ -243,18 +234,12 @@ class State:
 
     def pretty_str(self) -> str:
         """Display the state in a nice human-readable format."""
-
-        def format_float(val):
-            if isinstance(val, float):
-                return f"{val:.1f}"
-            return str(val)
-
         type_to_table: Dict[Type, List[List[str]]] = {}
         for obj in self:
             if obj.type not in type_to_table:
                 type_to_table[obj.type] = []
             type_to_table[obj.type].append([obj.name] + \
-                                            list(map(format_float, self[obj])))
+                                            list(map(str, self[obj])))
         table_strs = []
         for t in sorted(type_to_table):
             headers = ["type: " + t.name] + list(t.feature_names)

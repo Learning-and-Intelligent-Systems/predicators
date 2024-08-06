@@ -1712,21 +1712,6 @@ class PyBulletState(State):
         # return hash((data_hash, simulator_state_hash))
         return data_hash
 
-    # def __eq__(self, other):
-    #     # Compare the data and simulator_state
-    #     assert isinstance(other, PyBulletState)
-
-    #     if len(self.data) != len(other.data):
-    #         return False
-
-    #     for key, value in self.data.items():
-    #         if key not in other.data or not np.array_equal(value,
-    #         other.data[key]):
-    #             return False
-
-    #     return self.simulator_state == other.simulator_state
-
-
 # a bounding box named tuple with attribute left, lower, right, upper
 # pixel idx within the state image
 BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
