@@ -313,11 +313,11 @@ class BurgerEnv(BaseEnv):
             }
             goal4 = {
                 GroundAtom(self._On, [tomato, patty]),
-                GroundAtom(self._On, [patty, self._grill]),
+                GroundAtom(self._On, [patty, bottom_bun]),
                 GroundAtom(self._IsSliced, [tomato])
             }
             alt_goal4 = {
-                GroundAtom(self._On, [patty, self._grill]),
+                GroundAtom(self._On, [patty, bottom_bun]),
                 GroundAtom(self._GoalHack4, [patty, tomato])
             }
             training_goals = [goal2, goal3, goal4]
@@ -348,11 +348,9 @@ class BurgerEnv(BaseEnv):
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
             if train_or_test == "train":
-                # idx = i % len(training_goals)
-                # goal = training_goals[idx]
-                # alt_goal = alt_training_goals[idx]
-                goal = goal4
-                alt_goal = alt_goal4
+                idx = i % len(training_goals)
+                goal = training_goals[idx]
+                alt_goal = alt_training_goals[idx]
             else:
                 goal = goal5
                 alt_goal = alt_goal5
@@ -836,7 +834,7 @@ class BurgerEnv(BaseEnv):
                         text_x = x + (1 - held_img_size[0]) * (1 / 2)
                     else:
                         horizontal_align = "left"
-                        text_x = x + (1 - held_img_size[0]) * (1 / 2)
+                        text_x = x + (1 + held_img_size[0]) * (1 / 2)
                     ax.text(text_x,
                             y + offset + held_img_size[1] / 2,
                             item.name,

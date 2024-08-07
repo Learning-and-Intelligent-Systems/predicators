@@ -60,7 +60,48 @@ class BilevelPlanningApproach(BaseApproach):
         preds = self._get_current_predicates()
         # old_nsrts = nsrts
         # nsrts = set(n for n in nsrts if ("Op17" not in n.name and "Op18" not in n.name))
-        # import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
+
+        # objs = [o for o in task.init.data.keys()]
+        # robot = [o for o in objs if o.name=="robot"][0]
+        # grill = [o for o in objs if o.name == "grill"][0]
+        # cutting_board = [o for o in objs if o.name == "cutting_board"][0]
+        # patty = [o for o in objs if o.name == "patty"][0]
+        # lettuce = [o for o in objs if o.name == "lettuce"][0]
+        # bottom_bun = [o for o in objs if o.name == "bottom_bun"][0]
+        # top_bun = [o for o in objs if o.name == "top_bun"][0]
+        # nnn = sorted(list(nsrts), key=lambda x: int(x.name[2:]))
+        # plan = [
+        #     nnn[0].ground((patty, robot)),
+        #     nnn[1].ground((patty, robot)),
+        #     nnn[2].ground((grill, robot)),
+        #     nnn[29].ground((grill, patty, robot)),
+        #     nnn[30].ground((grill, patty, robot)),
+        #     nnn[5].ground((grill, patty, robot)),
+        #     nnn[6].ground((bottom_bun, grill, robot)),
+        #     nnn[7].ground((bottom_bun, patty, robot)),
+        #     # now we need to do lettuce stuff
+        #     nnn[25].ground((bottom_bun, lettuce, patty, robot)), # go to lettuce
+        #     nnn[13].ground((lettuce, robot)), # pick up lettuce
+        #     nnn[14].ground((cutting_board, robot)), # go to cutting_board
+        #     nnn[15].ground((cutting_board, lettuce, robot)), # place lettuce on cutting_board
+        #     nnn[16].ground((cutting_board, lettuce, robot)), # chop lettuce
+        #     nnn[26].ground((cutting_board, lettuce, robot)), # pick lettuce
+        #     nnn[27].ground((bottom_bun, cutting_board, patty, robot)), # move to bottom_bun/patty
+        #     nnn[28].ground((lettuce, patty, robot)), # place lettuce on patty
+        #     nnn[]
+        # ]
+
+        abs = utils.abstract(task.init, preds)
+        for i, nsrt in enumerate(plan):
+            if nsrt.preconditions.issubset(abs):
+                print(f"{i}th nsrt's preconditions satisfied")
+            else:
+                print(f"{i}th nsrt's preconditions NOT satisfied")
+                import pdb; pdb.set_trace()
+            abs  = (abs | nsrt.add_effects) - nsrt.delete_effects
+        import pdb; pdb.set_trace()
+
 
         # Run task planning only and then greedily sample and execute in the
         # policy.
