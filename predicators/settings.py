@@ -418,6 +418,11 @@ class GlobalSettings:
     # parameters for vision language models
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
     vlm_model_name = "gemini-pro-vision"
+    vlm_temperature = 0.0
+    vlm_num_completions = 1
+
+    # parameters for the vlm_open_loop planning approach
+    vlm_open_loop_use_training_demos = False
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
