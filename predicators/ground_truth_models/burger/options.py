@@ -50,8 +50,6 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
         Holding = predicates["Holding"]
         On = predicates["On"]
 
-        # GoalHack = predicates["GoalHack"]
-
         # Slice
         def _Slice_terminal(state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:

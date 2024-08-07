@@ -599,3 +599,167 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(place_nsrt)
 
         return nsrts
+
+class BurgerNoMoveGroundTruthNSRTFactory(BurgerGroundTruthOptionFactory):
+    """Ground-truth NSRTs for the Burger environment with no distinct movement
+    options."""
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"burger_no_move"}
+
+    @staticmethod
+    def get_nsrts(env_name: str, types: Dict[str, Type],
+                  predicates: Dict[str, Predicate],
+                  options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
+
+        # Types
+        tomato_type = types["lettuce"]
+        patty_type = types["patty"]
+
+        grill_type = types["grill"]
+        cutting_board_type = types["cutting_board"]
+        robot_type = types["robot"]
+
+        item_type = types["item"]
+        object_type = types["object"]
+
+        # Variables
+        tomato = Variable("?tomato", tomato_type)
+        patty = Variable("?patty", patty_type)
+
+        grill = Variable("?grill", grill_type)
+        cutting_board = Variable("?cutting_board", cutting_board_type)
+        robot = Variable("?robot", robot_type)
+
+        item = Variable("?item", item_type)
+        obj = Variable("?object", object_type)
+
+        # Predicates
+        # Adjacent = predicates["Adjacent"]
+        # AdjacentToNothing = predicates["AdjacentToNothing"]
+        # Facing = predicates["Facing"]
+        # OnNothing = predicates["OnNothing"]
+
+        IsCooked = predicates["IsCooked"]
+        IsSliced = predicates["IsSliced"]
+        HandEmpty = predicates["HandEmpty"]
+        Holding = predicates["Holding"]
+        On = predicates["On"]
+        OnGround = predicates["OnGround"]
+        Clear = predicates["Clear"]
+
+        # Options
+        # Move = options["Move"]
+        Pick = options["Pick"]
+        Place = options["Place"]
+        Cook = options["Cook"]
+        Slice = options["Chop"]
+
+        nsrts = set()
+
+        # Slice
+        parameters = [robot, tomato, cutting_board]
+        option_vars = [robot, tomato, cutting_board]
+        option = Slice
+        preconditions = {
+            LiftedAtom(Clear, [tomato]),
+            LiftedAtom(On, [tomato, cutting_board]),
+            LiftedAtom(HandEmpty, [robot])
+        }
+        add_effects = {LiftedAtom(IsSliced, [tomato])}
+        delete_effects: Set[LiftedAtom] = set()
+        ignore_effects: Set[Predicate] = set()
+        slice_nsrt = NSRT("Slice", parameters, preconditions, add_effects,
+                          delete_effects, ignore_effects, option, option_vars,
+                          null_sampler)
+        nsrts.add(slice_nsrt)
+
+        # Cook
+        parameters = [robot, patty, grill]
+        option_vars = [robot, patty, grill]
+        option = Cook
+        preconditions = {
+            LiftedAtom(Clear, [patty]),
+            LiftedAtom(On, [patty, grill]),
+            LiftedAtom(HandEmpty, [robot])
+        }
+        add_effects = {LiftedAtom(IsCooked, [patty])}
+        delete_effects = set()
+        ignore_effects = set()
+        cook_nsrt = NSRT("Cook", parameters, preconditions, add_effects,
+                         delete_effects, ignore_effects, option, option_vars,
+                         null_sampler)
+        nsrts.add(cook_nsrt)
+
+        # PickFromGround
+        parameters = [robot, item]
+        option_vars = [robot, item]
+        option = Pick
+        preconditions = {
+            LiftedAtom(Clear, [item]),
+            # We OnGround over OnNothing here because the latter remains true
+            # after we pick it up if it's implemented as Forall-NOT-On, and we
+            # want it to be deleted after picking it up.
+            LiftedAtom(OnGround, [item]),
+            LiftedAtom(HandEmpty, [robot])
+        }
+        add_effects = {
+            LiftedAtom(Holding, [robot, item])
+        }
+        delete_effects = {
+            LiftedAtom(Clear, [item]),
+            LiftedAtom(OnGround, [item]),
+            LiftedAtom(HandEmpty, [robot])
+        }
+        ignore_effects = set()
+        pick_nsrt = NSRT("Pick", parameters, preconditions, add_effects,
+                         delete_effects, ignore_effects, option, option_vars,
+                         null_sampler)
+        nsrts.add(pick_nsrt)
+
+        # Unstack
+        parameters = [robot, item, object]
+        option_vars = [robot, item]
+        option = Pick
+        preconditions = {
+            LiftedAtom(Clear, [item]),
+            LiftedAtom(On, [item, object]),
+            LiftedAtom(HandEmpty, [robot]),
+        }
+        add_effects = {
+            LiftedAtom(Holding, [robot, item]),
+            LiftedAtom(Clear, [object])
+        }
+        delete_effects = {
+            LiftedAtom(Clear, [item]),
+            LiftedAtom(On, [item, object]),
+            LiftedAtom(HandEmpty, [robot]),
+        }
+        ignore_effects = set()
+        unstack_nsrt = NSRT("Unstack", parameters, preconditions, add_effects,
+                         delete_effects, ignore_effects, option, option_vars,
+                         null_sampler)
+        nsrts.add(unstack_nsrt)
+
+        # Stack
+        parameters = [robot, item, object]
+        option_vars = [robot, item, object]
+        option = Place
+        preconditions = {
+            LiftedAtom(Holding, [robot, item]),
+            LiftedAtom(Clear, [object])
+        }
+        add_effects = {
+            LiftedAtom(Clear, [item]),
+            LiftedAtom(On, [item, object]),
+            LiftedAtom(HandEmpty, [robot])
+        }
+        delete_effects = {
+            LiftedAtom(Holding, [robot, item]),
+            LiftedAtom(Clear, [object])
+        }
+        stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+                          delete_effects, set(), option, option_vars,
+                          null_sampler)
+        nsrts.add(stack_nsrt)
