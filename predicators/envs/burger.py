@@ -24,7 +24,6 @@ from predicators.structs import Action, DefaultEnvironmentTask, \
     EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
     Video
 
-
 class BurgerEnv(BaseEnv):
     """A simple gridworld environment where a robot prepares a burger, inspired
     by https://github.com/portal-cornell/robotouille.
@@ -106,6 +105,7 @@ class BurgerEnv(BaseEnv):
                                     self._OnNothing_holds)
         self._Clear = Predicate("Clear", [self._object_type],
                                 self._Clear_holds)
+        self._OnGround = Predicate("OnGround", [self._item], self._OnGround_holds)
         self._GoalHack = Predicate("GoalHack", [
             self._bottom_bun_type, self._patty_type, self._cheese_type,
             self._tomato_type, self._top_bun_type
@@ -452,6 +452,11 @@ class BurgerEnv(BaseEnv):
                     return False
         return True
 
+    def _OnGround_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        obj, = objects
+        obj_z = state.get(obj, "z")
+        return obj_z == 0
+
     def _GoalHack_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # bottom, patty, cheese, tomato, top = objects
         bottom, patty, cheese, tomato, _ = objects
@@ -508,17 +513,17 @@ class BurgerEnv(BaseEnv):
             self._Adjacent, self._AdjacentToNothing, self._AdjacentNotFacing,
             self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty,
             self._Holding, self._On, self._OnNothing, self._Clear,
-            self._GoalHack, self._GoalHack2, self._GoalHack3
+            self._GoalHack, self._GoalHack2, self._GoalHack3, self._OnGround
         }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._IsCooked, self._IsSliced}
+        return {self._On, self._IsCooked, self._IsSliced, self._OnGround}
         # return {self._On, self._GoalHack}
 
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._GoalHack, self._GoalHack2, self._GoalHack3}
+        return {self._On, self._GoalHack, self._GoalHack2, self._GoalHack3, self._OnGround}
 
     @property
     def action_space(self) -> Box:
@@ -649,7 +654,7 @@ class BurgerEnv(BaseEnv):
                 next_state.simulator_state["state"][on_top]["is_held"] = 1.0
                 next_state.set(on_top, "col", rx)
                 next_state.set(on_top, "row", ry)
-                next_state.set(on_top, "z", 0)
+                next_state.set(on_top, "z", 1)
                 next_state.set(self._robot, "fingers", 1.0)
 
         # Handle placing.
@@ -666,7 +671,7 @@ class BurgerEnv(BaseEnv):
                 next_state.set(held_item, "col", px)
                 next_state.set(held_item, "row", py)
                 # If any other objects are at this location, then this must go
-                # on top of them.
+                # on top of them. Otherwise, we are placing on the ground.
                 objects_at_loc = []
                 for obj in other_objects:
                     ox, oy = self.get_position(obj, state)
@@ -1014,3 +1019,8 @@ class BurgerEnv(BaseEnv):
             return action
 
         return _event_to_action
+
+class BurgerMoreObjects(BurgerEnv):
+    """TODO"""
+
+
