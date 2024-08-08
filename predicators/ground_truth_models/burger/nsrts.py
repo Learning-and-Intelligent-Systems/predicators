@@ -600,7 +600,7 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         return nsrts
 
-class BurgerNoMoveGroundTruthNSRTFactory(BurgerGroundTruthOptionFactory):
+class BurgerNoMoveGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Burger environment with no distinct movement
     options."""
 
