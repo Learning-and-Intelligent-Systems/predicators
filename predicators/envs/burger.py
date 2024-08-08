@@ -105,7 +105,7 @@ class BurgerEnv(BaseEnv):
                                     self._OnNothing_holds)
         self._Clear = Predicate("Clear", [self._object_type],
                                 self._Clear_holds)
-        self._OnGround = Predicate("OnGround", [self._item], self._OnGround_holds)
+        self._OnGround = Predicate("OnGround", [self._item_type], self._OnGround_holds)
         self._GoalHack = Predicate("GoalHack", [
             self._bottom_bun_type, self._patty_type, self._cheese_type,
             self._tomato_type, self._top_bun_type
@@ -290,6 +290,15 @@ class BurgerEnv(BaseEnv):
             # }
 
             # Training task goals
+            debug_goal = {
+                # GroundAtom(self._Holding, [self._robot, patty])
+                # GroundAtom(self._On, [patty, self._grill])
+                GroundAtom(self._IsCooked, [patty]),
+                GroundAtom(self._On, [patty, bottom_bun]),
+                GroundAtom(self._On, [top_bun, patty])
+            }
+            alt_debug_goal = debug_goal
+
             goal2 = {
                 GroundAtom(self._On, [patty, bottom_bun]),
                 GroundAtom(self._On, [top_bun, patty]),
@@ -345,9 +354,11 @@ class BurgerEnv(BaseEnv):
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
             if train_or_test == "train":
-                idx = i % len(training_goals)
-                goal = training_goals[idx]
-                alt_goal = alt_training_goals[idx]
+                # idx = i % len(training_goals)
+                # goal = training_goals[idx]
+                # alt_goal = alt_training_goals[idx]
+                goal = debug_goal
+                alt_goal = alt_debug_goal
             else:
                 goal = goal5
                 alt_goal = alt_goal5
@@ -1020,7 +1031,9 @@ class BurgerEnv(BaseEnv):
 
         return _event_to_action
 
-class BurgerMoreObjects(BurgerEnv):
+class BurgerNoMoveEnv(BurgerEnv):
     """TODO"""
 
-
+    @classmethod
+    def get_name(cls) -> str:
+        return "burger_no_move"

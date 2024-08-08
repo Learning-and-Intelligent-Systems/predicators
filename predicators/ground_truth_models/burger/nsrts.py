@@ -699,8 +699,8 @@ class BurgerNoMoveGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(Clear, [item]),
             # We OnGround over OnNothing here because the latter remains true
-            # after we pick it up if it's implemented as Forall-NOT-On, and we
-            # want it to be deleted after picking it up.
+            # after we pick the object up if it's implemented as Forall-NOT-On,
+            # and we want it to be deleted after picking it up.
             LiftedAtom(OnGround, [item]),
             LiftedAtom(HandEmpty, [robot])
         }
@@ -713,27 +713,27 @@ class BurgerNoMoveGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot])
         }
         ignore_effects = set()
-        pick_nsrt = NSRT("Pick", parameters, preconditions, add_effects,
+        pick_nsrt = NSRT("PickFromGround", parameters, preconditions, add_effects,
                          delete_effects, ignore_effects, option, option_vars,
                          null_sampler)
         nsrts.add(pick_nsrt)
 
         # Unstack
-        parameters = [robot, item, object]
+        parameters = [robot, item, obj]
         option_vars = [robot, item]
         option = Pick
         preconditions = {
             LiftedAtom(Clear, [item]),
-            LiftedAtom(On, [item, object]),
+            LiftedAtom(On, [item, obj]),
             LiftedAtom(HandEmpty, [robot]),
         }
         add_effects = {
             LiftedAtom(Holding, [robot, item]),
-            LiftedAtom(Clear, [object])
+            LiftedAtom(Clear, [obj])
         }
         delete_effects = {
             LiftedAtom(Clear, [item]),
-            LiftedAtom(On, [item, object]),
+            LiftedAtom(On, [item, obj]),
             LiftedAtom(HandEmpty, [robot]),
         }
         ignore_effects = set()
@@ -743,23 +743,25 @@ class BurgerNoMoveGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(unstack_nsrt)
 
         # Stack
-        parameters = [robot, item, object]
-        option_vars = [robot, item, object]
+        parameters = [robot, item, obj]
+        option_vars = [robot, item, obj]
         option = Place
         preconditions = {
             LiftedAtom(Holding, [robot, item]),
-            LiftedAtom(Clear, [object])
+            LiftedAtom(Clear, [obj])
         }
         add_effects = {
             LiftedAtom(Clear, [item]),
-            LiftedAtom(On, [item, object]),
+            LiftedAtom(On, [item, obj]),
             LiftedAtom(HandEmpty, [robot])
         }
         delete_effects = {
             LiftedAtom(Holding, [robot, item]),
-            LiftedAtom(Clear, [object])
+            LiftedAtom(Clear, [obj])
         }
         stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
                           delete_effects, set(), option, option_vars,
                           null_sampler)
         nsrts.add(stack_nsrt)
+
+        return nsrts
