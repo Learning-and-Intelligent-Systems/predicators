@@ -753,6 +753,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     nsp_pred_include_prev_image_in_prompt = False
     nsp_pred_include_state_str_in_prompt = False
     skip_selection_if_no_solve = False
+    vlm_predicator_oracle_explore = False
+    use_partial_plans_prefix_as_demo = True
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms
@@ -866,10 +868,10 @@ You are an AI researcher who will answer whether each assertion holds in the ima
 
             # whether to use the successful prefix of partial plan to learn
             # predicates/operators
-            use_partial_plans_prefix_as_demo=defaultdict(
-                lambda: False, {
-                    "pybullet_coffee": True,
-                })[args.get("env", "")],
+            # use_partial_plans_prefix_as_demo=defaultdict(
+            #     lambda: False, {
+            #         "pybullet_coffee": True,
+            #     })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into refining a single skeleton.
             # Concretely, this effort refers to the maximum number of calls to

@@ -23,7 +23,8 @@ def _main():
     # cmd_flags = shlex.split(cmd_str)
 
     # run the command
-    subprocess.run(f"python predicators/main.py {cmd_str}", shell=True, 
+    subprocess.run(f"python predicators/main.py {cmd_str}",
+                   shell=True,
                    check=False)
 
 

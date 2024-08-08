@@ -24,6 +24,7 @@ from inspect import getsource
 from pprint import pformat
 from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Sequence, \
     Set, Tuple
+import itertools
 
 import dill
 import imageio
@@ -34,9 +35,10 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 from predicators import utils
+from predicators.approaches.oracle_approach import OracleApproach
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.grammar_search_invention_approach import \
-    _create_grammar, _GivenPredicateGrammar, create_score_function
+    _create_grammar, _GivenPredicateGrammar
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.envs import BaseEnv
 from predicators.ground_truth_models import get_gt_nsrts
@@ -44,6 +46,9 @@ from predicators.llm_interface import OpenAILLM, OpenAILLMNEW
 from predicators.predicate_search_score_functions import \
     _ClassificationErrorScoreFunction, _PredicateSearchScoreFunction, \
     create_score_function
+from predicators.perception import create_perceiver
+from predicators.execution_monitoring import create_execution_monitor
+from predicators.cogman import CogMan
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, AnnotatedPredicate, Dataset, \
     GroundAtomTrajectory, GroundOptionRecord, LowLevelTrajectory, Object, \
@@ -150,12 +155,12 @@ class VlmInventionApproach(NSRTLearningApproach):
     def get_name(cls) -> str:
         return "vlm_online_invention"
 
-    @property
-    def is_offline_learning_based(self) -> bool:
-        return False
-
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        pass
+        if len(dataset.trajectories) > 0:
+            # TODO: add data to the approach's dataset
+            pass
+        else:
+            pass
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
@@ -206,7 +211,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                             "metrics": self._last_metrics,
                                             "partial_refinements":
                                             self._last_partial_refinements,
-                                            "policy": policy
+                                            # "policy": policy
                                         })
                 # Collect trajectory
                 # try:
@@ -245,7 +250,6 @@ class VlmInventionApproach(NSRTLearningApproach):
         num_tasks = len(tasks)
         propose_ite = 0
         max_invent_ite = 20
-        add_new_proposal_at_every_ite = False  # Invent at every iterations
         manual_prompt = False
         regenerate_response = True
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
@@ -304,11 +308,15 @@ class VlmInventionApproach(NSRTLearningApproach):
                 self.succ_optn_dict = defaultdict(GroundOptionRecord)
                 self.fail_optn_dict = defaultdict(GroundOptionRecord)
             # This will update self.task_to_tasjs
-            self._process_interaction_result(env,
-                                             results,
-                                             tasks,
-                                             ite,
-                                             use_only_first_solution=False)
+            if CFG.vlm_predicator_oracle_explore:
+                if ite == 1:
+                    self._collect_oracle_data(env, tasks)
+            else:
+                self._process_interaction_result(env,
+                                                results,
+                                                tasks,
+                                                ite,
+                                                use_only_first_solution=False)
             if ite == 1:
                 n_tp = sum(
                     [len(v.states) for v in self.succ_optn_dict.values()])
@@ -323,7 +331,9 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             all_trajs = []
             # needs to be improved
-            if CFG.use_partial_plans_prefix_as_demo and num_solved == 0:
+            if CFG.use_partial_plans_prefix_as_demo and num_solved == 0 and\
+                not CFG.vlm_predicator_oracle_explore:
+                # When oracle explore, there are full demo strajectories
                 logging.info(f"Learning from only failed plans")
                 iterator = self.task_to_partial_trajs.items()
             else:
@@ -499,11 +509,11 @@ class VlmInventionApproach(NSRTLearningApproach):
                     self._learned_predicates = set(all_candidates)
                 else:
                     logging.info("[Start] Predicate search from " +
-                                f"{self._initial_predicates}...")
+                                 f"{self._initial_predicates}...")
                     score_function = create_score_function(
-                        score_func_name, self._initial_predicates, atom_dataset,
-                        all_candidates, self._train_tasks, self.succ_optn_dict,
-                        self.fail_optn_dict)
+                        score_func_name, self._initial_predicates,
+                        atom_dataset, all_candidates, self._train_tasks,
+                        self.succ_optn_dict, self.fail_optn_dict)
                     start_time = time.perf_counter()
                     self._learned_predicates = \
                         self._select_predicates_by_score_hillclimbing(
@@ -512,7 +522,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             score_function,
                             initial_predicates = self._initial_predicates)
                     logging.info("[Finish] Predicate search.")
-                    logging.info("Total search time "
+                    logging.info(
+                        "Total search time "
                         f"{time.perf_counter() - start_time:.2f} seconds")
             # [End moving out]
 
@@ -631,10 +642,98 @@ class VlmInventionApproach(NSRTLearningApproach):
                 images.append(img)
         return images
 
+    def _collect_oracle_data(self, env: BaseEnv, tasks: List[Task]) -> None:
+        """Collect oracle dataset by first finding oracle plans, and use the gt 
+        operators to identify negative states. And add the success trajectories
+        to self.task_to_trajs.
+
+        This is just used for the oracle explore model.
+        """
+        logging.info("Generating oracle explore data...")
+        # Get the success nsrt and option plan
+        options = self._initial_options
+        oracle_approach = OracleApproach(
+            env.predicates,
+            options,
+            env.types,
+            env.action_space,
+            tasks,
+            task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
+            max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized,
+            bilevel_plan_without_sim=CFG.offline_data_bilevel_plan_without_sim)
+        perceiver = create_perceiver(CFG.perceiver)
+        execution_monitor = create_execution_monitor(CFG.execution_monitor)
+        cogman = CogMan(oracle_approach, perceiver, execution_monitor)
+
+        # Get the traj and positive states
+        results = []
+        for idx, task in enumerate(tasks):
+            env_task = env.get_train_tasks()[idx]
+            cogman.reset(env_task)
+            nsrt_plan = cogman._approach._last_nsrt_plan
+            option_plan = cogman._approach._last_plan
+            result = PlanningResult(succeeded=True,
+                                    info={
+                                        "option_plan": option_plan,
+                                        "nsrt_plan": nsrt_plan,
+                                        "partial_refinements": []
+                                    })
+            results.append(result)
+        # use process_interaction_results to save the positive states?
+        self._process_interaction_result(env, results, tasks, 1, False)
+
+        # Use GT operators to get some negative states
+        # For each successful ground option, get a couple of negative states
+        # trajs: self.task_to_trajs
+        # succ options: self.succ_optn_dict
+        gt_nsrt = cogman._approach._nsrts
+        gt_preds = env.predicates
+        all_objects = set.union(*[set(t.init) for t in tasks])
+        max_neg_states = 2
+        for option_str in list(self.succ_optn_dict.keys()):
+            all_gnsrts = itertools.chain.from_iterable(utils.all_ground_nsrts(
+                                            nsrt,
+                                            all_objects) for nsrt in gt_nsrt)
+            # get the gt nsrts with the same option
+            num_neg_states = 0
+            option = self.succ_optn_dict[option_str].option
+            optn_objs = self.succ_optn_dict[option_str].optn_objs
+            optn_vars = self.succ_optn_dict[option_str].optn_vars
+            consistent_gnsrts = [gnsrts for gnsrts in all_gnsrts if
+                                    gnsrts.option.name == option.name and
+                                    gnsrts.option_objs == optn_objs]
+            break_outer = False
+            for _, rec in self.succ_optn_dict.items():
+                for state in rec.states:
+                    # if it's not satisfied by any gnsrts, add it to the fail 
+                    # dict
+                    atom_state = utils.abstract(state, gt_preds)
+                    # logging.debug(f"atom state: {atom_state}")
+                    # logging.debug(f"consistent gnsrts: {consistent_gnsrts}")
+                    if not any(gnsrt.preconditions.issubset(atom_state) for
+                               gnsrt in consistent_gnsrts):
+                        # logging.debug(f"Found a neg state for {option_str}")
+                        state.labeled_image.save(os.path.join(CFG.log_file, 
+                            f"images/{option_str}_neg{num_neg_states}.png"))
+                        neg_state = state.copy()
+                        neg_state.next_state = None
+                        self.fail_optn_dict[option_str].append_state(
+                            neg_state,
+                            utils.abstract(state, 
+                                           self._get_current_predicates()),
+                            optn_objs, optn_vars, option
+                        )
+                        num_neg_states += 1
+                    if num_neg_states >= max_neg_states:
+                        break_outer = True
+                        break
+                if break_outer:
+                    break
+
     def _process_interaction_result(self, env: BaseEnv,
                                     results: List[PlanningResult],
                                     tasks: List[Task], ite: int,
-                                    use_only_first_solution: bool) -> Dataset:
+                                    use_only_first_solution: bool) -> None:
         """Process the data obtained in solving the tasks into ground truth
         positive and negative states for the ground options.
 
@@ -642,11 +741,6 @@ class VlmInventionApproach(NSRTLearningApproach):
         When add_intermediate_details == True, detailed interaction
         trajectories are added to the return string
         """
-
-        # num_solved = sum([isinstance(r, tuple) for r in results])
-        # num_attempted = len(results)
-        # logging.info(f"The agent solved {num_solved} out of " +
-        #                 f"{num_attempted} tasks.\n")
         logging.info("===Processing the interaction results...\n")
         num_tasks = len(tasks)
         # suc_state_trajs = []
@@ -892,7 +986,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 option_start_state.option_history = [
                                     n.ground_option_str(
                                         use_object_id=CFG.
-                                            vlm_predicator_render_option_state)
+                                        vlm_predicator_render_option_state)
                                     for n in nsrt_plan[:nsrt_counter]
                                 ]
                                 option_start_state.prev_state = states[-1] if\
@@ -930,7 +1024,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 option_start_state.option_history = [
                                     n.ground_option_str(
                                         use_object_id=CFG.
-                                            vlm_predicator_render_option_state)
+                                        vlm_predicator_render_option_state)
                                     for n in nsrt_plan[:nsrt_counter]
                                 ]
                                 option_start_state.prev_state = states[-1] if\
@@ -950,7 +1044,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                             g_nsrt = nsrt_plan[nsrt_counter]
                             gop_str = g_nsrt.ground_option_str(
                                 use_object_id=CFG.
-                                    vlm_predicator_render_option_state)
+                                vlm_predicator_render_option_state)
                             states.append(option_start_state)
                             first_option_action = True
                             # Save to a temp list to add next_state

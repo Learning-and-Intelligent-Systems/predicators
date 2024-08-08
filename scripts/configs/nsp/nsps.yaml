@@ -4,22 +4,24 @@ APPROACHES:
   # oracle_invention: # Oracle 1: NSP explore, GT invention, NSP evaluation
   #   NAME: "vlm_online_invention"
   #   FLAGS:
-  #     log_file: "logs/logs_oracle1"
+  #     log_file: "logs/logs_oracle1/"
   #     strips_learner: "cluster_intersect_and_search"
   #     render_init_state: True # True for NSP
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     vlm_predicator_oracle_base_grammar: True
   #     vlm_predicator_oracle_learned: True # Oracle 1
+  #     max_initial_demos: 0
   # WIP
-  # oracle_explore: # Oracle 2: GT explore, NSP invention, NSP eval.
-  #   NAME: "vlm_online_invention"
-  #   FLAGS:
-  #     log_file: "logs/logs_oracle2"
-  #     strips_learner: "cluster_intersect_and_search"
-  #     render_init_state: True # True for NSP
-  #     neu_sym_predicate: True # Needed for NSP
-  #     vlm_predicator_render_option_state: True # Needed for NSP
+  oracle_explore: # Oracle 2: GT explore, NSP invention, NSP eval.
+    NAME: "vlm_online_invention"
+    FLAGS:
+      log_file: "logs/logs_oracle2/"
+      strips_learner: "cluster_intersect_and_search"
+      render_init_state: True # True for NSP
+      neu_sym_predicate: True # Needed for NSP
+      vlm_predicator_render_option_state: True # Needed for NSP
+      vlm_predicator_oracle_explore: True
   # nsp: # Our main approach
   #   NAME: "vlm_online_invention"
   #   FLAGS:
@@ -28,16 +30,17 @@ APPROACHES:
   #     render_init_state: True # True for NSP
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
-  # WIP
+  #     max_initial_demos: 0
   # InterPreT-inspired baseline with symbolic predicates based on object 
   # features, conditioned on image and object-oriented dict observation.
-  interpret: 
-    NAME: "vlm_online_invention"
-    FLAGS:
-      log_file: "logs/logs_bs_interpret/"
-      strips_learner: "cluster_intersect_and_search"
-      render_init_state: True # True for NSP
-      vlm_predicator_render_option_state: True # Needed for NSP
+  # interpret: 
+  #   NAME: "vlm_online_invention"
+  #   FLAGS:
+  #     log_file: "logs/logs_bs_interpret/"
+  #     strips_learner: "cluster_intersect_and_search"
+  #     render_init_state: True # True for NSP
+  #     vlm_predicator_render_option_state: True # Needed for NSP
+  #     max_initial_demos: 0
   # no_acc_select: # ablation 1: without the new refinement objective
   #   NAME: "vlm_online_invention"
   #   FLAGS:
@@ -47,6 +50,7 @@ APPROACHES:
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     skip_selection_if_no_solve: True
+  #     max_initial_demos: 0
   # no_new_op_learner: # ablation 2: without the new operator learner
   #   NAME: "vlm_online_invention"
   #   FLAGS:
@@ -54,6 +58,7 @@ APPROACHES:
   #     render_init_state: True # True for NSP
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
+  #     max_initial_demos: 0
 ENVS:
   pb_cover:
     NAME: "pybullet_cover_typed_options"

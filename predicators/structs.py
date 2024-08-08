@@ -321,7 +321,8 @@ class Predicate:
     _classifier: Callable[[State, Sequence[Object]],
                           bool] = field(compare=False)
     parameterized_assertion: Optional[Callable[[List[str]],
-                                    str]] = field(default=None, compare=False)
+                                               str]] = field(default=None,
+                                                             compare=False)
 
     def __post_init__(self):
         # Assert that each element in types is of the type Type
@@ -597,10 +598,9 @@ class GroundAtom(_Atom):
 
     @cached_property
     def _id_name_str(self) -> str:
-        return (str(self.predicate) + "(" + ", ".join(
-                                    obj.id_name + ":" + obj.type.name
-                                    for obj in self.objects) +
-                ")")
+        return (str(self.predicate) + "(" +
+                ", ".join(obj.id_name + ":" + obj.type.name
+                          for obj in self.objects) + ")")
 
     def lift(self, sub: ObjToVarSub) -> LiftedAtom:
         """Create a LiftedAtom with a given substitution."""

@@ -74,7 +74,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
     @property
     def is_learning_based(self) -> bool:
         return True
-    
+
     @property
     def is_offline_learning_based(self) -> bool:
         return True
@@ -163,8 +163,8 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                 draw = ImageDraw.Draw(pil_img)
                 img_font = utils.get_scaled_default_font(draw, 10)
                 img_with_txt = utils.add_text_to_draw_img(
-                    draw, (50, 50), f"Initial state to plan from, Image {img_num}",
-                    img_font)
+                    draw, (50, 50),
+                    f"Initial state to plan from, Image {img_num}", img_font)
                 imgs_for_vlm.append(img_with_txt._image)  # pylint:disable=protected-access
         elif type(init_state) is utils.RawState:
             assert isinstance(init_state.state_image, PIL.Image.Image)

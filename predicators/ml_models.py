@@ -1437,7 +1437,8 @@ class MapleQFunction(MLPRegressor):
         """Fit the model."""
         # First, precompute the size of the input and output from the
         # Q-network.
-        X_size = sum(o.type.dim for o in self._ordered_objects) + self._num_ground_nsrts + self._max_num_params
+        X_size = sum(o.type.dim for o in self._ordered_objects
+                     ) + self._num_ground_nsrts + self._max_num_params
         if not CFG.maple_exclude_goal:
             X_size += len(self._ordered_frozen_goals)
         Y_size = 1
@@ -1475,12 +1476,12 @@ class MapleQFunction(MLPRegressor):
                             self._vectorize_option(next_option))
                 for next_action_vec in next_option_vecs:
                     if CFG.maple_exclude_goal:
-                        x_hat = np.concatenate([
-                        vectorized_next_state, next_action_vec
-                        ])
+                        x_hat = np.concatenate(
+                            [vectorized_next_state, next_action_vec])
                     else:
                         x_hat = np.concatenate([
-                        vectorized_next_state, vectorized_goal, next_action_vec
+                            vectorized_next_state, vectorized_goal,
+                            next_action_vec
                         ])
                     q_x_hat = self.predict(x_hat)[0]
                     best_next_value = max(best_next_value, q_x_hat)
@@ -1585,10 +1586,9 @@ class MapleQFunction(MLPRegressor):
         if self._y_dim == -1:
             return 0.0
         if CFG.maple_exclude_goal:
-            x = np.concatenate([
-                self._vectorize_state(state),
-                self._vectorize_option(option)
-            ])
+            x = np.concatenate(
+                [self._vectorize_state(state),
+                 self._vectorize_option(option)])
         else:
             x = np.concatenate([
                 self._vectorize_state(state),

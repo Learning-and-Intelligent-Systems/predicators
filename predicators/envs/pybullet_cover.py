@@ -390,14 +390,14 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
 class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
 
-
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Types
         bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
         self._block_type = Type(
-            "block", ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
+            "block",
+            ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
             (bbox_features if CFG.env_include_bbox_features else []))
         self._target_type = Type(
             "target", ["is_block", "is_target", "width", "pose_y_norm"] +
@@ -405,8 +405,8 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
         self._robot_type = Type(
             "robot", ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
             (bbox_features if CFG.env_include_bbox_features else []))
-        self._table_type = Type("table",
-                       bbox_features if CFG.env_include_bbox_features else [])
+        self._table_type = Type(
+            "table", bbox_features if CFG.env_include_bbox_features else [])
 
         self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
                                             self._GripperOpen_NSP_holds)

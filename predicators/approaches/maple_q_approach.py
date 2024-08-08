@@ -74,23 +74,24 @@ Example command that for pybullet cover:
 
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional, Set
 import logging
+from pprint import pformat
+from typing import Any, Callable, List, Optional, Set
 
 import dill as pkl
 from gym.spaces import Box
-from pprint import pformat
 
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.ml_models import MapleQFunction
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, InteractionRequest, \
     LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type, \
     _GroundNSRT, _Option
-from predicators.ground_truth_models import get_gt_nsrts
+
 
 class MapleQApproach(OnlineNSRTLearningApproach):
     """A parameterized action RL approach inspired by MAPLE."""
@@ -184,8 +185,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
         if not CFG.online_learning_assert_no_exclude_pred:
-            self._nsrts = get_gt_nsrts(CFG.env, set(),
-                                        self._initial_options)
+            self._nsrts = get_gt_nsrts(CFG.env, set(), self._initial_options)
             logging.info(f"Setting NSRTs to empty:\n{pformat(self._nsrts)}")
         if CFG.approach == "active_sampler_learning":
             # Check the assumption that operators and options are 1:1.

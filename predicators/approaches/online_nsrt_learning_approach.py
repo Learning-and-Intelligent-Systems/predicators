@@ -107,7 +107,7 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         # just running the predicate classifiers once per state for efficiency.
         if CFG.online_learning_assert_no_exclude_pred:
             # make sure not predicate learning
-            assert not CFG.excluded_predicates  
+            assert not CFG.excluded_predicates
         preds = self._get_current_predicates()
         assert preds == self._initial_predicates
         for state in trajectory.states:

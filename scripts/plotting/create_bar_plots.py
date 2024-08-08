@@ -1,5 +1,7 @@
 """Create bar plots.
-For example, https://arxiv.org/abs/2203.09634 Figure 3"""
+
+For example, https://arxiv.org/abs/2203.09634 Figure 3
+"""
 
 import os
 

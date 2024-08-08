@@ -1,5 +1,7 @@
 """Create bar plots.
-For example, https://arxiv.org/abs/2203.09634 Figure 3"""
+
+For example, https://arxiv.org/abs/2203.09634 Figure 3
+"""
 
 import os
 
@@ -23,10 +25,7 @@ X_LIM = (-5, 110)
 
 # Groups over which to take mean/std.
 GROUPS = [
-    "ENV",
-    "APPROACH",
-    "EXCLUDED_PREDICATES",
-    "EXPERIMENT_ID",
+    "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID",
     "ONLINE_LEARNING_CYCLE"
 ]
 
@@ -41,7 +40,7 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
-    ("ONLINE_LEARNING_CYCLE", "cycle") # add to select model at specific cycle
+    ("ONLINE_LEARNING_CYCLE", "cycle")  # add to select model at specific cycle
 ]
 
 DERIVED_KEYS = [("perc_solved",
@@ -53,8 +52,8 @@ KEYS = ["PERC_SOLVED"]
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
-    ("PickPlace1D", 
-        pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
+    ("PickPlace1D",
+     pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
     ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
     # ("Coffee", pd_create_equal_selector("ENV", "coffee")),
     # ("Tools", pd_create_equal_selector("ENV", "tools")),
@@ -63,11 +62,10 @@ PLOT_GROUPS = [
 # See PLOT_GROUPS comment.
 BAR_GROUPS = [
     # ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
-    ("MAPLE",
-     lambda df: (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
-                (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))),
-    ("ViLa",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "vlm_plan" in v)),
+    ("MAPLE", lambda df:
+     (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
+     (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))),
+    ("ViLa", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "vlm_plan" in v)),
 
     # ("Bisimulation",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),

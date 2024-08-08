@@ -1712,6 +1712,7 @@ class PyBulletState(State):
         # return hash((data_hash, simulator_state_hash))
         return data_hash
 
+
 # a bounding box named tuple with attribute left, lower, right, upper
 # pixel idx within the state image
 BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
@@ -1841,9 +1842,10 @@ class RawState(PyBulletState):
         state_dict = {}
         for obj in self:
             obj_dict = {}
-            for attribute, value in zip(obj.type.feature_names, 
-                np.concatenate([self[obj], self.bbox_features[obj]]) if 
-                self.bbox_features else self[obj]):
+            for attribute, value in zip(
+                    obj.type.feature_names,
+                    np.concatenate([self[obj], self.bbox_features[obj]])
+                    if self.bbox_features else self[obj]):
                 # include if it's proprioception feature, or position/bbox
                 # feature, or object_features is True
                 # if (obj.type.name == "robot" and \

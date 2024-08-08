@@ -129,8 +129,6 @@ def main() -> None:
     os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
-    # print(hash(env._On))
-    # print(hash(env._On_NSP))
     # The action space needs to be seeded externally, because env.action_space
     # is often created during env __init__().
     env.action_space.seed(CFG.seed)
@@ -187,8 +185,8 @@ def main() -> None:
     if CFG.approach_wrapper:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
     approach = create_approach(approach_name, preds, options, env.types,
-                               env.action_space, stripped_train_tasks)
-    if approach.is_offline_learning_based or CFG.make_demo_videos:
+                               env.action_space, approach_train_tasks)
+    if approach.is_learning_based:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
@@ -215,12 +213,9 @@ def _run_pipeline(env: BaseEnv,
     # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if cogman.is_learning_based:
-        if cogman.is_offline_learning_based:
-            assert offline_dataset is not None, "Missing offline dataset"
-            num_offline_transitions = sum(
-                len(traj.actions) for traj in offline_dataset.trajectories)
-        else:
-            num_offline_transitions = 0
+        assert offline_dataset is not None, "Missing offline dataset"
+        num_offline_transitions = sum(
+            len(traj.actions) for traj in offline_dataset.trajectories)
         num_online_transitions = 0
         total_query_cost = 0.0
 
@@ -229,10 +224,9 @@ def _run_pipeline(env: BaseEnv,
             learning_time = 0.0  # ignore loading time
         else:
             # Offline learning.
-            if cogman.is_offline_learning_based:
-                learning_start = time.perf_counter()
-                cogman.learn_from_offline_dataset(offline_dataset)
-                learning_time = time.perf_counter() - learning_start
+            learning_start = time.perf_counter()
+            cogman.learn_from_offline_dataset(offline_dataset)
+            learning_time = time.perf_counter() - learning_start
 
             # Self Online Learning.
             if CFG.approach == "vlm_online_invention":
