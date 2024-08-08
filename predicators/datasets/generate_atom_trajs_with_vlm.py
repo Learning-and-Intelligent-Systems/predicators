@@ -694,7 +694,14 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
         # atom_proposals_set = set(a for a in atom_proposals_set if "cook" in a or "Cook" in a)
-        atom_proposals_set = set(["Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)", "IsGrilled(patty)", "Cut(lettuce), Diced(lettuce), Sliced(lettuce), Whole(lettuce), Shredded(lettuce)"])
+        # atom_proposals_set = set(["Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)", "IsGrilled(patty)", "Cut(lettuce), Diced(lettuce), Sliced(lettuce), Whole(lettuce), Shredded(lettuce)"])
+        # atom_proposals_set = set(["Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)", "IsGrilled(patty)"])
+        atom_proposals_set = set(
+            [
+                "Cooked(patty1)", "Raw(patty1)", "IsBrown(patty1)", "IsPink(patty1)", "IsGrilled(patty1)",
+                "Cooked(patty2)", "Raw(patty2)", "IsBrown(patty2)", "IsPink(patty2)", "IsGrilled(patty2)",
+            ]
+        )
     else:  # pragma: no cover.
         atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
