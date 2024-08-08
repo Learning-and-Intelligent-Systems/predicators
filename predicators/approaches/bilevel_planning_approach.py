@@ -105,6 +105,7 @@ class BilevelPlanningApproach(BaseApproach):
 
         # Run task planning only and then greedily sample and execute in the
         # policy.
+        import pdb; pdb.set_trace()
         if self._plan_without_sim:
             nsrt_plan, atoms_seq, metrics = self._run_task_plan(
                 task, nsrts, preds, timeout, seed)

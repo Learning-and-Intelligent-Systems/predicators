@@ -55,6 +55,9 @@ class BurgerEnv(BaseEnv):
 
     # Types
     _object_type = Type("object", [])
+    _item_or_station_type = Type("item_or_station", [], _object_type)
+    # _item_type = Type("item", [], _item_or_station_type)
+    # _station_type = Type("station", [], _item_or_station_type)
     _item_type = Type("item", [], _object_type)
     _station_type = Type("station", [], _object_type)
 
@@ -106,6 +109,8 @@ class BurgerEnv(BaseEnv):
                              self._On_holds)
         self._OnNothing = Predicate("OnNothing", [self._object_type],
                                     self._OnNothing_holds)
+        # self._Clear = Predicate("Clear", [self._item_or_station_type],
+        #                         self._Clear_holds)
         self._Clear = Predicate("Clear", [self._object_type],
                                 self._Clear_holds)
         self._OnGround = Predicate("OnGround", [self._item_type], self._OnGround_holds)
@@ -113,15 +118,19 @@ class BurgerEnv(BaseEnv):
             self._bottom_bun_type, self._patty_type, self._cheese_type,
             self._tomato_type, self._top_bun_type
         ], self._GoalHack_holds)
+
         self._GoalHack2 = Predicate("GoalHack2", [
-            self._bottom_bun_type, self._patty_type], self._GoalHack2_holds
+            self._object_type, self._patty_type], self._GoalHack2_holds
         )
         self._GoalHack3 = Predicate("GoalHack3", [
-            self._bottom_bun_type, self._tomato_type], self._GoalHack3_holds
+            self._patty_type, self._patty_type], self._GoalHack3_holds
         )
-        self._GoalHack4 = Predicate("GoalHack4", [
-            self._patty_type, self._tomato_type], self._GoalHack4_holds
-        )
+        # self._GoalHack3 = Predicate("GoalHack3", [
+        #     self._bottom_bun_type, self._tomato_type], self._GoalHack3_holds
+        # )
+        # self._GoalHack4 = Predicate("GoalHack4", [
+        #     self._patty_type, self._tomato_type], self._GoalHack4_holds
+        # )
 
         # Static objects (exist no matter the settings)
         self._robot = Object("robot", self._robot_type)
@@ -248,15 +257,15 @@ class BurgerEnv(BaseEnv):
 
             # Add patty
             r, c = shuffled_spots[3]
-            patty = Object("patty", self._patty_type)
+            patty = Object("patty1", self._patty_type)
             state_dict[patty] = {"row": r, "col": c, "z": 0}
             hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
 
-            # Add tomato
-            r, c = shuffled_spots[4]
-            tomato = Object("lettuce", self._tomato_type)
-            state_dict[tomato] = {"row": r, "col": c, "z": 0}
-            hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
+            # # Add tomato
+            # r, c = shuffled_spots[4]
+            # tomato = Object("lettuce", self._tomato_type)
+            # state_dict[tomato] = {"row": r, "col": c, "z": 0}
+            # hidden_state[tomato] = {"is_sliced": 0.0, "is_held": 0.0}
 
             # Add cheese
             r, c = shuffled_spots[5]
@@ -276,6 +285,11 @@ class BurgerEnv(BaseEnv):
             state_dict[bottom_bun] = {"row": r, "col": c, "z": 0}
             hidden_state[bottom_bun] = {"is_held": 0.0}
 
+            r, c = shuffled_spots[4]
+            patty2 = Object("patty2", self._patty_type)
+            state_dict[patty2] = {"row": r, "col": c, "z": 0}
+            hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
+
             # goal = {
             #     GroundAtom(self._On, [patty, bottom_bun]),
             #     GroundAtom(self._On, [cheese, patty]),
@@ -293,58 +307,87 @@ class BurgerEnv(BaseEnv):
             # }
 
             # Training task goals
-            debug_goal = {
+            train1 = {
                 # GroundAtom(self._Holding, [self._robot, patty])
                 # GroundAtom(self._On, [patty, self._grill])
                 GroundAtom(self._IsCooked, [patty]),
                 GroundAtom(self._On, [patty, bottom_bun]),
                 GroundAtom(self._On, [top_bun, patty])
             }
-            alt_debug_goal = debug_goal
-
-            goal2 = {
-                GroundAtom(self._On, [patty, bottom_bun]),
-                GroundAtom(self._On, [top_bun, patty]),
-                GroundAtom(self._IsCooked, [patty])
-            }
-            alt_goal2 = {
+            alt_train1 = {
                 GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                 GroundAtom(self._On, [top_bun, patty])
             }
-            goal3 = {
-                GroundAtom(self._On, [tomato, bottom_bun]),
-                GroundAtom(self._On, [top_bun, tomato]),
-                GroundAtom(self._IsSliced, [tomato])
-            }
-            alt_goal3 = {
-                GroundAtom(self._GoalHack3, [bottom_bun, tomato]),
-                GroundAtom(self._On, [top_bun, tomato])
-            }
-            goal4 = {
-                GroundAtom(self._On, [tomato, patty]),
-                GroundAtom(self._On, [patty, bottom_bun]),
-                GroundAtom(self._IsSliced, [tomato])
-            }
-            alt_goal4 = {
-                GroundAtom(self._On, [patty, bottom_bun]),
-                GroundAtom(self._GoalHack4, [patty, tomato])
-            }
-            training_goals = [goal2, goal3, goal4]
-            alt_training_goals = [alt_goal2, alt_goal3, alt_goal4]
-
-            # Test task goal
-            goal5 = {
-                GroundAtom(self._On, [patty, bottom_bun]),
-                GroundAtom(self._On, [tomato, patty]),
-                GroundAtom(self._On, [top_bun, tomato]),
+            train2 = {
+                GroundAtom(self._On, [patty, self._cutting_board]),
                 GroundAtom(self._IsCooked, [patty]),
-                GroundAtom(self._IsSliced, [tomato])
+                GroundAtom(self._IsCooked, [patty2]),
+                GroundAtom(self._On, [patty2, patty])
             }
-            alt_goal5 = {
-                GroundAtom(self._GoalHack2, [bottom_bun, patty]),
-                GroundAtom(self._GoalHack3, [bottom_bun, tomato]),
-                GroundAtom(self._On, [top_bun, tomato])
+            alt_train2 = {
+                GroundAtom(self._GoalHack2, [self._cutting_board, patty]),
+                GroundAtom(self._GoalHack2, [patty, patty2])
             }
+            # training_goals = [train1, train2]
+            training_goals = [train2, train1]
+            alt_training_goals = [alt_train1, alt_train2]
+
+            if train_or_test == "test":
+                debug_test_goal = {
+                    GroundAtom(self._IsCooked, [patty]),
+                    GroundAtom(self._On, [patty, bottom_bun]),
+                    GroundAtom(self._On, [patty2, patty]),
+                    GroundAtom(self._On, [top_bun, patty2])
+                }
+                alt_debug_test_goal = {
+                    GroundAtom(self._GoalHack2, [bottom_bun, patty]),
+                    GroundAtom(self._GoalHack2, [patty, patty2]),
+                    GroundAtom(self._On, [top_bun, patty2])
+                }
+
+            # goal2 = {
+            #     GroundAtom(self._On, [patty, bottom_bun]),
+            #     GroundAtom(self._On, [top_bun, patty]),
+            #     GroundAtom(self._IsCooked, [patty])
+            # }
+            # alt_goal2 = {
+            #     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
+            #     GroundAtom(self._On, [top_bun, patty])
+            # }
+            # goal3 = {
+            #     GroundAtom(self._On, [tomato, bottom_bun]),
+            #     GroundAtom(self._On, [top_bun, tomato]),
+            #     GroundAtom(self._IsSliced, [tomato])
+            # }
+            # alt_goal3 = {
+            #     GroundAtom(self._GoalHack3, [bottom_bun, tomato]),
+            #     GroundAtom(self._On, [top_bun, tomato])
+            # }
+            # goal4 = {
+            #     GroundAtom(self._On, [tomato, patty]),
+            #     GroundAtom(self._On, [patty, bottom_bun]),
+            #     GroundAtom(self._IsSliced, [tomato])
+            # }
+            # alt_goal4 = {
+            #     GroundAtom(self._On, [patty, bottom_bun]),
+            #     GroundAtom(self._GoalHack4, [patty, tomato])
+            # }
+            # training_goals = [goal2, goal3, goal4]
+            # alt_training_goals = [alt_goal2, alt_goal3, alt_goal4]
+            #
+            # # Test task goal
+            # goal5 = {
+            #     GroundAtom(self._On, [patty, bottom_bun]),
+            #     GroundAtom(self._On, [tomato, patty]),
+            #     GroundAtom(self._On, [top_bun, tomato]),
+            #     GroundAtom(self._IsCooked, [patty]),
+            #     GroundAtom(self._IsSliced, [tomato])
+            # }
+            # alt_goal5 = {
+            #     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
+            #     GroundAtom(self._GoalHack3, [bottom_bun, tomato]),
+            #     GroundAtom(self._On, [top_bun, tomato])
+            # }
 
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = {}
@@ -357,14 +400,14 @@ class BurgerEnv(BaseEnv):
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
             if train_or_test == "train":
-                # idx = i % len(training_goals)
-                # goal = training_goals[idx]
-                # alt_goal = alt_training_goals[idx]
-                goal = debug_goal
-                alt_goal = alt_debug_goal
+                idx = i % len(training_goals)
+                goal = training_goals[idx]
+                alt_goal = alt_training_goals[idx]
             else:
-                goal = goal5
-                alt_goal = alt_goal5
+                goal = debug_test_goal
+                alt_goal = alt_debug_test_goal
+                # goal = goal5
+                # alt_goal = alt_goal5
 
             tasks.append(EnvironmentTask(state, goal, alt_goal_desc=alt_goal))
 
@@ -441,10 +484,18 @@ class BurgerEnv(BaseEnv):
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         a, b = objects
+        # try:
+        #     ax, ay = self.get_position(a, state)
+        # except:
+        #     import pdb; pdb.set_trace()
         ax, ay = self.get_position(a, state)
         bx, by = self.get_position(b, state)
         az = state.get(a, "z")
         bz = state.get(b, "z")
+        # If an object is held by the robot, it is not on it.
+        if a.is_instance(self._item_type):
+            if state.simulator_state["state"][a]["is_held"] > 0.5:
+                return False
         return ax == bx and ay == by and az - 1 == bz
 
     def _OnNothing_holds(self, state: State,
@@ -459,6 +510,9 @@ class BurgerEnv(BaseEnv):
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
+        # A held object is not clear.
+        if obj.is_instance(self._item_type) and state.simulator_state["state"][obj]["is_held"] > 0.5:
+            return False
         for other_obj in state:
             if other_obj.is_instance(self._item_type) or other_obj.is_instance(
                     self._station_type):
@@ -485,26 +539,33 @@ class BurgerEnv(BaseEnv):
         return all(atoms)
 
     def _GoalHack2_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        bottom_bun, patty = objects
-        # The bottom bun is somewhere below the patty and the patty is cooked
-        bb_z = state.get(bottom_bun, "z")
+        obj, patty = objects
+        # The object is somewhere below the patty and the patty is cooked
+        obj_z = state.get(obj, "z")
         p_z = state.get(patty, "z")
-        return bb_z < p_z and self._On_holds(state, [patty, bottom_bun]) and self._IsCooked_holds(state, [patty])
+        return obj_z < p_z and self._On_holds(state, [patty, obj]) and self._IsCooked_holds(state, [patty])
 
     def _GoalHack3_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        bottom_bun, tomato = objects
-        # The bottom bun is somewhere below the tomato and the tomato is sliced
-        bb_z = state.get(bottom_bun, "z")
-        l_z = state.get(tomato, "z")
-        return bb_z < l_z and self._On_holds(state, [tomato, bottom_bun]) and self._IsSliced_holds(state, [tomato])
+        patty1, patty2 = objects
+        # patty1 is cooked and patty2 is a cooked patty somewhere below patty1
+        patty1_z = state.get(patty1, "z")
+        patty2_z = state.get(patty2, "z")
+        return patty1_z > patty2_z and self._IsCooked_holds(state, [patty1]) and self.IsCooked_holds(state, [patty2])
 
-    def _GoalHack4_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        patty, tomato = objects
-        atoms = [
-            self._On_holds(state, [lettuce, patty]),
-            self._IsSliced_holds(state, [tomato])
-        ]
-        return all(atoms)
+    # def _GoalHack3_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    #     bottom_bun, tomato = objects
+    #     # The bottom bun is somewhere below the tomato and the tomato is sliced
+    #     bb_z = state.get(bottom_bun, "z")
+    #     l_z = state.get(tomato, "z")
+    #     return bb_z < l_z and self._On_holds(state, [tomato, bottom_bun]) and self._IsSliced_holds(state, [tomato])
+
+    # def _GoalHack4_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    #     patty, tomato = objects
+    #     atoms = [
+    #         self._On_holds(state, [lettuce, patty]),
+    #         self._IsSliced_holds(state, [tomato])
+    #     ]
+    #     return all(atoms)
 
     @classmethod
     def get_position(cls, obj: Object, state: State) -> Tuple[int, int]:
@@ -701,6 +762,8 @@ class BurgerEnv(BaseEnv):
         assert next_state.simulator_state is not None
         next_state.simulator_state["images"] = self.render_state(
             next_state, DefaultEnvironmentTask)
+        # import PIL.Image
+        # PIL.Image.fromarray(next_state.simulator_state["images"][0]).show()
 
         return next_state
 
@@ -1040,3 +1103,24 @@ class BurgerNoMoveEnv(BurgerEnv):
     @classmethod
     def get_name(cls) -> str:
         return "burger_no_move"
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            self._IsCooked,
+            self._IsSliced,
+            self._HandEmpty,
+            self._Holding,
+            self._On,
+            self._OnGround,
+            self._Clear,
+            self._GoalHack2,
+        }
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._On, self._OnGround, self._IsCooked, self._IsSliced}
+
+    @property
+    def agent_goal_predicates(self) -> Set[Predicate]:
+        return {self._On, self._OnGround, self._GoalHack2}

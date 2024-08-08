@@ -146,8 +146,8 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         return policy
 
-    @staticmethod
-    def _move_subpolicy(state: State, robot: Object, to_obj: Object) -> Optional[Action]:
+    @classmethod
+    def _move_subpolicy(cls, state: State, robot: Object, to_obj: Object) -> Optional[Action]:
         rx, ry = BurgerEnv.get_position(robot, state)
         ox, oy = BurgerEnv.get_position(to_obj, state)
 
@@ -239,7 +239,7 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         return policy
 
-class BurgerNoMoveGroundTruthOptionFactory(GroundTruthOptionFactory):
+class BurgerNoMoveGroundTruthOptionFactory(BurgerGroundTruthOptionFactory):
     """Ground-truth options for the Burger environment with no distinct movement
     options."""
 
@@ -270,7 +270,7 @@ class BurgerNoMoveGroundTruthOptionFactory(GroundTruthOptionFactory):
         # Predicates
         # Adjacent = predicates["Adjacent"]
         # AdjacentToNothing = predicates["AdjacentToNothing"]
-        Facing = predicates["Facing"]
+        # Facing = predicates["Facing"]
         # AdjacentNotFacing = predicates["AdjacentNotFacing"]
         IsCooked = predicates["IsCooked"]
         IsSliced = predicates["IsSliced"]
