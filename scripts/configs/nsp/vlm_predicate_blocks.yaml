@@ -62,17 +62,17 @@ FLAGS:
   grammar_search_grammar_includes_negation: True # relaxation 2
   grammar_search_grammar_includes_foralls: False  # relaxation 2
   grammar_search_prune_redundant_preds: False
-  load_llm_pred_invent_dataset: False
-  save_llm_pred_invent_dataset: False # can't pickle rendered states
+  load_vlm_pred_invent_dataset: False
+  save_vlm_pred_invent_dataset: False # can't pickle rendered states
   # grammar_search_score_function: "operator_classification_error"
 
   # NSP (using VLMs) setting
   reset_optn_state_dict_at_every_ite: False
   neu_sym_predicate: True # Needed for NSP
   vlm_predicator_render_option_state: True # Needed for NSP
-  llm_predicator_use_grammar: False # always true?
+  vlm_predicator_use_grammar: False # always true?
   vlm_predicator_oracle_base_grammar: False
-  llm_predicator_oracle_learned: False            # relaxation 1
+  vlm_predicator_oracle_learned: False            # relaxation 1
   nsp_pred_include_prev_state_in_prompt: True
   nsp_pred_include_prev_image_in_prompt: True
   nsp_pred_include_state_str_in_prompt: False
@@ -85,7 +85,7 @@ FLAGS:
   vlm_use_chat_mode: True
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
-  llm_openai_max_response_tokens: 4096
+  vlm_openai_max_response_tokens: 4096
   # pybullet_camera_width: 1200 # 1200 for coffee
   pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900

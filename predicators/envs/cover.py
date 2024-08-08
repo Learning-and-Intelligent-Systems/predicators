@@ -34,22 +34,23 @@ class CoverEnv(BaseEnv):
     # _robot_type = Type("robot", ["pose_y_norm", "pose_x", "pose_z"])
     # _table_type = Type("table", [])
 
-    # Types
-    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _block_type = Type(
-        "block", ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
-        (bbox_features if CFG.env_include_bbox_features else []))
-    _target_type = Type(
-        "target", ["is_block", "is_target", "width", "pose_y_norm"] +
-        (bbox_features if CFG.env_include_bbox_features else []))
-    _robot_type = Type(
-        "robot", ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
-        (bbox_features if CFG.env_include_bbox_features else []))
-    _table_type = Type("table",
-                       bbox_features if CFG.env_include_bbox_features else [])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        # Types
+        bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
+        self._block_type = Type(
+            "block", ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
+            (bbox_features if CFG.env_include_bbox_features else []))
+        self._target_type = Type(
+            "target", ["is_block", "is_target", "width", "pose_y_norm"] +
+            (bbox_features if CFG.env_include_bbox_features else []))
+        self._robot_type = Type(
+            "robot", ["pose_y_norm", "pose_x", "pose_z", "fingers"] +
+            (bbox_features if CFG.env_include_bbox_features else []))
+        self._table_type = Type("table",
+                       bbox_features if CFG.env_include_bbox_features else [])
 
         # Predicates
         self._IsBlock = Predicate("IsBlock", [self._block_type],
@@ -1142,7 +1143,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
                               rng: np.random.Generator,
                               is_train: bool = True) -> State:
         data: Dict[Object, Array] = {}
-        assert len(CFG.cover_target_widths) == len(targets)
+        assert len(CFG.cover_target_widths) >= len(targets)
         for target, width in zip(targets, CFG.cover_target_widths):
             target_ub = 1.0
             # If there is a special bumpy region, keep targets away from it
@@ -1156,7 +1157,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
                     break
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
-        assert len(CFG.cover_block_widths) == len(blocks)
+        assert len(CFG.cover_block_widths) >= len(blocks)
         want_block_in_bumpy = rng.uniform() < CFG.bumpy_cover_init_bumpy_prob
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):

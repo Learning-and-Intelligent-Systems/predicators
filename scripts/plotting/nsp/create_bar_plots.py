@@ -27,6 +27,7 @@ GROUPS = [
     "APPROACH",
     "EXCLUDED_PREDICATES",
     "EXPERIMENT_ID",
+    "ONLINE_LEARNING_CYCLE"
 ]
 
 # All column names and keys to load into the pandas tables.
@@ -40,6 +41,7 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
+    ("ONLINE_LEARNING_CYCLE", "cycle") # add to select model at specific cycle
 ]
 
 DERIVED_KEYS = [("perc_solved",
@@ -51,27 +53,34 @@ KEYS = ["PERC_SOLVED"]
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
-    ("PickPlace1D", pd_create_equal_selector("ENV", "cover")),
+    ("PickPlace1D", 
+        pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
     ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
-    ("Painting", pd_create_equal_selector("ENV", "painting")),
-    ("Tools", pd_create_equal_selector("ENV", "tools")),
+    # ("Coffee", pd_create_equal_selector("ENV", "coffee")),
+    # ("Tools", pd_create_equal_selector("ENV", "tools")),
 ]
 
 # See PLOT_GROUPS comment.
 BAR_GROUPS = [
-    ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
-    ("Bisimulation",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
-    ("Branching",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_200" in v)),
-    ("Boltzmann",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
-    ("GNN Shooting",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_shooting_200" in v)),
-    ("GNN Model-Free",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_modelfree_200" in v)
-     ),
-    ("Random", pd_create_equal_selector("APPROACH", "random_options")),
+    # ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
+    ("MAPLE",
+     lambda df: (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
+                (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))),
+    ("ViLa",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "vlm_plan" in v)),
+
+    # ("Bisimulation",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
+    # ("Branching",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_200" in v)),
+    # ("Boltzmann",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
+    # ("GNN Shooting",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_shooting_200" in v)),
+    # ("GNN Model-Free",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_modelfree_200" in v)
+    #  ),
+    # ("Random", pd_create_equal_selector("APPROACH", "random_options")),
 ]
 
 #################### Should not need to change below here #####################

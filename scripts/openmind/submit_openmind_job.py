@@ -90,8 +90,8 @@ def submit_openmind_job(entry_point: str,
 
     # Should update these configs
     cmd = "sbatch --time=1-00:00 "
-    # if use_gpu:
-    #     cmd += "--partition=xeon-g6-volta --gres=gpu:volta:1 "
+    if use_gpu:
+        cmd += "--gres=gpu:1 "
     # else:
     #     cmd += "--partition=xeon-p8 "
     cmd += ("--nodes=1 "

@@ -613,7 +613,7 @@ def append_classification_result_for_ops(
             # Should add proprio state
         state_dict_str = state.dict_str(
             indent=2,
-            object_features=not CFG.vlm_predicator_render_option_state,
+            object_features=not CFG.neu_sym_predicate,
             use_object_id=CFG.vlm_predicator_render_option_state,
             position_proprio_features=True)
         result_str.append(state_dict_str)
@@ -642,7 +642,7 @@ def append_classification_result_for_ops(
                                       " with additional info:")
             n_state_dict_str = n_state.dict_str(
                 indent=2,
-                object_features=not CFG.vlm_predicator_render_option_state,
+                object_features=not CFG.neu_sym_predicate,
                 use_object_id=CFG.vlm_predicator_render_option_state,
                 position_proprio_features=True)
             result_str.append(n_state_dict_str)
@@ -1812,7 +1812,10 @@ class RawState(PyBulletState):
 
     def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
         """Set the value of an object feature by name."""
-        idx = obj.type.feature_names.index(feature_name)
+        try:
+            idx = obj.type.feature_names.index(feature_name)
+        except:
+            breakpoint()
         standard_feature_len = len(self.data[obj])
         if idx >= standard_feature_len:
             # When setting the bounding box features for the first time
@@ -1838,7 +1841,9 @@ class RawState(PyBulletState):
         state_dict = {}
         for obj in self:
             obj_dict = {}
-            for attribute, value in zip(obj.type.feature_names, self[obj]):
+            for attribute, value in zip(obj.type.feature_names, 
+                np.concatenate([self[obj], self.bbox_features[obj]]) if 
+                self.bbox_features else self[obj]):
                 # include if it's proprioception feature, or position/bbox
                 # feature, or object_features is True
                 # if (obj.type.name == "robot" and \
@@ -3344,7 +3349,10 @@ def parse_model_output_into_option_plan(
     # Python objects during parsing.
     option_name_to_option = {op.name: op for op in options}
     type_name_to_type = {typ.name: typ for typ in types}
-    obj_name_to_obj = {o.name: o for o in objects}
+    if CFG.label_objs_with_id_name:
+        obj_name_to_obj = {o.id_name: o for o in objects}
+    else:
+        obj_name_to_obj = {o.name: o for o in objects}
     options_str_list = model_prediction.split('\n')
     for option_str in options_str_list:
         option_str_stripped = option_str.strip()

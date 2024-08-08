@@ -356,7 +356,8 @@ class PyBulletEnv(BaseEnv):
                                       state_copy.simulator_state,
                                       *self.render_segmented_obj())
             rendered_state.label_all_objects()
-            rendered_state.add_bbox_features()
+            if CFG.env_include_bbox_features:
+                rendered_state.add_bbox_features()
             return rendered_state
         else:
             return state_copy

@@ -20,10 +20,6 @@ class State:
         __iter__().
     """
     data: Dict[Object, Array]
-    # Some environments will need to store additional simulator state, so
-    # this field is provided.
-    simulator_state: Optional[Any] = None
-
     def get(self, obj: Object, feature_name: str) -> Any:
         """Look up an object feature by name.
 

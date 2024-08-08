@@ -29,19 +29,22 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Repeat for LLM predicates parsing
-    # Types
-    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _block_type = Type("block", [
-        "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g", "color_b"
-    ] + bbox_features)
-    _robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
-                       bbox_features)
-    _table_type = Type("table", bbox_features)
-
-    _known_features = ["pose_x", "pose_y", "pose_z", "fingers"] + bbox_features
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        # Types
+        bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
+        self._block_type = Type("block", [
+            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g", "color_b"
+        ] + (bbox_features if CFG.env_include_bbox_features else []))
+        self._robot_type = Type("robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
+                        (bbox_features if CFG.env_include_bbox_features else []))
+        self._table_type = Type("table", 
+                        (bbox_features if CFG.env_include_bbox_features else []))
+
+        self._known_features = ["pose_x", "pose_y", "pose_z", "fingers"] +\
+                    (bbox_features if CFG.env_include_bbox_features else [])
 
         # Repeat for LLM predicates parsing
         # self._On = Predicate("On", [self._block_type, self._block_type],
@@ -90,26 +93,16 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self._Clear_NSP,
         }
 
-    @staticmethod
-    def _Clear_NSP_holds(state: RawState, objects: Sequence[Object]) -> \
+    def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> \
             Union[bool, VLMQuery]:
         """Is there no block on top of the block."""
         block, = objects
-
-        # Label the object in the scene image.
-        block_name = block.id_name
-
-        # We only need to look at the object and the space on top of it to
-        # determine if it's clear.
-        attention_image = state.crop_to_objects([block],
-                                                top_margin=20,
-                                                lower_margin=5)
-        if CFG.save_nsp_image_patch_before_query:
-            attention_image.save(f"{CFG.image_dir}/clear({block_name}).png")
-            # return False
-        return state.evaluate_simple_assertion(
-            f"there is no block directly on top of {block_name}.",
-            attention_image)
+        for other_block in state:
+            if other_block.type != self._block_type:
+                continue
+            if self._On_holds(state, [other_block, block]):
+                return False
+        return True
 
     def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
             bool:
@@ -118,7 +111,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # The block can't be held if the robot's hand is open.
         # We know there is only one robot in this environment.
-        robot = state.get_objects(_robot_type)[0]
+        robot = state.get_objects(self._robot_type)[0]
         if self._GripperOpen_NSP_holds(state, [robot]):
             return False
 
@@ -157,7 +150,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         block_name = block.id_name
 
         # We know there is only one table in this environment.
-        table = state.get_objects(_table_type)[0]
+        table = state.get_objects(self._table_type)[0]
         table_name = table.id_name
         # Crop the image to the smallest bounding box that include both objects.
         attention_image = state.crop_to_objects([block, table])

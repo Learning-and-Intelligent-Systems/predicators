@@ -120,7 +120,7 @@ class OpenAILLM(LargeLanguageModel):
         # Note that max_tokens is the maximum response length (not prompt).
         # From OpenAI docs: "The token count of your prompt plus max_tokens
         # cannot exceed the model's context length."
-        self._max_tokens = CFG.llm_openai_max_response_tokens
+        self._max_tokens = CFG.vlm_openai_max_response_tokens
         assert "OPENAI_API_KEY" in os.environ
         openai.api_key = os.getenv("OPENAI_API_KEY")
 

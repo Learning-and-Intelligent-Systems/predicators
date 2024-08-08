@@ -38,6 +38,8 @@ def create_arg_parser(env_required: bool = True,
     # restart_learning will ensure loading is only done for the
     # cycle at skip_until_cycle, and then learning will proceed
     # normally (without loading) from there.
+    # For example, to proceed after 10 ites, use --skip_until_cycle 10 
+    # --load_approach --restart_learning
     parser.add_argument("--restart_learning", action="store_true")
     parser.add_argument("--load_data", action="store_true")
     parser.add_argument("--load_atoms", action="store_true")

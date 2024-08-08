@@ -6,74 +6,86 @@ APPROACHES:
     FLAGS: []
 ENVS:
   stick_button:
-    NAME: "burger"
+    # NAME: "stick_button"
+    # NAME: "cover_place_hard"
     # NAME: "pybullet_cover"
     # NAME: "pybullet_blocks"
+    NAME: "burger"
+    # NAME: "blocks"
+    # NAME: "doors"
+    # NAME: "sokoban"
+    # NAME: "sandwich"
+    # NAME: "screws"
+    # NAME: "sticky_table"
+    # NAME: "painting"
+    # NAME: "tools"
+    # NAME: "coffee"
+    # NAME: "playroom_simple"
     
 ARGS: 
   # []
   - "debug"
+  # - "rgb_observation" # stick_button doesn't support rendering
   # - "make_segmented_demo_videos"
   # - "make_demo_videos" 
+  # - "make_failure_videos"
   # - "use_gui"
   # - "load_approach"
 FLAGS:
-  num_train_tasks: 5
+  num_train_tasks: 1
   num_test_tasks: 20
   option_learner: no_learning # include all options by flagging no learning
   sampler_learner: oracle
-  strips_learner: "cluster_and_intersect"
+  strips_learner: "cluster_intersect_and_search"
   # bilevel_plan_without_sim: True
   excluded_predicates: "all"
   sesame_max_samples_per_step: 1
-  # sesame_task_planner: fdopt
-  min_perc_data_for_nsrt: 10
+  min_perc_data_for_nsrt: 0
   segmenter: "option_changes"
-  timeout: 300 # 80 won't be enough even for the oracle to solve the full goal
-  pybullet_camera_width: 800
+  neural_gaus_regressor_max_itr: 50000
+  timeout: 300
+  log_file: "logs/vlm_predicate.log"
+  pybullet_camera_width: 900
   pybullet_camera_height: 900
   video_fps: 20
-  log_file: "logs/vlm_predicate.log"
 
   # Env settings
   burger_explicit_goal: True
+  sesame_max_skeletons_optimized: 200
   rgb_observation: False
-  render_init_state: True # True for NSP
+  render_init_state: False # True for NSP
 
   # Operator learning config
+  use_partial_plans_prefix_as_demo: True
   use_option_not_args_types_in_unification: True
+  use_least_generalization_types_in_clustering: True
 
-  # Predicate refinement parameters
   grammar_search_search_algorithm: "gbfs"
   grammar_search_predicate_cost_upper_bound: 10
   # grammar_search_search_algorithm: "hill_climbing"
   painting_raise_environment_failure: False
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
-  grammar_search_grammar_includes_negation: True # relaxation 2
-  grammar_search_grammar_includes_foralls: True  # relaxation 2
-  load_llm_pred_invent_dataset: False
-  save_llm_pred_invent_dataset: False # can't pickle rendered states
-  grammar_search_score_function: "expected_nodes_created"
-  # grammar_search_score_function: "operator_classification_error"
+  grammar_search_grammar_includes_negation: False
+  grammar_search_grammar_includes_foralls: False
+  load_vlm_pred_invent_dataset: False
+  save_vlm_pred_invent_dataset: False # can't pickle rendered states
+  # sesame_task_planner: fdopt
 
   # NSP (using VLMs) setting
-  reset_optn_state_dict_at_every_ite: False
-  enable_harmless_op_pruning: False
-  neu_sym_predicate: True # True for NSP
-  vlm_predicator_render_option_state: True # True for NSP
+  neu_sym_predicate: False # True for NSP
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"
-  # vlm_model_name: "gpt-4o"
   vlm_temperature: 0
   vlm_use_chat_mode: True
   sesame_check_expected_atoms: False
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
-  llm_openai_max_response_tokens: 4096
-  llm_predicator_use_grammar: False # always true?
-  vlm_predicator_oracle_base_grammar: False
-  llm_predicator_oracle_learned: True            # relaxation 1
+  vlm_openai_max_response_tokens: 4096
+  vlm_predicator_use_grammar: True
+  vlm_predicator_oracle_base_grammar: True
+  vlm_predicator_oracle_learned: True # when True 17/20; False 3/20
+  vlm_predicator_render_option_state: False # True for NSP
   # Test
   grammar_search_prune_redundant_preds: False
 START_SEED: 2

@@ -15,7 +15,7 @@ ENVS:
       bumpy_cover_init_bumpy_prob: 0.0  # NOTE
       bumpy_cover_num_bumps: 3
       bumpy_cover_spaces_per_bump: 3
-      cover_num_blocks: 1
+      cover_num_blocks: 2
       cover_block_widths: '[0.01]'
       cover_num_targets: 1
       cover_target_widths: '[0.008]'

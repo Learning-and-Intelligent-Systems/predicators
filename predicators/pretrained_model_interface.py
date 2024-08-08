@@ -269,7 +269,7 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
         # Note that max_tokens is the maximum response length (not prompt).
         # From OpenAI docs: "The token count of your prompt plus max_tokens
         # cannot exceed the model's context length."
-        self._max_tokens = CFG.llm_openai_max_response_tokens
+        self._max_tokens = CFG.vlm_openai_max_response_tokens
         self.set_openai_key()
 
     def get_id(self) -> str:
@@ -333,7 +333,7 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
     """
 
     @retry(wait=wait_random_exponential(min=1, max=60),
-           stop=stop_after_attempt(600))
+           stop=stop_after_attempt(60000))
     def _sample_completions(
             self,
             prompt: str,
@@ -410,7 +410,7 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         # Note that max_tokens is the maximum response length (not prompt).
         # From OpenAI docs: "The token count of your prompt plus max_tokens
         # cannot exceed the model's context length."
-        self._max_tokens = CFG.llm_openai_max_response_tokens
+        self._max_tokens = CFG.vlm_openai_max_response_tokens
         self.set_openai_key()
 
     def prepare_vision_messages(

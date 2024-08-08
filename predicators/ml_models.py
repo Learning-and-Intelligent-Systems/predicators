@@ -1374,7 +1374,8 @@ class MapleQFunction(MLPRegressor):
             num_params = ground_nsrt.option.params_space.shape[0]
             self._max_num_params = max(self._max_num_params, num_params)
         self._ordered_objects = sorted(objects)
-        self._ordered_frozen_goals = sorted({frozenset(g) for g in goals})
+        if not CFG.maple_exclude_goal:
+            self._ordered_frozen_goals = sorted({frozenset(g) for g in goals})
         self._num_ground_nsrts = len(ground_nsrts)
         self._ordered_ground_nsrts = sorted(ground_nsrts)
         self._ground_nsrt_to_idx = {
@@ -1436,9 +1437,9 @@ class MapleQFunction(MLPRegressor):
         """Fit the model."""
         # First, precompute the size of the input and output from the
         # Q-network.
-        X_size = sum(o.type.dim for o in self._ordered_objects) + len(
-            self._ordered_frozen_goals
-        ) + self._num_ground_nsrts + self._max_num_params
+        X_size = sum(o.type.dim for o in self._ordered_objects) + self._num_ground_nsrts + self._max_num_params
+        if not CFG.maple_exclude_goal:
+            X_size += len(self._ordered_frozen_goals)
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
@@ -1451,10 +1452,14 @@ class MapleQFunction(MLPRegressor):
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
-            vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
-            X_arr[i] = np.concatenate(
-                [vectorized_state, vectorized_goal, vectorized_action])
+            if CFG.maple_exclude_goal:
+                X_arr[i] = np.concatenate(
+                    [vectorized_state, vectorized_action])
+            else:
+                vectorized_goal = self._vectorize_goal(goal)
+                X_arr[i] = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             if not terminal and self._y_dim != -1:
@@ -1469,9 +1474,14 @@ class MapleQFunction(MLPRegressor):
                         next_option_vecs.append(
                             self._vectorize_option(next_option))
                 for next_action_vec in next_option_vecs:
-                    x_hat = np.concatenate([
+                    if CFG.maple_exclude_goal:
+                        x_hat = np.concatenate([
+                        vectorized_next_state, next_action_vec
+                        ])
+                    else:
+                        x_hat = np.concatenate([
                         vectorized_next_state, vectorized_goal, next_action_vec
-                    ])
+                        ])
                     q_x_hat = self.predict(x_hat)[0]
                     best_next_value = max(best_next_value, q_x_hat)
             else:
@@ -1574,11 +1584,17 @@ class MapleQFunction(MLPRegressor):
         # Default value if not yet fit.
         if self._y_dim == -1:
             return 0.0
-        x = np.concatenate([
-            self._vectorize_state(state),
-            self._vectorize_goal(goal),
-            self._vectorize_option(option)
-        ])
+        if CFG.maple_exclude_goal:
+            x = np.concatenate([
+                self._vectorize_state(state),
+                self._vectorize_option(option)
+            ])
+        else:
+            x = np.concatenate([
+                self._vectorize_state(state),
+                self._vectorize_goal(goal),
+                self._vectorize_option(option)
+            ])
         y = self.predict(x)[0]
         return y
 

@@ -20,10 +20,11 @@ def _main():
     # generate configs--will only take the first one
     cfg = next(generate_run_configs(args.config))
     cmd_str = config_to_cmd_flags(cfg)
-    cmd_flags = shlex.split(cmd_str)
+    # cmd_flags = shlex.split(cmd_str)
 
     # run the command
-    subprocess.run(["python", "predicators/main.py"] + cmd_flags)
+    subprocess.run(f"python predicators/main.py {cmd_str}", shell=True, 
+                   check=False)
 
 
 if __name__ == "__main__":

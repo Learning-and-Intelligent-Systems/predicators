@@ -145,21 +145,24 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     _camera_pitch_front: ClassVar[float] = -24
     # _camera_target_front: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
-    # Types
-    bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-    _table_type = Type("table", [] + bbox_features)
-    _robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"] +
-                       bbox_features)
-    _jug_type = Type("jug", ["x", "y", "z", "rot", "is_held", "is_filled"] +
-                     bbox_features)
-    _machine_type = Type("coffee_machine", ["is_on"] + bbox_features)
-    _cup_type = Type(
-        "cup",
-        ["x", "y", "z", "capacity_liquid", "target_liquid", "current_liquid"] +
-        bbox_features)
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        # Types
+        bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
+        self._table_type = Type("table", [] + 
+                        (bbox_features if CFG.env_include_bbox_features else []))
+        self._robot_type = Type("robot", ["x", "y", "z", "tilt", "wrist", "fingers"] +
+                        (bbox_features if CFG.env_include_bbox_features else []))
+        self._jug_type = Type("jug", ["x", "y", "z", "rot", "is_held", "is_filled"] +
+                        (bbox_features if CFG.env_include_bbox_features else []))
+        self._machine_type = Type("coffee_machine", ["is_on"] + 
+                        (bbox_features if CFG.env_include_bbox_features else []))
+        self._cup_type = Type(
+            "cup",
+            ["x", "y", "z", "capacity_liquid", "target_liquid", "current_liquid"] +
+            (bbox_features if CFG.env_include_bbox_features else []))
 
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
@@ -201,10 +204,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
             self._CupFilled_NSP,
+            self._JugFilled_NSP,
             self._Holding_NSP,
+            self._HandEmpty,
             self._JugInMachine_NSP,
             self._JugPickable_NSP,
-            self._JugFilled_NSP,
             self._OnTable_NSP,
             self._MachineOn_NSP,
         }
@@ -265,11 +269,23 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                objects: Sequence[Object]) -> bool:
         """Determine if the jug is pickable."""
         jug, = objects
-        jug_name = jug.id_name
-        attention_image = state.crop_to_objects([jug])
-        return state.evaluate_simple_assertion(
-            f"{jug_name}'s handle is pointing to the robot so it can " +
-            "be directly picked up", attention_image)
+        jug_rot = state.get(jug, "rot")
+
+        if self.get_name == "coffee":
+            pick_jug_rot_tol = self.pick_jug_rot_tol
+        else:
+            # in pb-coffee determine by grasp check
+            # pick_jug_rot_tol = 1/5 * np.pi
+            pick_jug_rot_tol = 0.5
+            # pick_jug_rot_tol = - np.pi / 4
+
+        return abs(jug_rot) <= pick_jug_rot_tol
+        # jug, = objects
+        # jug_name = jug.id_name
+        # attention_image = state.crop_to_objects([jug])
+        # return state.evaluate_simple_assertion(
+        #     f"{jug_name}'s handle is pointing to the robot so it can " +
+        #     "be directly picked up", attention_image)
 
     def _JugFilled_NSP_holds(self, state: RawState,
                              objects: Sequence[Object]) -> bool:

@@ -53,6 +53,7 @@ from predicators.utils import EnvironmentFailure, OptionExecutionFailure, \
     get_value_from_tuple_key, has_key_in_tuple_key, option_plan_to_policy
 
 import_str = """
+from predicators.settings import CFG
 import numpy as np
 from typing import Sequence
 from predicators.structs import State, Object, Predicate, Type
@@ -347,7 +348,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         # Want to remove the predicates of the same name
                         # Currently assume this is correct
                         new_proposals = env.ns_predicates -\
-                            self._initial_predicates
+                                            self._initial_predicates
                     else:
                         new_proposals = env.oracle_proposed_predicates -\
                                             self._initial_predicates
@@ -420,7 +421,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             # [Start moving out]
             # Apply the candidate predicates to the data.
 
-            if CFG.llm_predicator_oracle_learned:
+            if CFG.vlm_predicator_oracle_learned:
                 self._learned_predicates = new_proposals
             else:
                 # Select a subset candidates by score optimization
@@ -429,7 +430,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 ### Predicate Search
                 # Optionally add grammar to the candidates
                 all_candidates: Dict[Predicate, float] = {}
-                if CFG.llm_predicator_use_grammar:
+                if CFG.vlm_predicator_use_grammar:
                     grammar = _create_grammar(dataset=Dataset(all_trajs),
                                               given_predicates=\
                                 self.base_candidates|self._initial_predicates)
@@ -492,23 +493,27 @@ class VlmInventionApproach(NSRTLearningApproach):
                     sorted(self.base_candidates - self._initial_predicates),
                     env.ns_to_sym_predicates)
 
-                logging.info("[Start] Predicate search from " +
-                             f"{self._initial_predicates}...")
-                score_function = create_score_function(
-                    score_func_name, self._initial_predicates, atom_dataset,
-                    all_candidates, self._train_tasks, self.succ_optn_dict,
-                    self.fail_optn_dict)
-                start_time = time.perf_counter()
-                self._learned_predicates = \
-                    self._select_predicates_by_score_hillclimbing(
-                        ite,
-                        all_candidates,
-                        score_function,
-                        initial_predicates = self._initial_predicates)
-                logging.info("[Finish] Predicate search.")
-                logging.info(
-                    f"Total search time {time.perf_counter()-start_time:.2f} "
-                    "seconds")
+                if CFG.skip_selection_if_no_solve and num_solved == 0:
+                    logging.info("No successful trajectories and not using the"
+                                 "accuracy-based objective. Skip selection.")
+                    self._learned_predicates = set(all_candidates)
+                else:
+                    logging.info("[Start] Predicate search from " +
+                                f"{self._initial_predicates}...")
+                    score_function = create_score_function(
+                        score_func_name, self._initial_predicates, atom_dataset,
+                        all_candidates, self._train_tasks, self.succ_optn_dict,
+                        self.fail_optn_dict)
+                    start_time = time.perf_counter()
+                    self._learned_predicates = \
+                        self._select_predicates_by_score_hillclimbing(
+                            ite,
+                            all_candidates,
+                            score_function,
+                            initial_predicates = self._initial_predicates)
+                    logging.info("[Finish] Predicate search.")
+                    logging.info("Total search time "
+                        f"{time.perf_counter() - start_time:.2f} seconds")
             # [End moving out]
 
             # Finally, learn NSRTs via superclass, using all the kept predicates.
@@ -841,14 +846,14 @@ class VlmInventionApproach(NSRTLearningApproach):
             else:
                 option_start_state = env.get_observation(
                     render=CFG.vlm_predicator_render_option_state)
-                if CFG.neu_sym_predicate:
+                if CFG.env_include_bbox_features:
                     option_start_state.add_bbox_features()
                 option_start_state.option_history = partial_plan_prefix
                 option_start_state.prev_state = prev_state
                 self.state_cache[state_hash] = option_start_state.copy()
             g_nsrt = nsrt_plan[0]
             gop_str = g_nsrt.ground_option_str(
-                use_object_id=CFG.neu_sym_predicate)
+                use_object_id=CFG.vlm_predicator_render_option_state)
             # logging.debug(f"found neg states for {gop_str}")
             # logging.debug(f"have neg state for {self.fail_optn_dict.keys()}")
             self.fail_optn_dict[gop_str].append_state(
@@ -881,12 +886,13 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 option_start_state = env.get_observation(
                                     render=CFG.
                                     vlm_predicator_render_option_state)
-                                if CFG.neu_sym_predicate:
+                                if CFG.env_include_bbox_features:
                                     option_start_state.add_bbox_features()
                                 # add plan prefix
                                 option_start_state.option_history = [
                                     n.ground_option_str(
-                                        use_object_id=CFG.neu_sym_predicate)
+                                        use_object_id=CFG.
+                                            vlm_predicator_render_option_state)
                                     for n in nsrt_plan[:nsrt_counter]
                                 ]
                                 option_start_state.prev_state = states[-1] if\
@@ -923,7 +929,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 # add plan prefix
                                 option_start_state.option_history = [
                                     n.ground_option_str(
-                                        use_object_id=CFG.neu_sym_predicate)
+                                        use_object_id=CFG.
+                                            vlm_predicator_render_option_state)
                                     for n in nsrt_plan[:nsrt_counter]
                                 ]
                                 option_start_state.prev_state = states[-1] if\
@@ -932,7 +939,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                 #     n.option.parameterized_annotation(
                                 #     n.option_objs)
                                 #     for n in nsrt_plan[:nsrt_counter]]
-                                if CFG.neu_sym_predicate:
+                                if CFG.env_include_bbox_features:
                                     option_start_state.add_bbox_features()
                                 self.state_cache[
                                     state_hash] = option_start_state.copy()
@@ -942,7 +949,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                             #                 f"{env_step_counter}")
                             g_nsrt = nsrt_plan[nsrt_counter]
                             gop_str = g_nsrt.ground_option_str(
-                                use_object_id=CFG.neu_sym_predicate)
+                                use_object_id=CFG.
+                                    vlm_predicator_render_option_state)
                             states.append(option_start_state)
                             first_option_action = True
                             # Save to a temp list to add next_state
@@ -987,14 +995,14 @@ class VlmInventionApproach(NSRTLearningApproach):
                         tasks: List[Task]) -> List[PlanningResult]:
 
         ds_fname = utils.llm_pred_dataset_save_name(ite)
-        if CFG.load_llm_pred_invent_dataset and os.path.exists(ds_fname):
+        if CFG.load_vlm_pred_invent_dataset and os.path.exists(ds_fname):
             with open(ds_fname, 'rb') as f:
                 results = dill.load(f)
             logging.info(f"Loaded dataset from {ds_fname}\n")
         else:
             # Ask it to solve the tasks
             results = self._solve_tasks(env, tasks, ite)
-            if CFG.save_llm_pred_invent_dataset:
+            if CFG.save_vlm_pred_invent_dataset:
                 os.makedirs(os.path.dirname(ds_fname), exist_ok=True)
                 with open(ds_fname, 'wb') as f:
                     dill.dump(results, f)
@@ -1080,6 +1088,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         new_candidates = self._parse_predicate_predictions(
             response_file, tasks)
+        breakpoint()
         return new_candidates
 
     def _select_predicates_by_score_hillclimbing(
@@ -1311,13 +1320,23 @@ class VlmInventionApproach(NSRTLearningApproach):
         state_list_str: str,
         predicate_specs: str,
     ) -> str:
-        with open(f"prompts/invent_0_prog_syn.outline", 'r') as file:
-            template = file.read()
 
         # Structure classes
-        with open('./prompts/api_raw_state.py', 'r') as f:
+        if CFG.neu_sym_predicate:
+            template_file = "invent_0_prog_syn_nesy.outline"
+            state_api_file = "api_raw_state.py"
+            pred_api_file = "api_nesy_predicate.py"
+        else:
+            template_file = "invent_0_prog_syn_sym.outline"
+            state_api_file = "api_oo_state.py"
+            pred_api_file = "api_sym_predicate.py"
+
+        with open(f"prompts/{template_file}", 'r') as f:
+            template = f.read()
+
+        with open(f'./prompts/{state_api_file}', 'r') as f:
             state_str = f.read()
-        with open('./prompts/api_nesy_predicate.py', 'r') as f:
+        with open(f'./prompts/{pred_api_file}', 'r') as f:
             pred_str = f.read()
         template = template.replace(
             '[STRUCT_DEFINITION]',
@@ -1614,11 +1633,12 @@ class VlmInventionApproach(NSRTLearningApproach):
         return stdout, passed
 
     def _env_type_str(self, source_code: str) -> str:
-        type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"
+        type_pattern = r"(        # Types.*?)(?=\n\s*\n|$)"
         type_block = re.search(type_pattern, source_code, re.DOTALL)
         if type_block is not None:
             type_init_str = type_block.group()
             type_init_str = textwrap.dedent(type_init_str)
+            type_init_str = type_init_str.replace("self.", "")
             # type_init_str = add_python_quote(type_init_str)
             return type_init_str
         else:

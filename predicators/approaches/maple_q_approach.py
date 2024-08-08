@@ -14,7 +14,7 @@ Example command for default approach:
         --num_test_tasks 10 --max_num_steps_interaction_request 5 \
         --num_online_learning_cycles 20 --horizon 2 \
         --debug
->>> solve rate: 9/10
+>>> solve rate: 2/10
 
 Example command that uses doesn't use operators to help select actions:
     python predicators/main.py --approach maple_q --seed 0 \
@@ -27,8 +27,11 @@ Example command that uses doesn't use operators to help select actions:
         --excluded_predicates all --maple_assert_oracle_strips False \
         --online_learning_assert_no_exclude_pred False \
         --debug
+>>> solve rate: 1/10
 
-Example command that uses vision policy:
+The config in online_rl_cover has 9/10 with 1 block/target but 2/10 with 2.
+
+Example command that for pybullet cover:
     python predicators/main.py --approach maple_q --seed 0 \
         --explorer maple_q --mlp_regressor_max_itr 640000 \
         --online_nsrt_learning_requests_per_cycle 200\
@@ -40,6 +43,33 @@ Example command that uses vision policy:
         --excluded_predicates all --maple_assert_oracle_strips False \
         --online_learning_assert_no_exclude_pred False \
         --debug
+    python predicators/main.py --approach maple_q --seed 0 \
+        --explorer maple_q --mlp_regressor_max_itr 640000 \
+        --online_nsrt_learning_requests_per_cycle 200\
+        --active_sampler_learning_batch_size 512 \
+        --env pybullet_blocks --blocks_num_blocks_test [3,4] \
+        --sampler_learner oracle --max_initial_demos 0 --num_train_tasks 1000 \
+        --num_test_tasks 10 --max_num_steps_interaction_request 1000 \
+        --num_online_learning_cycles 20 --horizon 1000 \
+        --excluded_predicates all --maple_assert_oracle_strips False \
+        --online_learning_assert_no_exclude_pred False \
+        --debug
+    python predicators/main.py --approach maple_q --seed 0 \
+        --explorer maple_q --mlp_regressor_max_itr 640000 \
+        --online_nsrt_learning_requests_per_cycle 200\
+        --active_sampler_learning_batch_size 512 \
+        --env pybullet_coffee --coffee_num_cups_test [1]\
+        --coffee_rotated_jug_ratio 0.5 \
+        --coffee_combined_move_and_twist_policy True \
+        --coffee_mac_requires_jug_to_turn_on True \
+        --sampler_learner oracle --max_initial_demos 0 --num_train_tasks 1000 \
+        --num_test_tasks 10 --max_num_steps_interaction_request 1000 \
+        --num_online_learning_cycles 20 --horizon 1000 \
+        --excluded_predicates all --maple_assert_oracle_strips False \
+        --online_learning_assert_no_exclude_pred False \
+        --debug
+`--maple_exclude_goal True` because otherwise it can't work on unseen goals
+>>> pybullet_cover_typed_options: solve rate: 4/10
 """
 
 from __future__ import annotations

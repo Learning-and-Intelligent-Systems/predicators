@@ -46,17 +46,17 @@ FLAGS:
   grammar_search_grammar_includes_negation: True
   grammar_search_grammar_includes_foralls: True
   grammar_search_prune_redundant_preds: False
-  load_llm_pred_invent_dataset: False
-  save_llm_pred_invent_dataset: False # can't pickle rendered states
+  load_vlm_pred_invent_dataset: False
+  save_vlm_pred_invent_dataset: False # can't pickle rendered states
   grammar_search_score_function: "expected_nodes_created"
 
   # Predicate Invention params (main ones to adjust)
   reset_optn_state_dict_at_every_ite: False
   neu_sym_predicate: False # True for NSP
   vlm_predicator_render_option_state: False # True for NSP
-  llm_predicator_use_grammar: False
+  vlm_predicator_use_grammar: False
   vlm_predicator_oracle_base_grammar: True
-  llm_predicator_oracle_learned: False
+  vlm_predicator_oracle_learned: False
   # More Predicate invent params (Same for all configurations)
   save_nsp_image_patch_before_query: False
   vlm_model_name: "gemini-1.5-pro"
@@ -64,7 +64,7 @@ FLAGS:
   vlm_use_chat_mode: True
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
-  llm_openai_max_response_tokens: 4096
+  vlm_openai_max_response_tokens: 4096
 START_SEED: 2
 NUM_SEEDS: 1
 ...

@@ -425,7 +425,7 @@ class GlobalSettings:
 
     # parameters for large language models
     pretrained_model_prompt_cache_dir = "pretrained_model_cache"
-    llm_openai_max_response_tokens = 700
+    vlm_openai_max_response_tokens = 700
     llm_use_cache_only = False
     llm_model_name = "text-curie-001"  # "text-davinci-002"
     llm_temperature = 0.5
@@ -449,7 +449,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_use_chat_mode = False
     query_vlm_for_each_assertion = False
     query_vlm_for_each_predicate = False
-    vlm_invent_include_option_history = True
+    vlm_invent_include_option_history = False
     vlm_invent_try_to_use_gt_predicates = False
     vlm_invent_predicates_in_stages = False
     vlm_invent_from_trajs = False
@@ -636,6 +636,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     use_epsilon_annealing = True
     min_epsilon = 0.05
     maple_assert_oracle_strips = True
+    maple_exclude_goal = False
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
@@ -736,20 +737,22 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # Have the pybullet env (for now) to render the states and save to RawState
     rgb_observation = False  # Render every state
     render_init_state = False  # Render only the init state for planning
+    label_objs_with_id_name = False
     # For debug
     save_nsp_image_patch_before_query = False
     # LLM predicate invention algorithm parameters
-    llm_predicator_use_grammar = True
+    vlm_predicator_use_grammar = True
     vlm_predicator_oracle_base_grammar = True
-    llm_predicator_oracle_learned = False
+    vlm_predicator_oracle_learned = False
     vlm_predicator_render_option_state = False
-    load_llm_pred_invent_dataset = True
-    save_llm_pred_invent_dataset = True
+    load_vlm_pred_invent_dataset = True
+    save_vlm_pred_invent_dataset = True
     neu_sym_predicate = False
     reset_optn_state_dict_at_every_ite = False
     nsp_pred_include_prev_state_in_prompt = True
     nsp_pred_include_prev_image_in_prompt = False
     nsp_pred_include_state_str_in_prompt = False
+    skip_selection_if_no_solve = False
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms
@@ -760,9 +763,9 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_predicate_vision_api_generate_ground_atoms = False
 
     # LLM predicate invention algorithm parameters
-    llm_predicator_use_grammar = True
+    vlm_predicator_use_grammar = True
     llm_predicator_oracle_base = True
-    llm_predicator_oracle_learned = False
+    vlm_predicator_oracle_learned = False
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

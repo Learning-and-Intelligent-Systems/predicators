@@ -35,7 +35,7 @@ FLAGS:
   sesame_check_expected_atoms: False
   query_vlm_for_each_assertion: False
   query_vlm_for_each_predicate: False
-  llm_openai_max_response_tokens: 4096
+  vlm_openai_max_response_tokens: 4096
 
 
 START_SEED: 2
