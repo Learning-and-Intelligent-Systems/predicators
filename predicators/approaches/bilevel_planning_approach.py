@@ -60,7 +60,7 @@ class BilevelPlanningApproach(BaseApproach):
         preds = self._get_current_predicates()
         # old_nsrts = nsrts
         # nsrts = set(n for n in nsrts if ("Op17" not in n.name and "Op18" not in n.name))
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
 
         # objs = [o for o in task.init.data.keys()]
         # robot = [o for o in objs if o.name=="robot"][0]
@@ -92,15 +92,15 @@ class BilevelPlanningApproach(BaseApproach):
         #     nnn[]
         # ]
 
-        abs = utils.abstract(task.init, preds)
-        for i, nsrt in enumerate(plan):
-            if nsrt.preconditions.issubset(abs):
-                print(f"{i}th nsrt's preconditions satisfied")
-            else:
-                print(f"{i}th nsrt's preconditions NOT satisfied")
-                import pdb; pdb.set_trace()
-            abs  = (abs | nsrt.add_effects) - nsrt.delete_effects
-        import pdb; pdb.set_trace()
+        # abs = utils.abstract(task.init, preds)
+        # for i, nsrt in enumerate(plan):
+        #     if nsrt.preconditions.issubset(abs):
+        #         print(f"{i}th nsrt's preconditions satisfied")
+        #     else:
+        #         print(f"{i}th nsrt's preconditions NOT satisfied")
+        #         import pdb; pdb.set_trace()
+        #     abs  = (abs | nsrt.add_effects) - nsrt.delete_effects
+        # import pdb; pdb.set_trace()
 
 
         # Run task planning only and then greedily sample and execute in the
@@ -115,7 +115,7 @@ class BilevelPlanningApproach(BaseApproach):
             logging.debug("Current Task Plan:")
             for act in nsrt_plan:
                 logging.debug(act)
-            # import pdb; pdb.set_trace
+            import pdb; pdb.set_trace
 
         # Run full bilevel planning.
         else:
@@ -124,6 +124,8 @@ class BilevelPlanningApproach(BaseApproach):
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
             policy = utils.option_plan_to_policy(option_plan)
+
+            import pdb; pdb.set_trace()
 
         self._save_metrics(metrics, nsrts, preds)
 
