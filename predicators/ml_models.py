@@ -121,6 +121,8 @@ class _NormalizingRegressor(Regressor):
 
     def predict(self, x: Array) -> Array:
         assert len(self._x_dims), "Fit must be called before predict."
+        if not x.shape == self._x_dims:
+            import ipdb;ipdb.set_trace()
         assert x.shape == self._x_dims
         # Normalize.
         if not self._disable_normalization:
@@ -1446,7 +1448,7 @@ class MapleQFunction(MLPRegressor):
         options = self._sample_applicable_options_from_state(
             state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
         scores = [
-            self.predict_q_value(state, goal, option) for option in options
+            self.predict_q_value(state, option) for option in options
         ]
         
         option_scores=list(zip(options, scores))
@@ -1474,9 +1476,7 @@ class MapleQFunction(MLPRegressor):
         # import ipdb;ipdb.set_trace()
         # First, precompute the size of the input and output from the
         # Q-network.
-        X_size = sum(o.type.dim for o in self._ordered_objects) + len(
-            self._ordered_frozen_goals
-        ) + self._num_ground_nsrts + self._max_num_params
+        X_size = sum(o.type.dim for o in self._ordered_objects) + self._num_ground_nsrts + self._max_num_params
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
@@ -1497,10 +1497,10 @@ class MapleQFunction(MLPRegressor):
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
-            vectorized_goal = self._vectorize_goal(goal)
+            # vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             X_arr[i] = np.concatenate(
-                [vectorized_state, vectorized_goal, vectorized_action])
+                [vectorized_state, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
@@ -1521,7 +1521,7 @@ class MapleQFunction(MLPRegressor):
                         self._sample_applicable_options_from_state(
                             next_state):
                     x_hat = np.concatenate([
-                        vectorized_next_state, vectorized_goal, self._vectorize_option(next_option)
+                        vectorized_next_state, self._vectorize_option(next_option)
                     ])
                     q_x_hat = self.predict(x_hat)[0]
                     if best_next_value<q_x_hat:
@@ -1583,7 +1583,7 @@ class MapleQFunction(MLPRegressor):
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
+                    [vectorized_state, vectorized_action])
             self._good_light_q_values.append(self.predict(x)[0])
             print("GOOD LIGHT", self.predict(x)[0], Y_arr[good_light])
         
@@ -1594,7 +1594,7 @@ class MapleQFunction(MLPRegressor):
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
+                    [vectorized_state, vectorized_action])
             self._bad_light_q_values.append(self.predict(x)[0])
             # print("BAD LIGHT", self.predict(x)[0], Y_arr[bad_light])
 
@@ -1605,7 +1605,7 @@ class MapleQFunction(MLPRegressor):
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
+                    [vectorized_state, vectorized_action])
             self._good_open_door_q_values.append(self.predict(x)[0])
             print("GOOD DOOR", self.predict(x)[0], Y_arr[good_door])
 
@@ -1616,7 +1616,7 @@ class MapleQFunction(MLPRegressor):
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
+                    [vectorized_state, vectorized_action])
             self._bad_open_door_q_values.append(self.predict(x)[0])
             # print("BAD DOOR", self.predict(x)[0], Y_arr[bad_door])
 
@@ -1628,7 +1628,7 @@ class MapleQFunction(MLPRegressor):
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
+                    [vectorized_state, vectorized_action])
             self._second_movekey_q_values.append(self.predict(x)[0])
             print("SECOND MOVE KEY", self.predict(x)[0], Y_arr[move_key])
 
@@ -1639,7 +1639,7 @@ class MapleQFunction(MLPRegressor):
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
+                    [vectorized_state, vectorized_action])
             self._second_turnkey_q_values.append(self.predict(x)[0])
             print("SECOND TURN KEY", self.predict(x)[0], Y_arr[turn_key])    
 
@@ -1650,7 +1650,7 @@ class MapleQFunction(MLPRegressor):
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             x = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
+                    [vectorized_state, vectorized_action])
             self._callplanner_q_values.append(self.predict(x)[0])
             print("CALLPLANNEr", self.predict(x)[0], Y_arr[callplanner])   
 
@@ -1707,14 +1707,121 @@ class MapleQFunction(MLPRegressor):
                              n_iter_no_change=self._n_iter_no_change)
 
     def _vectorize_state(self, state: State) -> Array:
-        vecs: List[Array] = []
-        for o in self._ordered_objects:
-            try:
-                vec = state[o]
-            except KeyError:
-                vec = np.zeros(o.type.dim, dtype=np.float32)
-            vecs.append(vec)
-        return np.concatenate(vecs)
+        if CFG.use_obj_centric:
+            if CFG.env == "doorknobs":
+                dummy_env = DoorKnobsEnv()
+
+                predicates = dummy_env.predicates
+                informed_objects = set()
+
+                try:
+                    for predicate in predicates:
+                        informed_objects.update(predicate.types)
+                except:
+                    import ipdb;ipdb.set_trace()
+                
+                for o in state:
+                    if o.is_instance(dummy_env._robot_type):
+                        robot = o
+                        break
+            
+                for o in state:
+                    if o.is_instance(dummy_env._room_type) and dummy_env._InRoom_holds(state, [robot, o]):
+                        robot_room_geo =  DoorKnobsEnv.object_to_geom(o, state)
+                        robot_room = o
+                        break
+
+                unknown = []
+                object_to_features = {}
+                closest_object = None
+                closest_distance = np.inf
+                for object in state:
+                    is_new = True
+                    features = []
+                    for obj_type in informed_objects:
+                        if (object.is_instance(obj_type)):
+                            is_new = False
+                    object_geo = DoorKnobsEnv.object_to_geom(object, state)
+                    if is_new and not object.is_instance(DoorKnobsEnv._obstacle_type) and robot_room_geo.intersects(object_geo):
+                        x = 0
+                        y = 0
+                        for feature in object.type.feature_names:
+                            if feature == "x":
+                                x = np.abs(state.get(object, "x")-state.get(robot, "x"))
+                                features.append(x)
+                            elif feature == "y":
+                                y = np.abs(state.get(object, "y")-state.get(robot, "y"))
+                                features.append(y)
+                            elif feature == "theta":
+                                continue
+                            else:
+                                features.append(state.get(object, feature))
+                        unknown.append(object)
+                        object_to_features[object] = features
+                        distance = x**2 + y**2
+                        if distance < closest_distance:
+                            closest_object = object
+                            closest_distance = distance
+                            
+                [x,y] = [0,0]
+
+                if self._get_name == "mpdqn":
+                    for o in self._last_planner_state:
+                        if o.is_instance(dummy_env._robot_type):
+                            x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
+                            break
+
+                vectorized_state = object_to_features[closest_object][:6] + [x,y]
+                return vectorized_state
+            
+            elif CFG.env == "grid_row_door":
+                robot_pos = 0
+                door_list = []
+                for o in state:
+                    if o.is_instance(GridRowDoorEnv._robot_type):
+                        robot_pos = state.get(o, "x")
+                        robot = o
+                    if o.is_instance(GridRowDoorEnv._door_type):
+                        door_list.append(o)
+
+                has_middle_door = 0
+                door_move_key, door_move_target, \
+                        door_turn_key, door_turn_target = (0,0,0,0)
+                for door in door_list:
+                    door_pos = state.get(door, "x")
+                    if robot_pos == door_pos:
+                        has_middle_door = 1
+                        door_move_key = state.get(door, "move_key")
+                        door_move_target = state.get(door, "move_target")
+                        door_turn_key = state.get(door, "turn_key")
+                        door_turn_target = state.get(door, "turn_target")
+                
+                if self._get_name == "mpdqn":
+                    last_x = self._last_planner_state.get(robot, "x")
+                else:
+                    last_x = 0
+                
+                vectorized_state = [
+                        has_middle_door, door_move_key, door_move_target, \
+                        door_turn_key, door_turn_target]
+                # , np.abs(last_x - robot_pos)
+                
+                return vectorized_state
+
+        else:
+            vecs: List[Array] = []
+            for o in self._ordered_objects:
+                try:
+                    vec = state[o]
+                except KeyError:
+                    vec = np.zeros(o.type.dim, dtype=np.float32)
+                vecs.append(vec)
+            e = np.concatenate(vecs)
+            if CFG.env == "grid_row_door":
+                pad_length = 40
+            padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
+
+            return padded_e
 
     def _vectorize_goal(self, goal: Set[GroundAtom]) -> Array:
         frozen_goal = frozenset(goal)
@@ -1730,6 +1837,18 @@ class MapleQFunction(MLPRegressor):
             and tuple(n.objects) == tuple(option.objects)
         ]
 
+        # matches = [
+        # i for (i,n) in enumerate(self._options)
+        # if n == option.parent
+        # ]
+                
+        # print(self._ground_nsrt_to_idx.items())
+        # for (n, i) in self._ground_nsrt_to_idx.items():
+        #     print(n.option, option.parent, tuple(n.objects), tuple(n.option_objs), tuple(option.objects), n.option == option.parent
+        #     and tuple(n.option_objs) == tuple(option.objects))
+
+        if len(matches) != 1:
+            import ipdb;ipdb.set_trace()
         assert len(matches) == 1
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
@@ -1741,7 +1860,7 @@ class MapleQFunction(MLPRegressor):
         vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
         return vec
 
-    def predict_q_value(self, state: State, goal: Set[GroundAtom],
+    def predict_q_value(self, state: State,
                         option: _Option) -> float:
         """Predict the Q value."""
         # Default value if not yet fit.
@@ -1883,108 +2002,118 @@ class MPDQNFunction(MapleQFunction):
         }
         self._options = nsrts
 
-    def _vectorize_state(self, state: State) -> Array:
-
-        # WHAT WE WANT IS THE CLOSEST 2 UNKNOWN OBJECTS
-        # LOOP THRU ALL PREDICATES TO COLLECT ALL OBJECTS WE HAVE INFO ABT
-        # LOOP THRU ALL OBJECTS TO CHECK WHICH ONES WE DONT HAVE INFO ABT
-
-        # take the relative position of object (obj position - rob position)
-
-        if CFG.env == "doorknobs":
-            dummy_env = DoorKnobsEnv()
-
-            predicates = dummy_env.predicates
-            informed_objects = set()
-
+    def _old_vectorize_state(self, state: State) -> Array:
+        vecs: List[Array] = []
+        for o in self._ordered_objects:
             try:
-                for predicate in predicates:
-                    informed_objects.update(predicate.types)
-            except:
-                import ipdb;ipdb.set_trace()
-            
-            for o in state:
-                if o.is_instance(dummy_env._robot_type):
-                    robot = o
-                    break
-        
-            for o in state:
-                if o.is_instance(dummy_env._room_type) and dummy_env._InRoom_holds(state, [robot, o]):
-                    robot_room_geo =  DoorKnobsEnv.object_to_geom(o, state)
-                    robot_room = o
-                    break
+                vec = state[o]
+            except KeyError:
+                vec = np.zeros(o.type.dim, dtype=np.float32)
+            vecs.append(vec)
+        return np.concatenate(vecs)
+    
+    # def _vectorize_state(self, state: State) -> Array:
 
-            unknown = []
-            object_to_features = {}
-            closest_object = None
-            closest_distance = np.inf
-            for object in state:
-                is_new = True
-                features = []
-                for obj_type in informed_objects:
-                    if (object.is_instance(obj_type)):
-                        is_new = False
-                object_geo = DoorKnobsEnv.object_to_geom(object, state)
-                if is_new and not object.is_instance(DoorKnobsEnv._obstacle_type) and robot_room_geo.intersects(object_geo):
-                    x = 0
-                    y = 0
-                    for feature in object.type.feature_names:
-                        if feature == "x":
-                            x = np.abs(state.get(object, "x")-state.get(robot, "x"))
-                            features.append(x)
-                        elif feature == "y":
-                            y = np.abs(state.get(object, "y")-state.get(robot, "y"))
-                            features.append(y)
-                        elif feature == "theta":
-                            continue
-                        else:
-                            features.append(state.get(object, feature))
-                    unknown.append(object)
-                    object_to_features[object] = features
-                    distance = x**2 + y**2
-                    if distance < closest_distance:
-                        closest_object = object
-                        closest_distance = distance
+    #     # WHAT WE WANT IS THE CLOSEST 2 UNKNOWN OBJECTS
+    #     # LOOP THRU ALL PREDICATES TO COLLECT ALL OBJECTS WE HAVE INFO ABT
+    #     # LOOP THRU ALL OBJECTS TO CHECK WHICH ONES WE DONT HAVE INFO ABT
+
+    #     # take the relative position of object (obj position - rob position)
+
+    #     if CFG.env == "doorknobs":
+    #         dummy_env = DoorKnobsEnv()
+
+    #         predicates = dummy_env.predicates
+    #         informed_objects = set()
+
+    #         try:
+    #             for predicate in predicates:
+    #                 informed_objects.update(predicate.types)
+    #         except:
+    #             import ipdb;ipdb.set_trace()
+            
+    #         for o in state:
+    #             if o.is_instance(dummy_env._robot_type):
+    #                 robot = o
+    #                 break
+        
+    #         for o in state:
+    #             if o.is_instance(dummy_env._room_type) and dummy_env._InRoom_holds(state, [robot, o]):
+    #                 robot_room_geo =  DoorKnobsEnv.object_to_geom(o, state)
+    #                 robot_room = o
+    #                 break
+
+    #         unknown = []
+    #         object_to_features = {}
+    #         closest_object = None
+    #         closest_distance = np.inf
+    #         for object in state:
+    #             is_new = True
+    #             features = []
+    #             for obj_type in informed_objects:
+    #                 if (object.is_instance(obj_type)):
+    #                     is_new = False
+    #             object_geo = DoorKnobsEnv.object_to_geom(object, state)
+    #             if is_new and not object.is_instance(DoorKnobsEnv._obstacle_type) and robot_room_geo.intersects(object_geo):
+    #                 x = 0
+    #                 y = 0
+    #                 for feature in object.type.feature_names:
+    #                     if feature == "x":
+    #                         x = np.abs(state.get(object, "x")-state.get(robot, "x"))
+    #                         features.append(x)
+    #                     elif feature == "y":
+    #                         y = np.abs(state.get(object, "y")-state.get(robot, "y"))
+    #                         features.append(y)
+    #                     elif feature == "theta":
+    #                         continue
+    #                     else:
+    #                         features.append(state.get(object, feature))
+    #                 unknown.append(object)
+    #                 object_to_features[object] = features
+    #                 distance = x**2 + y**2
+    #                 if distance < closest_distance:
+    #                     closest_object = object
+    #                     closest_distance = distance
                         
 
-            for o in self._last_planner_state:
-                if o.is_instance(dummy_env._robot_type):
-                    x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
-                    break
+    #         for o in self._last_planner_state:
+    #             if o.is_instance(dummy_env._robot_type):
+    #                 x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
+    #                 break
 
-            vectorized_state = object_to_features[closest_object][:6] + [x,y]
-            return vectorized_state
+    #         vectorized_state = object_to_features[closest_object][:6] + [x,y]
+    #         return vectorized_state
         
-        elif CFG.env == "grid_row_door":
-            robot_pos = 0
-            door_list = []
-            for o in state:
-                if o.is_instance(GridRowDoorEnv._robot_type):
-                    robot_pos = state.get(o, "x")
-                    robot = o
-                if o.is_instance(GridRowDoorEnv._door_type):
-                    door_list.append(o)
+    #     elif CFG.env == "grid_row_door":
+    #         robot_pos = 0
+    #         door_list = []
+    #         for o in state:
+    #             if o.is_instance(GridRowDoorEnv._robot_type):
+    #                 robot_pos = state.get(o, "x")
+    #                 robot = o
+    #             if o.is_instance(GridRowDoorEnv._door_type):
+    #                 door_list.append(o)
 
-            has_middle_door = 0
-            door_move_key, door_move_target, \
-                    door_turn_key, door_turn_target = (0,0,0,0)
-            for door in door_list:
-                door_pos = state.get(door, "x")
-                if robot_pos == door_pos:
-                    has_middle_door = 1
-                    door_move_key = state.get(door, "move_key")
-                    door_move_target = state.get(door, "move_target")
-                    door_turn_key = state.get(door, "turn_key")
-                    door_turn_target = state.get(door, "turn_target")
+    #         has_middle_door = 0
+    #         door_move_key, door_move_target, \
+    #                 door_turn_key, door_turn_target = (0,0,0,0)
+    #         for door in door_list:
+    #             door_pos = state.get(door, "x")
+    #             if robot_pos == door_pos:
+    #                 has_middle_door = 1
+    #                 door_move_key = state.get(door, "move_key")
+    #                 door_move_target = state.get(door, "move_target")
+    #                 door_turn_key = state.get(door, "turn_key")
+    #                 door_turn_target = state.get(door, "turn_target")
 
-            last_x = self._last_planner_state.get(robot, "x")
+    #         last_x = self._last_planner_state.get(robot, "x")
             
-            vectorized_state = [
-                    has_middle_door, door_move_key, door_move_target, \
-                    door_turn_key, door_turn_target]
-            # , np.abs(last_x - robot_pos)
+    #         vectorized_state = [
+    #                 has_middle_door, door_move_key, door_move_target, \
+    #                 door_turn_key, door_turn_target]
+    #         # , np.abs(last_x - robot_pos)
             
-            return vectorized_state
+    #         return vectorized_state
    
    
     def _vectorize_option(self, option: _Option) -> Array:    
@@ -2010,10 +2139,19 @@ class MPDQNFunction(MapleQFunction):
         # Q-network.
 
         # REMEMBER U NEED TO CHANGE X_size IF U EVER CHANGE VECTORIZE STUFFS -- so change it for gridrowdoor
-        if CFG.env == "doorknobs":
+        if CFG.env == "doorknobs" and CFG.use_callplanner and CFG.use_obj_centric:
             X_size = 7 + 4 + self._max_num_params
-        elif CFG.env == "grid_row_door":
+        elif CFG.env == "doorknobs" and CFG.use_obj_centric:
+            X_size = 7 + 3 + self._max_num_params
+        elif CFG.env == "doorknobs":
+            #fix this later when u figure out how big it should be
+            X_size = 100
+        elif CFG.env == "grid_row_door" and CFG.use_callplanner and CFG.use_obj_centric:
             X_size = 12
+        elif CFG.env == "grid_row_door" and CFG.use_obj_centric:
+            X_size = 11
+        elif CFG.env == "grid_row_door":
+            X_size = 47
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         # Otherwise, start by vectorizing all data in the replay buffer.
@@ -2163,6 +2301,8 @@ class MPDQNFunction(MapleQFunction):
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
+        if CFG.random_bridge:
+            epsilon = 1.0
         # print("STATE", self._vectorize_state(state))
         
         if self._rng.uniform() < epsilon:
@@ -2179,7 +2319,7 @@ class MPDQNFunction(MapleQFunction):
         options = self._sample_applicable_options_from_state(
             state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
         scores = [
-            self.predict_q_value(state, goal, option) for option in options
+            self.predict_q_value(state, option) for option in options
         ]
         option_scores=list(zip(options, scores))
         option_scores.sort(key=lambda option_score: option_score[1], reverse=True)
@@ -2210,7 +2350,7 @@ class MPDQNFunction(MapleQFunction):
                 self.target_qnet.load_state_dict(self.qnet.state_dict())
             self._counter+=1
 
-    def predict_q_value(self, state: State, goal: Set[GroundAtom],
+    def predict_q_value(self, state: State,
                         option: _Option) -> float:
         """Predict the Q value."""
         # MODIFICATIONS: predict with self.qnet instead of self

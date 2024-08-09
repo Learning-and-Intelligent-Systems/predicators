@@ -1,4 +1,4 @@
-# rl_bridge_approach experiments in DoorKnobs env.
+# Final rl_bridge_approach experiments.
 ---
 APPROACHES:
   rl_bridge:
@@ -10,22 +10,22 @@ APPROACHES:
       segmenter: "oracle"
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
-      use_obj_centric: True
 ENVS:
-  2x2x2_5x5x5_tau_004:
-    NAME: "doorknobs"
+  no_reset_cells_tau_004_2x2x2_5x5x5:
+    NAME: "grid_row_door"
+    FLAGS:
+      max_num_steps_interaction_request: 100
+      interactive_num_requests_per_cycle: 5
+      online_nsrt_learning_requests_per_cycle: 5
+      num_online_learning_cycles: 100
+      num_test_tasks: 2
+      num_train_tasks: 5
+      grid_row_num_cells: 6
 ARGS:
   - "debug"
 FLAGS:
   max_initial_demos: 0
   sampler_learner: "oracle"
   strips_learner: "oracle"
-  num_online_learning_cycles: 100
-  num_test_tasks: 1
-  num_train_tasks: 1
-  interactive_num_requests_per_cycle: 5
-  online_nsrt_learning_requests_per_cycle: 5
-  timeout: 1000
-  active_sampler_learning_num_samples: 10
 START_SEED: 0
-NUM_SEEDS: 5
+NUM_SEEDS: 4

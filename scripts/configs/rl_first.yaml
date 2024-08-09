@@ -1,8 +1,8 @@
 # Final rl_bridge_approach experiments.
 ---
 APPROACHES:
-  rl_bridge:
-    NAME: "rl_bridge_policy"
+  rl_first:
+    NAME: "rl_first_bridge"
     FLAGS:
       explorer: "maple_q"
       bilevel_plan_without_sim: True

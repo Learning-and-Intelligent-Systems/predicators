@@ -280,7 +280,7 @@ class GlobalSettings:
 
     # doors env parameters
     doors_room_map_size = 2
-    test_doors_room_map_size = 10
+    test_doors_room_map_size = 5
     doors_min_obstacles_per_room = 0
     doors_max_obstacles_per_room = 3
     doors_min_room_exists_frac = 0.25
@@ -591,6 +591,16 @@ class GlobalSettings:
     min_epsilon = 0.05
     polyak_tau = 0.004
     polyak_true = True
+    # if True then use RSS method (increasing exploration),
+    # if False then use new method (constant exploration)
+    use_old_exploration = False
+    # can modify whether or not rl_bridge has a callplanner action (use for ablation)
+    use_callplanner = True
+    # if True, then our bridge policy is completely random
+    random_bridge = False
+    # whether or not we use object centric state vectorization, 
+    # should be true for normal rl bridge, false for normal mapleq
+    use_obj_centric = False
 
     # skill competence model parameters
     skill_competence_model = "optimistic"

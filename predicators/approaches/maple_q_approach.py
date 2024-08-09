@@ -82,7 +82,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         """Create a new explorer at the beginning of each interaction cycle."""
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
-        max_steps = b**(1 + self._online_learning_cycle)
+        if CFG.use_old_exploration:
+            max_steps = b**(1 + self._online_learning_cycle)
+        else:
+            max_steps = CFG.max_num_steps_interaction_request
         preds = self._get_current_predicates()
         assert CFG.explorer == "maple_q"
         explorer = create_explorer(CFG.explorer,
@@ -124,7 +127,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 assert nsrt.option_vars == nsrt.parameters  # pragma: no cover.
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
-        if not online_learning_cycle and CFG.approach != "rl_bridge_policy":
+        if not online_learning_cycle and CFG.approach != "rl_bridge_policy" and CFG.approach != "rl_first_bridge":
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
                 for nsrt in self._nsrts:
@@ -251,7 +254,7 @@ class MPDQNApproach(MapleQApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
-                if o.parent == self.CallPlanner and reward == 1 and CFG.env == "doorknobs":
+                if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1 and CFG.env == "doorknobs":
                     reward += 0.5
 
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
