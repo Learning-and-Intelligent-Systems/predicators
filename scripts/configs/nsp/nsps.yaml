@@ -12,25 +12,24 @@ APPROACHES:
   #     vlm_predicator_oracle_base_grammar: True
   #     vlm_predicator_oracle_learned: True # Oracle 1
   #     max_initial_demos: 0
-  # WIP
-  oracle_explore: # Oracle 2: GT explore, NSP invention, NSP eval.
-    NAME: "vlm_online_invention"
-    FLAGS:
-      log_file: "logs/logs_oracle2/"
-      strips_learner: "cluster_intersect_and_search"
-      render_init_state: True # True for NSP
-      neu_sym_predicate: True # Needed for NSP
-      vlm_predicator_render_option_state: True # Needed for NSP
-      vlm_predicator_oracle_explore: True
-  # nsp: # Our main approach
+  # oracle_explore: # Oracle 2: GT explore, NSP invention, NSP eval.
   #   NAME: "vlm_online_invention"
   #   FLAGS:
-  #     log_file: "logs/logs_nsp/"
+  #     log_file: "logs/logs_oracle2/"
   #     strips_learner: "cluster_intersect_and_search"
   #     render_init_state: True # True for NSP
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
-  #     max_initial_demos: 0
+  #     vlm_predicator_oracle_explore: True
+  nsp: # Our main approach
+    NAME: "vlm_online_invention"
+    FLAGS:
+      log_file: "logs/logs_nsp/"
+      strips_learner: "cluster_intersect_and_search"
+      render_init_state: True # True for NSP
+      neu_sym_predicate: True # Needed for NSP
+      vlm_predicator_render_option_state: True # Needed for NSP
+      max_initial_demos: 0
   # InterPreT-inspired baseline with symbolic predicates based on object 
   # features, conditioned on image and object-oriented dict observation.
   # interpret: 

@@ -75,10 +75,6 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
     def is_learning_based(self) -> bool:
         return True
 
-    @property
-    def is_offline_learning_based(self) -> bool:
-        return True
-
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """Adds the images and plans from the training dataset to the base
         prompt for use at test time!"""
