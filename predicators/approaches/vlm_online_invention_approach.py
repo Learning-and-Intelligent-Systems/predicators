@@ -1182,7 +1182,6 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         new_candidates = self._parse_predicate_predictions(
             response_file, tasks)
-        breakpoint()
         return new_candidates
 
     def _select_predicates_by_score_hillclimbing(
