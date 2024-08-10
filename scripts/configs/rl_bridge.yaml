@@ -12,7 +12,7 @@ APPROACHES:
       sesame_max_skeletons_optimized: 50
       use_obj_centric: True
 ENVS:
-  no_reset_cells_tau_004_2x2x2_5x5x5:
+  rwd_shape:
     NAME: "grid_row_door"
     FLAGS:
       max_num_steps_interaction_request: 100
