@@ -19,8 +19,8 @@ ENVS:
       interactive_num_requests_per_cycle: 5
       online_nsrt_learning_requests_per_cycle: 5
       num_online_learning_cycles: 100
-      num_test_tasks: 2
-      num_train_tasks: 5
+      num_test_tasks: 1
+      num_train_tasks: 1
       grid_row_num_cells: 6
 ARGS:
   - "debug"
