@@ -113,7 +113,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
-                     annotations: Optional[List[Any]]) -> None:
+                     annotations: Optional[List[Any]], reward_bonuses) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
         if CFG.approach == "active_sampler_learning":
@@ -127,6 +127,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 assert nsrt.option_vars == nsrt.parameters  # pragma: no cover.
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
+        
         if not online_learning_cycle and CFG.approach != "rl_bridge_policy" and CFG.approach != "rl_first_bridge":
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
@@ -157,7 +158,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
-        self._update_maple_data()
+        self._update_maple_data(reward_bonuses)
         # Re-learn Q function.
         self._q_function.train_q_function()
         # Save the things we need other than the NSRTs, which were already
@@ -237,7 +238,7 @@ class MPDQNApproach(MapleQApproach):
             active_sampler_learning_num_lookahead_samples)
 
 
-    def _update_maple_data(self) -> None:
+    def _update_maple_data(self, reward_bonuses) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
 
@@ -254,9 +255,16 @@ class MPDQNApproach(MapleQApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
-                if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1 and CFG.env == "doorknobs":
+                if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1:
                     reward += 0.5
 
+                if CFG.rl_rwd_shape:
+                    reward += reward_bonuses[0]
+                    reward_bonuses.pop(0)
+                
+                # if reward > 0:
+                #     print(s, o, reward)
+                    
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))

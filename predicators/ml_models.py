@@ -2169,7 +2169,7 @@ class MPDQNFunction(MapleQFunction):
         callplanner_count = 0
         for i, (state, _, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
-            if reward > 0:
+            if reward >= 1:
                 num_rwd+=1
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
@@ -2330,7 +2330,7 @@ class MPDQNFunction(MapleQFunction):
         if train_or_test=="train":
             self.update_target_network()
         if train_or_test == "test":
-            logging.info("option scores" + str(option_scores[:20]))
+            logging.info("option scores" + str(option_scores[0]))
 
         return options[idx]
     
