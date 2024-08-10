@@ -10,8 +10,10 @@ APPROACHES:
       segmenter: "oracle"
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
+      use_obj_centric: True
+      use_callplanner: False
 ENVS:
-  no_reset_cells_tau_004_2x2x2_5x5x5:
+  no_callplanner_2x2x2_5x5x5:
     NAME: "grid_row_door"
     FLAGS:
       max_num_steps_interaction_request: 100
