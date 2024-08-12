@@ -10,7 +10,7 @@ import tempfile
 from collections import deque
 from dataclasses import dataclass
 from typing import Any, Callable, Collection, Deque, Dict, FrozenSet, \
-    Iterator, List, Optional, Sequence, Set, Tuple
+    Iterable, Iterator, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -31,7 +31,7 @@ from predicators.envs.doors import DoorKnobsEnv
 from predicators.envs.grid_row import GridRowDoorEnv
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
-    State, _GroundNSRT, _Option
+    State, Type, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1352,7 +1352,7 @@ class MapleQFunction(MLPRegressor):
         self._ordered_frozen_goals: List[FrozenSet[GroundAtom]] = []
         self._ordered_ground_nsrts: List[_GroundNSRT] = []
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
-        self._options = {}
+        self._options: Set[_Option] = set()
         self._max_num_params = 0
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
@@ -1364,6 +1364,7 @@ class MapleQFunction(MLPRegressor):
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
         self._qfunc_init = False
+        self._last_planner_state: Optional[State] = None
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1383,7 +1384,7 @@ class MapleQFunction(MLPRegressor):
 
     def get_option(self,
                    state: State,
-                   _: Set[GroundAtom],
+                   goal: Set[GroundAtom],
                    num_samples_per_ground_nsrt: int,
                    train_or_test: str = "test") -> _Option:
         """Get the best option under Q, epsilon-greedy."""
@@ -1402,7 +1403,8 @@ class MapleQFunction(MLPRegressor):
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
             state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
-        scores = [self.predict_q_value(state, option) for option in options]
+        scores = [self.predict_q_value(state, goal, option) \
+                for option in options]
         idx = np.argmax(scores)
         # Decay epsilon
         if self._use_epsilon_annealing and epsilon != 0:
@@ -1521,31 +1523,29 @@ class MapleQFunction(MLPRegressor):
                              n_iter_no_change=self._n_iter_no_change)
 
     def _vectorize_state(self, state: State) -> Array:
-        if CFG.use_obj_centric and (CFG.env == \
-                "doorknobs" or CFG.env == "grid_row_door"):
+        if CFG.use_obj_centric and CFG.env in ("doorknobs", "grid_row_door"):
             if CFG.env == "doorknobs":
                 dummy_env = DoorKnobsEnv()
 
                 predicates = dummy_env.predicates
-                informed_objects = set()
+                informed_objects: Set[Type] = set()
                 for predicate in predicates:
                     informed_objects.update(predicate.types)
 
                 for o in state:
-                    if o.is_instance(dummy_env._robot_type): # pylint: disable=protected-access
+                    if o.is_instance(dummy_env._robot_type):  # pylint: disable=protected-access
                         robot = o
                         break
 
                 for o in state:
                     if o.is_instance(
-                            dummy_env._room_type) and dummy_env._InRoom_holds( # pylint: disable=protected-access
+                            dummy_env._room_type) and dummy_env._InRoom_holds(  # pylint: disable=protected-access
                                 state, [robot, o]):
                         robot_room_geo = DoorKnobsEnv.object_to_geom(o, state)
                         break
 
                 unknown = []
                 object_to_features = {}
-                closest_object = None
                 closest_distance = np.inf
                 for obj in state:
                     is_new = True
@@ -1555,7 +1555,7 @@ class MapleQFunction(MLPRegressor):
                             is_new = False
                     object_geo = DoorKnobsEnv.object_to_geom(obj, state)
                     if is_new and not obj.is_instance(
-                            DoorKnobsEnv._obstacle_type # pylint: disable=protected-access
+                            DoorKnobsEnv._obstacle_type  # pylint: disable=protected-access
                     ) and robot_room_geo.intersects(object_geo):
                         x = 0
                         y = 0
@@ -1582,15 +1582,18 @@ class MapleQFunction(MLPRegressor):
                             closest_distance = distance
 
                 [x, y] = [0, 0]
-
-                if CFG.approach == "mpdqn":
-                    for o in self._last_planner_state: # pylint: disable=protected-access
-                        if o.is_instance(dummy_env._robot_type): # pylint: disable=protected-access
-                            x, y = ((np.abs(
-                                self._last_planner_state.get(o, "x") -
-                                state.get(robot, "x"))), (np.abs(
-                                    self._last_planner_state.get(o, "y") - # pylint: disable=protected-access
-                                    state.get(robot, "y"))))
+                if CFG.approach == "mpdqn" and self._last_planner_state \
+                    is not None:
+                    for o in self._last_planner_state:  # pylint: disable=protected-access
+                        if o.is_instance(dummy_env._robot_type):  # pylint: disable=protected-access
+                            x, y = (
+                                (np.abs(
+                                    self._last_planner_state.get(o, "x") -
+                                    state.get(robot, "x"))),
+                                (
+                                    np.abs(
+                                        self._last_planner_state.get(o, "y") -  # pylint: disable=protected-access
+                                        state.get(robot, "y"))))
                             break
 
                 vectorized_state = object_to_features[closest_object][:6] + [
@@ -1601,12 +1604,12 @@ class MapleQFunction(MLPRegressor):
             if CFG.env == "grid_row_door":
                 robot_pos = 0
                 door_list = []
-                dummy_env = GridRowDoorEnv()
+                new_dummy_env = GridRowDoorEnv()
                 for o in state:
-                    if o.is_instance(dummy_env._robot_type): # pylint: disable=protected-access
+                    if o.is_instance(new_dummy_env._robot_type):  # pylint: disable=protected-access
                         robot_pos = state.get(o, "x")
                         robot = o
-                    if o.is_instance(dummy_env._door_type): # pylint: disable=protected-access
+                    if o.is_instance(new_dummy_env._door_type):  # pylint: disable=protected-access
                         door_list.append(o)
 
                 has_middle_door = 0
@@ -1627,22 +1630,21 @@ class MapleQFunction(MLPRegressor):
 
                 return vectorized_state
 
-        else:
-            vecs: List[Array] = []
-            for o in self._ordered_objects:
-                try:
-                    vec = state[o]
-                except KeyError:
-                    vec = np.zeros(o.type.dim, dtype=np.float32)
-                vecs.append(vec)
-            e = np.concatenate(vecs)
-            if CFG.env == "grid_row_door":
-                pad_length = 40
-                padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
-                return padded_e
-            pad_length = 150
+        vecs: List[Array] = []
+        for o in self._ordered_objects:
+            try:
+                vec = state[o]
+            except KeyError:
+                vec = np.zeros(o.type.dim, dtype=np.float32)
+            vecs.append(vec)
+        e = np.concatenate(vecs)
+        if CFG.env == "grid_row_door":
+            pad_length = 40
             padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
             return padded_e
+        pad_length = 150
+        padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
+        return padded_e
 
     def _vectorize_goal(self, goal: Set[GroundAtom]) -> Array:
         frozen_goal = frozenset(goal)
@@ -1672,7 +1674,7 @@ class MapleQFunction(MLPRegressor):
                         option: _Option) -> float:
         """Predict the Q value."""
         # Default value if not yet fit.
-        if self._y_dim == -1: # pylint: disable=protected-access
+        if self._y_dim == -1:  # pylint: disable=protected-access
             return 0.0
         x = np.concatenate([
             self._vectorize_state(state),
@@ -1714,7 +1716,7 @@ class MapleQFunction(MLPRegressor):
 
 
 class MPDQNFunction(MapleQFunction):
-    """Updated and Target Q Networks"""
+    """Updated and Target Q Networks."""
     tau = CFG.polyak_tau
 
     def __init__(self,
@@ -1771,7 +1773,7 @@ class MPDQNFunction(MapleQFunction):
 
         self.target_qnet.load_state_dict(self.qnet.state_dict())
         self._qfunc_init = False
-        self._last_planner_state = None
+        self._last_planner_state: Optional[State] = None
 
         self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
@@ -1780,7 +1782,8 @@ class MPDQNFunction(MapleQFunction):
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
-                      ground_nsrts: Collection[_GroundNSRT], nsrts) -> None:
+                      ground_nsrts: Collection[_GroundNSRT], options: \
+                        Optional[List[_Option]] = None) -> None:
         """After initialization because NSRTs not learned at first."""
         for ground_nsrt in ground_nsrts:
             num_params = ground_nsrt.option.params_space.shape[0]
@@ -1793,7 +1796,7 @@ class MPDQNFunction(MapleQFunction):
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
-        self._options = nsrts
+        self._options = options
 
     def _old_vectorize_state(self, state: State) -> Array:
         vecs: List[Array] = []
@@ -1861,7 +1864,7 @@ class MPDQNFunction(MapleQFunction):
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
-            if not terminal and self.qnet._y_dim != -1: # pylint: disable=protected-access
+            if not terminal and self.qnet._y_dim != -1:  # pylint: disable=protected-access
                 best_next_value = -np.inf
                 next_option_vecs: List[Array] = []
                 # We want to pick a total of num_lookahead_samples samples.
@@ -1907,7 +1910,7 @@ class MPDQNFunction(MapleQFunction):
         Xx = X_arr
         Yy = Y_arr
         self.qnet.fit(X_arr, Y_arr)
-        if not self.target_qnet._disable_normalization: # pylint: disable=protected-access
+        if not self.target_qnet._disable_normalization:  # pylint: disable=protected-access
             Xx, self.target_qnet._input_shift, \
                 self.target_qnet._input_scale = _normalize_data(
                 Xx)
@@ -1917,10 +1920,10 @@ class MPDQNFunction(MapleQFunction):
         if not self._qfunc_init:
             # we need to init a bunch of stuff for qnet and target_qnet
             # for training qnet to work
-            self.target_qnet._x_dims = tuple(Xx.shape[1:]) # pylint: disable=protected-access
-            _, self.target_qnet._y_dim = Yy.shape # pylint: disable=protected-access
+            self.target_qnet._x_dims = tuple(Xx.shape[1:])  # pylint: disable=protected-access
+            _, self.target_qnet._y_dim = Yy.shape  # pylint: disable=protected-access
 
-            self.target_qnet._initialize_net() # pylint: disable=protected-access
+            self.target_qnet._initialize_net()  # pylint: disable=protected-access
             self._qfunc_init = True
 
     def get_option(self,
@@ -1951,7 +1954,7 @@ class MPDQNFunction(MapleQFunction):
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
             state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
-        scores = [self.predict_q_value(state, option) for option in options]
+        scores = [self.predict_q_value(state, _, option) for option in options]
         option_scores = list(zip(options, scores))
         option_scores.sort(key=lambda option_score: option_score[1],
                            reverse=True)
@@ -1964,8 +1967,8 @@ class MPDQNFunction(MapleQFunction):
 
         return options[idx]
 
-    def update_target_network(self):
-        """update the target q network"""
+    def update_target_network(self) -> None:
+        """update the target q network."""
         # Soft polyak averaging:
         if CFG.polyak_true:
             for target_param, source_param in zip(
@@ -1984,11 +1987,12 @@ class MPDQNFunction(MapleQFunction):
                 self.target_qnet.load_state_dict(self.qnet.state_dict())
             self._counter += 1
 
-    def predict_q_value(self, state: State, option: _Option) -> float:
+    def predict_q_value(self, state: State, _: Set[GroundAtom],
+                        option: _Option) -> float:
         """Predict the Q value."""
         # MODIFICATIONS: predict with self.qnet instead of self
         # Default value if not yet fit.
-        if self.qnet._y_dim == -1: # pylint: disable=protected-access
+        if self.qnet._y_dim == -1:  # pylint: disable=protected-access
             return 0.0
         x = np.concatenate(
             [self._vectorize_state(state),

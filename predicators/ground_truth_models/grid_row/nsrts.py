@@ -157,8 +157,8 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         return {"grid_row_door"}
 
     @staticmethod
-    def get_nsrts(_: str, types: Dict[str, Type],
-                  predicates: Dict[str, Predicate],
+    def get_nsrts(_: str, types: Dict[str, Type], predicates: Dict[str,
+                                                                   Predicate],
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
         # Types
         robot_type = types["robot"]
@@ -307,4 +307,3 @@ class GridRowDoorGroundTruthNSRTFactory(GridRowGroundTruthNSRTFactory):
         nsrts.add(turn_key_nsrt)
 
         return nsrts
-    

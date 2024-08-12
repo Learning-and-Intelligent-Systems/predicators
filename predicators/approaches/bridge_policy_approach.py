@@ -57,9 +57,9 @@ from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, BridgeDataset, \
-    DefaultState, DemonstrationQuery, DemonstrationResponse, \
+    DefaultState, DemonstrationQuery, DemonstrationResponse, GroundAtom, \
     InteractionRequest, InteractionResult, LiftedAtom, LowLevelTrajectory, \
-    Object, ParameterizedOption, Predicate, Query, State, Task, Type, \
+    Object, ParameterizedOption, Predicate, Query, State, Task, Tuple, Type, \
     Variable, _GroundNSRT, _Option
 
 
@@ -371,6 +371,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self._task_planning_heuristic = task_planning_heuristic
         self._trajs: List[LowLevelTrajectory] = []
         self.CanPlan = Predicate("CanPlan", [], self._Can_plan)
+        self.CallPlanner: Optional[utils.SingletonParameterizedOption] \
+            = None
         if CFG.use_callplanner:
             self.CallPlanner = utils.SingletonParameterizedOption(
                 "CallPlanner",
@@ -381,17 +383,14 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                  shape=(0, )),
             )
             initial_options.add(self.CallPlanner)
-        else:
-            self.CallPlanner = None
         self._initial_options = initial_options
         self.mapleq=MPDQNApproach(self._get_current_predicates(), \
                                    self._initial_options, self._types, \
                                     self._action_space, \
                                 self._train_tasks, self.CallPlanner)
         self._current_control = ""
-        self._current_plan = None
-        _, option_policy = self._get_option_policy_by_planning(
-                self._train_tasks[0], CFG.timeout)
+        self._current_plan, option_policy = self._get_option_policy_by_planning(
+            self._train_tasks[0], CFG.timeout)
         self._current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
@@ -399,14 +398,13 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         )
         self._bridge_called_state = State(data={})
         self._policy_logs: List[str] = []
-        self._plan_logs = []
-        self._current_task: Optional[Task] = None
+        self._plan_logs: List[List[Set[GroundAtom]]] = []
+        self._current_task: Task = self._train_tasks[0]
 
     def _Can_plan(self, state: State, _: Sequence[Object]) -> bool:
-        if (MPDQNFunction._old_vectorize_state( # pylint: disable=protected-access
-        self.mapleq._q_function, state) # pylint: disable=protected-access
-                !=
-                MPDQNFunction._old_vectorize_state( # pylint: disable=protected-access
+        if (MPDQNFunction._old_vectorize_state(  # pylint: disable=protected-access
+                self.mapleq._q_function, state)  # pylint: disable=protected-access
+                != MPDQNFunction._old_vectorize_state(  # pylint: disable=protected-access
                     self.mapleq._q_function,  # pylint: disable=protected-access
                     self._bridge_called_state)).any():  # pylint: disable=protected-access
             return True
@@ -455,7 +453,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         return True
 
     def _get_option_policy_by_planning(
-            self, task: Task, timeout: float) -> Callable[[State], _Option]:
+            self, task: Task, timeout: float) -> Tuple[List[Set \
+                                [GroundAtom]], Callable[[State], _Option]]:
         """Raises an OptionExecutionFailure with the last_failed_option in its
         info dict in the case where execution fails."""
 
@@ -547,12 +546,11 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
                 return action
             except utils.OptionExecutionFailure:
-                logging.info("failed %s",self._current_control)
-
+                logging.info("failed %s", self._current_control)
 
             # Switch control from planner to bridge.
             self._current_control = "bridge"
-            self.mapleq._q_function._last_planner_state = s # pylint: disable=protected-access
+            self.mapleq._q_function._last_planner_state = s  # pylint: disable=protected-access
             if train_or_test == "train":
                 self._policy_logs.append(self._current_control)
                 self._plan_logs.append(self._current_plan)
@@ -606,7 +604,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         all_actions = []
         policy_logs = self._policy_logs
         plan_logs = self._plan_logs
-        reward_bonuses = []
+        reward_bonuses: list[float] = []
         for i in range(len(results)):
             result = results[i]
             policy_log = policy_logs[:len(result.states[:-1])]
@@ -625,7 +623,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             if CFG.rl_rwd_shape:
                 for j, _ in enumerate(result.actions):
                     current_plan = plan_log[j]
-                    rwd = 0
+                    rwd = 0.0
                     if policy_log[j] == "bridge" or policy_log[max(
                             j - 1, 0)] == "bridge":
                         current_atoms = utils.abstract(
@@ -645,16 +643,19 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             policy_logs = policy_logs[len(result.states) - 1:]
             plan_logs = plan_logs[len(result.states) - 1:]
         self.mapleq.get_interaction_requests()
-        self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs), # pylint: disable=protected-access
-                                 reward_bonuses)
+        self.mapleq._learn_nsrts(
+            self._trajs,
+            0,
+            [] * len(self._trajs),  # pylint: disable=protected-access
+            reward_bonuses)
         self._policy_logs = []
         self._plan_logs = []
         return None
 
 
 class RLFirstBridgeApproach(RLBridgePolicyApproach):
-    """RL Bridge ablation where we start with
-    RL instead of planning"""
+    """RL Bridge ablation where we start with RL instead of planning."""
+
     def __init__(self,
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
@@ -709,7 +710,7 @@ class RLFirstBridgeApproach(RLBridgePolicyApproach):
 
             # Switch control from planner to bridge.
             self._current_control = "bridge"
-            self.mapleq._q_function._last_planner_state = s # pylint: disable=protected-access
+            self.mapleq._q_function._last_planner_state = s  # pylint: disable=protected-access
             if train_or_test == "train":
                 self._policy_logs.append(self._current_control)
             self._bridge_called_state = s

@@ -198,7 +198,7 @@ class GridRowDoorEnv(GridRowEnv):
         return "grid_row_door"
 
     def get_cells(self, state: State) -> List[Object]:
-        """"creating cells"""
+        """"creating cells."""
         cells = []
         for cell in state:
             if cell.is_instance(self._cell_type):
@@ -318,7 +318,7 @@ class GridRowDoorEnv(GridRowEnv):
         goal = {GroundAtom(self._LightOn, [self._light])}
         tasks: List[EnvironmentTask] = []
 
-        door_list: List[List[Object]] = []
+        door_list: List[Object] = []
         for door_num in range(CFG.num_doors):
             door = Object(f"door{door_num}", self._door_type)
             door_list.append(door)
@@ -406,7 +406,7 @@ class GridRowDoorEnv(GridRowEnv):
         dx, dlight, dmove, dturn = action.arr
         cells = self.get_cells(state)
         robot_cells = [
-                c for c in cells if self._In_holds(state, [self._robot, c])
+            c for c in cells if self._In_holds(state, [self._robot, c])
         ]
         total_door_cells = []
         robot_cell = robot_cells[0]
