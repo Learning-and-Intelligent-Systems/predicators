@@ -193,14 +193,17 @@ class GridRowDoorEnv(GridRowEnv):
             ["x", "move_key", "move_target", "turn_key", "turn_target"])
         self._door = Object("door", self._door_type)
 
-        self._DoorInCell = Predicate("DoorInCell",
-                                     [self._door_type, self._cell_type],
-                                     self._In_holds)
-
     @classmethod
     def get_name(cls) -> str:
         return "grid_row_door"
 
+    def get_cells(self, state: State):
+        cells = []
+        for cell in state:
+            if cell.is_instance(self._cell_type):
+                cells.append(cell)
+        return cells
+    
     def render_state_plt(
             self,
             state: State,
@@ -208,12 +211,13 @@ class GridRowDoorEnv(GridRowEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> \
                 matplotlib.figure.Figure:
+        cells = self.get_cells(state)
         fig, ax = plt.subplots(1, 1)
-        plt.xlim([0, len(self._cells)])
+        plt.xlim([0, len(cells)])
         plt.ylim([0, 1])
 
         # Draw the cells.
-        for i in range(len(self._cells)):
+        for i in range(len(cells)):
             rect = plt.Rectangle((i, 0),
                                  self.cell_width,
                                  self.cell_width,
@@ -224,7 +228,7 @@ class GridRowDoorEnv(GridRowEnv):
         # Draw light, door, and robot.
         if self._LightOn_holds(state, (self._light, )):
             light = plt.Rectangle(
-                (len(self._cells) - (self.cell_width + \
+                (len(cells) - (self.cell_width + \
                                      self.light_width) / 2.0,
                  1 - self.light_width),
                 self.light_width,
@@ -233,7 +237,7 @@ class GridRowDoorEnv(GridRowEnv):
                 facecolor="yellow")
         else:
             light = plt.Rectangle(
-                (len(self._cells) - (self.cell_width + \
+                (len(cells) - (self.cell_width + \
                                      self.light_width) / 2.0,
                  1 - self.light_width),
                 self.light_width,
@@ -241,26 +245,29 @@ class GridRowDoorEnv(GridRowEnv):
                 edgecolor="white",
                 facecolor="white")
         ax.add_patch(light)
-        door_pos = state.get(self._door, "x")
-        door_move_key = state.get(self._door, "move_key")
-        door_move_key_target = state.get(self._door, "move_target")
-        door_turn_key = state.get(self._door, "turn_key")
-        door_turn_key_target = state.get(self._door, "turn_target")
-        if (door_move_key_target - 0.1 <= door_move_key <= \
-            door_move_key_target + 0.1 and door_turn_key_target - 0.1 \
-                <= door_turn_key <= door_turn_key_target + 0.1):
-            door = plt.Rectangle((door_pos - self.cell_width / 2.0, 0),
-                                 self.cell_width,
-                                 self.cell_width,
-                                 edgecolor="gray",
-                                 facecolor="gray")
-        else:
-            door = plt.Rectangle((door_pos - self.cell_width / 2.0, 0),
-                                 self.cell_width,
-                                 self.cell_width,
-                                 edgecolor="darkgoldenrod",
-                                 facecolor="darkgoldenrod")
-        ax.add_patch(door)
+        for door in state:
+            if not door.is_instance(self._door_type):
+                continue
+            door_pos = state.get(door, "x")
+            door_move_key = state.get(door, "move_key")
+            door_move_key_target = state.get(door, "move_target")
+            door_turn_key = state.get(door, "turn_key")
+            door_turn_key_target = state.get(door, "turn_target")
+            if (door_move_key_target - 0.1 <= door_move_key <= \
+                door_move_key_target + 0.1 and door_turn_key_target - 0.1 \
+                    <= door_turn_key <= door_turn_key_target + 0.1):
+                draw_door = plt.Rectangle((door_pos - self.cell_width / 2.0, 0),
+                                    self.cell_width,
+                                    self.cell_width,
+                                    edgecolor="gray",
+                                    facecolor="gray")
+            else:
+                draw_door = plt.Rectangle((door_pos - self.cell_width / 2.0, 0),
+                                    self.cell_width,
+                                    self.cell_width,
+                                    edgecolor="darkgoldenrod",
+                                    facecolor="darkgoldenrod")
+            ax.add_patch(draw_door)
         robot_pos = state.get(self._robot, "x")
         robot = plt.Rectangle((robot_pos - self.robot_width / 2.0, 0),
                               self.robot_width,
@@ -274,7 +281,7 @@ class GridRowDoorEnv(GridRowEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._RobotInCell, self._LightInCell, self._LightOn,
-            self._LightOff, self._Adjacent, self._DoorInCell
+            self._LightOff, self._Adjacent
         }
 
     @property
@@ -289,10 +296,76 @@ class GridRowDoorEnv(GridRowEnv):
         # dx, dlight, dmove, dturn
         return Box(-np.inf, np.inf, (4, ))
 
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        cells = [
+            Object(f"cell{i}", self._cell_type)
+            for i in range(CFG.test_grid_row_num_cells)
+        ]
+        self._cell_to_neighbors = {
+            cells[0]: {cells[1]},
+            cells[-1]: {cells[-2]},
+            **{
+                cells[t]: {cells[t - 1], cells[t + 1]}
+                for t in range(1,
+                               len(cells) - 1)
+            }
+        }
+        num=CFG.num_test_tasks
+        rng=self._test_rng
+        goal = {GroundAtom(self._LightOn, [self._light])}
+        tasks: List[EnvironmentTask] = []
+
+        door_list: List[List[Object]] = []
+        for door_num in range(CFG.num_doors):
+            door = Object(f"door{door_num}", self._door_type)
+            door_list.append(door)
+
+        while len(tasks) < num:
+            state_dict = {
+                self._robot: {
+                    "x": 0.5,
+                },
+                # Note: light level and door locations are fixed for now
+                # in order to maintain consistency across train and test
+                self._light: {
+                    "x": len(cells) - 0.5,
+                    "level": 0.0,
+                    "target": 0.75,
+                },
+            }
+            for i, cell in enumerate(cells):
+                state_dict[cell] = {"x": i + 0.5}
+
+            chosen_positions = rng.choice(CFG.test_grid_row_num_cells-1, size=len(door_list), replace=False)
+            for i, door in enumerate(door_list):
+                state_dict[door]={
+                    "x": chosen_positions[i]+0.5,
+                    "move_key": 0.0,
+                    "move_target": 0.5,
+                    "turn_key": 0.0,
+                    "turn_target": 0.75
+                }
+            state = utils.create_state_from_dict(state_dict)
+            tasks.append(EnvironmentTask(state, goal))
+        return tasks
+
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment: to turn the light on.
         goal = {GroundAtom(self._LightOn, [self._light])}
+        cells = [
+            Object(f"cell{i}", self._cell_type)
+            for i in range(CFG.grid_row_num_cells)
+        ]
+        self._cell_to_neighbors = {
+            cells[0]: {cells[1]},
+            cells[-1]: {cells[-2]},
+            **{
+                cells[t]: {cells[t - 1], cells[t + 1]}
+                for t in range(1,
+                               len(cells) - 1)
+            }
+        }
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             state_dict = {
@@ -302,20 +375,21 @@ class GridRowDoorEnv(GridRowEnv):
                 # Note: light level and door locations are fixed for now
                 # in order to maintain consistency across train and test
                 self._light: {
-                    "x": len(self._cells) - 0.5,
+                    "x": len(cells) - 0.5,
                     "level": 0.0,
                     "target": 0.75,
                 },
-                self._door: {
-                    "x": len(self._cells) // 2 + 0.5,
+            }
+            for i, cell in enumerate(cells):
+                state_dict[cell] = {"x": i + 0.5}
+            door = Object("door", self._door_type)
+            state_dict[door] =     {
+                     "x": rng.choice(range(1,len(cells)-1))-0.5,
                     "move_key": 0.0,
                     "move_target": 0.5,
                     "turn_key": 0.0,
                     "turn_target": 0.75
                 }
-            }
-            for i, cell in enumerate(self._cells):
-                state_dict[cell] = {"x": i + 0.5}
             state = utils.create_state_from_dict(state_dict)
             tasks.append(EnvironmentTask(state, goal))
         return tasks
@@ -324,36 +398,46 @@ class GridRowDoorEnv(GridRowEnv):
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         dx, dlight, dmove, dturn = action.arr
-        door_pos = state.get(self._door, "x")
-        robbot_pos = state.get(self._robot, "x")
-        door_move_key = state.get(self._door, "move_key")
-        door_move_target = state.get(self._door, "move_target")
-        door_turn_key = state.get(self._door, "turn_key")
-        door_turn_target = state.get(self._door, "turn_target")
-        robot_cells = [
-            c for c in self._cells if self._In_holds(state, [self._robot, c])
-        ]
-        door_cells = [
-            c for c in self._cells if self._In_holds(state, [self._door, c])
-        ]
-        assert len(door_cells) == 1
-        # Apply ddoor if we're in same cell as door
-        # Can only open door, not close
-        door_cell = door_cells[0]
+        cells = self.get_cells(state)
+        try:
+            robot_cells = [
+            c for c in cells if self._In_holds(state, [self._robot, c])
+            ]
+        except:
+            import ipdb;ipdb.set_trace()
+        total_door_cells = []
         robot_cell = robot_cells[0]
-        if robot_cell == door_cell and not (door_move_target - 0.1 \
+        door_cell_to_door = {}
+        for door in state:
+            if not door.is_instance(self._door_type):
+                continue
+            door_move_key = state.get(door, "move_key")
+            door_move_target = state.get(door, "move_target")
+            door_turn_key = state.get(door, "turn_key")
+            door_turn_target = state.get(door, "turn_target")
+            door_cells = [
+            c for c in cells if self._In_holds(state, [door, c])
+            ]
+            assert len(door_cells) == 1
+            # Apply ddoor if we're in same cell as door
+            # Can only open door, not close
+            door_cell = door_cells[0]
+            total_door_cells.append(door_cell)
+            door_cell_to_door[door_cell] = door
+            if robot_cell == door_cell and not (door_move_target - 0.1 \
                             <= door_move_key <= door_move_target + 0.1 \
     and door_turn_target - 0.1 <= door_turn_key <= door_turn_target + 0.1):
-            new_door_level = np.clip(
-                state.get(self._door, "move_key") + dmove, 0.0, 1.0)
-            next_state.set(self._door, "move_key", new_door_level)
-            new_door1_level = np.clip(
-                state.get(self._door, "turn_key") + dturn, 0.0, 1.0)
-            next_state.set(self._door, "turn_key", new_door1_level)
+                new_door_level = np.clip(
+                state.get(door, "move_key") + dmove, 0.0, 1.0)
+                next_state.set(door, "move_key", new_door_level)
+                new_door1_level = np.clip(
+                state.get(door, "turn_key") + dturn, 0.0, 1.0)
+                next_state.set(door, "turn_key", new_door1_level)
+
         # Apply dlight if we're in the same cell as the light.
         assert len(robot_cells) == 1
         light_cells = [
-            c for c in self._cells if self._In_holds(state, [self._light, c])
+            c for c in cells if self._In_holds(state, [self._light, c])
         ]
         assert len(light_cells) == 1
         light_cell = light_cells[0]
@@ -361,11 +445,29 @@ class GridRowDoorEnv(GridRowEnv):
                 state, [self._light]):
             next_state.set(self._light, "level", 0.75)
 
-        if (door_move_target - 0.1 <= door_move_key <= door_move_target + 0.1 \
-    and door_turn_target - 0.1 <= door_turn_key <= door_turn_target + 0.1) \
-            or (robbot_pos <= door_pos and robbot_pos + dx <= door_pos):
+        #if we're not in the same cell as a door, we can move forward
+        #elif the door is open we can move forward
+
+        in_door_cell = False
+        door_move_key = None
+        door_move_target = None
+        door_turn_key = None
+        door_turn_target = None
+
+        for door_cell in total_door_cells:
+            if robot_cell == door_cell:
+                in_door_cell = True
+                door = door_cell_to_door[door_cell]
+                door_move_key = state.get(door, "move_key")
+                door_move_target = state.get(door, "move_target")
+                door_turn_key = state.get(door, "turn_key")
+                door_turn_target = state.get(door, "turn_target")
+                break
+
+        if not in_door_cell or (dx < 0) or (door_move_target - 0.1 <= door_move_key <= door_move_target + 0.1 \
+    and door_turn_target - 0.1 <= door_turn_key <= door_turn_target + 0.1):
             # Apply dx to robot.
             new_x = np.clip(
-                state.get(self._robot, "x") + dx, 0.0, len(self._cells))
+                state.get(self._robot, "x") + dx, 0.0, len(cells))
             next_state.set(self._robot, "x", new_x)
-        return next_state
+        return next_state  

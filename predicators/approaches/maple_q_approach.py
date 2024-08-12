@@ -16,7 +16,7 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import MapleQFunction
+from predicators.ml_models import MapleQFunction, MPDQNFunction
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, InteractionRequest, \
     LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type, \
@@ -82,7 +82,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         """Create a new explorer at the beginning of each interaction cycle."""
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
-        max_steps = b**(1 + self._online_learning_cycle)
+        if CFG.use_old_exploration:
+            max_steps = b**(1 + self._online_learning_cycle)
+        else:
+            max_steps = CFG.max_num_steps_interaction_request
         preds = self._get_current_predicates()
         assert CFG.explorer == "maple_q"
         explorer = create_explorer(CFG.explorer,
@@ -110,7 +113,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
-                     annotations: Optional[List[Any]]) -> None:
+                     annotations: Optional[List[Any]], reward_bonuses) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
         if CFG.approach == "active_sampler_learning":
@@ -124,9 +127,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 assert nsrt.option_vars == nsrt.parameters  # pragma: no cover.
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
-        # Do not set grounding for rl_bridge_policy since it was set already
-        # in init_nsrts
-        if not online_learning_cycle and CFG.approach != "rl_bridge_policy":
+        if not online_learning_cycle and CFG.approach != "rl_bridge_policy" and CFG.approach != "rl_first_bridge":
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
                 for nsrt in self._nsrts:
@@ -156,7 +157,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
-        self._update_maple_data()
+        self._update_maple_data(reward_bonuses)
         # Re-learn Q function.
         self._q_function.train_q_function()
         # Save the things we need other than the NSRTs, which were already
@@ -200,3 +201,65 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             goal = self._train_tasks[request.train_task_idx].goal
             self._interaction_goals.append(goal)
         return requests
+
+class MPDQNApproach(MapleQApproach):
+    def __init__(self, initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task], CallPlanner) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks)
+
+        # The current implementation assumes that NSRTs are not changing.
+        assert CFG.strips_learner == "oracle"
+        # The base sampler should also be unchanging and from the oracle.
+        assert CFG.sampler_learner == "oracle"
+        self.CallPlanner = CallPlanner
+
+        # Log all transition data.
+        self._interaction_goals: List[Set[GroundAtom]] = []
+        self._last_seen_segment_traj_idx = -1
+
+        # Store the Q function. Note that this implicitly
+        # contains a replay buffer.
+        self._q_function = MPDQNFunction(
+            seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
+            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
+            num_lookahead_samples=CFG.
+            active_sampler_learning_num_lookahead_samples)
+
+
+    def _update_maple_data(self, reward_bonuses) -> None:
+        start_idx = self._last_seen_segment_traj_idx + 1
+        new_trajs = self._segmented_trajs[start_idx:]
+
+        goal_offset = CFG.max_initial_demos
+        assert len(self._segmented_trajs) == goal_offset + \
+            len(self._interaction_goals)
+        new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
+
+        for traj_i, segmented_traj in enumerate(new_trajs):
+            self._last_seen_segment_traj_idx += 1
+            for seg_i, segment in enumerate(segmented_traj):
+                s = segment.states[0]
+                goal = new_traj_goals[traj_i]
+                o = segment.get_option()
+                ns = segment.states[-1]
+                reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1:
+                    reward += 0.5
+
+                if CFG.rl_rwd_shape:
+                    reward += reward_bonuses[0]
+                    reward_bonuses.pop(0)
+                    
+                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+                self._q_function.add_datum_to_replay_buffer(
+                    (s, goal, o, ns, reward, terminal))

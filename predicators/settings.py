@@ -279,7 +279,8 @@ class GlobalSettings:
     screws_num_screws_test = [25, 30]
 
     # doors env parameters
-    doors_room_map_size = 5
+    doors_room_map_size = 2
+    test_doors_room_map_size = 5
     doors_min_obstacles_per_room = 0
     doors_max_obstacles_per_room = 3
     doors_min_room_exists_frac = 0.25
@@ -288,10 +289,8 @@ class GlobalSettings:
     doors_birrt_num_iters = 100
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
-
-    # doorknobs env parameters
+    timeout = 1000
     doorknobs_target_value = 0.75
-    test_doors_room_map_size = 10
 
     # narrow_passage env parameters
     narrow_passage_open_door_refine_penalty = 0
@@ -352,12 +351,13 @@ class GlobalSettings:
     sticky_table_num_sticky_tables = 1  # must be less than the num_tables
 
     # grid row env parameters
-    grid_row_num_cells = 100
+    grid_row_num_cells = 6
+    test_grid_row_num_cells = 12
+    num_doors = 3
 
     # burger env parameters
-    burger_render_set_of_marks = True
-    gridworld_num_rows = 5
-    gridworld_num_cols = 5
+    gridworld_num_rows = 4
+    gridworld_num_cols = 4
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -418,11 +418,6 @@ class GlobalSettings:
     # parameters for vision language models
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
     vlm_model_name = "gemini-pro-vision"
-    vlm_temperature = 0.0
-    vlm_num_completions = 1
-
-    # parameters for the vlm_open_loop planning approach
-    vlm_open_loop_use_training_demos = False
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
@@ -515,7 +510,7 @@ class GlobalSettings:
     weight_decay = 0
     mlp_regressor_max_itr = 10000
     mlp_regressor_hid_sizes = [32, 32]
-    mlp_regressor_clip_gradients = False
+    mlp_regressor_clip_gradients = True
     mlp_regressor_gradient_clip_value = 5
     mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_balance_data = True
@@ -587,13 +582,27 @@ class GlobalSettings:
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
-    active_sampler_learning_exploration_epsilon = 0.5
+    active_sampler_learning_exploration_epsilon = 1.0
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
 
-    # maple q function parameters
+    # mpdqn function parameters
     use_epsilon_annealing = True
     min_epsilon = 0.05
+    polyak_tau = 0.004
+    polyak_true = True
+    # if True then use RSS method (increasing exploration),
+    # if False then use new method (constant exploration)
+    use_old_exploration = False
+    # can modify whether or not rl_bridge has a callplanner action (use for ablation)
+    use_callplanner = True
+    # if True, then our bridge policy is completely random
+    random_bridge = False
+    # whether or not we use object centric state vectorization, 
+    # should be true for normal rl bridge, false for normal mapleq
+    use_obj_centric = False
+    # shivam vats inspo
+    rl_rwd_shape = True
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
@@ -683,7 +692,6 @@ class GlobalSettings:
     grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
-    grammar_search_parallelize_vlm_labeling = True
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
@@ -694,7 +702,6 @@ class GlobalSettings:
     # filepath to be used if offline_data_method is set to
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
-    vlm_predicate_vision_api_generate_ground_atoms = False
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -724,6 +731,8 @@ class GlobalSettings:
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
                     "grid_row": cls.grid_row_num_cells + 2,
+                    "grid_row_door": 30,
+                    "doorknobs": 200
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
