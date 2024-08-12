@@ -594,11 +594,12 @@ class GlobalSettings:
     # if True then use RSS method (increasing exploration),
     # if False then use new method (constant exploration)
     use_old_exploration = False
-    # can modify whether or not rl_bridge has a callplanner action (use for ablation)
+    # can modify whether or not rl_bridge has a \
+    # callplanner action (use for ablation)
     use_callplanner = True
     # if True, then our bridge policy is completely random
     random_bridge = False
-    # whether or not we use object centric state vectorization, 
+    # whether or not we use object centric state vectorization,
     # should be true for normal rl bridge, false for normal mapleq
     use_obj_centric = False
     # shivam vats inspo
