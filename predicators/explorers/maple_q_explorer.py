@@ -52,3 +52,4 @@ class MapleQExplorer(BaseExplorer):
         terminal = lambda s: False
 
         return policy, terminal
+    

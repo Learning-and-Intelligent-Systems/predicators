@@ -1353,7 +1353,6 @@ class MapleQFunction(MLPRegressor):
         self._ordered_ground_nsrts: List[_GroundNSRT] = []
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
         self._options= {}
-        self._qfunc_init = False
         self._max_num_params = 0
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
@@ -1364,6 +1363,7 @@ class MapleQFunction(MLPRegressor):
         self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
+        self._qfunc_init = False
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
