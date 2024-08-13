@@ -10,7 +10,7 @@ import tempfile
 from collections import deque
 from dataclasses import dataclass
 from typing import Any, Callable, Collection, Deque, Dict, FrozenSet, \
-    Iterable, Iterator, List, Optional, Sequence, Set, Tuple
+    Iterator, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -31,7 +31,7 @@ from predicators.envs.doors import DoorKnobsEnv
 from predicators.envs.grid_row import GridRowDoorEnv
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
-    State, Type, _GroundNSRT, _Option
+    ParameterizedOption, State, Type, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1352,7 +1352,7 @@ class MapleQFunction(MLPRegressor):
         self._ordered_frozen_goals: List[FrozenSet[GroundAtom]] = []
         self._ordered_ground_nsrts: List[_GroundNSRT] = []
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
-        self._options: Set[_Option] = set()
+        self._options: Set[ParameterizedOption] = set()
         self._max_num_params = 0
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
@@ -1596,10 +1596,8 @@ class MapleQFunction(MLPRegressor):
                                         state.get(robot, "y"))))
                             break
 
-                vectorized_state = object_to_features[closest_object][:6] + [
-                    x, y
-                ]
-                return vectorized_state
+                vec = np.array(object_to_features[closest_object][:6] + [x, y])
+                return vec
 
             if CFG.env == "grid_row_door":
                 robot_pos = 0
@@ -1628,7 +1626,7 @@ class MapleQFunction(MLPRegressor):
                         has_middle_door, door_move_key, door_move_target, \
                         door_turn_key, door_turn_target]
 
-                return vectorized_state
+                return np.array(vectorized_state)
 
         vecs: List[Array] = []
         for o in self._ordered_objects:
@@ -1783,8 +1781,10 @@ class MPDQNFunction(MapleQFunction):
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
                       ground_nsrts: Collection[_GroundNSRT], options: \
-                        Optional[List[_Option]] = None) -> None:
+                        Optional[set[ParameterizedOption]] = None) -> None:
         """After initialization because NSRTs not learned at first."""
+        if options is None:
+            options = set()
         for ground_nsrt in ground_nsrts:
             num_params = ground_nsrt.option.params_space.shape[0]
             self._max_num_params = max(self._max_num_params, num_params)
@@ -1863,7 +1863,6 @@ class MPDQNFunction(MapleQFunction):
 
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
-            next_best_action = 0
             if not terminal and self.qnet._y_dim != -1:  # pylint: disable=protected-access
                 best_next_value = -np.inf
                 next_option_vecs: List[Array] = []

@@ -402,6 +402,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         self._current_task: Task = self._train_tasks[0]
 
     def _Can_plan(self, state: State, _: Sequence[Object]) -> bool:
+        assert isinstance(self.mapleq._q_function, MPDQNFunction)  # pylint: disable=protected-access
         if (MPDQNFunction._old_vectorize_state(  # pylint: disable=protected-access
                 self.mapleq._q_function, state)  # pylint: disable=protected-access
                 != MPDQNFunction._old_vectorize_state(  # pylint: disable=protected-access
@@ -433,6 +434,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
         """CallPlanner NSRT."""
         parameters: Sequence[Variable] = []
         option_vars = parameters
+        assert isinstance(self.CallPlanner, ParameterizedOption)
         option = self.CallPlanner
         preconditions = {LiftedAtom(self.CanPlan, [])}
         add_effects: Set[LiftedAtom] = set()
@@ -502,8 +504,9 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             raise ValueError(
                 f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
         goals = [self._current_task.goal]  # pylint: disable=protected-access
+        assert isinstance(self.mapleq._q_function, MPDQNFunction)  # pylint: disable=protected-access
         self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
-            all_objects, goals, all_ground_nsrts, options)
+            all_objects, goals, all_ground_nsrts, (options))
 
     def _solve(self,
                task: Task,
@@ -643,11 +646,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             policy_logs = policy_logs[len(result.states) - 1:]
             plan_logs = plan_logs[len(result.states) - 1:]
         self.mapleq.get_interaction_requests()
-        self.mapleq._learn_nsrts(
-            self._trajs,
-            0,
-            [] * len(self._trajs),  # pylint: disable=protected-access
-            reward_bonuses)
+        self.mapleq._learn_nsrts(  # pylint: disable=protected-access
+            self._trajs, 0, [] * len(self._trajs), reward_bonuses)
         self._policy_logs = []
         self._plan_logs = []
         return None

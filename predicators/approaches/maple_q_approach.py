@@ -114,8 +114,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
                      annotations: Optional[List[Any]], reward_bonuses: \
-                        List[float] = []) -> None:
+                        Optional[List[float]] = None) -> None:
         # Start by learning NSRTs in the usual way.
+        if reward_bonuses is None:
+            reward_bonuses = []
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
         if CFG.approach == "active_sampler_learning":
             # Check the assumption that operators and options are 1:1.
@@ -159,8 +161,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
-        if type(self) is MPDQNApproach:
-            self._update_maple_data(reward_bonuses)
+        if isinstance(self, MPDQNApproach):
+            MPDQNApproach._update_maple_data(self, reward_bonuses)  # pylint: disable=protected-access
         else:
             self._update_maple_data()
         # Re-learn Q function.
@@ -244,7 +246,10 @@ class MPDQNApproach(MapleQApproach):
             num_lookahead_samples=CFG.
             active_sampler_learning_num_lookahead_samples)
 
-    def _update_maple_data(self, reward_bonuses: List[float] = []) -> None:
+    def _update_maple_data(self, reward_bonuses: \
+                            Optional[List[float]] = None) -> None:
+        if reward_bonuses is None:
+            reward_bonuses = []
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
 
