@@ -106,7 +106,7 @@ class BridgePolicyApproach(OracleApproach):
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
-        option_policy = self._get_option_policy_by_planning(task, timeout)
+        _, option_policy = self._get_option_policy_by_planning(task, timeout)
         current_policy = utils.option_policy_to_policy(
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
@@ -172,7 +172,7 @@ class BridgePolicyApproach(OracleApproach):
             current_control = "planner"
             duration = time.perf_counter() - start_time
             remaining_time = timeout - duration
-            option_policy = self._get_option_policy_by_planning(
+            _, option_policy = self._get_option_policy_by_planning(
                 current_task, remaining_time)
             current_policy = utils.option_policy_to_policy(
                 option_policy,
@@ -189,7 +189,8 @@ class BridgePolicyApproach(OracleApproach):
         return _policy
 
     def _get_option_policy_by_planning(
-            self, task: Task, timeout: float) -> Callable[[State], _Option]:
+            self, task: Task, timeout: float) -> Tuple[List[Set \
+                            [GroundAtom]], Callable[[State], _Option]]:
         """Raises an OptionExecutionFailure with the last_failed_option in its
         info dict in the case where execution fails."""
 
@@ -201,7 +202,7 @@ class BridgePolicyApproach(OracleApproach):
 
         nsrt_plan, atoms_seq, _ = self._run_task_plan(task, nsrts, preds,
                                                       timeout, seed)
-        return utils.nsrt_plan_to_greedy_option_policy(
+        return atoms_seq, utils.nsrt_plan_to_greedy_option_policy(
             nsrt_plan,
             goal=task.goal,
             rng=self._rng,

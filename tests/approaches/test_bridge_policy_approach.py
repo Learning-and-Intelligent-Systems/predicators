@@ -85,13 +85,14 @@ def test_bridge_policy_approach():
 
     # Test case where the second time that the planner is called, it returns
     # an invalid option.
-    first_policy = approach._get_option_policy_by_planning(task, timeout=500)  # pylint: disable=protected-access
+    _, first_policy = approach._get_option_policy_by_planning(task, timeout=500)  # pylint: disable=protected-access
 
     def second_policy(s):
         del s  # unused
         raise utils.OptionExecutionFailure("Second planning failed.")
 
-    p = f"{_APPROACH_PATH}.BridgePolicyApproach._get_option_policy_by_planning"
+    _, p = f"{_APPROACH_PATH}.BridgePolicyApproach.\
+        _get_option_policy_by_planning"
     with patch(p) as m:
         m.side_effect = [first_policy, second_policy]
         policy = approach.solve(task, timeout=500)
