@@ -156,7 +156,7 @@ def test_grid_row_door():
         task = env_task.task
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 6
+    assert len(env.predicates) == 5
     Adjacent, DoorInCell, LightInCell, LightOff, LightOn, RobotInCell = \
         sorted(env.predicates)
     assert Adjacent.name == "Adjacent"
