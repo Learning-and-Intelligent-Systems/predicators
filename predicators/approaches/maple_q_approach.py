@@ -113,7 +113,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
-                     annotations: Optional[List[Any]], reward_bonuses) -> None:
+                     annotations: Optional[List[Any]], reward_bonuses = None) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
         if CFG.approach == "active_sampler_learning":
@@ -158,7 +158,10 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             self._q_function.set_grounding(all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
-        self._update_maple_data(reward_bonuses)
+        if isinstance(self, MPDQNApproach):
+            MPDQNApproach._update_maple_data(self, reward_bonuses)  # pylint: disable=protected-access
+        else:
+            self._update_maple_data()
         # Re-learn Q function.
         self._q_function.train_q_function()
         # Save the things we need other than the NSRTs, which were already
@@ -184,13 +187,19 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
         for traj_i, segmented_traj in enumerate(new_trajs):
             self._last_seen_segment_traj_idx += 1
+            already_terminal = False
             for seg_i, segment in enumerate(segmented_traj):
                 s = segment.states[0]
                 goal = new_traj_goals[traj_i]
                 o = segment.get_option()
                 ns = segment.states[-1]
-                reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                if goal.issubset(segment.final_atoms) and not already_terminal:
+                    reward = 1.0 
+                else:
+                    reward = 0.0
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+                if terminal:    
+                    already_terminal = terminal
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))
 

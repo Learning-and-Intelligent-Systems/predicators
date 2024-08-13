@@ -1415,6 +1415,7 @@ class MapleQFunction(MLPRegressor):
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
+        self._options = {i.option for i in self._ordered_ground_nsrts}
 
     
     def get_q_values(self):
@@ -1448,7 +1449,7 @@ class MapleQFunction(MLPRegressor):
         options = self._sample_applicable_options_from_state(
             state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
         scores = [
-            self.predict_q_value(state, option) for option in options
+            self.predict_q_value(state, goal, option) for option in options
         ]
         
         option_scores=list(zip(options, scores))
@@ -1476,7 +1477,15 @@ class MapleQFunction(MLPRegressor):
         # import ipdb;ipdb.set_trace()
         # First, precompute the size of the input and output from the
         # Q-network.
-        X_size = sum(o.type.dim for o in self._ordered_objects) + self._num_ground_nsrts + self._max_num_params
+        num_rwd = 0
+        if CFG.env == "grid_row_door" and not CFG.use_obj_centric:
+            X_size = 40 + self._num_ground_nsrts + self._max_num_params + 1
+        elif CFG.env == "grid_row_door":
+            X_size = 7 + 3 + self._max_num_params + 1
+        elif CFG.env == "doorknobs" and not CFG.use_obj_centric:
+            X_size = 180 + self._num_ground_nsrts + self._max_num_params + 1
+        else:
+            X_size = sum(o.type.dim for o in self._ordered_objects) + self._num_ground_nsrts + self._max_num_params + 1
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
@@ -1484,18 +1493,12 @@ class MapleQFunction(MLPRegressor):
         # Otherwise, start by vectorizing all data in the replay buffer.
         X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
         Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
-        good_light_index=[]
-        bad_light_index=[]
-        good_door_index=[]
-        bad_door_index=[]
-        second_turnkey_index=[]
-        second_movekey_index=[]
-        callplanner_index=[]
-        good_move_index=[]
-        bad_move_index=[]
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
+            if reward > 0:
+                num_rwd+=1
+                print(state, goal, option, next_state, reward)
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
@@ -1503,7 +1506,6 @@ class MapleQFunction(MLPRegressor):
                 [vectorized_state, vectorized_goal, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
-            next_best_action = 0
             if not terminal and self._y_dim != -1:
                 best_next_value = -np.inf
                 next_option_vecs: List[Array] = []
@@ -1530,40 +1532,7 @@ class MapleQFunction(MLPRegressor):
             else:
                 best_next_value = 0.0
             Y_arr[i] = reward + self._discount * best_next_value
-
-            door_pos = CFG.grid_row_num_cells//2+0.5
-            door_open_index = CFG.grid_row_num_cells+1
-            good_move = CFG.grid_row_num_cells*(CFG.grid_row_num_cells//2)+CFG.grid_row_num_cells//2+1
-            if vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65 and terminal and vectorized_action[-2]==1.0:
-                good_light_index.append(i)
-            elif vectorized_action[-2]==1.0:
-                bad_light_index.append(i)
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[2]==1 and vectorized_action[-1]<0.6 and vectorized_action[-1]>0.4:
-                #good door is if we're in the 2nd cell and door is not open and we try to MoveKey
-                good_door_index.append(i)
-                logging.debug("GOOD DOOR predicted, next best value, next best action" +str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<0.85 and vectorized_action[-1]>0.65:
-                #good door is if we're in the 2nd cell and door is not open and we try to TurnKey
-                good_door_index.append(i)
-                logging.debug("GOOD DOOR predicted, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-            elif vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]==0:
-                #we did not try to open the door...
-                bad_door_index.append(i)
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
-                and vectorized_state[door_open_index+2]<=0.85 and vectorized_state[door_open_index+2]>=0.65\
-                    and vectorized_action[0]==1:
-                callplanner_index.append(i)
-                logging.debug("GOOD CALLPLANNER predicted, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]<=0.6 and vectorized_state[door_open_index]>=0.4 \
-                and vectorized_state[door_open_index+2]==0 and vectorized_action[14]==1 and vectorized_action[-1]<=0.85 and vectorized_action[-1]>=0.65:
-                #second good door, we've already done movekey and now we turn key
-                second_turnkey_index.append(i)
-                logging.debug("GOOD TURNKEY (second action) predicted, next best value, next best action" + str(Y_arr[i]) + str(best_next_value) + str(next_best_action))
-            if vectorized_state[-1]==door_pos and vectorized_state[door_open_index]==0 and vectorized_state[door_open_index+2]<=0.85 \
-                  and vectorized_state[door_open_index+2]>=0.65 and vectorized_action[2]==1 and vectorized_action[-1]<=0.6 and vectorized_action[-1]>=0.4:
-                #second good door, we've already done movekey and now we turn key
-                second_movekey_index.append(i)
-                logging.debug("GOOD MOVEKEY (second action) predicted, next best value, next best action" + str(Y_arr[i]) +str(best_next_value) + str(next_best_action))
+        print("WE GOT REWARDS: ", num_rwd)
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
@@ -1747,28 +1716,34 @@ class MapleQFunction(MLPRegressor):
         vec[idx] = 1.0
         return vec
 
-    def _vectorize_option(self, option: _Option) -> Array:
+    # def _vectorize_option(self, option: _Option) -> Array:
+    #     matches = [
+    #         i for (n, i) in self._ground_nsrt_to_idx.items()
+    #         if n.option == option.parent
+    #         and tuple(n.objects) == tuple(option.objects)
+    #     ]
+    #     if len(matches) != 1:
+    #         import ipdb;ipdb.set_trace()
+    #     assert len(matches) == 1
+    #     # Create discrete part.
+    #     discrete_vec = np.zeros(self._num_ground_nsrts)
+    #     discrete_vec[matches[0]] = 1.0
+    #     # Create continuous part.
+    #     continuous_vec = np.zeros(self._max_num_params)
+    #     continuous_vec[:len(option.params)] = option.params
+    #     # Concatenate.
+    #     vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
+    #     return vec
+
+    def _vectorize_option(self, option: _Option) -> Array:    
         matches = [
-            i for (n, i) in self._ground_nsrt_to_idx.items()
-            if n.option == option.parent
-            and tuple(n.objects) == tuple(option.objects)
+        i for (i,n) in enumerate(self._options)
+        if n == option.parent
         ]
 
-        # matches = [
-        # i for (i,n) in enumerate(self._options)
-        # if n == option.parent
-        # ]
-                
-        # print(self._ground_nsrt_to_idx.items())
-        # for (n, i) in self._ground_nsrt_to_idx.items():
-        #     print(n.option, option.parent, tuple(n.objects), tuple(n.option_objs), tuple(option.objects), n.option == option.parent
-        #     and tuple(n.option_objs) == tuple(option.objects))
-
-        if len(matches) != 1:
-            import ipdb;ipdb.set_trace()
         assert len(matches) == 1
         # Create discrete part.
-        discrete_vec = np.zeros(self._num_ground_nsrts)
+        discrete_vec = np.zeros(len(self._options))
         discrete_vec[matches[0]] = 1.0
         # Create continuous part.
         continuous_vec = np.zeros(self._max_num_params)
@@ -1776,8 +1751,8 @@ class MapleQFunction(MLPRegressor):
         # Concatenate.
         vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
         return vec
-
-    def predict_q_value(self, state: State,
+    
+    def predict_q_value(self, state: State, goal: Set[GroundAtom],
                         option: _Option) -> float:
         """Predict the Q value."""
         # Default value if not yet fit.
@@ -1785,7 +1760,7 @@ class MapleQFunction(MLPRegressor):
             return 0.0
         x = np.concatenate([
             self._vectorize_state(state),
-            # self._vectorize_goal(goal),
+            self._vectorize_goal(goal),
             self._vectorize_option(option)
         ])
         y = self.predict(x)[0]
