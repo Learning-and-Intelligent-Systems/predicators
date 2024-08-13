@@ -602,7 +602,7 @@ class GlobalSettings:
     # should be true for normal rl bridge, false for normal mapleq
     use_obj_centric = False
     # shivam vats inspo
-    rl_rwd_shape = True
+    rl_rwd_shape = False
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
