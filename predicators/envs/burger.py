@@ -123,7 +123,7 @@ class BurgerEnv(BaseEnv):
             self._bottom_bun_type, self._tomato_type], self._GoalHack3_holds
         )
         self._GoalHack4 = Predicate("GoalHack4", [
-            self._patty_type, self._tomato_type], self._GoalHack3_holds
+            self._patty_type, self._tomato_type], self._GoalHack4_holds
         )
 
         # self._GoalHack3 = Predicate("GoalHack3", [
@@ -629,6 +629,16 @@ class BurgerEnv(BaseEnv):
         # patty1_z = state.get(patty1, "z")
         # patty2_z = state.get(patty2, "z")
         # return patty1_z > patty2_z and self._IsCooked_holds(state, [patty1]) and self.IsCooked_holds(state, [patty2])
+        obj, tomato = objects
+        # The object is somewhere below the tomato and the tomato is sliced.
+        obj_z = state.get(obj, "z")
+        obj_x, obj_y = self.get_position(obj, state)
+        t_z = state.get(tomato, "z")
+        t_x, t_y = self.get_position(tomato, state)
+        same_cell = obj_x == t_x and obj_y == t_y
+        return obj_z < t_z and same_cell and self._IsSliced_holds(state, [tomato])
+
+    def _GoalHack4_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, tomato = objects
         # The object is somewhere below the tomato and the tomato is sliced.
         obj_z = state.get(obj, "z")
@@ -1222,7 +1232,8 @@ class BurgerNoMoveEnv(BurgerEnv):
             self._OnGround,
             self._Clear,
             self._GoalHack2,
-            self._GoalHack3
+            self._GoalHack3,
+            self._GoalHack4
         }
 
     @property
@@ -1231,4 +1242,4 @@ class BurgerNoMoveEnv(BurgerEnv):
 
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._OnGround, self._GoalHack2, self._GoalHack3}
+        return {self._On, self._OnGround, self._GoalHack2, self._GoalHack3, self._GoalHack4}
