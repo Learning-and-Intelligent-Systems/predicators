@@ -162,7 +162,7 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             def open_doorknob_sampler(_: State, goal: Set[GroundAtom],
                                       rng: np.random.Generator,
                                       __: Sequence[Object]) -> Array:
-                del goal  # unused  # pragma: no cover
+                del goal  # unused # pragma: no cover
                 return np.array([rng.uniform(-1.0, 1.0)],
                                 dtype=np.float32)  # pragma: no cover
 

@@ -97,7 +97,6 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
         robot_type = types["robot"]
         light_type = types["light"]
         cell_type = types["cell"]
-        door_type = types["door"]
 
         # MoveTo
         def _MoveTo_policy(state: State, memory: Dict,
@@ -148,7 +147,7 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
 
         MoveKey = utils.SingletonParameterizedOption(
             "MoveKey",
-            types=[robot_type, cell_type, door_type],
+            types=[robot_type, cell_type],
             policy=_move_key_policy,
             params_space=Box(-1.0, 1.0, (1, )),
         )
@@ -163,7 +162,7 @@ class GridRowDoorGroundTruthOptionFactory(GridRowGroundTruthOptionFactory):
 
         TurnKey = utils.SingletonParameterizedOption(
             "TurnKey",
-            types=[robot_type, cell_type, door_type],
+            types=[robot_type, cell_type],
             policy=_turn_key_policy,
             params_space=Box(-1.0, 1.0, (1, )),
         )
