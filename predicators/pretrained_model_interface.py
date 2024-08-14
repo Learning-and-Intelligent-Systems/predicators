@@ -33,6 +33,7 @@ class PretrainedLargeModel(abc.ABC):
     def __init__(self, system_instruction: Optional[str] = None):
         """Initialize the model with a system instruction."""
         self.system_instruction = system_instruction
+        self.chat_history = []
 
     @abc.abstractmethod
     def get_id(self) -> str:
@@ -65,7 +66,9 @@ class PretrainedLargeModel(abc.ABC):
                            temperature: float,
                            seed: int,
                            stop_token: Optional[str] = None,
-                           num_completions: int = 1) -> List[str]:
+                           num_completions: int = 1,
+                           cache_chat_session: bool = False,
+                           ) -> List[str]:
         """Sample one or more completions from a prompt.
 
         Higher temperatures will increase the variance in the responses.
@@ -104,6 +107,7 @@ class PretrainedLargeModel(abc.ABC):
         cache_filename = "prompt.txt"
         cache_filepath = os.path.join(CFG.pretrained_model_prompt_cache_dir,
                                       cache_foldername, cache_filename)
+
         if not os.path.exists(cache_filepath):
             if CFG.llm_use_cache_only:
                 raise ValueError("No cached response found for prompt.")
@@ -134,6 +138,27 @@ class PretrainedLargeModel(abc.ABC):
         cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
         assert cached_prompt == prompt
         completions = completion_strs.split(_CACHE_SEP)
+
+        if cache_chat_session:
+            assert isinstance(self, OpenAIModel), "Have only implemented "\
+                "OpenAIModel"
+            system_message = self.prepare_system_message()
+            messages = self.prepare_vision_messages(prefix=prompt,
+                                                    images=imgs,
+                                                    detail="auto")
+            if not self.chat_history:
+                # if chat history is empty, we need to include the system message
+                messages = system_message + messages
+            else:
+                # if not, we include the chat history
+                messages = self.chat_history + messages
+            self.chat_history.extend(messages)
+            # TODO: Cache the completion.
+            self.chat_history.append({"role": "assistant", 
+                                      "content": completions})
+        else:
+            self.chat_history = []
+
         return completions
 
 
@@ -147,10 +172,13 @@ class VisionLanguageModel(PretrainedLargeModel):
             temperature: float,
             seed: int,
             stop_token: Optional[str] = None,
-            num_completions: int = 1) -> List[str]:  # pragma: no cover
+            num_completions: int = 1,
+            cache_chat_session: bool = False,
+            ) -> List[str]:  # pragma: no cover
         assert imgs is not None
         return super().sample_completions(prompt, imgs, temperature, seed,
-                                          stop_token, num_completions)
+                                          stop_token, num_completions,
+                                          cache_chat_session)
 
 
 class LargeLanguageModel(PretrainedLargeModel):
@@ -219,7 +247,7 @@ class GoogleGeminiModel(PretrainedLargeModel):
         self._model_name = model_name
         assert "GOOGLE_API_KEY" in os.environ
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        safety_settings = [
+        self.safety_settings = [
             {
                 "category": "HARM_CATEGORY_HARASSMENT",
                 "threshold": "BLOCK_NONE"
@@ -240,7 +268,7 @@ class GoogleGeminiModel(PretrainedLargeModel):
         # pylint:disable=no-member
         self._model = genai.GenerativeModel(
             model_name=self._model_name,
-            safety_settings=safety_settings,
+            safety_settings=self.safety_settings,
             system_instruction=self.system_instruction)
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()
@@ -282,7 +310,9 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
             temperature: float,
             seed: int,
             stop_token: Optional[str] = None,
-            num_completions: int = 1) -> List[str]:  # pragma: no cover
+            num_completions: int = 1,
+            cache_chat_session: bool = False,
+            ) -> List[str]:  # pragma: no cover
         del imgs, seed, stop_token  # unused
         messages = [{"role": "user", "content": prompt, "type": "text"}]
         responses = [
@@ -310,7 +340,9 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
             temperature: float,
             seed: int,
             stop_token: Optional[str] = None,
-            num_completions: int = 1) -> List[str]:  # pragma: no cover
+            num_completions: int = 1,
+            cache_chat_session: bool = False,
+            ) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is None
         generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
@@ -323,79 +355,6 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
 
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
-
-
-class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
-    """Interface to the Google Gemini VLM (1.5).
-
-    Assumes that an environment variable GOOGLE_API_KEY is set with the
-    necessary API key to query the particular model name.
-    """
-
-    @retry(wait=wait_random_exponential(min=1, max=60),
-           stop=stop_after_attempt(60000))
-    def _sample_completions(
-            self,
-            prompt: str,
-            imgs: Optional[List[PIL.Image.Image]],
-            temperature: float,
-            seed: int,
-            stop_token: Optional[str] = None,
-            num_completions: int = 1) -> List[str]:  # pragma: no cover
-        del seed, stop_token  # unused
-        assert imgs is not None
-        # try to use different keys
-        keys = [
-            os.getenv("GOOGLE_API_KEY"),
-            os.getenv("GOOGLE_API_KEY1"),
-            os.getenv("GGOGLE_API_KEY2"),
-        ]
-        genai.configure(api_key=np.random.choice(keys))
-        safety_settings = [
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_NONE"
-            },
-            {
-                "category": "HARM_CATEGORY_HATE_SPEECH",
-                "threshold": "BLOCK_NONE"
-            },
-            {
-                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "threshold": "BLOCK_NONE"
-            },
-            {
-                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "threshold": "BLOCK_NONE"
-            },
-        ]
-        # pylint:disable=no-member
-        self._model = genai.GenerativeModel(
-            model_name=self._model_name,
-            safety_settings=safety_settings,
-            system_instruction=self.system_instruction)
-        if CFG.vlm_use_chat_mode:
-            self.chat_session = self._model.start_chat()
-        # end
-
-        # pylint:disable=no-member
-        generation_config = genai.types.GenerationConfig(
-            candidate_count=num_completions, temperature=temperature)
-        if CFG.vlm_use_chat_mode:
-            logging.debug("Using chat mode instead of sample completions.")
-            response = self.chat_session.send_message(
-                [prompt] + imgs,
-                generation_config=generation_config)  # type: ignore
-        else:
-            response = self._model.generate_content(
-                [prompt] + imgs,
-                generation_config=generation_config)  # type: ignore
-        response.resolve()
-        return [response.text]
-
-    def get_id(self) -> str:
-        return f"Google-{self._model_name}"
-
 
 class OpenAIVLM(VisionLanguageModel, OpenAIModel):
     """Interface for OpenAI's VLMs, including GPT-4 Turbo (and preview
@@ -426,7 +385,7 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         content: List[Dict[str, Union[str, Collection[str]]]] = []
         if prefix:
             content.append({"text": prefix, "type": "text"})
-        assert images
+        assert images or self.chat_history
         assert detail in ["auto", "low", "high"]
         for img in images:
             img_resized = img
@@ -453,7 +412,7 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
 
     def prepare_system_message(self):
         system_message = []
-        if CFG.vlm_system_instruction:
+        if CFG.vlm_system_instruction and self.system_instruction is not None:
             system_message.append({
                 "role":
                 "system",
@@ -476,20 +435,97 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         seed: int,
         stop_token: Optional[str] = None,
         num_completions: int = 1,
+        cache_chat_session: bool = False,
     ) -> List[str]:  # pragma: no cover
         """Query the model and get responses."""
         del seed, stop_token  # unused.
-        if imgs is None:
+
+        # Allow images to be None if chat history is not empty.
+        if imgs is None and not self.chat_history:
             raise ValueError("images cannot be None")
         system_message = self.prepare_system_message()
         messages = self.prepare_vision_messages(prefix=prompt,
                                                 images=imgs,
                                                 detail="auto")
+        if not self.chat_history:
+            # if chat history is empty, we need to include the system message
+            messages = system_message + messages
+        else:
+            # if not, we include the chat history
+            messages = self.chat_history + messages
+
         responses = [
-            self.call_openai_api(system_message + messages,
+            self.call_openai_api(messages,
                                  model=self.model_name,
                                  max_tokens=self._max_tokens,
                                  temperature=temperature)
             for _ in range(num_completions)
         ]
         return responses
+
+
+keys = [
+    os.getenv("GOOGLE_API_KEY"),
+    os.getenv("GOOGLE_API_KEY1"),
+    os.getenv("GOOGLE_API_KEY2"),
+]
+
+def key_generator(keys):
+    while True:
+        for key in keys:
+            yield key
+
+key_gen = key_generator(keys)
+
+def get_new_key():
+    return next(key_gen)
+
+class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
+    """Interface to the Google Gemini VLM (1.5).
+
+    Assumes that an environment variable GOOGLE_API_KEY is set with the
+    necessary API key to query the particular model name.
+    """
+    
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(60000))
+    def _sample_completions(
+            self,
+            prompt: str,
+            imgs: Optional[List[PIL.Image.Image]],
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1,
+            cache_chat_session: bool = False,
+            ) -> List[str]:  # pragma: no cover
+        del seed, stop_token  # unused
+        assert imgs is not None or self.chat_history
+        genai.configure(api_key=get_new_key())
+        # pylint:disable=no-member
+        self._model = genai.GenerativeModel(
+            model_name=self._model_name,
+            safety_settings=self.safety_settings,
+            system_instruction=self.system_instruction)
+
+        if CFG.vlm_use_chat_mode:
+            self.chat_session = self._model.start_chat(history=self.chat_history
+                                                if self.chat_history else None)
+
+        # pylint:disable=no-member
+        generation_config = genai.types.GenerationConfig(
+            candidate_count=num_completions, temperature=temperature)
+        if CFG.vlm_use_chat_mode:
+            logging.debug("Using chat mode instead of sample completions.")
+            response = self.chat_session.send_message(
+                [prompt] + imgs,
+                generation_config=generation_config)  # type: ignore
+        else:
+            response = self._model.generate_content(
+                [prompt] + imgs,
+                generation_config=generation_config)  # type: ignore
+        response.resolve()
+        return [response.text]
+
+    def get_id(self) -> str:
+        return f"Google-{self._model_name}"

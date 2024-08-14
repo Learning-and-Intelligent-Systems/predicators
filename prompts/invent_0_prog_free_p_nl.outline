@@ -1,0 +1,8 @@
+Context: You are an expert AI researcher specializing in robotic planning. Your task is to identify and propose concepts that could be useful for robotic planning.
+
+The robot tried to execute its skills and got the following results:
+[OPERATOR_PERFORMACE]
+
+Objective: Propose a lot of properties of the action related objects that could be used to differentiate between context where actions were successful and those where they failed. Avoid referencing specific object names, such as block3.
+
+Please present your answer in an ordered list. Do not include any additional information outside the requested bullet points.

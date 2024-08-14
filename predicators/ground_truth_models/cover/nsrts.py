@@ -20,8 +20,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {
             "cover", "cover_hierarchical_types", "cover_typed_options",
             "cover_regrasp", "cover_multistep_options", "pybullet_cover",
-            "pybullet_cover_typed_options", "cover_handempty", "bumpy_cover",
-            "cover_place_hard"
+            "pybullet_cover_typed_options", "pybullet_cover_weighted", 
+            "cover_handempty", "bumpy_cover", "cover_place_hard"
         }
 
     @staticmethod
@@ -44,6 +44,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Covers = predicates["Covers"]
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
+        IsLight = predicates["IsLight"]
 
         # Options
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
@@ -51,7 +52,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             PickPlace = options["PickPlace"]
         elif env_name in ("cover_typed_options", "cover_multistep_options",
                           "bumpy_cover", "cover_place_hard",
-                          "pybullet_cover_typed_options"):
+                          "pybullet_cover_typed_options",
+                          "pybullet_cover_weighted"):
             Pick, Place = options["Pick"], options["Place"]
 
         nsrts = set()
@@ -70,6 +72,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(IsBlock, [block]),
             LiftedAtom(HandEmpty, handempty_predicate_args)
         }
+        if env_name in ("pybullet_cover_weighted"):
+            preconditions.add(LiftedAtom(IsLight, [block]))
         add_effects = {LiftedAtom(Holding, holding_predicate_args)}
         delete_effects = {LiftedAtom(HandEmpty, handempty_predicate_args)}
 
@@ -81,7 +85,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             option = Pick
             option_vars = [block]
         elif env_name in ("cover_typed_options", "cover_place_hard",
-                          "pybullet_cover_typed_options"):
+                          "pybullet_cover_typed_options",
+                          "pybullet_cover_weighted"):
             option = Pick
             option_vars = [block]
         elif env_name == "cover_multistep_options":
@@ -161,6 +166,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         "cover_handempty",
                         "bumpy_cover",
                         "pybullet_cover_typed_options",
+                        "pybullet_cover_weighted",
                 ):
                     lb = float(
                         state.get(b, "pose_y_norm") -
@@ -216,7 +222,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         elif env_name in ("cover_typed_options"):
             option = Place
             option_vars = [target]
-        elif env_name in ("pybullet_cover_typed_options"):
+        elif env_name in ("pybullet_cover_typed_options",
+                          "pybullet_cover_weighted"):
             option = Place
             option_vars = [block, target]
         elif env_name == "cover_place_hard":

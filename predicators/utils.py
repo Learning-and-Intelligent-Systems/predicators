@@ -597,19 +597,29 @@ def append_classification_result_for_ops(
         if CFG.vlm_predicator_render_option_state:
             # Write state name to the image for easy identification
             obs_name = "state_" + str(state_hash_to_id[hash(state)])
+            logging.debug(f"found {obs_name}")
             save_image_with_label(state.labeled_image.copy(), obs_name,
                                   obs_dir)
             if category == "tp":
-                result_str.append(f"Action {g_optn} *successfully* executed " +
-                                  "on " + obs_name + " with additional info:")
+                # result_str.append(f"Action {g_optn} *successfully* executed " +
+                #                   "on " + obs_name + " with additional info:")
+                result_str.append(f"Action: {g_optn}\n"+
+                                  f"  Result: Success\n"+
+                                  f"  State: {obs_name}\n"+
+                                  f"  Additional info:")
             elif category == "fp":
-                result_str.append(f"Action {g_optn} *failed* to executed " +
-                                  "on " + obs_name + " with additional info:")
+                # result_str.append(f"Action {g_optn} *failed* to executed " +
+                #                   "on " + obs_name + " with additional info:")
+                result_str.append(f"Action: {g_optn}\n"+
+                                  f"  Result: Fail\n"+
+                                  f"  State: {obs_name}\n"+
+                                  f"  Additional info:")
             else:
                 raise NotImplementedError("Only tp and fp are supported")
-            # result_str.append("  " + obs_name + " with additional info:")
-            str_for_this_state.append("  " + obs_name +
-                                      " with additional info:")
+            # str_for_this_state.append("  " + obs_name +
+            #                           " with additional info:")
+            str_for_this_state.append(f"  State: {obs_name}\n"+
+                                        f"  Additional info:")
             # Should add proprio state
         state_dict_str = state.dict_str(
             indent=2,

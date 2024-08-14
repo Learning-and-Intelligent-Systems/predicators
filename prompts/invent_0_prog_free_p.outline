@@ -1,0 +1,39 @@
+Context: You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
+
+The existing predicates are:
+[PREDICATES_IN_ENV]
+
+The robot tried to execute its skills and got the following results:
+[OPERATOR_PERFORMACE]
+
+Objective: Identify the properties that differ between the objects in the action’s arguments between the successful and failed initial states. Propose new predicates that can distinguish these properties, allowing for differentiation between the successful and failed states.
+
+Instructions for Response:
+1. Propose predicates in the following format:
+    ```plaintext
+    # Predicate Proposals
+    * <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+    * ...
+    ```
+    * The assertion should be very clear, precise, and unambiguous, and about the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable.
+
+2. Describe the predicates that each action requires and changes, in the following format:
+    ```plaintext
+    # Action Preconditions
+    * Action: <action_name_with_parameters>
+        * successful state: state_<x>:
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>: <truth_value>.
+            * ...
+        * ...
+        * failed state: state_<y>:
+            * <predicate1_name>(<obj1>, <obj2>, ...): <The assertion this predicate is making>: <truth_value>.
+            * ...
+        * ...
+    * Action: ...
+    ```
+    * Replace `<obj1>`, `<obj2>`, etc., with actual object names in the state.
+
+3. In your response, please following the following guidelines:
+    * Respond only with the two sections outlined above.
+    * Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1>, and <obj1> with actual names and types from the state dictionary provided. Do not use types that are not present in the states (e.g., int or float).
+    * Do not use bold or italic fonts in your response.

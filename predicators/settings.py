@@ -68,6 +68,7 @@ class GlobalSettings:
 
     # pybullet_cover env paramters
     cover_typed_options_no_sampler = False
+    cover_weighted_ratio = 0.5
 
     # bumpy cover env parameters
     bumpy_cover_num_bumps = 2
@@ -454,6 +455,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_invent_predicates_in_stages = False
     vlm_invent_from_trajs = False
     vlm_invention_positive_negative_include_next_state = False
+    vlm_invention_propose_nl_properties = False
+    vlm_invention_alternate_between_p_ad = False
     vlm_temperature = 0.0
     vlm_num_completions = 1
 
@@ -789,6 +792,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # tasks take more actions to complete.
                     "pybullet_cover": 1000,
                     "pybullet_cover_typed_options": 1000,
+                    "pybullet_cover_weighted": 1000,
                     "pybullet_blocks": 1000,
                     # to allow pour policies to finish
                     "pybullet_coffee": 2000,
@@ -847,7 +851,9 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_cover_typed_options":
-                    "oracle_cover_typed_options",
+                        "oracle_cover_typed_options",
+                    "pybullet_cover_weighted":
+                        "oracle_cover_typed_options",
                     "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 

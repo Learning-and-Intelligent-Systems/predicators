@@ -42,7 +42,7 @@ from predicators.approaches.grammar_search_invention_approach import \
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.envs import BaseEnv
 from predicators.ground_truth_models import get_gt_nsrts
-from predicators.llm_interface import OpenAILLM, OpenAILLMNEW
+from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.predicate_search_score_functions import \
     _ClassificationErrorScoreFunction, _PredicateSearchScoreFunction, \
     create_score_function
@@ -148,6 +148,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         # self._candidates: Set[Predicate] = set()
         self._num_inventions = 0
         # Set up the VLM
+        self._gpt4o = utils.create_vlm_by_name("gpt-4o")
         self._vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         self._type_dict = {type.name: type for type in self._types}
 
@@ -250,8 +251,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         num_tasks = len(tasks)
         propose_ite = 0
         max_invent_ite = 20
-        manual_prompt = False
-        regenerate_response = True
+        self.manual_prompt = False
+        self.regenerate_response = True
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
         best_solve_rate, best_ite, clf_acc = -np.inf, 0.0, 0.0
         clf_acc_at_best_solve_rate = 0.0
@@ -300,9 +301,15 @@ class VlmInventionApproach(NSRTLearningApproach):
             defaultdict(GroundOptionRecord)
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
-
+        self.vlm_invention_propose_nl_properties = CFG.\
+                                            vlm_invention_propose_nl_properties
+        
         for ite in range(1, max_invent_ite + 1):
             logging.info(f"===Starting iteration {ite}...")
+            if CFG.vlm_invention_alternate_between_p_ad:
+                self.vlm_invention_propose_nl_properties = ite % 2 == 0
+                logging.info("Proposing predicates mainly based on effect: "
+                             f"{not self.vlm_invention_propose_nl_properties}")
             # Reset at every iteration
             if CFG.reset_optn_state_dict_at_every_ite:
                 self.succ_optn_dict = defaultdict(GroundOptionRecord)
@@ -350,79 +357,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Or when add_new_proposal_at_every_ite is True
                 #   Create prompt to inspect the execution
                 # self.base_candidates: candidates to be unioned with the init set
-                if CFG.vlm_predicator_oracle_base_grammar:
-                    if CFG.neu_sym_predicate:
-                        # If using the oracle predicates
-                        # With NSP, we only want the GT NSPs besides the initial
-                        # predicates
-                        # Want to remove the predicates of the same name
-                        # Currently assume this is correct
-                        new_proposals = env.ns_predicates -\
-                                            self._initial_predicates
-                    else:
-                        new_proposals = env.oracle_proposed_predicates -\
-                                            self._initial_predicates
-                else:
-                    max_attempts = 5
-                    max_num_groundings, max_num_examples = 1, 1
-                    min_imgs, max_imgs = 6, 10
-                    obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
-                    if os.path.exists(obs_dir):
-                        shutil.rmtree(obs_dir, handle_remove_error)
-
-                    if CFG.vlm_invent_predicates_in_stages:
-                        if CFG.vlm_invent_from_trajs:
-                            create_prompt_func =\
-                                self._create_invention_from_traj_prompt
-                        else:
-                            create_prompt_func =\
-                                self._create_invention_from_pn_states_prompt
-                    else:
-                        create_prompt_func =\
-                            self._create_one_step_program_invention_prompt
-
-                    for attempt in range(max_attempts):
-                        logging.debug(f"Prompt creation attempt {attempt}")
-                        # Use the results to prompt the llm
-                        if CFG.vlm_invent_from_trajs:
-                            prompt, state_str = create_prompt_func(
-                                env, ite, all_trajs)
-                            break
-                        else:
-                            prompt, state_str = create_prompt_func(
-                                env,
-                                ite,
-                                max_num_options=10,
-                                max_num_groundings=max_num_groundings,
-                                max_num_examples=max_num_examples,
-                                categories_to_show=['tp', 'fp'])
-
-                            # Load the images accompanying the prompt
-                            images = self._load_images_from_directory(obs_dir)
-
-                            logging.debug(f"Created {len(images)} images")
-                            if min_imgs <= len(images) <= max_imgs: break
-
-                            if len(images) > max_imgs:
-                                if os.path.exists(obs_dir):
-                                    shutil.rmtree(obs_dir, handle_remove_error)
-                                if attempt % 2 == 0:
-                                    max_num_examples = max(
-                                        1, max_num_examples - 1)
-                                else:
-                                    max_num_groundings = max(
-                                        1, max_num_groundings - 1)
-                            else:
-                                # Adjust parameters for the next attempt
-                                if attempt % 2 == 0:
-                                    max_num_groundings += 1
-                                else:
-                                    max_num_examples += 1
-                    # if ite == 4:
-                    #     breakpoint()
-                    new_proposals = self._get_vlm_proposals(
-                        env, prompt, images, ite, tasks, manual_prompt,
-                        regenerate_response, state_str)
+                new_proposals = self._generate_predicate_proposals(env,
+                                                                    tasks,
+                                                                    ite,
+                                                                    all_trajs)
                 logging.info(
                     f"Done: created {len(new_proposals)} candidates:" +
                     f"{new_proposals}")
@@ -537,6 +475,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                               online_learning_cycle=None,
                               annotations=None,
                               fail_optn_dict=self.fail_optn_dict)
+            breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
@@ -609,8 +548,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             prev_clf_acc = clf_acc
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
-            # if solve_rate == 1 and num_failed_plans == 0:
-            if solve_rate == 1:
+            if solve_rate == 1 or num_failed_plans == 0:
+            # if solve_rate == 1:
                 if CFG.env in ["pybullet_coffee"]:
                     # these are harder
                     if num_failed_plans / num_tasks < 1:
@@ -632,6 +571,81 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._nsrts = best_nsrt
         self._learned_predicates = best_preds
         return
+
+
+    def _generate_predicate_proposals(self, env: BaseEnv,
+                                    tasks: List[Task],
+                                    ite: int,
+                                    all_trajs: List[LowLevelTrajectory],
+                                    ) -> Set[Predicate]:
+        if CFG.vlm_predicator_oracle_base_grammar:
+            if CFG.neu_sym_predicate:
+                # If using the oracle predicates
+                # With NSP, we only want the GT NSPs besides the initial
+                # predicates
+                # Want to remove the predicates of the same name
+                # Currently assume this is correct
+                new_proposals = env.ns_predicates - self._initial_predicates
+            else:
+                new_proposals = env.oracle_proposed_predicates -\
+                                    self._initial_predicates
+        else:
+            # Create the first prompt
+            max_attempts = 5
+            max_num_groundings, max_num_examples = 1, 1
+            min_imgs, max_imgs = 6, 10
+            obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
+            if os.path.exists(obs_dir):
+                shutil.rmtree(obs_dir, handle_remove_error)
+
+            if CFG.vlm_invent_predicates_in_stages:
+                if CFG.vlm_invent_from_trajs:
+                    create_prompt_func =\
+                        self._create_invention_from_traj_prompt
+                else:
+                    # Current default
+                    create_prompt_func =\
+                        self._create_invention_from_pn_states_prompt
+            else:
+                create_prompt_func =\
+                        self._create_one_step_program_invention_prompt
+
+            for attempt in range(max_attempts):
+                logging.debug(f"Prompt creation attempt {attempt}")
+                if CFG.vlm_invent_from_trajs:
+                    prompt, state_str = create_prompt_func(env, ite, all_trajs)
+                    break
+                else:
+                    prompt, state_str = create_prompt_func(
+                                        env, ite, max_num_options=10,
+                                        max_num_groundings=max_num_groundings,
+                                        max_num_examples=max_num_examples,
+                                        categories_to_show=['tp', 'fp'])
+
+                    # Load the images accompanying the prompt
+                    images = self._load_images_from_directory(obs_dir)
+
+                    logging.debug(f"Created {len(images)} images")
+                    if min_imgs <= len(images) <= max_imgs: break
+
+                    if len(images) > max_imgs:
+                        if os.path.exists(obs_dir):
+                            shutil.rmtree(obs_dir, handle_remove_error)
+                        if attempt % 2 == 0:
+                            max_num_examples = max(1, max_num_examples - 1)
+                        else:
+                            max_num_groundings = max(1, max_num_groundings - 1)
+                    else:
+                        # Adjust parameters for the next attempt
+                        if attempt % 2 == 0:
+                            max_num_groundings += 1
+                        else:
+                            max_num_examples += 1
+            # breakpoint()
+            # Get the proposals
+            new_proposals = self._get_vlm_predicate_proposals(
+                env, prompt, images, ite, tasks, state_str)
+        return new_proposals
 
     def _load_images_from_directory(self, directory: str):
         images = []
@@ -1103,17 +1117,40 @@ class VlmInventionApproach(NSRTLearningApproach):
                 logging.info(f"Saved dataset to {ds_fname}\n")
         return results
 
-    def _get_vlm_proposals(
+    def _get_vlm_predicate_proposals(
         self,
         env: BaseEnv,
         prompt: str,
         images: List[Image.Image],
         ite: int,
         tasks: List[Task],
-        manual_prompt: bool = False,
-        regenerate_response: bool = False,
         state_list_str: str = "",
     ) -> Set[Predicate]:
+        # (if true) First get proposals in natural language
+        if self.vlm_invention_propose_nl_properties:
+            nl_proposal_f = CFG.log_file + f"ite{ite}_stage0.response"
+            response = self._get_vlm_response(nl_proposal_f,
+                                                self._gpt4o,
+                                                prompt,
+                                                images,
+                                                cache_chat_session=True
+                                                )
+            # Prepare the chat history for Gemini
+            self._vlm.chat_history = [
+                                {"role": "user", "parts": [prompt] + images},
+                                {"role": "model", "parts": [response]}]
+            
+            # Second: convert the NL proposals to formal predicate specs.
+            template_f = "prompts/invent_0_nl_2_pred_spec.outline"
+            with open(template_f, "r") as f:
+                template = f.read()
+            type_names = str(set(t.name for t in env.types))
+            # The prompt will be treated the same way as without this extra step
+            prompt = template.format(CONCEPT_PROPOSALS=response, 
+                                     TYPES_IN_ENV=type_names)
+            # Save the text prompt
+            with open(CFG.log_file + f"ite{ite}_stage1.prompt", 'w') as f:
+                f.write(prompt)
 
         if CFG.vlm_invent_predicates_in_stages:
             response_file = CFG.log_file + f"ite{ite}_stage1.response"
@@ -1123,29 +1160,17 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Prompt the VLM to directly OR
         # first get nl_predicate proposals and then get ns_predicate
         # implementations.
-        if not os.path.exists(response_file) or regenerate_response:
-            if manual_prompt:
-                # create a empty file for pasting chatGPT response
-                with open(response_file, 'w') as file:
-                    pass
-                logging.info(f"## Please paste the response from the VLM " +
-                             f"to {response_file}")
-                input("Press Enter when you have pasted the " + "response.")
-            else:
-                self._vlm.reset_chat_session()
-                response = self._vlm.sample_completions(prompt,
-                                                        images,
-                                                        temperature=0,
-                                                        seed=CFG.seed,
-                                                        num_completions=1)[0]
-                with open(response_file, 'w') as f:
-                    f.write(response)
+
+        response = self._get_vlm_response(response_file,
+                    self._vlm,
+                    prompt,
+                    [] if self.vlm_invention_propose_nl_properties else images)
 
         if CFG.vlm_invent_predicates_in_stages:
             # Get NL predicate dataset
             # --- for each state, the predicates that are true and false
-            with open(response_file, 'r') as file:
-                response = file.read()
+            # with open(response_file, 'r') as file:
+            #     response = file.read()
             # predicate_specs = parse_nl_predicate_predictions(response_file)
             predicate_specs = response
             if CFG.vlm_invention_positive_negative_include_next_state:
@@ -1157,28 +1182,34 @@ class VlmInventionApproach(NSRTLearningApproach):
                 env, ite, state_list_str, predicate_specs)
             # Save the query to a file
             response_file = CFG.log_file + f"ite{ite}_stage2.response"
-            if not os.path.exists(response_file) or regenerate_response:
-                if manual_prompt:
-                    # create a empty file for pasting chatGPT response
-                    with open(response_file, 'w') as file:
-                        pass
-                    logging.info(
-                        f"## Please paste the response from the VLM " +
-                        f"to {response_file}")
-                    input("Press Enter when you have pasted the " +
-                          "response.")
-                else:
-                    # should try both with and without reset
-                    self._vlm.reset_chat_session()
-                    # query the VLM until they make the write predication
-                    response = self._vlm.sample_completions(
-                        s2_prompt,
-                        images,
-                        temperature=0,
-                        seed=CFG.seed,
-                        num_completions=1)[0]
-                with open(response_file, 'w') as f:
-                    f.write(response)
+
+            response = self._get_vlm_response(response_file,
+                                                self._vlm,
+                                                s2_prompt,
+                                                images,
+                                                )
+            # if not os.path.exists(response_file) or regenerate_response:
+            #     if manual_prompt:
+            #         # create a empty file for pasting chatGPT response
+            #         with open(response_file, 'w') as file:
+            #             pass
+            #         logging.info(
+            #             f"## Please paste the response from the VLM " +
+            #             f"to {response_file}")
+            #         input("Press Enter when you have pasted the " +
+            #               "response.")
+            #     else:
+            #         # should try both with and without reset
+            #         self._vlm.reset_chat_session()
+            #         # query the VLM until they make the write predication
+            #         response = self._vlm.sample_completions(
+            #             s2_prompt,
+            #             images,
+            #             temperature=0,
+            #             seed=CFG.seed,
+            #             num_completions=1)[0]
+            #     with open(response_file, 'w') as f:
+            #         f.write(response)
 
         new_candidates = self._parse_predicate_predictions(
             response_file, tasks)
@@ -1313,6 +1344,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         ite: int,
         trajs: List[LowLevelTrajectory],
     ) -> str:
+        """Invent predicates from state action trajectories; no negative states.
+        """
         obs_dir = CFG.log_file + f"ite{ite}_obs/"
         os.makedirs(obs_dir, exist_ok=True)
         with open(f"prompts/invent_0_prog_free_from_traj.outline",
@@ -1466,15 +1499,19 @@ class VlmInventionApproach(NSRTLearningApproach):
         env: BaseEnv,
         ite: int,
         max_num_options: int = 10,  # Number of options to show
-        max_num_groundings: int = 2,  # Number of ground options per option.3
+        max_num_groundings: int = 2,  # Number of ground options per option.
         max_num_examples: int = 2,  # Number of examples per ground option.
         categories_to_show: List[str] = ['tp', 'fp'],
         seperate_prompt_per_option: bool = False,
     ) -> str:
-        if CFG.vlm_invention_positive_negative_include_next_state:
-            template_f = "prompts/invent_0_prog_free_pad.outline"
+        if self.vlm_invention_propose_nl_properties:
+            template_f = "prompts/invent_0_prog_free_p_nl.outline"
         else:
-            template_f = "prompts/invent_0_prog_free.outline"
+            if CFG.vlm_invention_positive_negative_include_next_state:
+                template_f = "prompts/invent_0_prog_free_pad.outline"
+            else:
+                template_f = "prompts/invent_0_prog_free_p.outline"
+        breakpoint()
 
         with open(template_f, 'r') as file:
             template = file.read()
@@ -1513,9 +1550,12 @@ class VlmInventionApproach(NSRTLearningApproach):
         template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
         # Save the text prompt
-        with open(f"{CFG.log_file}/ite{ite}_stage1.prompt", 'w') as f:
-            # with open(f'./prompts/invent_{self.env_name}_{ite}.prompt', 'w') as f:
-            f.write(template)
+        if self.vlm_invention_propose_nl_properties:
+            with open(f"{CFG.log_file}/ite{ite}_stage0.prompt", 'w') as f:
+                f.write(template)
+        else:
+            with open(f"{CFG.log_file}/ite{ite}_stage1.prompt", 'w') as f:
+                f.write(template)
         prompt = template
 
         return prompt, "\n".join(sorted(state_str_set))
@@ -1953,3 +1993,32 @@ class VlmInventionApproach(NSRTLearningApproach):
         spec = proposals + "\n#Predicate Evaluation\n" + state_str
 
         return spec
+
+    def _get_vlm_response(self, 
+                        response_file: str,
+                        vlm: VisionLanguageModel,
+                        prompt: str,
+                        images: List[Image.Image],
+                        cache_chat_session: bool = False) -> str:
+
+        if not os.path.exists(response_file) or self.regenerate_response:
+            if self.manual_prompt:
+                # create a empty file for pasting chatGPT response
+                with open(response_file, 'w') as file:
+                    pass
+                logging.info(f"## Please paste the response from the VLM " +
+                             f"to {response_file}")
+                input("Press Enter when you have pasted the " + "response.")
+            else:
+                # vlm.reset_chat_session()
+                response = vlm.sample_completions(prompt,
+                                                    images,
+                                                    temperature=0,
+                                                    seed=CFG.seed,
+                                                    num_completions=1,
+                                    cache_chat_session=cache_chat_session)[0]
+                with open(response_file, 'w') as f:
+                    f.write(response)
+        with open(response_file, 'r') as file:
+            response = file.read()
+        return response

@@ -42,6 +42,7 @@ class CoverEnv(BaseEnv):
         self._block_type = Type(
             "block",
             ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
+            (["is_heavy"] if CFG.env == "pybullet_cover_weighted" else [])+
             (bbox_features if CFG.env_include_bbox_features else []))
         self._target_type = Type(
             "target", ["is_block", "is_target", "width", "pose_y_norm"] +
@@ -66,6 +67,8 @@ class CoverEnv(BaseEnv):
                                   self._Holding_holds)
         # HandEmpty() is Forall x. not Holding(x) -- quantify over all vars
         self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
+        self._IsLight = Predicate("IsLight", [self._block_type],
+                                 self._IsLight_holds)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -153,7 +156,7 @@ class CoverEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._IsBlock, self._IsTarget, self._Covers, self._HandEmpty,
-            self._Holding
+            self._Holding, self._IsLight
         }
 
     @property
@@ -270,8 +273,8 @@ class CoverEnv(BaseEnv):
         targets = []
         num_blocks = CFG.cover_num_blocks_train if is_train else\
                      CFG.cover_num_blocks_test
-        num_targets = CFG.cover_num_blocks_train if is_train else\
-                      CFG.cover_num_blocks_test
+        num_targets = CFG.cover_num_targets_train if is_train else\
+                      CFG.cover_num_targets_test
 
         for i in range(num_blocks):
             blocks.append(Object(f"block{i}", self._block_type))
@@ -311,13 +314,28 @@ class CoverEnv(BaseEnv):
                               is_train: Optional[bool] = True) -> State:
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_block_widths) >= len(blocks)
+        # If pybullet_cover_weighted, randomly select heavy blocks
+        if self.get_name() == "pybullet_cover_weighted":
+            num_heavy_blocks = int(CFG.cover_weighted_ratio * len(blocks))
+            heavy_blocks = set(rng.choice(blocks, size=num_heavy_blocks, 
+                                      replace=False))
+
         for block, width in zip(blocks, CFG.cover_block_widths):
             while True:
                 pose = rng.uniform(width / 2, 1.0 - width / 2)
                 if not self._any_intersection(pose, width, data):
                     break
-            # [is_block, is_target, width, pose, grasp]
-            data[block] = np.array([1.0, 0.0, width, pose, -1.0])
+
+            if self.get_name() == "pybullet_cover_weighted":
+                if block in heavy_blocks:
+                    # [is_block, is_target, width, pose, grasp, is_heavy]
+                    data[block] = np.array([1.0, 0.0, width, pose, -1.0, 1.])
+                else:
+                    data[block] = np.array([1.0, 0.0, width, pose, -1.0, 0.])
+            else:
+                # [is_block, is_target, width, pose, grasp]
+                data[block] = np.array([1.0, 0.0, width, pose, -1.0])
+
         assert len(CFG.cover_target_widths) >= len(targets)
         for target, width in zip(targets, CFG.cover_target_widths):
             while True:
@@ -378,6 +396,12 @@ class CoverEnv(BaseEnv):
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2) and \
                state.get(block, "grasp") == -1
+
+    def _IsLight_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        if self.get_name() == "pybullet_cover_weighted":
+            return state.get(block, "is_heavy") == 0
+        return True
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:

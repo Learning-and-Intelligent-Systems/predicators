@@ -178,7 +178,6 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
             objects_str = "\n".join(obj.id_name + ":" + obj.type.name
                                     for obj in objects_list)
             goal_str = "\n".join(atom._id_name_str for atom in goal_expr_list)
-            breakpoint()
         else:
             objects_str = "\n".join(str(obj) for obj in objects_list)
             goal_str = "\n".join(str(obj) for obj in goal_expr_list)
