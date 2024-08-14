@@ -40,7 +40,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # Log all transition data.
         self._interaction_goals: List[Set[GroundAtom]] = []
         self._last_seen_segment_traj_idx = -1
-
         # Store the Q function. Note that this implicitly
         # contains a replay buffer.
         self._q_function = MapleQFunction(
@@ -246,6 +245,9 @@ class MPDQNApproach(MapleQApproach):
             num_lookahead_samples=CFG.
             active_sampler_learning_num_lookahead_samples)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "mpdqn"
 
     def _update_maple_data(self, reward_bonuses) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1

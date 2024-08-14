@@ -143,7 +143,6 @@ def main() -> None:
     approach_name = CFG.approach
     if CFG.approach_wrapper:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
-    import ipdb;ipdb.set_trace()
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, approach_train_tasks)
     if approach.is_learning_based:
