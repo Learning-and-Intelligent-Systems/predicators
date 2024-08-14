@@ -120,11 +120,15 @@ class BurgerEnv(BaseEnv):
         ], self._GoalHack_holds)
 
         self._GoalHack2 = Predicate("GoalHack2", [
-            self._object_type, self._patty_type], self._GoalHack2_holds
+            self._bottom_bun_type, self._patty_type], self._GoalHack2_holds
         )
         self._GoalHack3 = Predicate("GoalHack3", [
-            self._object_type, self._tomato_type], self._GoalHack3_holds
+            self._bottom_bun_type, self._tomato_type], self._GoalHack3_holds
         )
+        self._GoalHack4 = Predicate("GoalHack4", [
+            self._patty_type, self._tomato_type], self._GoalHack3_holds
+        )
+
         # self._GoalHack3 = Predicate("GoalHack3", [
         #     self._bottom_bun_type, self._tomato_type], self._GoalHack3_holds
         # )
@@ -348,18 +352,45 @@ class BurgerEnv(BaseEnv):
                 GroundAtom(self._GoalHack3, [bottom_bun, tomato]),
                 GroundAtom(self._On, [top_bun, tomato])
             }
-            train3 = {
-                GroundAtom(self._On, [patty, self._cutting_board]),
-                GroundAtom(self._On, [tomato, patty]),
-                GroundAtom(self._IsSliced, [tomato])
-            }
-            alt_train3 = {
-                GroundAtom(self._On, [patty, self._grill]),
-                GroundAtom(self._GoalHack3, [patty, tomato])
-            }
+
+            if i == 0 and train_or_test == "train":
+                # Start with the raw patty on the grill.
+                r, c = shuffled_spots[1]
+                state_dict[patty] = {"row": r, "col": c, "z": 1}
+                hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
+
+                train3 = {
+                    GroundAtom(self._On, [patty, self._grill]),
+                    GroundAtom(self._On, [tomato, patty]),
+                    GroundAtom(self._IsSliced, [tomato])
+                }
+                alt_train3 = {
+                    GroundAtom(self._On, [patty, self._grill]),
+                    GroundAtom(self._GoalHack4, [patty, tomato])
+                }
+            elif i == 3 and train_or_test == "train":
+                train3 = {
+                    GroundAtom(self._On, [patty, self._cutting_board]),
+                    GroundAtom(self._On, [tomato, patty]),
+                    GroundAtom(self._IsSliced, [tomato])
+                }
+                alt_train3 = {
+                    GroundAtom(self._On, [patty, self._cutting_board]),
+                    GroundAtom(self._GoalHack4, [patty, tomato])
+                }
+            else:
+                train3 = {
+                    GroundAtom(self._On, [patty, self._cutting_board]),
+                    GroundAtom(self._On, [tomato, patty]),
+                    GroundAtom(self._IsSliced, [tomato])
+                }
+                alt_train3 = {
+                    GroundAtom(self._On, [patty, self._cutting_board]),
+                    GroundAtom(self._GoalHack4, [patty, tomato])
+                }
 
             # training_goals = [train1, train2]
-            training_goals = [train1, train2, train3]
+            training_goals = [train3, train1, train2]
             alt_training_goals = [alt_train1, alt_train2, alt_train3]
 
             if train_or_test == "test":
@@ -383,7 +414,7 @@ class BurgerEnv(BaseEnv):
                 }
                 alt_debug_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
-                    GroundAtom(self._GoalHack3, [patty, tomato]),
+                    GroundAtom(self._GoalHack4, [patty, tomato]),
                     GroundAtom(self._On, [top_bun, tomato])
                 }
 
@@ -451,6 +482,10 @@ class BurgerEnv(BaseEnv):
                 # goal = goal5
                 # alt_goal = alt_goal5
 
+            # if train_or_test == "test":
+            #     import PIL.Image
+            #     PIL.Image.fromarray(state.simulator_state["images"][0]).show()
+            #     import pdb; pdb.set_trace()
             tasks.append(EnvironmentTask(state, goal, alt_goal_desc=alt_goal))
 
         return tasks
@@ -584,9 +619,12 @@ class BurgerEnv(BaseEnv):
         obj, patty = objects
         # The object is somewhere below the patty and the patty is cooked.
         obj_z = state.get(obj, "z")
+        obj_x, obj_y = self.get_position(obj, state)
         p_z = state.get(patty, "z")
+        p_x, p_y = self.get_position(patty, state)
+        same_cell = obj_x == p_x and obj_y == p_y
         # return obj_z < p_z and self._On_holds(state, [patty, obj]) and self._IsCooked_holds(state, [patty])
-        return obj_z < p_z and self._IsCooked_holds(state, [patty])
+        return obj_z < p_z and same_cell and self._IsCooked_holds(state, [patty])
 
     def _GoalHack3_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # patty1, patty2 = objects
@@ -597,8 +635,11 @@ class BurgerEnv(BaseEnv):
         obj, tomato = objects
         # The object is somewhere below the tomato and the tomato is sliced.
         obj_z = state.get(obj, "z")
+        obj_x, obj_y = self.get_position(obj, state)
         t_z = state.get(tomato, "z")
-        return obj_z < t_z and self._IsSliced_holds(state, [tomato])
+        t_x, t_y = self.get_position(tomato, state)
+        same_cell = obj_x == t_x and obj_y == t_y
+        return obj_z < t_z and same_cell and self._IsSliced_holds(state, [tomato])
 
     # def _GoalHack3_holds(self, state: State, objects: Sequence[Object]) -> bool:
     #     bottom_bun, tomato = objects
@@ -636,7 +677,7 @@ class BurgerEnv(BaseEnv):
             self._Adjacent, self._AdjacentToNothing, self._AdjacentNotFacing,
             self._Facing, self._IsCooked, self._IsSliced, self._HandEmpty,
             self._Holding, self._On, self._OnNothing, self._Clear,
-            self._GoalHack, self._GoalHack2, self._GoalHack3, self._OnGround
+            self._GoalHack, self._GoalHack2, self._GoalHack3, self._GoalHack4, self._OnGround
         }
 
     @property
@@ -646,7 +687,7 @@ class BurgerEnv(BaseEnv):
 
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._GoalHack, self._GoalHack2, self._GoalHack3, self._OnGround}
+        return {self._On, self._GoalHack, self._GoalHack2, self._GoalHack3, self._GoalHack4, self._OnGround}
 
     @property
     def action_space(self) -> Box:
@@ -893,6 +934,23 @@ class BurgerEnv(BaseEnv):
                               alpha=0.5,
                               boxstyle="square,pad=0.0"))
 
+        # # Draw second cutting board
+        # if "cutting_board2" in [o.name for o in state]:
+        #     cutting_board2 = [obj for obj in state if obj.name == "cutting_board2"][0]
+        #     x, y = self.get_position(cutting_board2, state)
+        #     ax.imshow(cutting_board_img, extent=[x, x + 1, y, y + 1])
+        #     if CFG.burger_render_set_of_marks:
+        #         ax.text(x + 1 / 2,
+        #                 y + (1 - img_size[1]) / 2,
+        #                 cutting_board2.name,
+        #                 fontsize=fontsize,
+        #                 color="red",
+        #                 ha="center",
+        #                 va="top",
+        #                 bbox=dict(facecolor="black",
+        #                           alpha=0.5,
+        #                           boxstyle="square,pad=0.0"))
+
         # Draw items
         type_to_img = {
             self._top_bun_type:
@@ -977,6 +1035,10 @@ class BurgerEnv(BaseEnv):
                         # If the item is on the grill or cutting board, and
                         # there is not an item on top of it, then put its text
                         # label near the top of the cell.
+                        # if "cutting_board2" in [o.name for o in state]:
+                        #     temp = self._On_holds(state, [item, cutting_board2])
+                        # else:
+                        #     temp = False
                         if (self._On_holds(
                                 state, [item, self._grill]) or self._On_holds(
                                     state, [item, self._cutting_board])) and self._Clear_holds(state, [item]):
