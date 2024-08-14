@@ -571,7 +571,6 @@ class GlobalSettings:
     active_sampler_learning_feature_selection = "all"
     active_sampler_learning_knn_neighbors = 3
     active_sampler_learning_use_teacher = True
-    active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5
     active_sampler_learning_fitted_q_iters = 5
     active_sampler_learning_explore_pursue_goal_interval = 5
@@ -733,6 +732,13 @@ class GlobalSettings:
                     "grid_row": cls.grid_row_num_cells + 2,
                     "grid_row_door": 30,
                     "doorknobs": 200
+                })[args.get("env", "")],
+
+            active_sampler_learning_num_samples = defaultdict(
+                lambda: 100,
+                {
+                    "grid_row_door": 100,
+                    "doorknobs": 10
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
