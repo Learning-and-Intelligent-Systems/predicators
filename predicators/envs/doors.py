@@ -1120,7 +1120,7 @@ class DoorKnobsEnv(DoorsEnv):
         }
 
     def _sample_doorknob_feats(self, room_x: float, room_y: float, loc: str,
-                               _: np.random.Generator) -> Dict[str, float]:
+                               rng: np.random.Generator) -> Dict[str, float]:
         # This is the length of the wall on one side of the door.
         offset = (self.room_size + self.wall_depth - self.hallway_width) / 2
 
@@ -1134,7 +1134,7 @@ class DoorKnobsEnv(DoorsEnv):
             y = room_y + offset
             theta = np.pi / 2
 
-        target_rot = 0.75
+        target_rot = rng.uniform(0.0, 1.0)
         # Sample the initial rotation so that the door is not yet opened.
         return {
             "x": x,
