@@ -1642,15 +1642,13 @@ class MapleQFunction(MLPRegressor):
                             closest_distance = distance
                             
 
-                if self._get_name == "mpdqn":
-                    for o in self._last_planner_state:
-                        if o.is_instance(dummy_env._robot_type):
-                            break
-
+                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
+                    o = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
+                assert o.is_instance(dummy_env._robot_type)
                 x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
 
                 vectorized_state = object_to_features[closest_object][:6] + [x,y]
-                
+
                 return vectorized_state
             
             elif CFG.env == "grid_row_door":
@@ -1675,7 +1673,7 @@ class MapleQFunction(MLPRegressor):
                         door_turn_key = state.get(door, "turn_key")
                         door_turn_target = state.get(door, "turn_target")
                 
-                if self._get_name == "mpdqn":
+                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
                     last_x = self._last_planner_state.get(robot, "x")
                 else:
                     last_x = 0
