@@ -270,9 +270,12 @@ class BurgerEnv(BaseEnv):
 
             # Add cheese
             r, c = shuffled_spots[5]
-            cheese = Object("cheese", self._cheese_type)
-            state_dict[cheese] = {"row": r, "col": c, "z": 0}
-            hidden_state[cheese] = {"is_held": 0.0}
+            # cheese = Object("cheese", self._cheese_type)
+            # state_dict[cheese] = {"row": r, "col": c, "z": 0}
+            # hidden_state[cheese] = {"is_held": 0.0}
+            patty = Object("patty2", self._patty_type)
+            state_dict[patty] = {"row": r, "col": c, "z": 0}
+            hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
 
             # Add top bun
             r, c = shuffled_spots[6]

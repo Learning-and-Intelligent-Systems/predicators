@@ -13,6 +13,8 @@ from inspect import getsource
 from pathlib import Path
 from typing import Dict, Iterator, List, Match, Optional, Sequence, Set, \
     Tuple, cast
+from collections import defaultdict
+import itertools
 
 import dill as pkl
 import numpy as np
@@ -259,6 +261,14 @@ def _parse_unique_atom_proposals_from_list(
     """
     atoms_strs_set = set()
     obj_names_set = set(obj.name for obj in relevant_objects_across_demos)
+
+    # We'll use these mappings to generate VLM atoms for every possible
+    # grounding of each proposed predicate.
+    obj_name_to_type = {obj.name: obj.type for obj in relevant_objects_across_demos}
+    type_to_obj_names = defaultdict(list)
+    for obj_name, type in obj_name_to_type.items():
+        type_to_obj_names[type].append(obj_name)
+
     num_atoms_considered = 0
     for atoms_proposal_for_traj in atom_strs_proposals_list:
         assert len(atoms_proposal_for_traj) == 1
@@ -283,7 +293,16 @@ def _parse_unique_atom_proposals_from_list(
                         atom_is_valid = False
                         break
             if atom_is_valid:
-                atoms_strs_set.add(atom)
+                # Create VLM atoms for all other possible groundings of this
+                # atom's predicate.
+                types_in_atom = [obj_name_to_type[n] for n in obj_names_list]
+                names_matching_each_type = [type_to_obj_names[t] for t in types_in_atom]
+                combos = list(itertools.product(*names_matching_each_type))
+                predicate = atom.split('(')[0]
+                # Note that this includes the original grounding.
+                other_groundings = [f"{predicate}({', '.join(c)})" for c in combos]
+                for og in other_groundings:
+                    atoms_strs_set.add(og)
             logging.debug(f"Proposed atom: {atom} is valid: {atom_is_valid}")
     logging.info(f"VLM proposed a total of {num_atoms_considered} atoms.")
     logging.info(f"Of these, {len(atoms_strs_set)} were valid and unique.")
