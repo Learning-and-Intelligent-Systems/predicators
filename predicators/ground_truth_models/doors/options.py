@@ -399,6 +399,8 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
                     break
             else:
                 return False
+            room_to_doors = DoorsEnv._room_to_doors(room, state)
+            room_to_obstacles = DoorKnobsEnv._room_to_obstacles(room, state)
             # Make a plan and store it in memory for use in the policy. Note
             # that policies are assumed to be deterministic, but RRT is
             # stochastic. We enforce determinism by using a constant seed.
@@ -426,7 +428,7 @@ class DoorknobsGroundTruthOptionFactory(DoorsGroundTruthOptionFactory):
                     yield pt1 * (1 - i / num) + pt2 * i / num
 
             def _collision_fn(pt: Array) -> bool:
-                return DoorKnobsEnv.state_has_collision(state, pt)
+                return DoorKnobsEnv.state_has_collision(state, pt, room_to_obstacles=room_to_obstacles, room_to_doors=room_to_doors)
 
             def _distance_fn(from_pt: Array, to_pt: Array) -> float:
                 return np.sum(np.subtract(from_pt, to_pt)**2)

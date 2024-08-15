@@ -1604,10 +1604,7 @@ class MapleQFunction(MLPRegressor):
                 except:
                     import ipdb;ipdb.set_trace()
                 
-                for o in state:
-                    if o.is_instance(dummy_env._robot_type):
-                        robot = o
-                        break
+                robot = state.get_objects(dummy_env._robot_type)[0]
             
                 for o in state:
                     if o.is_instance(dummy_env._room_type) and dummy_env._InRoom_holds(state, [robot, o]):

@@ -280,7 +280,7 @@ class GlobalSettings:
 
     # doors env parameters
     doors_room_map_size = 2
-    test_doors_room_map_size = 5
+    test_doors_room_map_size = 10
     doors_min_obstacles_per_room = 0
     doors_max_obstacles_per_room = 3
     doors_min_room_exists_frac = 0.25

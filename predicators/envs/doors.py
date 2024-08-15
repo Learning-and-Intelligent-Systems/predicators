@@ -657,14 +657,15 @@ class DoorsEnv(BaseEnv):
             door_to_rooms_cache[door] = rooms
         return door_to_rooms_cache[door]
 
-    def _room_to_doors(self, room: Object, state: State) -> Set[Object]:
+    @classmethod
+    def _room_to_doors(cls, room: Object, state: State) -> Set[Object]:
         assert isinstance(state, StateWithCache)
         room_to_doors_cache = state.cache["room_to_doors"]
         if room not in room_to_doors_cache:
             doors = set()
-            room_geom = self.object_to_geom(room, state)
-            for door in state.get_objects(self._door_type):
-                door_geom = self.object_to_geom(door, state)
+            room_geom = cls.object_to_geom(room, state)
+            for door in state.get_objects(cls._door_type):
+                door_geom = cls.object_to_geom(door, state)
                 if room_geom.intersects(door_geom):
                     doors.add(door)
             assert 1 <= len(doors) <= 4
@@ -810,24 +811,63 @@ class DoorKnobsEnv(DoorsEnv):
             self._room_type, self._obstacle_type
         }
 
+    # @classmethod
+    # def state_has_collision(cls, state: State, robot_pos: \
+    #                          Optional[Array] = None) -> bool:
+    #     """Public for use by oracle options."""
+    #     robot, = state.get_objects(cls._robot_type)
+    #     robot_geom = cls.object_to_geom(robot, state, robot_pos)
+    #     # Check for collisions with obstacles.
+    #     for obstacle in state.get_objects(cls._obstacle_type):
+    #         obstacle_geom = cls.object_to_geom(obstacle, state)
+    #         if robot_geom.intersects(obstacle_geom):
+    #             return True
+    #     # Check for collisions with closed doors.
+    #     for door in state.get_objects(cls._door_type):
+    #         if cls._DoorIsOpen_holds(state, [door]):
+    #             continue
+    #         door_geom = cls.object_to_geom(door, state)
+    #         if robot_geom.intersects(door_geom):
+    #             return True
+    #     return False
+
     @classmethod
     def state_has_collision(cls, state: State, robot_pos: \
-                             Optional[Array] = None) -> bool:
+                             Optional[Array] = None, room_to_obstacles = None, room_to_doors = None) -> bool:
         """Public for use by oracle options."""
+        
         robot, = state.get_objects(cls._robot_type)
         robot_geom = cls.object_to_geom(robot, state, robot_pos)
-        # Check for collisions with obstacles.
-        for obstacle in state.get_objects(cls._obstacle_type):
-            obstacle_geom = cls.object_to_geom(obstacle, state)
-            if robot_geom.intersects(obstacle_geom):
-                return True
-        # Check for collisions with closed doors.
-        for door in state.get_objects(cls._door_type):
-            if cls._DoorIsOpen_holds(state, [door]):
-                continue
-            door_geom = cls.object_to_geom(door, state)
-            if robot_geom.intersects(door_geom):
-                return True
+
+
+        if room_to_obstacles is not None:
+            # Check for collisions with obstacles.
+            for obstacle in room_to_obstacles:
+                obstacle_geom = cls.object_to_geom(obstacle, state)
+                if robot_geom.intersects(obstacle_geom):
+                    return True
+        else:
+            for obstacle in state.get_objects(cls._obstacle_type):
+                obstacle_geom = cls.object_to_geom(obstacle, state)
+                if robot_geom.intersects(obstacle_geom):
+                    return True
+        if room_to_doors is not None:
+            # Check for collisions with closed doors.
+            for door in room_to_doors:
+                if cls._DoorIsOpen_holds(state, [door]):
+                    continue
+                door_geom = cls.object_to_geom(door, state)
+                if robot_geom.intersects(door_geom):
+                    return True
+        else:
+            # Check for collisions with closed doors.
+            for door in state.get_objects(cls._door_type):
+                if cls._DoorIsOpen_holds(state, [door]):
+                    continue
+                door_geom = cls.object_to_geom(door, state)
+                if robot_geom.intersects(door_geom):
+                    return True
+            
         return False
 
     @property
@@ -907,6 +947,20 @@ class DoorKnobsEnv(DoorsEnv):
         plt.tight_layout()
         return fig
 
+    @classmethod
+    def _room_to_obstacles(cls, room: Object, state: State) -> Set[Object]:
+        assert isinstance(state, StateWithCache)
+        _room_to_obstacles_cache = state.cache["room_to_obstacles"]
+        if room not in _room_to_obstacles_cache:
+            obstacles = set()
+            room_geom = cls.object_to_geom(room, state)
+            for obstacle in state.get_objects(cls._obstacle_type):
+                obstacle_geom = cls.object_to_geom(obstacle, state)
+                if room_geom.intersects(obstacle_geom):
+                    obstacles.add(obstacle)
+            _room_to_obstacles_cache[room] = obstacles
+        return _room_to_obstacles_cache[room]
+    
     def _sample_initial_state_from_map(self, room_map: NDArray,
                                        rng: np.random.Generator) -> State:
         # Sample until a collision-free state is found.
@@ -990,14 +1044,15 @@ class DoorKnobsEnv(DoorsEnv):
             # Create task-constant caches and store them in the sim state.
             # We store in the sim state, rather than the environment, because
             # the caches may be used by oracle options (which are external).
-            task_cache: Dict[str, Dict] = {
+            self.task_cache: Dict[str, Dict] = {
                 "static_geom": {},
                 "door_to_rooms": {},
                 "room_to_doors": {},
                 "door_to_doorway_geom": {},
                 "position_in_doorway": {},
+                "room_to_obstacles": {},
             }
-            state_with_cache = utils.StateWithCache(state.data, task_cache)
+            state_with_cache = utils.StateWithCache(state.data, self.task_cache)
             if not self.state_has_collision(state_with_cache):
                 return state_with_cache
 
