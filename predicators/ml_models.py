@@ -1641,15 +1641,16 @@ class MapleQFunction(MLPRegressor):
                             closest_object = object
                             closest_distance = distance
                             
-                [x,y] = [0,0]
 
                 if self._get_name == "mpdqn":
                     for o in self._last_planner_state:
                         if o.is_instance(dummy_env._robot_type):
-                            x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
                             break
 
+                x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
+
                 vectorized_state = object_to_features[closest_object][:6] + [x,y]
+                
                 return vectorized_state
             
             elif CFG.env == "grid_row_door":
