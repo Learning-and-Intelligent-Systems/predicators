@@ -228,6 +228,7 @@ class DoorsEnv(BaseEnv):
         tasks: List[EnvironmentTask] = []
         for _ in range(num):
             # Sample a room map.
+            print("GETTING TASK")
             room_map = self._sample_room_map(rng)
             state = self._sample_initial_state_from_map(room_map, rng)
             # Sample the goal.
@@ -774,7 +775,7 @@ class DoorKnobsEnv(DoorsEnv):
                     state.get(doorknob, "rot") + new_door_rot, 0.0, 1.0)
                 next_state.set(doorknob, "rot", new_door_level)
                 # Check if we should now open the door.
-                target = self._open_door_target_value
+                target = state.get(doorknob, "target_rot")
                 if abs(new_door_level - target) < self.open_door_thresh:
                     next_state.set(door, "open", 1.0)
                     next_state.set(doorknob, "open", 1.0)
@@ -1134,7 +1135,8 @@ class DoorKnobsEnv(DoorsEnv):
             y = room_y + offset
             theta = np.pi / 2
 
-        target_rot = rng.uniform(0.0, 1.0)
+        target_rot = rng.uniform(0.0, 0.5)
+        print("DOORKNOB FEAT", target_rot)
         # Sample the initial rotation so that the door is not yet opened.
         return {
             "x": x,

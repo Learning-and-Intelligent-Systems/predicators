@@ -2184,6 +2184,8 @@ class MPDQNFunction(MapleQFunction):
 
         # MODIFICATIONS: update target network at each time step
         # Return a random option.
+        print("vectorized state", self._vectorize_state(state))
+
         epsilon = self._epsilon
         if train_or_test == "test":
             epsilon = 0.0
