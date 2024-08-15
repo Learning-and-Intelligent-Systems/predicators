@@ -1643,9 +1643,9 @@ class MapleQFunction(MLPRegressor):
                             
 
                 if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
-                    o = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
-                assert o.is_instance(dummy_env._robot_type)
-                x,y = ((np.abs(self._last_planner_state.get(o, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(o, "y")-state.get(robot,"y"))))
+                    robby = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
+                assert robby.is_instance(dummy_env._robot_type)
+                x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
 
                 vectorized_state = object_to_features[closest_object][:6] + [x,y]
 
