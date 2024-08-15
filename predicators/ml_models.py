@@ -1483,9 +1483,9 @@ class MapleQFunction(MLPRegressor):
         elif CFG.env == "grid_row_door":
             X_size = 7 + 3 + self._max_num_params + 1
         elif CFG.env == "doorknobs" and not CFG.use_obj_centric:
-            X_size = 180 + self._num_ground_nsrts + self._max_num_params + 1
+            X_size = 184
         else:
-            X_size = sum(o.type.dim for o in self._ordered_objects) + self._num_ground_nsrts + self._max_num_params + 1
+            X_size = 7 + 3 + self._max_num_params
         Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
@@ -1496,14 +1496,11 @@ class MapleQFunction(MLPRegressor):
         for i, (state, goal, option, next_state, reward,
                 terminal) in enumerate(self._replay_buffer):
             # Compute the input to the Q-function.
-            if reward > 0:
-                num_rwd+=1
-                print(state, goal, option, next_state, reward)
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             X_arr[i] = np.concatenate(
-                [vectorized_state, vectorized_goal, vectorized_action])
+                [vectorized_state, vectorized_action])
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             if not terminal and self._y_dim != -1:
@@ -1523,7 +1520,7 @@ class MapleQFunction(MLPRegressor):
                         self._sample_applicable_options_from_state(
                             next_state):
                     x_hat = np.concatenate([
-                        vectorized_next_state, vectorized_goal, self._vectorize_option(next_option)
+                        vectorized_next_state, self._vectorize_option(next_option)
                     ])
                     q_x_hat = self.predict(x_hat)[0]
                     if best_next_value<q_x_hat:
@@ -1757,7 +1754,7 @@ class MapleQFunction(MLPRegressor):
             return 0.0
         x = np.concatenate([
             self._vectorize_state(state),
-            self._vectorize_goal(goal),
+            # self._vectorize_goal(goal),
             self._vectorize_option(option)
         ])
         y = self.predict(x)[0]
