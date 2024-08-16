@@ -343,7 +343,6 @@ class BurgerNoMoveGroundTruthOptionFactory(BurgerGroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
-            print("Running slice policy")
             del memory, params  # unused
             robot, item, _ = objects
             move_action = cls._move_subpolicy(state, robot, item)
@@ -359,7 +358,6 @@ class BurgerNoMoveGroundTruthOptionFactory(BurgerGroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
-            print("Running cook policy")
             del memory, params  # unused
             robot, item, _ = objects
             move_action = cls._move_subpolicy(state, robot, item)
@@ -375,7 +373,6 @@ class BurgerNoMoveGroundTruthOptionFactory(BurgerGroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
-            print("Running pick policy")
             del memory, params  # unused
             robot, item = objects
             move_action = cls._move_subpolicy(state, robot, item)
@@ -391,7 +388,6 @@ class BurgerNoMoveGroundTruthOptionFactory(BurgerGroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
-            print("Running place policy")
             del memory, params  # unused
             robot, _, to_obj = objects
             move_action = cls._move_subpolicy(state, robot, to_obj)
