@@ -334,7 +334,7 @@ class BaseSTRIPSLearner(abc.ABC):
         threshold_count = int(
             len(pnad.datastore) *
             CFG.precondition_soft_intersection_threshold_percent)
-        lifted_atom_counts = defaultdict(int)
+        lifted_atom_counts: dict[LiftedAtom, int] = defaultdict(int)
 
         for segment, var_to_obj in pnad.datastore:
             objects = set(var_to_obj.values())

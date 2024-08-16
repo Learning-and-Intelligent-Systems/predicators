@@ -225,7 +225,12 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot, to_obj = objects
             # We put the move policy code in a different function so that
             # subclasses can use it.
-            return cls._move_subpolicy(state, robot, to_obj)
+            # This policy will never return None because it only returns None
+            # when the termination condition is True, and the termination
+            # condition is checked at each step before this policy is run.
+            action = cls._move_subpolicy(state, robot, to_obj)
+            assert action is not None
+            return action
 
         return policy
 

@@ -382,6 +382,8 @@ class BurgerEnv(BaseEnv):
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         a, b = objects
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
         ax, ay = self.get_position(a, state)
         bx, by = self.get_position(b, state)
         az = state.get(a, "z")
@@ -404,6 +406,8 @@ class BurgerEnv(BaseEnv):
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
         # A held object is not clear.
         if obj.is_instance(
                 self._item_type
@@ -1064,7 +1068,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                    train_or_test: str) -> List[EnvironmentTask]:
         spots_for_objects = self.get_edge_cells_for_object_placement(rng)
 
-        def create_default_state():
+        def create_default_state() -> Tuple[dict, dict, List[Tuple[int, int]]]:
             state_dict = {}
             hidden_state = {}
             shuffled_spots = spots_for_objects.copy()
@@ -1115,7 +1119,9 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             return state_dict, hidden_state, shuffled_spots
 
-        def create_task(state_dict, hidden_state, goal, alt_goal):
+        def create_task(state_dict: dict, hidden_state: dict,
+                        goal: Set[GroundAtom],
+                        alt_goal: Set[GroundAtom]) -> EnvironmentTask:
             state = utils.create_state_from_dict(state_dict)
             state.simulator_state = {}
             state.simulator_state["state"] = hidden_state
@@ -1127,7 +1133,7 @@ class BurgerNoMoveEnv(BurgerEnv):
             # import pdb; pdb.set_trace()
             return EnvironmentTask(state, goal, alt_goal_desc=alt_goal)
 
-        def name_to_obj(state_dict):
+        def name_to_obj(state_dict: dict) -> dict[str, Object]:
             d = {}
             for obj in state_dict.keys():
                 d[obj.name] = obj
@@ -1157,7 +1163,8 @@ class BurgerNoMoveEnv(BurgerEnv):
         # Test:
         # - Make several bottom bun + cooked patty stacks
 
-        def create_tasks_for_type_one():
+        def create_tasks_for_type_one(
+        ) -> Tuple[List[EnvironmentTask], List[EnvironmentTask]]:
             train_tasks = []
             test_tasks = []
 
@@ -1264,7 +1271,8 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             return train_tasks, test_tasks
 
-        def create_tasks_for_type_two():
+        def create_tasks_for_type_two(
+        ) -> Tuple[List[EnvironmentTask], List[EnvironmentTask]]:
             train_tasks = []
             test_tasks = []
 
@@ -1358,7 +1366,8 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             return train_tasks, test_tasks
 
-        def create_tasks_for_type_three():
+        def create_tasks_for_type_three(
+        ) -> Tuple[List[EnvironmentTask], List[EnvironmentTask]]:
             train_tasks = []
             test_tasks = []
 

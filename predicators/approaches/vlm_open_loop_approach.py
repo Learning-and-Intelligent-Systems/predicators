@@ -107,7 +107,10 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                     text_x = (width - text_width) / 2
                     text_y = height + 5
                     draw.text((text_x, text_y), text, font=font, fill="black")
-                    self._prompt_state_imgs_list.append(draw._image)  # pylint:disable=protected-access
+                    # pylint:disable=protected-access
+                    self._prompt_state_imgs_list.append(
+                        draw._image)  # type: ignore[attr-defined]
+                    # pylint: enable=protected-access
             for action_num, action in enumerate(traj.actions):
                 self._prompt_demos_str += f"Action {action_num}, from " + \
                     f"state {action_num} is {action.get_option()}\n"
@@ -152,7 +155,10 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
             img_with_txt = utils.add_text_to_draw_img(
                 draw, (50, 50), f"Initial state to plan from, Image {img_num}",
                 img_font)
-            imgs_for_vlm.append(img_with_txt._image)  # pylint:disable=protected-access
+            # pylint:disable=protected-access
+            imgs_for_vlm.append(
+                img_with_txt._image)  # type: ignore[attr-defined]
+            # pylint: enable=protected-access
         options_str = "\n".join(
             str(opt) + ", params_space=" + str(opt.params_space)
             for opt in curr_options)

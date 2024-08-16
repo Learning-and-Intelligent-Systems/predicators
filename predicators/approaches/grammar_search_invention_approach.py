@@ -1028,16 +1028,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             score_function = create_score_function(
                 CFG.grammar_search_score_function, self._initial_predicates,
                 atom_dataset, candidates, self._train_tasks)
-            self._learned_predicates = [
+            self._learned_predicates = set(
                 p for p in candidates.keys() if p.name in [
                     "((0:robot).fingers<=[idx 0]0.5)", "Cooked0", "Whole0",
                     "Diced0", "Cut0", "Sliced0", "Shredded0", "Chopped0"
                 ]
-            ]
-            # self._learned_predicates = \
-            #     self._select_predicates_by_score_hillclimbing(
-            #     candidates, score_function, self._initial_predicates,
-            #     atom_dataset, self._train_tasks)
+            )
+            self._learned_predicates = \
+                self._select_predicates_by_score_hillclimbing(
+                candidates, score_function, self._initial_predicates,
+                atom_dataset, self._train_tasks)
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             self._learned_predicates = self._select_predicates_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset)
