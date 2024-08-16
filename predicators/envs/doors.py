@@ -1135,7 +1135,8 @@ class DoorKnobsEnv(DoorsEnv):
             y = room_y + offset
             theta = np.pi / 2
 
-        target_rot = rng.uniform(0.0, 0.5)
+        target_rot = rng.uniform(0.1, 0.6)
+        target_rot = 0.75
         print("DOORKNOB FEAT", target_rot)
         # Sample the initial rotation so that the door is not yet opened.
         return {

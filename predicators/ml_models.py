@@ -1483,7 +1483,7 @@ class MapleQFunction(MLPRegressor):
         elif CFG.env == "grid_row_door":
             X_size = 7 + 3 + self._max_num_params + 1
         elif CFG.env == "doorknobs" and not CFG.use_obj_centric:
-            X_size = 184
+            X_size = 304
         else:
             X_size = 7 + 3 + self._max_num_params
         Y_size = 1
@@ -1698,8 +1698,11 @@ class MapleQFunction(MLPRegressor):
                 pad_length = 40
                 padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
                 return padded_e
-            pad_length = 180
-            padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
+            pad_length = 300
+            try:
+                padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
+            except:
+                import ipdb;ipdb.set_trace()
             return padded_e
         
     def _vectorize_goal(self, goal: Set[GroundAtom]) -> Array:
@@ -2038,6 +2041,7 @@ class MPDQNFunction(MapleQFunction):
         elif CFG.env == "grid_row_door":
             X_size = 47
         Y_size = 1
+        doorknob_values = []
         # If there's no data in the replay buffer, we can't train.
         # Otherwise, start by vectorizing all data in the replay buffer.
         X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
@@ -2058,6 +2062,7 @@ class MPDQNFunction(MapleQFunction):
                 num_rwd+=1
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
+            doorknob_values.append(vectorized_state[3])
             # vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             try:
@@ -2147,6 +2152,7 @@ class MPDQNFunction(MapleQFunction):
             self.target_qnet._initialize_net()
             self._qfunc_init = True
         print("WE GOT REWARDS: ", num_rwd)
+        print("DOORKNOB VALUES WE TRAINED ON", set(doorknob_values))
         count = 0
         for i in bad_door_index:
             print("BAD DOOR")
@@ -2183,7 +2189,7 @@ class MPDQNFunction(MapleQFunction):
 
         # MODIFICATIONS: update target network at each time step
         # Return a random option.
-        print("vectorized state", self._vectorize_state(state))
+        # print("vectorized state", self._vectorize_state(state))
 
         epsilon = self._epsilon
         if train_or_test == "test":
@@ -2216,8 +2222,8 @@ class MPDQNFunction(MapleQFunction):
             self.decay_epsilon()
         if train_or_test=="train":
             self.update_target_network()
-        if train_or_test == "test":
-            logging.info("option scores" + str(option_scores[0]))
+        # if train_or_test == "test":
+        #     logging.info("option scores" + str(option_scores[0]))
 
         return options[idx]
     

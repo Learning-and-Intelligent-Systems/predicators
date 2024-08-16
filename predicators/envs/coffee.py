@@ -675,3 +675,141 @@ class CoffeeEnv(BaseEnv):
             return state.get(self._robot, "z") - self.jug_handle_height
         # On the table.
         return self.z_lb
+
+class CoffeeLidEnv(CoffeeEnv):
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        #to remove lid you need a low level action that gets the stickiness exactly right
+        self._lid_type = Type(
+            "lid",
+            ["x", "y", "stickiness", "on_cup"])
+        
+    @classmethod
+    def get_name(cls) -> str:
+        return "coffeelid"
+    
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            self._cup_type, self._jug_type, self._machine_type,
+            self._robot_type, self._lid_type
+        }
+    
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        next_state = state.copy()
+        norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dwrist, norm_dfingers = \
+            action.arr
+        # Denormalize the action.
+        dx = norm_dx * self.max_position_vel
+        dy = norm_dy * self.max_position_vel
+        dz = norm_dz * self.max_position_vel
+        dtilt = norm_dtilt * self.max_angular_vel
+        dwrist = norm_dwrist * self.max_angular_vel
+        dfingers = norm_dfingers * self.max_finger_vel
+        # Apply changes to the robot, taking bounds into account.
+        robot_x = state.get(self._robot, "x")
+        robot_y = state.get(self._robot, "y")
+        robot_z = state.get(self._robot, "z")
+        x = np.clip(robot_x + dx, self.x_lb, self.x_ub)
+        y = np.clip(robot_y + dy, self.y_lb, self.y_ub)
+        z = np.clip(robot_z + dz, self.z_lb, self.z_ub)
+        current_tilt = state.get(self._robot, "tilt")
+        tilt = np.clip(current_tilt + dtilt, self.tilt_lb, self.tilt_ub)
+        current_wrist = state.get(self._robot, "wrist")
+        wrist = np.clip(current_wrist + dwrist, self.wrist_lb, self.wrist_ub)
+        current_fingers = state.get(self._robot, "fingers")
+        fingers = np.clip(current_fingers + dfingers, self.closed_fingers,
+                          self.open_fingers)
+        # The deltas may be outdated because of the clipping, so recompute
+        # or delete them.
+        dx = x - state.get(self._robot, "x")
+        dy = y - state.get(self._robot, "y")
+        dwrist = wrist - state.get(self._robot, "wrist")
+        del dz, dtilt, dfingers
+        # Update the robot in the next state.
+        next_state.set(self._robot, "x", x)
+        next_state.set(self._robot, "y", y)
+        next_state.set(self._robot, "z", z)
+        next_state.set(self._robot, "tilt", tilt)
+        next_state.set(self._robot, "wrist", wrist)
+        next_state.set(self._robot, "fingers", fingers)
+        # Get jug state info for later checks.
+        handle_pos = self._get_jug_handle_grasp(state, self._jug)
+        sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
+        jug_rot = state.get(self._jug, "rot")
+        # Check if the button should be pressed for the first time.
+        machine_was_on = self._MachineOn_holds(state, [self._machine])
+        pressing_button = self._PressingButton_holds(
+            next_state, [self._robot, self._machine])
+        jug_held = self._Holding_holds(state, [self._robot, self._jug])
+        if pressing_button and not machine_was_on:
+            next_state.set(self._machine, "is_on", 1.0)
+            # Snap the robot to the center of the button.
+            next_state.set(self._robot, "x", self.button_x)
+            next_state.set(self._robot, "y", self.button_y)
+            next_state.set(self._robot, "z", self.button_z)
+            next_state.set(self._robot, "tilt", self.tilt_lb)
+            next_state.set(self._robot, "wrist", self.robot_init_wrist)
+        # If the jug is already held, move its position, and process drops.
+        elif jug_held:
+            # If the jug should be dropped, drop it first.
+            if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
+                next_state.set(self._jug, "is_held", 0.0)
+            # Otherwise, move it, and process pouring.
+            else:
+                # Check for pouring.
+                if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
+                    # Find the cup to pour into, if any.
+                    cup = self._get_cup_to_pour(next_state)
+                    # If pouring into nothing, noop.
+                    if cup is None:
+                        return state.copy()
+                    # Increase the liquid in the cup.
+                    current_liquid = state.get(cup, "current_liquid")
+                    new_liquid = current_liquid + self.pour_velocity
+                    # If we have exceeded the capacity of the cup, noop.
+                    if new_liquid > state.get(cup, "capacity_liquid"):
+                        return state.copy()
+                    next_state.set(cup, "current_liquid", new_liquid)
+                    # If successfully poured, prevent movement and dropping.
+                    next_state.set(self._robot, "x", robot_x)
+                    next_state.set(self._robot, "y", robot_y)
+                    next_state.set(self._robot, "z", robot_z)
+                    next_state.set(self._robot, "fingers", self.closed_fingers)
+                # Move the jug.
+                else:
+                    new_jug_x = state.get(self._jug, "x") + dx
+                    new_jug_y = state.get(self._jug, "y") + dy
+                    next_state.set(self._jug, "x", new_jug_x)
+                    next_state.set(self._jug, "y", new_jug_y)
+                    next_state.set(self._robot, "tilt", self.tilt_lb)
+                    next_state.set(self._robot, "wrist", self.robot_init_wrist)
+                    next_state.set(self._robot, "fingers", self.closed_fingers)
+        # Check if the jug should be grasped for the first time.
+        elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
+            sq_dist_to_handle < self.grasp_position_tol and \
+            abs(jug_rot) < self.pick_jug_rot_tol:
+            # Snap to the handle.
+            handle_x, handle_y, handle_z = handle_pos
+            next_state.set(self._robot, "x", handle_x)
+            next_state.set(self._robot, "y", handle_y)
+            next_state.set(self._robot, "z", handle_z)
+            next_state.set(self._robot, "tilt", self.tilt_lb)
+            next_state.set(self._robot, "wrist", self.robot_init_wrist)
+            # Grasp the jug.
+            next_state.set(self._jug, "is_held", 1.0)
+        # Check if the jug should be rotated.
+        elif self._Twisting_holds(state, [self._robot, self._jug]):
+            # Rotate the jug.
+            rot = state.get(self._jug, "rot")
+            next_state.set(self._jug, "rot", rot + dwrist)
+        # If the jug is close enough to the dispense area and the machine is
+        # on, the jug should get filled.
+        jug_in_machine = self._JugInMachine_holds(next_state,
+                                                  [self._jug, self._machine])
+        machine_on = self._MachineOn_holds(next_state, [self._machine])
+        if jug_in_machine and machine_on:
+            next_state.set(self._jug, "is_filled", 1.0)
+        return next_state
