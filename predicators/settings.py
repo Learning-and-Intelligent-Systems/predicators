@@ -356,6 +356,9 @@ class GlobalSettings:
 
     # burger env parameters
     burger_render_set_of_marks = True
+    # Which type of train/test tasks to generate. Options are "more_stacks",
+    # "fatter_burger", "combo_burger".
+    burger_no_move_task_type = "more_patties"
 
     # parameters for random options approach
     random_options_max_tries = 100

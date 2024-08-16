@@ -221,13 +221,14 @@ class BurgerEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator,
                    train_or_test: str) -> List[EnvironmentTask]:
+        del train_or_test  # unused
         tasks = []
         state_dict = {}
         hidden_state = {}
 
         spots_for_objects = self.get_edge_cells_for_object_placement(rng)
 
-        for i in range(num):
+        for _ in range(num):
             shuffled_spots = spots_for_objects.copy()
             rng.shuffle(shuffled_spots)
 
@@ -767,7 +768,7 @@ class BurgerEnv(BaseEnv):
             ax.imshow(img, extent=extent, zorder=zorder)
             if CFG.burger_render_set_of_marks:
                 if is_held:
-                    rx, ry = self.get_position(self._robot, state)
+                    rx, _ = self.get_position(self._robot, state)
                     # If the robot is on the right edge, put text labels for
                     # held items on the left side so that they don't extend past
                     # the edge of the grid and make the image larger.
@@ -1044,7 +1045,9 @@ class BurgerNoMoveEnv(BurgerEnv):
     def get_name(cls) -> str:
         return "burger_no_move"
 
-    def get_edge_cells_for_object_placement(self):
+    def get_edge_cells_for_object_placement(
+            self, rng: np.random.Generator) -> List[Tuple[int, int]]:
+        del rng  # unused
         n_row = self.num_rows
         n_col = self.num_cols
         top = [(n_row - 1, col) for col in range(n_col)]
@@ -1059,8 +1062,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator,
                    train_or_test: str) -> List[EnvironmentTask]:
-        tasks = []
-        spots_for_objects = self.get_edge_cells_for_object_placement()
+        spots_for_objects = self.get_edge_cells_for_object_placement(rng)
 
         def create_default_state():
             state_dict = {}
@@ -1155,7 +1157,7 @@ class BurgerNoMoveEnv(BurgerEnv):
         # Test:
         # - Make several bottom bun + cooked patty stacks
 
-        def create_tasks_for_one():
+        def create_tasks_for_type_one():
             train_tasks = []
             test_tasks = []
 
@@ -1262,7 +1264,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             return train_tasks, test_tasks
 
-        def create_tasks_for_two():
+        def create_tasks_for_type_two():
             train_tasks = []
             test_tasks = []
 
@@ -1356,7 +1358,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             return train_tasks, test_tasks
 
-        def create_tasks_for_three():
+        def create_tasks_for_type_three():
             train_tasks = []
             test_tasks = []
 
@@ -1454,11 +1456,19 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             return train_tasks, test_tasks
 
-        train_tasks, test_tasks = create_tasks_for_one()
+        if CFG.burger_no_move_task_type == "more_stacks":
+            train_tasks, test_tasks = create_tasks_for_type_three()
+        elif CFG.burger_no_move_task_type == "fatter_burger":
+            train_tasks, test_tasks = create_tasks_for_type_two()
+        elif CFG.burger_no_move_task_type == "combo_burger":
+            train_tasks, test_tasks = create_tasks_for_type_one()
+        else:
+            raise NotImplementedError(
+                f"Unrecognized task type: {CFG.burger_no_move_task_type}.")
+
         if train_or_test == "train":
             return train_tasks
-        else:
-            return test_tasks
+        return test_tasks
 
     @property
     def predicates(self) -> Set[Predicate]:
