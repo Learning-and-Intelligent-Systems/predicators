@@ -601,25 +601,25 @@ def append_classification_result_for_ops(
             save_image_with_label(state.labeled_image.copy(), obs_name,
                                   obs_dir)
             if category == "tp":
-                # result_str.append(f"Action {g_optn} *successfully* executed " +
-                #                   "on " + obs_name + " with additional info:")
-                result_str.append(f"Action: {g_optn}\n"+
-                                  f"  Result: Success\n"+
-                                  f"  State: {obs_name}\n"+
-                                  f"  Additional info:")
+                result_str.append(f"Action {g_optn} *successfully* executed " +
+                                  "on " + obs_name + " with additional info:")
+                # result_str.append(f"Action: {g_optn}\n"+
+                #                   f"  Result: Success\n"+
+                #                   f"  State: {obs_name}\n"+
+                #                   f"  Additional info:")
             elif category == "fp":
-                # result_str.append(f"Action {g_optn} *failed* to executed " +
-                #                   "on " + obs_name + " with additional info:")
-                result_str.append(f"Action: {g_optn}\n"+
-                                  f"  Result: Fail\n"+
-                                  f"  State: {obs_name}\n"+
-                                  f"  Additional info:")
+                result_str.append(f"Action {g_optn} *failed* to executed " +
+                                  "on " + obs_name + " with additional info:")
+                # result_str.append(f"Action: {g_optn}\n"+
+                #                   f"  Result: Fail\n"+
+                #                   f"  State: {obs_name}\n"+
+                #                   f"  Additional info:")
             else:
                 raise NotImplementedError("Only tp and fp are supported")
-            # str_for_this_state.append("  " + obs_name +
-            #                           " with additional info:")
-            str_for_this_state.append(f"  State: {obs_name}\n"+
-                                        f"  Additional info:")
+            str_for_this_state.append("  " + obs_name +
+                                      " with additional info:")
+            # str_for_this_state.append(f"  State: {obs_name}\n"+
+            #                             f"  Additional info:")
             # Should add proprio state
         state_dict_str = state.dict_str(
             indent=2,
@@ -638,7 +638,10 @@ def append_classification_result_for_ops(
 
         # if showing the next state
         if CFG.vlm_invention_positive_negative_include_next_state and \
-            state.next_state is not None:
+            state.next_state is not None and\
+            not CFG.vlm_invention_propose_nl_properties:
+            # Currently vlm_invention_propose_nl_properties is only true when
+            # invention from pos/neg states, so we don't want the next state.
             str_for_this_state = []
             n_state = state.next_state
             obs_name = "state_" + str(state_hash_to_id[hash(n_state)])
@@ -1753,13 +1756,11 @@ class RawState(PyBulletState):
         return data_hash
 
     def evaluate_simple_assertion(self, assertion: str,
-                                  image: ImagePatch) -> VLMQuery:
+                    image: Tuple[BoundingBox, Sequence[Object]]) -> VLMQuery:
         """Given an assertion and an image, queries a VLM and returns whether
         the assertion is true or false."""
-        return VLMQuery(
-            assertion,
-            BoundingBox(image.left, image.lower, image.right, image.upper),
-            image.attn_objects)
+        bbox, objs = image
+        return VLMQuery(assertion, bbox, objs)
 
     def generate_previous_option_message(self) -> str:
         """Generate the message for the previous option."""
@@ -1785,7 +1786,7 @@ class RawState(PyBulletState):
 
         if len(self.option_history) == 0:
             msg += "For context, this is at the beginning of a task, before "\
-                "the robot has done anything."
+                "the robot has done anything.\n"
         else:
             # return f"For context, this is right after the robot has "\
             # f"successfully executed its [{', '.join(self.option_history[-2:])}]"\
@@ -1811,7 +1812,7 @@ class RawState(PyBulletState):
                 msg += " Please carefully examine the images depicting the "\
                     "'prev. state' and 'curr. state' before making a judgment."
                 msg += "\n"
-        msg += " The assertions to evaluate are:"
+        msg += "The assertions to evaluate are:"
         return msg
 
     def add_bbox_features(self) -> None:
@@ -1960,10 +1961,19 @@ class RawState(PyBulletState):
             left_margin: int = 30,
             lower_margin: int = 30,
             right_margin: int = 30,
-            top_margin: int = 30) -> ImagePatch:
-        state_ip = ImagePatch(self, attn_objects=objects)
-        return state_ip.crop_to_objects(objects, left_margin, lower_margin,
-                                        right_margin, top_margin)
+            top_margin: int = 30) -> Tuple[BoundingBox, Sequence[Object]]:
+
+        bboxes = [self.get_obj_bbox(obj) for obj in objects]
+        bbox = smallest_bbox_from_bboxes(bboxes)
+        return (BoundingBox(max(bbox.left - left_margin, 0),
+                        max(bbox.lower - lower_margin, 0),
+                        min(bbox.right + right_margin, self.state_image.width),
+                        min(bbox.upper + top_margin, self.state_image.height)),
+                objects)
+
+        # state_ip = ImagePatch(self, attn_objects=objects)
+        # return state_ip.crop_to_objects(objects, left_margin, lower_margin,
+        #                                 right_margin, top_margin)
 
 
 def mask_to_bbox(mask: Mask) -> BoundingBox:
@@ -3772,6 +3782,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
             pred_name_to_queries["all"].extend(queries)
 
         for queries in pred_name_to_queries.values():
+            # logging.debug("Start processing queries")
             attention_image = state_ip.crop_to_bboxes(
                 [query.attention_box for query in queries])
             attention_image = attention_image.cropped_image_in_PIL
@@ -3793,8 +3804,11 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                     for obj in q.attn_objects
                 ]
                 if len(all_objs) > 0:
-                    prev_attn_image = state.prev_state.crop_to_objects(
-                        all_objs)
+                    # prev_attn_image = state.prev_state.crop_to_objects(
+                    #     all_objs)
+                    bbox, _ = state.prev_state.crop_to_objects(all_objs)
+                    prev_state_ip = ImagePatch(state.prev_state)
+                    prev_attn_image = prev_state_ip.crop_to_bboxes([bbox])
                     prev_attn_image = prev_attn_image.cropped_image_in_PIL
 
                 # annotate the prev image
@@ -3822,6 +3836,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 text_y = image_height - text_height - 0.5 * font_size
                 draw.text((text_x, text_y), text, fill="red", font=font)
 
+            # logging.debug("Finished processing prompt image.")
             prompts = [state.generate_previous_option_message()]
             if CFG.nsp_pred_include_state_str_in_prompt:
                 pass
@@ -3829,14 +3844,15 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
             # prompts.extend([
             #     f"{i+1}. {query.query_str}" for i, query in enumerate(queries)
             # ])
+            if CFG.nsp_pred_include_prev_state_in_prompt and\
+                state.prev_state is not None:
+                prev_state = state.prev_state
+                prev_atoms = abstract(prev_state, all_ns_preds)
             for i, query in enumerate(queries):
                 prompt_str = f"{i+1}. {query.query_str}"
                 if CFG.nsp_pred_include_prev_state_in_prompt and\
                     state.prev_state is not None:
                     assert hasattr(query, "ground_atom")
-                    prev_state = state.prev_state
-                    # assert all_ns_preds is not None
-                    prev_atoms = abstract(prev_state, all_ns_preds)
                     prev_value = query.ground_atom in prev_atoms
                     # prev_value = query.ground_atom.predicate.holds(
                     #                 prev_state, query.ground_atom.objects)
@@ -3862,6 +3878,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
 
             assert len(queries) == len(all_vlm_responses)
             for query, response in zip(queries, all_vlm_responses):
+                # logging.debug(f"Processing result: {response}")
                 if ":" in response:
                     response = response.split(":")[1].strip()
                 else:
@@ -3878,6 +3895,7 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 else:
                     ground_atom.predicate._classifier.cache_truth_value(
                         state, ground_atom.objects, False)
+            logging.debug("done")
 
     # else:
     #     attention_image = state_ip.crop_to_bboxes(
@@ -3922,13 +3940,18 @@ class _MemoizedClassifier():
                           truth_value: bool) -> None:
         """Cache the boolean value after querying the VLM and obtaining the
         result."""
-        objects_tuple = tuple(objects)
-        self.cache[(state.__hash__(), objects_tuple)] = truth_value
+        combined_hash = self.hash_state_objs(state, objects)
+        self.cache[combined_hash] = truth_value
+    
+    def hash_state_objs(self, state: State, objects: Sequence[Object]) -> int:
+        objects_tuple_hash = hash(tuple(objects))
+        state_hash = state.__hash__()
+        return hash((state_hash, objects_tuple_hash))
 
     def has_classified(self, state: State, objects: Sequence[Object]) -> bool:
         """Check if the state, object pair has been stored in the cache."""
-        objects_tuple = tuple(objects)
-        return (state, objects_tuple) in self.cache
+        combined_hash = self.hash_state_objs(state, objects)
+        return combined_hash in self.cache
 
     def __call__(self, state: State, objects: Sequence[Object]) -> \
         Union[bool, VLMQuery]:
@@ -3936,9 +3959,8 @@ class _MemoizedClassifier():
         otherwise call self.classifier."""
         # if state, object exist in cache, return the value
         # else compute the truth value using the classifier
-        objects_tuple = tuple(objects)
-        return self.cache.get((hash(state), objects_tuple),
-                              self.classifier(state, objects))
+        combined_hash = self.hash_state_objs(state, objects)
+        return self.cache.get(combined_hash, self.classifier(state, objects))
 
 
 def compare_abstract_accuracy(

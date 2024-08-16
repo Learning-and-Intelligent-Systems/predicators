@@ -116,7 +116,6 @@ class ImagePatch:
         upper: int = None,
         parent_left: int = 0,
         parent_lower: int = 0,
-        queues: Tuple = None,
         parent_img_patch: 'ImagePatch' = None,
         attn_objects: Optional[List[Object]] = None,
     ) -> None:
@@ -156,9 +155,6 @@ class ImagePatch:
 
         self.height = self.cropped_image.shape[1]
         self.width = self.cropped_image.shape[2]
-
-        self.cache = {}
-        self.queues = (None, None) if queues is None else queues
 
         self.parent_img_patch = parent_img_patch
 
@@ -322,7 +318,6 @@ class ImagePatch:
                           upper,
                           self.left,
                           self.lower,
-                          queues=self.queues,
                           parent_img_patch=self,
                           attn_objects=self.attn_objects)
 

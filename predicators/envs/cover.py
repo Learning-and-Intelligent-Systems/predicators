@@ -316,9 +316,10 @@ class CoverEnv(BaseEnv):
         assert len(CFG.cover_block_widths) >= len(blocks)
         # If pybullet_cover_weighted, randomly select heavy blocks
         if self.get_name() == "pybullet_cover_weighted":
-            num_heavy_blocks = int(CFG.cover_weighted_ratio * len(blocks))
-            heavy_blocks = set(rng.choice(blocks, size=num_heavy_blocks, 
-                                      replace=False))
+            heavy_blocks = set()
+            for block in blocks:
+                if rng.random() < CFG.cover_weighted_ratio:
+                    heavy_blocks.add(block)
 
         for block, width in zip(blocks, CFG.cover_block_widths):
             while True:

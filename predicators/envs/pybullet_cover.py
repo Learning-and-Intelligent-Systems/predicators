@@ -475,8 +475,9 @@ class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
     the tasks with the heavy blocks are not achievable.
     """
     # Define colors
-    heavy_color = [.2, .2, .2, 1]  # Metal gold color
-    light_color = [1, 1, 1, 1]  # Paper color
+    light_color = [0, 0, 0, 1]  # heavy block color
+    # light_color = [1, 1, 1, 1]  # light block color
+    heavy_color = [1, 1, 1, 1]  # light block color
     target_colr = [0.5, 1, 0.5, 1]
 
     def __init__(self, use_gui: bool = True) -> None:

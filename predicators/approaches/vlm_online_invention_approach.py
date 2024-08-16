@@ -249,8 +249,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
-        propose_ite = 0
-        max_invent_ite = 20
+        propose_ite = 1
+        max_invent_ite = 10
         self.manual_prompt = False
         self.regenerate_response = True
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
@@ -301,15 +301,13 @@ class VlmInventionApproach(NSRTLearningApproach):
             defaultdict(GroundOptionRecord)
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
-        self.vlm_invention_propose_nl_properties = CFG.\
-                                            vlm_invention_propose_nl_properties
         
         for ite in range(1, max_invent_ite + 1):
             logging.info(f"===Starting iteration {ite}...")
             if CFG.vlm_invention_alternate_between_p_ad:
-                self.vlm_invention_propose_nl_properties = ite % 2 == 0
+                CFG.vlm_invention_propose_nl_properties = propose_ite % 2 == 0
                 logging.info("Proposing predicates mainly based on effect: "
-                             f"{not self.vlm_invention_propose_nl_properties}")
+                             f"{not CFG.vlm_invention_propose_nl_properties}")
             # Reset at every iteration
             if CFG.reset_optn_state_dict_at_every_ite:
                 self.succ_optn_dict = defaultdict(GroundOptionRecord)
@@ -475,7 +473,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                               online_learning_cycle=None,
                               annotations=None,
                               fail_optn_dict=self.fail_optn_dict)
-            breakpoint()
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
@@ -500,7 +497,10 @@ class VlmInventionApproach(NSRTLearningApproach):
             #     if not p_nsrts.option in cur_options:
             #         self._nsrts.add(p_nsrts)
             # self._nsrts |= self._reduced_nsrts
-            logging.info("All NSRTS after learning", pformat(self._nsrts))
+            logging.info("\nAll NSRTs after learning:")
+            for nsrt in self._nsrts:
+                logging.info(nsrt)
+            logging.info("")
 
             # Collect Data again
             # Set up load/save filename for interaction dataset
@@ -548,7 +548,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             prev_clf_acc = clf_acc
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
-            if solve_rate == 1 or num_failed_plans == 0:
+            if solve_rate == 1 or (num_failed_plans == 0 and 
+                solve_rate == best_solve_rate):
             # if solve_rate == 1:
                 if CFG.env in ["pybullet_coffee"]:
                     # these are harder
@@ -641,7 +642,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                             max_num_groundings += 1
                         else:
                             max_num_examples += 1
-            # breakpoint()
             # Get the proposals
             new_proposals = self._get_vlm_predicate_proposals(
                 env, prompt, images, ite, tasks, state_str)
@@ -1127,7 +1127,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         state_list_str: str = "",
     ) -> Set[Predicate]:
         # (if true) First get proposals in natural language
-        if self.vlm_invention_propose_nl_properties:
+        if CFG.vlm_invention_propose_nl_properties:
             nl_proposal_f = CFG.log_file + f"ite{ite}_stage0.response"
             response = self._get_vlm_response(nl_proposal_f,
                                                 self._gpt4o,
@@ -1164,7 +1164,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         response = self._get_vlm_response(response_file,
                     self._vlm,
                     prompt,
-                    [] if self.vlm_invention_propose_nl_properties else images)
+                    [] if CFG.vlm_invention_propose_nl_properties else images)
 
         if CFG.vlm_invent_predicates_in_stages:
             # Get NL predicate dataset
@@ -1173,7 +1173,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             #     response = file.read()
             # predicate_specs = parse_nl_predicate_predictions(response_file)
             predicate_specs = response
-            if CFG.vlm_invention_positive_negative_include_next_state:
+            if CFG.vlm_invention_positive_negative_include_next_state and\
+                not CFG.vlm_invention_propose_nl_properties:
                 predicate_specs = self._parse_pad_labels_to_truth_values(
                     predicate_specs)
 
@@ -1504,14 +1505,13 @@ class VlmInventionApproach(NSRTLearningApproach):
         categories_to_show: List[str] = ['tp', 'fp'],
         seperate_prompt_per_option: bool = False,
     ) -> str:
-        if self.vlm_invention_propose_nl_properties:
+        if CFG.vlm_invention_propose_nl_properties:
             template_f = "prompts/invent_0_prog_free_p_nl.outline"
         else:
             if CFG.vlm_invention_positive_negative_include_next_state:
                 template_f = "prompts/invent_0_prog_free_pad.outline"
             else:
                 template_f = "prompts/invent_0_prog_free_p.outline"
-        breakpoint()
 
         with open(template_f, 'r') as file:
             template = file.read()
@@ -1550,7 +1550,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         template = template.replace("[OPERATOR_PERFORMACE]", summary_str)
 
         # Save the text prompt
-        if self.vlm_invention_propose_nl_properties:
+        if CFG.vlm_invention_propose_nl_properties:
             with open(f"{CFG.log_file}/ite{ite}_stage0.prompt", 'w') as f:
                 f.write(template)
         else:
@@ -1732,6 +1732,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # check if it's roughly runable, and add it to list if it is.
                 try:
                     exec(code_str, context)
+                    logging.debug(f"Testing predicate {pred_name}")
                     utils.abstract(tasks[0].init, [context[pred_name]])
                 except Exception as e:
                     error_trace = traceback.format_exc()

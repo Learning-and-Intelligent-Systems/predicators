@@ -468,6 +468,8 @@ keys = [
     os.getenv("GOOGLE_API_KEY"),
     os.getenv("GOOGLE_API_KEY1"),
     os.getenv("GOOGLE_API_KEY2"),
+    os.getenv("GOOGLE_API_KEY3"),
+    os.getenv("GOOGLE_API_KEY4"),
 ]
 
 def key_generator(keys):

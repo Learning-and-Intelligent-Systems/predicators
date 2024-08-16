@@ -75,13 +75,14 @@ ENVS:
     FLAGS:
       pretrained_model_prompt_cache_dir: "pretrained_model_cache/cover"
       num_train_tasks: 10 #0 # pybullet_coffee, cover
-      excluded_predicates: "IsLight"
-      # excluded_predicates: "all"
+      # excluded_predicates: "IsLight"
+      excluded_predicates: "all"
       cover_typed_options_no_sampler: True
       cover_initial_holding_prob: 0.0
+      cover_weighted_ratio: 0.5
       pybullet_camera_width: 800
-      cover_num_blocks_train: 3
-      cover_num_targets_train: 3
+      cover_num_blocks_train: 2
+      cover_num_targets_train: 2
       cover_block_widths: "[0.04,0.04,0.04]"
       cover_target_widths: "[0.02,0.02,0.02]"
   pb_cover:
@@ -124,7 +125,8 @@ FLAGS:
   option_learner: no_learning
   sampler_learner: oracle
   CIS_use_other_pnads_neg_data: True
-  grammar_search_search_algorithm: "gbfs" # "hill_climbing"
+  # grammar_search_search_algorithm: "gbfs" # "hill_climbing"
+  grammar_search_search_algorithm: "hill_climbing" # "hill_climbing"
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
   grammar_search_grammar_includes_negation: True # relaxation 2
@@ -143,7 +145,7 @@ FLAGS:
   vlm_invent_from_trajs: False
   vlm_invention_positive_negative_include_next_state: True
   save_nsp_image_patch_before_query: False
-  vlm_model_name: "gemini-1.5-pro"
+  vlm_model_name: "gemini-1.5-pro-exp-0801"
   # vlm_model_name: "gpt-4o"
   vlm_temperature: 0
   vlm_use_chat_mode: True
