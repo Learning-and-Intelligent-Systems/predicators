@@ -117,9 +117,11 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
         new_pnads = []
         for pnad in pnads:
             if CFG.cluster_and_intersect_soft_intersection_for_preconditions:
-                preconditions = self._induce_preconditions_via_soft_intersection(pnad)
+                preconditions = \
+                    self._induce_preconditions_via_soft_intersection(pnad)
             else:
-                preconditions = self._induce_preconditions_via_intersection(pnad)
+                preconditions = self._induce_preconditions_via_intersection(
+                    pnad)
             # Since we are taking an intersection, we're guaranteed that the
             # datastore can't change, so we can safely use pnad.datastore here.
             new_pnads.append(

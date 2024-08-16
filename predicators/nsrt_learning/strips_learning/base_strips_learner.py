@@ -2,8 +2,8 @@
 
 import abc
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple
 from collections import defaultdict
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from predicators import utils
 from predicators.planning import task_plan_with_option_plan_constraint
@@ -320,18 +320,23 @@ class BaseSTRIPSLearner(abc.ABC):
         return preconditions
 
     @staticmethod
-    def _induce_preconditions_via_soft_intersection(pnad: PNAD) -> Set[LiftedAtom]:
-        """Given a PNAD with a nonempty datastore, compute the preconditions for
-        the PNAD's operator from a soft intersection of all lifted preimages.
+    def _induce_preconditions_via_soft_intersection(
+            pnad: PNAD) -> Set[LiftedAtom]:
+        """Given a PNAD with a nonempty datastore, compute the preconditions
+        for the PNAD's operator from a soft intersection of all lifted
+        preimages.
 
         Keep the preconditions that appear in a more than a certain percentage
         of segments in the PNAD's datastore, as determined by
-        CFG.precondition_soft_intersection_threshold_percent."""
+        CFG.precondition_soft_intersection_threshold_percent.
+        """
         assert len(pnad.datastore) > 0
-        threshold_count = int(len(pnad.datastore) * CFG.precondition_soft_intersection_threshold_percent)
+        threshold_count = int(
+            len(pnad.datastore) *
+            CFG.precondition_soft_intersection_threshold_percent)
         lifted_atom_counts = defaultdict(int)
 
-        for i, (segment, var_to_obj) in enumerate(pnad.datastore):
+        for segment, var_to_obj in pnad.datastore:
             objects = set(var_to_obj.values())
             obj_to_var = {o: v for v, o in var_to_obj.items()}
             atoms = {
@@ -346,7 +351,11 @@ class BaseSTRIPSLearner(abc.ABC):
 
         # Keep the lifted atoms that appear as preconditions in more than
         # threshold_count of the segments.
-        preconditions = {la for la, count in lifted_atom_counts.items() if count > threshold_count}
+        preconditions = {
+            la
+            for la, count in lifted_atom_counts.items()
+            if count > threshold_count
+        }
         return preconditions
 
     @staticmethod

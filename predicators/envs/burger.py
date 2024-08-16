@@ -24,6 +24,7 @@ from predicators.structs import Action, DefaultEnvironmentTask, \
     EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
     Video
 
+
 class BurgerEnv(BaseEnv):
     """A simple gridworld environment where a robot prepares a burger, inspired
     by https://github.com/portal-cornell/robotouille.
@@ -218,8 +219,8 @@ class BurgerEnv(BaseEnv):
 
         return ret
 
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator, train_or_test: str) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int, rng: np.random.Generator,
+                   train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
         state_dict = {}
         hidden_state = {}
@@ -306,10 +307,14 @@ class BurgerEnv(BaseEnv):
         return tasks
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng, train_or_test="train")
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng,
+                               train_or_test="train")
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng, train_or_test="test")
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               rng=self._test_rng,
+                               train_or_test="test")
 
     @classmethod
     def Adjacent_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -399,7 +404,9 @@ class BurgerEnv(BaseEnv):
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         # A held object is not clear.
-        if obj.is_instance(self._item_type) and state.simulator_state["state"][obj]["is_held"] > 0.5:
+        if obj.is_instance(
+                self._item_type
+        ) and state.simulator_state["state"][obj]["is_held"] > 0.5:
             return False
         for other_obj in state:
             if other_obj.is_instance(self._item_type) or other_obj.is_instance(
@@ -710,7 +717,8 @@ class BurgerEnv(BaseEnv):
             self._tomato_type:
             mpimg.imread(utils.get_env_asset_path("imgs/uncut_lettuce.png")),
             self._patty_type:
-            mpimg.imread(utils.get_env_asset_path("imgs/realistic_raw_patty_full.png"))
+            mpimg.imread(
+                utils.get_env_asset_path("imgs/realistic_raw_patty_full.png"))
         }
         held_img_size = (0.3, 0.3)
         offset = held_img_size[1] * (1 / 3)
@@ -722,7 +730,8 @@ class BurgerEnv(BaseEnv):
             if "is_cooked" in state.simulator_state["state"][
                     item] and self._IsCooked_holds(state, [item]):
                 img = mpimg.imread(
-                    utils.get_env_asset_path("imgs/realistic_cooked_patty_full.png"))
+                    utils.get_env_asset_path(
+                        "imgs/realistic_cooked_patty_full.png"))
             elif "is_sliced" in state.simulator_state["state"][
                     item] and self._IsSliced_holds(state, [item]):
                 img = mpimg.imread(
@@ -784,9 +793,14 @@ class BurgerEnv(BaseEnv):
                         # there is not an item on top of it, then put its text
                         # label near the top of the cell.
                         if self._cutting_board in state:
-                            check = (self._On_holds(state, [item, self._grill]) or self._On_holds(state, [item, self._cutting_board])) and self._Clear_holds(state, [item])
+                            check = (self._On_holds(state, [item, self._grill])
+                                     or self._On_holds(state, [
+                                         item, self._cutting_board
+                                     ])) and self._Clear_holds(state, [item])
                         else:
-                            check = self._On_holds(state, [item, self._grill]) and self._Clear_holds(state, [item])
+                            check = self._On_holds(state, [
+                                item, self._grill
+                            ]) and self._Clear_holds(state, [item])
                         if check:
                             ax.text(x + 1 / 2,
                                     y + (1 + img_size[1]) / 2,
@@ -953,38 +967,41 @@ class BurgerEnv(BaseEnv):
 
         return _event_to_action
 
+
 class BurgerNoMoveEnv(BurgerEnv):
     """BurgerEnv but with the movement option wrapped inside each of the other
     options."""
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        self._OnGround = Predicate("OnGround", [self._item_type], self._OnGround_holds)
-        self._GoalHack2 = Predicate("GoalHack2", [
-            self._bottom_bun_type, self._patty_type], self._GoalHack2_holds
-        )
-        self._GoalHack3 = Predicate("GoalHack3", [
-            self._bottom_bun_type, self._tomato_type], self._GoalHack3_holds
-        )
-        self._GoalHack4 = Predicate("GoalHack4", [
-            self._patty_type, self._tomato_type], self._GoalHack3_holds
-        )
-        self._GoalHack5 = Predicate("GoalHack5", [
-            self._cutting_board_type, self._patty_type], self._GoalHack5_holds
-        )
-        self._GoalHack6 = Predicate("GoalHack6", [
-            self._patty_type, self._patty_type], self._GoalHack5_holds
-        )
-        self._GoalHack7 = Predicate("GoalHack7", [
-            self._grill_type, self._patty_type], self._GoalHack5_holds
-        )
+        self._OnGround = Predicate("OnGround", [self._item_type],
+                                   self._OnGround_holds)
+        self._GoalHack2 = Predicate("GoalHack2",
+                                    [self._bottom_bun_type, self._patty_type],
+                                    self._GoalHack2_holds)
+        self._GoalHack3 = Predicate("GoalHack3",
+                                    [self._bottom_bun_type, self._tomato_type],
+                                    self._GoalHack3_holds)
+        self._GoalHack4 = Predicate("GoalHack4",
+                                    [self._patty_type, self._tomato_type],
+                                    self._GoalHack3_holds)
+        self._GoalHack5 = Predicate(
+            "GoalHack5", [self._cutting_board_type, self._patty_type],
+            self._GoalHack5_holds)
+        self._GoalHack6 = Predicate("GoalHack6",
+                                    [self._patty_type, self._patty_type],
+                                    self._GoalHack5_holds)
+        self._GoalHack7 = Predicate("GoalHack7",
+                                    [self._grill_type, self._patty_type],
+                                    self._GoalHack5_holds)
 
     def _OnGround_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         obj_z = state.get(obj, "z")
         return obj_z == 0
 
-    def _GoalHack2_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _GoalHack2_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         # The object is somewhere below the patty and the patty is cooked.
         obj, patty = objects
         obj_z = state.get(obj, "z")
@@ -992,9 +1009,11 @@ class BurgerNoMoveEnv(BurgerEnv):
         p_z = state.get(patty, "z")
         p_x, p_y = self.get_position(patty, state)
         same_cell = obj_x == p_x and obj_y == p_y
-        return obj_z < p_z and same_cell and self._IsCooked_holds(state, [patty])
+        return obj_z < p_z and same_cell and self._IsCooked_holds(
+            state, [patty])
 
-    def _GoalHack3_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _GoalHack3_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         # The object is somewhere below the tomato and the tomato is sliced.
         obj, tomato = objects
         obj_z = state.get(obj, "z")
@@ -1002,9 +1021,11 @@ class BurgerNoMoveEnv(BurgerEnv):
         t_z = state.get(tomato, "z")
         t_x, t_y = self.get_position(tomato, state)
         same_cell = obj_x == t_x and obj_y == t_y
-        return obj_z < t_z and same_cell and self._IsSliced_holds(state, [tomato])
+        return obj_z < t_z and same_cell and self._IsSliced_holds(
+            state, [tomato])
 
-    def _GoalHack5_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _GoalHack5_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         obj, patty = objects
         # The object is right below the patty and the patty is cooked.
         obj_z = state.get(obj, "z")
@@ -1016,7 +1037,8 @@ class BurgerNoMoveEnv(BurgerEnv):
         # want this turning on for the top patty when there is a stack of two
         # cooked patties on a cutting board -- then the operator that covers
         # this transition will be less general.
-        return obj_z == p_z - 1 and same_cell and self._IsCooked_holds(state, [patty])
+        return obj_z == p_z - 1 and same_cell and self._IsCooked_holds(
+            state, [patty])
 
     @classmethod
     def get_name(cls) -> str:
@@ -1031,11 +1053,12 @@ class BurgerNoMoveEnv(BurgerEnv):
         right = [(row, n_col - 1) for row in range(n_row)]
         corners = [(0, 0), (0, self.num_cols - 1), (self.num_rows - 1, 0),
                    (self.num_rows - 1, self.num_cols - 1)]
-        cells = (set(top) | set(left) | set(bottom) | set(right)) - set(corners)
+        cells = (set(top) | set(left) | set(bottom)
+                 | set(right)) - set(corners)
         return sorted(cells)
 
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator, train_or_test: str) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int, rng: np.random.Generator,
+                   train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
         spots_for_objects = self.get_edge_cells_for_object_placement()
 
@@ -1096,7 +1119,8 @@ class BurgerNoMoveEnv(BurgerEnv):
             state.simulator_state["state"] = hidden_state
             # A DefaultEnvironmentTask is a dummy environment task. Our render
             # function does not use the task argument, so this is ok.
-            state.simulator_state["images"] = self.render_state(state, DefaultEnvironmentTask)
+            state.simulator_state["images"] = self.render_state(
+                state, DefaultEnvironmentTask)
             # PIL.Image.fromarray(state.simulator_state["images"][0]).show()
             # import pdb; pdb.set_trace()
             return EnvironmentTask(state, goal, alt_goal_desc=alt_goal)
@@ -1150,7 +1174,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                 GroundAtom(self._On, [top_bun, patty])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # train task 2
@@ -1168,7 +1193,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack3, [bottom_bun, tomato]),
                 GroundAtom(self._On, [top_bun, tomato])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # train task 3
@@ -1185,7 +1211,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._On, [patty, self._cutting_board]),
                 GroundAtom(self._GoalHack4, [patty, tomato])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # train task 4
@@ -1206,7 +1233,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._On, [patty, self._grill]),
                 GroundAtom(self._GoalHack4, [patty, tomato])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # test task 1
@@ -1228,7 +1256,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack4, [patty, tomato]),
                 GroundAtom(self._On, [top_bun, tomato])
             }
-            test_task = create_task(state_dict, hidden_state, test_goal, alt_test_goal)
+            test_task = create_task(state_dict, hidden_state, test_goal,
+                                    alt_test_goal)
             test_tasks.append(test_task)
 
             return train_tasks, test_tasks
@@ -1252,7 +1281,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                 GroundAtom(self._On, [top_bun, patty])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # train task 2
@@ -1273,7 +1303,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack5, [self._cutting_board, patty]),
                 GroundAtom(self._GoalHack6, [patty, patty2])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # train task 3
@@ -1294,7 +1325,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack7, [self._grill, patty2]),
                 GroundAtom(self._GoalHack6, [patty2, patty])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # test task 1
@@ -1318,7 +1350,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack6, [patty, patty2]),
                 GroundAtom(self._On, [top_bun, patty2])
             }
-            test_task = create_task(state_dict, hidden_state, test_goal, alt_test_goal)
+            test_task = create_task(state_dict, hidden_state, test_goal,
+                                    alt_test_goal)
             test_tasks.append(test_task)
 
             return train_tasks, test_tasks
@@ -1342,7 +1375,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                 GroundAtom(self._On, [top_bun, patty])
             }
-            train_task = create_task(state_dict, hidden_state, train_goal, alt_train_goal)
+            train_task = create_task(state_dict, hidden_state, train_goal,
+                                     alt_train_goal)
             train_tasks.append(train_task)
 
             # test task 1
@@ -1414,13 +1448,14 @@ class BurgerNoMoveEnv(BurgerEnv):
                 GroundAtom(self._GoalHack2, [bottom_bun4, patty4]),
                 GroundAtom(self._GoalHack2, [bottom_bun5, patty5])
             }
-            test_task = create_task(state_dict, hidden_state, test_goal, alt_test_goal)
+            test_task = create_task(state_dict, hidden_state, test_goal,
+                                    alt_test_goal)
             test_tasks.append(test_task)
 
             return train_tasks, test_tasks
 
         train_tasks, test_tasks = create_tasks_for_one()
-        if train_or_test=="train":
+        if train_or_test == "train":
             return train_tasks
         else:
             return test_tasks
@@ -1428,18 +1463,9 @@ class BurgerNoMoveEnv(BurgerEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._IsCooked,
-            self._IsSliced,
-            self._HandEmpty,
-            self._Holding,
-            self._On,
-            self._OnGround,
-            self._Clear,
-            self._GoalHack2,
-            self._GoalHack3,
-            self._GoalHack4,
-            self._GoalHack5,
-            self._GoalHack6,
+            self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,
+            self._On, self._OnGround, self._Clear, self._GoalHack2,
+            self._GoalHack3, self._GoalHack4, self._GoalHack5, self._GoalHack6,
             self._GoalHack7
         }
 
@@ -1449,4 +1475,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._OnGround, self._GoalHack2, self._GoalHack3, self._GoalHack4, self._GoalHack5, self._GoalHack6, self._GoalHack7}
+        return {
+            self._On, self._OnGround, self._GoalHack2, self._GoalHack3,
+            self._GoalHack4, self._GoalHack5, self._GoalHack6, self._GoalHack7
+        }

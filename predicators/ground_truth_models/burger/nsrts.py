@@ -600,6 +600,7 @@ class BurgerGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         return nsrts
 
+
 class BurgerNoMoveGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Burger environment with no distinct movement
     options."""
@@ -704,18 +705,16 @@ class BurgerNoMoveGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(OnGround, [item]),
             LiftedAtom(HandEmpty, [robot])
         }
-        add_effects = {
-            LiftedAtom(Holding, [robot, item])
-        }
+        add_effects = {LiftedAtom(Holding, [robot, item])}
         delete_effects = {
             LiftedAtom(Clear, [item]),
             LiftedAtom(OnGround, [item]),
             LiftedAtom(HandEmpty, [robot])
         }
         ignore_effects = set()
-        pick_nsrt = NSRT("PickFromGround", parameters, preconditions, add_effects,
-                         delete_effects, ignore_effects, option, option_vars,
-                         null_sampler)
+        pick_nsrt = NSRT("PickFromGround", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects, option,
+                         option_vars, null_sampler)
         nsrts.add(pick_nsrt)
 
         # Unstack
@@ -738,8 +737,8 @@ class BurgerNoMoveGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         ignore_effects = set()
         unstack_nsrt = NSRT("Unstack", parameters, preconditions, add_effects,
-                         delete_effects, ignore_effects, option, option_vars,
-                         null_sampler)
+                            delete_effects, ignore_effects, option,
+                            option_vars, null_sampler)
         nsrts.add(unstack_nsrt)
 
         # Stack

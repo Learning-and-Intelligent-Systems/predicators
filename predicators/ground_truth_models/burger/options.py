@@ -1,6 +1,6 @@
 """Ground-truth options for the burger environment."""
 
-from typing import Dict, Iterator, Sequence, Set, Tuple, Optional
+from typing import Dict, Iterator, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -147,7 +147,8 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
         return policy
 
     @classmethod
-    def _move_subpolicy(cls, state: State, robot: Object, to_obj: Object) -> Optional[Action]:
+    def _move_subpolicy(cls, state: State, robot: Object,
+                        to_obj: Object) -> Optional[Action]:
         rx, ry = BurgerEnv.get_position(robot, state)
         ox, oy = BurgerEnv.get_position(to_obj, state)
 
@@ -156,22 +157,22 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # If we're adjacent to the object but not facing it, turn to face
         # it.
-        elif BurgerEnv.Adjacent_holds(state, [robot, to_obj]) and \
+        if BurgerEnv.Adjacent_holds(state, [robot, to_obj]) and \
             not BurgerEnv.Facing_holds(state, [robot, to_obj]):
             if rx == ox:
                 if ry > oy:
-                    action = Action(
-                        np.array([0, 0, 2, 0, 0], dtype=np.float32))
+                    action = Action(np.array([0, 0, 2, 0, 0],
+                                             dtype=np.float32))
                 elif ry < oy:
-                    action = Action(
-                        np.array([0, 0, 0, 0, 0], dtype=np.float32))
+                    action = Action(np.array([0, 0, 0, 0, 0],
+                                             dtype=np.float32))
             elif ry == oy:
                 if rx > ox:
-                    action = Action(
-                        np.array([0, 0, 1, 0, 0], dtype=np.float32))
+                    action = Action(np.array([0, 0, 1, 0, 0],
+                                             dtype=np.float32))
                 elif rx < ox:
-                    action = Action(
-                        np.array([0, 0, 3, 0, 0], dtype=np.float32))
+                    action = Action(np.array([0, 0, 3, 0, 0],
+                                             dtype=np.float32))
 
         else:
             # Find the path we need to take to the object.
@@ -239,9 +240,10 @@ class BurgerGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         return policy
 
+
 class BurgerNoMoveGroundTruthOptionFactory(BurgerGroundTruthOptionFactory):
-    """Ground-truth options for the Burger environment with no distinct movement
-    options."""
+    """Ground-truth options for the Burger environment with no distinct
+    movement options."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:

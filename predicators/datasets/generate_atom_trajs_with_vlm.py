@@ -2,19 +2,19 @@
 
 import ast
 import glob
+import itertools
 import logging
 import os
 import re
 import textwrap
 import traceback
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from inspect import getsource
 from pathlib import Path
 from typing import Dict, Iterator, List, Match, Optional, Sequence, Set, \
     Tuple, cast
-from collections import defaultdict
-import itertools
 
 import dill as pkl
 import numpy as np
@@ -136,7 +136,8 @@ def _generate_prompt_for_scene_labelling(
             curr_prompt_imgs = [
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
-            curr_prompt_imgs.extend([traj.cropped_imgs[i-1][1], traj.cropped_imgs[i-1][0]])
+            curr_prompt_imgs.extend(
+                [traj.cropped_imgs[i - 1][1], traj.cropped_imgs[i - 1][0]])
             curr_prompt += "\n\nSkill executed between states: "
             skill_name = traj.actions[i - 1].name + str(
                 traj.actions[i - 1].objects)
@@ -264,10 +265,13 @@ def _parse_unique_atom_proposals_from_list(
 
     # We'll use these mappings to generate VLM atoms for every possible
     # grounding of each proposed predicate.
-    obj_name_to_type = {obj.name: obj.type for obj in relevant_objects_across_demos}
+    obj_name_to_type = {
+        obj.name: obj.type
+        for obj in relevant_objects_across_demos
+    }
     type_to_obj_names = defaultdict(list)
-    for obj_name, type in obj_name_to_type.items():
-        type_to_obj_names[type].append(obj_name)
+    for obj_name, _type in obj_name_to_type.items():
+        type_to_obj_names[_type].append(obj_name)
 
     num_atoms_considered = 0
     for atoms_proposal_for_traj in atom_strs_proposals_list:
@@ -296,11 +300,15 @@ def _parse_unique_atom_proposals_from_list(
                 # Create VLM atoms for all other possible groundings of this
                 # atom's predicate.
                 types_in_atom = [obj_name_to_type[n] for n in obj_names_list]
-                names_matching_each_type = [type_to_obj_names[t] for t in types_in_atom]
+                names_matching_each_type = [
+                    type_to_obj_names[t] for t in types_in_atom
+                ]
                 combos = list(itertools.product(*names_matching_each_type))
                 predicate = atom.split('(')[0]
                 # Note that this includes the original grounding.
-                other_groundings = [f"{predicate}({', '.join(c)})" for c in combos]
+                other_groundings = [
+                    f"{predicate}({', '.join(c)})" for c in combos
+                ]
                 for og in other_groundings:
                     atoms_strs_set.add(og)
             logging.debug(f"Proposed atom: {atom} is valid: {atom_is_valid}")
@@ -712,14 +720,32 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         # We now parse and sanitize this set of atoms.
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
-        # atom_proposals_set = set(a for a in atom_proposals_set if "cook" in a or "Cook" in a)
-        atom_proposals_set = set(["Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)", "IsGrilled(patty)", "Cut(lettuce), Diced(lettuce), Sliced(lettuce), Whole(lettuce), Shredded(lettuce)"])
-        # atom_proposals_set = set(["Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)", "IsGrilled(patty)"])
+        atom_proposals_set = set([
+            "Cooked(patty)",
+            "Raw(patty)",
+            "IsBrown(patty)",
+            "IsPink(patty)",
+            "IsGrilled(patty)",
+            "Cut(lettuce)",
+            "Diced(lettuce)",
+            "Sliced(lettuce)",
+            "Whole(lettuce)",
+            "Shredded(lettuce)"
+        ])
         # atom_proposals_set = set(
         #     [
-        #         "Cooked(patty1)", "Raw(patty1)", "IsBrown(patty1)", "IsPink(patty1)", "IsGrilled(patty1)",
-        #         # "Cooked(patty2)", "Raw(patty2)", "IsBrown(patty2)", "IsPink(patty2)", "IsGrilled(patty2)",
-        #         "Chopped(lettuce1)", "Cut(lettuce1)"
+        #         "Cooked(patty1)",
+        #         "Raw(patty1)",
+        #         "IsBrown(patty1)",
+        #         "IsPink(patty1)",
+        #         "IsGrilled(patty1)",
+        #         "Cooked(patty2)",
+        #         "Raw(patty2)",
+        #         "IsBrown(patty2)",
+        #         "IsPink(patty2)",
+        #         "IsGrilled(patty2)",
+        #         "Chopped(lettuce1)",
+        #         "Cut(lettuce1)"
         #     ]
         # )
     else:  # pragma: no cover.
@@ -995,11 +1021,11 @@ def create_ground_atom_data_from_generated_demos(
             # For the non-initial states, get a cropped image that is a
             # close-up of the relevant objects in the action that was taken.
             # Assume the relevant objects are in the action's arguments.
-            prev_state = curr_traj_states_for_vlm[i-1]
+            prev_state = curr_traj_states_for_vlm[i - 1]
             relevant_states_for_crop = [state, prev_state]
             if i != 0:
                 # Figure out which cells to include in the crop.
-                action = curr_traj_actions_for_vlm[i-1].get_option()
+                action = curr_traj_actions_for_vlm[i - 1].get_option()
                 min_col = env.num_cols
                 max_col = 0
                 min_row = env.num_rows
@@ -1024,9 +1050,18 @@ def create_ground_atom_data_from_generated_demos(
                 full_curr_img = state.simulator_state["images"][0]
                 full_prev_img = prev_state.simulator_state["images"][0]
                 approx_cell_size = full_curr_img.shape[0] // env.num_rows
-                cropped_curr_img = full_curr_img[min_row * approx_cell_size: (max_row + 1) * approx_cell_size, min_col * approx_cell_size: (max_col + 1) * approx_cell_size, :]
-                cropped_prev_img = full_prev_img[min_row * approx_cell_size: (max_row + 1) * approx_cell_size, min_col * approx_cell_size: (max_col + 1) * approx_cell_size, :]
-                cropped_imgs = [PIL.Image.fromarray(img_arr) for img_arr in [cropped_curr_img, cropped_prev_img]]
+                cropped_curr_img = full_curr_img[
+                    min_row * approx_cell_size:(max_row + 1) *
+                    approx_cell_size, min_col *
+                    approx_cell_size:(max_col + 1) * approx_cell_size, :]
+                cropped_prev_img = full_prev_img[
+                    min_row * approx_cell_size:(max_row + 1) *
+                    approx_cell_size, min_col *
+                    approx_cell_size:(max_col + 1) * approx_cell_size, :]
+                cropped_imgs = [
+                    PIL.Image.fromarray(img_arr)
+                    for img_arr in [cropped_curr_img, cropped_prev_img]
+                ]
                 cropped_state_imgs.append(cropped_imgs)
             state_imgs.append([
                 PIL.Image.fromarray(img_arr)  # type: ignore
