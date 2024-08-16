@@ -42,7 +42,7 @@ class CoverEnv(BaseEnv):
         self._block_type = Type(
             "block",
             ["is_block", "is_target", "width", "pose_y_norm", "grasp"] +
-            (["is_heavy"] if CFG.env == "pybullet_cover_weighted" else [])+
+            (["is_heavy"] if CFG.env == "pybullet_cover_weighted" else []) +
             (bbox_features if CFG.env_include_bbox_features else []))
         self._target_type = Type(
             "target", ["is_block", "is_target", "width", "pose_y_norm"] +
@@ -68,7 +68,7 @@ class CoverEnv(BaseEnv):
         # HandEmpty() is Forall x. not Holding(x) -- quantify over all vars
         self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
         self._IsLight = Predicate("IsLight", [self._block_type],
-                                 self._IsLight_holds)
+                                  self._IsLight_holds)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)

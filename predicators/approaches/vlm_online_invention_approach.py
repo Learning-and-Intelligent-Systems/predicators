@@ -8,6 +8,7 @@ import base64
 import errno
 import importlib.util
 import inspect
+import itertools
 import json
 import logging
 import os
@@ -24,7 +25,6 @@ from inspect import getsource
 from pprint import pformat
 from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Sequence, \
     Set, Tuple
-import itertools
 
 import dill
 import imageio
@@ -35,20 +35,20 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 from predicators import utils
-from predicators.approaches.oracle_approach import OracleApproach
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.grammar_search_invention_approach import \
     _create_grammar, _GivenPredicateGrammar
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
+from predicators.approaches.oracle_approach import OracleApproach
+from predicators.cogman import CogMan
 from predicators.envs import BaseEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_nsrts
-from predicators.pretrained_model_interface import VisionLanguageModel
+from predicators.perception import create_perceiver
 from predicators.predicate_search_score_functions import \
     _ClassificationErrorScoreFunction, _PredicateSearchScoreFunction, \
     create_score_function
-from predicators.perception import create_perceiver
-from predicators.execution_monitoring import create_execution_monitor
-from predicators.cogman import CogMan
+from predicators.pretrained_model_interface import VisionLanguageModel
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, AnnotatedPredicate, Dataset, \
     GroundAtomTrajectory, GroundOptionRecord, LowLevelTrajectory, Object, \
@@ -205,15 +205,15 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # This is essential, otherwise would cause errors
                 # policy = utils.option_plan_to_policy(self._last_plan)
 
-                result = PlanningResult(succeeded=True,
-                                        info={
-                                            "option_plan": self._last_plan,
-                                            "nsrt_plan": self._last_nsrt_plan,
-                                            "metrics": self._last_metrics,
-                                            "partial_refinements":
-                                            self._last_partial_refinements,
-                                            # "policy": policy
-                                        })
+                result = PlanningResult(
+                    succeeded=True,
+                    info={
+                        "option_plan": self._last_plan,
+                        "nsrt_plan": self._last_nsrt_plan,
+                        "metrics": self._last_metrics,
+                        "partial_refinements": self._last_partial_refinements,
+                        # "policy": policy
+                    })
                 # Collect trajectory
                 # try:
                 traj, _ = utils.run_policy(
@@ -301,7 +301,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             defaultdict(GroundOptionRecord)
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
-        
+
         for ite in range(1, max_invent_ite + 1):
             logging.info(f"===Starting iteration {ite}...")
             if CFG.vlm_invention_alternate_between_p_ad:
@@ -318,10 +318,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                     self._collect_oracle_data(env, tasks)
             else:
                 self._process_interaction_result(env,
-                                                results,
-                                                tasks,
-                                                ite,
-                                                use_only_first_solution=False)
+                                                 results,
+                                                 tasks,
+                                                 ite,
+                                                 use_only_first_solution=False)
             if ite == 1:
                 n_tp = sum(
                     [len(v.states) for v in self.succ_optn_dict.values()])
@@ -355,10 +355,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Or when add_new_proposal_at_every_ite is True
                 #   Create prompt to inspect the execution
                 # self.base_candidates: candidates to be unioned with the init set
-                new_proposals = self._generate_predicate_proposals(env,
-                                                                    tasks,
-                                                                    ite,
-                                                                    all_trajs)
+                new_proposals = self._generate_predicate_proposals(
+                    env, tasks, ite, all_trajs)
                 logging.info(
                     f"Done: created {len(new_proposals)} candidates:" +
                     f"{new_proposals}")
@@ -548,9 +546,9 @@ class VlmInventionApproach(NSRTLearningApproach):
             prev_clf_acc = clf_acc
             prev_num_failed_plans = num_failed_plans
             self._previous_nsrts = deepcopy(self._nsrts)
-            if solve_rate == 1 or (num_failed_plans == 0 and 
-                solve_rate == best_solve_rate):
-            # if solve_rate == 1:
+            if solve_rate == 1 or (num_failed_plans == 0
+                                   and solve_rate == best_solve_rate):
+                # if solve_rate == 1:
                 if CFG.env in ["pybullet_coffee"]:
                     # these are harder
                     if num_failed_plans / num_tasks < 1:
@@ -573,12 +571,13 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._learned_predicates = best_preds
         return
 
-
-    def _generate_predicate_proposals(self, env: BaseEnv,
-                                    tasks: List[Task],
-                                    ite: int,
-                                    all_trajs: List[LowLevelTrajectory],
-                                    ) -> Set[Predicate]:
+    def _generate_predicate_proposals(
+        self,
+        env: BaseEnv,
+        tasks: List[Task],
+        ite: int,
+        all_trajs: List[LowLevelTrajectory],
+    ) -> Set[Predicate]:
         if CFG.vlm_predicator_oracle_base_grammar:
             if CFG.neu_sym_predicate:
                 # If using the oracle predicates
@@ -618,10 +617,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                     break
                 else:
                     prompt, state_str = create_prompt_func(
-                                        env, ite, max_num_options=10,
-                                        max_num_groundings=max_num_groundings,
-                                        max_num_examples=max_num_examples,
-                                        categories_to_show=['tp', 'fp'])
+                        env,
+                        ite,
+                        max_num_options=10,
+                        max_num_groundings=max_num_groundings,
+                        max_num_examples=max_num_examples,
+                        categories_to_show=['tp', 'fp'])
 
                     # Load the images accompanying the prompt
                     images = self._load_images_from_directory(obs_dir)
@@ -657,7 +658,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         return images
 
     def _collect_oracle_data(self, env: BaseEnv, tasks: List[Task]) -> None:
-        """Collect oracle dataset by first finding oracle plans, and use the gt 
+        """Collect oracle dataset by first finding oracle plans, and use the gt
         operators to identify negative states. And add the success trajectories
         to self.task_to_trajs.
 
@@ -705,38 +706,42 @@ class VlmInventionApproach(NSRTLearningApproach):
         all_objects = set.union(*[set(t.init) for t in tasks])
         max_neg_states = 2
         for option_str in list(self.succ_optn_dict.keys()):
-            all_gnsrts = itertools.chain.from_iterable(utils.all_ground_nsrts(
-                                            nsrt,
-                                            all_objects) for nsrt in gt_nsrt)
+            all_gnsrts = itertools.chain.from_iterable(
+                utils.all_ground_nsrts(nsrt, all_objects) for nsrt in gt_nsrt)
             # get the gt nsrts with the same option
             num_neg_states = 0
             option = self.succ_optn_dict[option_str].option
             optn_objs = self.succ_optn_dict[option_str].optn_objs
             optn_vars = self.succ_optn_dict[option_str].optn_vars
-            consistent_gnsrts = [gnsrts for gnsrts in all_gnsrts if
-                                    gnsrts.option.name == option.name and
-                                    gnsrts.option_objs == optn_objs]
+            consistent_gnsrts = [
+                gnsrts for gnsrts in all_gnsrts
+                if gnsrts.option.name == option.name
+                and gnsrts.option_objs == optn_objs
+            ]
             break_outer = False
             for _, rec in self.succ_optn_dict.items():
                 for state in rec.states:
-                    # if it's not satisfied by any gnsrts, add it to the fail 
+                    # if it's not satisfied by any gnsrts, add it to the fail
                     # dict
                     atom_state = utils.abstract(state, gt_preds)
                     # logging.debug(f"atom state: {atom_state}")
                     # logging.debug(f"consistent gnsrts: {consistent_gnsrts}")
-                    if not any(gnsrt.preconditions.issubset(atom_state) for
-                               gnsrt in consistent_gnsrts):
+                    if not any(
+                            gnsrt.preconditions.issubset(atom_state)
+                            for gnsrt in consistent_gnsrts):
                         # logging.debug(f"Found a neg state for {option_str}")
-                        state.labeled_image.save(os.path.join(CFG.log_file, 
-                            f"images/{option_str}_neg{num_neg_states}.png"))
+                        state.labeled_image.save(
+                            os.path.join(
+                                CFG.log_file,
+                                f"images/{option_str}_neg{num_neg_states}.png")
+                        )
                         neg_state = state.copy()
                         neg_state.next_state = None
                         self.fail_optn_dict[option_str].append_state(
                             neg_state,
-                            utils.abstract(state, 
+                            utils.abstract(state,
                                            self._get_current_predicates()),
-                            optn_objs, optn_vars, option
-                        )
+                            optn_objs, optn_vars, option)
                         num_neg_states += 1
                     if num_neg_states >= max_neg_states:
                         break_outer = True
@@ -1130,23 +1135,26 @@ class VlmInventionApproach(NSRTLearningApproach):
         if CFG.vlm_invention_propose_nl_properties:
             nl_proposal_f = CFG.log_file + f"ite{ite}_stage0.response"
             response = self._get_vlm_response(nl_proposal_f,
-                                                self._gpt4o,
-                                                prompt,
-                                                images,
-                                                cache_chat_session=True
-                                                )
+                                              self._gpt4o,
+                                              prompt,
+                                              images,
+                                              cache_chat_session=True)
             # Prepare the chat history for Gemini
-            self._vlm.chat_history = [
-                                {"role": "user", "parts": [prompt] + images},
-                                {"role": "model", "parts": [response]}]
-            
+            self._vlm.chat_history = [{
+                "role": "user",
+                "parts": [prompt] + images
+            }, {
+                "role": "model",
+                "parts": [response]
+            }]
+
             # Second: convert the NL proposals to formal predicate specs.
             template_f = "prompts/invent_0_nl_2_pred_spec.outline"
             with open(template_f, "r") as f:
                 template = f.read()
             type_names = str(set(t.name for t in env.types))
             # The prompt will be treated the same way as without this extra step
-            prompt = template.format(CONCEPT_PROPOSALS=response, 
+            prompt = template.format(CONCEPT_PROPOSALS=response,
                                      TYPES_IN_ENV=type_names)
             # Save the text prompt
             with open(CFG.log_file + f"ite{ite}_stage1.prompt", 'w') as f:
@@ -1161,10 +1169,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         # first get nl_predicate proposals and then get ns_predicate
         # implementations.
 
-        response = self._get_vlm_response(response_file,
-                    self._vlm,
-                    prompt,
-                    [] if CFG.vlm_invention_propose_nl_properties else images)
+        response = self._get_vlm_response(
+            response_file, self._vlm, prompt,
+            [] if CFG.vlm_invention_propose_nl_properties else images)
 
         if CFG.vlm_invent_predicates_in_stages:
             # Get NL predicate dataset
@@ -1184,11 +1191,12 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Save the query to a file
             response_file = CFG.log_file + f"ite{ite}_stage2.response"
 
-            response = self._get_vlm_response(response_file,
-                                                self._vlm,
-                                                s2_prompt,
-                                                images,
-                                                )
+            response = self._get_vlm_response(
+                response_file,
+                self._vlm,
+                s2_prompt,
+                images,
+            )
             # if not os.path.exists(response_file) or regenerate_response:
             #     if manual_prompt:
             #         # create a empty file for pasting chatGPT response
@@ -1345,8 +1353,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         ite: int,
         trajs: List[LowLevelTrajectory],
     ) -> str:
-        """Invent predicates from state action trajectories; no negative states.
-        """
+        """Invent predicates from state action trajectories; no negative
+        states."""
         obs_dir = CFG.log_file + f"ite{ite}_obs/"
         os.makedirs(obs_dir, exist_ok=True)
         with open(f"prompts/invent_0_prog_free_from_traj.outline",
@@ -1995,12 +2003,12 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         return spec
 
-    def _get_vlm_response(self, 
-                        response_file: str,
-                        vlm: VisionLanguageModel,
-                        prompt: str,
-                        images: List[Image.Image],
-                        cache_chat_session: bool = False) -> str:
+    def _get_vlm_response(self,
+                          response_file: str,
+                          vlm: VisionLanguageModel,
+                          prompt: str,
+                          images: List[Image.Image],
+                          cache_chat_session: bool = False) -> str:
 
         if not os.path.exists(response_file) or self.regenerate_response:
             if self.manual_prompt:
@@ -2012,12 +2020,13 @@ class VlmInventionApproach(NSRTLearningApproach):
                 input("Press Enter when you have pasted the " + "response.")
             else:
                 # vlm.reset_chat_session()
-                response = vlm.sample_completions(prompt,
-                                                    images,
-                                                    temperature=0,
-                                                    seed=CFG.seed,
-                                                    num_completions=1,
-                                    cache_chat_session=cache_chat_session)[0]
+                response = vlm.sample_completions(
+                    prompt,
+                    images,
+                    temperature=0,
+                    seed=CFG.seed,
+                    num_completions=1,
+                    cache_chat_session=cache_chat_session)[0]
                 with open(response_file, 'w') as f:
                     f.write(response)
         with open(response_file, 'r') as file:

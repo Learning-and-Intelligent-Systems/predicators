@@ -20,7 +20,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {
             "cover", "cover_hierarchical_types", "cover_typed_options",
             "cover_regrasp", "cover_multistep_options", "pybullet_cover",
-            "pybullet_cover_typed_options", "pybullet_cover_weighted", 
+            "pybullet_cover_typed_options", "pybullet_cover_weighted",
             "cover_handempty", "bumpy_cover", "cover_place_hard"
         }
 

@@ -52,8 +52,7 @@ KEYS = ["PERC_SOLVED"]
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
-    ("Cover",
-     pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
+    ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
     ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
     ("Coffee", pd_create_equal_selector("ENV", "coffee")),
     # ("Tools", pd_create_equal_selector("ENV", "tools")),
@@ -62,22 +61,21 @@ PLOT_GROUPS = [
 # See PLOT_GROUPS comment.
 BAR_GROUPS = [
     # ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
-    ("oracle invent", lambda df: 
-        df["EXPERIMENT_ID"].apply(lambda v: "oracle_invention" in v)),
-    ("oracle explore", lambda df: 
-        df["EXPERIMENT_ID"].apply(lambda v: "oracle_explore" in v)),
-    ("ours", lambda df: 
-        df["EXPERIMENT_ID"].apply(lambda v: "nsp" in v)),
+    ("oracle invent",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_invention" in v)),
+    ("oracle explore",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_explore" in v)),
+    ("ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "nsp" in v)),
     ("MAPLE", lambda df:
      (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
      (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))),
     ("ViLa", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "vlm_plan" in v)),
-    ("interpret", lambda df: 
-        df["EXPERIMENT_ID"].apply(lambda v: "interpret" in v)),
-    ("ablate select obj.", lambda df: 
-        df["EXPERIMENT_ID"].apply(lambda v: "no_acc_select" in v)),
-    ("ablate op.learner", lambda df: 
-        df["EXPERIMENT_ID"].apply(lambda v: "no_new_op_learner" in v)),
+    ("interpret",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "interpret" in v)),
+    ("ablate select obj.",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_acc_select" in v)),
+    ("ablate op.learner",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_new_op_learner" in v)),
 
     # ("Bisimulation",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),

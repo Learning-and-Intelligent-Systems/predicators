@@ -1755,8 +1755,9 @@ class RawState(PyBulletState):
         # return hash((data_hash, simulator_state_hash))
         return data_hash
 
-    def evaluate_simple_assertion(self, assertion: str,
-                    image: Tuple[BoundingBox, Sequence[Object]]) -> VLMQuery:
+    def evaluate_simple_assertion(
+            self, assertion: str, image: Tuple[BoundingBox,
+                                               Sequence[Object]]) -> VLMQuery:
         """Given an assertion and an image, queries a VLM and returns whether
         the assertion is true or false."""
         bbox, objs = image
@@ -1965,11 +1966,10 @@ class RawState(PyBulletState):
 
         bboxes = [self.get_obj_bbox(obj) for obj in objects]
         bbox = smallest_bbox_from_bboxes(bboxes)
-        return (BoundingBox(max(bbox.left - left_margin, 0),
-                        max(bbox.lower - lower_margin, 0),
-                        min(bbox.right + right_margin, self.state_image.width),
-                        min(bbox.upper + top_margin, self.state_image.height)),
-                objects)
+        return (BoundingBox(
+            max(bbox.left - left_margin, 0), max(bbox.lower - lower_margin, 0),
+            min(bbox.right + right_margin, self.state_image.width),
+            min(bbox.upper + top_margin, self.state_image.height)), objects)
 
         # state_ip = ImagePatch(self, attn_objects=objects)
         # return state_ip.crop_to_objects(objects, left_margin, lower_margin,
@@ -3942,7 +3942,7 @@ class _MemoizedClassifier():
         result."""
         combined_hash = self.hash_state_objs(state, objects)
         self.cache[combined_hash] = truth_value
-    
+
     def hash_state_objs(self, state: State, objects: Sequence[Object]) -> int:
         objects_tuple_hash = hash(tuple(objects))
         state_hash = state.__hash__()

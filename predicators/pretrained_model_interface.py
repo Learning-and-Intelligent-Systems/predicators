@@ -60,15 +60,16 @@ class PretrainedLargeModel(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
-    def sample_completions(self,
-                           prompt: str,
-                           imgs: Optional[List[PIL.Image.Image]],
-                           temperature: float,
-                           seed: int,
-                           stop_token: Optional[str] = None,
-                           num_completions: int = 1,
-                           cache_chat_session: bool = False,
-                           ) -> List[str]:
+    def sample_completions(
+        self,
+        prompt: str,
+        imgs: Optional[List[PIL.Image.Image]],
+        temperature: float,
+        seed: int,
+        stop_token: Optional[str] = None,
+        num_completions: int = 1,
+        cache_chat_session: bool = False,
+    ) -> List[str]:
         """Sample one or more completions from a prompt.
 
         Higher temperatures will increase the variance in the responses.
@@ -154,8 +155,10 @@ class PretrainedLargeModel(abc.ABC):
                 messages = self.chat_history + messages
             self.chat_history.extend(messages)
             # TODO: Cache the completion.
-            self.chat_history.append({"role": "assistant", 
-                                      "content": completions})
+            self.chat_history.append({
+                "role": "assistant",
+                "content": completions
+            })
         else:
             self.chat_history = []
 
@@ -166,15 +169,15 @@ class VisionLanguageModel(PretrainedLargeModel):
     """A class for all VLM's."""
 
     def sample_completions(
-            self,
-            prompt: str,
-            imgs: Optional[List[PIL.Image.Image]],
-            temperature: float,
-            seed: int,
-            stop_token: Optional[str] = None,
-            num_completions: int = 1,
-            cache_chat_session: bool = False,
-            ) -> List[str]:  # pragma: no cover
+        self,
+        prompt: str,
+        imgs: Optional[List[PIL.Image.Image]],
+        temperature: float,
+        seed: int,
+        stop_token: Optional[str] = None,
+        num_completions: int = 1,
+        cache_chat_session: bool = False,
+    ) -> List[str]:  # pragma: no cover
         assert imgs is not None
         return super().sample_completions(prompt, imgs, temperature, seed,
                                           stop_token, num_completions,
@@ -304,15 +307,15 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
         return f"openai-{self._model_name}"
 
     def _sample_completions(
-            self,
-            prompt: str,
-            imgs: Optional[List[PIL.Image.Image]],
-            temperature: float,
-            seed: int,
-            stop_token: Optional[str] = None,
-            num_completions: int = 1,
-            cache_chat_session: bool = False,
-            ) -> List[str]:  # pragma: no cover
+        self,
+        prompt: str,
+        imgs: Optional[List[PIL.Image.Image]],
+        temperature: float,
+        seed: int,
+        stop_token: Optional[str] = None,
+        num_completions: int = 1,
+        cache_chat_session: bool = False,
+    ) -> List[str]:  # pragma: no cover
         del imgs, seed, stop_token  # unused
         messages = [{"role": "user", "content": prompt, "type": "text"}]
         responses = [
@@ -334,15 +337,15 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
     @retry(wait=wait_random_exponential(min=1, max=60),
            stop=stop_after_attempt(10))
     def _sample_completions(
-            self,
-            prompt: str,
-            imgs: Optional[List[PIL.Image.Image]],
-            temperature: float,
-            seed: int,
-            stop_token: Optional[str] = None,
-            num_completions: int = 1,
-            cache_chat_session: bool = False,
-            ) -> List[str]:  # pragma: no cover
+        self,
+        prompt: str,
+        imgs: Optional[List[PIL.Image.Image]],
+        temperature: float,
+        seed: int,
+        stop_token: Optional[str] = None,
+        num_completions: int = 1,
+        cache_chat_session: bool = False,
+    ) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is None
         generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
@@ -355,6 +358,7 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
 
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
+
 
 class OpenAIVLM(VisionLanguageModel, OpenAIModel):
     """Interface for OpenAI's VLMs, including GPT-4 Turbo (and preview
@@ -472,15 +476,19 @@ keys = [
     os.getenv("GOOGLE_API_KEY4"),
 ]
 
+
 def key_generator(keys):
     while True:
         for key in keys:
             yield key
 
+
 key_gen = key_generator(keys)
+
 
 def get_new_key():
     return next(key_gen)
+
 
 class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
     """Interface to the Google Gemini VLM (1.5).
@@ -488,19 +496,19 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
     Assumes that an environment variable GOOGLE_API_KEY is set with the
     necessary API key to query the particular model name.
     """
-    
+
     @retry(wait=wait_random_exponential(min=1, max=60),
            stop=stop_after_attempt(60000))
     def _sample_completions(
-            self,
-            prompt: str,
-            imgs: Optional[List[PIL.Image.Image]],
-            temperature: float,
-            seed: int,
-            stop_token: Optional[str] = None,
-            num_completions: int = 1,
-            cache_chat_session: bool = False,
-            ) -> List[str]:  # pragma: no cover
+        self,
+        prompt: str,
+        imgs: Optional[List[PIL.Image.Image]],
+        temperature: float,
+        seed: int,
+        stop_token: Optional[str] = None,
+        num_completions: int = 1,
+        cache_chat_session: bool = False,
+    ) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is not None or self.chat_history
         genai.configure(api_key=get_new_key())
@@ -511,8 +519,8 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
             system_instruction=self.system_instruction)
 
         if CFG.vlm_use_chat_mode:
-            self.chat_session = self._model.start_chat(history=self.chat_history
-                                                if self.chat_history else None)
+            self.chat_session = self._model.start_chat(
+                history=self.chat_history if self.chat_history else None)
 
         # pylint:disable=no-member
         generation_config = genai.types.GenerationConfig(

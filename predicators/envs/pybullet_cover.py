@@ -1,7 +1,7 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 import random
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -224,15 +224,17 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 self._held_obj_id = self._detect_held_object()
                 assert self._held_obj_id == block_id
                 self._create_grasp_constraint()
-            
+
             # Change the block's color if it's the CoverWeighted env.
             if self.get_name() == "pybullet_cover_weighted":
                 if state.get(block_obj, "is_heavy") == 1:
                     self._heavy_blocks.add(block_obj)
-                    p.changeVisualShape(block_id, -1, 
+                    p.changeVisualShape(block_id,
+                                        -1,
                                         rgbaColor=self.heavy_color)
                 else:
-                    p.changeVisualShape(block_id, -1, 
+                    p.changeVisualShape(block_id,
+                                        -1,
                                         rgbaColor=self.light_color)
 
         # For any blocks not involved, put them out of view.
@@ -261,7 +263,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # De-normalize target y to actual coordinates.
             y_norm = state.get(target_obj, "pose_y_norm")
             ty = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-            tz = self._table_height # + self._obj_len_hgt * 0.5
+            tz = self._table_height  # + self._obj_len_hgt * 0.5
             p.resetBasePositionAndOrientation(
                 target_id, [tx, ty, tz],
                 self._default_orn,
@@ -306,7 +308,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # The constraint is violated, so noop.
             state_copy = self._current_state.copy()
             return state_copy
-        
+
         # If the env is pybullet_cover_weighted, then when the robot goes to
         # grasp, we check if the block is heavy, if it is, then noop.
         # if isinstance(self, PyBulletCoverWeighted):
@@ -359,11 +361,11 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 grasp = -1
             if "is_heavy" in self._block_type.feature_names:
                 is_heavy = int(block in self._heavy_blocks)
-                state_dict[block] = np.array([1.0, 0.0, width, pose, grasp, 
-                                              is_heavy], dtype=np.float32)
+                state_dict[block] = np.array(
+                    [1.0, 0.0, width, pose, grasp, is_heavy], dtype=np.float32)
             else:
                 state_dict[block] = np.array([1.0, 0.0, width, pose, grasp],
-                                         dtype=np.float32)
+                                             dtype=np.float32)
 
         # Get target states.
         for target_id, target in self._target_id_to_target.items():
@@ -466,12 +468,14 @@ class PyBulletCoverTypedOptionEnv(PyBulletCoverEnv):
     def get_name(cls) -> str:
         return "pybullet_cover_typed_options"
 
+
 class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
-    """A variation that have heavy blocks that the robot can't lift. This is
-    achieved by keep a track of a listed of heavy blocks, which would fell to be
-    lifted by the robot in the simulator. These blocks are marked by gold color,
-    while the normal blocks are white.
-    Without changing the goals, the intend outcome is for the robot to realize 
+    """A variation that have heavy blocks that the robot can't lift.
+
+    This is achieved by keep a track of a listed of heavy blocks, which
+    would fell to be lifted by the robot in the simulator. These blocks
+    are marked by gold color, while the normal blocks are white. Without
+    changing the goals, the intend outcome is for the robot to realize
     the tasks with the heavy blocks are not achievable.
     """
     # Define colors
@@ -485,11 +489,10 @@ class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
 
         # Types
         bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-        self._block_type = Type(
-            "block",
-            ["is_block", "is_target", "width", "pose_y_norm", "grasp", 
-             "is_heavy"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
+        self._block_type = Type("block", [
+            "is_block", "is_target", "width", "pose_y_norm", "grasp",
+            "is_heavy"
+        ] + (bbox_features if CFG.env_include_bbox_features else []))
         self._target_type = Type(
             "target", ["is_block", "is_target", "width", "pose_y_norm"] +
             (bbox_features if CFG.env_include_bbox_features else []))
@@ -509,16 +512,16 @@ class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
     #     # Randomly select some block ids to be heavy from block_ids
     #     num_blocks = len(self._block_ids)
     #     num_heavy_blocks = int(CFG.cover_weighted_ratio * num_blocks)
-    #     self._heavy_block_ids = set(random.sample(self._block_ids, 
+    #     self._heavy_block_ids = set(random.sample(self._block_ids,
     #                                                 num_heavy_blocks))
-        
+
     #     # Apply colors to blocks
     #     for block_id in self._block_ids:
     #         if block_id in self._heavy_block_ids:
     #             p.changeVisualShape(block_id, -1, rgbaColor=self.heavy_color)
     #         else:
     #             p.changeVisualShape(block_id, -1, rgbaColor=self.light_color)
-    
+
     @classmethod
     def get_name(cls) -> str:
         return "pybullet_cover_weighted"

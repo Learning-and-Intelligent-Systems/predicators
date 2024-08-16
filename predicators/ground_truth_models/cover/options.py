@@ -212,9 +212,9 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _Place_policy(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> Action:
             del memory  # unused
-            if CFG.cover_typed_options_no_sampler and (CFG.env in (
-                    "pybullet_cover_typed_options",
-                    "pybullet_cover_weighted")):
+            if CFG.cover_typed_options_no_sampler and (
+                    CFG.env in ("pybullet_cover_typed_options",
+                                "pybullet_cover_weighted")):
                 place_pose = state.get(objects[-1], "pose_y_norm")
                 place_pose = min(max(place_pose, 0.0), 1.0)
                 # logging.debug(f"Placing at {place_pose}")
@@ -407,8 +407,10 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"pybullet_cover", "pybullet_cover_typed_options", 
-                "pybullet_cover_weighted"}
+        return {
+            "pybullet_cover", "pybullet_cover_typed_options",
+            "pybullet_cover_weighted"
+        }
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
@@ -580,7 +582,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         if CFG.env == "pybullet_cover":
             return {PickPlace}
-        elif CFG.env in ("pybullet_cover_typed_options", 
+        elif CFG.env in ("pybullet_cover_typed_options",
                          "pybullet_cover_weighted"):
             # When using this, use the option model with options from
             # cover_typed_no_param options

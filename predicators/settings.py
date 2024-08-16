@@ -851,9 +851,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_cover_typed_options":
-                        "oracle_cover_typed_options",
-                    "pybullet_cover_weighted":
-                        "oracle_cover_typed_options",
+                    "oracle_cover_typed_options",
+                    "pybullet_cover_weighted": "oracle_cover_typed_options",
                     "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
