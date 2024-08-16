@@ -719,7 +719,7 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
             [
                 "Cooked(patty1)", "Raw(patty1)", "IsBrown(patty1)", "IsPink(patty1)", "IsGrilled(patty1)",
                 # "Cooked(patty2)", "Raw(patty2)", "IsBrown(patty2)", "IsPink(patty2)", "IsGrilled(patty2)",
-                # "Chopped(lettuce)", "Cut(lettuce)"
+                "Chopped(lettuce1)", "Cut(lettuce1)"
             ]
         )
     else:  # pragma: no cover.

@@ -1606,7 +1606,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             return train_tasks, test_tasks
 
-        train_tasks, test_tasks = create_tasks_for_two()
+        train_tasks, test_tasks = create_tasks_for_one()
         if train_or_test=="train":
             return train_tasks
         else:
