@@ -62,12 +62,12 @@ class BlocksEnv(BaseEnv):
         self._block_type = Type("block", [
             "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
             "color_b"
-        ] + bbox_features)
+        ] + (bbox_features if CFG.env_include_bbox_features else []))
         self._robot_type = Type(
-            "robot", ["pose_x", "pose_y", "pose_z", "fingers"] + bbox_features)
-        self._table_type = Type("table", bbox_features)
-        self._known_features = ["pose_x", "pose_y", "pose_z", "fingers"
-                                ] + bbox_features
+            "robot", ["pose_x", "pose_y", "pose_z", "fingers"] + 
+            (bbox_features if CFG.env_include_bbox_features else []))
+        self._table_type = Type("table", 
+            (bbox_features if CFG.env_include_bbox_features else []))
 
         # Predicates
         self._On = Predicate(

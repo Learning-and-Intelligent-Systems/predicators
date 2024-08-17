@@ -19,7 +19,6 @@ from predicators.structs import Array, EnvironmentTask, Object, Predicate, \
     State, Type
 from predicators.utils import NSPredicate, RawState, VLMQuery
 
-
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
@@ -44,9 +43,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             (bbox_features if CFG.env_include_bbox_features else []))
         self._table_type = Type(
             "table", (bbox_features if CFG.env_include_bbox_features else []))
-
-        self._known_features = ["pose_x", "pose_y", "pose_z", "fingers"] +\
-                    (bbox_features if CFG.env_include_bbox_features else [])
 
         # Repeat for LLM predicates parsing
         # self._On = Predicate("On", [self._block_type, self._block_type],

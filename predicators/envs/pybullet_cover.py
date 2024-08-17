@@ -531,7 +531,7 @@ class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
         return {
             self._IsLight,
             self._GripperOpen_NSP,
-            self._Holding,
-            # self._Holding_NSP,
+            # self._Holding,
+            self._Holding_NSP,
             # self._Covers_NSP,
         }

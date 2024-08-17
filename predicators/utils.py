@@ -1873,7 +1873,9 @@ class RawState(PyBulletState):
                         # "pose_x", "pose_y", "pose_z", "x", "y", "z",
                         "rot",
                         "fingers"
-                ]) or object_features:
+                ]) or (object_features and attribute not in [
+                    "is_heavy"
+                ]):
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
                     obj_dict[attribute] = value

@@ -1,44 +1,47 @@
 # Config files for all none nsp-derived baselines
 ---
 APPROACHES:
-  # maple_q: # MAPLE baseline
-  #   NAME: "maple_q"
+  maple_q: # MAPLE baseline
+    NAME: "maple_q"
+    FLAGS:
+      log_file: "logs/maple/"
+      explorer: "maple_q"
+      mlp_regressor_max_itr: 640000
+      active_sampler_learning_batch_size: 512
+      maple_assert_oracle_strips: False
+      online_learning_assert_no_exclude_pred: False
+      # Because MAPLE can't generalize to unseen goals
+      blocks_num_blocks_test: "[3,4]"
+      coffee_num_cups_test: "[1]"
+  # vlm_plan: # ViLa baseline
+  #   NAME: "vlm_open_loop"
   #   FLAGS:
-  #     explorer: "maple_q"
-  #     mlp_regressor_max_itr: 640000
-  #     active_sampler_learning_batch_size: 512
-  #     maple_assert_oracle_strips: False
-  #     online_learning_assert_no_exclude_pred: False
-  #     # Because MAPLE can't generalize to unseen goals
-  #     blocks_num_blocks_test: "[3,4]"
-  #     coffee_num_cups_test: "[1]"
-  vlm_plan: # ViLa baseline
-    NAME: "vlm_open_loop"
-    FLAGS:
-      render_init_state: True
-      label_objs_with_id_name: True
+  #     log_file: "logs/vila/"
+  #     render_init_state: True
+  #     label_objs_with_id_name: True
 ENVS:
-  pb_cover:
-    NAME: "pybullet_cover_typed_options"
-    FLAGS:
-      online_nsrt_learning_requests_per_cycle: 40
-      cover_typed_options_no_sampler: True
-      cover_initial_holding_prob: 0.0
+  # pb_cover:
+  #   NAME: "pybullet_cover_typed_options"
+  #   FLAGS:
+  #     online_nsrt_learning_requests_per_cycle: 40
+  #     cover_typed_options_no_sampler: True
+  #     cover_initial_holding_prob: 0.0
   pb_blocks:
     NAME: "pybullet_blocks"
     FLAGS:
       online_nsrt_learning_requests_per_cycle: 400
-  pb_coffee:
-    NAME: "pybullet_coffee"
-    FLAGS:
-      online_nsrt_learning_requests_per_cycle: 500
-      coffee_twist_sampler: False
-      coffee_rotated_jug_ratio: 0.5
-      coffee_combined_move_and_twist_policy: True
-      coffee_mac_requires_jug_to_turn_on: True
+  # pb_coffee:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     online_nsrt_learning_requests_per_cycle: 500
+  #     coffee_twist_sampler: False
+  #     coffee_rotated_jug_ratio: 0.5
+  #     coffee_combined_move_and_twist_policy: True
+  #     coffee_mac_requires_jug_to_turn_on: True
 ARGS:
   - "debug"
 FLAGS:
+  env_include_bbox_features: False
   option_learner: no_learning
   sampler_learner: "oracle"
   max_initial_demos: 0
@@ -54,5 +57,5 @@ FLAGS:
   vlm_model_name: "gemini-1.5-pro"
 
 START_SEED: 1
-NUM_SEEDS: 5
+NUM_SEEDS: 3
 USE_GPU: True
