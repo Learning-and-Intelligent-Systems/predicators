@@ -30,6 +30,7 @@ setup(
         "pylint==2.14.5",
         "types-PyYAML",
         "lisdf",
+        "trimesh==4.4.1",
         "seaborn==0.12.1",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
         "pg3@git+https://github.com/tomsilver/pg3.git",

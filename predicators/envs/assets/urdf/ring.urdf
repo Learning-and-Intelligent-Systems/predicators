@@ -11,28 +11,26 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-				<mesh filename="ring.obj" scale="0.004 0.004 0.015"/>
+				<mesh filename="ring.obj" scale="1 1 1.85"/>
       </geometry>
        <material name="red">
         <color rgba="1 0 0 1"/>
       </material>
     </visual>
     <collision>
-
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-	 	<mesh filename="ring.obj" scale="0.004 0.004 0.015"/>
+	 	<mesh filename="ring.obj" scale="1 1 1.85"/>
       </geometry>
       <surface>
-        <friction>
-          <ode>
-            <mu>1</mu>
-            <mu2>1</mu2>
-          </ode>
-        </friction>
         <contact>
           <ode>
-            <min_depth>0.01</min_depth>
+            <mu>1</mu>        <!-- Very high coefficient of friction -->
+            <mu2>1</mu2>      <!-- Very high second coefficient of friction -->
+            <kp>1e22</kp>           <!-- High spring stiffness for contact -->
+            <kd>1e7</kd>           <!-- Damping factor for contact -->
+            <max_vel>0.01</max_vel>  <!-- Max correcting velocity -->
+            <min_depth>0.001</min_depth>
           </ode>
         </contact>
       </surface>

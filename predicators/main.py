@@ -38,12 +38,15 @@ import logging
 import os
 import sys
 import time
+import shutil
+import random
 from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import dill as pkl
+import numpy as np
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -59,6 +62,8 @@ from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
     InteractionResult, Metrics, Observation, Response, Task, Video, _Option
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from predicators.envs.pybullet_ring_stack import PyBulletRingEnv
+from predicators.envs.pybullet_multimodal_cover import PyBulletMultiModalCoverEnv
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
@@ -136,6 +141,7 @@ def main() -> None:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
+        logging.info("creating dataset: approach is learning: main")
         offline_dataset = create_dataset(env, train_tasks, options)
     else:
         offline_dataset = None
@@ -156,6 +162,7 @@ def _run_pipeline(env: BaseEnv,
     # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if cogman.is_learning_based:
+        logging.info("LEARNING BASED PIPELINE")
         assert offline_dataset is not None, "Missing offline dataset"
         num_offline_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
@@ -264,6 +271,7 @@ def _generate_interaction_results(
     if CFG.make_interaction_videos:
         video: Video = []
     for request in requests:
+
         if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
@@ -332,6 +340,22 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     curr_num_nodes_created = 0.0
     curr_num_nodes_expanded = 0.0
     for test_task_idx, env_task in enumerate(test_tasks):
+        if len(CFG.specific_tasks_to_execute) > 0 and isinstance(CFG.specific_tasks_to_execute[0], int):
+            if test_task_idx not in (CFG.specific_tasks_to_execute):
+                continue
+
+        if isinstance(env, PyBulletRingEnv) or isinstance(env, PyBulletMultiModalCoverEnv):
+            if isinstance(env, PyBulletRingEnv):
+                env.generate_new_ring_models(env_task.init)
+
+            if isinstance(env, PyBulletMultiModalCoverEnv):
+                # set seed TODO
+                env.goal_zone = int(np.random.random() * 4)
+
+            with open('number.txt', 'w') as file:
+                # Write the number to the file
+                file.write(f"On task: {test_task_idx}")
+
         solve_start = time.perf_counter()
         try:
             # We call reset here, outside of run_episode, so that we can log

@@ -49,7 +49,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
 
     @property
     def closed_fingers(self) -> float:
-        return 0.03
+        return 0.025
 
     @classmethod
     def ikfast_info(cls) -> Optional[IKFastInfo]:

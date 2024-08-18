@@ -44,7 +44,7 @@ class GlobalSettings:
     # which is set in utils.reset_config(). If you want higher-quality videos
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
-    render_state_dpi = 150
+    render_state_dpi = 900
     approach_wrapper = None
 
     # cover_multistep_options env parameters
@@ -73,11 +73,23 @@ class GlobalSettings:
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
+    # multimodal cover env paramaters
+    mcover_num_blocks_train = [1]
+    mcover_num_blocks_test = [1]
+    multi_modal_cover_real_robot = False
+
     # ring stack env parameters
-    ring_size = 0.056  # should be larger than ring_radius
-    ring_height = 0.03
+    ring_height_modifier = 1.85
+    ring_width_modifier = 1.0
+    ring_max_outer_radius = 0.07 * ring_width_modifier
+    ring_max_tubular_radius = 0.01
+    ring_max_height = ring_max_tubular_radius * ring_height_modifier
+    ring_dataset_size = 1000
     pole_base_height = 0.02
-    pole_height = 0.1 + pole_base_height
+    pole_height = 0.15 + pole_base_height
+    pole_radius = 0.004
+    ring_stack_max_num_rings = 4
+    specific_tasks_to_execute = []
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
@@ -138,8 +150,8 @@ class GlobalSettings:
 
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
-    pybullet_camera_width = 335  # for high quality, use 1674
-    pybullet_camera_height = 180  # for high quality, use 900
+    pybullet_camera_width = 1280  # for high quality, use 1674
+    pybullet_camera_height = 800 # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
@@ -147,7 +159,7 @@ class GlobalSettings:
     pybullet_birrt_num_attempts = 10
     pybullet_birrt_num_iters = 100
     pybullet_birrt_smooth_amt = 50
-    pybullet_birrt_extend_num_interp = 10
+    pybullet_birrt_extend_num_interp = 12
     pybullet_control_mode = "position"
     pybullet_max_vel_norm = 0.05
     # env -> robot -> quaternion
@@ -435,7 +447,7 @@ class GlobalSettings:
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
     video_dir = "videos"
-    video_fps = 2
+    video_fps = 16
     failure_video_mode = "longest_only"
 
     # dataset parameters
@@ -706,6 +718,9 @@ class GlobalSettings:
                     # tasks take more actions to complete.
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
+                    "pybullet_ring_stack": 3000,
+                    "pybullet_multimodal_cover": 3000,
+
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,
@@ -754,7 +769,8 @@ class GlobalSettings:
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_blocks": "oracle_blocks",
-                    "pybullet_ring_stack": "oracle_ring_stack"
+                    "pybullet_ring_stack": "oracle_ring_stack",
+                    "pybullet_multimodal_cover": "oracle_multimodal_cover"
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum number of skeletons optimized before

@@ -2,6 +2,7 @@
 
 import abc
 import json
+import logging
 from pathlib import Path
 from typing import Callable, Collection, Dict, List, Optional, Set
 
@@ -200,6 +201,10 @@ class BaseEnv(abc.ABC):
         goal = self._current_task.goal_description
         assert isinstance(goal, set)
         assert not goal or isinstance(next(iter(goal)), GroundAtom)
+
+        logging.info(f"in base env: goal atoms: {[goal_atom for goal_atom in goal]}")
+        logging.info(f"holds: {[goal_atom.holds(self._current_state) for goal_atom in goal]}")
+
         return all(goal_atom.holds(self._current_state) for goal_atom in goal)
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:

@@ -5,6 +5,7 @@ from typing import Dict, Sequence, Set
 import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
+from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
@@ -27,7 +28,7 @@ class RingsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot_type = types["robot"]
 
         # Predicates
-        #On = predicates["On"]
+        On = predicates["On"]
         OnTable = predicates["OnTable"]
         GripperOpen = predicates["GripperOpen"]
         Holding = predicates["Holding"]
@@ -35,7 +36,7 @@ class RingsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         Pick = options["Pick"]
-        #Stack = options["Stack"]
+        # Stack = options["Stack"]
         PutOnTable = options["PutOnTable"]
         PutOnTableAroundPole = options["PutOnTableAroundPole"]
         logging.info(options["PutOnTableAroundPole"].params_space)
@@ -57,56 +58,62 @@ class RingsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(GripperOpen, [robot])
         }
 
+        def pick_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object]) -> Array:
+            max_ring_outer_radius = CFG.ring_max_outer_radius
+
+            # offset from center of ring
+            sample_offset = [rng.uniform(0, 1)]
+            # angle origin in respect to robot home orientation
+            sample_angle = [rng.uniform(0, 1)]
+
+            param = sample_offset + sample_angle
+            logging.info(f"sampling pick: {param}")
+            return np.array(param, dtype=np.float32)
+
+        def place_around_pole_sampler(state: State, goal: Set[GroundAtom],
+                                      rng: np.random.Generator,
+                                      objs: Sequence[Object]) -> Array:
+            max_ring_outer_radius = CFG.ring_max_outer_radius
+
+            # offset from center of ring
+            sample_offset = [rng.uniform(0, 1), rng.uniform(0, 1)]
+
+            param = sample_offset
+            logging.info(f"sampling pick: {param}")
+            return np.array(param, dtype=np.float32)
+
         pickfromtable_nsrt = NSRT("PickFromTable", parameters,
                                   preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, null_sampler)
+                                  set(), option, option_vars, pick_sampler)
         nsrts.add(pickfromtable_nsrt)
 
-        # Unstack
-        # ring = Variable("?block", ring_type)
-        # otherring = Variable("?otherring", ring_type)
-        # robot = Variable("?robot", robot_type)
-        # parameters = [ring, otherring, robot]
-        # option_vars = [robot, ring]
-        # option = Pick
-        # preconditions = {
-        #     LiftedAtom(On, [ring, otherring]),
-        #     LiftedAtom(GripperOpen, [robot])
-        # }
-        # add_effects = {
-        #     LiftedAtom(Holding, [ring]),
-        # }
-        # delete_effects = {
-        #     LiftedAtom(On, [ring, otherring]),
-        #     LiftedAtom(GripperOpen, [robot])
-        # }
-        # unstack_nsrt = NSRT("Unstack", parameters, preconditions, add_effects,
-        #                     delete_effects, set(), option, option_vars,
-        #                     null_sampler)
-        # nsrts.add(unstack_nsrt)
-        #
-        # # Stack
-        # ring = Variable("?ring", ring_type)
-        # otherring = Variable("?otherring", ring_type)
-        # robot = Variable("?robot", robot_type)
-        # parameters = [ring, otherring, robot]
-        # option_vars = [robot, otherring]
-        # option = Stack
-        # preconditions = {
-        #     LiftedAtom(Holding, [ring]),
-        # }
-        # add_effects = {
-        #     LiftedAtom(On, [ring, otherring]),
-        #     LiftedAtom(GripperOpen, [robot])
-        # }
-        # delete_effects = {
-        #     LiftedAtom(Holding, [ring]),
-        # }
-        #
-        # stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
-        #                   delete_effects, set(), option, option_vars,
-        #                   null_sampler)
-        # nsrts.add(stack_nsrt)
+        # Stack
+        ring = Variable("?ring", ring_type)
+        otherring = Variable("?otherring", ring_type)
+        robot = Variable("?robot", robot_type)
+        pole = Variable("?robot", pole_type)
+        parameters = [ring, otherring, robot, pole]
+        option_vars = [robot, pole, ring]
+        option = PutOnTableAroundPole
+        preconditions = {
+            LiftedAtom(Holding, [ring]),
+            LiftedAtom(Around, [otherring, pole])
+        }
+        add_effects = {
+            LiftedAtom(On, [ring, otherring]),
+            LiftedAtom(Around, [ring, pole]),
+            LiftedAtom(GripperOpen, [robot])
+        }
+        delete_effects = {
+            LiftedAtom(Holding, [ring]),
+        }
+
+        stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+                          delete_effects, set(), option, option_vars,
+                          place_around_pole_sampler)
+        nsrts.add(stack_nsrt)
 
         # PutOnTable
         ring = Variable("?ring", ring_type)
@@ -140,7 +147,7 @@ class RingsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         pole = Variable("?pole", pole_type)
         parameters = [ring, robot, pole]
-        option_vars = [robot, pole]
+        option_vars = [robot, pole, ring]
         option = PutOnTableAroundPole
         preconditions = {LiftedAtom(Holding, [ring])}
         add_effects = {
@@ -151,8 +158,8 @@ class RingsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {LiftedAtom(Holding, [ring])}
 
         putonpole_nsrt = NSRT("PutOnTableAroundPole", parameters, preconditions, add_effects,
-                          delete_effects, set(), option, option_vars,
-                          null_sampler)
+                              delete_effects, set(), option, option_vars,
+                              place_around_pole_sampler)
         nsrts.add(putonpole_nsrt)
 
         for nsrt in nsrts:

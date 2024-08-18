@@ -2222,9 +2222,7 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """
     atoms = set()
     for pred in preds:
-        logging.info(f'pred: {pred}')
         for choice in get_object_combinations(list(state), pred.types):
-            logging.info(f'choice: {choice}')
 
             if pred.holds(state, choice):
                 atoms.add(GroundAtom(pred, choice))
@@ -2552,7 +2550,8 @@ def create_dataset_filename_str(
         f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     dataset_fname = os.path.join(
         CFG.data_dir,
-        dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
+        # dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
+        dataset_fname_template.replace(regex, str(100)))
     return dataset_fname, dataset_fname_template
 
 
@@ -3243,7 +3242,7 @@ def update_config_with_parser(parser: ArgumentParser, args: Dict[str,
 
 def reset_config(args: Optional[Dict[str, Any]] = None,
                  default_seed: int = 123,
-                 default_render_state_dpi: int = 10) -> None:
+                 default_render_state_dpi: int = 900) -> None:
     """Reset to the default CFG, overriding with anything in args.
 
     This utility is meant for use in testing only.
@@ -3256,7 +3255,7 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
 def reset_config_with_parser(parser: ArgumentParser,
                              args: Optional[Dict[str, Any]] = None,
                              default_seed: int = 123,
-                             default_render_state_dpi: int = 10) -> None:
+                             default_render_state_dpi: int = 900) -> None:
     """Helper function for reset_config that accepts a parser argument."""
     default_args = parser.parse_args([
         "--env",

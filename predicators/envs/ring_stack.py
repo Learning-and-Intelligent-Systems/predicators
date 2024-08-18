@@ -25,6 +25,14 @@ from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Object, Predicate, State, Type
 
 
+def get_ring_outer_radius(major_radius, minor_radius):
+    return major_radius + minor_radius
+
+
+def get_ring_inner_radius(major_radius, minor_radius):
+    return major_radius - minor_radius
+
+
 class RingStackEnv(BaseEnv):
     """Ring stacking domain."""
 
@@ -32,16 +40,16 @@ class RingStackEnv(BaseEnv):
     table_height: ClassVar[float] = 0.2
     # The table x bounds are (1.1, 1.6),
     x_lb: ClassVar[float] = 1.2
-    x_ub: ClassVar[float] = 1.4
+    x_ub: ClassVar[float] = 1.475
     # The table y bounds are (0.3, 1.2)
-    y_lb: ClassVar[float] = 0.5
-    y_ub: ClassVar[float] = 1.0
+    y_lb: ClassVar[float] = 0.4
+    y_ub: ClassVar[float] = 1.1
 
     pick_z: ClassVar[float] = 0.5  # Q: Maybe picking height for blocks?
 
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
-    robot_init_z: ClassVar[float] = pick_z
+    robot_init_z: ClassVar[float] = 0.7
 
     # Q: Error tolerances maybe for sampling?
     held_tol: ClassVar[float] = 0.5
@@ -56,7 +64,8 @@ class RingStackEnv(BaseEnv):
 
         # Types #TODO
         self._ring_type = Type("ring", [
-            "pose_x", "pose_y", "pose_z", "held"  # Q: Maybe add orientations in the future
+            "pose_x", "pose_y", "pose_z", "id", "major_radius", "minor_radius", "held"
+            # Q: Maybe add orientations in the future
         ])
 
         # pose taken from center of base of pole
@@ -69,6 +78,7 @@ class RingStackEnv(BaseEnv):
         # Predicates
         self._On = Predicate("On", [self._ring_type, self._ring_type],
                              self._On_holds)
+
         self._OnTable = Predicate("OnTable", [self._ring_type],
                                   self._OnTable_holds)
         self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
@@ -82,14 +92,14 @@ class RingStackEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
 
         # Hyperparameters  Q: TODO
-        self._ring_size = CFG.ring_size  # should be larger than ring_radius
-        self._ring_height = CFG.ring_height
         self._num_rings_train = 100
         self._num_rings_test = 50
 
         self._pole_base_height = CFG.pole_base_height
         self._pole_height = CFG.pole_height
-
+        self._pole_radius = CFG.pole_radius
+        self._max_rings = CFG.ring_stack_max_num_rings
+        self._id_to_geometry = {}
         # Hyperparameters from CFG. # TODO
         # self._block_size = CFG.blocks_block_size
         # self._num_blocks_train = CFG.blocks_num_blocks_train
@@ -100,21 +110,27 @@ class RingStackEnv(BaseEnv):
         return "ring_stack"
 
     def simulate(self, state: State, action: Action) -> State:
-        assert self.action_space.contains(action.arr)
-        x, y, z, fingers = action.arr
+        logging.info(action.arr[:4])
+        assert self.action_space.contains(action.arr[:4])
+        if len(action.arr) == 8:
+            x, y, z, fingers, finger1_x, finger1_y, finger2_x, finger2_y = action.arr
+        else:
+            x, y, z, fingers = action.arr
 
         # Infer which transition function to follow
         if fingers < 0.5:
             logging.info("transition pick")
-            return self._transition_pick(state, x, y, z)
-        if z < self.table_height + self._ring_height:
+            return self._transition_pick(state, x, y, z, [finger1_x, finger1_y, finger2_x, finger2_y])
+
+        if z < self.table_height + CFG.ring_max_tubular_radius:
             logging.info("transition put on table")
             return self._transition_putontable(state, x, y, z)
+
         logging.info("transition around pole")
         return self._transition_around_pole(state, x, y, z)
 
     def _transition_pick(self, state: State, x: float, y: float,
-                         z: float) -> State:
+                         z: float, finger_positions: list[float]) -> State:
         next_state = state.copy()
         # Can only pick if fingers are open
         if not self._GripperOpen_holds(state, [self._robot]):
@@ -125,12 +141,52 @@ class RingStackEnv(BaseEnv):
             logging.info("no ring at pose")
             return next_state
 
+        ring_outer_radius = get_ring_outer_radius(
+            state.get(ring, "major_radius"),
+            state.get(ring, "minor_radius"))
+
+        ring_inner_radius = get_ring_inner_radius(
+            state.get(ring, "major_radius"),
+            state.get(ring, "minor_radius"))
+
+        gripper_location_in_ring = ((x - state.get(ring, "pose_x")) ** 2 + (
+                y - state.get(ring, "pose_y")) ** 2) ** 0.5
+
+        finger1_location_in_ring = ((finger_positions[0] - state.get(ring, "pose_x")) ** 2 + (
+                finger_positions[1] - state.get(ring, "pose_y")) ** 2) ** 0.5
+
+        finger2_location_in_ring = ((finger_positions[2] - state.get(ring, "pose_x")) ** 2 + (
+                finger_positions[3] - state.get(ring, "pose_y")) ** 2) ** 0.5
+
+        logging.info(f"CHECKING RING OUTER RADIUS: {ring_outer_radius}")
+        logging.info(f"CHECKING RING INNER RADIUS: {ring_inner_radius}")
+
+        logging.info(f'finger1_location_in_ring: {finger1_location_in_ring}')
+        logging.info(f'finger2_location_in_ring: {finger2_location_in_ring}')
+
+        valid_grip = ((ring_outer_radius < 0.036 and gripper_location_in_ring < ring_inner_radius and
+                       finger1_location_in_ring > ring_outer_radius and
+                       finger2_location_in_ring > ring_outer_radius)
+                      or (ring_outer_radius >= 0.036 and ((
+                                                                  finger1_location_in_ring < ring_inner_radius - 0.005 and finger2_location_in_ring > ring_outer_radius)
+                                                          or (
+                                                                  finger2_location_in_ring < ring_inner_radius - 0.005 and finger1_location_in_ring > ring_outer_radius))))
+
+        if not valid_grip:
+            logging.info("invalid grasp")
+            return next_state
+        else:
+            logging.info("valid grasp found")
+
         # Execute pick
-        next_state.set(ring, "pose_x", x)
-        next_state.set(ring, "pose_y", y)
+        next_state.set(ring, "pose_x", state.get(ring, "pose_x"))
+        next_state.set(ring, "pose_y", state.get(ring, "pose_y"))
         next_state.set(ring, "pose_z", self.pick_z)
         next_state.set(ring, "held", 1.0)
         next_state.set(self._robot, "fingers", 0.0)  # close fingers
+        next_state.set(self._robot, "pose_x", x)
+        next_state.set(self._robot, "pose_y", y)
+        next_state.set(self._robot, "pose_z", self.pick_z)
 
         return next_state
 
@@ -169,6 +225,8 @@ class RingStackEnv(BaseEnv):
             logging.info("no gripper open")
             return next_state
 
+        snap_z = 0
+
         # check ring exists
         ring = self._get_held_ring(state)
         assert ring is not None
@@ -178,14 +236,75 @@ class RingStackEnv(BaseEnv):
         assert pole is not None
 
         # Execute put around pole by snapping into place
-        cur_x = state.get(pole, "pose_x")
-        cur_y = state.get(pole, "pose_y")
-        cur_z = state.get(pole, "pose_z")
-        next_state.set(ring, "pose_x", cur_x)
-        next_state.set(ring, "pose_y", cur_y)
-        next_state.set(ring, "pose_z", cur_z + self._pole_base_height)
+        pole_x = state.get(pole, "pose_x")
+        pole_y = state.get(pole, "pose_y")
+        pole_z = state.get(pole, "pose_z")
+
+        current_r_pose = np.array([state.get(self._robot, "pose_x"),
+                                   state.get(self._robot, "pose_y"),
+                                   state.get(self._robot, "pose_z")])
+
+        new_r_pose = np.array([x, y, z])
+
+        xy_diff_vector = new_r_pose[:2] - current_r_pose[:2]
+
+        current_ring_pose = np.array([state.get(ring, "pose_x"),
+                                      state.get(ring, "pose_y"),
+                                      state.get(ring, "pose_z")])
+
+        # Get ring's new pose given gripper's new pose
+        new_ring_pose = np.r_[current_ring_pose[:2] + xy_diff_vector, new_r_pose].astype(np.float32)
+
+        # check if a ring is already around pole
+        otherring = self._get_highest_ring_below(state, pole_x, pole_y, pole_z + self._pole_height)
+        if otherring is not None:
+            otherring_z = state.get(otherring, "pose_z")
+            snap_z = otherring_z + state.get(otherring, "minor_radius") * CFG.ring_height_modifier + \
+                     state.get(ring, "minor_radius") * CFG.ring_height_modifier
+
+            logging.info("transition stack from transition around pole")
+        else:
+            snap_z = pole_z + self._pole_base_height
+
+        finger_account = 0.005 if get_ring_outer_radius(
+            state.get(ring, "major_radius"),
+            state.get(ring, "minor_radius")) >= 0.036 else 0.0015
+
+        logging.info(f"finger account: {finger_account}")
+
+        # Check if pole is inside the ring
+        if ((pole_x - new_ring_pose[0]) ** 2 + (
+                pole_y - new_ring_pose[1]) ** 2) ** 0.5 + self._pole_radius + finger_account >= get_ring_inner_radius(
+            state.get(ring, "major_radius"),
+            state.get(ring, "minor_radius")):
+            logging.info(f"pole outside ring")
+            return next_state
+
+        else:
+            logging.info(f"Pole inside ring!")
+
+        robot_finger_radius = ((pole_x - new_r_pose[0]) ** 2 + (pole_y - new_r_pose[1]) ** 2) ** 0.5 + self._pole_radius
+        area_to_avoid = self._pole_radius * 2
+
+        if get_ring_outer_radius(state.get(ring, "major_radius"), state.get(ring, "minor_radius")) >= 0.036 and \
+                                                                  robot_finger_radius <= area_to_avoid:
+            logging.info(f"possible finger collision with pole.")
+            logging.info(
+                f"circle check: {robot_finger_radius}")
+            logging.info(f"area to be out of: {area_to_avoid}")
+            logging.info(f"{robot_finger_radius <= area_to_avoid}")
+            return next_state
+        else:
+            logging.info("finger-pole collision avoided")
+
+        next_state.set(ring, "pose_x", new_ring_pose[0])
+        next_state.set(ring, "pose_y", new_ring_pose[1])
+        next_state.set(ring, "pose_z", snap_z)
         next_state.set(ring, "held", 0.0)
-        next_state.set(self._robot, "fingers", 1.0)  # open fingers
+        next_state.set(self._robot, "fingers", 1.0)  # open
+        next_state.set(self._robot, "pose_x", new_r_pose[0])
+        next_state.set(self._robot, "pose_y", new_r_pose[1])
+        next_state.set(self._robot, "pose_z", self.pick_z)
 
         return next_state
 
@@ -205,7 +324,7 @@ class RingStackEnv(BaseEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._Around}
+        return {self._Around, self._OnTable}
 
     @property
     def types(self) -> Set[Type]:
@@ -224,10 +343,12 @@ class RingStackEnv(BaseEnv):
         for _ in range(num_tasks):
             logging.info("SAMPLING TASK!")
             while True:  # repeat until goal is not satisfied
-                init_state, ring, pole = self._sample_state(rng)
-                goal = self._sample_goal([ring, pole])
+                init_state, rings, pole = self._sample_state(rng)
+                goal = self._sample_goal([rings, pole], init_state, rng)
+                logging.info(f"task with goal: {goal} created")
                 if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
+
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
@@ -242,26 +363,89 @@ class RingStackEnv(BaseEnv):
         pole = Object(f"pole", self._pole_type)
         data[pole] = np.array([pole_x, pole_y, pole_z])
 
-        ring_x, ring_y, = self._sample_initial_xy(rng, existing_xys)
-        existing_xys.add((ring_x, ring_y))
-        ring_z = self.table_height + self._ring_height * 0.5
-        ring = Object(f"ring", self._ring_type)
-        data[ring] = np.array([ring_x, ring_y, ring_z, 0.0])
-        logging.info(f"ring_x,y,z: {[ring_x, ring_y, ring_z, 0.0]}")
+        num_rings = int(rng.uniform(0, self._max_rings)) + 1
+        rings = []
+        for i in range(num_rings):
+            task_ring_idx = int(rng.uniform(0, CFG.ring_dataset_size))
+            major_radius, minor_radius = self.retrieve_geometry_data_from_obj(
+                utils.get_env_asset_path(f"rings/ring_{task_ring_idx}.obj"))
+            self._id_to_geometry[task_ring_idx] = (major_radius, minor_radius)
+
+            ring_x, ring_y, = self._sample_initial_xy(rng, existing_xys)
+            existing_xys.add((ring_x, ring_y))
+            ring_z = self.table_height + minor_radius * CFG.ring_height_modifier
+            ring = Object(f"ring{i}", self._ring_type)
+            data[ring] = np.array([ring_x, ring_y, ring_z, task_ring_idx, major_radius, minor_radius, 0.0])
+            logging.info(f"{ring}_x,y,z: {[ring_x, ring_y, ring_z, task_ring_idx, major_radius, minor_radius, 0.0]}")
+            rings.append(ring)
+
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
         rf = 1.0  # fingers start out open
-        data[self._robot] = np.array([rx, ry, rz, 0, 0, 0, 1, rf], dtype=np.float32)
-        return State(data), ring, pole
+        data[self._robot] = np.array([rx, ry, rz, 0.7071, 0.7071, 0, 0, rf], dtype=np.float32)
+        return State(data), rings, pole
 
-    def _sample_goal(self, objects: Sequence[Object], ) -> Set[GroundAtom]:
-        ring, pole, = objects
-        # Create goal from piles
+    def _sample_goal(self, objects: Sequence[Object], init_state: State, rng: np.random.Generator) -> Set[GroundAtom]:
+        rings, pole, = objects
+        rings_around_pole = set()
+
+        # choose which rings should be around pole, minimum 1
+        first_ring_around_pole = rings[int(rng.uniform(0, len(rings)))]
+        rings_around_pole.add(first_ring_around_pole)
+
+        for ring in rings:
+            if ring in rings_around_pole:
+                continue
+
+            # coin flip for other rings are around pole
+            if rng.uniform(0, 1) < 0.5:
+                rings_around_pole.add(ring)
+
+        rings_around_pole = list(rings_around_pole)
+        rings_stack_order = []
+
+        while len(rings_around_pole) > 0:
+            i = int(rng.uniform(0, len(rings_around_pole)))
+            logging.info(i)
+            rings_stack_order.append(rings_around_pole.pop(i))
+
         goal_atoms = set()
-        goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
-        goal_atoms.add(GroundAtom(self._GripperOpen, [self._robot]))
+
+        i = 0
+        while i < len(rings_stack_order):
+            ring = rings_stack_order[i]
+            if i == 0:
+                goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+                goal_atoms.add(GroundAtom(self._OnTable, [ring]))
+            else:
+                bottom_ring_outer_radius = get_ring_outer_radius(
+                    init_state.get(rings_stack_order[i - 1], "major_radius"),
+                    init_state.get(rings_stack_order[i - 1], "minor_radius"))
+
+                bottom_ring_inner_radius = get_ring_inner_radius(
+                    init_state.get(rings_stack_order[i - 1], "major_radius"),
+                    init_state.get(rings_stack_order[i - 1], "minor_radius"))
+
+                ring_inner_radius = get_ring_inner_radius(init_state.get(ring, "major_radius"),
+                                                          init_state.get(ring, "minor_radius"))
+
+                ring_outer_radius = get_ring_outer_radius(init_state.get(ring, "major_radius"),
+                                                          init_state.get(ring, "minor_radius"))
+
+                if ring_inner_radius > bottom_ring_outer_radius:
+                    goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+                    rings_stack_order.pop(i)
+                    i -= 1
+                elif ring_outer_radius < bottom_ring_inner_radius:
+                    goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+                else:
+                    goal_atoms.add(GroundAtom(self._On, [ring, rings_stack_order[i - 1]]))
+                    goal_atoms.add(GroundAtom(self._Around, [ring, pole]))
+            i += 1
+
+        # goal_atoms.add(GroundAtom(self._GripperOpen, [self._robot]))
         return goal_atoms
 
     def _sample_initial_xy(
@@ -270,52 +454,72 @@ class RingStackEnv(BaseEnv):
         while True:
             x = rng.uniform(self.x_lb, self.x_ub)
             y = rng.uniform(self.y_lb, self.y_ub)
+            logging.info(f"sampling with {x},{y}")
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
 
     def _table_xy_is_clear(self, x: float, y: float,
                            existing_xys: Set[Tuple[float, float]]) -> bool:
         if all(
-                abs(x - other_x) > self.collision_padding * self._ring_size
+                abs(x - other_x) > CFG.ring_max_outer_radius * 1.2
                 for other_x, _ in existing_xys):
             return True
+
+
         if all(
-                abs(y - other_y) > self.collision_padding * self._ring_size
+                abs(y - other_y) > CFG.ring_max_outer_radius * 1.35
                 for _, other_y in existing_xys):
             return True
-        return False
 
-    def _ring_is_clear(self, ring: Object, state: State) -> bool:
-        return self._Clear_holds(state, [ring])
+        return False
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         ring1, ring2 = objects
         if state.get(ring1, "held") >= self.held_tol or \
                 state.get(ring2, "held") >= self.held_tol:
             return False
+
+        if ring1 is ring2:
+            return False
+
         x1 = state.get(ring1, "pose_x")
         y1 = state.get(ring1, "pose_y")
         z1 = state.get(ring1, "pose_z")
         x2 = state.get(ring2, "pose_x")
         y2 = state.get(ring2, "pose_y")
         z2 = state.get(ring2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2 + self._ring_height],
-                           atol=self.on_tol)
+
+        On = np.allclose([x1, y1], [x2, y2],
+                         atol=0.05) and np.allclose([z1], [z2 + CFG.ring_height_modifier * (
+                state.get(ring2, "minor_radius") + state.get(ring1, "minor_radius"))], atol=0.035)
+
+        logging.info(f"On holds: {On}")
+        if not On:
+            logging.info(([x1, y1, z1], [x2, y2, z2]))
+            logging.info(([x1, y1, z1], [x2, y2, z2 + CFG.ring_height_modifier *
+                                         (state.get(ring2, "minor_radius") + state.get(ring1, "minor_radius"))]))
+        return On
 
     # Q: Might need some modifying
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         ring, = objects
         z = state.get(ring, "pose_z")
-        desired_z = self.table_height + self._ring_height * 0.5
+        desired_z = self.table_height + state.get(ring, "minor_radius") * CFG.ring_height_modifier
+        holds = (state.get(ring, "held") < self.held_tol) and \
+                (
+                        desired_z - self.on_tol < z < desired_z + self.on_tol + self._pole_base_height)
+        if not holds:
+            logging.info(f'on table false. desired_z: {desired_z}, z:{z}')
+        else:
+            logging.info(f'{ring} on table holds!')
 
-        return (state.get(ring, "held") < self.held_tol) and \
-            (
-                    desired_z - self.on_tol - self._pole_base_height * 0.5 < z < desired_z + self.on_tol + self._pole_base_height * 0.5)
+        return holds
 
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         rf = state.get(robot, "fingers")
+
         assert rf in (0.0, 1.0)
         return rf == 1.0
 
@@ -333,25 +537,34 @@ class RingStackEnv(BaseEnv):
         ring_y = state.get(ring, "pose_y")
         ring_z = state.get(ring, "pose_z")
 
-        point_in_circle = (pole_x - ring_x) ** 2 + (pole_y - ring_y) ** 2 <= self._ring_size - self._ring_height
-        correct_height = pole_z < ring_z <= pole_z + self._pole_height - self._ring_height
-        logging.info("Checking around holds")
-        logging.info(f'pole in ring?: {point_in_circle}')
-        logging.info(f'ring: {[ring_x, ring_y]}, pole: {[pole_x, pole_y]}')
+        pole_in_ring = ((pole_x - ring_x) ** 2 + (
+                pole_y - ring_y) ** 2) ** 0.5 + self._pole_radius < get_ring_inner_radius(
+            state.get(ring, "major_radius"),
+            state.get(ring, "minor_radius"))
 
-        return ((pole_x - ring_x) ** 2 + (
-                pole_y - ring_y) ** 2 <= self._ring_size - self._ring_height) and correct_height
+        correct_height = pole_z < ring_z <= pole_z + self._pole_height - \
+                         state.get(ring, "minor_radius") * CFG.ring_height_modifier
 
-    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        if self._Holding_holds(state, objects):
-            return False
-        ring, = objects
-        for other_ring in state:
-            if other_ring.type != self._ring_type:
+        logging.info(f'Around holds: {pole_in_ring and correct_height}')
+        return pole_in_ring and correct_height
+
+    def _get_highest_ring_below(self, state: State, x: float, y: float,
+                                z: float) -> Optional[Object]:
+        rings_here = []
+        for ring in state:
+            if not ring.is_instance(self._ring_type):
                 continue
-            if self._On_holds(state, [other_ring, ring]):
-                return False
-        return True
+            ring_pose = np.array(
+                [state.get(ring, "pose_x"),
+                 state.get(ring, "pose_y")])
+            ring_z = state.get(ring, "pose_z")
+            logging.info(f'checking highest ring below x,y,z: {([x, y, z], [ring_pose, ring_z])}')
+            if np.allclose([x, y], ring_pose, atol=0.02) and \
+                    ring_z < z - self.pick_tol:
+                rings_here.append((ring, ring_z))
+        if not rings_here:
+            return None
+        return max(rings_here, key=lambda x: x[1])[0]  # highest z
 
     def _get_held_ring(self, state: State) -> Optional[Object]:
         for ring in state:
@@ -373,18 +586,48 @@ class RingStackEnv(BaseEnv):
         for ring in state:
             if not ring.is_instance(self._ring_type):
                 continue
-            ring_pose = np.array([
-                state.get(ring, "pose_x"),
-                state.get(ring, "pose_y"),
-                state.get(ring, "pose_z")
-            ])
-            if np.allclose([x, y, z], ring_pose, atol=self.pick_tol):
-                dist = np.linalg.norm(np.array([x, y, z]) - ring_pose)
+
+            rx = state.get(ring, "pose_x"),
+            ry = state.get(ring, "pose_y"),
+            rz = state.get(ring, "pose_z")
+
+            dist = ((x - rx) ** 2 + (y - ry) ** 2) ** 0.5
+
+            if dist <= get_ring_outer_radius(state.get(ring, "major_radius"), state.get(ring, "minor_radius")):
+                logging.info("CORRECT XY!")
+                if not np.allclose([z], [rz], atol=state.get(ring, "minor_radius")):
+                    logging.info(f"INCORRECT Z: {z}, {rz}")
+                    logging.info(f'diff: {abs(z - rz)}, ring:height: {state.get(ring, "minor_radius")}')
+
+            if dist <= get_ring_outer_radius(state.get(ring, "major_radius"), state.get(ring, "minor_radius")) and \
+                    np.allclose([z], [rz], atol=self.pick_tol):
                 close_rings.append((ring, float(dist)))
+
         if not close_rings:
             return None
 
+        logging.info("RING AT XYZ found!")
         return min(close_rings, key=lambda x: x[1])[0]  # min distance
+
+    def retrieve_geometry_data_from_obj(self, file_path):
+        # Open the file and read the first line
+        with open(file_path, 'r') as file:
+            first_line = file.readline().strip()
+
+        # Check if the first line is a comment
+        if first_line.startswith('#'):
+            # Remove the '#' and split the comment by comma
+            comment = first_line[1:].strip()
+            values = comment.split(',')
+
+            if len(values) == 2:
+                major_radius = values[0].strip()
+                minor_radius = values[1].strip()
+                return float(major_radius), float(minor_radius)
+            else:
+                raise ValueError("Comment does not contain exactly two comma-separated values")
+        else:
+            raise ValueError("The first line is not a comment")
 
     # Q: TODO Might remove
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:

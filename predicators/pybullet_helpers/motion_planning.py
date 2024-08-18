@@ -71,18 +71,18 @@ def run_motion_planning(
 
     def _collision_fn(pt: JointPositions) -> bool:
         _set_state(pt)
-        p.performCollisionDetection(physicsClientId=physics_client_id)
-        for body in collision_bodies:
-            # logging.info(type(body))
-            # logging.info(collision_bodies)
-            # logging.info(type(physics_client_id))
-            if p.getContactPoints(robot.robot_id,
-                                  body,
-                                  physicsClientId=physics_client_id):
-                return True
-            if held_object is not None and p.getContactPoints(
-                    held_object, body, physicsClientId=physics_client_id):
-                return True
+        # p.performCollisionDetection(physicsClientId=physics_client_id)
+        # for body in collision_bodies:
+        #     # logging.info(type(body))
+        #     # logging.info(collision_bodies)
+        #     # logging.info(type(physics_client_id))
+        #     if p.getContactPoints(robot.robot_id,
+        #                           body,
+        #                           physicsClientId=physics_client_id):
+        #         return True
+        #     if held_object is not None and p.getContactPoints(
+        #             held_object, body, physicsClientId=physics_client_id):
+        #         return True
         return False
 
     def _distance_fn(from_pt: JointPositions, to_pt: JointPositions) -> float:

@@ -1,4 +1,5 @@
 """PyBullet helpers for cameras and rendering."""
+import logging
 
 import pybullet as p
 
@@ -18,6 +19,7 @@ def create_gui_connection(
     Not covered by unit tests because unit tests need to be headless.
     """
     physics_client_id = p.connect(p.GUI)
+    logging.info(f"GUI on physics_id: {physics_client_id}")
     # Disable the PyBullet GUI preview windows for faster rendering.
     if disable_preview_windows:
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,

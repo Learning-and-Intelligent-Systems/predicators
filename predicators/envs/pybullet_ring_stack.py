@@ -1,13 +1,17 @@
 """A PyBullet version of Cover."""
 import logging
+import os
+import subprocess
 from typing import Any, ClassVar, Dict, List, Tuple
 from pathlib import Path
 import numpy as np
 import pybullet as p
+import shutil
+import random
 
 from predicators import utils
 from predicators.envs.ring_stack import RingStackEnv
-from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
+from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
@@ -23,8 +27,6 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
-
-
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         self._ring_id_to_ring: Dict[int, Object] = {}
@@ -35,15 +37,14 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
         fk_physics_id = p.connect(p.DIRECT)
         self._pybullet_robot_fk = self._create_pybullet_robot(fk_physics_id)
 
-
-
     @classmethod
     def initialize_pybullet(
-            cls, using_gui: bool
+            cls, using_gui: bool,
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle blocks-specific initialization."""
         physics_client_id, pybullet_robot, bodies = super(
         ).initialize_pybullet(using_gui)
+        logging.info("Initialized pybullet")
 
         table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
                               useFixedBase=True,
@@ -57,8 +58,8 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert using_gui, \
-                "using_gui must be True to use pybullet_draw_debug."
+            # assert using_gui, \
+            #     "using_gui must be True to use pybullet_draw_debug."
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.table_height],
                                [cls.x_ub, cls.y_lb, cls.table_height],
@@ -94,19 +95,83 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
                                [1.0, 0.0, 0.0],
                                physicsClientId=physics_client_id)
 
-        # Create ring & pole
-        ring_id = p.loadURDF(utils.get_env_asset_path("urdf/ring.urdf"),
-                              useFixedBase=False,
-                              physicsClientId=physics_client_id)
+        # # Create ring & pole
+
+        bodies["ring_ids"] = []
+        for _ in range(CFG.ring_stack_max_num_rings):
+            task_ring_idx = 2  # Initial rings do not matter.
+
+            # Update the URDF file to point to the new .obj file
+            urdf_file = utils.get_env_asset_path("urdf/ring.urdf")
+            with open(urdf_file, 'r') as file:
+                urdf_data = file.read()
+
+            # Replace the old .obj file reference with the new one
+            updated_urdf_data = urdf_data.replace('ring.obj', f'../rings/ring_{task_ring_idx}.obj')
+
+            # Write the updated URDF data to a temporary file
+            temp_urdf_file = f"predicators/envs/assets/urdf/temp/ring_temp_{task_ring_idx}.urdf"
+            with open(temp_urdf_file, 'w') as file:
+                file.write(updated_urdf_data)
+
+            # Load the updated URDF
+            ring_id = p.loadURDF(temp_urdf_file,
+                                 useFixedBase=False,
+                                 physicsClientId=physics_client_id)
+            os.remove(temp_urdf_file)
+
+            bodies["ring_ids"].append(ring_id)
 
         pole_id = p.loadURDF(utils.get_env_asset_path("urdf/pole.urdf"),
                              useFixedBase=True,
                              physicsClientId=physics_client_id)
-
-        bodies["ring_ids"] = [ring_id]
         bodies["pole_id"] = pole_id
 
         return physics_client_id, pybullet_robot, bodies
+
+    def generate_new_ring_models(self, state):
+        logging.info(f"new rings for p_client_id {self._physics_client_id}")
+        new_ring_ids = []
+        logging.info(f'pb bodies: {p.getNumBodies()}')
+        if self._ring_ids is None:
+            self._ring_ids = []
+        logging.info(f"ring_ids: {self._ring_ids}")
+        for body_id in self._ring_ids:
+            p.removeBody(body_id)
+
+        rings = state.get_objects(self._ring_type)
+        logging.info(f"task init state: {state}")
+
+        for ring in rings:
+            task_ring_idx = int(state.get(ring, "id"))
+
+            # Update the URDF file to point to the new .obj file
+            urdf_file = utils.get_env_asset_path("urdf/ring.urdf")
+            with open(urdf_file, 'r') as file:
+                urdf_data = file.read()
+
+            # Replace the old .obj file reference with the new one
+            updated_urdf_data = urdf_data.replace('ring.obj', f'../rings/ring_{task_ring_idx}.obj')
+
+            # Write the updated URDF data to a temporary file
+            temp_urdf_file = f"predicators/envs/assets/urdf/temp/ring_temp_{task_ring_idx}.urdf"
+            with open(temp_urdf_file, 'w') as file:
+                file.write(updated_urdf_data)
+
+            logging.info(f"Using ring: {task_ring_idx} for test task")
+
+            # Load the updated URDF
+            ring_id = p.loadURDF(temp_urdf_file,
+                                 useFixedBase=False,
+                                 physicsClientId=self._physics_client_id)
+
+            os.remove(temp_urdf_file)
+
+            new_ring_ids.append(ring_id)
+
+        logging.info(f'pb bodies: {p.getNumBodies()}')
+
+        self._ring_ids = new_ring_ids
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         self._table_id = pybullet_bodies["table_id"]
@@ -124,7 +189,7 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
 
     def _extract_robot_state(self, state: State) -> Array:
         fingers = self.fingers_state_to_joint(self._pybullet_robot,
-                                        state.get(self._robot, "fingers"))
+                                              state.get(self._robot, "fingers"))
 
         ry = state.get(self._robot, "pose_y")
         rx = state.get(self._robot, "pose_x")
@@ -145,27 +210,40 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle blocks-specific resetting."""
         super()._reset_state(state)
-        #logging.info("resetting pybullet state")
+        logging.info("resetting pybullet state")
         # Reset rings based on the state.
+
         ring_objs = state.get_objects(self._ring_type)
         self._ring_id_to_ring = {}
         for i, ring_obj in enumerate(ring_objs):
             ring_id = self._ring_ids[i]
+
             self._ring_id_to_ring[ring_id] = ring_obj
             bx = state.get(ring_obj, "pose_x")
             by = state.get(ring_obj, "pose_y")
             bz = state.get(ring_obj, "pose_z")
-            #logging.info(f'ring pos from reset: {bx}, {by}, {bz}')
+            # logging.info(f'ring pos from reset: {bx}, {by}, {bz}')
 
             p.resetBasePositionAndOrientation(
                 ring_id, [bx, by, bz],
                 self._default_orn,
                 physicsClientId=self._physics_client_id)
 
-        # Check if we're holding some block.
+        # Check if we're holding some ring.
         held_ring = self._get_held_ring(state)
         if held_ring is not None:
             self._force_grasp_object(held_ring)
+
+
+        oov_x, oov_y = self._out_of_view_xy
+        for i in range(len(ring_objs), len(self._ring_ids)):
+            ring_id = self._ring_ids[i]
+            h = state.get(self._ring_id_to_ring[ring_id], "minor_radius")
+            assert ring_id not in self._ring_id_to_ring
+            p.resetBasePositionAndOrientation(
+                ring_id, [i, 0, h],
+                self._default_orn,
+                physicsClientId=self._physics_client_id)
 
         # reset pole based on state
         pole_obj = state.get_objects(self._pole_type)[0]
@@ -175,7 +253,7 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
         bx = state.get(pole_obj, "pose_x")
         by = state.get(pole_obj, "pose_y")
         bz = state.get(pole_obj, "pose_z")
-        #logging.info(f'pole pos from reset: {bx}, {by}, {bz}')
+        # logging.info(f'pole pos from reset: {bx}, {by}, {bz}')
         p.resetBasePositionAndOrientation(
             pole_id, [bx, by, bz],
             self._default_orn,
@@ -184,17 +262,17 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
         if not reconstructed_state.allclose(state):
-            logging.debug("Desired state:")
-            logging.debug(state.pretty_str())
-            logging.debug("Reconstructed state:")
-            logging.debug(reconstructed_state.pretty_str())
+            logging.info("Desired state:")
+            logging.info(state.pretty_str())
+            logging.info("Reconstructed state:")
+            logging.info(reconstructed_state.pretty_str())
             raise ValueError("Could not reconstruct state.")
 
     def _get_state(self) -> State:
         """Create a State based on the current PyBullet state.
 
         Note that in addition to the state inside PyBullet itself, this
-        uses self._block_id_to_block and self._held_obj_id. As long as
+        uses self._ring_id_to_ring and self._held_obj_id. As long as
         the PyBullet internal state is only modified through reset() and
         step(), these all should remain in sync.
         """
@@ -213,8 +291,19 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
                 ring_id, physicsClientId=self._physics_client_id)
             held = (ring_id == self._held_obj_id)
             # pose_x, pose_y, pose_z, held
-            state_dict[ring] = np.array([bx, by, bz, held],
-                                         dtype=np.float32)
+
+            mesh = str(p.getVisualShapeData(ring_id, physicsClientId=self._physics_client_id)[0][4])
+            mesh_data = mesh.split("'")[1]
+            parts = mesh_data.split('/')
+            last_part = parts[-1]
+            # Split the last part by '_' and get the part containing the number
+            number_part = last_part.split('_')[1]
+            # Split the number part by '.' to remove the file extension
+            mesh_id = number_part.split('.')[0]
+            major_radius, minor_radius = self.retrieve_geometry_data_from_obj(mesh_data)
+
+            state_dict[ring] = np.array([bx, by, bz, mesh_id, major_radius, minor_radius, held],
+                                        dtype=np.float32)
 
         # Get pole states.
         for pole_id, pole in self._pole_id_to_pole.items():
@@ -295,3 +384,24 @@ class PyBulletRingEnv(PyBulletEnv, RingStackEnv):
         closed_f = self._pybullet_robot.closed_fingers
         # Fingers in the State should be either 0 or 1.
         return int(fingers_joint > (open_f + closed_f) / 2)
+
+    @classmethod
+    def retrieve_geometry_data_from_obj(cls, file_path):
+        # Open the file and read the first line
+        with open(file_path, 'r') as file:
+            first_line = file.readline().strip()
+
+        # Check if the first line is a comment
+        if first_line.startswith('#'):
+            # Remove the '#' and split the comment by comma
+            comment = first_line[1:].strip()
+            values = comment.split(',')
+
+            if len(values) == 2:
+                major_radius = values[0].strip()
+                minor_radius = values[1].strip()
+                return float(major_radius), float(minor_radius)
+            else:
+                raise ValueError("Comment does not contain exactly two comma-separated values")
+        else:
+            raise ValueError("The first line is not a comment")

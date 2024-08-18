@@ -4,6 +4,7 @@ Contains useful common code.
 """
 
 import abc
+import logging
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import matplotlib
@@ -53,6 +54,9 @@ class PyBulletEnv(BaseEnv):
     _camera_pitch: ClassVar[float] = -24
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
+    parent_client_id = 0
+    parent_pybullet_robot = None
+    parent_pybullet_bodies = None
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -66,6 +70,7 @@ class PyBulletEnv(BaseEnv):
         self._physics_client_id, self._pybullet_robot, pybullet_bodies = \
             self.initialize_pybullet(self.using_gui)
         self._store_pybullet_bodies(pybullet_bodies)
+
 
     @classmethod
     def initialize_pybullet(

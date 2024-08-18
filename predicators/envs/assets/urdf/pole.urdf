@@ -5,7 +5,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.05" length="0.02"/>
+        <cylinder radius="0.07" length="0.02"/>
       </geometry>
       <material name="grey">
         <color rgba="0.5 0.5 0.5 1"/>
@@ -14,25 +14,25 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.05" length="0.02"/>
+        <cylinder radius="0.07" length="0.02"/>
       </geometry>
     </collision>
   </link>
 
   <link name="rod">
     <visual>
-      <origin xyz="0 0 .031" rpy="0 0 0"/>
+      <origin xyz="0 0 .0665" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.005" length=".1"/>
+        <cylinder radius="0.004" length=".15"/>
       </geometry>
       <material name="red">
         <color rgba="0 1 0 1"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0.031" rpy="0 0 0"/>
+      <origin xyz="0 0 0.0665" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.005" length=".1"/>
+        <cylinder radius="0.004" length=".15"/>
       </geometry>
     </collision>
   </link>

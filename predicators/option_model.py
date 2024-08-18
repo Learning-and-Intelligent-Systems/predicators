@@ -87,6 +87,8 @@ class _OracleOptionModel(_OptionModelBase):
         else:
             env_param_opt = self._name_to_parameterized_option[param_opt.name]
             assert env_param_opt.types == param_opt.types
+            logging.info(f"env_param_opt.params_space.low: {env_param_opt.params_space.low}")
+            logging.info(f"param_opt.params_space.low: {param_opt.params_space.low}")
             assert np.allclose(env_param_opt.params_space.low,
                                param_opt.params_space.low)
             assert np.allclose(env_param_opt.params_space.high,
@@ -122,10 +124,10 @@ class _OracleOptionModel(_OptionModelBase):
                 _terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
             
-        except utils.OptionExecutionFailure:
+        except utils.OptionExecutionFailure as e:
             # If there is a failure during the execution of the option, treat
             # this as a noop.
-            logging.info("Fail to execute option")
+            logging.info(f"Fail to execute option {e}")
             return state, 0
         # Note that in the case of using a PyBullet environment, the
         # second return value (num_actions) will be an underestimate

@@ -17,6 +17,7 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
+from matplotlib import pyplot as plt
 
 
 
@@ -29,6 +30,7 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
         return _extract_oracle_samplers(strips_ops, option_specs)
     samplers = []
     for i, op in enumerate(strips_ops):
+        logging.info(strips_ops)
         param_option, _ = option_specs[i]
         if sampler_learner == "random" or \
            param_option.params_space.shape == (0,):
@@ -201,6 +203,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         Y_regressor.append(option.params)
     X_arr_regressor = np.array(X_regressor)
     Y_arr_regressor = np.array(Y_regressor)
+    logging.info(Y_arr_regressor)
 
     if CFG.sampler_learning_regressor_model == "neural_gaussian":
         regressor: DistributionRegressor = NeuralGaussianRegressor(
@@ -230,6 +233,28 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             learning_rate=CFG.learning_rate)
 
     regressor.fit(X_arr_regressor, Y_arr_regressor)
+
+    ys = []
+    xs = []
+    x_true = []
+    y_true = []
+    rng = np.random.default_rng(CFG.seed)
+    for x in X_arr_regressor:
+        y_hat = regressor.predict_sample(x, rng)
+        xs.append(y_hat[0])
+        ys.append(y_hat[1])
+    for y in Y_arr_regressor:
+        x_true.append(y[0])
+        y_true.append(y[1])
+
+    plt.scatter(xs, ys)
+    plt.savefig(f"modelfig_{nsrt_name}_{CFG.sampler_learning_regressor_model}.png")
+
+    plt.scatter(x_true, y_true)
+    plt.savefig(f"GTmodelfig_{nsrt_name}_{CFG.sampler_learning_regressor_model}.png")
+    
+
+
     # Construct and return sampler
     return _LearnedSampler(classifier, regressor, variables,
                            param_option).sampler
@@ -244,6 +269,8 @@ def _create_sampler_data(
     """Generate positive and negative data for training a sampler."""
     # Populate all positive data.
     positive_data: List[SamplerDatapoint] = []
+    logging.info(f"DATASTORE: {len(datastores)}")
+    logging.info(f"DATASTORE: {len(datastores[datastore_idx])}")
     for (segment, var_to_obj) in datastores[datastore_idx]:
         option = segment.get_option()
         state = segment.states[0]
@@ -353,6 +380,8 @@ class _LearnedSampler:
         if CFG.sampler_disable_classifier:
             params = np.array(self._regressor.predict_sample(x, rng),
                               dtype=self._param_option.params_space.dtype)
+            
+            
             
             #logging.info(f'PARAMS: {params}')
             return params

@@ -15,6 +15,8 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
+from predicators.envs.pybullet_multimodal_cover import PyBulletMultiModalCoverEnv
+from predicators.envs.pybullet_ring_stack import PyBulletRingEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
@@ -75,7 +77,7 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         if not regex_match:
             continue
         num_train_tasks = int(regex_match.groups()[0])
-        assert num_train_tasks != CFG.num_train_tasks  # would be Case 1
+        assert num_train_tasks != CFG.num_train_tasks, f"{num_train_tasks} != {CFG.num_train_tasks}"  # would be Case 1
         # Case 2: we already have a file with MORE data than we need. Load
         # and truncate this data.
         if num_train_tasks > CFG.num_train_tasks:
@@ -132,6 +134,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                              annotate_with_gt_ops: bool) -> Dataset:
     """Use the demonstrator to generate demonstrations, one per training task
     starting from train_tasks_start_idx."""
+
     if CFG.demonstrator == "oracle":
         options = get_gt_options(env.get_name())
         oracle_approach = OracleApproach(
@@ -160,7 +163,13 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
     else:
         bilevel_plan_without_sim = CFG.offline_data_bilevel_plan_without_sim
+        
     for idx, task in enumerate(train_tasks):
+        if isinstance(env, PyBulletRingEnv):
+            env.generate_new_ring_models(task.init)
+        if isinstance(env, PyBulletMultiModalCoverEnv):
+            env.goal_zone = int(np.random.random() * 4)
+
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
         # Note: we assume in main.py that demonstrations are only generated
@@ -219,6 +228,11 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             continue
         # Check that the goal holds at the end. Print a warning if not.
         if not task.goal_holds(traj.states[-1]):  # pragma: no cover
+            state = traj.states[-1]
+            logging.info(f"in final traj_state: {traj.states[-1]}")
+            logging.info(f'goal atoms: {[goal_atom for goal_atom in task.goal]}')
+            logging.info(f'goal atoms succeed: {[goal_atom.holds(state) for goal_atom in task.goal]}')
+
             logging.warning("WARNING: Oracle failed on training task.")
             continue
         if CFG.demonstrator == "human":  # pragma: no cover

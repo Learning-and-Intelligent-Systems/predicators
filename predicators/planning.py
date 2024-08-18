@@ -136,8 +136,6 @@ def _sesame_plan_with_astar(
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
-    for nsrt in nsrts:
-        logging.info(f'param space for nsrt: {nsrt.name}, {nsrt.option.params_space}')
 
     while True:
         # Optionally exclude NSRTs with empty effects, because they can slow
@@ -562,8 +560,6 @@ def run_low_level_search(
         None for _ in skeleton
     ]
     plan_found = False
-    for nsrt in skeleton:
-        logging.info(f'param space for nsrt: {nsrt.name}, {nsrt.option.params_space}')
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
             return longest_failed_refinement, False
