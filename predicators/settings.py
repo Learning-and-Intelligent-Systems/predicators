@@ -358,7 +358,7 @@ class GlobalSettings:
     burger_render_set_of_marks = True
     # Which type of train/test tasks to generate. Options are "more_stacks",
     # "fatter_burger", "combo_burger".
-    burger_no_move_task_type = "more_patties"
+    burger_no_move_task_type = "more_stacks"
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -689,7 +689,7 @@ class GlobalSettings:
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
     grammar_search_parallelize_vlm_labeling = True
-    grammar_search_select_all_debug = True
+    grammar_search_select_all_debug = False
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10

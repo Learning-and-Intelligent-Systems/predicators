@@ -1019,7 +1019,7 @@ def create_ground_atom_data_from_generated_demos(
         for i, state in enumerate(curr_traj_states_for_vlm):
             assert state.simulator_state is not None
             assert "images" in state.simulator_state
-            if CFG.include_cropped_images:
+            if CFG.vlm_include_cropped_images:
                 if CFG.env in ["burger, burger_no_move"]:
                     assert isinstance(env, (BurgerEnv, BurgerNoMoveEnv))
                     # For the non-initial states, get a cropped image that is a
