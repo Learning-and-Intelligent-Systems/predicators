@@ -1062,8 +1062,8 @@ def create_ground_atom_data_from_generated_demos(
                             min_col * approx_cell_size:(max_col + 1) *
                             approx_cell_size, :]
                         cropped_imgs = [
-                            PIL.Image.fromarray(img_arr) for img_arr in
-                            [cropped_curr_img, cropped_prev_img]
+                            PIL.Image.fromarray(img_arr)  # type: ignore
+                            for img_arr in [cropped_curr_img, cropped_prev_img]
                         ]
                         cropped_state_imgs.append(cropped_imgs)
             state_imgs.append([
