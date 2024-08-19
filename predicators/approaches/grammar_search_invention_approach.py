@@ -6,12 +6,12 @@ from __future__ import annotations
 import abc
 import itertools
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
 from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Optional, \
     Sequence, Set, Tuple
-from collections import defaultdict
 
 import numpy as np
 from gym.spaces import Box
