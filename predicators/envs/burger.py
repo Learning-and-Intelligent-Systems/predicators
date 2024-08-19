@@ -300,7 +300,6 @@ class BurgerEnv(BaseEnv):
             # function does not use the task argument, so this is ok.
             state.simulator_state["images"] = self.render_state(
                 state, DefaultEnvironmentTask)
-
             # Recall that a EnvironmentTask consists of an Observation and a
             # GoalDescription, both of whose types are Any.
             tasks.append(EnvironmentTask(state, goal, alt_goal_desc=alt_goal))
@@ -643,7 +642,6 @@ class BurgerEnv(BaseEnv):
         # figure gets converted to a PIL image, text in the image can become
         # blurry.
         fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=216)
-        # plt.suptitle(caption, wrap=True)
         fontsize = 14
 
         # Plot vertical lines

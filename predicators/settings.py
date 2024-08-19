@@ -422,6 +422,7 @@ class GlobalSettings:
     vlm_temperature = 0.0
     vlm_num_completions = 1
     vlm_include_cropped_images = False
+    use_hardcoded_vlm_atom_proposals = False
 
     # parameters for the vlm_open_loop planning approach
     vlm_open_loop_use_training_demos = False

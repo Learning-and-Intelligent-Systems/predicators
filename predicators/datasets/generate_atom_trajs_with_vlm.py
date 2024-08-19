@@ -106,13 +106,12 @@ def _generate_prompt_for_scene_labelling(
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
+
     # The prompt ends with a section for 'Predicates', so list these.
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
 
-    if CFG.grammar_search_vlm_atom_label_prompt_type in [
-            "img_option_diffs", "img_option_diffs_label_history"
-    ]:
+    if "img_option_diffs" in CFG.grammar_search_vlm_atom_label_prompt_type:
         # In this case, we need to load the 'per_scene_naive' prompt as well
         # for the first timestep.
         with open(filepath_prefix + "per_scene_naive.txt",
@@ -719,11 +718,17 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
             image_option_trajs, vlm, 1)
         logging.info("Done querying VLM for candidate atoms!")
         # We now parse and sanitize this set of atoms.
-        atom_proposals_set = set([
-            "Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)",
-            "IsGrilled(patty)", "Cut(lettuce)", "Diced(lettuce)",
-            "Sliced(lettuce)", "Whole(lettuce)", "Shredded(lettuce)"
-        ])
+        if CFG.use_hardcoded_vlm_atom_proposals:
+            if CFG.env in ["burger, burger_no_move"]:
+                atom_proposals_set = set([
+                    "Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)",
+                    "IsGrilled(patty)", "Cut(lettuce)", "Diced(lettuce)",
+                    "Sliced(lettuce)", "Whole(lettuce)", "Shredded(lettuce)"
+                ])
+            else:
+                raise NotImplementedError(
+                    f"Hardcoded VLM atom proposals not implemented for {CFG.env}.")
+
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
         # atom_proposals_set = set(
@@ -1067,6 +1072,9 @@ def create_ground_atom_data_from_generated_demos(
                             [cropped_curr_img, cropped_prev_img]
                         ]
                         cropped_state_imgs.append(cropped_imgs)
+                else:
+                    raise NotImplementedError(
+                        f"Cropped images not implemented for {CFG.env}.")
             state_imgs.append([
                 PIL.Image.fromarray(img_arr)  # type: ignore
                 for img_arr in state.simulator_state["images"]
