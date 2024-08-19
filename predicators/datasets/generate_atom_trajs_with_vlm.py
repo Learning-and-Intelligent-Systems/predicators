@@ -721,13 +721,16 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         if CFG.use_hardcoded_vlm_atom_proposals:
             if CFG.env in ["burger, burger_no_move"]:
                 atom_proposals_set = set([
-                    "Cooked(patty)", "Raw(patty)", "IsBrown(patty)", "IsPink(patty)",
-                    "IsGrilled(patty)", "Cut(lettuce)", "Diced(lettuce)",
-                    "Sliced(lettuce)", "Whole(lettuce)", "Shredded(lettuce)"
+                    "Cooked(patty)", "Raw(patty)", "IsBrown(patty)",
+                    "IsPink(patty)", "IsGrilled(patty)", "Cut(lettuce)",
+                    "Diced(lettuce)", "Sliced(lettuce)", "Whole(lettuce)",
+                    "Shredded(lettuce)"
                 ])
             else:
                 raise NotImplementedError(
-                    f"Hardcoded VLM atom proposals not implemented for {CFG.env}.")
+                    "Hardcoded VLM atom proposals " \
+                    f"not implemented for {CFG.env}."
+                )
 
         atom_proposals_set = _parse_unique_atom_proposals_from_list(
             atom_strs_proposals_list, all_task_objs)
