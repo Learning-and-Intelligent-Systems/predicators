@@ -746,7 +746,7 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
     atom_proposals_set = _parse_unique_atom_proposals_from_list(
         atom_strs_proposals_list, all_task_objs)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
-    # Given this set of unique atom propoals, we now ask the VLM
+    # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
     # NOTE: we convert to a sorted list here to get rid of randomness from set
     # ordering.
