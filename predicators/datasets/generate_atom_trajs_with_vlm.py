@@ -195,7 +195,7 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
     filtered_atoms_list = []
     for a in atoms_list:
         # Get the names of the objects in this atom.
-        atom_args = a[a.find('(') + 1 : a.find(')')]
+        atom_args = a[a.find('(') + 1:a.find(')')]
         atom_objs = atom_args.split(',')
         keep = True
         for ao in atom_objs:
@@ -487,17 +487,10 @@ def _parse_structured_state_into_ground_atoms(
             for pred_name, objs_and_val_dict in structured_state.items():
                 for pred_i, (objs_strs, truth_val) in enumerate(
                         sorted(objs_and_val_dict.items())):
-                    # objs_types = [
-                    #     curr_obj_name_to_obj[obj_name].type
-                    #     for obj_name in objs_strs
-                    # ]
-                    try:
-                        objs_types = [
-                            curr_obj_name_to_obj[obj_name].type
-                            for obj_name in objs_strs
-                        ]
-                    except:
-                        import pdb; pdb.set_trace()
+                    objs_types = [
+                        curr_obj_name_to_obj[obj_name].type
+                        for obj_name in objs_strs
+                    ]
                     pred_name_and_obj_types_str = pred_name + "(" + ",".join(
                         str(obj_type.name) for obj_type in objs_types) + ")"
                     if pred_name_and_obj_types_str not in \
@@ -752,7 +745,6 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
     # We now parse and sanitize this set of atoms.
     atom_proposals_set = _parse_unique_atom_proposals_from_list(
         atom_strs_proposals_list, all_task_objs)
-    import pdb; pdb.set_trace()
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom propoals, we now ask the VLM
     # to label these in every scene from the demonstrations.

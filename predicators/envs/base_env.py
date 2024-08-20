@@ -382,7 +382,8 @@ class BaseEnv(abc.ABC):
         assert isinstance(self._current_observation, State)
         return self._current_observation.copy()
 
-    def get_vlm_debug_atom_strs(self, train_tasks: List[Task]) -> List[List[str]]:
+    def get_vlm_debug_atom_strs(self,
+                                train_tasks: List[Task]) -> List[List[str]]:
         """A 'debug grammar' set of predicates that should be sufficient for
         completing the task; useful for comparing different methods of VLM
         truth-value labelling given the same set of atom proposals to label.

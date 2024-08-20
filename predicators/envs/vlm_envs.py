@@ -131,11 +131,13 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             for _ in range(num)
         ]
 
-    def get_vlm_debug_atom_strs(self, train_tasks: List[Task]) -> Set[str]:
+    def get_vlm_debug_atom_strs(self,
+                                train_tasks: List[Task]) -> List[List[str]]:
         del train_tasks
-        return set([
+        atom_strs = set([
             "hand_grasping_spoon(hand, spoon)",
             "hand_grasping_teabag(hand, teabag)", "spoon_in_cup(spoon, cup)",
             "spoon_on_plate(spoon, plate)", "teabag_in_cup(teabag, cup)",
             "teabag_on_plate(teabag, plate)"
         ])
+        return [[a] for a in atom_strs]
