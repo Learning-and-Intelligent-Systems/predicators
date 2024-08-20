@@ -627,8 +627,6 @@ class BurgerEnv(BaseEnv):
         assert next_state.simulator_state is not None
         next_state.simulator_state["images"] = self.render_state(
             next_state, DefaultEnvironmentTask)
-        # import PIL.Image
-        # PIL.Image.fromarray(next_state.simulator_state["images"][0]).show()
 
         return next_state
 
