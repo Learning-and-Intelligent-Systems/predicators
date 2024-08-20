@@ -9,6 +9,7 @@ import copy
 import io
 import logging
 from typing import Callable, List, Optional, Sequence, Set, Tuple
+from collections import defaultdict
 
 import matplotlib
 import matplotlib.image as mpimg
@@ -1479,15 +1480,11 @@ class BurgerNoMoveEnv(BurgerEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        # return {
-        #     self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,
-        #     self._On, self._OnGround, self._Clear, self._GoalHack2,
-        #     self._GoalHack3, self._GoalHack4, self._GoalHack5, self._GoalHack6,
-        #     self._GoalHack7
-        # }
         return {
             self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,
             self._On, self._OnGround, self._Clear, self._GoalHack2,
+            self._GoalHack3, self._GoalHack4, self._GoalHack5, self._GoalHack6,
+            self._GoalHack7
         }
 
     @property
@@ -1496,25 +1493,20 @@ class BurgerNoMoveEnv(BurgerEnv):
 
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
-        # return {
-        #     self._On, self._OnGround, self._GoalHack2, self._GoalHack3,
-        #     self._GoalHack4, self._GoalHack5, self._GoalHack6, self._GoalHack7
-        # }
-        return {
-            self._On, self._OnGround, self._GoalHack2
+        preds_by_task_type = {
+            "more_stacks": {self._On, self._OnGround, self._GoalHack2},
+            "fatter_burger": {self._On, self._OnGround, self._GoalHack2, self._GoalHack5, self._GoalHack6, self._GoalHack7},
+            "combo_burger": {self._On, self._OnGround, self._GoalHack2, self._GoalHack3, self._GoalHack4}
         }
+        return preds_by_task_type[CFG.burger_no_move_task_type]
 
     def get_vlm_debug_atom_strs(self, train_tasks: List[Task]) -> List[List[str]]:
-        atom_strs = set([
-            "Cooked(patty1)",
-            "Raw(patty1)",
-            "IsBrown(patty1)",
-            "IsPink(patty1)",
-            "IsGrilled(patty1)",
-            "Cut(lettuce1)",
-            "Diced(lettuce1)",
-            "Sliced(lettuce1)",
-            "Whole(lettuce1)",
-            "Shredded(lettuce1)"
-        ])
+        default = super().get_vlm_debug_atom_strs(train_tasks)
+        atom_strs_by_task_type = {
+            "more_stacks": ["Cooked(patty1)"],
+            "fatter_burger": ["Cooked(patty1)"],
+            "combo_burger": ["Cooked(patty1)", "Cut(lettuce1)", "Whole(lettuce1)"]
+        }
+        atom_strs_by_task_type = defaultdict(lambda: default, atom_strs_by_task_type)
+        atom_strs = atom_strs_by_task_type[CFG.burger_no_move_task_type]
         return [[a] for a in atom_strs]

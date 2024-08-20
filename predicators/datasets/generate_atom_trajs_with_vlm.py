@@ -189,11 +189,26 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
     """Given a list of atoms, label every state in an ImageOptionTrajectory
     with the truth values of those atoms."""
     idx, traj = indexed_traj
+    # Some of the atoms may be over objects that aren't in this trajectory,
+    # so filter those atoms out.
+    obj_names = [o.name for o in traj.objects]
+    filtered_atoms_list = []
+    for a in atoms_list:
+        # Get the names of the objects in this atom.
+        atom_args = a[a.find('(') + 1 : a.find(')')]
+        atom_objs = atom_args.split(',')
+        keep = True
+        for ao in atom_objs:
+            if ao not in obj_names:
+                keep = False
+                continue
+        if keep:
+            filtered_atoms_list.append(a)
     curr_scenes_labelled = 0
     total_scenes_to_label = len(traj.imgs)
     curr_traj_txt_outputs: List[str] = []
     prompts_for_traj = _generate_prompt_for_scene_labelling(
-        traj, atoms_list, label_history=curr_traj_txt_outputs)
+        traj, filtered_atoms_list, label_history=curr_traj_txt_outputs)
     for text_prompt, img_prompt in prompts_for_traj:
         # Sample VLM outputs with temperature 0 in an attempt to be
         # accurate.
@@ -261,6 +276,8 @@ def _parse_unique_atom_proposals_from_list(
     objects that aren't known, (3) removing any duplicate atoms.
     """
     atoms_strs_set = set()
+    all_atom_groundings = set()
+    unique_predicates = set()
     obj_names_set = set(obj.name for obj in relevant_objects_across_demos)
 
     # We'll use these mappings to generate VLM atoms for every possible
@@ -297,6 +314,7 @@ def _parse_unique_atom_proposals_from_list(
                         atom_is_valid = False
                         break
             if atom_is_valid:
+                atoms_strs_set.add(atom)
                 # Create VLM atoms for all other possible groundings of this
                 # atom's predicate.
                 types_in_atom = [obj_name_to_type[n] for n in obj_names_list]
@@ -305,16 +323,21 @@ def _parse_unique_atom_proposals_from_list(
                 ]
                 combos = list(itertools.product(*names_matching_each_type))
                 predicate = atom.split('(')[0]
+                unique_predicates.add(predicate)
                 # Note that this includes the original grounding.
                 other_groundings = [
                     f"{predicate}({', '.join(c)})" for c in combos
                 ]
                 for og in other_groundings:
-                    atoms_strs_set.add(og)
+                    all_atom_groundings.add(og)
             logging.debug(f"Proposed atom: {atom} is valid: {atom_is_valid}")
     logging.info(f"VLM proposed a total of {num_atoms_considered} atoms.")
     logging.info(f"Of these, {len(atoms_strs_set)} were valid and unique.")
-    return atoms_strs_set
+    logging.info(
+        f"For the {len(unique_predicates)} predicates, there were " \
+        f"{len(all_atom_groundings)} unique groundings."
+    )
+    return all_atom_groundings
 
 
 def _save_labelled_trajs_as_txt(
@@ -464,10 +487,17 @@ def _parse_structured_state_into_ground_atoms(
             for pred_name, objs_and_val_dict in structured_state.items():
                 for pred_i, (objs_strs, truth_val) in enumerate(
                         sorted(objs_and_val_dict.items())):
-                    objs_types = [
-                        curr_obj_name_to_obj[obj_name].type
-                        for obj_name in objs_strs
-                    ]
+                    # objs_types = [
+                    #     curr_obj_name_to_obj[obj_name].type
+                    #     for obj_name in objs_strs
+                    # ]
+                    try:
+                        objs_types = [
+                            curr_obj_name_to_obj[obj_name].type
+                            for obj_name in objs_strs
+                        ]
+                    except:
+                        import pdb; pdb.set_trace()
                     pred_name_and_obj_types_str = pred_name + "(" + ",".join(
                         str(obj_type.name) for obj_type in objs_types) + ")"
                     if pred_name_and_obj_types_str not in \
@@ -724,7 +754,7 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         atom_strs_proposals_list, all_task_objs)
     import pdb; pdb.set_trace()
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
-    # Given this set of unique atom proposals, we now ask the VLM
+    # Given this set of unique atom propoals, we now ask the VLM
     # to label these in every scene from the demonstrations.
     # NOTE: we convert to a sorted list here to get rid of randomness from set
     # ordering.

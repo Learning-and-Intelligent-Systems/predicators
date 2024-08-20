@@ -478,9 +478,13 @@ _DEBUG_GEOMETRIC_PREDICATES = {
 _DEBUG_GEOMETRIC_PREDICATES = defaultdict(list, _DEBUG_GEOMETRIC_PREDICATES)
 
 _DEBUG_VLM_PREDICATES = {
+    # Note: depending on CFG.burger_no_move_task_type, you might want to exclude
+    # some of the predicates here -- they won't be useful for the task and may
+    # cause problems in operator learning if labeled incorrectly.
     "burger_no_move": [
-        "Cooked0", "Whole0", "Diced0", "Cut0", "Sliced0", "Shredded0",
-        "Chopped0"
+        "Cooked0",
+        "Whole0",
+        "Cut0",
     ]
 }
 _DEBUG_VLM_PREDICATES = defaultdict(list, _DEBUG_VLM_PREDICATES)
