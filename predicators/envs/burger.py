@@ -22,7 +22,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultEnvironmentTask, \
     EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
-    Video
+    Video, Task
 
 
 class BurgerEnv(BaseEnv):
@@ -1479,11 +1479,15 @@ class BurgerNoMoveEnv(BurgerEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
+        # return {
+        #     self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,
+        #     self._On, self._OnGround, self._Clear, self._GoalHack2,
+        #     self._GoalHack3, self._GoalHack4, self._GoalHack5, self._GoalHack6,
+        #     self._GoalHack7
+        # }
         return {
             self._IsCooked, self._IsSliced, self._HandEmpty, self._Holding,
             self._On, self._OnGround, self._Clear, self._GoalHack2,
-            self._GoalHack3, self._GoalHack4, self._GoalHack5, self._GoalHack6,
-            self._GoalHack7
         }
 
     @property
@@ -1492,7 +1496,25 @@ class BurgerNoMoveEnv(BurgerEnv):
 
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
+        # return {
+        #     self._On, self._OnGround, self._GoalHack2, self._GoalHack3,
+        #     self._GoalHack4, self._GoalHack5, self._GoalHack6, self._GoalHack7
+        # }
         return {
-            self._On, self._OnGround, self._GoalHack2, self._GoalHack3,
-            self._GoalHack4, self._GoalHack5, self._GoalHack6, self._GoalHack7
+            self._On, self._OnGround, self._GoalHack2
         }
+
+    def get_vlm_debug_atom_strs(self, train_tasks: List[Task]) -> List[List[str]]:
+        atom_strs = set([
+            "Cooked(patty1)",
+            "Raw(patty1)",
+            "IsBrown(patty1)",
+            "IsPink(patty1)",
+            "IsGrilled(patty1)",
+            "Cut(lettuce1)",
+            "Diced(lettuce1)",
+            "Sliced(lettuce1)",
+            "Whole(lettuce1)",
+            "Shredded(lettuce1)"
+        ])
+        return [[a] for a in atom_strs]

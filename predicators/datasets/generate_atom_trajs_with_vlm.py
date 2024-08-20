@@ -717,40 +717,12 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
             image_option_trajs, vlm, 1)
         logging.info("Done querying VLM for candidate atoms!")
-        # We now parse and sanitize this set of atoms.
-        if CFG.use_hardcoded_vlm_atom_proposals:
-            if CFG.env in ["burger, burger_no_move"]:
-                atom_proposals_set = set([
-                    "Cooked(patty)", "Raw(patty)", "IsBrown(patty)",
-                    "IsPink(patty)", "IsGrilled(patty)", "Cut(lettuce)",
-                    "Diced(lettuce)", "Sliced(lettuce)", "Whole(lettuce)",
-                    "Shredded(lettuce)"
-                ])
-                # atom_proposals_set = set(
-                #     [
-                #         "Cooked(patty1)",
-                #         "Raw(patty1)",
-                #         "IsBrown(patty1)",
-                #         "IsPink(patty1)",
-                #         "IsGrilled(patty1)",
-                #         "Cooked(patty2)",
-                #         "Raw(patty2)",
-                #         "IsBrown(patty2)",
-                #         "IsPink(patty2)",
-                #         "IsGrilled(patty2)",
-                #         "Chopped(lettuce1)",
-                #         "Cut(lettuce1)"
-                #     ]
-                # )
-            else:
-                raise NotImplementedError(
-                    "Hardcoded VLM atom proposals " \
-                    f"not implemented for {CFG.env}."
-                )
-        atom_proposals_set = _parse_unique_atom_proposals_from_list(
-            atom_strs_proposals_list, all_task_objs)
     else:  # pragma: no cover.
-        atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
+        atom_strs_proposals_list = env.get_vlm_debug_atom_strs(train_tasks)
+    # We now parse and sanitize this set of atoms.
+    atom_proposals_set = _parse_unique_atom_proposals_from_list(
+        atom_strs_proposals_list, all_task_objs)
+    import pdb; pdb.set_trace()
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
@@ -1020,7 +992,7 @@ def create_ground_atom_data_from_generated_demos(
             assert state.simulator_state is not None
             assert "images" in state.simulator_state
             if CFG.vlm_include_cropped_images:
-                if CFG.env in ["burger, burger_no_move"]:
+                if CFG.env in ["burger", "burger_no_move"]:
                     assert isinstance(env, (BurgerEnv, BurgerNoMoveEnv))
                     # For the non-initial states, get a cropped image that is a
                     # close-up of the relevant objects in the action that was
