@@ -359,6 +359,9 @@ class GlobalSettings:
     # Which type of train/test tasks to generate. Options are "more_stacks",
     # "fatter_burger", "combo_burger".
     burger_no_move_task_type = "more_stacks"
+    # Replace actual rendering with dummy rendering (black 16x16 image) to speed
+    # up rendering -- used in testing or when debugging.
+    burger_dummy_render = False
 
     # parameters for random options approach
     random_options_max_tries = 100

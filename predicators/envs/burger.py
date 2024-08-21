@@ -873,6 +873,8 @@ class BurgerEnv(BaseEnv):
                      task: EnvironmentTask,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> Video:
+        if CFG.burger_dummy_render:
+            return [np.zeros((16, 16), dtype=np.uint8)]
         fig = self.render_state_plt(state, task, action, caption)
         # Create an in-memory binary stream.
         buf = io.BytesIO()
