@@ -823,3 +823,29 @@ def test_create_ground_atom_data_from_generated_demos(config):
     vlm_dataset = create_ground_atom_data_from_generated_demos(
         dataset, env, predicates, train_tasks, vlm)
     assert len(vlm_dataset.annotations) == 1
+
+
+def test_vlm_include_cropped_images():
+    utils.reset_config({
+        "env": "cover",
+        "approach": "oracle",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": 1,
+        "included_options": "PickPlace",
+        "excluded_predicates": "all",
+        "vlm_include_cropped_images": True
+    })
+    env = CoverEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    options = parse_config_included_options(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
+    for state in dataset.trajectories[0].states:
+        state.simulator_state = {}
+        state.simulator_state["images"] = [np.zeros((32, 32), dtype=np.uint8)]
+    vlm = _DummyVLM()
+    with pytest.raises(NotImplementedError) as e:
+        vlm_dataset = create_ground_atom_data_from_generated_demos(dataset, env, predicates, train_tasks, vlm)
+        assert "Cropped images not implemented for cover." in str(e)

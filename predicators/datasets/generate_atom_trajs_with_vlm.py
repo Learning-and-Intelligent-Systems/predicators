@@ -740,7 +740,7 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
             image_option_trajs, vlm, 1)
         logging.info("Done querying VLM for candidate atoms!")
-    else:  # pragma: no cover.
+    else:  # pragma: no cover
         atom_strs_proposals_list = env.get_vlm_debug_atom_strs(train_tasks)
     # We now parse and sanitize this set of atoms.
     atom_proposals_set = _parse_unique_atom_proposals_from_list(
@@ -998,7 +998,7 @@ def create_ground_atom_data_from_generated_demos(
                 first_iteration = False
             else:
                 total_num_segment_states -= 1  # avoid double-counting states!
-        if total_num_segment_states != len(traj.states):  # pragma: no cover.
+        if total_num_segment_states != len(traj.states):  # pragma: no cover
             logging.info(
                 ("WARNING: there are fewer total states after option-based "
                  "segmentation than there are in the original trajectory. "
@@ -1013,8 +1013,8 @@ def create_ground_atom_data_from_generated_demos(
         for i, state in enumerate(curr_traj_states_for_vlm):
             assert state.simulator_state is not None
             assert "images" in state.simulator_state
-            if CFG.vlm_include_cropped_images:  # pragma: no cover
-                if CFG.env in ["burger", "burger_no_move"]:
+            if CFG.vlm_include_cropped_images:
+                if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
                     assert isinstance(env, (BurgerEnv, BurgerNoMoveEnv))
                     # For the non-initial states, get a cropped image that is a
                     # close-up of the relevant objects in the action that was
