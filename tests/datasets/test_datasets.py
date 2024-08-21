@@ -826,6 +826,8 @@ def test_create_ground_atom_data_from_generated_demos(config):
 
 
 def test_vlm_include_cropped_images():
+    """Tests creating a ground atom data from generated demos with cropped
+    images."""
     utils.reset_config({
         "env": "cover",
         "approach": "oracle",
@@ -847,5 +849,6 @@ def test_vlm_include_cropped_images():
         state.simulator_state["images"] = [np.zeros((32, 32), dtype=np.uint8)]
     vlm = _DummyVLM()
     with pytest.raises(NotImplementedError) as e:
-        vlm_dataset = create_ground_atom_data_from_generated_demos(dataset, env, predicates, train_tasks, vlm)
+        _ = create_ground_atom_data_from_generated_demos(
+            dataset, env, predicates, train_tasks, vlm)
         assert "Cropped images not implemented for cover." in str(e)
