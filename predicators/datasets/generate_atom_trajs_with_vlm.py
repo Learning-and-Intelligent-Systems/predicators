@@ -136,15 +136,20 @@ def _generate_prompt_for_scene_labelling(
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
             if CFG.vlm_include_cropped_images:
-                curr_prompt_imgs.extend(
-                    [traj.cropped_imgs[i - 1][1], traj.cropped_imgs[i - 1][0]])
+                if CFG.env in ["burger", "burger_no_move"]:
+                    curr_prompt_imgs.extend([
+                        traj.cropped_imgs[i - 1][1],
+                        traj.cropped_imgs[i - 1][0]
+                    ])
+                else:
+                    raise NotImplementedError(
+                        f"Cropped images not implemented for {CFG.env}.")
             curr_prompt += "\n\nSkill executed between states: "
             skill_name = traj.actions[i - 1].name + str(
                 traj.actions[i - 1].objects)
             curr_prompt += skill_name
 
-            if CFG.grammar_search_vlm_atom_label_prompt_type == \
-                "img_option_diffs_label_history":
+            if "label_history" in CFG.grammar_search_vlm_atom_label_prompt_type:
                 curr_prompt += "\n\nPredicate values in the first scene, " \
                 "before the skill was executed: \n"
                 curr_prompt += label_history[-1]
@@ -1162,7 +1167,10 @@ def create_ground_atom_data_from_saved_img_trajs(
         vlm: Optional[VisionLanguageModel] = None) -> Dataset:
     """Given a folder containing trajectories that have images of scenes for
     each state, as well as options that transition between these states, output
-    a dataset."""
+    a dataset.
+
+    This method does not currently support including cropped images.
+    """
     trajectories_folder_path = os.path.join(
         utils.get_path_to_predicators_root(), CFG.data_dir,
         CFG.vlm_trajs_folder_name)
