@@ -135,8 +135,9 @@ def _generate_prompt_for_scene_labelling(
             curr_prompt_imgs = [
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
-            curr_prompt_imgs.extend(
-                [traj.cropped_imgs[i - 1][1], traj.cropped_imgs[i - 1][0]])
+            if CFG.vlm_include_cropped_images:
+                curr_prompt_imgs.extend(
+                    [traj.cropped_imgs[i - 1][1], traj.cropped_imgs[i - 1][0]])
             curr_prompt += "\n\nSkill executed between states: "
             skill_name = traj.actions[i - 1].name + str(
                 traj.actions[i - 1].objects)
@@ -1012,7 +1013,7 @@ def create_ground_atom_data_from_generated_demos(
         for i, state in enumerate(curr_traj_states_for_vlm):
             assert state.simulator_state is not None
             assert "images" in state.simulator_state
-            if CFG.vlm_include_cropped_images:
+            if CFG.vlm_include_cropped_images:  # pragma: no cover
                 if CFG.env in ["burger", "burger_no_move"]:
                     assert isinstance(env, (BurgerEnv, BurgerNoMoveEnv))
                     # For the non-initial states, get a cropped image that is a
