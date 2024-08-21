@@ -106,7 +106,6 @@ def _generate_prompt_for_scene_labelling(
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-
     # The prompt ends with a section for 'Predicates', so list these.
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
