@@ -136,7 +136,7 @@ def _generate_prompt_for_scene_labelling(
                 imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
             ]
             if CFG.vlm_include_cropped_images:
-                if CFG.env in ["burger", "burger_no_move"]:
+                if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
                     curr_prompt_imgs.extend([
                         traj.cropped_imgs[i - 1][1],
                         traj.cropped_imgs[i - 1][0]
