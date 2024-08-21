@@ -485,7 +485,7 @@ _DEBUG_VLM_PREDICATES = {
         "Cooked0",
         "Whole0",
         "Cut0",
-    ]
+    ],
 }
 _DEBUG_VLM_PREDICATES = defaultdict(list, _DEBUG_VLM_PREDICATES)
 
