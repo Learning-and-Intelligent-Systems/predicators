@@ -177,6 +177,12 @@ def test_burger():
                                  ]) in utils.abstract(traj.states[-1],
                                                       env.predicates)
 
+    # Test _Clear_holds -- that a held object is not clear.
+    Clear = [p for p in env.predicates if p.name == "Clear"][0]
+    assert GroundAtom(Clear,
+                      [patty]) not in utils.abstract(traj.states[9],
+                                                     env.predicates)
+
     # Test get_cell_in_direction
     x, y = env.get_cell_in_direction(1, 1, "left")
     assert x == 0 and y == 1
@@ -208,6 +214,10 @@ def test_burger():
     env.render_state_plt(traj.states[0], task)
     env.render_state_plt(traj.states[5], task)
     env.render_state_plt(traj.states[-1], task)
+    # Test labeling when a cutting board is not in the state.
+    no_cutting_board_state = traj.states[12].copy()
+    del no_cutting_board_state.data[env._cutting_board]  # pylint: disable=protected-access
+    env.render_state_plt(no_cutting_board_state, task)
 
     # Test interface for collecting demonstrations
     event_to_action = env.get_event_to_action_fn()
