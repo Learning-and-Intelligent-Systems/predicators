@@ -77,6 +77,16 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @property
+    def agent_goal_predicates(self) -> Set[Predicate]:
+        """Get the goal predicates that we want the agent to use, which may be
+        different than the ones the demonstrator uses.
+
+        This is used when inventing VLM predicates. Unless overridden,
+        these are the same as the original goal predicates.
+        """
+        return self.goal_predicates
+
+    @property
     @abc.abstractmethod
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment."""
@@ -427,7 +437,8 @@ class BaseEnv(abc.ABC):
         assert isinstance(self._current_observation, State)
         return self._current_observation.copy()
 
-    def get_vlm_debug_atom_strs(self, train_tasks: List[Task]) -> Set[str]:
+    def get_vlm_debug_atom_strs(self,
+                                train_tasks: List[Task]) -> List[List[str]]:
         """A 'debug grammar' set of predicates that should be sufficient for
         completing the task; useful for comparing different methods of VLM
         truth-value labelling given the same set of atom proposals to label.
@@ -447,4 +458,7 @@ class BaseEnv(abc.ABC):
             ", ".join([o.name for o in atom.objects]) + ")"
             for atom in sorted(all_ground_atoms_set)
         }
-        return atom_strs
+        # We return the atom strings in this format to match the format they are
+        # outputted in when querying the VLM. That way, we can use the same
+        # function to sanitize atoms regardless of their origin.
+        return [[a] for a in atom_strs]

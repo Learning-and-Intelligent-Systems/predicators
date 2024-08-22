@@ -47,14 +47,16 @@ from bosdyn.client import math_helpers
 from gym.spaces import Box
 from matplotlib import patches
 from numpy.typing import NDArray
+from PIL import ImageDraw, ImageFont
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
-from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    OpenAIVLM, VisionLanguageModel
+from predicators.pretrained_model_interface import GoogleGeminiLLM, \
+    GoogleGeminiVLM, LargeLanguageModel, OpenAILLM, OpenAIVLM, \
+    VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -164,7 +166,7 @@ def count_branching_factor(strips_ops: List[STRIPSOperator],
     return total_branching_factor
 
 
-def segment_trajectory_to_state_sequence(
+def segment_trajectory_to_start_end_state_sequence(
         seg_traj: List[Segment]) -> List[State]:
     """Convert a trajectory of segments into a trajectory of states, made up of
     only the initial/final states of the segments.
@@ -2321,19 +2323,17 @@ def strip_predicate(predicate: Predicate) -> Predicate:
 
 
 def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
-    """Create a new task where any excluded predicates have their classifiers
-    removed."""
+    """Create a new task where any excluded goal predicates have their
+    classifiers removed."""
     stripped_goal: Set[GroundAtom] = set()
     for atom in task.goal:
-        # The atom's goal is known.
         if atom.predicate in included_predicates:
             stripped_goal.add(atom)
             continue
-        # The atom's goal is unknown.
         stripped_pred = strip_predicate(atom.predicate)
         stripped_atom = GroundAtom(stripped_pred, atom.objects)
         stripped_goal.add(stripped_atom)
-    return Task(task.init, stripped_goal)
+    return Task(task.init, stripped_goal, alt_goal=task.alt_goal)
 
 
 def create_vlm_predicate(
@@ -2350,12 +2350,148 @@ def create_vlm_predicate(
     return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
 
 
+def create_llm_by_name(
+        model_name: str) -> LargeLanguageModel:  # pragma: no cover
+    """Create particular llm using a provided name."""
+    if "gemini" in model_name:
+        return GoogleGeminiLLM(model_name)
+    return OpenAILLM(model_name)
+
+
 def create_vlm_by_name(
         model_name: str) -> VisionLanguageModel:  # pragma: no cover
     """Create particular vlm using a provided name."""
     if "gemini" in model_name:
         return GoogleGeminiVLM(model_name)
     return OpenAIVLM(model_name)
+
+
+def parse_model_output_into_option_plan(
+    model_prediction: str, objects: Collection[Object],
+    types: Collection[Type], options: Collection[ParameterizedOption],
+    parse_continuous_params: bool
+) -> List[Tuple[ParameterizedOption, Sequence[Object], Sequence[float]]]:
+    """Assuming text for an option plan that is predicted as text by a large
+    model, parse it into a sequence of ParameterizedOptions coupled with a list
+    of objects and continuous parameters that will be used to ground the
+    ParameterizedOption.
+
+    We assume the model's output is such that each line is formatted as
+    option_name(obj0:type0, obj1:type1,...)[continuous_param0,
+    continuous_param1, ...].
+    """
+    option_plan: List[Tuple[ParameterizedOption, Sequence[Object],
+                            Sequence[float]]] = []
+    # Setup dictionaries enabling us to easily map names to specific
+    # Python objects during parsing.
+    option_name_to_option = {op.name: op for op in options}
+    type_name_to_type = {typ.name: typ for typ in types}
+    obj_name_to_obj = {o.name: o for o in objects}
+    options_str_list = model_prediction.split('\n')
+    for option_str in options_str_list:
+        option_str_stripped = option_str.strip()
+        option_name = option_str_stripped.split('(')[0]
+        # Skip empty option strs.
+        if not option_str:
+            continue
+        if option_name not in option_name_to_option.keys() or \
+            "(" not in option_str:
+            logging.info(
+                f"Line {option_str} output by model doesn't "
+                "contain a valid option name. Terminating option plan "
+                "parsing.")
+            break
+        if parse_continuous_params and "[" not in option_str:
+            logging.info(
+                f"Line {option_str} output by model doesn't contain a "
+                "'[' and is thus improperly formatted.")
+            break
+        option = option_name_to_option[option_name]
+        # Now that we have the option, we need to parse out the objects
+        # along with specified types.
+        try:
+            start_index = option_str_stripped.index('(') + 1
+            end_index = option_str_stripped.index(')', start_index)
+        except ValueError:
+            logging.info(
+                f"Line {option_str} output by model is improperly formatted.")
+            break
+        typed_objects_str_list = option_str_stripped[
+            start_index:end_index].split(',')
+        objs_list = []
+        continuous_params_list = []
+        malformed = False
+        for i, type_object_string in enumerate(typed_objects_str_list):
+            object_type_str_list = type_object_string.strip().split(':')
+            # We expect this list to be [object_name, type_name].
+            if len(object_type_str_list) != 2:
+                logging.info(f"Line {option_str} output by model has a "
+                             "malformed object-type list.")
+                malformed = True
+                break
+            object_name = object_type_str_list[0]
+            type_name = object_type_str_list[1]
+            if object_name not in obj_name_to_obj.keys():
+                logging.info(f"Line {option_str} output by model has an "
+                             "invalid object name.")
+                malformed = True
+                break
+            obj = obj_name_to_obj[object_name]
+            # Check that the type of this object agrees
+            # with what's expected given the ParameterizedOption.
+            if type_name not in type_name_to_type:
+                logging.info(f"Line {option_str} output by model has an "
+                             "invalid type name.")
+                malformed = True
+                break
+            try:
+                if option.types[i] not in type_name_to_type[
+                        type_name].get_ancestors():
+                    logging.info(
+                        f"Line {option_str} output by model has an "
+                        "invalid type that doesn't agree with the option"
+                        f"{option}")
+                    malformed = True
+                    break
+            except IndexError:
+                # In this case, there's more supplied arguments than the
+                # option has.
+                logging.info(f"Line {option_str} output by model has an "
+                             "too many object arguments for option"
+                             f"{option}")
+                malformed = True
+                break
+            objs_list.append(obj)
+        # The types of the objects match, but we haven't yet checked if
+        # all arguments of the option have an associated object.
+        if len(objs_list) != len(option.types):
+            malformed = True
+        # Now, we attempt to parse out the continuous parameters.
+        if parse_continuous_params:
+            params_str_list = option_str_stripped.split('[')[1].strip(
+                ']').split(',')
+            for i, continuous_params_str in enumerate(params_str_list):
+                stripped_continuous_param_str = continuous_params_str.strip()
+                if len(stripped_continuous_param_str) == 0:
+                    continue
+                try:
+                    curr_cont_param = float(stripped_continuous_param_str)
+                except ValueError:
+                    logging.info(f"Line {option_str} output by model has an "
+                                 "invalid continouous parameter that can't be"
+                                 "converted to a float.")
+                    malformed = True
+                    break
+                continuous_params_list.append(curr_cont_param)
+            if len(continuous_params_list) != option.params_space.shape[0]:
+                logging.info(f"Line {option_str} output by model has "
+                             "invalid continouous parameter(s) that don't "
+                             f"agree with {option}{option.params_space}.")
+                malformed = True
+                break
+        if not malformed:
+            option_plan.append((option, objs_list, continuous_params_list))
+    return option_plan
 
 
 def query_vlm_for_atom_vals(
@@ -2368,8 +2504,8 @@ def query_vlm_for_atom_vals(
     # This only works if state.simulator_state is some list of images that the
     # vlm can be called on.
     assert state.simulator_state is not None
-    assert isinstance(state.simulator_state, List)
-    imgs = state.simulator_state
+    assert isinstance(state.simulator_state["images"], List)
+    imgs = state.simulator_state["images"]
     vlm_atoms = sorted(vlm_atoms)
     atom_queries_str = "\n* "
     atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
@@ -2432,7 +2568,8 @@ def abstract(state: State,
         for pred in vlm_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
-        atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+        true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+        atoms |= true_vlm_atoms
     return atoms
 
 
@@ -2839,6 +2976,24 @@ def save_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
         pkl.dump(ground_atom_dataset_to_pkl, f)
 
 
+def merge_ground_atom_datasets(
+        gad1: List[GroundAtomTrajectory],
+        gad2: List[GroundAtomTrajectory]) -> List[GroundAtomTrajectory]:
+    """Merges two ground atom datasets sharing the same underlying low-level
+    trajectory via the union of ground atoms at each state."""
+    assert len(gad1) == len(
+        gad2), "Ground atom datasets must be of the same length to merge them."
+    merged_ground_atom_dataset = []
+    for ground_atom_traj1, ground_atom_traj2 in zip(gad1, gad2):
+        ll_traj1, ga_list1 = ground_atom_traj1
+        ll_traj2, ga_list2 = ground_atom_traj2
+        assert ll_traj1 == ll_traj2, "Ground atom trajectories must share " \
+            "the same low-level trajectory to be able to merge them."
+        merged_ga_list = [ga1 | ga2 for ga1, ga2 in zip(ga_list1, ga_list2)]
+        merged_ground_atom_dataset.append((ll_traj1, merged_ga_list))
+    return merged_ground_atom_dataset
+
+
 def extract_preds_and_types(
     ops: Collection[NSRTOrSTRIPSOperator]
 ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:
@@ -3169,12 +3324,8 @@ def _atoms_to_pyperplan_facts(
 ############################## End Pyperplan Glue ##############################
 
 
-def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
-                       predicates: Collection[Predicate],
-                       types: Collection[Type], domain_name: str) -> str:
-    """Create a PDDL domain str from STRIPSOperators or NSRTs."""
-    # Sort everything to ensure determinism.
-    preds_lst = sorted(predicates)
+def create_pddl_types_str(types: Collection[Type]) -> str:
+    """Create a PDDL-style types string that handles hierarchy correctly."""
     # Case 1: no type hierarchy.
     if all(t.parent is None for t in types):
         types_str = " ".join(t.name for t in sorted(types))
@@ -3201,6 +3352,16 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
             else:
                 child_type_str = " ".join(t.name for t in child_types)
                 types_str += f"\n    {child_type_str} - {parent_type.name}"
+    return types_str
+
+
+def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
+                       predicates: Collection[Predicate],
+                       types: Collection[Type], domain_name: str) -> str:
+    """Create a PDDL domain str from STRIPSOperators or NSRTs."""
+    # Sort everything to ensure determinism.
+    preds_lst = sorted(predicates)
+    types_str = create_pddl_types_str(types)
     ops_lst = sorted(operators)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
@@ -3633,13 +3794,27 @@ def parse_config_excluded_predicates(
                 for pred in env.predicates if pred.name not in excluded_names
             }
             if CFG.offline_data_method != "demo+ground_atoms":
-                assert env.goal_predicates.issubset(included), \
+                if CFG.allow_exclude_goal_predicates:
+                    if not env.goal_predicates.issubset(included):
+                        logging.info("Note: excluding goal predicates!")
+                else:
+                    assert env.goal_predicates.issubset(included), \
                     "Can't exclude a goal predicate!"
     else:
         excluded_names = set()
         included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
+
+
+def replace_goals_with_agent_specific_goals(
+        included_predicates: Set[Predicate],
+        excluded_predicates: Set[Predicate], env: BaseEnv) -> Set[Predicate]:
+    """Replace original goal predicates with agent-specific goal predicates if
+    the environment defines them."""
+    preds = included_predicates - env.goal_predicates \
+        | env.agent_goal_predicates - excluded_predicates
+    return preds
 
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
@@ -3967,3 +4142,43 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"
     return state
+
+
+def get_scaled_default_font(
+        draw: ImageDraw.ImageDraw,
+        size: int) -> ImageFont.FreeTypeFont:  # pragma: no cover
+    """Method that modifies the size of some provided PIL ImageDraw font.
+
+    Useful for scaling up font sizes when using PIL to insert text
+    directly into images.
+    """
+    # Determine the scaling factor
+    base_font = ImageFont.load_default()
+    width, height = draw.textbbox((0, 0), "A", font=base_font)[:2]
+    scale_factor = size / max(width, height)
+    # Scale the font using the factor
+    return base_font.font_variant(size=int(scale_factor *  # type: ignore
+                                           base_font.size))  # type: ignore
+
+
+def add_text_to_draw_img(
+        draw: ImageDraw.ImageDraw, position: Tuple[int, int], text: str,
+        font: ImageFont.FreeTypeFont
+) -> ImageDraw.ImageDraw:  # pragma: no cover
+    """Method that adds some text with a particular font at a particular pixel
+    position in an input PIL.ImageDraw.ImageDraw image.
+
+    Returns the modified ImageDraw.ImageDraw with the added text.
+    """
+    text_width, text_height = draw.textbbox((0, 0), text, font=font)[2:]
+    background_position = (position[0] - 5, position[1] - 5
+                           )  # Slightly larger than text
+    background_size = (text_width + 10, text_height + 10)
+    # Draw the background rectangle
+    draw.rectangle(
+        (background_position, (background_position[0] + background_size[0],
+                               background_position[1] + background_size[1])),
+        fill="black")
+    # Add the text to the image
+    draw.text(position, text, fill="red", font=font)
+    return draw

@@ -38,7 +38,45 @@ class _DummyVLM(VisionLanguageModel):
         completions = []
         for _ in range(num_completions):
             # If the query is asking for atom proposals.
-            if "Please provide predicates" in prompt:
+            if CFG.vlm_predicate_vision_api_generate_ground_atoms:
+                completion = (
+                    "```python\n"
+                    "def _Covers_holds(state: State, objects: Sequence[Object])"
+                    " -> bool:\n"
+                    "    block, target = objects\n"
+                    "    block_pose = state.get(block, 'pose')\n"
+                    "    block_width = state.get(block, 'width')\n"
+                    "    target_pose = state.get(target, 'pose')\n"
+                    "    target_width = state.get(target, 'width')\n"
+                    "    return (block_pose-block_width/2 <= "
+                    "target_pose-target_width/2) and "
+                    "(block_pose+block_width/2 >= target_pose+target_width/2) "
+                    "and "
+                    "state.get(block, 'grasp') == -1\n"
+                    "_Covers = Predicate('Covers', [_block_type, _target_type],"
+                    " _Covers_holds)"
+                    "```\n"
+                    ""
+                    "```python\n"
+                    "# An example of predicate name not found\n"
+                    "def _HandEmpty_holds(state: State, objects: "
+                    " Sequence[Object]) -> bool:\n"
+                    "    ... \n"
+                    "# The predicate is instantiated similar to above"
+                    "..."
+                    "```\n"
+                    ""
+                    "```python\n"
+                    "# An example of attribute error\n"
+                    "def _IsBlue_holds(state: State, objects: "
+                    " Sequence[Object]) -> bool:\n"
+                    "    block, = objects\n"
+                    "    block_color = state.get(block, 'color')\n"
+                    "    return block_color == 'blue'\n"
+                    "_IsBlue = Predicate('IsBlue', [_block_type],"
+                    " _IsBlue_holds)"
+                    "```\n")
+            elif "Please provide predicates" in prompt:
                 completion = "*Holding(spoon)\n*Fizz(buzz)\n" + \
                     "*Submerged(teabag)\n*Submerged(spoon)\n*IsRobot(robby)"
             # Else, if the query is asking for particular values.
@@ -584,6 +622,39 @@ def test_loading_saved_vlm_img_demos_folder_non_dummy_goal():
         # Remove regular files, ignore directories
         for filename in filenames:
             os.unlink(os.path.join(dirpath, filename))
+    # Coverage for code path where VLM trajectory labeling is not parallelized
+    utils.reset_config({
+        "env": "cover",
+        "num_train_tasks": 1,
+        "offline_data_method": "saved_vlm_img_demos_folder",
+        "data_dir": "tests/datasets/mock_vlm_datasets",
+        "seed": 456,
+        "vlm_trajs_folder_name": "cover__vlm_demos__456__1",
+        "grammar_search_vlm_atom_proposal_prompt_type": "naive_each_step",
+        "grammar_search_vlm_atom_label_prompt_type": "per_scene_naive",
+        "pretrained_model_prompt_cache_dir":
+        "tests/datasets/mock_vlm_datasets/cache",
+        "cover_num_blocks": 1,
+        "cover_num_targets": 1,
+        "cover_block_widths": [0.1],
+        "cover_target_widths": [0.05],
+        "excluded_predicates": "all",
+        "grammar_search_parallelize_vlm_labeling": False
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    vlm = _DummyVLM()
+    loaded_dataset = create_ground_atom_data_from_saved_img_trajs(
+        env, train_tasks, predicates, get_gt_options(env.get_name()), vlm)
+    assert len(loaded_dataset.trajectories) == 1
+    assert len(loaded_dataset.annotations) == 1
+    assert "DummyGoal" not in str(loaded_dataset.annotations[0][-1])
+    for dirpath, _, filenames in os.walk(
+            CFG.pretrained_model_prompt_cache_dir):
+        # Remove regular files, ignore directories
+        for filename in filenames:
+            os.unlink(os.path.join(dirpath, filename))
 
 
 @pytest.mark.parametrize(
@@ -592,7 +663,9 @@ def test_loading_saved_vlm_img_demos_folder_non_dummy_goal():
      ("options_labels_whole_traj", "per_scene_naive"),
      ("naive_whole_traj", "per_scene_cot"),
      ("not_a_real_prompt_type", "per_scene_cot"),
-     ("naive_whole_traj", "not_a_real_prompt_type")])
+     ("naive_whole_traj", "not_a_real_prompt_type"),
+     ("options_labels_whole_traj", "img_option_diffs"),
+     ("options_labels_whole_traj", "img_option_diffs_label_history")])
 def test_loading_saved_vlm_img_demos_folder_dummy_goal(
         atom_proposal_prompt_type, atom_labelling_prompt_type):
     """Test loading a dataset from img demo files."""
@@ -627,7 +700,7 @@ def test_loading_saved_vlm_img_demos_folder_dummy_goal(
         assert len(loaded_dataset.trajectories) == 1
         assert len(loaded_dataset.annotations) == 1
         assert len(loaded_dataset.annotations[0][0]) == 1
-        assert "Holding(spoon:spoon)" in str(loaded_dataset.annotations[0][0])
+        assert "Holding0(spoon:spoon)" in str(loaded_dataset.annotations[0][0])
         assert "DummyGoal" in str(loaded_dataset.annotations[0][-1])
     else:
         with pytest.raises(ValueError) as e:
@@ -713,8 +786,47 @@ def test_loading_txt_files():
     ).name == "PickPlace"
 
 
-def test_create_ground_atom_data_from_generated_demos():
+@pytest.mark.parametrize(
+    "config", [{
+        "env": "cover",
+        "approach": "oracle",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": 1,
+        "included_options": "PickPlace",
+        "excluded_predicates": "all",
+    }, {
+        "env": "cover",
+        "approach": "oracle",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": 1,
+        "included_options": "PickPlace",
+        "excluded_predicates": "all",
+        "vlm_predicate_vision_api_generate_ground_atoms": True
+    }])
+def test_create_ground_atom_data_from_generated_demos(config):
     """Tests for the create_ground_atom_data_from_generated_demos method."""
+    utils.reset_config(config)
+    env = CoverEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    options = parse_config_included_options(env)
+    dataset = create_dataset(env, train_tasks, options, predicates)
+    assert len(dataset.trajectories) == 1
+    for state in dataset.trajectories[0].states:
+        state.simulator_state = {}
+        state.simulator_state["images"] = [np.zeros((32, 32), dtype=np.uint8)]
+    vlm = _DummyVLM()
+    vlm_dataset = create_ground_atom_data_from_generated_demos(
+        dataset, env, predicates, train_tasks, vlm)
+    assert len(vlm_dataset.annotations) == 1
+
+
+def test_vlm_include_cropped_images():
+    """Tests creating a ground atom data with cropped images."""
     utils.reset_config({
         "env": "cover",
         "approach": "oracle",
@@ -724,16 +836,47 @@ def test_create_ground_atom_data_from_generated_demos():
         "num_train_tasks": 1,
         "included_options": "PickPlace",
         "excluded_predicates": "all",
+        "vlm_include_cropped_images": True
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     predicates, _ = utils.parse_config_excluded_predicates(env)
     options = parse_config_included_options(env)
     dataset = create_dataset(env, train_tasks, options, predicates)
-    assert len(dataset.trajectories) == 1
     for state in dataset.trajectories[0].states:
-        state.simulator_state = [np.zeros((32, 32), dtype=np.uint8)]
+        state.simulator_state = {}
+        state.simulator_state["images"] = [np.zeros((32, 32), dtype=np.uint8)]
     vlm = _DummyVLM()
-    vlm_dataset = create_ground_atom_data_from_generated_demos(
-        dataset, env, predicates, train_tasks, vlm)
-    assert len(vlm_dataset.annotations) == 1
+    with pytest.raises(NotImplementedError) as e:
+        _ = create_ground_atom_data_from_generated_demos(
+            dataset, env, predicates, train_tasks, vlm)
+    assert "Cropped images not implemented for cover." in str(e)
+
+    utils.reset_config({
+        "env": "ice_tea_making",
+        "num_train_tasks": 1,
+        "offline_data_method": "saved_vlm_img_demos_folder",
+        "data_dir": "tests/datasets/mock_vlm_datasets",
+        "seed": 456,
+        "vlm_trajs_folder_name": "ice_tea_making__vlm_demos__456__1",
+        "grammar_search_vlm_atom_proposal_prompt_type":
+        "options_labels_whole_traj",
+        "grammar_search_vlm_atom_label_prompt_type":
+        "img_option_diffs_label_history",
+        "pretrained_model_prompt_cache_dir":
+        "tests/datasets/mock_vlm_datasets/cache",
+        "vlm_include_cropped_images": True
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    vlm = _DummyVLM()
+    with pytest.raises(NotImplementedError) as e:
+        _ = create_ground_atom_data_from_saved_img_trajs(
+            env, train_tasks, predicates, get_gt_options(env.get_name()), vlm)
+    assert "Cropped images not implemented for ice_tea_making." in str(e)
+    for dirpath, _, filenames in os.walk(
+            CFG.pretrained_model_prompt_cache_dir):
+        # Remove regular files, ignore directories
+        for filename in filenames:
+            os.unlink(os.path.join(dirpath, filename))

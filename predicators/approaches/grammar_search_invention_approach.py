@@ -6,6 +6,7 @@ from __future__ import annotations
 import abc
 import itertools
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
@@ -25,7 +26,8 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type, \
+    VLMPredicate
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -402,7 +404,7 @@ class _PredicateGrammar(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-_DEBUG_PREDICATE_PREFIXES = {
+_DEBUG_GEOMETRIC_PREDICATES = {
     "tools": [
         "NOT-((0:robot).fingers<=[idx 0]0.5)",  # HandEmpty
         "NOT-((0:screw).is_held<=[idx 0]0.5)",  # HoldingScrew
@@ -462,24 +464,43 @@ _DEBUG_PREDICATE_PREFIXES = {
         "((0:button).y<=[idx 0]3.01)",  # ButtonReachableByRobot
         "NOT-((0:button).y<=[idx 0]3.01)",  # ButtonNotReachableByRobot
     ],
+    "burger": [
+        "((0:robot).fingers<=[idx 0]0.5)"
+    ],
+    "burger_no_move": [
+        "((0:robot).fingers<=[idx 0]0.5)"
+    ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
     ],
 }
+_DEBUG_GEOMETRIC_PREDICATES = defaultdict(list, _DEBUG_GEOMETRIC_PREDICATES)
+
+_DEBUG_VLM_PREDICATES = {
+    # Note: depending on CFG.burger_no_move_task_type, you might want to exclude
+    # some of the predicates here -- they won't be useful for the task and may
+    # cause problems in operator learning if labeled incorrectly.
+    "burger_no_move": [
+        "Cooked0",
+        "Whole0",
+        "Cut0",
+    ],
+}
+_DEBUG_VLM_PREDICATES = defaultdict(list, _DEBUG_VLM_PREDICATES)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _DebugGrammar(_PredicateGrammar):
     """A grammar that generates only predicates starting with some string in
-    _DEBUG_PREDICATE_PREFIXES[CFG.env]."""
+    _DEBUG_GEOMETRIC_PREDICATES[CFG.env]."""
     base_grammar: _PredicateGrammar
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         del max_num
         env_name = (CFG.env if not CFG.env.startswith("pybullet") else
                     CFG.env[CFG.env.index("_") + 1:])
-        expected_len = len(_DEBUG_PREDICATE_PREFIXES[env_name])
+        expected_len = len(_DEBUG_GEOMETRIC_PREDICATES[env_name])
         result = super().generate(expected_len)
         assert len(result) == expected_len
         return result
@@ -490,7 +511,7 @@ class _DebugGrammar(_PredicateGrammar):
         for (predicate, cost) in self.base_grammar.enumerate():
             if any(
                     str(predicate).startswith(debug_str)
-                    for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
+                    for debug_str in _DEBUG_GEOMETRIC_PREDICATES[env_name]):
                 yield (predicate, cost)
 
 
@@ -790,7 +811,7 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             for traj in self.dataset.trajectories:
                 # The init_atoms and final_atoms are not used.
                 seg_traj = segment_trajectory(traj, predicates=set())
-                state_seq = utils.segment_trajectory_to_state_sequence(
+                state_seq = utils.segment_trajectory_to_start_end_state_sequence(  # pylint:disable=line-too-long
                     seg_traj)
                 self._state_sequences.append(state_seq)
 
@@ -996,7 +1017,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return (atom_dataset, candidates)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        if not CFG.offline_data_method in [
+        if CFG.offline_data_method in [
+                "geo_and_demo_with_vlm_imgs", "geo_and_demo+labelled_atoms",
+                "geo_and_saved_vlm_img_demos_folder"
+        ]:
+            atom_dataset_from_grammar, candidates_from_grammar = \
+                self._generate_atom_dataset_via_grammar(dataset)
+            atom_dataset_from_vlm, candidates_from_vlm = \
+                self._parse_atom_dataset_from_annotated_dataset(dataset)
+            atom_dataset = utils.merge_ground_atom_datasets(
+                atom_dataset_from_grammar, atom_dataset_from_vlm)
+            candidates = candidates_from_grammar | candidates_from_vlm
+        elif not CFG.offline_data_method in [
                 "demo+labelled_atoms", "saved_vlm_img_demos_folder",
                 "demo_with_vlm_imgs"
         ]:
@@ -1009,18 +1041,42 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
-            # Create the score function that will be used to guide search.
-            score_function = create_score_function(
-                CFG.grammar_search_score_function, self._initial_predicates,
-                atom_dataset, candidates, self._train_tasks)
-            self._learned_predicates = \
-                self._select_predicates_by_score_hillclimbing(
-                candidates, score_function, self._initial_predicates,
-                atom_dataset, self._train_tasks)
+            if CFG.grammar_search_select_all_debug and \
+               CFG.grammar_search_use_handcoded_debug_grammar:
+                # Skip hill-climbing and select all the predicates from the
+                # debug grammar.
+                debug_predicate_names = _DEBUG_VLM_PREDICATES[
+                    CFG.env] + _DEBUG_GEOMETRIC_PREDICATES[CFG.env]
+                self._learned_predicates = set(
+                    p for p in candidates.keys()
+                    if p.name in debug_predicate_names)
+            else:
+                # Create the score function that will be used to guide search.
+                score_function = create_score_function(
+                    CFG.grammar_search_score_function,
+                    self._initial_predicates, atom_dataset, candidates,
+                    self._train_tasks)
+                self._learned_predicates = \
+                    self._select_predicates_by_score_hillclimbing(
+                    candidates, score_function, self._initial_predicates,
+                    atom_dataset, self._train_tasks)
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             self._learned_predicates = self._select_predicates_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset)
+        elif CFG.grammar_search_pred_selection_approach == "no_select":
+            self._learned_predicates = set(candidates.keys())
         logging.info("Done.")
+        # Now, rename these predicates to be compatible with PDDL planners!
+        renamed_predicates: Set[Predicate] = set()
+        for p in self._learned_predicates:
+            if isinstance(p, VLMPredicate):  # pragma: no cover.
+                renamed_predicates.add(p)
+                continue
+            new_name = p.name.replace("(", "[").replace(")",
+                                                        "]").replace(" ", "_")
+            renamed_pred = Predicate(new_name, p.types, p._classifier)  # pylint:disable=protected-access
+            renamed_predicates.add(renamed_pred)
+        self._learned_predicates = renamed_predicates
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         annotations = None
         if dataset.has_annotations:

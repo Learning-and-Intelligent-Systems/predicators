@@ -1,6 +1,12 @@
 """Ground truth models for burger environment."""
 
-from .nsrts import BurgerGroundTruthNSRTFactory
-from .options import BurgerGroundTruthOptionFactory
+from .nsrts import BurgerGroundTruthNSRTFactory, \
+    BurgerNoMoveGroundTruthNSRTFactory
+from .options import BurgerGroundTruthOptionFactory, \
+    BurgerNoMoveGroundTruthOptionFactory
 
-__all__ = ["BurgerGroundTruthOptionFactory", "BurgerGroundTruthNSRTFactory"]
+__all__ = [
+    "BurgerGroundTruthOptionFactory", "BurgerGroundTruthNSRTFactory",
+    "BurgerNoMoveGroundTruthOptionFactory",
+    "BurgerNoMoveGroundTruthNSRTFactory"
+]

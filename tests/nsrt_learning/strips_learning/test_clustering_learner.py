@@ -253,6 +253,51 @@ def test_cluster_and_intersect_strips_learner():
                                    annotations=None)
     assert len(pnads) == 0
 
+    # Test cluster and intersect soft intersection.
+    utils.reset_config({
+        "strips_learner":
+        "cluster_and_intersect",
+        "cluster_and_intersect_soft_intersection_for_preconditions":
+        True,
+        "precondition_soft_intersection_threshold_percent":
+        0.6
+    })
+    s4 = State({obj: [0.0, 1.0, 0.0, 0.0, 0.0]})
+    a4 = Action([], Interact)
+    ns4 = State({obj: [0.0, 1.0, 0.0, 1.0, 0.0]})
+    g4 = {IsHappy([obj])}
+    traj4 = LowLevelTrajectory([s4, ns4], [a4], True, 1)
+    task4 = Task(s4, g4)
+    segment4 = Segment(traj4, utils.abstract(s4, preds),
+                       utils.abstract(ns4, preds), Interact)
+    pnads = learn_strips_operators(
+        [traj1, traj2, traj3, traj4], [task1, task2, task3, task4],
+        preds, [[segment1], [segment2], [segment3], [segment4]],
+        verify_harmlessness=False,
+        annotations=None)
+    assert len(pnads) == 2
+    assert len(pnads[0].op.preconditions) == 1
+    # When we take atoms that appear >= 60% of the time as preconditions,
+    # IsGreen will show up, because it occurs 2/3 times.
+    assert list(pnads[0].op.preconditions)[0].predicate == IsGreen
+
+    utils.reset_config({
+        "strips_learner":
+        "cluster_and_intersect",
+        "cluster_and_intersect_soft_intersection_for_preconditions":
+        True,
+        "precondition_soft_intersection_threshold_percent":
+        0.7
+    })
+    pnads = learn_strips_operators(
+        [traj1, traj2, traj3, traj4], [task1, task2, task3, task4],
+        preds, [[segment1], [segment2], [segment3], [segment4]],
+        verify_harmlessness=False,
+        annotations=None)
+    assert len(pnads) == 2
+    # Now that the threshold is 70%, there will be no chosen preconditions.
+    assert len(pnads[0].op.preconditions) == 0
+
 
 def test_cluster_and_search_strips_learner():
     """Tests for ClusterAndSearchSTRIPSLearner."""

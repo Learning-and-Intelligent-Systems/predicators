@@ -85,11 +85,13 @@ class PretrainedLargeModel(abc.ABC):
             img_hash_list: List[str] = []
             for img in imgs:
                 img_hash_list.append(str(imagehash.phash(img)))
-            # NOTE: it's very possible that this string gets too long and this
-            # causes significant problems for us. We can fix this when it
-            # comes up by hashing this string to a shorter string, using e.g.
+            # NOTE: it's possible that this string (the concatenated hashes of
+            # each image) is very long. This would make the final cache
+            # foldername long. In many operating systems, the maximum folder
+            # name length is 255 characters. To shorten this foldername more, we
+            # can hash this string into a shorter string. For example, look at
             # https://stackoverflow.com/questions/57263436/hash-like-string-shortener-with-decoder  # pylint:disable=line-too-long
-            imgs_id = "".join(img_hash_list)
+            imgs_id = hash("".join(img_hash_list))
             cache_foldername += f"{imgs_id}"
         cache_folderpath = os.path.join(CFG.pretrained_model_prompt_cache_dir,
                                         cache_foldername)
@@ -194,6 +196,22 @@ class OpenAIModel():
         return completion.choices[0].message.content
 
 
+class GoogleGeminiModel():
+    """Common interface and methods for all Gemini-based models.
+
+    Assumes that an environment variable GOOGLE_API_KEY is set with the
+    necessary API key to query the particular model name.
+    """
+
+    def __init__(self, model_name: str) -> None:
+        """See https://ai.google.dev/models/gemini for the list of available
+        model names."""
+        self._model_name = model_name
+        assert "GOOGLE_API_KEY" in os.environ
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        self._model = genai.GenerativeModel(self._model_name)  # pylint:disable=no-member
+
+
 class OpenAILLM(LargeLanguageModel, OpenAIModel):
     """Interface to openAI LLMs.
 
@@ -223,7 +241,7 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
             stop_token: Optional[str] = None,
             num_completions: int = 1) -> List[str]:  # pragma: no cover
         del imgs, seed, stop_token  # unused
-        messages = [{"text": prompt, "type": "text"}]
+        messages = [{"role": "user", "content": prompt, "type": "text"}]
         responses = [
             self.call_openai_api(messages,
                                  model=self._model_name,
@@ -233,23 +251,43 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
         return responses
 
 
-class GoogleGeminiVLM(VisionLanguageModel):
+class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
     """Interface to the Google Gemini VLM (1.5).
 
     Assumes that an environment variable GOOGLE_API_KEY is set with the
     necessary API key to query the particular model name.
     """
 
-    def __init__(self, model_name: str) -> None:
-        """See https://ai.google.dev/models/gemini for the list of available
-        model names."""
-        self._model_name = model_name
-        assert "GOOGLE_API_KEY" in os.environ
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        self._model = genai.GenerativeModel(self._model_name)  # pylint:disable=no-member
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(10))
+    def _sample_completions(
+            self,
+            prompt: str,
+            imgs: Optional[List[PIL.Image.Image]],
+            temperature: float,
+            seed: int,
+            stop_token: Optional[str] = None,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
+        del seed, stop_token  # unused
+        assert imgs is None
+        generation_config = genai.types.GenerationConfig(  # pylint:disable=no-member
+            candidate_count=num_completions,
+            temperature=temperature)
+        response = self._model.generate_content(
+            [prompt], generation_config=generation_config)  # type: ignore
+        response.resolve()
+        return [response.text]
 
     def get_id(self) -> str:
         return f"Google-{self._model_name}"
+
+
+class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
+    """Interface to the Google Gemini VLM (1.5).
+
+    Assumes that an environment variable GOOGLE_API_KEY is set with the
+    necessary API key to query the particular model name.
+    """
 
     @retry(wait=wait_random_exponential(min=1, max=60),
            stop=stop_after_attempt(10))
@@ -271,6 +309,9 @@ class GoogleGeminiVLM(VisionLanguageModel):
             generation_config=generation_config)  # type: ignore
         response.resolve()
         return [response.text]
+
+    def get_id(self) -> str:
+        return f"Google-{self._model_name}"
 
 
 class OpenAIVLM(VisionLanguageModel, OpenAIModel):

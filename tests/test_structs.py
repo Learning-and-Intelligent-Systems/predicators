@@ -6,11 +6,12 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.structs import NSRT, PNAD, Action, DefaultState, \
-    DemonstrationQuery, DummyOption, GroundAtom, GroundMacro, \
-    InteractionRequest, InteractionResult, LDLRule, LiftedAtom, \
-    LiftedDecisionList, LowLevelTrajectory, Macro, Object, \
-    ParameterizedOption, Predicate, Query, Segment, State, STRIPSOperator, \
-    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    DemonstrationQuery, DummyOption, EnvironmentTask, GroundAtom, \
+    GroundMacro, ImageOptionTrajectory, InteractionRequest, \
+    InteractionResult, LDLRule, LiftedAtom, LiftedDecisionList, \
+    LowLevelTrajectory, Macro, Object, ParameterizedOption, Predicate, Query, \
+    Segment, State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -184,6 +185,16 @@ obj9                11       12       13
     state_with_sim = State({}, "simulator_state")
     assert state_with_sim.simulator_state == "simulator_state"
     assert state.simulator_state is None
+
+    # Can use allclose with non-None simulator_state if explicitly allowed via
+    # settings.
+    utils.reset_config(
+        {"allow_state_allclose_comparison_despite_simulator_state": "True"})
+    state5 = state4.copy()
+    assert state4.allclose(state5)
+    state5.simulator_state = "not dummy"
+    assert not state4.allclose(state5)
+
     return state
 
 
@@ -300,6 +311,35 @@ def test_task(state):
     assert task2.init.allclose(state)
     assert task2.goal == goal2
     assert not task2.goal_holds(task.init)
+    # Test replacing goal with alternative goal.
+    pred3 = Predicate("AlternativeOn", [cup_type, plate_type],
+                      lambda s, o: True)
+    goal3 = {pred3([cup, plate])}
+    task3 = Task(state, goal=goal, alt_goal=goal3)
+    alt_task = task3.replace_goal_with_alt_goal()
+    assert alt_task.goal == goal3
+
+
+def test_environment_task(state):
+    """Tests for EnvironmentTask class."""
+    # Test replacing goal with alternative goal.
+    cup_type = Type("cup_type", ["feat1"])
+    cup = cup_type("cup")
+    plate_type = Type("plate_type", ["feat1"])
+    plate = plate_type("plate")
+    pred = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("AlternativeOn", [cup_type, plate_type],
+                      lambda s, o: True)
+    goal = {pred([cup, plate])}
+    alt_goal = {pred2([cup, plate])}
+    env_task = EnvironmentTask(state,
+                               goal_description=goal,
+                               alt_goal_desc=alt_goal)
+    task = env_task.task
+    assert task.alt_goal == alt_goal
+    alt_env_task = env_task.replace_goal_with_alt_goal()
+    assert alt_env_task.goal_description == alt_goal
+    assert alt_env_task.alt_goal_desc is None
 
 
 def test_option(state):
@@ -751,6 +791,33 @@ def test_low_level_trajectory():
     with pytest.raises(AssertionError):
         # Incompatible lengths of states and actions.
         traj = LowLevelTrajectory(states[:-1], actions)
+
+
+def test_image_option_trajectory():
+    """Tests for the ImageOptionTrajectory class."""
+    # This setup is copied from the test for the LowLevelTrajectory class.
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+
+    def make_img():
+        return np.zeros((32, 32), dtype=np.uint8)
+
+    state_imgs = [[make_img(), make_img()] for i in range(3)]
+    cropped_state_imgs = [[make_img(), make_img()] for i in range(3)]
+    objs = set(state0)
+    img_option_traj = ImageOptionTrajectory(objs, state_imgs,
+                                            cropped_state_imgs, actions,
+                                            states, True, 0)
+    assert len(img_option_traj.cropped_imgs) == 3
 
 
 def test_segment():

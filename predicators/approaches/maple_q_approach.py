@@ -61,7 +61,11 @@ class MapleQApproach(OnlineNSRTLearningApproach):
     def get_name(cls) -> str:
         return "maple_q"
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+    # pylint: disable=arguments-differ
+    def _solve(self,
+               task: Task,
+               timeout: int,
+               train_or_test: str = "") -> Callable[[State], Action]:
 
         def _option_policy(state: State) -> _Option:
             if len(self._q_function._ordered_ground_nsrts) == 0:  # pragma: no cover  # pylint: disable=protected-access
@@ -74,7 +78,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 state,
                 task.goal,
                 num_samples_per_ground_nsrt=CFG.
-                active_sampler_learning_num_samples)
+                active_sampler_learning_num_samples,
+                train_or_test=train_or_test)
 
         return utils.option_policy_to_policy(
             _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
@@ -155,17 +160,24 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                      annotations: Optional[List[Any]]) -> None:
         # Start by learning NSRTs in the usual way.
         super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
-        # Check the assumption that operators and options are 1:1.
-        # This is just an implementation convenience.
-        assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
-        for nsrt in self._nsrts:
-            assert nsrt.option_vars == nsrt.parameters
+        if CFG.approach == "active_sampler_learning":
+            # Check the assumption that operators and options are 1:1.
+            # This is just an implementation convenience.
+            assert len({
+                nsrt.option  # pragma: no cover.
+                for nsrt in self._nsrts
+            }) == len(self._nsrts)  # pragma: no cover.
+            for nsrt in self._nsrts:  # pragma: no cover.
+                assert nsrt.option_vars == nsrt.parameters  # pragma: no cover.
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
-        if online_learning_cycle is None or len(
+        # Do not set grounding for rl_bridge_policy since it was set already
+        # in init_nsrts
+        if (online_learning_cycle is None or len(
                 self._q_function._ordered_ground_nsrts) + len(  # pylint: disable=protected-access
                     self._q_function._ordered_frozen_goals) + len(  # pylint: disable=protected-access
-                        self._q_function._ordered_objects) == 0:  # pylint: disable=protected-access
+                        self._q_function._ordered_objects) == 0) and
+            CFG.approach != "rl_bridge_policy":  # pylint: disable=protected-access
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
                 for nsrt in self._nsrts:

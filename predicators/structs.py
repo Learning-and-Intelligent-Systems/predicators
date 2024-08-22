@@ -31,12 +31,15 @@ class Type:
         """Dimensionality of the feature vector of this object type."""
         return len(self.feature_names)
 
-    @property
-    def oldest_ancestor(self) -> Type:
-        """Crawl up all the parent types to return the one at the top."""
-        if self.parent is None:
-            return self
-        return self.parent.oldest_ancestor
+    def get_ancestors(self) -> Set[Type]:
+        """Get the set of all types that are ancestors (i.e. parents,
+        grandparents, great-grandparents, etc.) of the current type."""
+        curr_type: Optional[Type] = self
+        ancestors_set = set()
+        while curr_type is not None:
+            ancestors_set.add(curr_type)
+            curr_type = curr_type.parent
+        return ancestors_set
 
     def __call__(self, name: str) -> _TypedEntity:
         """Convenience method for generating _TypedEntities."""
@@ -179,9 +182,9 @@ class State:
         objects are the same, and the features are close."""
         if self.simulator_state is not None or \
            other.simulator_state is not None:
-            raise NotImplementedError("Cannot use allclose when "
-                                      "simulator_state is not None.")
-
+          if not CFG.allow_state_allclose_comparison_despite_simulator_state:
+                raise NotImplementedError("Cannot use allclose when "
+                                          "simulator_state is not None.")
         return self._allclose(other)
 
     def _allclose(self, other: State) -> bool:
@@ -211,6 +214,36 @@ class State:
                                                           4) + "\n"
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
+
+    def dict_str(self, indent: int = 0, object_features: bool = True) -> str:
+        """Return a dictionary representation of the state."""
+        state_dict = {}
+        for obj in self:
+            obj_dict = {}
+            if obj.type.name == "robot" or object_features:
+                for attribute, value in zip(obj.type.feature_names, self[obj]):
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
+            obj_name = obj.name
+            state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
+
+        # Create a string of n_space spaces
+        spaces = " " * indent
+
+        # Create a PrettyPrinter with a large width
+        dict_str = spaces + "{"
+        n_keys = len(state_dict.keys())
+        for i, (key, value) in enumerate(state_dict.items()):
+            value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+            if i == 0:
+                dict_str += f"'{key}': {{{value_str}}},\n"
+            elif i == n_keys - 1:
+                dict_str += spaces + f" '{key}': {{{value_str}}}"
+            else:
+                dict_str += spaces + f" '{key}': {{{value_str}}},\n"
+        dict_str += "}"
+        return dict_str
 
 
 DefaultState = State({})
@@ -442,6 +475,12 @@ class Task:
     """Struct defining a task, which is an initial state and goal."""
     init: State
     goal: Set[GroundAtom]
+    # Sometimes we want the task presented to the agent to have goals described
+    # in terms of predicates that are different than those describing the goal
+    # of the task presented to the demonstrator. In these cases, we will store
+    # an "alternative goal" in this field and replace the goal with the
+    # alternative goal before giving the task to the agent.
+    alt_goal: Optional[Set[GroundAtom]] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         # Verify types.
@@ -452,6 +491,16 @@ class Task:
         """Return whether the goal of this task holds in the given state."""
         return all(goal_atom.holds(state) for goal_atom in self.goal)
 
+    def replace_goal_with_alt_goal(self) -> Task:
+        """Return a Task with the goal replaced with the alternative goal if it
+        exists."""
+        # We may not want the agent to access the goal predicates given to the
+        # demonstrator. To prevent leakage of this information, we discard the
+        # original goal.
+        if self.alt_goal:
+            return Task(self.init, goal=self.alt_goal)
+        return self
+
 
 DefaultTask = Task(DefaultState, set())
 
@@ -460,19 +509,37 @@ DefaultTask = Task(DefaultState, set())
 class EnvironmentTask:
     """An initial observation and goal description.
 
-    Environments produce environment tasks and agents produce and solve tasks.
+    Environments produce environment tasks and agents produce and solve
+    tasks.
 
     In fully observed settings, the init_obs will be a State and the
-    goal_description will be a Set[GroundAtom]. For convenience, we can convert
-    an EnvironmentTask into a Task in those cases.
+    goal_description will be a Set[GroundAtom]. For convenience, we can
+    convert an EnvironmentTask into a Task in those cases.
     """
     init_obs: Observation
     goal_description: GoalDescription
+    # See Task._alt_goal for the reason for this field.
+    alt_goal_desc: Optional[GoalDescription] = field(default=None)
 
     @cached_property
     def task(self) -> Task:
         """Convenience method for environment tasks that are fully observed."""
-        return Task(self.init, self.goal)
+        # If the environment task's goal is replaced with the alternative goal
+        # before turning the environment task into a task, or no alternative
+        # goal exists, then there's nothing particular to set the task's
+        # alt_goal field to.
+        if self.alt_goal_desc is None:
+            return Task(self.init, self.goal)
+        # If we turn the environment task into a task before replacing the goal
+        # with the alternative goal, we have to set the task's alt_goal field
+        # accordingly to leave open the possibility of doing that replacement
+        # later.
+        # Assumption: we currently assume the alternative goal description is
+        # always a set of ground atoms.
+        assert isinstance(self.alt_goal_desc, set)
+        for atom in self.alt_goal_desc:
+            assert isinstance(atom, GroundAtom)
+        return Task(self.init, self.goal, alt_goal=self.alt_goal_desc)
 
     @cached_property
     def init(self) -> State:
@@ -487,6 +554,18 @@ class EnvironmentTask:
         assert not self.goal_description or isinstance(
             next(iter(self.goal_description)), GroundAtom)
         return self.goal_description
+
+    def replace_goal_with_alt_goal(self) -> EnvironmentTask:
+        """Return an EnvironmentTask with the goal description replaced with
+        the alternative goal description if it exists.
+
+        See Task.replace_goal_with_alt_goal for the reason for this
+        function.
+        """
+        if self.alt_goal_desc is not None:
+            return EnvironmentTask(self.init_obs,
+                                   goal_description=self.alt_goal_desc)
+        return self
 
 
 DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())
@@ -556,6 +635,12 @@ class ParameterizedOption:
             objects=objects,
             params=params,
             memory=memory)
+
+    def pddl_str(self) -> str:
+        """Turn this option into a string that is PDDL-like."""
+        params_str = " ".join(f"?x{i} - {t.name}"
+                              for i, t in enumerate(self.types))
+        return f"{self.name}({params_str})"
 
 
 @dataclass(eq=False)
@@ -1165,6 +1250,7 @@ class ImageOptionTrajectory:
     """
     _objects: Collection[Object]
     _state_imgs: List[List[PIL.Image.Image]]
+    _cropped_state_imgs: List[List[PIL.Image.Image]]
     _actions: List[_Option]
     _states: Optional[List[State]] = field(default=None)
     _is_demo: bool = field(default=False)
@@ -1181,6 +1267,11 @@ class ImageOptionTrajectory:
     def imgs(self) -> List[List[PIL.Image.Image]]:
         """State images in the trajectory."""
         return self._state_imgs
+
+    @property
+    def cropped_imgs(self) -> List[List[PIL.Image.Image]]:
+        """Cropped versions of state images in the trajectory."""
+        return self._cropped_state_imgs
 
     @property
     def objects(self) -> Collection[Object]:

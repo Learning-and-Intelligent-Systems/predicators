@@ -1331,7 +1331,7 @@ class MapleQFunction(MLPRegressor):
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
                  n_iter_no_change: int = 10000000,
-                 discount: float = 0.99,
+                 discount: float = 0.8,
                  num_lookahead_samples: int = 5,
                  replay_buffer_max_size: int = 1000000,
                  replay_buffer_sample_with_replacement: bool = True) -> None:
@@ -1354,6 +1354,12 @@ class MapleQFunction(MLPRegressor):
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
             maxlen=self._replay_buffer_max_size)
+        self._epsilon = CFG.active_sampler_learning_exploration_epsilon
+        self._min_epsilon = CFG.min_epsilon
+        self._use_epsilon_annealing = CFG.use_epsilon_annealing
+        self._ep_reduction = 10*(self._epsilon-self._min_epsilon) \
+        /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
+          *CFG.interactive_num_requests_per_cycle)
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1375,14 +1381,19 @@ class MapleQFunction(MLPRegressor):
                    state: State,
                    goal: Set[GroundAtom],
                    num_samples_per_ground_nsrt: int,
-                   epsilon: float = 0.0) -> _Option:
+                   train_or_test: str = "test") -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
+        epsilon = self._epsilon
+        if train_or_test == "test":
+            epsilon = 0.0
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
             # Note that this assumes that the output of sampling is completely
             # random, including in the order of ground NSRTs.
+            if self._use_epsilon_annealing:
+                self.decay_epsilon()
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
@@ -1391,7 +1402,15 @@ class MapleQFunction(MLPRegressor):
             self.predict_q_value(state, goal, option) for option in options
         ]
         idx = np.argmax(scores)
+        # Decay epsilon
+        if self._use_epsilon_annealing:
+            self.decay_epsilon()
         return options[idx]
+
+    def decay_epsilon(self) -> None:
+        """Decay epsilon for eps annealing."""
+        self._epsilon = max(self._epsilon - self._ep_reduction,
+                            self._min_epsilon)
 
     def add_datum_to_replay_buffer(self, datum: MapleQData) -> None:
         """Add one datapoint to the replay buffer.
@@ -1435,9 +1454,11 @@ class MapleQFunction(MLPRegressor):
                 # We want to pick a total of num_lookahead_samples samples.
                 while len(next_option_vecs) < self._num_lookahead_samples:
                     # Sample 1 per NSRT until we reach the target number.
-                    for option in self._sample_applicable_options_from_state(
+                    for next_option in \
+                        self._sample_applicable_options_from_state(
                             next_state):
-                        next_option_vecs.append(self._vectorize_option(option))
+                        next_option_vecs.append(
+                            self._vectorize_option(next_option))
                 for next_action_vec in next_option_vecs:
                     x_hat = np.concatenate([
                         vectorized_next_state, vectorized_goal, next_action_vec

@@ -9,6 +9,15 @@ Example command line:
         --num_test_tasks 1 \
         --debug
 
+Example using Gemini:
+    export GOOGLE_API_KEY=<your API key>
+    python predicators/main.py --approach llm_open_loop --seed 0 \
+        --strips_learner oracle \
+        --env pddl_blocks_procedural_tasks \
+        --num_train_tasks 3 \
+        --num_test_tasks 1 \
+        --debug --llm_model_name gemini-1.5-flash
+
 Easier setting:
     python predicators/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
@@ -31,18 +40,18 @@ Easier setting:
 """
 from __future__ import annotations
 
-import logging
 from typing import Collection, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
 
+from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
 from predicators.planning import task_plan_with_option_plan_constraint
-from predicators.pretrained_model_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
+from predicators.utils import create_llm_by_name
 
 
 class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
@@ -54,7 +63,7 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         # Set up the LLM.
-        self._llm = OpenAILLM(CFG.llm_model_name)
+        self._llm = create_llm_by_name(CFG.llm_model_name)
         # Set after learning.
         self._prompt_prefix = ""
 
@@ -126,63 +135,11 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         ParameterizedOptions coupled with a list of objects that will be used
         to ground the ParameterizedOption."""
         option_plan: List[Tuple[ParameterizedOption, Sequence[Object]]] = []
-        # Setup dictionaries enabling us to easily map names to specific
-        # Python objects during parsing.
-        option_name_to_option = {op.name: op for op in self._initial_options}
-        obj_name_to_obj = {o.name: o for o in objects}
-        # We assume the LLM's output is such that each line contains a
-        # option_name(obj0:type0, obj1:type1,...).
-        options_str_list = llm_prediction.split('\n')
-        for option_str in options_str_list:
-            option_str_stripped = option_str.strip()
-            option_name = option_str_stripped.split('(')[0]
-            # Skip empty option strs.
-            if not option_str:
-                continue
-            if option_name not in option_name_to_option.keys() or \
-                "(" not in option_str:
-                logging.info(
-                    f"Line {option_str} output by LLM doesn't "
-                    "contain a valid option name. Terminating option plan "
-                    "parsing.")
-                break
-            option = option_name_to_option[option_name]
-            # Now that we have the option, we need to parse out the objects
-            # along with specified types.
-            typed_objects_str_list = option_str_stripped.split('(')[1].strip(
-                ')').split(',')
-            objs_list = []
-            malformed = False
-            for i, type_object_string in enumerate(typed_objects_str_list):
-                object_type_str_list = type_object_string.strip().split(':')
-                # We expect this list to be [object_name, type_name].
-                if len(object_type_str_list) != 2:
-                    logging.info(f"Line {option_str} output by LLM has a "
-                                 "malformed object-type list.")
-                    malformed = True
-                    break
-                object_name = object_type_str_list[0]
-                type_name = object_type_str_list[1]
-                if object_name not in obj_name_to_obj.keys():
-                    logging.info(f"Line {option_str} output by LLM has an "
-                                 "invalid object name.")
-                    malformed = True
-                    break
-                obj = obj_name_to_obj[object_name]
-                # Check that the type of this object agrees
-                # with what's expected given the ParameterizedOption.
-                if type_name != option.types[i].name:
-                    logging.info(f"Line {option_str} output by LLM has an "
-                                 "invalid type name.")
-                    malformed = True
-                    break
-                objs_list.append(obj)
-            # The types of the objects match, but we haven't yet checked if
-            # all arguments of the option have an associated object.
-            if len(objs_list) != len(option.types):
-                malformed = True
-            if not malformed:
-                option_plan.append((option, objs_list))
+        option_plan_with_cont_params = utils.\
+            parse_model_output_into_option_plan(
+            llm_prediction, objects, self._types, self._initial_options, False)
+        option_plan = [(option, objs)
+                       for option, objs, _ in option_plan_with_cont_params]
         return option_plan
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:

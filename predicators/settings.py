@@ -46,6 +46,14 @@ class GlobalSettings:
     # your call to utils.reset_config().
     render_state_dpi = 150
     approach_wrapper = None
+    # Normally, excluding goal predicates does not make sense, because then
+    # there is no goal for the agent to plan towards. This is intended to be
+    # used by VLM predicate invention, where we want to invent goal predicates
+    # and different task goals are provided to the agent and the demonstrator.
+    allow_exclude_goal_predicates = False
+    # Normally, State.allclose() raises an error if the simulator state of
+    # either of its arguments is not None.
+    allow_state_allclose_comparison_despite_simulator_state = False
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
@@ -293,6 +301,10 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
+    # doorknobs env parameters
+    doorknobs_target_value = 0.75
+    test_doors_room_map_size = 10
+
     # narrow_passage env parameters
     narrow_passage_open_door_refine_penalty = 0
     narrow_passage_door_width_padding_lb = 1e-4
@@ -334,6 +346,9 @@ class GlobalSettings:
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
     kitchen_goals = "all"
+    kitchen_render_set_of_marks = False
+    kitchen_use_combo_move_nsrts = False
+    kitchen_randomize_init_state = False
 
     # sticky table env parameters
     sticky_table_num_tables = 5
@@ -352,8 +367,13 @@ class GlobalSettings:
     grid_row_num_cells = 100
 
     # burger env parameters
-    gridworld_num_rows = 4
-    gridworld_num_cols = 4
+    burger_render_set_of_marks = True
+    # Which type of train/test tasks to generate. Options are "more_stacks",
+    # "fatter_burger", "combo_burger".
+    burger_no_move_task_type = "more_stacks"
+    # Replace actual rendering with dummy rendering (black 16x16 image) to speed
+    # up rendering -- used in testing or when debugging.
+    burger_dummy_render = False
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -415,6 +435,13 @@ class GlobalSettings:
     # parameters for vision language models
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
     vlm_model_name = "gemini-pro-vision"
+    vlm_temperature = 0.0
+    vlm_num_completions = 1
+    vlm_include_cropped_images = False
+    use_hardcoded_vlm_atom_proposals = False
+
+    # parameters for the vlm_open_loop planning approach
+    vlm_open_loop_use_training_demos = False
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
@@ -480,6 +507,7 @@ class GlobalSettings:
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
     enable_harmless_op_pruning = False  # some methods may want this to be True
+    precondition_soft_intersection_threshold_percent = 0.8  # between 0 and 1
     backchaining_check_intermediate_harmlessness = False
     pnad_search_without_del = False
     pnad_search_timeout = 10.0
@@ -498,6 +526,7 @@ class GlobalSettings:
     # associated with their PNAD in order to not be pruned during operator
     # learning.
     cluster_and_intersect_min_datastore_fraction = 0.0
+    cluster_and_intersect_soft_intersection_for_preconditions = False
 
     # torch GPU usage setting
     use_torch_gpu = False
@@ -584,6 +613,10 @@ class GlobalSettings:
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
     active_sampler_learning_save_every_datum = False
+
+    # maple q function parameters
+    use_epsilon_annealing = True
+    min_epsilon = 0.05
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
@@ -673,6 +706,8 @@ class GlobalSettings:
     grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
+    grammar_search_parallelize_vlm_labeling = True
+    grammar_search_select_all_debug = False
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
@@ -683,6 +718,7 @@ class GlobalSettings:
     # filepath to be used if offline_data_method is set to
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
+    vlm_predicate_vision_api_generate_ground_atoms = False
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

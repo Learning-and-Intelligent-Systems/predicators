@@ -2,12 +2,19 @@
 
 import ast
 import glob
+import itertools
 import logging
 import os
 import re
+import textwrap
+import traceback
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from inspect import getsource
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterator, List, Match, Optional, Sequence, Set, \
+    Tuple, cast
 
 import dill as pkl
 import numpy as np
@@ -15,6 +22,7 @@ import PIL.Image
 
 from predicators import utils
 from predicators.envs import BaseEnv
+from predicators.envs.burger import BurgerEnv, BurgerNoMoveEnv
 from predicators.envs.vlm_envs import DUMMY_GOAL_OBJ_NAME
 from predicators.nsrt_learning.segmentation import _segment_with_option_changes
 from predicators.pretrained_model_interface import VisionLanguageModel
@@ -77,8 +85,9 @@ def _generate_prompt_for_atom_proposals(
 
 
 def _generate_prompt_for_scene_labelling(
-        traj: ImageOptionTrajectory,
-        atoms_list: List[str]) -> List[Tuple[str, List[PIL.Image.Image]]]:
+        traj: ImageOptionTrajectory, atoms_list: List[str],
+        label_history: List[str]
+) -> Iterator[Tuple[str, List[PIL.Image.Image]]]:
     """Prompt for generating labels for an entire trajectory. Similar to the
     above prompting method, this outputs a list of prompts to label the state
     at each timestep of traj with atom values).
@@ -86,7 +95,6 @@ def _generate_prompt_for_scene_labelling(
     Note that all our prompts are saved as separate txt files under the
     'vlm_input_data_prompts/atom_labelling' folder.
     """
-    ret_list = []
     filepath_prefix = utils.get_path_to_predicators_root() + \
         "/predicators/datasets/vlm_input_data_prompts/atom_labelling/"
     try:
@@ -98,15 +106,58 @@ def _generate_prompt_for_scene_labelling(
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
+    # The prompt ends with a section for 'Predicates', so list these.
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
-    for curr_imgs in traj.imgs:
-        # NOTE: we rip out just one img from each of the state
-        # images. This is fine/works for the case where we only
-        # have one camera view, but probably will need to be
-        # amended in the future!
-        ret_list.append((prompt, [curr_imgs[0]]))
-    return ret_list
+
+    if "img_option_diffs" in CFG.grammar_search_vlm_atom_label_prompt_type:
+        # In this case, we need to load the 'per_scene_naive' prompt as well
+        # for the first timestep.
+        with open(filepath_prefix + "per_scene_naive.txt",
+                  "r",
+                  encoding="utf-8") as f:
+            init_prompt = f.read()
+        for atom_str in atoms_list:
+            init_prompt += f"\n{atom_str}"
+        if len(label_history) == 0:
+            yield (init_prompt, traj.imgs[0])
+
+        # Now, we use actual difference-based prompting for the second timestep
+        # and beyond.
+        for i in range(1, len(traj.imgs)):
+            curr_prompt = prompt[:]
+            # Here, we want to give the VLM the images corresponding to the
+            # states at timestep t-1 and timestep t. Note that in the general
+            # case, there can be multiple images associated with each state, but
+            # for now we assume that there is just a single image. So, here we
+            # give the VLM the image from the state at t-1, and the image from
+            # the state at t.
+            curr_prompt_imgs = [
+                imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
+            ]
+            if CFG.vlm_include_cropped_images:
+                if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
+                    curr_prompt_imgs.extend([
+                        traj.cropped_imgs[i - 1][1],
+                        traj.cropped_imgs[i - 1][0]
+                    ])
+                else:
+                    raise NotImplementedError(
+                        f"Cropped images not implemented for {CFG.env}.")
+            curr_prompt += "\n\nSkill executed between states: "
+            skill_name = traj.actions[i - 1].name + str(
+                traj.actions[i - 1].objects)
+            curr_prompt += skill_name
+
+            if "label_history" in CFG.grammar_search_vlm_atom_label_prompt_type:
+                curr_prompt += "\n\nPredicate values in the first scene, " \
+                "before the skill was executed: \n"
+                curr_prompt += label_history[-1]
+            yield (curr_prompt, curr_prompt_imgs)
+    else:
+        for curr_imgs in traj.imgs:
+            # NOTE: same problem with ripping out images as in the above note.
+            yield (prompt, [curr_imgs[0]])
 
 
 def _sample_vlm_atom_proposals_from_trajectories(
@@ -136,33 +187,86 @@ def _sample_vlm_atom_proposals_from_trajectories(
     return aggregated_vlm_output_strs
 
 
+def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
+    int, ImageOptionTrajectory], vlm: VisionLanguageModel,
+                                                  atoms_list: List[str],
+                                                  num_trajs: int) -> List[str]:
+    """Given a list of atoms, label every state in an ImageOptionTrajectory
+    with the truth values of those atoms."""
+    idx, traj = indexed_traj
+    # Some of the atoms may be over objects that aren't in this trajectory,
+    # so filter those atoms out.
+    obj_names = [o.name for o in traj.objects]
+    filtered_atoms_list = []
+    for a in atoms_list:
+        # Get the names of the objects in this atom.
+        atom_args = a[a.find('(') + 1:a.find(')')]
+        atom_objs = atom_args.split(',')
+        keep = True
+        for ao in atom_objs:
+            if ao not in obj_names:
+                keep = False
+                continue
+        if keep:
+            filtered_atoms_list.append(a)
+    curr_scenes_labelled = 0
+    total_scenes_to_label = len(traj.imgs)
+    curr_traj_txt_outputs: List[str] = []
+    prompts_for_traj = _generate_prompt_for_scene_labelling(
+        traj, filtered_atoms_list, label_history=curr_traj_txt_outputs)
+    for text_prompt, img_prompt in prompts_for_traj:
+        # Sample VLM outputs with temperature 0 in an attempt to be
+        # accurate.
+        curr_vlm_atom_labelling = vlm.sample_completions(text_prompt,
+                                                         img_prompt,
+                                                         0.0,
+                                                         CFG.seed,
+                                                         num_completions=1)
+        assert len(curr_vlm_atom_labelling) == 1
+        sanitized_output = curr_vlm_atom_labelling[0].replace('\\', '')
+        curr_traj_txt_outputs.append(sanitized_output)
+        curr_scenes_labelled += 1
+        logging.info(
+            f"Completed ({curr_scenes_labelled}/{total_scenes_to_label}) " \
+            f"label queries to VLM for trajectory #{idx + 1} of {num_trajs}!"
+        )
+    logging.info("Finished labeling trajectory.")
+    return curr_traj_txt_outputs
+
+
 def _label_trajectories_with_vlm_atom_values(
         trajectories: List[ImageOptionTrajectory], vlm: VisionLanguageModel,
         atoms_list: List[str]) -> List[List[str]]:
     """Given a list of atoms, label every state in ImageOptionTrajectories with
-    the truth values of a set of atoms."""
-    total_scenes_to_label = sum(len(traj.imgs) for traj in trajectories)
-    curr_scenes_labelled = 0
+    the truth values of those atoms."""
     output_labelled_atoms_txt_list = []
-    for traj in trajectories:
-        prompts_for_traj = _generate_prompt_for_scene_labelling(
-            traj, atoms_list)
-        curr_traj_txt_outputs = []
-        for text_prompt, img_prompt in prompts_for_traj:
-            # Sample VLM outputs with temperature 0 in an attempt to be
-            # accurate.
-            curr_vlm_atom_labelling = vlm.sample_completions(text_prompt,
-                                                             img_prompt,
-                                                             0.0,
-                                                             CFG.seed,
-                                                             num_completions=1)
-            assert len(curr_vlm_atom_labelling) == 1
-            sanitized_output = curr_vlm_atom_labelling[0].replace('\\', '')
-            curr_traj_txt_outputs.append(sanitized_output)
-            curr_scenes_labelled += 1
-            logging.info("Completed (%s/%s) label queries to VLM!",
-                         curr_scenes_labelled, total_scenes_to_label)
-        output_labelled_atoms_txt_list.append(curr_traj_txt_outputs)
+
+    def label_function(
+            indexed_traj: Tuple[int, ImageOptionTrajectory]) -> List[str]:
+        return _label_single_trajectory_with_vlm_atom_values(
+            indexed_traj, vlm, atoms_list, len(trajectories))
+
+    indexed_trajectories = list(enumerate(trajectories))
+
+    if CFG.grammar_search_parallelize_vlm_labeling:
+        logging.info("Labeling trajectories in parallel.")
+        # Mulithreading is the right choice over multiprocessing for tasks that
+        # involve waiting for responses from external servers, such as API
+        # calls, as these tasks are I/O bound. The python GIL has minimal impact
+        # on I/O-bound tasks. We will spawn one thread for each trajectory we
+        # need to label. The number of threads you can spawn is limited by
+        # system resources; the limit will far exceed the number of demo
+        # trajectories we expect, which is ~50.
+        with ThreadPoolExecutor() as executor:
+            for traj_txt_outputs in executor.map(label_function,
+                                                 indexed_trajectories):
+                output_labelled_atoms_txt_list.append(traj_txt_outputs)
+        return output_labelled_atoms_txt_list
+
+    logging.info("Labeling trajectories sequentially.")
+    for idx, traj in indexed_trajectories:
+        traj_txt_outputs = label_function((idx, traj))
+        output_labelled_atoms_txt_list.append(traj_txt_outputs)
     return output_labelled_atoms_txt_list
 
 
@@ -177,7 +281,20 @@ def _parse_unique_atom_proposals_from_list(
     objects that aren't known, (3) removing any duplicate atoms.
     """
     atoms_strs_set = set()
+    all_atom_groundings = set()
+    unique_predicates = set()
     obj_names_set = set(obj.name for obj in relevant_objects_across_demos)
+
+    # We'll use these mappings to generate VLM atoms for every possible
+    # grounding of each proposed predicate.
+    obj_name_to_type = {
+        obj.name: obj.type
+        for obj in relevant_objects_across_demos
+    }
+    type_to_obj_names = defaultdict(list)
+    for obj_name, _type in obj_name_to_type.items():
+        type_to_obj_names[_type].append(obj_name)
+
     num_atoms_considered = 0
     for atoms_proposal_for_traj in atom_strs_proposals_list:
         assert len(atoms_proposal_for_traj) == 1
@@ -203,10 +320,29 @@ def _parse_unique_atom_proposals_from_list(
                         break
             if atom_is_valid:
                 atoms_strs_set.add(atom)
+                # Create VLM atoms for all other possible groundings of this
+                # atom's predicate.
+                types_in_atom = [obj_name_to_type[n] for n in obj_names_list]
+                names_matching_each_type = [
+                    type_to_obj_names[t] for t in types_in_atom
+                ]
+                combos = list(itertools.product(*names_matching_each_type))
+                predicate = atom.split('(')[0]
+                unique_predicates.add(predicate)
+                # Note that this includes the original grounding.
+                other_groundings = [
+                    f"{predicate}({', '.join(c)})" for c in combos
+                ]
+                for og in other_groundings:
+                    all_atom_groundings.add(og)
             logging.debug(f"Proposed atom: {atom} is valid: {atom_is_valid}")
     logging.info(f"VLM proposed a total of {num_atoms_considered} atoms.")
     logging.info(f"Of these, {len(atoms_strs_set)} were valid and unique.")
-    return atoms_strs_set
+    logging.info(
+        f"For the {len(unique_predicates)} predicates, there were " \
+        f"{len(all_atom_groundings)} unique groundings."
+    )
+    return all_atom_groundings
 
 
 def _save_labelled_trajs_as_txt(
@@ -315,20 +451,11 @@ def _parse_structured_state_into_ground_atoms(
         assert goal_predicate.name == "DummyGoal"
         use_dummy_goal = True
 
-    # We also check whether there is precisely one "object" type that is
-    # a superset of all other object types.
-    obj_type = None
-    for t in env.types:
-        obj_type = t.oldest_ancestor
-        if obj_type.name != "object":
-            obj_type = None
-            break
-
     def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
         return pred_name + "(" + ", ".join(
             str(obj.name) for obj in objects) + ")"  # pragma: no cover
 
-    pred_name_to_pred = {}
+    pred_name_and_obj_types_to_pred = {}
     atoms_trajs = []
     # Loop through all trajectories in the structured_state_trajs and convert
     # each one to a sequence of sets of GroundAtoms.
@@ -352,6 +479,8 @@ def _parse_structured_state_into_ground_atoms(
             # reached or not.
             assert DUMMY_GOAL_OBJ_NAME in curr_obj_name_to_obj
 
+        # Now, start converting each structured state into a set of ground
+        # atoms.
         for j, structured_state in enumerate(traj):
 
             curr_ground_atoms_state = set()
@@ -361,67 +490,38 @@ def _parse_structured_state_into_ground_atoms(
                     state_trajs[i][j], known_predicates)
 
             for pred_name, objs_and_val_dict in structured_state.items():
-                # IMPORTANT NOTE: this currently assumes that the data is such
-                # that a predicate with a certain name (e.g. "Sliced")
-                # always appears with the same number of object arguments
-                # (e.g. Sliced(apple), and never
-                # Sliced(apple, cutting_tool)). We might want to explicitly
-                # check for this in the future.
-                if pred_name not in pred_name_to_pred:
-                    if len(objs_and_val_dict.keys()) == 1:
-                        # NOTE: this below code doesn't do the right thing
-                        # when there are multiple of the predicate that
-                        # are true with different objects of the same type
-                        # (e.g. Covers(obj1, targ1) and Covers(obj2, targ2)).
-                        # We might want to do something about this.
-                        # In this case, we make a predicate that takes in
-                        # exactly one types argument.
-                        for obj_args in objs_and_val_dict.keys():
-                            # We need to construct the types being
-                            # fed into this predicate.
-                            pred_types = []
-                            for obj_name in obj_args:
-                                curr_obj = curr_obj_name_to_obj[obj_name]
-                                pred_types.append(curr_obj.type)
-                            pred_name_to_pred[
-                                pred_name] = utils.create_vlm_predicate(
-                                    pred_name, pred_types,
+                for pred_i, (objs_strs, truth_val) in enumerate(
+                        sorted(objs_and_val_dict.items())):
+                    objs_types = [
+                        curr_obj_name_to_obj[obj_name].type
+                        for obj_name in objs_strs
+                    ]
+                    pred_name_and_obj_types_str = pred_name + "(" + ",".join(
+                        str(obj_type.name) for obj_type in objs_types) + ")"
+                    if pred_name_and_obj_types_str not in \
+                        pred_name_and_obj_types_to_pred:
+                        # NOTE: we use 'pred_i' here as a unique index such
+                        # that different predicates with the same name but
+                        # different object types (e.g. On(light) vs.
+                        # On(kettle, burner)) have a different name so that
+                        # the planner doesn't complain about this during
+                        # planning.
+                        pred_name_and_obj_types_to_pred[
+                            pred_name_and_obj_types_str] = \
+                                utils.create_vlm_predicate(pred_name +
+                                    str(pred_i), objs_types,
                                     partial(_get_vlm_query_str, pred_name))
-                    else:
-                        # In this case, we need to make a predicate that
-                        # takes in the generic 'object' type such that
-                        # multiple different objs could potentially be
-                        # subbed in.
-                        # Start by checking that the number of object
-                        # args are always the same
-                        num_args = 0
-                        for obj_args in objs_and_val_dict.keys():
-                            if num_args == 0:
-                                num_args = len(obj_args)
-                            else:
-                                assert num_args == len(obj_args)
-                        # Given this, add one new predicate with num_args
-                        # number of 'object' type arguments.
-                        assert obj_type is not None, (
-                            "VLM atom parsing "
-                            "failure; please add an 'object' type to your "
-                            "environment that is a supertype of all other "
-                            "types.")
-                        pred_name_to_pred[
-                            pred_name] = utils.create_vlm_predicate(
-                                pred_name, [obj_type for _ in range(num_args)],
-                                partial(_get_vlm_query_str, pred_name))
-
-                # Given that we've now built up predicates and object
-                # dictionaries. We can now convert the current state into
-                # ground atoms!
-                for obj_args, truth_value in objs_and_val_dict.items():
-                    if truth_value:
+                    # Given that we've now built up predicates and object
+                    # dictionaries. We can now convert the current state into
+                    # ground atoms!
+                    if truth_val:
                         curr_ground_atoms_state.add(
                             GroundAtom(
-                                pred_name_to_pred[pred_name],
-                                [curr_obj_name_to_obj[o] for o in obj_args]))
+                                pred_name_and_obj_types_to_pred[
+                                    pred_name_and_obj_types_str],
+                                [curr_obj_name_to_obj[o] for o in objs_strs]))
             curr_atoms_traj.append(curr_ground_atoms_state)
+        # Bookkeeping for the goal(s).
         if assume_goal_holds_at_end:
             curr_atoms_traj[-1] |= train_tasks[i].goal
         atoms_trajs.append(curr_atoms_traj)
@@ -568,6 +668,10 @@ def _parse_atoms_txt_into_structured_state(
             pattern_predicate, state_block_match)
         current_predicate_data: Dict[str, Dict[Tuple[str, ...], bool]] = {}
         for predicate_match in predicate_matches_within_state_block:
+            # Skip evaluating any predicate values that aren't explicitly
+            # labelled as one of the below.
+            if predicate_match[2] not in ["True", "False", "Unknown"]:
+                continue
             classifier_name = predicate_match[0]
             objects = tuple(map(str.strip, predicate_match[1].split(',')))
             truth_value = predicate_match[2] == 'True'
@@ -629,7 +733,7 @@ def _parse_vlmtraj_file_into_structured_trajs(
     return (output_state_trajs, output_action_trajs)
 
 
-def _query_vlm_to_generate_ground_atoms_trajs(
+def _generate_ground_atoms_with_vlm_pure_visual_preds(
         image_option_trajs: List[ImageOptionTrajectory], env: BaseEnv,
         train_tasks: List[Task], known_predicates: Set[Predicate],
         all_task_objs: Set[Object],
@@ -641,11 +745,11 @@ def _query_vlm_to_generate_ground_atoms_trajs(
         atom_strs_proposals_list = _sample_vlm_atom_proposals_from_trajectories(
             image_option_trajs, vlm, 1)
         logging.info("Done querying VLM for candidate atoms!")
-        # We now parse and sanitize this set of atoms.
-        atom_proposals_set = _parse_unique_atom_proposals_from_list(
-            atom_strs_proposals_list, all_task_objs)
-    else:  # pragma: no cover.
-        atom_proposals_set = env.get_vlm_debug_atom_strs(train_tasks)
+    else:  # pragma: no cover
+        atom_strs_proposals_list = env.get_vlm_debug_atom_strs(train_tasks)
+    # We now parse and sanitize this set of atoms.
+    atom_proposals_set = _parse_unique_atom_proposals_from_list(
+        atom_strs_proposals_list, all_task_objs)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.
@@ -691,6 +795,171 @@ def _query_vlm_to_generate_ground_atoms_trajs(
     return ground_atoms_trajs
 
 
+def _generate_ground_atoms_with_vlm_oo_code_gen(
+        image_option_trajs: List[ImageOptionTrajectory], env: BaseEnv,
+        train_tasks: List[Task], known_predicates: Set[Predicate],
+        all_task_objs: Set[Object],
+        vlm: VisionLanguageModel) -> List[List[Set[GroundAtom]]]:
+    """Given a collection of ImageOptionTrajectories, query a VLM to generate
+    predicates over the object features, then generate a ground atom
+    trajectory."""
+    del all_task_objs  # Unused.
+    candidates = set()
+    for io_traj in image_option_trajs:
+        # 1. Create a prompt based on the image option trajectory.
+        prompt, imgs = _create_prompt_from_image_option_traj(io_traj, env)
+
+        # 2. Query the VLM to propose predicates.
+        response = vlm.sample_completions(prompt,
+                                          imgs,
+                                          0.0,
+                                          CFG.seed,
+                                          num_completions=1)[0]
+
+        # 3. Parse the responses into a set of predicates
+        candidates |= _parse_predicate_proposals(response, train_tasks, env)
+
+    # 4. Generate the ground atom trajectories from the predicates.
+    ground_atoms_trajs = []
+    for image_option_traj in image_option_trajs:
+        ground_atoms_traj = []
+        assert image_option_traj.states is not None
+        for state in image_option_traj.states:
+            ground_atoms = utils.abstract(state, candidates | known_predicates)
+            ground_atoms_traj.append(ground_atoms)
+        ground_atoms_trajs.append(ground_atoms_traj)
+    return ground_atoms_trajs
+
+
+def add_python_quote(text: str) -> str:
+    """Add python quotes to a string."""
+    return f"```python\n{text}\n```"
+
+
+def _create_prompt_from_image_option_traj(
+        image_option_traj: ImageOptionTrajectory,
+        env: BaseEnv) -> Tuple[str, List[PIL.Image.Image]]:
+    """Given an image option trajectory, create a prompt for the VLM."""
+    prompt_dir = "predicators/datasets/vlm_input_data_prompts/vision_api/"
+    with open(prompt_dir + "prompt.outline", "r", encoding="utf-8") as f:
+        template = f.read()
+
+    # Predicate, State API
+    with open(prompt_dir + 'api_oo_state.txt', 'r', encoding="utf-8") as f:
+        state_str = f.read()
+    with open(prompt_dir + 'api_sym_predicate.txt', 'r',
+              encoding="utf-8") as f:
+        pred_str = f.read()
+
+    template = template.replace(
+        '[STRUCT_DEFINITION]', add_python_quote(state_str + '\n\n' + pred_str))
+
+    # Object types
+    type_instan_str = _env_type_str(getsource(env.__class__))
+    type_instan_str = add_python_quote(type_instan_str)
+    template = template.replace("[TYPES_IN_ENV]", type_instan_str)
+
+    # Demo
+    demo_str = []
+    imgs = [img_list[0] for img_list in image_option_traj.imgs]
+    assert image_option_traj.states is not None
+    for i, a in enumerate(image_option_traj.actions):
+        state = image_option_traj.states[i]
+        demo_str.append(f"state {i}:")
+        demo_str.append(state.dict_str(indent=2, object_features=True))
+        demo_str.append(f"action {i}: {a.name}")
+    num_states = len(image_option_traj.states)
+    state = image_option_traj.states[-1]
+    demo_str.append(f"state {num_states}:")
+    demo_str.append(state.dict_str(indent=2, object_features=True))
+    demo_str_ = '\n'.join(demo_str)
+    template = template.replace("[DEMO_TRAJECTORY]", demo_str_)
+
+    with open(prompt_dir + 'prompt.txt', 'w', encoding="utf-8") as f:
+        f.write(template)
+
+    return template, imgs
+
+
+import_str = """
+import numpy as np
+from typing import Sequence
+from predicators.structs import State, Object, Predicate, Type
+"""
+
+
+def _env_type_str(source_code: str) -> str:
+    """Extract the type definitions from the environment source code.
+
+    Requires the types be defined class variabled under `# Types` as in
+    cover, burger and kitchen.
+    """
+    type_pattern = r"(    # Types.*?)(?=\n\s*\n|$)"
+    type_block = re.search(type_pattern, source_code, re.DOTALL)
+    if type_block is not None:
+        type_init_str = type_block.group()
+        type_init_str = textwrap.dedent(type_init_str)
+        # type_init_str = add_python_quote(type_init_str)
+        return type_init_str
+    raise Exception("No type definitions found in the env")  # pragma: no cover
+
+
+def _parse_predicate_proposals(
+    response: str,
+    tasks: List[Task],
+    env: BaseEnv,
+) -> Set[Predicate]:
+    """Parse the prediction file to extract the proposed predicates."""
+    # Regular expression to match Python code blocks
+    pattern = re.compile(r'```python(.*?)```', re.DOTALL)
+    python_blocks = []
+    # Find all Python code blocks in the text
+    for match_block in pattern.finditer(response):
+        # Extract the Python code block and add it to the list
+        python_blocks.append(match_block.group(1).strip())
+
+    candidates = set()
+    context: Dict = {}
+
+    env_source_code = getsource(env.__class__)
+    type_init_str = _env_type_str(env_source_code)
+    # constants_str = self._constants_str(self.env_source_code)
+    # pylint: disable=exec-used
+    # Disabling exec-used warning because pylint dislike exec
+    exec(import_str, context)
+    exec(type_init_str, context)
+    # pylint: enable=exec-used
+
+    for code_str in python_blocks:
+        # Extract name from code block
+        match: Optional[Match[str]] = re.search(
+            r'(\w+)(: Predicate)?\s*=\s*Predicate', code_str)
+        if match is None:
+            logging.warning("No predicate name found in the code block")
+            continue
+        pred_name = match.group(1)
+        logging.info(f"Found definition for predicate {pred_name}")
+
+        # Try to check if it's roughly runable. And only add it to
+        # our list if it is.
+        try:
+            # pylint: disable=exec-used
+            exec(code_str, context)
+            # pylint: enable=exec-used
+            utils.abstract(tasks[0].init, [context[pred_name]])
+        except (TypeError, AttributeError, ValueError) as e:
+            # Was using Exception but pylint was complaining, so I'm
+            # adding specific exceptions to this tuple as we encounter them.
+            error_trace = traceback.format_exc()
+            logging.warning(f"Proposed predicate {pred_name} not "
+                            f"executable: {e}\n{error_trace}")
+            continue
+        else:
+            candidates.add(context[pred_name])
+
+    return candidates
+
+
 def create_ground_atom_data_from_generated_demos(
         dataset: Dataset,
         env: BaseEnv,
@@ -724,26 +993,96 @@ def create_ground_atom_data_from_generated_demos(
         segments = _segment_with_option_changes(traj, set(), None)
         curr_traj_states_for_vlm: List[State] = []
         curr_traj_actions_for_vlm: List[Action] = []
+        total_num_segment_states = 0
+        first_iteration = True
         for segment in segments:
             curr_traj_states_for_vlm.append(segment.states[0])
             curr_traj_actions_for_vlm.append(segment.actions[0])
-        # We manually add the final two states (initial state and terminal
-        # state of the final option).
+            total_num_segment_states += len(segment.states)
+            if first_iteration:
+                first_iteration = False
+            else:
+                total_num_segment_states -= 1  # avoid double-counting states!
+        if total_num_segment_states != len(traj.states):  # pragma: no cover
+            logging.info(
+                ("WARNING: there are fewer total states after option-based "
+                 "segmentation than there are in the original trajectory. "
+                 "Likely there is an issue with segmentation!"))
+        # We manually add the final state of the final option.
         curr_traj_states_for_vlm.append(traj.states[-1])
         # Pull out the images within the states we've saved for the trajectory.
-        # We assume that images are saved in the state's simulator_state
-        # field.
+        # We assume that the state's simulator_state attribute is a dictionary,
+        # and that the images for each state are accessed by the key "images".
         state_imgs: List[List[PIL.Image.Image]] = []
-        for state in curr_traj_states_for_vlm:
-            assert isinstance(state.simulator_state, List)
-            assert len(state.simulator_state) > 0
+        cropped_state_imgs: List[List[PIL.Image.Image]] = []
+        for i, state in enumerate(curr_traj_states_for_vlm):
+            assert state.simulator_state is not None
+            assert "images" in state.simulator_state
+            if CFG.vlm_include_cropped_images:
+                if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
+                    assert isinstance(env, (BurgerEnv, BurgerNoMoveEnv))
+                    # For the non-initial states, get a cropped image that is a
+                    # close-up of the relevant objects in the action that was
+                    # taken. Assume the relevant objects are in the action's
+                    # arguments.
+                    prev_state = curr_traj_states_for_vlm[i - 1]
+                    assert prev_state.simulator_state is not None
+                    assert "images" in prev_state.simulator_state
+                    relevant_states_for_crop = [state, prev_state]
+                    if i != 0:
+                        # Figure out which cells to include in the crop.
+                        action = curr_traj_actions_for_vlm[i - 1].get_option()
+                        min_col = env.num_cols
+                        max_col = 0
+                        min_row = env.num_rows
+                        max_row = 0
+                        # Get the (x, y) position of each relevant object.
+                        for o in action.objects:
+                            for s in relevant_states_for_crop:
+                                row = s.get(o, "row")
+                                col = s.get(o, "col")
+                                min_col = int(min(min_col, col))
+                                max_col = int(max(max_col, col))
+                                min_row = int(min(min_row, row))
+                                max_row = int(max(max_row, row))
+                        # Count rows from the bottom rather than the top,
+                        # because we actually want to index by traditional
+                        # (x, y) in the numpy array.
+                        temp = min_row
+                        min_row = env.num_rows - 1 - max_row
+                        max_row = env.num_rows - 1 - temp
+                        # Assume that we can generate the intended crop from the
+                        # first image in state.simulator_state["images"]
+                        full_curr_img = state.simulator_state["images"][0]
+                        full_prev_img = prev_state.simulator_state["images"][0]
+                        approx_cell_size = full_curr_img.shape[
+                            0] // env.num_rows
+                        cropped_curr_img = full_curr_img[
+                            min_row * approx_cell_size:(max_row + 1) *
+                            approx_cell_size,
+                            min_col * approx_cell_size:(max_col + 1) *
+                            approx_cell_size, :]
+                        cropped_prev_img = full_prev_img[
+                            min_row * approx_cell_size:(max_row + 1) *
+                            approx_cell_size,
+                            min_col * approx_cell_size:(max_col + 1) *
+                            approx_cell_size, :]
+                        cropped_imgs = [
+                            PIL.Image.fromarray(img_arr)  # type: ignore
+                            for img_arr in
+                            [cropped_curr_img, cropped_prev_img]
+                        ]
+                        cropped_state_imgs.append(cropped_imgs)
+                else:
+                    raise NotImplementedError(
+                        f"Cropped images not implemented for {CFG.env}.")
             state_imgs.append([
                 PIL.Image.fromarray(img_arr)  # type: ignore
-                for img_arr in state.simulator_state
+                for img_arr in state.simulator_state["images"]
             ])
         img_option_trajs.append(
             ImageOptionTrajectory(
-                set(traj.states[0]), state_imgs,
+                set(traj.states[0]), state_imgs, cropped_state_imgs,
                 [act.get_option() for act in curr_traj_actions_for_vlm],
                 curr_traj_states_for_vlm, True, traj.train_task_idx))
         option_segmented_trajs.append(
@@ -761,9 +1100,12 @@ def create_ground_atom_data_from_generated_demos(
     # Now, given these trajectories, we can query the VLM.
     if vlm is None:
         vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
-    ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
-        img_option_trajs, env, train_tasks, known_predicates, all_task_objs,
-        vlm)
+    if CFG.vlm_predicate_vision_api_generate_ground_atoms:
+        generate_func = _generate_ground_atoms_with_vlm_oo_code_gen
+    else:
+        generate_func = _generate_ground_atoms_with_vlm_pure_visual_preds
+    ground_atoms_trajs = generate_func(img_option_trajs, env, train_tasks,
+                                       known_predicates, all_task_objs, vlm)
     return Dataset(option_segmented_trajs, ground_atoms_trajs)
 
 
@@ -825,7 +1167,10 @@ def create_ground_atom_data_from_saved_img_trajs(
         vlm: Optional[VisionLanguageModel] = None) -> Dataset:
     """Given a folder containing trajectories that have images of scenes for
     each state, as well as options that transition between these states, output
-    a dataset."""
+    a dataset.
+
+    This method does not currently support including cropped images.
+    """
     trajectories_folder_path = os.path.join(
         utils.get_path_to_predicators_root(), CFG.data_dir,
         CFG.vlm_trajs_folder_name)
@@ -854,12 +1199,15 @@ def create_ground_atom_data_from_saved_img_trajs(
         img_traj = []
         state_traj: Optional[List[State]] = []
         for state_num in range(num_states_in_traj):
-            curr_imgs = []
+            curr_imgs: List[PIL.Image.Image] = []
             curr_state_path = path.joinpath(str(state_num))
             # NOTE: we assume all images are saved as jpg files.
             img_files = sorted(glob.glob(str(curr_state_path) + "/*.jpg"))
-            for img in img_files:
-                curr_imgs.append(PIL.Image.open(img))
+            for img_file in img_files:
+                # PIL.Image.open returns an ImageFile, which is a subclass of
+                # an Image.
+                img = cast(PIL.Image.Image, PIL.Image.open(img_file))
+                curr_imgs.append(img)
             img_traj.append(curr_imgs)
             state_file = curr_state_path / "state.p"
             if state_file.exists():  # pragma: no cover
@@ -922,7 +1270,7 @@ def create_ground_atom_data_from_saved_img_trajs(
         # Given ground options, we can finally make ImageOptionTrajectories.
         image_option_trajs.append(
             ImageOptionTrajectory(list(curr_task_objs),
-                                  img_traj,
+                                  img_traj, [],
                                   ground_option_traj,
                                   state_traj,
                                   _is_demo=True,
@@ -931,7 +1279,7 @@ def create_ground_atom_data_from_saved_img_trajs(
     # atoms that might be relevant to decision-making.
     if vlm is None:
         vlm = utils.create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover
-    ground_atoms_trajs = _query_vlm_to_generate_ground_atoms_trajs(
+    ground_atoms_trajs = _generate_ground_atoms_with_vlm_pure_visual_preds(
         image_option_trajs, env, train_tasks, known_predicates, all_task_objs,
         vlm)
     # Finally, we just need to construct LowLevelTrajectories that we can

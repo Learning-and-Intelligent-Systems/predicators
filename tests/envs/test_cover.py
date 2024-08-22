@@ -780,5 +780,6 @@ def test_debug_atoms_vlm_str():
         'Holding(block1)', 'HandEmpty()', 'IsTarget(target1)',
         'IsBlock(block0)'
     ]
+    gt_debug_strs = [[a] for a in gt_debug_strs]
     for debug_str in gt_debug_strs:
         assert debug_str in debug_atoms_strs

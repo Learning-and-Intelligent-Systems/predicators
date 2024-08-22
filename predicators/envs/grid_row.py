@@ -3,6 +3,7 @@
 from typing import List, Optional, Sequence, Set
 
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
@@ -174,3 +175,197 @@ class GridRowEnv(BaseEnv):
         # return abs(dist - 1.0) < 1e-3
         del state  # not used
         return obj1 in self._cell_to_neighbors[obj2]
+
+
+class GridRowDoorEnv(GridRowEnv):
+    """Simple variant on GridRow where there is also a door."""
+
+    # Properties for rendering
+    cell_width = 1
+    robot_width = 0.5
+    robot_height = 0.75
+    light_width = 0.25
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+        self._door_type = Type(
+            "door",
+            ["x", "move_key", "move_target", "turn_key", "turn_target"])
+        self._door = Object("door", self._door_type)
+
+        self._DoorInCell = Predicate("DoorInCell",
+                                     [self._door_type, self._cell_type],
+                                     self._In_holds)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "grid_row_door"
+
+    def render_state_plt(
+            self,
+            state: State,
+            task: EnvironmentTask,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> \
+                matplotlib.figure.Figure:
+        fig, ax = plt.subplots(1, 1)
+        plt.xlim([0, len(self._cells)])
+        plt.ylim([0, 1])
+
+        # Draw the cells.
+        for i in range(len(self._cells)):
+            rect = plt.Rectangle((i, 0),
+                                 self.cell_width,
+                                 self.cell_width,
+                                 edgecolor="gray",
+                                 facecolor="gray")
+            ax.add_patch(rect)
+
+        # Draw light, door, and robot.
+        if self._LightOn_holds(state, (self._light, )):
+            light = plt.Rectangle(
+                (len(self._cells) - (self.cell_width + \
+                                     self.light_width) / 2.0,
+                 1 - self.light_width),
+                self.light_width,
+                self.light_width,
+                edgecolor="yellow",
+                facecolor="yellow")
+        else:
+            light = plt.Rectangle(
+                (len(self._cells) - (self.cell_width + \
+                                     self.light_width) / 2.0,
+                 1 - self.light_width),
+                self.light_width,
+                self.light_width,
+                edgecolor="white",
+                facecolor="white")
+        ax.add_patch(light)
+        door_pos = state.get(self._door, "x")
+        door_move_key = state.get(self._door, "move_key")
+        door_move_key_target = state.get(self._door, "move_target")
+        door_turn_key = state.get(self._door, "turn_key")
+        door_turn_key_target = state.get(self._door, "turn_target")
+        if (door_move_key_target - 0.1 <= door_move_key <= \
+            door_move_key_target + 0.1 and door_turn_key_target - 0.1 \
+                <= door_turn_key <= door_turn_key_target + 0.1):
+            door = plt.Rectangle((door_pos - self.cell_width / 2.0, 0),
+                                 self.cell_width,
+                                 self.cell_width,
+                                 edgecolor="gray",
+                                 facecolor="gray")
+        else:
+            door = plt.Rectangle((door_pos - self.cell_width / 2.0, 0),
+                                 self.cell_width,
+                                 self.cell_width,
+                                 edgecolor="darkgoldenrod",
+                                 facecolor="darkgoldenrod")
+        ax.add_patch(door)
+        robot_pos = state.get(self._robot, "x")
+        robot = plt.Rectangle((robot_pos - self.robot_width / 2.0, 0),
+                              self.robot_width,
+                              self.robot_height,
+                              edgecolor="red",
+                              facecolor="red")
+        ax.add_patch(robot)
+        return fig
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            self._RobotInCell, self._LightInCell, self._LightOn,
+            self._LightOff, self._Adjacent, self._DoorInCell
+        }
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            self._robot_type, self._cell_type, self._light_type,
+            self._door_type
+        }
+
+    @property
+    def action_space(self) -> Box:
+        # dx, dlight, dmove, dturn
+        return Box(-np.inf, np.inf, (4, ))
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        # There is only one goal in this environment: to turn the light on.
+        goal = {GroundAtom(self._LightOn, [self._light])}
+        tasks: List[EnvironmentTask] = []
+        while len(tasks) < num:
+            state_dict = {
+                self._robot: {
+                    "x": 0.5,
+                },
+                # Note: light level and door locations are fixed for now
+                # in order to maintain consistency across train and test
+                self._light: {
+                    "x": len(self._cells) - 0.5,
+                    "level": 0.0,
+                    "target": 0.75,
+                },
+                self._door: {
+                    "x": len(self._cells) // 2 + 0.5,
+                    "move_key": 0.0,
+                    "move_target": 0.5,
+                    "turn_key": 0.0,
+                    "turn_target": 0.75
+                }
+            }
+            for i, cell in enumerate(self._cells):
+                state_dict[cell] = {"x": i + 0.5}
+            state = utils.create_state_from_dict(state_dict)
+            tasks.append(EnvironmentTask(state, goal))
+        return tasks
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        next_state = state.copy()
+        dx, dlight, dmove, dturn = action.arr
+        door_pos = state.get(self._door, "x")
+        robbot_pos = state.get(self._robot, "x")
+        door_move_key = state.get(self._door, "move_key")
+        door_move_target = state.get(self._door, "move_target")
+        door_turn_key = state.get(self._door, "turn_key")
+        door_turn_target = state.get(self._door, "turn_target")
+        robot_cells = [
+            c for c in self._cells if self._In_holds(state, [self._robot, c])
+        ]
+        door_cells = [
+            c for c in self._cells if self._In_holds(state, [self._door, c])
+        ]
+        assert len(door_cells) == 1
+        # Apply ddoor if we're in same cell as door
+        # Can only open door, not close
+        door_cell = door_cells[0]
+        robot_cell = robot_cells[0]
+        if robot_cell == door_cell and not (door_move_target - 0.1 \
+                            <= door_move_key <= door_move_target + 0.1 \
+    and door_turn_target - 0.1 <= door_turn_key <= door_turn_target + 0.1):
+            new_door_level = np.clip(
+                state.get(self._door, "move_key") + dmove, 0.0, 1.0)
+            next_state.set(self._door, "move_key", new_door_level)
+            new_door1_level = np.clip(
+                state.get(self._door, "turn_key") + dturn, 0.0, 1.0)
+            next_state.set(self._door, "turn_key", new_door1_level)
+        # Apply dlight if we're in the same cell as the light.
+        assert len(robot_cells) == 1
+        light_cells = [
+            c for c in self._cells if self._In_holds(state, [self._light, c])
+        ]
+        assert len(light_cells) == 1
+        light_cell = light_cells[0]
+        if robot_cell == light_cell and dlight == 0.75 and self._LightOff_holds(
+                state, [self._light]):
+            next_state.set(self._light, "level", 0.75)
+
+        if (door_move_target - 0.1 <= door_move_key <= door_move_target + 0.1 \
+    and door_turn_target - 0.1 <= door_turn_key <= door_turn_target + 0.1) \
+            or (robbot_pos <= door_pos and robbot_pos + dx <= door_pos):
+            # Apply dx to robot.
+            new_x = np.clip(
+                state.get(self._robot, "x") + dx, 0.0, len(self._cells))
+            next_state.set(self._robot, "x", new_x)
+        return next_state

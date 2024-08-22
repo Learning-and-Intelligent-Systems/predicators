@@ -15,12 +15,14 @@ pylint_recursive.py
 .coverage
 results
 eval_trajectories
+images
 videos
-logs
+logs*
 saved_approaches
 saved_datasets
 scripts/results
-pretrained_model_cache
+pretrained_model_cache*
+tests/datasets/mock_vlm_datasets/cache/
 machines.txt
 *_vision_data
 tests/_fake_trajs
@@ -29,6 +31,10 @@ predicators/envs/assets/task_jsons/spot/last.json
 spot_perception_outputs
 spot_perception_debug_dir/
 sas_plan
+downward/
+Gymnasium-Robotics/
+predicators/datasets/vlm_input_data_prompts/vision_api/prompt.txt
+predicators/datasets/vlm_input_data_prompts/vision_api/response.txt
 side-state-view.png
 top-down-state-view.png
 
