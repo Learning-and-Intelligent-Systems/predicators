@@ -6,6 +6,12 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "planning_progress"
+  competence_gradient_explore_ucb:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "competence_gradient"
+      active_sampler_explore_use_ucb_bonus: True
   task_repeat_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -16,12 +22,6 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "success_rate"
-      active_sampler_explore_use_ucb_bonus: True
-  competence_gradient_explore_ucb:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "competence_gradient"
       active_sampler_explore_use_ucb_bonus: True
   skill_diversity_explore_ucb:
     NAME: "active_sampler_learning"
@@ -67,10 +67,41 @@ ENVS:
       horizon: 8
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
+      max_num_steps_interaction_request: 100
+  spot_sweeping_sim:
+    NAME: "spot_main_sweep_env"
+    FLAGS:
+      active_sampler_learning_explore_length_base: 10000 # effectively disable
+      active_sampler_learning_exploration_epsilon: 0.5
+      skill_competence_model_optimistic_recency_size: 2
+      skill_competence_model_optimistic_window_size: 2
+      horizon: 10
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: oracle
+      spot_run_dry: True
+      approach_wrapper: spot_wrapper
+      perceiver: spot_perceiver
+      segmenter: spot
       active_sampler_learning_explore_pursue_goal_interval: 1
-      max_num_steps_interaction_request: 250
-ARGS:
-  - "debug"
+      max_num_steps_interaction_request: 125
+  spot_sweeping_sim_train_toy_only:
+    NAME: "spot_main_sweep_env"
+    FLAGS:
+      spot_sweep_env_goal_description: "'get the train_toy into the bucket'"
+      active_sampler_learning_explore_length_base: 25
+      active_sampler_learning_exploration_epsilon: 0.5
+      skill_competence_model_optimistic_recency_size: 2
+      skill_competence_model_optimistic_window_size: 2
+      horizon: 15
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: oracle
+      active_sampler_learning_init_cycles_to_pursue_goal: 5
+      spot_run_dry: True
+      perceiver: spot_perceiver
+      approach_wrapper: spot_wrapper
+      segmenter: spot
+      max_num_steps_interaction_request: 100
+ARGS: []
 FLAGS:
   num_test_tasks: 10
   strips_learner: "oracle"
@@ -88,5 +119,6 @@ FLAGS:
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
   active_sampler_learning_n_iter_no_change: 5000
+  spot_graph_nav_map: "floor8-sweeping"
 START_SEED: 456
 NUM_SEEDS: 10

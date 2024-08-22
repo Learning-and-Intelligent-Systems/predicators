@@ -117,6 +117,24 @@ PLOT_GROUPS = {
         ("MAPLE-Q", "silver", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-maple_q" in v)),
     ],
+    "Cleanup Playroom": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-task_repeat_explore" in v)),
+        ("Competence Gradient", "yellow", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-competence_gradient" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-success_rate_explore_ucb" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-random_nsrts_explore" in v)),
+        ("Skill Diversity", "pink", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-skill_diversity" in v)),
+        ("MAPLE-Q", "silver", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "spot_sweeping_sim-maple_q" in v)),
+    ],
 }
 
 # If True, add (0, 0) to every plot.

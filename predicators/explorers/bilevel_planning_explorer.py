@@ -33,7 +33,6 @@ class BilevelPlanningExplorer(BaseExplorer):
         self._num_calls = 0
 
     def _solve(self, task: Task, timeout: int) -> ExplorationStrategy:
-
         # Ensure random over successive calls.
         self._num_calls += 1
         seed = self._seed + self._num_calls

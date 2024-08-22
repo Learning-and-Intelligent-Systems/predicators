@@ -1,10 +1,16 @@
 """An explorer for active sampler learning."""
 
+import datetime
+import glob
 import logging
 import os
+import re
+import time
 from collections import deque
-from typing import Callable, Deque, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Deque, Dict, Iterator, List, Optional, Set, \
+    Tuple
 
+import dill as pkl
 import numpy as np
 from gym.spaces import Box
 
@@ -15,10 +21,10 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, ExplorationStrategy, \
-    GroundAtom, NSRTSamplerWithEpsilonIndicator, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, \
-    _Option
+from predicators.structs import NSRT, Action, DefaultState, \
+    ExplorationStrategy, GroundAtom, NSRTSamplerWithEpsilonIndicator, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 # Helper type to distinguish training tasks from replanning tasks.
 _TaskID = Tuple[str, int]
@@ -59,6 +65,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._ground_op_hist = ground_op_hist
         self._competence_models = competence_models
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
+        self._last_executed_option: Optional[_Option] = None
+        self._last_init_option_state: Optional[State] = None
         # Indicator that tells us whether the last executed NSRT used
         # a random sample for the purposes of exploration, or whether
         # it used something from the current learned sampler distribution
@@ -131,11 +139,42 @@ class ActiveSamplerExplorer(BaseExplorer):
         using_random = False
 
         def _option_policy(state: State) -> Tuple[_Option, bool]:
-            nonlocal assigned_task_finished, current_policy, \
+            nonlocal assigned_task, assigned_task_finished, current_policy, \
                 next_practice_nsrt, using_random, assigned_task_horizon
+
+            # Save a bunch of data with a time-stamp so we can make videos.
+            save_dict: Dict[str, Any] = {
+                "timestamp": datetime.datetime.now(),
+                "state": state,
+                "assigned_task": assigned_task,
+                "assigned_task_finished": assigned_task_finished,
+                "next_practice_nsrt": next_practice_nsrt,
+                "competence_models": self._competence_models,
+            }
+            os.makedirs(CFG.data_dir, exist_ok=True)
+            pfx = f"{CFG.data_dir}/{CFG.env}_explorer_timestamped_info_"
+            filepath_template = f"{pfx}*.data"
+            datapoint_id = 0
+            all_saved_files = glob.glob(filepath_template)
+            if all_saved_files:  # pragma: no cover
+                regex_prefix = re.escape(pfx)
+                regex = f"{regex_prefix}(\\d+).data"
+                for filename in all_saved_files:
+                    regex_match = re.match(regex, filename)
+                    assert regex_match is not None
+                    d_id = int(regex_match.groups()[0])
+                    datapoint_id = max(datapoint_id, d_id + 1)
+            with open(f"{pfx}{datapoint_id}.data", "wb") as f:
+                pkl.dump(save_dict, f)
 
             # Need to wait for policy to get called to "see" the train task.
             self._seen_train_task_idxs.add(train_task_idx)
+
+            # Hack to deal with the fact that train tasks have empty initial
+            # observations in the spot environment.
+            if assigned_task.init is DefaultState:  # pragma: no cover
+                assigned_task = Task(state, assigned_task.goal)
+                self._train_tasks[train_task_idx] = assigned_task
 
             if using_random:
                 self._log("[Explorer] Using random option policy.")
@@ -279,6 +318,16 @@ class ActiveSamplerExplorer(BaseExplorer):
                     break
                 # Terminate early if no goal could be found.
                 else:
+                    # For spot environments, don't do random actions.
+                    if "spot" in CFG.env and \
+                        not CFG.spot_run_dry:  # pragma: no cover
+                        self._log("[Explorer] TERMINATING EARLY!!! "
+                                  "No reachable goal found.")
+                        self._log("Initial State: " + \
+                                  f"{utils.abstract(state, self._predicates)}"
+                                  )
+                        raise utils.RequestActPolicyFailure(
+                            "No reachable goal found.")
                     self._log("[Explorer] No reachable goal found. "
                               "Switching to random exploration.")
                     using_random = True
@@ -310,6 +359,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
             self._log(f"[Explorer] Starting NSRT: {ground_nsrt.short_str}")
             self._last_executed_nsrt = ground_nsrt
+            self._last_executed_option = option
+            self._last_init_option_state = state
             self._last_executed_nsrt_was_exploration = exploration_indicator
             return option
 
@@ -353,6 +404,39 @@ class ActiveSamplerExplorer(BaseExplorer):
             skill_name = last_executed_op.short_str
             model = create_competence_model(model_name, skill_name)
             self._competence_models[last_executed_op] = model
+        self._competence_models[last_executed_op].observe(success)
+        # Aggressively save data after every single option execution.
+        if CFG.active_sampler_learning_save_every_datum:
+            init_state = self._last_init_option_state
+            assert init_state is not None
+            option = self._last_executed_option
+            assert option is not None
+            objects = option.objects
+            params = option.params
+            sampler_input = utils.construct_active_sampler_input(
+                init_state, objects, params, option.parent)
+            sampler_output = int(success)
+            # Now, we need to get the file location and the max
+            # datapoint id saved at this location.
+            os.makedirs(CFG.data_dir, exist_ok=True)
+            pfx = f"{CFG.data_dir}/{CFG.env}_{nsrt.short_str}_"
+            filepath_template = f"{pfx}*.data"
+            datapoint_id = 0
+            all_saved_files = glob.glob(filepath_template)
+            if all_saved_files:  # pragma: no cover
+                regex_prefix = re.escape(pfx)
+                regex = f"{regex_prefix}(\\d+).data"
+                for filename in all_saved_files:
+                    regex_match = re.match(regex, filename)
+                    assert regex_match is not None
+                    d_id = int(regex_match.groups()[0])
+                    datapoint_id = max(datapoint_id, d_id + 1)
+            data = {
+                "datapoint": (sampler_input, sampler_output),
+                "time": time.time()
+            }
+            with open(f"{pfx}{datapoint_id}.data", "wb") as f:
+                pkl.dump(data, f)
         # Only update the competence model if this action was not an
         # exploratory action.
         if not exploration_indicator:
@@ -380,6 +464,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_op_costs=ground_op_costs,
             default_cost=self._default_cost,
             max_horizon=np.inf)
+        # Uncomment for debugging
+        # for act in plan:
+        #     print((act.name, act.objects))
+        # import ipdb; ipdb.set_trace()
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
@@ -395,8 +483,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
-            logging.info(f"[Explorer]   Base score: {score}")
-            logging.info(f"[Explorer]   UCB bonus: {bonus}")
+            if not np.isinf(score):
+                logging.info(f"[Explorer]   Base score: {score}")
+                logging.info(f"[Explorer]   UCB bonus: {bonus}")
             if CFG.active_sampler_explore_use_ucb_bonus:
                 # Normalize the score.
                 score = score / seen_train_tasks_num
@@ -417,7 +506,6 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info(f"[Explorer]   posterior competence: {competence}")
             logging.info(f"[Explorer]   extrapolated competence: {extrap}")
             logging.info(f"[Explorer]   score: {score}")
-
             if CFG.active_sampler_explore_use_ucb_bonus:
                 # Normalize the score.
                 score = score / seen_train_tasks_num
@@ -506,6 +594,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 "train": self._train_tasks,
                 "replan": self._replanning_tasks,
             }[task_type][task_idx]
+            assert task.init is not DefaultState
             try:
                 plan, _, _ = run_task_plan_once(
                     task,
@@ -522,6 +611,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             except (PlanningFailure, PlanningTimeout):  # pragma: no cover
                 self._log("WARNING: task planning failed in the explorer.")
                 self._task_plan_cache[task_id] = None
+
+        # Uncomment for debugging.
+        # for act in plan:
+        #     print((act.name, act.objects))
 
         self._task_plan_calls_since_replan[task_id] += 1
         return self._task_plan_cache[task_id]

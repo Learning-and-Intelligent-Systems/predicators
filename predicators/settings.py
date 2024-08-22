@@ -175,6 +175,18 @@ class GlobalSettings:
     ikfast_max_distance = np.inf
     ikfast_norm = np.inf  # norm ord for np.linalg.norm
 
+    # SpotEnv parameters
+    spot_robot_ip = "invalid-IP-address"
+    spot_fiducial_size = 44.45
+    spot_vision_detection_threshold = 0.5
+    spot_perception_outdir = "spot_perception_outputs"
+    spot_render_perception_outputs = True
+    spot_graph_nav_map = "floor8-sweeping"
+    spot_grasp_stow_volume_threshold = 0.074
+    spot_run_dry = False
+    spot_use_perfect_samplers = False  # for debugging
+    spot_sweep_env_goal_description = "get the objects into the bucket"
+
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
     pddl_blocks_procedural_train_max_num_blocks = 4
@@ -418,6 +430,7 @@ class GlobalSettings:
     llm_model_name = "text-curie-001"  # "text-davinci-002"
     llm_temperature = 0.5
     llm_num_completions = 1
+    override_json_with_input = False  # Only works with SpotEnv for now
 
     # parameters for vision language models
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
@@ -578,6 +591,7 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
+    online_learning_test_only = False
 
     # active sampler learning parameters
     active_sampler_learning_model = "myopic_classifier_mlp"
@@ -598,6 +612,7 @@ class GlobalSettings:
     active_sampler_learning_exploration_epsilon = 0.5
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
+    active_sampler_learning_save_every_datum = False
 
     # maple q function parameters
     use_epsilon_annealing = True

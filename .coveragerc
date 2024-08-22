@@ -1,9 +1,15 @@
 [run]
 omit =
     predicators/third_party/**
+    predicators/spot_utils/**
+    predicators/perception/spot_perceiver.py
+    predicators/approaches/spot_wrapper_approach.py
+    predicators/ground_truth_models/spot_env/**
+    predicators/envs/spot_env.py
     predicators/envs/kitchen.py
     predicators/perception/kitchen_perceiver.py
     predicators/ground_truth_models/kitchen/**
+    tests/envs/test_spot_envs.py
     # Currently disabled due to flakiness in the SME dependency.
     predicators/approaches/sme_pg3_analogy_approach.py
 

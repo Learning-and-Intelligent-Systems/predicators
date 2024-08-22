@@ -1,7 +1,6 @@
 """Wrapper around pyrealsense2.
 
-Based on:
-https://github.com/IntelRealSense/librealsense/issues/8388
+Based on: https://github.com/IntelRealSense/librealsense/issues/8388
 """
 from __future__ import annotations
 
