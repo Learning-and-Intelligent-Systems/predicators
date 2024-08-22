@@ -372,3 +372,29 @@ def test_burger_no_move():
                                },
                                monitor=None)
     assert task.task.goal_holds(traj.states[-1])
+
+    utils.reset_config({
+        "env": "burger_no_move",
+        "option_model_terminate_on_repeat": False,
+        "sesame_max_skeletons_optimized": 1000,
+        "sesame_max_samples_per_step": 1,
+        "sesame_task_planner": "fdopt",
+        "burger_no_move_task_type": "more_stacks",
+        "burger_dummy_render": True,
+        "seed": 0
+    })
+    env = BurgerNoMoveEnv()
+    task = env.get_test_tasks()[0]
+    
+    utils.reset_config({
+        "env": "burger_no_move",
+        "option_model_terminate_on_repeat": False,
+        "sesame_max_skeletons_optimized": 1000,
+        "sesame_max_samples_per_step": 1,
+        "sesame_task_planner": "fdopt",
+        "burger_no_move_task_type": "fatter_burger",
+        "burger_dummy_render": True,
+        "seed": 0
+    })
+    env = BurgerNoMoveEnv()
+    task = env.get_test_tasks()[0]
