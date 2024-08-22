@@ -385,7 +385,7 @@ def test_burger_no_move():
     })
     env = BurgerNoMoveEnv()
     task = env.get_test_tasks()[0]
-    
+
     utils.reset_config({
         "env": "burger_no_move",
         "option_model_terminate_on_repeat": False,
@@ -397,4 +397,19 @@ def test_burger_no_move():
         "seed": 0
     })
     env = BurgerNoMoveEnv()
-    task = env.get_test_tasks()[0]
+    task = env.get_train_tasks()[0]
+
+    utils.reset_config({
+        "env": "burger_no_move",
+        "option_model_terminate_on_repeat": False,
+        "sesame_max_skeletons_optimized": 1000,
+        "sesame_max_samples_per_step": 1,
+        "sesame_task_planner": "fdopt",
+        "burger_no_move_task_type": "fake",
+        "burger_dummy_render": True,
+        "seed": 0
+    })
+    env = BurgerNoMoveEnv()
+    with pytest.raises(NotImplementedError) as e:
+        task = env.get_test_tasks()[0]
+    assert "Unrecognized task type: fake." in e
