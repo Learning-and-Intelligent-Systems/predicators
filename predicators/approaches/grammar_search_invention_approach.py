@@ -6,6 +6,7 @@ from __future__ import annotations
 import abc
 import itertools
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
@@ -403,7 +404,7 @@ class _PredicateGrammar(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-_DEBUG_PREDICATE_PREFIXES = {
+_DEBUG_GEOMETRIC_PREDICATES = {
     "tools": [
         "NOT-((0:robot).fingers<=[idx 0]0.5)",  # HandEmpty
         "NOT-((0:screw).is_held<=[idx 0]0.5)",  # HoldingScrew
@@ -463,24 +464,43 @@ _DEBUG_PREDICATE_PREFIXES = {
         "((0:button).y<=[idx 0]3.01)",  # ButtonReachableByRobot
         "NOT-((0:button).y<=[idx 0]3.01)",  # ButtonNotReachableByRobot
     ],
+    "burger": [
+        "((0:robot).fingers<=[idx 0]0.5)"
+    ],
+    "burger_no_move": [
+        "((0:robot).fingers<=[idx 0]0.5)"
+    ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
     ],
 }
+_DEBUG_GEOMETRIC_PREDICATES = defaultdict(list, _DEBUG_GEOMETRIC_PREDICATES)
+
+_DEBUG_VLM_PREDICATES = {
+    # Note: depending on CFG.burger_no_move_task_type, you might want to exclude
+    # some of the predicates here -- they won't be useful for the task and may
+    # cause problems in operator learning if labeled incorrectly.
+    "burger_no_move": [
+        "Cooked0",
+        "Whole0",
+        "Cut0",
+    ],
+}
+_DEBUG_VLM_PREDICATES = defaultdict(list, _DEBUG_VLM_PREDICATES)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _DebugGrammar(_PredicateGrammar):
     """A grammar that generates only predicates starting with some string in
-    _DEBUG_PREDICATE_PREFIXES[CFG.env]."""
+    _DEBUG_GEOMETRIC_PREDICATES[CFG.env]."""
     base_grammar: _PredicateGrammar
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         del max_num
         env_name = (CFG.env if not CFG.env.startswith("pybullet") else
                     CFG.env[CFG.env.index("_") + 1:])
-        expected_len = len(_DEBUG_PREDICATE_PREFIXES[env_name])
+        expected_len = len(_DEBUG_GEOMETRIC_PREDICATES[env_name])
         result = super().generate(expected_len)
         assert len(result) == expected_len
         return result
@@ -491,7 +511,7 @@ class _DebugGrammar(_PredicateGrammar):
         for (predicate, cost) in self.base_grammar.enumerate():
             if any(
                     str(predicate).startswith(debug_str)
-                    for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
+                    for debug_str in _DEBUG_GEOMETRIC_PREDICATES[env_name]):
                 yield (predicate, cost)
 
 
@@ -1021,14 +1041,25 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
-            # Create the score function that will be used to guide search.
-            score_function = create_score_function(
-                CFG.grammar_search_score_function, self._initial_predicates,
-                atom_dataset, candidates, self._train_tasks)
-            self._learned_predicates = \
-                self._select_predicates_by_score_hillclimbing(
-                candidates, score_function, self._initial_predicates,
-                atom_dataset, self._train_tasks)
+            if CFG.grammar_search_select_all_debug and \
+               CFG.grammar_search_use_handcoded_debug_grammar:
+                # Skip hill-climbing and select all the predicates from the
+                # debug grammar.
+                debug_predicate_names = _DEBUG_VLM_PREDICATES[
+                    CFG.env] + _DEBUG_GEOMETRIC_PREDICATES[CFG.env]
+                self._learned_predicates = set(
+                    p for p in candidates.keys()
+                    if p.name in debug_predicate_names)
+            else:
+                # Create the score function that will be used to guide search.
+                score_function = create_score_function(
+                    CFG.grammar_search_score_function,
+                    self._initial_predicates, atom_dataset, candidates,
+                    self._train_tasks)
+                self._learned_predicates = \
+                    self._select_predicates_by_score_hillclimbing(
+                    candidates, score_function, self._initial_predicates,
+                    atom_dataset, self._train_tasks)
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             self._learned_predicates = self._select_predicates_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset)

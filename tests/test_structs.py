@@ -7,10 +7,11 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.structs import NSRT, PNAD, Action, DefaultState, \
     DemonstrationQuery, DummyOption, EnvironmentTask, GroundAtom, \
-    GroundMacro, InteractionRequest, InteractionResult, LDLRule, LiftedAtom, \
-    LiftedDecisionList, LowLevelTrajectory, Macro, Object, \
-    ParameterizedOption, Predicate, Query, Segment, State, STRIPSOperator, \
-    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    GroundMacro, ImageOptionTrajectory, InteractionRequest, \
+    InteractionResult, LDLRule, LiftedAtom, LiftedDecisionList, \
+    LowLevelTrajectory, Macro, Object, ParameterizedOption, Predicate, Query, \
+    Segment, State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -790,6 +791,33 @@ def test_low_level_trajectory():
     with pytest.raises(AssertionError):
         # Incompatible lengths of states and actions.
         traj = LowLevelTrajectory(states[:-1], actions)
+
+
+def test_image_option_trajectory():
+    """Tests for the ImageOptionTrajectory class."""
+    # This setup is copied from the test for the LowLevelTrajectory class.
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+
+    def make_img():
+        return np.zeros((32, 32), dtype=np.uint8)
+
+    state_imgs = [[make_img(), make_img()] for i in range(3)]
+    cropped_state_imgs = [[make_img(), make_img()] for i in range(3)]
+    objs = set(state0)
+    img_option_traj = ImageOptionTrajectory(objs, state_imgs,
+                                            cropped_state_imgs, actions,
+                                            states, True, 0)
+    assert len(img_option_traj.cropped_imgs) == 3
 
 
 def test_segment():

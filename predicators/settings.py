@@ -356,8 +356,12 @@ class GlobalSettings:
 
     # burger env parameters
     burger_render_set_of_marks = True
-    gridworld_num_rows = 5
-    gridworld_num_cols = 5
+    # Which type of train/test tasks to generate. Options are "more_stacks",
+    # "fatter_burger", "combo_burger".
+    burger_no_move_task_type = "more_stacks"
+    # Replace actual rendering with dummy rendering (black 16x16 image) to speed
+    # up rendering -- used in testing or when debugging.
+    burger_dummy_render = False
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -420,6 +424,8 @@ class GlobalSettings:
     vlm_model_name = "gemini-pro-vision"
     vlm_temperature = 0.0
     vlm_num_completions = 1
+    vlm_include_cropped_images = False
+    use_hardcoded_vlm_atom_proposals = False
 
     # parameters for the vlm_open_loop planning approach
     vlm_open_loop_use_training_demos = False
@@ -488,6 +494,7 @@ class GlobalSettings:
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
     enable_harmless_op_pruning = False  # some methods may want this to be True
+    precondition_soft_intersection_threshold_percent = 0.8  # between 0 and 1
     backchaining_check_intermediate_harmlessness = False
     pnad_search_without_del = False
     pnad_search_timeout = 10.0
@@ -506,6 +513,7 @@ class GlobalSettings:
     # associated with their PNAD in order to not be pruned during operator
     # learning.
     cluster_and_intersect_min_datastore_fraction = 0.0
+    cluster_and_intersect_soft_intersection_for_preconditions = False
 
     # torch GPU usage setting
     use_torch_gpu = False
@@ -684,6 +692,7 @@ class GlobalSettings:
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
     grammar_search_parallelize_vlm_labeling = True
+    grammar_search_select_all_debug = False
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
