@@ -373,6 +373,51 @@ def test_burger_no_move():
                                monitor=None)
     assert task.task.goal_holds(traj.states[-1])
 
+    # Coverage for move part of slice policy.
+    # Put the lettuce on the cutting board and have the robot move to it when
+    # slicing.
+    s.set(lettuce, "row", 0)
+    s.set(lettuce, "col", 3)
+    s.set(lettuce, "z", 1)
+    plan = [Slice.ground((robot, lettuce, cutting_board))]
+    option_plan = [n.option.ground(n.option_objs, []) for n in plan]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "test",
+                               0,
+                               termination_function=lambda s: False,
+                               max_num_steps=CFG.horizon,
+                               exceptions_to_break_on={
+                                   utils.OptionExecutionFailure,
+                                   utils.HumanDemonstrationFailure,
+                               },
+                               monitor=None)
+    assert traj.states[-1].get(robot, "row") == 1
+    assert traj.states[-1].get(robot, "col") == 3
+
+    # Coverage for move part of cook policy.
+    # Put the patty on the grill and have the robot move to it when cooking.
+    s.set(patty, "row", 0)
+    s.set(patty, "col", 2)
+    s.set(patty, "z", 1)
+    plan = [Cook.ground((robot, patty, grill))]
+    option_plan = [n.option.ground(n.option_objs, []) for n in plan]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "test",
+                               0,
+                               termination_function=lambda s: False,
+                               max_num_steps=CFG.horizon,
+                               exceptions_to_break_on={
+                                   utils.OptionExecutionFailure,
+                                   utils.HumanDemonstrationFailure,
+                               },
+                               monitor=None)
+    assert traj.states[-1].get(robot, "row") == 1
+    assert traj.states[-1].get(robot, "col") == 2
+
     utils.reset_config({
         "env": "burger_no_move",
         "option_model_terminate_on_repeat": False,
@@ -412,4 +457,4 @@ def test_burger_no_move():
     env = BurgerNoMoveEnv()
     with pytest.raises(NotImplementedError) as e:
         task = env.get_test_tasks()[0]
-    assert "Unrecognized task type: fake." in e
+    assert "Unrecognized task type: fake." in str(e)
