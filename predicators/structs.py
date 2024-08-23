@@ -182,9 +182,11 @@ class State:
         objects are the same, and the features are close."""
         if self.simulator_state is not None or \
            other.simulator_state is not None:
-          if not CFG.allow_state_allclose_comparison_despite_simulator_state:
+            if not CFG.allow_state_allclose_comparison_despite_simulator_state:
                 raise NotImplementedError("Cannot use allclose when "
                                           "simulator_state is not None.")
+            if self.simulator_state != other.simulator_state:
+                return False
         return self._allclose(other)
 
     def _allclose(self, other: State) -> bool:

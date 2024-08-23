@@ -176,7 +176,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         if (online_learning_cycle is None or len(
                 self._q_function._ordered_ground_nsrts) + len(  # pylint: disable=protected-access
                     self._q_function._ordered_frozen_goals) + len(  # pylint: disable=protected-access
-                        self._q_function._ordered_objects) == 0) and
+                        self._q_function._ordered_objects) == 0) and \
             CFG.approach != "rl_bridge_policy":  # pylint: disable=protected-access
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
