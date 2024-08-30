@@ -448,6 +448,16 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
+            if "dr-reachable" in str(e):
+                if hasattr(env, 'check_task_solvable'):
+                    if not env.check_task_solvable(env_task):
+                        # add correct
+                        logging.info("Task is unsolvable and is recognized")
+                        num_solved += 1
+
+            # If the e is goal not reachable, check the task whether it is 
+            # actually not reachable. Compute accuracy accordingly.
+
             if isinstance(e, ApproachTimeout):
                 total_num_solve_timeouts += 1
             elif isinstance(e, ApproachFailure):

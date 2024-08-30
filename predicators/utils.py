@@ -1874,7 +1874,10 @@ class RawState(PyBulletState):
                         "rot",
                         "fingers"
                 ]) or (object_features and attribute not in [
-                    "is_heavy"
+                    "is_heavy",
+                    "grasp",
+                    "held",
+                    "is_held",
                 ]):
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
@@ -4002,8 +4005,8 @@ def compare_abstract_accuracy(
                                 f"Error found in {state_name}: "
                                 f"the GT value for {gt_pred}({choice})"
                                 f" is {gt_pred_holds}")
-                            state.labeled_image.save(
-                                f"images/{state_name}.png")
+                            # state.labeled_image.save(
+                            #     f"images/{state_name}.png")
                     else:
                         if nsp_ground_atom not in est_ground_atoms:
                             num_correct += 1
@@ -4014,8 +4017,8 @@ def compare_abstract_accuracy(
                                 f"the GT value for {gt_pred}({choice})"
                                 f" is {gt_pred_holds}, "
                                 f"prev option: {state.option_history}")
-                            state.labeled_image.save(
-                                f"images/{state_name}.png")
+                            # state.labeled_image.save(
+                            #     f"images/{state_name}.png")
             else:
                 num_not_found += 1
     logging.info(

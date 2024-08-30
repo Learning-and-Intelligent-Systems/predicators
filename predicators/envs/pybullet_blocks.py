@@ -124,10 +124,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         block_name = block.id_name
         attention_image = state.crop_to_objects([block, robot])
-
-        if CFG.save_nsp_image_patch_before_query:
-            attention_image.save(f"{CFG.image_dir}/holding({block_name}).png")
-
         return state.evaluate_simple_assertion(
             f"{block_name} is held by the robot", attention_image)
 
@@ -182,8 +178,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # objects.
         attention_image = state.crop_to_objects([block1, block2])
         return state.evaluate_simple_assertion(
-            f"{block1_name} is directly on top of {block2_name} with no blocks"
-            + " in between.", attention_image)
+            f"{block1_name} is directly on top of {block2_name} with no " +
+            "blocks in between.", attention_image)
 
     @classmethod
     def initialize_pybullet(

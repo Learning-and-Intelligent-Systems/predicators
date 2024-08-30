@@ -43,14 +43,17 @@ APPROACHES:
   #     max_initial_demos: 0
   # InterPreT-inspired baseline with symbolic predicates based on object 
   # features, conditioned on image and object-oriented dict observation.
-  interpret: 
-    NAME: "vlm_online_invention"
-    FLAGS:
-      log_file: "logs/logs_bs_interpret/"
-      strips_learner: "cluster_intersect_and_search"
-      render_init_state: True # True for NSP
-      vlm_predicator_render_option_state: True # Needed for NSP
-      max_initial_demos: 0
+  # interpret: 
+  #   NAME: "vlm_online_invention"
+  #   FLAGS:
+  #     log_file: "logs/logs_bs_interpret/"
+  #     strips_learner: "cluster_intersect_and_search"
+  #     render_init_state: True # True for NSP
+  #     neu_sym_predicate: False # Needed for NSP
+  #     vlm_predicator_render_option_state: True # Needed for NSP
+  #     max_initial_demos: 0
+  #     precondition_search_algorithm: "hill_climbing"
+  #     vlm_model_name: "gemini-1.5-pro"
   # no_acc_select: # ablation 1: without the new refinement objective
   #   NAME: "vlm_online_invention"
   #   FLAGS:
@@ -61,58 +64,60 @@ APPROACHES:
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     skip_selection_if_no_solve: True
   #     max_initial_demos: 0
-  # no_new_op_learner: # ablation 2: without the new operator learner
-  #   NAME: "vlm_online_invention"
-  #   FLAGS:
-  #     log_file: "logs/logs_abl_no_new_op_lrn/"
-  #     render_init_state: True # True for NSP
-  #     neu_sym_predicate: True # Needed for NSP
-  #     vlm_predicator_render_option_state: True # Needed for NSP
-  #     max_initial_demos: 0
+  no_new_op_learner: # ablation 2: without the new operator learner
+    NAME: "vlm_online_invention"
+    FLAGS:
+      log_file: "logs/logs_abl_no_new_op_lrn/"
+      render_init_state: True # True for NSP
+      neu_sym_predicate: True # Needed for NSP
+      vlm_predicator_render_option_state: True # Needed for NSP
+      max_initial_demos: 0
 ENVS:
-  pb_cover_w:
-    NAME: "pybullet_cover_weighted"
-    FLAGS:
-      pretrained_model_prompt_cache_dir: "pretrained_model_cache/cover"
-      num_train_tasks: 10 #0 # pybullet_coffee, cover
-      # excluded_predicates: "IsLight"
-      excluded_predicates: "all"
-      cover_typed_options_no_sampler: True
-      cover_initial_holding_prob: 0.0
-      cover_weighted_ratio: 0.5
-      pybullet_camera_width: 800
-      cover_num_blocks_train: 2
-      cover_num_targets_train: 2
-      cover_block_widths: "[0.04,0.04,0.04]"
-      cover_target_widths: "[0.02,0.02,0.02]"
-  pb_cover:
-    NAME: "pybullet_cover_typed_options"
-    FLAGS:
-      pretrained_model_prompt_cache_dir: "pretrained_model_cache/cover"
-      num_train_tasks: 5 #0 # pybullet_coffee, cover
-      excluded_predicates: "all"
-      cover_typed_options_no_sampler: True
-      cover_initial_holding_prob: 0.0
-      pybullet_camera_width: 800
-  pb_blocks:
-    NAME: "pybullet_blocks"
-    FLAGS:
-      pretrained_model_prompt_cache_dir: "pretrained_model_cache/blocks"
-      num_train_tasks: 40 #0 # pybullet_coffee, cover
-      excluded_predicates: "all"
-      pybullet_camera_width: 900
-  pb_coffee:
-    NAME: "pybullet_coffee"
-    FLAGS:
-      pretrained_model_prompt_cache_dir: "pretrained_model_cache/coffee"
-      num_train_tasks: 5 #0 # pybullet_coffee, cover
-      excluded_predicates: "Holding,JugInMachine,MachineOn,OnTable,HandEmpty,RobotAboveCup,JugAboveCup,NotAboveCup,PressingButton,Twisting,NotSameCup,JugPickable"
-      coffee_num_cups_train: '[1]'
-      coffee_twist_sampler: False
-      coffee_rotated_jug_ratio: 0.5
-      coffee_combined_move_and_twist_policy: True
-      coffee_mac_requires_jug_to_turn_on: True
-      pybullet_camera_width: 1200 # 1200 for coffee
+  pb_balance:
+
+  # pb_cover_w:
+  #   NAME: "pybullet_cover_weighted"
+  #   FLAGS:
+  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/cover"
+  #     num_train_tasks: 10 #0 # pybullet_coffee, cover
+  #     # excluded_predicates: "IsLight"
+  #     excluded_predicates: "all"
+  #     cover_typed_options_no_sampler: True
+  #     cover_initial_holding_prob: 0.0
+  #     cover_weighted_ratio: 0.5
+  #     pybullet_camera_width: 800
+  #     cover_num_blocks_train: 2
+  #     cover_num_targets_train: 2
+  #     cover_block_widths: "[0.04,0.04,0.04]"
+  #     cover_target_widths: "[0.02,0.02,0.02]"
+  # pb_cover:
+  #   NAME: "pybullet_cover_typed_options"
+  #   FLAGS:
+  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/cover"
+  #     num_train_tasks: 5 #0 # pybullet_coffee, cover
+  #     excluded_predicates: "all"
+  #     cover_typed_options_no_sampler: True
+  #     cover_initial_holding_prob: 0.0
+  #     pybullet_camera_width: 800
+  # pb_blocks:
+  #   NAME: "pybullet_blocks"
+  #   FLAGS:
+  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/blocks"
+  #     num_train_tasks: 40 #0 # pybullet_coffee, cover
+  #     excluded_predicates: "all"
+  #     pybullet_camera_width: 800
+  # pb_coffee:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/coffee"
+  #     num_train_tasks: 5 #0 # pybullet_coffee, cover
+  #     excluded_predicates: "Holding,JugInMachine,MachineOn,OnTable,HandEmpty,RobotAboveCup,JugAboveCup,NotAboveCup,PressingButton,Twisting,NotSameCup,JugPickable"
+  #     coffee_num_cups_train: '[1]'
+  #     coffee_twist_sampler: False
+  #     coffee_rotated_jug_ratio: 0.5
+  #     coffee_combined_move_and_twist_policy: True
+  #     coffee_mac_requires_jug_to_turn_on: True
+  #     pybullet_camera_width: 1200 # 1200 for coffee
 ARGS:
   - "debug"
 FLAGS:

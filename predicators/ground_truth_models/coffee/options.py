@@ -599,6 +599,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 annotation="Rotate the jug to the desired rotation.",
                 parameterized_annotation=_Twist_parameterized_annotation)
             options.add(Twist)
+            options.remove(cls.MoveToTwistParamOption)
+            options.remove(TwistJug)
 
         if CFG.coffee_move_back_after_place_and_push:
 

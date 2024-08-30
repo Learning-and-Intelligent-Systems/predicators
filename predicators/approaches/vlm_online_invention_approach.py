@@ -644,7 +644,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                         else:
                             max_num_examples += 1
             # Get the proposals
-            breakpoint()
             new_proposals = self._get_vlm_predicate_proposals(
                 env, prompt, images, ite, tasks, state_str)
         return new_proposals

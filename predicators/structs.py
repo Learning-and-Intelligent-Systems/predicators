@@ -89,6 +89,10 @@ class _TypedEntity:
 
     @cached_property
     def id_name(self) -> str:
+        try:
+            assert self.id is not None
+        except:
+            breakpoint()
         return f"{self.type.name}{self.id}"
 
     @cached_property

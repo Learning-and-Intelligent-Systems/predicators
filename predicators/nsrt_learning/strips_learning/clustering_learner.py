@@ -310,8 +310,26 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         succ_data = pnad.datastore
         score_func = functools.partial(self._score_preconditions, pnad,
                                        succ_data, fail_data)
-        path, _ = utils.run_gbfs(initial_state, check_goal,
-                                 self._get_precondition_successors, score_func)
+        if CFG.precondition_search_algorithm == "gbfs":
+            path, _ = utils.run_gbfs(
+                initial_state, check_goal, self._get_precondition_successors, 
+                score_func)
+        elif CFG.precondition_search_algorithm == "hill_climbing":
+            path, _, heuristics = utils.run_hill_climbing(
+                initial_state, check_goal, self._get_precondition_successors,
+                score_func)
+            # logging.info("\nHill climbing summary:")
+            # for i in range(1, len(path)):
+            #     new_additions = path[i] - path[i - 1]
+            #     assert len(new_additions) == 1
+            #     new_addition = next(iter(new_additions))
+            #     h = heuristics[i]
+            #     prev_h = heuristics[i - 1]
+            #     logging.info(f"\tOn step {i}, added {new_addition}, with "
+            #                  f"heuristic {h:.3f} (an improvement of "
+            #                  f"{prev_h - h:.3f} over the previous step)")
+        else:
+            raise NotImplementedError
 
         # log info
         ret_precon = path[-1]

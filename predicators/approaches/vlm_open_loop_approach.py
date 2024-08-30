@@ -177,6 +177,11 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
         if type(init_state) is utils.RawState:
             objects_str = "\n".join(obj.id_name + ":" + obj.type.name
                                     for obj in objects_list)
+            # make sure the objects in goal atoms have id name
+            for atom in goal_expr_list:
+                for o in atom.entities:
+                    list_idx = objects_list.index(o)
+                    o.id = objects_list[list_idx].id
             goal_str = "\n".join(atom._id_name_str for atom in goal_expr_list)
         else:
             objects_str = "\n".join(str(obj) for obj in objects_list)

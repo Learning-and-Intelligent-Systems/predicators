@@ -40,40 +40,43 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
-    ("ONLINE_LEARNING_CYCLE", "cycle")  # add to select model at specific cycle
+    ("ONLINE_LEARNING_CYCLE", "cycle"),  # add to select model at specific cycle
+    ("AVG_NUM_FAILED_PLAN", "avg_num_skeletons_optimized"),
 ]
 
 DERIVED_KEYS = [("perc_solved",
                  lambda r: 100 * r["num_solved"] / r["num_test_tasks"])]
 
-KEYS = ["PERC_SOLVED"]
+KEYS = [
+        "PERC_SOLVED", 
+        ]
 
 # The keys of the dict are (df key, df value), and the dict values are
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
     ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
+    ("Cover_Heavy", pd_create_equal_selector("ENV", "pybullet_cover_weighted")),
     ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
-    ("Coffee", pd_create_equal_selector("ENV", "coffee")),
-    # ("Tools", pd_create_equal_selector("ENV", "tools")),
+    ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
 ]
 
 # See PLOT_GROUPS comment.
 BAR_GROUPS = [
-    # ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
-    ("oracle invent",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_invention" in v)),
-    ("oracle explore",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_explore" in v)),
-    ("ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "nsp" in v)),
+    # ("oracle invent",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_invention" in v)),
+    # ("oracle explore",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_explore" in v)),
+    ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "nsp-nl" in v)),
     ("MAPLE", lambda df:
-     (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
-     (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))),
+        (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
+        (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "15" == v))
+    ),
     ("ViLa", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "vlm_plan" in v)),
-    ("interpret",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "interpret" in v)),
-    ("ablate select obj.",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_acc_select" in v)),
+    ("Sym. pred.", lambda df: 
+        df["EXPERIMENT_ID"].apply(lambda v: "interpret" in v)),
+    # ("ablate select obj.",
+    #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_acc_select" in v)),
     ("ablate op.learner",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_new_op_learner" in v)),
 
@@ -117,7 +120,10 @@ def _main() -> None:
                 exp_stds = get_df_for_entry(key, stds, selector)
                 mean = exp_means[key].tolist()
                 std = exp_stds[key].tolist()
-                assert len(mean) == len(std) == 1
+                try:
+                    assert len(mean) == len(std) == 1
+                except:
+                    breakpoint()
                 plot_labels.append(label)
                 plot_means.append(mean[0])
                 plot_stds.append(std[0])

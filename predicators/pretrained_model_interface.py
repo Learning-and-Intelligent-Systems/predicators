@@ -470,17 +470,18 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
 
 keys = [
     os.getenv("GOOGLE_API_KEY"),
-    os.getenv("GOOGLE_API_KEY1"),
-    os.getenv("GOOGLE_API_KEY2"),
-    os.getenv("GOOGLE_API_KEY3"),
-    os.getenv("GOOGLE_API_KEY4"),
+    # os.getenv("GOOGLE_API_KEY1"),
+    # os.getenv("GOOGLE_API_KEY2"),
+    # os.getenv("GOOGLE_API_KEY3"),
+    # os.getenv("GOOGLE_API_KEY4"),
 ]
 
 
 def key_generator(keys):
     while True:
         for key in keys:
-            yield key
+            if key is not None:
+                yield key
 
 
 key_gen = key_generator(keys)

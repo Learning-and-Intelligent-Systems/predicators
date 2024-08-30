@@ -535,3 +535,15 @@ class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
             self._Holding_NSP,
             # self._Covers_NSP,
         }
+    
+    def check_task_solvable(self, task: EnvironmentTask) -> bool:
+        """Check if the task is solvable."""
+        solvable = True
+        init = task.init
+        goal = task.goal
+        for atom in list(goal):
+            block, _ = atom.objects
+            if init.get(block, "is_heavy"):
+                solvable = False
+                break
+        return solvable
