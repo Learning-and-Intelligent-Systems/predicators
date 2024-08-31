@@ -315,8 +315,8 @@ class GlobalSettings:
     exit_garage_raise_environment_failure = False
 
     # coffee env parameters
-    coffee_num_cups_train = [1, 2]
-    coffee_num_cups_test = [2, 3]
+    coffee_num_cups_train = [1]
+    coffee_num_cups_test = [1]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
     # satellites env parameters
@@ -588,7 +588,7 @@ class GlobalSettings:
     # mpdqn function parameters
     use_epsilon_annealing = True
     min_epsilon = 0.05
-    polyak_tau = 0.004
+    polyak_tau = 0.0025
     polyak_true = True
     # if True then use RSS method (increasing exploration),
     # if False then use new method (constant exploration)
@@ -724,6 +724,7 @@ class GlobalSettings:
                     "pybullet_blocks": 1000,
                     "doors": 1000,
                     "coffee": 1000,
+                    "coffeelids": 1000,
                     "kitchen": 1000,
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
@@ -738,7 +739,8 @@ class GlobalSettings:
                 lambda: 100,
                 {
                     "grid_row_door": 100,
-                    "doorknobs": 10
+                    "doorknobs": 10,
+                    "coffee": 100,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.

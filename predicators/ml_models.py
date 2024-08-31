@@ -27,6 +27,7 @@ from torch.distributions.categorical import Categorical
 from torch.utils.data import DataLoader, TensorDataset
 
 from predicators.envs.grid_row import GridRowDoorEnv
+from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.doors import DoorKnobsEnv
 from predicators import utils
 from predicators.settings import CFG
@@ -1685,6 +1686,37 @@ class MapleQFunction(MLPRegressor):
                 
                 return vectorized_state
 
+
+            elif CFG.env == "coffee":
+                robot_pos = 0
+                features = []
+                dummy_env = CoffeeEnv()
+                for o in state:
+                    if o.is_instance(dummy_env._robot_type):
+                        robot = o
+                    if o.is_instance(dummy_env._jug_type):
+                        jug = o
+
+                for feature in jug.type.feature_names:
+                    if feature == "x":
+                        x = np.abs(state.get(jug, "x")-state.get(robot, "x"))
+                        features.append(x)
+                    elif feature == "y":
+                        y = np.abs(state.get(jug, "y")-state.get(robot, "y"))
+                        features.append(y)
+                    else:
+                        features.append(state.get(jug, feature))
+   
+                # if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
+                #     robby = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
+                # assert robby.is_instance(dummy_env._robot_type)
+                # x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
+
+                vectorized_state = features[:5]
+
+                return vectorized_state
+            
+
         else:
             vecs: List[Array] = []
             for o in self._ordered_objects:
@@ -2040,6 +2072,9 @@ class MPDQNFunction(MapleQFunction):
             X_size = 11
         elif CFG.env == "grid_row_door":
             X_size = 47
+        elif CFG.env in {"coffee", "coffeelids"} and CFG.use_callplanner and CFG.use_obj_centric:
+            X_size = 5 + 7 + self._max_num_params
+
         Y_size = 1
         doorknob_values = []
         # If there's no data in the replay buffer, we can't train.
@@ -2196,7 +2231,7 @@ class MPDQNFunction(MapleQFunction):
             epsilon = 0.0
         if CFG.random_bridge:
             epsilon = 1.0
-        # print("STATE", self._vectorize_state(state))
+        print("STATE", self._vectorize_state(state))
         
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
@@ -2222,9 +2257,10 @@ class MPDQNFunction(MapleQFunction):
             self.decay_epsilon()
         if train_or_test=="train":
             self.update_target_network()
-        # if train_or_test == "test":
-        #     logging.info("option scores" + str(option_scores[0]))
+        if train_or_test == "test":
+            logging.info("option scores" + str(option_scores[:10]))
 
+        # import ipdb;ipdb.set_trace()
         return options[idx]
     
     def update_target_network(self):

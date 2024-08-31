@@ -428,6 +428,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             return Action(np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32))
         elif CFG.env == "doorknobs":
             return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
+        elif CFG.env in {"coffee", "coffeelids"}:
+            return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
 
     def call_planner_nsrt(self) -> NSRT:
         """CallPlanner NSRT."""
