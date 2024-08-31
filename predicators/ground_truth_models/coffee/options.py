@@ -66,7 +66,18 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                                params: Array) -> bool:
             del memory, params  # unused
             robot, _ = objects
+            # print("hand empty?", HandEmpty.holds(state, [robot]))
             return HandEmpty.holds(state, [robot])
+
+        # TwistJug = ParameterizedOption(
+        #     "TwistJug",
+        #     types=[robot_type, jug_type],
+        #     # The parameter is a normalized amount to twist by.
+        #     params_space=Box(-1, 1, (1, )),
+        #     policy=cls._create_twist_jug_policy(),
+        #     initiable=lambda s, m, o, p: True,
+        #     terminal=_TwistJug_terminal,
+        # )
 
         TwistJug = ParameterizedOption(
             "TwistJug",
@@ -78,12 +89,14 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_TwistJug_terminal,
         )
 
+
         # PickJug
         def _PickJug_terminal(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
             del memory, params  # unused
             robot, jug = objects
+            # print("ARE WE HOLDING THE JUG", Holding.holds(state, [robot, jug]) )
             return Holding.holds(state, [robot, jug])
 
         PickJug = ParameterizedOption(
@@ -224,6 +237,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             handle_pos = cls._get_jug_handle_grasp(state, jug)
             # If close enough, pick.
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
+            # print("CAN WE PICK", sq_dist_to_handle < cls.pick_policy_tol)
             if sq_dist_to_handle < cls.pick_policy_tol:
                 return Action(
                     np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
@@ -404,3 +418,12 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         target_y = state.get(cup, "y") + CoffeeEnv.pour_y_offset
         target_z = CoffeeEnv.pour_z_offset
         return (target_x, target_y, target_z)
+
+
+
+
+class CoffeeLidsGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"coffeelids"}

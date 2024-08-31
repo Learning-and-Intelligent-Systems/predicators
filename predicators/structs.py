@@ -622,7 +622,10 @@ class _Option:
     def policy(self, state: State) -> Action:
         """Call the policy and set the action's option."""
         action = self._policy(state)
-        action.set_option(self)
+        try:
+            action.set_option(self)
+        except:
+            import ipdb;ipdb.set_trace()
         return action
 
 

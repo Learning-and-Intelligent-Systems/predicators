@@ -262,3 +262,9 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(pour_from_other_cup_nsrt)
 
         return nsrts
+
+class CoffeeLidGroundTruthNSRTFactory(CoffeeGroundTruthNSRTFactory):
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"coffeelids"}

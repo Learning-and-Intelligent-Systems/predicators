@@ -156,6 +156,7 @@ class CoffeeEnv(BaseEnv):
         next_state = state.copy()
         norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dwrist, norm_dfingers = \
             action.arr
+        # print("ACTION", action.arr)
         # Denormalize the action.
         dx = norm_dx * self.max_position_vel
         dy = norm_dy * self.max_position_vel
@@ -194,11 +195,14 @@ class CoffeeEnv(BaseEnv):
         handle_pos = self._get_jug_handle_grasp(state, self._jug)
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
         jug_rot = state.get(self._jug, "rot")
+        # print("JUG ROT", jug_rot, state.get(self._jug, "rot"))
         # Check if the button should be pressed for the first time.
         machine_was_on = self._MachineOn_holds(state, [self._machine])
         pressing_button = self._PressingButton_holds(
             next_state, [self._robot, self._machine])
         jug_held = self._Holding_holds(state, [self._robot, self._jug])
+        # print("ARE WE DROPPING JUG", abs/(fingers - self.open_fingers) < self.grasp_finger_tol,fingers, self.open_fingers, self.grasp_finger_tol )
+
         if pressing_button and not machine_was_on:
             next_state.set(self._machine, "is_on", 1.0)
             # Snap the robot to the center of the button.
@@ -211,6 +215,7 @@ class CoffeeEnv(BaseEnv):
         elif jug_held:
             # If the jug should be dropped, drop it first.
             if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
+                print("DROPPING JUG")
                 next_state.set(self._jug, "is_held", 0.0)
             # Otherwise, move it, and process pouring.
             else:
@@ -245,7 +250,7 @@ class CoffeeEnv(BaseEnv):
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
             sq_dist_to_handle < self.grasp_position_tol and \
-            abs(jug_rot) < self.pick_jug_rot_tol:
+            abs(jug_rot) < self.pick_jug_rot_tol and dwrist == 0:
             # Snap to the handle.
             handle_x, handle_y, handle_z = handle_pos
             next_state.set(self._robot, "x", handle_x)
@@ -254,6 +259,7 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._robot, "tilt", self.tilt_lb)
             next_state.set(self._robot, "wrist", self.robot_init_wrist)
             # Grasp the jug.
+            print("WE R GRASPING")
             next_state.set(self._jug, "is_held", 1.0)
         # Check if the jug should be rotated.
         elif self._Twisting_holds(state, [self._robot, self._jug]):
@@ -267,6 +273,7 @@ class CoffeeEnv(BaseEnv):
         machine_on = self._MachineOn_holds(next_state, [self._machine])
         if jug_in_machine and machine_on:
             next_state.set(self._jug, "is_filled", 1.0)
+        # print("ARE WE HOLDING THE JUG RN", next_state.get(self._jug, "is_held"))
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -579,6 +586,7 @@ class CoffeeEnv(BaseEnv):
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
         robot, = objects
+        # print("TWISTING?", self._Twisting_holds(state, [robot, self._jug]))
         if self._Twisting_holds(state, [robot, self._jug]):
             return False
         return not self._Holding_holds(state, [robot, self._jug])
@@ -687,7 +695,7 @@ class CoffeeLidEnv(CoffeeEnv):
         
     @classmethod
     def get_name(cls) -> str:
-        return "coffeelid"
+        return "coffeelids"
     
     @property
     def types(self) -> Set[Type]:
@@ -701,6 +709,7 @@ class CoffeeLidEnv(CoffeeEnv):
         next_state = state.copy()
         norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dwrist, norm_dfingers = \
             action.arr
+        print("ACTION", action)
         # Denormalize the action.
         dx = norm_dx * self.max_position_vel
         dy = norm_dy * self.max_position_vel
@@ -744,6 +753,8 @@ class CoffeeLidEnv(CoffeeEnv):
         pressing_button = self._PressingButton_holds(
             next_state, [self._robot, self._machine])
         jug_held = self._Holding_holds(state, [self._robot, self._jug])
+        # print("HELP", abs(jug_rot), self.pick_jug_rot_tol)
+
         if pressing_button and not machine_was_on:
             next_state.set(self._machine, "is_on", 1.0)
             # Snap the robot to the center of the button.
@@ -756,6 +767,7 @@ class CoffeeLidEnv(CoffeeEnv):
         elif jug_held:
             # If the jug should be dropped, drop it first.
             if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
+                # print("BRUH WE DJUST DROPPED THE JUG")
                 next_state.set(self._jug, "is_held", 0.0)
             # Otherwise, move it, and process pouring.
             else:
@@ -787,7 +799,7 @@ class CoffeeLidEnv(CoffeeEnv):
                     next_state.set(self._robot, "tilt", self.tilt_lb)
                     next_state.set(self._robot, "wrist", self.robot_init_wrist)
                     next_state.set(self._robot, "fingers", self.closed_fingers)
-        # Check if the jug should be grasped for the first time.
+        # Check if the jug should be grasped for the first time.        
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
             sq_dist_to_handle < self.grasp_position_tol and \
             abs(jug_rot) < self.pick_jug_rot_tol:
@@ -802,6 +814,7 @@ class CoffeeLidEnv(CoffeeEnv):
             next_state.set(self._jug, "is_held", 1.0)
         # Check if the jug should be rotated.
         elif self._Twisting_holds(state, [self._robot, self._jug]):
+            print("WE ROTATE THE JUG")
             # Rotate the jug.
             rot = state.get(self._jug, "rot")
             next_state.set(self._jug, "rot", rot + dwrist)
