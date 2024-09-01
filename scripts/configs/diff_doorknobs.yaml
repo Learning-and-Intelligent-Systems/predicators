@@ -20,7 +20,7 @@ FLAGS:
   max_initial_demos: 0
   sampler_learner: "oracle"
   strips_learner: "oracle"
-  num_online_learning_cycles: 300
+  num_online_learning_cycles: 160
   num_test_tasks: 10
   num_train_tasks: 20
   interactive_num_requests_per_cycle: 10
