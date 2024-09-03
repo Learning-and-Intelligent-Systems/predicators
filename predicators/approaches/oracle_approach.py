@@ -16,7 +16,7 @@ from predicators.ground_truth_models import get_gt_nsrts
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, ParameterizedOption, Predicate, Task, \
-    Type
+    Type, ConceptPredicate
 
 
 class OracleApproach(BilevelPlanningApproach):
@@ -32,7 +32,9 @@ class OracleApproach(BilevelPlanningApproach):
                  max_skeletons_optimized: int = -1,
                  bilevel_plan_without_sim: Optional[bool] = None,
                  nsrts: Optional[Set[NSRT]] = None,
-                 option_model: Optional[_OptionModelBase] = None) -> None:
+                 option_model: Optional[_OptionModelBase] = None,
+                 initial_concept_predicates: Set[ConceptPredicate] = set(),
+                 ) -> None:
         super().__init__(initial_predicates,
                          initial_options,
                          types,
@@ -41,7 +43,8 @@ class OracleApproach(BilevelPlanningApproach):
                          task_planning_heuristic,
                          max_skeletons_optimized,
                          bilevel_plan_without_sim,
-                         option_model=option_model)
+                         option_model=option_model,
+                         initial_concept_predicates=initial_concept_predicates)
         if nsrts is None:
             nsrts = get_gt_nsrts(CFG.env, self._initial_predicates,
                                  self._initial_options)

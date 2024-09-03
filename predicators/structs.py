@@ -313,7 +313,6 @@ DefaultState = State({})
 #     right: int
 #     upper: int
 
-
 @dataclass(frozen=True, order=False, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states)."""
@@ -471,6 +470,34 @@ class Predicate:
 
     def __lt__(self, other: Predicate) -> bool:
         return str(self) < str(other)
+
+@dataclass(frozen=True, order=False, repr=False)
+class ConceptPredicate(Predicate):
+    """Struct defining a concept predicate"""
+    name: str
+    types: Sequence[Type]
+    # The classifier takes in a complete state and a sequence of objects
+    # representing the arguments. These objects should be the only ones
+    # treated "specially" by the classifier.
+    _classifier: Callable[[Set[GroundAtom], Sequence[Object]],
+                          bool] = field(compare=False)
+
+    def holds(self, state: Set[GroundAtom], objects: Sequence[Object]) -> bool:
+        """Public method for calling the classifier.
+
+        Performs type checking first.
+        """
+        assert len(objects) == self.arity
+        for obj, pred_type in zip(objects, self.types):
+            assert isinstance(obj, Object)
+            assert obj.is_instance(pred_type)
+        return self._classifier(state, objects)
+
+    def _negated_classifier(self, state: Set[GroundAtom],
+                            objects: Sequence[Object]) -> bool:
+        # Separate this into a named function for pickling reasons.
+        return not self._classifier(state, objects)
+
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -779,7 +806,10 @@ class ParameterizedOption:
 
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
-        assert len(objects) == len(self.types)
+        try:
+            assert len(objects) == len(self.types)
+        except:
+            breakpoint()
         for obj, t in zip(objects, self.types):
             assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)

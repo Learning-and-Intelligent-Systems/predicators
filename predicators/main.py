@@ -135,6 +135,7 @@ def main() -> None:
     assert env.goal_predicates.issubset(env.predicates)
     included_preds, excluded_preds = utils.parse_config_excluded_predicates(
         env)
+    concept_preds = utils.parse_config_excluded_concept_predicates(env)
     # The known predicates are passed into the approach and into dataset
     # creation. In some cases, like when inventing geometric and VLM predicates,
     # we want to hide certain goal predicates from the agent because we may
@@ -184,7 +185,8 @@ def main() -> None:
     approach_name = CFG.approach
     if CFG.approach_wrapper:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
-    approach = create_approach(approach_name, preds, options, env.types,
+    approach = create_approach(approach_name, preds, concept_preds, options, 
+                               env.types,
                                env.action_space, approach_train_tasks)
     if approach.is_learning_based:
         # Create the offline dataset. Note that this needs to be done using
@@ -386,11 +388,6 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     if CFG.approach != "oracle":
         test_tasks = [task.replace_goal_with_alt_goal() for task in test_tasks]
     # # Check rendering by saving the image of the init state of tasks
-    # for i, task in enumerate(test_tasks):
-    #     task.init.state_image.save(f"images/{env.get_name()}_"+
-    #         f"test_task{i}.png")
-    #     task.init.labeled_image.save(f"images/{env.get_name()}_"+
-    #         f"test_task{i}_labeled.png")
     # Save all the masks
     # for obj, mask in task.init.obj_mask_dict.items():
     #     Image.fromarray(mask).save(

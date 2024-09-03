@@ -8,7 +8,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.base_approach import ApproachFailure, \
     ApproachTimeout, BaseApproach, BaseApproachWrapper
-from predicators.structs import ParameterizedOption, Predicate, Task, Type
+from predicators.structs import ParameterizedOption, Predicate, Task, Type,\
+    ConceptPredicate
 
 __all__ = ["BaseApproach", "ApproachTimeout", "ApproachFailure"]
 
@@ -31,6 +32,7 @@ def _get_wrapper_cls_from_name(name: str) -> TypingType[BaseApproachWrapper]:
 
 
 def create_approach(name: str, initial_predicates: Set[Predicate],
+                    initial_concept_predicates: Set[ConceptPredicate],
                     initial_options: Set[ParameterizedOption],
                     types: Set[Type], action_space: Box,
                     train_tasks: List[Task]) -> BaseApproach:
@@ -46,10 +48,16 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
                                         train_tasks)
         # Find wrapper.
         wrapper_cls = _get_wrapper_cls_from_name(wrapper_name)
-        return wrapper_cls(base_approach, initial_predicates, initial_options,
-                           types, action_space, train_tasks)
+        return wrapper_cls(base_approach, initial_predicates, 
+                           initial_options,
+                           types, action_space, train_tasks,
+                        initial_concept_predicates=initial_concept_predicates
+                           )
 
     # Handle main approaches.
     cls = _get_approach_cls_from_name(name)
-    return cls(initial_predicates, initial_options, types, action_space,
-               train_tasks)
+    return cls(initial_predicates, 
+               initial_options, types, action_space,
+               train_tasks,
+            initial_concept_predicates=initial_concept_predicates
+               )

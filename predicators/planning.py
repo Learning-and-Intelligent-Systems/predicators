@@ -30,7 +30,7 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
     DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, ConceptPredicate
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -67,7 +67,8 @@ def sesame_plan(
     refinement_estimator: Optional[BaseRefinementEstimator] = None,
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
-    use_visited_state_set: bool = False
+    use_visited_state_set: bool = False,
+    concept_predicates: Set[ConceptPredicate] = set(),
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """Run bilevel planning.
 
@@ -84,7 +85,8 @@ def sesame_plan(
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
             abstract_policy, max_policy_guided_rollout, refinement_estimator,
-            check_dr_reachable, allow_noops, use_visited_state_set)
+            check_dr_reachable, allow_noops, use_visited_state_set, 
+            concept_predicates=concept_predicates)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -127,7 +129,8 @@ def _sesame_plan_with_astar(
     refinement_estimator: Optional[BaseRefinementEstimator] = None,
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
-    use_visited_state_set: bool = False
+    use_visited_state_set: bool = False,
+    concept_predicates: Set[ConceptPredicate] = set(),
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
@@ -141,6 +144,7 @@ def _sesame_plan_with_astar(
     # Make a copy of the predicates set to avoid modifying the input set,
     # since we may be adding NotCausesFailure predicates to the set.
     predicates = predicates.copy()
+    concept_predicates = concept_predicates.copy()
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
@@ -160,7 +164,8 @@ def _sesame_plan_with_astar(
                 task, reachable_nsrts, init_atoms, heuristic, new_seed,
                 timeout - (time.perf_counter() - start_time), metrics,
                 max_skeletons_optimized, abstract_policy,
-                max_policy_guided_rollout, use_visited_state_set)
+                max_policy_guided_rollout, use_visited_state_set,
+                concept_predicates)
             # If a refinement cost estimator is provided, generate a number of
             # skeletons first, then predict the refinement cost of each skeleton
             # and attempt to refine them in this order.
@@ -275,10 +280,13 @@ def filter_nsrts(
                                                     init_atoms)
     if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
         raise PlanningFailure(f"Goal {task.goal} not dr-reachable")
-    reachable_nsrts = [
-        nsrt for nsrt in nonempty_ground_nsrts
-        if nsrt.preconditions.issubset(all_reachable_atoms)
-    ]
+    if CFG.sesame_filter_unreachable_nsrt:
+        reachable_nsrts = [
+            nsrt for nsrt in nonempty_ground_nsrts
+            if nsrt.preconditions.issubset(all_reachable_atoms)
+        ]
+    else:
+        reachable_nsrts = nonempty_ground_nsrts
     return reachable_nsrts
 
 
@@ -371,7 +379,8 @@ def _skeleton_generator(
     max_skeletons_optimized: int,
     abstract_policy: Optional[AbstractPolicy] = None,
     sesame_max_policy_guided_rollout: int = 0,
-    use_visited_state_set: bool = False
+    use_visited_state_set: bool = False,
+    concept_predicates: Set[ConceptPredicate] = set(),
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs). Iterates over
     pairs of (skeleton, atoms sequence).
@@ -493,6 +502,16 @@ def _skeleton_generator(
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
+                # Compute and add the concept predicate ground atoms
+                concept_atoms = utils.abstract_with_concept_predicates(
+                                                        child_atoms, 
+                                                        concept_predicates,
+                                                        current_objects)
+                # logging.debug(f"Applying nsrt: {nsrt.short_str}")
+                # logging.debug(f"Existing atoms: {child_atoms}")
+                # logging.debug(f"Concept atoms: {concept_atoms}")
+                child_atoms |= concept_atoms
+
                 if use_visited_state_set:
                     frozen_atoms = frozenset(child_atoms)
                     if frozen_atoms in visited_atom_sets:

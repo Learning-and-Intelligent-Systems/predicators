@@ -143,7 +143,7 @@ class _OracleOptionModel(_OptionModelBase):
                 _terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
         except utils.OptionExecutionFailure as e:
-            # logging.debug(f"Option model faillure: {str(e)}")
+            logging.debug(f"Option model faillure: {str(e)}")
             # If there is a failure during the execution of the option, treat
             # this as a noop.
             return state, 0

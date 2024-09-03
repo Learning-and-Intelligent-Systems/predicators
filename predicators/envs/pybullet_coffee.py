@@ -1122,10 +1122,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                         0,
                         rgbaColor=self.button_color_on,
                         physicsClientId=self._physics_client_id)
-                    # p.changeVisualShape(self._dispense_area_id,
-                    #                 -1,
-                    #                 rgbaColor=self.plate_color_on,
-                    #                 physicsClientId=self._physics_client_id)
             else:
                 p.changeVisualShape(self._button_id,
                                     -1,
@@ -1135,10 +1131,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     0,
                                     rgbaColor=self.button_color_on,
                                     physicsClientId=self._physics_client_id)
-                # p.changeVisualShape(self._dispense_area_id,
-                #                     -1,
-                #                     rgbaColor=self.plate_color_on,
-                #                     physicsClientId=self._physics_client_id)
             # the jug is only filled if it's in the machine
             if self._JugInMachine_holds(state, [self._jug, self._machine]):
                 if not self._jug_filled:

@@ -10,7 +10,7 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, InteractionRequest, \
     InteractionResult, Metrics, ParameterizedOption, Predicate, State, Task, \
-    Type
+    Type, ConceptPredicate
 from predicators.utils import ExceptionWithInfo
 
 
@@ -19,10 +19,13 @@ class BaseApproach(abc.ABC):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task]) -> None:
+                 action_space: Box, train_tasks: List[Task],
+                 initial_concept_predicates: Set[ConceptPredicate],
+                 ) -> None:
         """All approaches are initialized with only the necessary information
         about the environment."""
         self._initial_predicates = initial_predicates
+        self._initial_concept_predicates = initial_concept_predicates
         self._initial_options = initial_options
         self._types = types
         self._action_space = action_space
@@ -72,7 +75,10 @@ class BaseApproach(abc.ABC):
         def _policy(state: State) -> Action:
             assert isinstance(state, State)
             act = pi(state)
-            assert self._action_space.contains(act.arr)
+            try:
+                assert self._action_space.contains(act.arr)
+            except:
+                breakpoint()
             return act
 
         return _policy

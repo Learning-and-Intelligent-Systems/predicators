@@ -21,17 +21,17 @@ APPROACHES:
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     vlm_predicator_oracle_explore: True
-  # nsp-nl: # Our updated main approach
-  #   NAME: "vlm_online_invention"
-  #   FLAGS:
-  #     log_file: "logs/logs_nsp_nl/"
-  #     strips_learner: "cluster_intersect_and_search"
-  #     render_init_state: True # True for NSP
-  #     neu_sym_predicate: True # Needed for NSP
-  #     vlm_predicator_render_option_state: True # Needed for NSP
-  #     max_initial_demos: 0
-  #     vlm_invention_propose_nl_properties: True
-  #     vlm_invention_alternate_between_p_ad: True
+  nsp-nl: # Our updated main approach
+    NAME: "vlm_online_invention"
+    FLAGS:
+      log_file: "logs/logs_nsp_nl/"
+      strips_learner: "cluster_intersect_and_search"
+      render_init_state: True # True for NSP
+      neu_sym_predicate: True # Needed for NSP
+      vlm_predicator_render_option_state: True # Needed for NSP
+      max_initial_demos: 0
+      vlm_invention_propose_nl_properties: True
+      vlm_invention_alternate_between_p_ad: True
   # nsp: # Our main approach
   #   NAME: "vlm_online_invention"
   #   FLAGS:
@@ -64,16 +64,21 @@ APPROACHES:
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     skip_selection_if_no_solve: True
   #     max_initial_demos: 0
-  no_new_op_learner: # ablation 2: without the new operator learner
-    NAME: "vlm_online_invention"
-    FLAGS:
-      log_file: "logs/logs_abl_no_new_op_lrn/"
-      render_init_state: True # True for NSP
-      neu_sym_predicate: True # Needed for NSP
-      vlm_predicator_render_option_state: True # Needed for NSP
-      max_initial_demos: 0
+  # no_new_op_learner: # ablation 2: without the new operator learner
+  #   NAME: "vlm_online_invention"
+  #   FLAGS:
+  #     log_file: "logs/logs_abl_no_new_op_lrn/"
+  #     render_init_state: True # True for NSP
+  #     neu_sym_predicate: True # Needed for NSP
+  #     vlm_predicator_render_option_state: True # Needed for NSP
+  #     max_initial_demos: 0
 ENVS:
   pb_balance:
+    NAME: "pybullet_balance"
+    FLAGS:
+      pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
+      pybullet_camera_width: 800
+      num_train_tasks: 5
 
   # pb_cover_w:
   #   NAME: "pybullet_cover_weighted"

@@ -18,7 +18,8 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once, sesame_plan
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option,\
+    ConceptPredicate
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -33,9 +34,13 @@ class BilevelPlanningApproach(BaseApproach):
                  task_planning_heuristic: str = "default",
                  max_skeletons_optimized: int = -1,
                  bilevel_plan_without_sim: Optional[bool] = None,
-                 option_model: Optional[_OptionModelBase] = None) -> None:
-        super().__init__(initial_predicates, initial_options, types,
-                         action_space, train_tasks)
+                 option_model: Optional[_OptionModelBase] = None,
+                 initial_concept_predicates: Set[ConceptPredicate] = set(),
+                 ) -> None:
+        super().__init__(initial_predicates, 
+                        initial_options, types,
+                        action_space, train_tasks,
+                        initial_concept_predicates=initial_concept_predicates)
         if task_planning_heuristic == "default":
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
         if max_skeletons_optimized == -1:
@@ -76,7 +81,8 @@ class BilevelPlanningApproach(BaseApproach):
         # Run full bilevel planning.
         else:
             option_plan, nsrt_plan, metrics = self._run_sesame_plan(
-                task, nsrts, preds, timeout, seed)
+                task, nsrts, preds, timeout, seed, 
+                concept_predicates=self._get_current_concept_predicates())
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
             self._last_partial_refinements = metrics["partial_refinements"]
@@ -116,6 +122,7 @@ class BilevelPlanningApproach(BaseApproach):
                 self._task_planning_heuristic,
                 self._max_skeletons_optimized,
                 max_horizon=CFG.horizon,
+                check_dr_reachable=CFG.sesame_check_dr_reachable,
                 allow_noops=CFG.sesame_allow_noops,
                 use_visited_state_set=CFG.sesame_use_visited_state_set,
                 **kwargs)
@@ -185,6 +192,11 @@ class BilevelPlanningApproach(BaseApproach):
         Defaults to initial predicates.
         """
         return self._initial_predicates
+    
+    def _get_current_concept_predicates(self) -> Set[ConceptPredicate]:
+        """Get the current set of concept predicates.
+        """
+        return self._initial_concept_predicates
 
     def get_option_model(self) -> _OptionModelBase:
         """For ONLY an oracle approach, we allow the user to get the current

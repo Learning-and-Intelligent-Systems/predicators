@@ -86,6 +86,12 @@ class GlobalSettings:
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
+    # balance env parameters
+    balance_num_blocks_train = [2, 4]
+    balance_num_blocks_test = [6]
+    balance_holding_goals = False
+    balance_block_size = 0.045  # use 0.0505 for real with panda
+
     # playroom env parameters
     playroom_num_blocks_train = [3]
     playroom_num_blocks_test = [3]
@@ -168,6 +174,10 @@ class GlobalSettings:
         # rotate 90 degrees.
         {
             "pybullet_blocks": {
+                "fetch": (0.7071, 0.0, -0.7071, 0.0),
+                "panda": (0.7071, 0.7071, 0.0, 0.0),
+            },
+            "pybullet_balance": {
                 "fetch": (0.7071, 0.0, -0.7071, 0.0),
                 "panda": (0.7071, 0.7071, 0.0, 0.0),
             }
@@ -489,6 +499,8 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     # observed states match (at the abstract level) the expected states, and
     # replan if not. But for now, we just execute each step without checking.
     bilevel_plan_without_sim = False
+    sesame_check_dr_reachable = True
+    sesame_filter_unreachable_nsrt = True
 
     # evaluation parameters
     log_dir = "logs"
@@ -795,6 +807,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     "pybullet_cover_typed_options": 1000,
                     "pybullet_cover_weighted": 1000,
                     "pybullet_blocks": 1000,
+                    "pybullet_balance": 1000,
                     # to allow pour policies to finish
                     "pybullet_coffee": 2000,
                     "doors": 1000,
@@ -852,9 +865,10 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_cover_typed_options":
-                    "oracle_cover_typed_options",
+                        "oracle_cover_typed_options",
                     "pybullet_cover_weighted": "oracle_cover_typed_options",
                     "pybullet_blocks": "oracle_blocks",
+                    "pybullet_balance": "oracle_balance",
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum number of skeletons optimized before

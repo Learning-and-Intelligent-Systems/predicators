@@ -17,44 +17,51 @@ APPROACHES:
   #     # Because MAPLE can't generalize to unseen goals
   #     blocks_num_blocks_test: "[3,4]"
   #     coffee_num_cups_test: "[1]"
-  vlm_plan: # ViLa baseline
-    NAME: "vlm_open_loop"
-    FLAGS:
-      excluded_predicates: "all"
-      num_train_tasks: 0
-      log_file: "logs/vila/"
-      render_init_state: True
-      label_objs_with_id_name: True
+  # vlm_plan: # ViLa baseline
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     excluded_predicates: "all"
+  #     num_train_tasks: 0
+  #     log_file: "logs/vila/"
+  #     render_init_state: True
+  #     label_objs_with_id_name: True
 ENVS:
-  pb_cover_w:
-    NAME: "pybullet_cover_weighted"
+  pb_balance:
+    NAME: "pybullet_balance"
     FLAGS:
-      online_nsrt_learning_requests_per_cycle: 40 # matching ours
-      cover_typed_options_no_sampler: True
-      cover_initial_holding_prob: 0.0
-      cover_weighted_ratio: 0.5
-      cover_num_blocks_train: 2
-      cover_num_targets_train: 2
-      cover_block_widths: "[0.04,0.04,0.04]"
-      cover_target_widths: "[0.02,0.02,0.02]"
-  pb_cover:
-    NAME: "pybullet_cover_typed_options"
-    FLAGS:
-      online_nsrt_learning_requests_per_cycle: 40
-      cover_typed_options_no_sampler: True
-      cover_initial_holding_prob: 0.5
-  pb_blocks:
-    NAME: "pybullet_blocks"
-    FLAGS:
-      online_nsrt_learning_requests_per_cycle: 400
-  pb_coffee:
-    NAME: "pybullet_coffee"
-    FLAGS:
-      online_nsrt_learning_requests_per_cycle: 500
-      coffee_twist_sampler: False
-      coffee_rotated_jug_ratio: 0.5
-      coffee_combined_move_and_twist_policy: True
-      coffee_mac_requires_jug_to_turn_on: True
+      pybullet_camera_width: 800
+      num_train_tasks: 5
+      sesame_check_dr_reachable: False
+      excluded_predicates: "Balanced"
+  # pb_cover_w:
+  #   NAME: "pybullet_cover_weighted"
+  #   FLAGS:
+  #     online_nsrt_learning_requests_per_cycle: 40 # matching ours
+  #     cover_typed_options_no_sampler: True
+  #     cover_initial_holding_prob: 0.0
+  #     cover_weighted_ratio: 0.5
+  #     cover_num_blocks_train: 2
+  #     cover_num_targets_train: 2
+  #     cover_block_widths: "[0.04,0.04,0.04]"
+  #     cover_target_widths: "[0.02,0.02,0.02]"
+  # pb_cover:
+  #   NAME: "pybullet_cover_typed_options"
+  #   FLAGS:
+  #     online_nsrt_learning_requests_per_cycle: 40
+  #     cover_typed_options_no_sampler: True
+  #     cover_initial_holding_prob: 0.5
+  # pb_blocks:
+  #   NAME: "pybullet_blocks"
+  #   FLAGS:
+  #     online_nsrt_learning_requests_per_cycle: 400
+  # pb_coffee:
+  #   NAME: "pybullet_coffee"
+  #   FLAGS:
+  #     online_nsrt_learning_requests_per_cycle: 500
+  #     coffee_twist_sampler: False
+  #     coffee_rotated_jug_ratio: 0.5
+  #     coffee_combined_move_and_twist_policy: True
+  #     coffee_mac_requires_jug_to_turn_on: True
 ARGS:
   - "debug"
 FLAGS:

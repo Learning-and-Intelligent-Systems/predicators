@@ -67,7 +67,7 @@ from predicators.structs import NSRT, Action, Array, Dataset, \
     Observation, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
     STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, VLMPredicate, \
     _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
-    _TypedEntity
+    _TypedEntity, ConceptPredicate
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -1588,6 +1588,7 @@ class LinearChainParameterizedOption(ParameterizedOption):
             child_memory = memory["child_memory"][current_index]
             assert current_child.initiable(state, child_memory, objects,
                                            params)
+        # logging.debug(f"current option: {current_child.name}")
         return current_child.policy(state, child_memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
@@ -2278,6 +2279,7 @@ def run_policy_with_simulator(
             try:
                 # logging.debug(f"Step {i} \n"+ pformat(state.pretty_str()))
                 act = policy(state)
+                # logging.debug(f"Action {act}")
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
@@ -2285,6 +2287,7 @@ def run_policy_with_simulator(
                 actions.append(act)
                 states.append(state)
             except Exception as e:
+                # breakpoint()
                 if exceptions_to_break_on is not None and \
                     type(e) in exceptions_to_break_on:
                     if monitor_observed:
@@ -3672,6 +3675,17 @@ def query_vlm_for_atom_vals(
             true_atoms.add(vlm_atoms[i])
     return true_atoms
 
+def abstract_with_concept_predicates(state: Set[GroundAtom],
+            preds: Collection[ConceptPredicate],
+            objects: Collection[Object]) -> Set[GroundAtom]:
+    """Get the atoms based on the existing atomic state and concept predicates.
+    """
+    atoms: Set[GroundAtom] = set()
+    for pred in preds:
+        for choice in get_object_combinations(objects, pred.types):
+            if pred.holds(state, choice):
+                atoms.add(GroundAtom(pred, choice))
+    return atoms
 
 def abstract(state: State,
              preds: Collection[Predicate],
@@ -5317,6 +5331,14 @@ def parse_config_excluded_predicates(
         included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
+
+def parse_config_excluded_concept_predicates(env: BaseEnv
+                                             ) -> Set[ConceptPredicate]:
+    """Parse the CFG.excluded_predicates string, given an environment.
+
+    Return a tuple of (included predicate set, excluded predicate set).
+    """
+    return env.concept_predicates
 
 
 def replace_goals_with_agent_specific_goals(

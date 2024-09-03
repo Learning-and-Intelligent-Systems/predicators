@@ -246,6 +246,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             # task.init.state_image.save(CFG.log_file, f"images/init_state{i}.png")
             task.init.labeled_image.save(
                 os.path.join(img_dir, f"init_label{i}.png"))
+        breakpoint()
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
