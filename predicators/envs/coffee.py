@@ -526,7 +526,9 @@ class CoffeeEnv(BaseEnv):
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
-            rot = rng.uniform(self.jug_init_rot_lb, self.jug_init_rot_ub)
+            rot = 1.5
+            # rng.uniform(self.jug_init_rot_lb, self.jug_init_rot_ub)
+            print("OUR ROT", rot)
             state_dict[self._jug] = {
                 "x": x,
                 "y": y,
