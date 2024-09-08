@@ -231,7 +231,7 @@ def _run_pipeline(env: BaseEnv,
         for i in range(CFG.num_online_learning_cycles):
             # if smooth_rewards and smooth_rewards[-1]>0:
             #     raise ValueError
-            # if i == 13:
+            # if i == 1:
             #     raise ValueError
             if i < CFG.skip_until_cycle:
                 continue

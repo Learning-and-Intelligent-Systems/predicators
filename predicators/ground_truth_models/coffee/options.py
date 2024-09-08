@@ -19,6 +19,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
     twist_policy_tol: ClassVar[float] = 1e-1
     pick_policy_tol: ClassVar[float] = 1e-1
     pour_policy_tol: ClassVar[float] = 1e-1
+    repeat_state = False
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -49,7 +50,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                                      params: Array) -> bool:
             del memory, params  # unused
             robot, jug = objects
-            return Twisting.holds(state, [robot, jug])
+            # print("TWISTING HOLDS?", Twisting.holds(state, [robot, jug]))
+            return Twisting.holds(state, [robot, jug]) or cls.repeat_state
 
         MoveToTwistJug = ParameterizedOption(
             "MoveToTwistJug",
@@ -97,7 +99,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory, params  # unused
             robot, jug = objects
             # print("ARE WE HOLDING THE JUG", Holding.holds(state, [robot, jug]) )
-            return Holding.holds(state, [robot, jug])
+            return Holding.holds(state, [robot, jug]) or cls.repeat_state
 
         PickJug = ParameterizedOption(
             "PickJug",
@@ -166,11 +168,18 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_move_to_twist_policy(cls) -> ParameterizedPolicy:
+        previous_state = None
+        cls.repeat_state = False
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             # This policy moves the robot to above the jug, then moves down.
+            nonlocal previous_state
             del memory, params  # unused
+            if previous_state is not None and previous_state.pretty_str() == state.pretty_str():
+                cls.repeat_state = True
+            previous_state = state
+            
             robot, jug = objects
             x = state.get(robot, "x")
             y = state.get(robot, "y")
@@ -193,7 +202,6 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
-
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             # This policy twists until the jug is in the desired rotation, and
@@ -206,6 +214,10 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             delta_rot = np.clip(desired_rot - current_rot,
                                 -CoffeeEnv.max_angular_vel,
                                 CoffeeEnv.max_angular_vel)
+            # print("desired rot", desired_rot)
+            # print("current rot", current_rot)
+            # print("delta rot", delta_rot)
+            
             if abs(delta_rot) < cls.twist_policy_tol:
                 # Move up to stop twisting.
                 x = state.get(robot, "x")
@@ -222,13 +234,21 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_pick_jug_policy(cls) -> ParameterizedPolicy:
+        previous_state = None
+        cls.repeat_state = False
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             # This policy moves the robot to a safe height, then moves to behind
             # the handle in the y direction, then moves down in the z direction,
             # then moves forward in the y direction before finally grasping.
+            nonlocal previous_state
             del memory, params  # unused
+            # print("PREV STATE CURRENT STATE", previous_state, state)
+            if previous_state is not None and previous_state.pretty_str() == state.pretty_str():
+                cls.repeat_state = True
+            previous_state = state
+
             robot, jug = objects
             x = state.get(robot, "x")
             y = state.get(robot, "y")

@@ -2187,7 +2187,7 @@ class MPDQNFunction(MapleQFunction):
             self.target_qnet._initialize_net()
             self._qfunc_init = True
         print("WE GOT REWARDS: ", num_rwd)
-        print("DOORKNOB VALUES WE TRAINED ON", set(doorknob_values))
+        # print("DOORKNOB VALUES WE TRAINED ON", set(doorknob_values))
         count = 0
         for i in bad_door_index:
             print("BAD DOOR")
@@ -2231,7 +2231,7 @@ class MPDQNFunction(MapleQFunction):
             epsilon = 0.0
         if CFG.random_bridge:
             epsilon = 1.0
-        print("STATE", self._vectorize_state(state))
+        # print("STATE", self._vectorize_state(state))
         
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
@@ -2257,8 +2257,8 @@ class MPDQNFunction(MapleQFunction):
             self.decay_epsilon()
         if train_or_test=="train":
             self.update_target_network()
-        if train_or_test == "test":
-            logging.info("option scores" + str(option_scores[:10]))
+        # if train_or_test == "test":
+        #     logging.info("option scores" + str(option_scores[:10]))
 
         # import ipdb;ipdb.set_trace()
         return options[idx]

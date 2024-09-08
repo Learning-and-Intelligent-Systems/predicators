@@ -37,8 +37,8 @@ class CoffeeEnv(BaseEnv):
     z_ub: ClassVar[float] = 10.0
     tilt_lb: ClassVar[float] = 0.0
     tilt_ub: ClassVar[float] = np.pi / 4
-    wrist_lb: ClassVar[float] = -np.pi
-    wrist_ub: ClassVar[float] = np.pi
+    wrist_lb: ClassVar[float] = -2*np.pi
+    wrist_ub: ClassVar[float] = 2*np.pi
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub
@@ -183,6 +183,7 @@ class CoffeeEnv(BaseEnv):
         dx = x - state.get(self._robot, "x")
         dy = y - state.get(self._robot, "y")
         dwrist = wrist - state.get(self._robot, "wrist")
+        # print("Dwrist, wrist ,state.get(self._robot, wrist ", dwrist, wrist, state.get(self._robot, "wrist"))
         del dz, dtilt, dfingers
         # Update the robot in the next state.
         next_state.set(self._robot, "x", x)
@@ -202,7 +203,9 @@ class CoffeeEnv(BaseEnv):
             next_state, [self._robot, self._machine])
         jug_held = self._Holding_holds(state, [self._robot, self._jug])
         # print("ARE WE DROPPING JUG", abs/(fingers - self.open_fingers) < self.grasp_finger_tol,fingers, self.open_fingers, self.grasp_finger_tol )
-
+        # print(abs(fingers - self.closed_fingers) < self.grasp_finger_tol )
+        # print( sq_dist_to_handle < self.grasp_position_tol )
+        # print(abs(jug_rot) < self.pick_jug_rot_tol )
         if pressing_button and not machine_was_on:
             next_state.set(self._machine, "is_on", 1.0)
             # Snap the robot to the center of the button.
@@ -215,7 +218,7 @@ class CoffeeEnv(BaseEnv):
         elif jug_held:
             # If the jug should be dropped, drop it first.
             if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
-                print("DROPPING JUG")
+                # print("DROPPING JUG")
                 next_state.set(self._jug, "is_held", 0.0)
             # Otherwise, move it, and process pouring.
             else:
@@ -247,6 +250,16 @@ class CoffeeEnv(BaseEnv):
                     next_state.set(self._robot, "tilt", self.tilt_lb)
                     next_state.set(self._robot, "wrist", self.robot_init_wrist)
                     next_state.set(self._robot, "fingers", self.closed_fingers)
+
+        # Check if the jug should be rotated.
+        elif self._Twisting_holds(state, [self._robot, self._jug]):
+            # Rotate the jug.
+            rot = state.get(self._jug, "rot")
+            # print("OLD ROTTTTTTT", rot)
+            next_state.set(self._jug, "rot", rot + dwrist)
+            # print("WE R ROTATING JUG with rot", rot)
+            # print("WHY IS DWRITTT", dwrist)
+            # print("NEW ROTTTTTTT", next_state.get(self._jug, "rot"))
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
             sq_dist_to_handle < self.grasp_position_tol and \
@@ -261,11 +274,7 @@ class CoffeeEnv(BaseEnv):
             # Grasp the jug.
             print("WE R GRASPING")
             next_state.set(self._jug, "is_held", 1.0)
-        # Check if the jug should be rotated.
-        elif self._Twisting_holds(state, [self._robot, self._jug]):
-            # Rotate the jug.
-            rot = state.get(self._jug, "rot")
-            next_state.set(self._jug, "rot", rot + dwrist)
+
         # If the jug is close enough to the dispense area and the machine is
         # on, the jug should get filled.
         jug_in_machine = self._JugInMachine_holds(next_state,
@@ -580,6 +589,9 @@ class CoffeeEnv(BaseEnv):
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
         sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
         if sq_dist_to_handle < sq_dist_to_jug_top:
+            # print(sq_dist_to_handle, sq_dist_to_jug_top)
+            # print(handle_pos, jug_top)
+            # print((x, y, z))
             return False
         return sq_dist_to_jug_top < self.grasp_position_tol
 
@@ -709,7 +721,7 @@ class CoffeeLidEnv(CoffeeEnv):
         next_state = state.copy()
         norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dwrist, norm_dfingers = \
             action.arr
-        print("ACTION", action)
+        print("ACTION", action.arr)
         # Denormalize the action.
         dx = norm_dx * self.max_position_vel
         dy = norm_dy * self.max_position_vel
