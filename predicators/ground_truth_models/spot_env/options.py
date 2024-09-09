@@ -2,18 +2,20 @@
 
 import time
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
+import logging
 
 import numpy as np
 import pbrspot
 from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
+from bosdyn.client.lease import LeaseClient
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     SpotRearrangementEnv, _get_sweeping_surface_for_container, \
-    get_detection_id_for_object, get_robot, \
+    get_detection_id_for_object, get_robot, get_robot_only, \
     get_robot_gripper_open_percentage, get_simulated_object, \
     get_simulated_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
@@ -897,6 +899,32 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
                                   robot_obj_idx, target_obj_idx, do_gaze,
                                   state, memory, objects, params)
 
+def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
+    del state, memory, params
+
+    robot, lease_client = get_robot_only()
+
+    def _teleop(robot: Robot, lease_client: LeaseClient):
+        prompt = "Press (y) when you are done with teleop."
+        while True:
+            response = utils.prompt_user(prompt).strip()
+            if response == "y":
+                break
+            logging.info("Invalid input. Press (y) when y")
+        # Take back control.
+        robot, lease_client = get_robot_only()
+        lease_client.take()
+    
+    fn = _teleop
+    fn_args = (robot, lease_client)
+    sim_fn = lambda _: None
+    sim_fn_args = ()
+    name = "teleop"
+    action_extra_info = SpotActionExtraInfo(
+        name, objects, fn, fn_args, sim_fn, sim_fn_args
+    )
+    return utils.create_spot_env_action(action_extra_info)
+
 
 ###############################################################################
 #                       Parameterized option factory                          #
@@ -928,7 +956,9 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
     "DropNotPlaceableObject": Box(0, 1, (0, )),  # empty
     "MoveToReadySweep": Box(0, 1, (0, )),  # empty
-}
+    "Pick": Box(0, 1, (0, )),  # empty
+    "Place": Box(0, 1, (0, ))  # empty
+}   
 
 # NOTE: the policies MUST be unique because they output actions with extra info
 # that includes the name of the operators.
@@ -951,6 +981,8 @@ _OPERATOR_NAME_TO_POLICY = {
     "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,
     "DropNotPlaceableObject": _drop_not_placeable_object_policy,
     "MoveToReadySweep": _move_to_ready_sweep_policy,
+    "Pick": _teleop_policy,
+    "Place": _teleop_policy
 }
 
 
@@ -987,6 +1019,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {
+            "spot_vlm_test_env"
             "spot_cube_env",
             "spot_soda_floor_env",
             "spot_soda_table_env",

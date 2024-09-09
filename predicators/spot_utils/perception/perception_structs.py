@@ -29,6 +29,21 @@ class RGBDImageWithContext:
         """The image rotated to be upright."""
         return ndimage.rotate(self.rgb, self.image_rot, reshape=False)
 
+@dataclass
+class RGBDImage:
+    """An RGBD image"""
+    rgb: NDArray[np.uint8]
+    depth: NDArray[np.uint16]
+    image_rot: float
+    camera_name: str
+    depth_scale: float
+    camera_model: Any  # bosdyn.api.image_pb2.PinholeModel, but not available
+
+    @property
+    def rotated_rgb(self) -> NDArray[np.uint8]:
+        """The image rotated to be upright."""
+        return ndimage.rotate(self.rgb, self.image_rot, reshape=False)
+
 
 @dataclass(frozen=True)
 class ObjectDetectionID:

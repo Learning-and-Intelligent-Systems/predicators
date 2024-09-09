@@ -30,7 +30,7 @@ from predicators.spot_utils.perception.object_specific_grasp_selection import \
     brush_prompt, bucket_prompt, football_prompt, train_toy_prompt
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
-from predicators.spot_utils.perception.spot_cameras import capture_images
+from predicators.spot_utils.perception.spot_cameras import capture_images, capture_images_without_context
 from predicators.spot_utils.skills.spot_find_objects import \
     init_search_for_objects
 from predicators.spot_utils.skills.spot_hand_move import \
@@ -82,6 +82,29 @@ class _SpotObservation:
     # A placeholder until all predicates have classifiers
     nonpercept_atoms: Set[GroundAtom]
     nonpercept_predicates: Set[Predicate]
+
+
+@dataclass(frozen=True)
+class _TruncatedSpotObservation:
+    """An observation for a SpotEnv."""
+    # Camera name to image
+    images: Dict[str, RGBDImageWithContext]
+    # Objects that are seen in the current image and their positions in world
+    objects_in_view: Dict[Object, math_helpers.SE3Pose]
+    # Objects seen only by the hand camera
+    objects_in_hand_view: Set[Object]
+    # Objects seen by any camera except the back camera
+    objects_in_any_view_except_back: Set[Object]
+    # Expose the robot object.
+    robot: Object
+    # Status of the robot gripper.
+    gripper_open_percentage: float
+    # # Robot SE3 Pose
+    # robot_pos: math_helpers.SE3Pose
+    # # Ground atoms without ground-truth classifiers
+    # # A placeholder until all predicates have classifiers
+    # nonpercept_atoms: Set[GroundAtom]
+    # nonpercept_predicates: Set[Predicate]
 
 
 class _PartialPerceptionState(State):
@@ -158,7 +181,21 @@ def get_robot(
                                      return_at_exit=True)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+    # localizer = None
     return robot, localizer, lease_client
+
+
+@functools.lru_cache(maxsize=None)
+def get_robot_only(self) -> Tuple[Optional[Robot], Optional[LeaseClient]]:
+        hostname = CFG.spot_robot_ip
+        sdk = create_standard_sdk("PredicatorsClient-")
+        robot = sdk.create_robot(hostname)
+        robot.authenticate("user", "bbbdddaaaiii")
+        verify_estop(robot)
+        lease_client = robot.ensure_client(LeaseClient.default_service_name)
+        lease_client.take()
+        lease_keepalive = LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True)
+        return robot, lease_client
 
 
 @functools.lru_cache(maxsize=None)
@@ -228,6 +265,7 @@ class SpotRearrangementEnv(BaseEnv):
         if not CFG.bilevel_plan_without_sim:
             self._initialize_pybullet()
             _SIMULATED_SPOT_ROBOT = self._sim_robot
+        import pdb; pdb.set_trace()
         robot, localizer, lease_client = get_robot()
         self._robot = robot
         self._localizer = localizer
@@ -1443,12 +1481,21 @@ _RobotReadyForSweeping = Predicate("RobotReadyForSweeping",
 _IsSemanticallyGreaterThan = Predicate(
     "IsSemanticallyGreaterThan", [_base_object_type, _base_object_type],
     _is_semantically_greater_than_classifier)
+
+def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
+    return pred_name + "(" + ", ".join(str(obj.name) for obj in objects) + ")"  # pragma: no cover
+_VLMOn = utils.create_vlm_predicate(
+    "On"
+    [_movable_object_type, _immovable_object_type],
+    _get_vlm_query_str
+)
+
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
     _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
     _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
     _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
-    _IsSemanticallyGreaterThan
+    _IsSemanticallyGreaterThan, _VLMOn
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -2373,6 +2420,128 @@ def _dry_simulate_pick_and_dump_container(
 
 
 ###############################################################################
+#                                 VLM Test Env                                #
+###############################################################################
+class VLMTestEnv(SpotRearrangementEnv):
+    """An environment to start testing the VLM pipeline."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_vlm_test_env"
+
+    def _create_operators() -> Iterator[STRIPSOperator]:
+        # Pick object
+        robot = Variable("?robot", _robot_type)
+        obj = Variable("?object", _movable_object_type)
+        table = Variable("?table", _immovable_object_type)
+        parameters = [robot, obj, table]
+        preconds: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, obj]),
+            LiftedAtom(_VLMOn, [obj, table])
+        }
+        add_effs: Set[LiftedAtom] = {
+            LiftedAtom(_Holding, [robot, obj])
+        }
+        del_effs: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, obj]),
+            LiftedAtom(_VLMOn, [obj, table])
+        }
+        ignore_effs: Set[LiftedAtom] = set()
+        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs, ignore_effs)
+
+        # Place object
+        robot = Variable("?robot", _robot_type)
+        obj = Variable("?object", _movable_object_type)
+        pan = Variable("?pan", _container_type)
+        parameters = [robot, obj, pan]
+        preconds: Set[LiftedAtom] = {
+            LiftedAtom(_Holding, [robot, obj])
+        }
+        add_effs: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, obj]),
+            LiftedAtom(_VLMOn, [obj, pan])
+        }
+        del_effs: Set[LiftedAtom] = {
+            LiftedAtom(_Holding, [robot, obj])
+        }
+        ignore_effs: Set[LiftedAtom] = set()
+        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs, ignore_effs)
+
+    # def _generate_train_tasks(self) -> List[EnvironmentTask]:
+    #     goal = self._generate_goal_description()  # currently just one goal
+    #     return [
+    #         EnvironmentTask(None, goal) for _ in range(CFG.num_train_tasks)
+    #     ]
+
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        goal = self._generate_goal_description()  # currently just one goal
+        return [EnvironmentTask(None, goal) for _ in range(CFG.num_test_tasks)]
+
+    def __init__(self, use_ui: bool = True) -> None:
+        super().__init__(use_gui)
+        robot, lease_client = get_robot_only()
+        self._robot = robot
+        self._lease_cient = lease_client
+        self._strips_operators: Set[STRIPSOperator] = set()
+        # Used to do [something] when the agent thinks the goal is reached
+        # but the human says it is not.
+        self._current_task_goal_reached = False
+        # Used when we want to doa special check for a specific
+        # action.
+        self._last_action: Optional[Action] = None
+        # Create constant objects.
+        self._spot_object = Object("robot", _robot_type)
+        op_to_name = {o.name for o in _create_operators()}
+        op_names_to_keep = {
+            "Pick",
+            "Place"
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+    
+    def _actively_construct_env_task(self) -> EnvironmentTask:
+        assert self._robot is not None
+        rgbd_images = capture_images_without_context(self._robot)
+        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        obs = _TruncatedSpotObservation(
+            rgbd_images,
+            dict(),
+            set(),
+            set(),
+            self._spot_object,
+            gripper_open_percentage
+        )
+        goal_description = self._generate_goal_description()
+        task = EnvironmentTask(obs, goal_description)
+        return task
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "put the cup in the pan."
+    
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
+        prompt = f"Please set up {train_or_test} task {task_idx}!"
+        utils.prompt_user(prompt)
+        assert self._lease_client is not None
+        # Automatically retry if a retryable error is encountered.
+        while True:
+            try:
+                self._lease_client.take()
+                self._current_task = self._actively_construct_env_task()
+                break
+            except RetryableRpcError as e:
+                logging.warning("WARNING: the following retryable error "
+                                f"was encountered. Trying again.\n{e}")
+        self._current_observation = self._current_task.init_obs
+        self._current_task_goal_reached = False
+        self._last_action = None
+        return self._current_task.init_obs
+    
+    def step(self, action: Action) -> Observation:
+        pass
+
+###############################################################################
 #                                Cube Table Env                               #
 ###############################################################################
 
@@ -2382,6 +2551,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
     attempts to place an April Tag cube onto a particular table."""
 
     def __init__(self, use_gui: bool = True) -> None:
+        import pdb; pdb.set_trace()
         super().__init__(use_gui)
 
         op_to_name = {o.name: o for o in _create_operators()}

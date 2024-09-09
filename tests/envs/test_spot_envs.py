@@ -25,6 +25,12 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, GroundAtom, _GroundNSRT
 
 
+def test_spot_vlm_debug():
+    utils.reset_config({
+        "env": "spot_vlm_test_env",
+    })
+    pass
+
 def test_spot_env_dry_run():
     """Dry run tests (do not require access to robot)."""
     utils.reset_config({
@@ -265,8 +271,13 @@ def real_robot_cube_env_test() -> None:
         "test_task_json_dir":
         args.get("test_task_json_dir", None),
     })
+    import pdb; pdb.set_trace()
     rng = np.random.default_rng(123)
+    import os
+    os.environ["BOSDYN_CLIENT_USERNAME"] = "user"
+    os.environ["BOSDYN_CLIENT_PASSWORD"] = "bbbdddaaaiii"
     env = SpotCubeEnv()
+    import pdb; pdb.set_trace()
     perceiver = SpotPerceiver()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
@@ -275,6 +286,7 @@ def real_robot_cube_env_test() -> None:
     task = env.get_test_tasks()[0]
     obs = env.reset("test", 0)
     perceiver.reset(task)
+    import pdb; pdb.set_trace()
     assert len(obs.objects_in_view) == 4
     cube, floor, table1, table2 = sorted(obs.objects_in_view)
     assert cube.name == "cube"
@@ -646,6 +658,6 @@ def real_robot_sweeping_nsrt_test() -> None:
 
 
 if __name__ == "__main__":
-    # real_robot_cube_env_test()
+    real_robot_cube_env_test()
     # real_robot_drafting_table_placement_test()
-    real_robot_sweeping_nsrt_test()
+    # real_robot_sweeping_nsrt_test()
