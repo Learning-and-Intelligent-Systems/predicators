@@ -577,3 +577,142 @@ class SpotPerceiver(BasePerceiver):
         logging.info(f"Wrote out to {outfile}")
         plt.close()
         return [img]
+    
+
+class SpotMinimumPerceiver(BasePerceiver):
+    """A perceiver for spot envs with minimal functionality."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_minimal_perceiver"
+
+    def __init__(self) -> None:
+        super().__init__()
+        # self._known_object_poses: Dict[Object, math_helpers.SE3Pose] = {}
+        # self._objects_in_view: Set[Object] = set()
+        # self._objects_in_hand_view: Set[Object] = set()
+        # self._objects_in_any_view_except_back: Set[Object] = set()
+        self._robot: Optional[Object] = None
+        # self._nonpercept_atoms: Set[GroundAtom] = set()
+        # self._nonpercept_predicates: Set[Predicate] = set()
+        # self._percept_predicates: Set[Predicate] = set()
+        self._prev_action: Optional[Action] = None
+        self._held_object: Optional[Object] = None
+        self._gripper_open_percentage = 0.0
+        self._robot_pos: math_helpers.SE3Pose = math_helpers.SE3Pose(
+            0, 0, 0, math_helpers.Quat())
+        # self._lost_objects: Set[Object] = set()
+        self._curr_env: Optional[BaseEnv] = None
+        self._waiting_for_observation = True
+        self._ordered_objects: List[Object] = []  # list of all known objects
+        # # Keep track of objects that are contained (out of view) in another
+        # # object, like a bag or bucket. This is important not only for gremlins
+        # # but also for small changes in the container's perceived pose.
+        # self._container_to_contained_objects: Dict[Object, Set[Object]] = {}
+        # Load static, hard-coded features of objects, like their shapes.
+        # meta = load_spot_metadata()
+        # self._static_object_features = meta.get("static-object-features", {})
+    
+    def update_perceiver_with_action(self, action: Action) -> None:
+        # NOTE: we need to keep track of the previous action
+        # because the step function (where we need knowledge
+        # of the previous action) occurs *after* the action
+        # has already been taken.
+        self._prev_action = action
+    
+    def _create_goal(self, state: State,
+                     goal_description: GoalDescription) -> Set[GroundAtom]:
+        del state  # not used
+        # Unfortunate hack to deal with the fact that the state is actually
+        # not yet set. Hopefully one day other cleanups will enable cleaning.
+        assert self._curr_env is not None
+        pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
+        VLMOn = pred_name_to_pred["VLMOn"]
+        HandEmpty = pred_name_to_pred["HandEmpty"]
+        if goal_description == "put the cup in the pan":
+            robot = Object("robot", _robot_type)
+            cup = Object("cup", _movable_object_type)
+            pan = Object("pan", _container_type)
+            goal = {
+                GroundAtom(HandEmpty, [robot]),
+                GroundAtom(VLMOn, [cup, pan])
+            }
+            return goal
+        raise NotImplementedError("Unrecognized goal description")
+
+    def _create_state(self) -> State:
+        if self._waiting_for_observation:
+            return DefaultState
+        # Build the continuous part of the state.
+        assert self._robot is not None
+        table = Object("talbe", _immovable_object_type)
+        cup = Object("cup", _movable_object_type)
+        pan = Object("pan", _container_type)
+        state_dict = {
+            self._robot: {
+                "gripper_open_percentage": self._gripper_open_percentage,
+                "x": self._robot_pos.x,
+                "y": self._robot_pos.y,
+                "z": self._robot_pos.z,
+                "qw": self._robot_pos.rot.w,
+                "qx": self._robot_pos.rot.x,
+                "qy": self._robot_pos.rot.y,
+                "qz": self._robot_pos.rot.z,
+            },
+            table: {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width" : 0,
+                "length": 0,
+                "object_id": 1,
+                "flat_top_surface": 1
+            },
+            cup: {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width" : 0,
+                "length": 0,
+                "object_id": 2,
+                "placeable": 1,
+                "held": 0,
+                "lost": 0,
+                "in_hand_view": 0,
+                "in_view": 1,
+                "is_sweeper": 0
+            },
+            pan: {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width" : 0,
+                "length": 0,
+                "object_id": 3,
+                "placeable": 1,
+                "held": 0,
+                "lost": 0,
+                "in_hand_view": 0,
+                "in_view": 1,
+                "is_sweeper": 0
+            }
+        }
+

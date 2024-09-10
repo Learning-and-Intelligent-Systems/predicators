@@ -89,8 +89,8 @@ class _TruncatedSpotObservation:
     """An observation for a SpotEnv."""
     # Camera name to image
     images: Dict[str, RGBDImageWithContext]
-    # Objects that are seen in the current image and their positions in world
-    objects_in_view: Dict[Object, math_helpers.SE3Pose]
+    # Objects in the environment
+    objects_in_view: Set[Object]
     # Objects seen only by the hand camera
     objects_in_hand_view: Set[Object]
     # Objects seen by any camera except the back camera
@@ -1485,7 +1485,7 @@ _IsSemanticallyGreaterThan = Predicate(
 def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
     return pred_name + "(" + ", ".join(str(obj.name) for obj in objects) + ")"  # pragma: no cover
 _VLMOn = utils.create_vlm_predicate(
-    "On"
+    "VLMOn"
     [_movable_object_type, _immovable_object_type],
     _get_vlm_query_str
 )
@@ -2505,9 +2505,10 @@ class VLMTestEnv(SpotRearrangementEnv):
         assert self._robot is not None
         rgbd_images = capture_images_without_context(self._robot)
         gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        objects_in_view = []
         obs = _TruncatedSpotObservation(
             rgbd_images,
-            dict(),
+            set(objects_in_view),
             set(),
             set(),
             self._spot_object,
@@ -2518,7 +2519,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         return task
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "put the cup in the pan."
+        return "put the cup in the pan"
     
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         prompt = f"Please set up {train_or_test} task {task_idx}!"
