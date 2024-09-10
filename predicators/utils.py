@@ -44,8 +44,8 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
-from predicators.pretrained_model_interface import GoogleGeminiVLM, \
-    OpenAIVLM, VisionLanguageModel
+# from predicators.pretrained_model_interface import GoogleGeminiVLM, \
+#     OpenAIVLM, VisionLanguageModel
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
@@ -773,6 +773,11 @@ def geom2ds_intersect(geom1: _Geom2D, geom2: _Geom2D) -> bool:
         return circles_intersect(geom1, geom2)
     raise NotImplementedError("Intersection not implemented for geoms "
                               f"{geom1} and {geom2}")
+
+
+def wrap_angle(angle: float) -> float:
+    """Wrap an angle in radians to [-pi, pi]."""
+    return np.arctan2(np.sin(angle), np.cos(angle))
 
 
 @functools.lru_cache(maxsize=None)
@@ -2212,104 +2217,104 @@ def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
     return Task(task.init, stripped_goal, alt_goal=task.alt_goal)
 
 
-def create_vlm_predicate(
-        name: str, types: Sequence[Type],
-        get_vlm_query_str: Callable[[Sequence[Object]], str]) -> VLMPredicate:
-    """Simple function that creates VLMPredicates with dummy classifiers, which
-    is the most-common way these need to be created."""
+# def create_vlm_predicate(
+#         name: str, types: Sequence[Type],
+#         get_vlm_query_str: Callable[[Sequence[Object]], str]) -> VLMPredicate:
+#     """Simple function that creates VLMPredicates with dummy classifiers, which
+#     is the most-common way these need to be created."""
 
-    def _stripped_classifier(
-            state: State,
-            objects: Sequence[Object]) -> bool:  # pragma: no cover.
-        raise Exception("VLM predicate classifier should never be called!")
+#     def _stripped_classifier(
+#             state: State,
+#             objects: Sequence[Object]) -> bool:  # pragma: no cover.
+#         raise Exception("VLM predicate classifier should never be called!")
 
-    return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
-
-
-def create_vlm_by_name(
-        model_name: str) -> VisionLanguageModel:  # pragma: no cover
-    """Create particular vlm using a provided name."""
-    if "gemini" in model_name:
-        return GoogleGeminiVLM(model_name)
-    return OpenAIVLM(model_name)
+#     return VLMPredicate(name, types, _stripped_classifier, get_vlm_query_str)
 
 
-def query_vlm_for_atom_vals(
-        vlm_atoms: Collection[GroundAtom],
-        state: State,
-        vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
-    """Given a set of ground atoms, queries a VLM and gets the subset of these
-    atoms that are true."""
-    true_atoms: Set[GroundAtom] = set()
-    # This only works if state.simulator_state is some list of images that the
-    # vlm can be called on.
-    assert state.simulator_state is not None
-    assert isinstance(state.simulator_state["images"], List)
-    imgs = state.simulator_state["images"]
-    vlm_atoms = sorted(vlm_atoms)
-    atom_queries_str = "\n* "
-    atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
-                                    for atom in vlm_atoms)
-    filepath_to_vlm_prompt = get_path_to_predicators_root() + \
-        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
-        "per_scene_naive.txt"
-    with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
-        vlm_query_str = f.read()
-    vlm_query_str += atom_queries_str
-    if vlm is None:
-        vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
-    vlm_input_imgs = \
-        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
-    vlm_output = vlm.sample_completions(vlm_query_str,
-                                        vlm_input_imgs,
-                                        0.0,
-                                        seed=CFG.seed,
-                                        num_completions=1)
-    assert len(vlm_output) == 1
-    vlm_output_str = vlm_output[0]
-    all_atom_queries = atom_queries_str.strip().split("\n")
-    all_vlm_responses = vlm_output_str.strip().split("\n")
-
-    # NOTE: this assumption is likely too brittle; if this is breaking, feel
-    # free to remove/adjust this and change the below parsing loop accordingly!
-    assert len(all_atom_queries) == len(all_vlm_responses)
-    for i, (atom_query, curr_vlm_output_line) in enumerate(
-            zip(all_atom_queries, all_vlm_responses)):
-        assert atom_query + ":" in curr_vlm_output_line
-        assert "." in curr_vlm_output_line
-        period_idx = curr_vlm_output_line.find(".")
-        if curr_vlm_output_line[len(atom_query +
-                                    ":"):period_idx].lower().strip() == "true":
-            true_atoms.add(vlm_atoms[i])
-    return true_atoms
+# def create_vlm_by_name(
+#         model_name: str) -> VisionLanguageModel:  # pragma: no cover
+#     """Create particular vlm using a provided name."""
+#     if "gemini" in model_name:
+#         return GoogleGeminiVLM(model_name)
+#     return OpenAIVLM(model_name)
 
 
-def abstract(state: State,
-             preds: Collection[Predicate],
-             vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
-    """Get the atomic representation of the given state (i.e., a set of ground
-    atoms), using the given set of predicates.
+# def query_vlm_for_atom_vals(
+#         vlm_atoms: Collection[GroundAtom],
+#         state: State,
+#         vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
+#     """Given a set of ground atoms, queries a VLM and gets the subset of these
+#     atoms that are true."""
+#     true_atoms: Set[GroundAtom] = set()
+#     # This only works if state.simulator_state is some list of images that the
+#     # vlm can be called on.
+#     assert state.simulator_state is not None
+#     assert isinstance(state.simulator_state["images"], List)
+#     imgs = state.simulator_state["images"]
+#     vlm_atoms = sorted(vlm_atoms)
+#     atom_queries_str = "\n* "
+#     atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
+#                                     for atom in vlm_atoms)
+#     filepath_to_vlm_prompt = get_path_to_predicators_root() + \
+#         "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
+#         "per_scene_naive.txt"
+#     with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
+#         vlm_query_str = f.read()
+#     vlm_query_str += atom_queries_str
+#     if vlm is None:
+#         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
+#     vlm_input_imgs = \
+#         [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
+#     vlm_output = vlm.sample_completions(vlm_query_str,
+#                                         vlm_input_imgs,
+#                                         0.0,
+#                                         seed=CFG.seed,
+#                                         num_completions=1)
+#     assert len(vlm_output) == 1
+#     vlm_output_str = vlm_output[0]
+#     all_atom_queries = atom_queries_str.strip().split("\n")
+#     all_vlm_responses = vlm_output_str.strip().split("\n")
 
-    Duplicate arguments in predicates are allowed.
-    """
-    # Start by pulling out all VLM predicates.
-    vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
-    # Next, classify all non-VLM predicates.
-    atoms = set()
-    for pred in preds:
-        if pred not in vlm_preds:
-            for choice in get_object_combinations(list(state), pred.types):
-                if pred.holds(state, choice):
-                    atoms.add(GroundAtom(pred, choice))
-    if len(vlm_preds) > 0:
-        # Now, aggregate all the VLM predicates and make a single call to a
-        # VLM to get their values.
-        vlm_atoms = set()
-        for pred in vlm_preds:
-            for choice in get_object_combinations(list(state), pred.types):
-                vlm_atoms.add(GroundAtom(pred, choice))
-        atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
-    return atoms
+#     # NOTE: this assumption is likely too brittle; if this is breaking, feel
+#     # free to remove/adjust this and change the below parsing loop accordingly!
+#     assert len(all_atom_queries) == len(all_vlm_responses)
+#     for i, (atom_query, curr_vlm_output_line) in enumerate(
+#             zip(all_atom_queries, all_vlm_responses)):
+#         assert atom_query + ":" in curr_vlm_output_line
+#         assert "." in curr_vlm_output_line
+#         period_idx = curr_vlm_output_line.find(".")
+#         if curr_vlm_output_line[len(atom_query +
+#                                     ":"):period_idx].lower().strip() == "true":
+#             true_atoms.add(vlm_atoms[i])
+#     return true_atoms
+
+
+# def abstract(state: State,
+#              preds: Collection[Predicate],
+#              vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
+#     """Get the atomic representation of the given state (i.e., a set of ground
+#     atoms), using the given set of predicates.
+
+#     Duplicate arguments in predicates are allowed.
+#     """
+#     # Start by pulling out all VLM predicates.
+#     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+#     # Next, classify all non-VLM predicates.
+#     atoms = set()
+#     for pred in preds:
+#         if pred not in vlm_preds:
+#             for choice in get_object_combinations(list(state), pred.types):
+#                 if pred.holds(state, choice):
+#                     atoms.add(GroundAtom(pred, choice))
+#     if len(vlm_preds) > 0:
+#         # Now, aggregate all the VLM predicates and make a single call to a
+#         # VLM to get their values.
+#         vlm_atoms = set()
+#         for pred in vlm_preds:
+#             for choice in get_object_combinations(list(state), pred.types):
+#                 vlm_atoms.add(GroundAtom(pred, choice))
+#         atoms |= query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+#     return atoms
 
 
 def all_ground_operators(
