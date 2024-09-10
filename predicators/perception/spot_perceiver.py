@@ -640,6 +640,30 @@ class SpotMinimumPerceiver(BasePerceiver):
             return goal
         raise NotImplementedError("Unrecognized goal description")
 
+    def update_perceiver_with_action(self, action: Action) -> None:
+        # NOTE: we need to keep track of the previous action
+        # because the step function (where we need knowledge
+        # of the previous action) occurs *after* the action
+        # has already been taken.
+        self._prev_action = action
+
+    def reset(self, env_task: EnvironmentTask) -> Task:
+        init_obs = env_task.init_bos
+        imgs = init_obs.rgbd_images
+        self._robot = init_obs.robot
+        state = self._create_state()
+        state.simulator_state["images"] = [imgs]
+        state.set(self._robot, "gripper_open_percentage") = init_obs.gripper_open_percentage
+        self._curr_state = state
+        goal = self._create_goal(state, env_task.goal_description)
+        return Task(state, goal)
+
+    def step(self, observation: Observation) -> State:
+        imgs = observation.rgbd_images
+        self._curr_state.simulator_state["images"].append([imgs])
+        self._curr_state.set(self._robot, "gripper_open_percentage") = observation.gripper_open_percentage
+        return self._curr_state.copy()
+
     def _create_state(self) -> State:
         if self._waiting_for_observation:
             return DefaultState
@@ -715,4 +739,4 @@ class SpotMinimumPerceiver(BasePerceiver):
                 "is_sweeper": 0
             }
         }
-
+        return State(state_dict)

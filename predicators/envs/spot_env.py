@@ -2540,7 +2540,19 @@ class VLMTestEnv(SpotRearrangementEnv):
         return self._current_task.init_obs
     
     def step(self, action: Action) -> Observation:
-        pass
+        assert self._robot is not None
+        rgbd_images = capture_images_without_context(self._robot)
+        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        objects_in_view = []
+        obs = _TruncatedSpotObservation(
+            rgbd_images,
+            set(objects_in_view),
+            set(),
+            set(),
+            self._spot_object,
+            gripper_open_percentage
+        )
+        return obs
 
 ###############################################################################
 #                                Cube Table Env                               #
