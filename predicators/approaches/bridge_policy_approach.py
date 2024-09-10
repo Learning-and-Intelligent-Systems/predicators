@@ -565,7 +565,6 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
             self._bridge_called_state = s
             self._current_policy = self.mapleq._solve(  # pylint: disable=protected-access
                 task, timeout, train_or_test)
-            print(self._current_control)
             action = self._current_policy(s)
             return action
 
@@ -734,7 +733,6 @@ class RLFirstBridgeApproach(RLBridgePolicyApproach):
             self._bridge_called_state = s
             self._current_policy = self.mapleq._solve(  # pylint: disable=protected-access
                 task, timeout, train_or_test)
-            print(self._current_control)
             action = self._current_policy(s)
             return action
 

@@ -307,9 +307,11 @@ class GridRowDoorEnv(GridRowEnv):
         return Box(-np.inf, np.inf, (4, ))
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        rng=self._test_rng
+        num_cells = rng.integers(CFG.test_grid_row_num_cells, 2*CFG.test_grid_row_num_cells+1)
         cells = [
             Object(f"cell{i}", self._cell_type)
-            for i in range(CFG.test_grid_row_num_cells)
+            for i in range(num_cells)
         ]
         self._cell_to_neighbors = {
             cells[0]: {cells[1]},
@@ -321,12 +323,13 @@ class GridRowDoorEnv(GridRowEnv):
             }
         }
         num=CFG.num_test_tasks
-        rng=self._test_rng
+        
         goal = {GroundAtom(self._LightOn, [self._light])}
         tasks: List[EnvironmentTask] = []
 
         door_list: List[List[Object]] = []
-        for door_num in range(CFG.num_doors):
+        num_doors = rng.integers(CFG.num_doors, 2*CFG.num_doors+1)
+        for door_num in range(num_doors):
             door = Object(f"door{door_num}", self._door_type)
             door_list.append(door)
 
@@ -348,13 +351,23 @@ class GridRowDoorEnv(GridRowEnv):
 
             chosen_positions = rng.choice(CFG.test_grid_row_num_cells-1, size=len(door_list), replace=False)
             for i, door in enumerate(door_list):
-                state_dict[door]={
+                if CFG.same_levels:
+                    state_dict[door]={
                     "x": chosen_positions[i]+0.5,
                     "move_key": 0.0,
                     "move_target": 0.5,
                     "turn_key": 0.0,
                     "turn_target": 0.75
-                }
+                    }
+                else:
+                    state_dict[door]={
+                    "x": chosen_positions[i]+0.5,
+                    "move_key": 0.0,
+                    "move_target": rng.uniform(0.1, 0.9),
+                    "turn_key": 0.0,
+                    "turn_target": rng.uniform(0.1, 0.9)
+                    }              
+                print("door levels", state_dict[door]["move_target"], state_dict[door]["turn_target"])   
             state = utils.create_state_from_dict(state_dict)
             tasks.append(EnvironmentTask(state, goal))
         return tasks
@@ -393,13 +406,24 @@ class GridRowDoorEnv(GridRowEnv):
             for i, cell in enumerate(cells):
                 state_dict[cell] = {"x": i + 0.5}
             door = Object("door", self._door_type)
-            state_dict[door] =     {
-                     "x": rng.choice(range(1,len(cells)-1))-0.5,
-                    "move_key": 0.0,
-                    "move_target": 0.5,
-                    "turn_key": 0.0,
-                    "turn_target": 0.75
+            if CFG.same_levels:
+                state_dict[door]={
+                "x": rng.choice(range(1,len(cells)-1))-0.5,
+                "move_key": 0.0,
+                "move_target": 0.5,
+                "turn_key": 0.0,
+                "turn_target": 0.75
                 }
+            else:
+                state_dict[door]={
+                "x": rng.choice(range(1,len(cells)-1))-0.5,
+                "move_key": 0.0,
+                "move_target": rng.uniform(0.1, 0.9),
+                "turn_key": 0.0,
+                "turn_target": rng.uniform(0.1, 0.9)
+                }              
+            print("door levels", state_dict[door]["move_target"], state_dict[door]["turn_target"])   
+            
             state = utils.create_state_from_dict(state_dict)
             tasks.append(EnvironmentTask(state, goal))
         return tasks

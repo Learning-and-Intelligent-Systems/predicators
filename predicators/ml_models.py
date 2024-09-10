@@ -1480,11 +1480,15 @@ class MapleQFunction(MLPRegressor):
         # Q-network.
         num_rwd = 0
         if CFG.env == "grid_row_door" and not CFG.use_obj_centric:
-            X_size = 102
+            X_size = 56
         elif CFG.env == "grid_row_door":
             X_size = 7 + 3 + self._max_num_params + 1
         elif CFG.env == "doorknobs" and not CFG.use_obj_centric:
             X_size = 304
+        elif CFG.env == "coffee" and not CFG.use_obj_centric:
+            X_size = 27
+        elif CFG.env == "coffee":
+            X_size = 12
         else:
             X_size = 7 + 3 + self._max_num_params
         Y_size = 1
@@ -1500,8 +1504,11 @@ class MapleQFunction(MLPRegressor):
             vectorized_state = self._vectorize_state(state)
             vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
-            X_arr[i] = np.concatenate(
+            try:   
+                X_arr[i] = np.concatenate(
                 [vectorized_state, vectorized_action])
+            except:
+                import ipdb; ipdb.set_trace()
             # Next, compute the target for Q-learning by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             if not terminal and self._y_dim != -1:
@@ -1711,7 +1718,6 @@ class MapleQFunction(MLPRegressor):
                 #     robby = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
                 # assert robby.is_instance(dummy_env._robot_type)
                 # x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
-
                 vectorized_state = features[:5]
 
                 return vectorized_state
@@ -1727,7 +1733,11 @@ class MapleQFunction(MLPRegressor):
                 vecs.append(vec)
             e = np.concatenate(vecs)
             if CFG.env == "grid_row_door":
-                pad_length = 40
+                pad_length = 50
+                padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
+                return padded_e
+            elif CFG.env == "coffee":
+                pad_length = 20
                 padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
                 return padded_e
             pad_length = 300

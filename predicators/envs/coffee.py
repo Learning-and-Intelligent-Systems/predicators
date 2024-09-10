@@ -526,9 +526,11 @@ class CoffeeEnv(BaseEnv):
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
-            rot = 1.5
-            # rng.uniform(self.jug_init_rot_lb, self.jug_init_rot_ub)
-            print("OUR ROT", rot)
+            if CFG.same_levels:
+                rot = 1.5
+            else:
+                rot = rng.uniform(self.jug_init_rot_lb, self.jug_init_rot_ub)
+            
             state_dict[self._jug] = {
                 "x": x,
                 "y": y,
@@ -536,6 +538,7 @@ class CoffeeEnv(BaseEnv):
                 "is_held": 0.0,  # jug starts off not held
                 "is_filled": 0.0  # jug starts off empty
             }
+            # print("OUR ROT", rot)
             init_state = utils.create_state_from_dict(state_dict)
             task = EnvironmentTask(init_state, goal)
             tasks.append(task)

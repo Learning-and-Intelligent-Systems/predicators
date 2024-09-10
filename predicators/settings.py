@@ -316,7 +316,7 @@ class GlobalSettings:
 
     # coffee env parameters
     coffee_num_cups_train = [1]
-    coffee_num_cups_test = [1]
+    coffee_num_cups_test = [4]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
     # satellites env parameters
@@ -351,9 +351,9 @@ class GlobalSettings:
     sticky_table_num_sticky_tables = 1  # must be less than the num_tables
 
     # grid row env parameters
-    grid_row_num_cells = 6
-    test_grid_row_num_cells = 12
-    num_doors = 3
+    grid_row_num_cells = 5
+    test_grid_row_num_cells = 10
+    num_doors = 2
 
     # burger env parameters
     gridworld_num_rows = 4
@@ -589,6 +589,7 @@ class GlobalSettings:
     use_epsilon_annealing = True
     min_epsilon = 0.05
     polyak_tau = 0.0025
+    same_levels = True
     polyak_true = True
     # if True then use RSS method (increasing exploration),
     # if False then use new method (constant exploration)

@@ -272,8 +272,7 @@ def _run_pipeline(env: BaseEnv,
 
             # Learn from online interaction results, unless we are loading
             # and not restarting learning.
-            if (not CFG.load_approach or CFG.restart_learning) and any(["bridge" in x for x in cogman._approach._policy_logs]):
-                print(any(["bridge" in x for x in cogman._approach._policy_logs]))
+            if (not CFG.load_approach or CFG.restart_learning) and (CFG.approach != "rl_bridge_policy" or any(["bridge" in x for x in cogman._approach._policy_logs])):
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
                 cogman.learn_from_interaction_results(interaction_results)
@@ -299,9 +298,9 @@ def _run_pipeline(env: BaseEnv,
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
-            print("HEYASEIHASIFHIHAOIDF", i)
+            logging.info("HEYASEIHASIFHIHAOIDF", i)
             num_solved += results["num_solved"]
-            print("CUMULATIVE NUM SOLVED: ", num_solved)
+            logging.debug("CUMULATIVE NUM SOLVED: " + str(num_solved))
             logging.debug("CUMULATIVE NUM SOLVED: " + str(num_solved))
             # print("fraction solved: ", num_solved / (i + 1))
             smooth_reward = sum(logs[-25:])/25
@@ -309,7 +308,8 @@ def _run_pipeline(env: BaseEnv,
             logs.append(results["num_solved"]/CFG.num_test_tasks)
             learning_cycles.append(i + 1)
             cumulative_logs.append(num_solved)
-            print(smooth_rewards, learning_cycles, logs, cumulative_logs)
+            logging.debug(str(smooth_rewards)+  str(learning_cycles) + str(logs) + str(cumulative_logs))
+            logging.info(str(smooth_rewards)+  str(learning_cycles) + str(logs) + str(cumulative_logs))
             # if smooth_reward>0.93:
             #     print("smooth reward.")
             #     generate_plots(learning_cycles, logs, cumulative_logs, good_light_q_values, bad_light_q_values, \
