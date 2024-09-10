@@ -88,7 +88,7 @@ class _SpotObservation:
 class _TruncatedSpotObservation:
     """An observation for a SpotEnv."""
     # Camera name to image
-    images: Dict[str, RGBDImageWithContext]
+    rgbd_images: Dict[str, RGBDImageWithContext]
     # Objects in the environment
     objects_in_view: Set[Object]
     # Objects seen only by the hand camera
@@ -186,7 +186,7 @@ def get_robot(
 
 
 @functools.lru_cache(maxsize=None)
-def get_robot_only(self) -> Tuple[Optional[Robot], Optional[LeaseClient]]:
+def get_robot_only() -> Tuple[Optional[Robot], Optional[LeaseClient]]:
         hostname = CFG.spot_robot_ip
         sdk = create_standard_sdk("PredicatorsClient-")
         robot = sdk.create_robot(hostname)
@@ -265,7 +265,6 @@ class SpotRearrangementEnv(BaseEnv):
         if not CFG.bilevel_plan_without_sim:
             self._initialize_pybullet()
             _SIMULATED_SPOT_ROBOT = self._sim_robot
-        import pdb; pdb.set_trace()
         robot, localizer, lease_client = get_robot()
         self._robot = robot
         self._localizer = localizer
@@ -1485,9 +1484,9 @@ _IsSemanticallyGreaterThan = Predicate(
 def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
     return pred_name + "(" + ", ".join(str(obj.name) for obj in objects) + ")"  # pragma: no cover
 _VLMOn = utils.create_vlm_predicate(
-    "VLMOn"
-    [_movable_object_type, _immovable_object_type],
-    _get_vlm_query_str
+    "VLMOn",
+    [_movable_object_type, _base_object_type],
+    lambda o: _get_vlm_query_str("VLMOn", o)
 )
 
 _ALL_PREDICATES = {
@@ -2428,8 +2427,17 @@ class VLMTestEnv(SpotRearrangementEnv):
     @classmethod
     def get_name(cls) -> str:
         return "spot_vlm_test_env"
+    
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("No dry task for VLMTestEnv.")
 
-    def _create_operators() -> Iterator[STRIPSOperator]:
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+        """Get an object from a perception detection ID."""
+        raise NotImplementedError("No dry task for VLMTestEnv.")
+
+    def _create_operators(self) -> Iterator[STRIPSOperator]:
         # Pick object
         robot = Variable("?robot", _robot_type)
         obj = Variable("?object", _movable_object_type)
@@ -2480,11 +2488,16 @@ class VLMTestEnv(SpotRearrangementEnv):
         goal = self._generate_goal_description()  # currently just one goal
         return [EnvironmentTask(None, goal) for _ in range(CFG.num_test_tasks)]
 
-    def __init__(self, use_ui: bool = True) -> None:
-        super().__init__(use_gui)
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
+        goal = self._generate_goal_description()  # currently just one goal
+        return [
+            EnvironmentTask(None, goal) for _ in range(CFG.num_train_tasks)
+        ]
+
+    def __init__(self, use_gui: bool = True) -> None:
         robot, lease_client = get_robot_only()
         self._robot = robot
-        self._lease_cient = lease_client
+        self._lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
         # Used to do [something] when the agent thinks the goal is reached
         # but the human says it is not.
@@ -2494,12 +2507,14 @@ class VLMTestEnv(SpotRearrangementEnv):
         self._last_action: Optional[Action] = None
         # Create constant objects.
         self._spot_object = Object("robot", _robot_type)
-        op_to_name = {o.name for o in _create_operators()}
+        op_to_name = {o.name: o for o in self._create_operators()}
         op_names_to_keep = {
             "Pick",
             "Place"
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+        self._train_tasks = []
+        self._test_tasks = []
     
     def _actively_construct_env_task(self) -> EnvironmentTask:
         assert self._robot is not None
@@ -2564,7 +2579,6 @@ class SpotCubeEnv(SpotRearrangementEnv):
     attempts to place an April Tag cube onto a particular table."""
 
     def __init__(self, use_gui: bool = True) -> None:
-        import pdb; pdb.set_trace()
         super().__init__(use_gui)
 
         op_to_name = {o.name: o for o in _create_operators()}

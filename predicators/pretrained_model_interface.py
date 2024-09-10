@@ -102,7 +102,7 @@ class PretrainedLargeModel(abc.ABC):
         if not os.path.exists(cache_filepath):
             if CFG.llm_use_cache_only:
                 raise ValueError("No cached response found for prompt.")
-            logging.debug(f"Querying model {model_id} with new prompt.")
+            print(f"Querying model {model_id} with new prompt.")
             # Query the model.
             completions = self._sample_completions(prompt, imgs, temperature,
                                                    seed, stop_token,
@@ -118,11 +118,11 @@ class PretrainedLargeModel(abc.ABC):
                 for i, img in enumerate(imgs):
                     filename_suffix = str(i) + ".jpg"
                     img.save(os.path.join(imgs_folderpath, filename_suffix))
-            logging.debug(f"Saved model response to {cache_filepath}.")
+            print(f"Saved model response to {cache_filepath}.")
         # Load the saved completion.
         with open(cache_filepath, 'r', encoding='utf-8') as f:
             cache_str = f.read()
-        logging.debug(f"Loaded model response from {cache_filepath}.")
+        print(f"Loaded model response from {cache_filepath}.")
         assert cache_str.count(_CACHE_SEP) == num_completions
         cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
         assert cached_prompt == prompt

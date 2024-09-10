@@ -579,8 +579,12 @@ class SpotPerceiver(BasePerceiver):
         return [img]
     
 
-class SpotMinimumPerceiver(BasePerceiver):
+class SpotMinimalPerceiver(BasePerceiver):
     """A perceiver for spot envs with minimal functionality."""
+
+    def render_mental_images(self, observation: Observation,
+                             env_task: EnvironmentTask) -> Video:
+        raise NotImplementedError()
 
     @classmethod
     def get_name(cls) -> str:
@@ -648,40 +652,51 @@ class SpotMinimumPerceiver(BasePerceiver):
         self._prev_action = action
 
     def reset(self, env_task: EnvironmentTask) -> Task:
-        init_obs = env_task.init_bos
-        imgs = init_obs.rgbd_images
-        self._robot = init_obs.robot
+        # import pdb; pdb.set_trace()
+        # init_obs = env_task.init_obs
+        # imgs = init_obs.rgbd_images
+        # self._robot = init_obs.robot
+        # state = self._create_state()
+        # state.simulator_state["images"] = [imgs]
+        # state.set(self._robot, "gripper_open_percentage", init_obs.gripper_open_percentage)
+        # self._curr_state = state
+        self._curr_env = get_or_create_env(CFG.env)
         state = self._create_state()
-        state.simulator_state["images"] = [imgs]
-        state.set(self._robot, "gripper_open_percentage") = init_obs.gripper_open_percentage
+        state.simulator_state = {}
+        state.simulator_state["images"] = []
         self._curr_state = state
         goal = self._create_goal(state, env_task.goal_description)
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
+        self._waiting_for_observation = False
+        self._robot = observation.robot
         imgs = observation.rgbd_images
-        self._curr_state.simulator_state["images"].append([imgs])
-        self._curr_state.set(self._robot, "gripper_open_percentage") = observation.gripper_open_percentage
-        return self._curr_state.copy()
+        imgs = [v.rgb for _, v in imgs.items()]
+        self._curr_state = self._create_state()
+        self._curr_state.simulator_state["images"] = imgs
+        self._gripper_open_percentage = observation.gripper_open_percentage
+        ret_state = self._curr_state.copy()
+        return ret_state
 
     def _create_state(self) -> State:
         if self._waiting_for_observation:
             return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
-        table = Object("talbe", _immovable_object_type)
+        table = Object("table", _immovable_object_type)
         cup = Object("cup", _movable_object_type)
         pan = Object("pan", _container_type)
         state_dict = {
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
-                "x": self._robot_pos.x,
-                "y": self._robot_pos.y,
-                "z": self._robot_pos.z,
-                "qw": self._robot_pos.rot.w,
-                "qx": self._robot_pos.rot.x,
-                "qy": self._robot_pos.rot.y,
-                "qz": self._robot_pos.rot.z,
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
             },
             table: {
                 "x": 0,
@@ -739,4 +754,8 @@ class SpotMinimumPerceiver(BasePerceiver):
                 "is_sweeper": 0
             }
         }
-        return State(state_dict)
+        state_dict = {k: list(v.values()) for k, v in state_dict.items()}
+        ret_state =  State(state_dict)
+        ret_state.simulator_state = {}
+        ret_state.simulator_state["images"] = []
+        return ret_state
