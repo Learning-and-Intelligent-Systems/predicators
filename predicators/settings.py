@@ -434,7 +434,7 @@ class GlobalSettings:
 
     # parameters for vision language models
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
-    vlm_model_name = "gemini-pro-vision"
+    vlm_model_name = "gemini-1.5-pro-latest"
     vlm_temperature = 0.0
     vlm_num_completions = 1
     vlm_include_cropped_images = False

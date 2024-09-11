@@ -2424,6 +2424,14 @@ def _dry_simulate_pick_and_dump_container(
 class VLMTestEnv(SpotRearrangementEnv):
     """An environment to start testing the VLM pipeline."""
 
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty"])
+    
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return self.predicates
+
     @classmethod
     def get_name(cls) -> str:
         return "spot_vlm_test_env"
