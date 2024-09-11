@@ -675,7 +675,6 @@ class SpotMinimalPerceiver(BasePerceiver):
         imgs = [v.rgb for _, v in imgs.items()]
         # import PIL
         # PIL.Image.fromarray(imgs[0]).show()
-        # import pdb; pdb.set_trace()
         self._gripper_open_percentage = observation.gripper_open_percentage
         self._curr_state = self._create_state()
         self._curr_state.simulator_state["images"] = imgs
