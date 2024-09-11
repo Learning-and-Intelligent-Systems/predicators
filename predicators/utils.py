@@ -2527,6 +2527,7 @@ def query_vlm_for_atom_vals(
                                         num_completions=1)
     assert len(vlm_output) == 1
     vlm_output_str = vlm_output[0]
+    print(f"VLM output: {vlm_output_str}")
     all_atom_queries = atom_queries_str.strip().split("\n")
     all_vlm_responses = vlm_output_str.strip().split("\n")
 

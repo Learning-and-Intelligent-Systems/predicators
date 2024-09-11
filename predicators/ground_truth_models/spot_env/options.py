@@ -901,7 +901,7 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
 
 def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
     del state, memory, params
-
+    
     robot, lease_client = get_robot_only()
 
     def _teleop(robot: Robot, lease_client: LeaseClient):

@@ -58,13 +58,14 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        import pdb; pdb.set_trace()
+        # utils.abstract(task.init, preds, self._vlm)
 
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
             nsrt_plan, atoms_seq, metrics = self._run_task_plan(
                 task, nsrts, preds, timeout, seed)
+            # import pdb; pdb.set_trace()
             self._last_nsrt_plan = nsrt_plan
             self._last_atoms_seq = atoms_seq
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,

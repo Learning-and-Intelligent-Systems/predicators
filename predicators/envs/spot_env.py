@@ -2564,8 +2564,38 @@ class VLMTestEnv(SpotRearrangementEnv):
     
     def step(self, action: Action) -> Observation:
         assert self._robot is not None
+        action_name = action.extra_info.action_name
+        # Special case: the action is "done", indicating that the robot
+        # believes it has finished the task. Used for goal checking.
+        if action_name == "done":
+            while True:
+                goal_description = self._current_task.goal_description
+                logging.info(f"The goal is: {goal_description}")
+                prompt = "Is the goal accomplished? Answer y or n. "
+                response = utils.prompt_user(prompt).strip()
+                if response == "y":
+                    self._current_task_goal_reached = True
+                    break
+                if response == "n":
+                    self._current_task_goal_reached = False
+                    break
+                logging.info("Invalid input, must be either 'y' or 'n'")
+            return self._current_observation
+
+        # Execute the action in the real environment. Automatically retry
+        # if a retryable error is encountered.
+        action_fn = action.extra_info.real_world_fn
+        action_fn_args = action.extra_info.real_world_fn_args
+        while True:
+            try:
+                action_fn(*action_fn_args)  # type: ignore
+                break
+            except RetryableRpcError as e:
+                logging.warning("WARNING: the following retryable error "
+                                f"was encountered. Trying again.\n{e}")
         rgbd_images = capture_images_without_context(self._robot)
         gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        print(gripper_open_percentage)
         objects_in_view = []
         obs = _TruncatedSpotObservation(
             rgbd_images,
