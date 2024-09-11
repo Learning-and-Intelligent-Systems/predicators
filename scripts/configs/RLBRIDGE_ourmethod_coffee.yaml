@@ -27,7 +27,7 @@ FLAGS:
   online_nsrt_learning_requests_per_cycle: 5
   max_num_steps_interaction_request: 100
   timeout: 1000
-  active_sampler_learning_num_samples: 10
+  active_sampler_learning_num_samples: 100
   same_levels: True
 START_SEED: 0
 NUM_SEEDS: 8
