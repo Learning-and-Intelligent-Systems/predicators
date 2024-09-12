@@ -2,7 +2,7 @@
 ---
 APPROACHES:
   random:
-    NAME: "rl_bridge"
+    NAME: "rl_bridge_policy"
     FLAGS:
       explorer: "maple_q"
       bilevel_plan_without_sim: True
