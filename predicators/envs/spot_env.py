@@ -1488,13 +1488,38 @@ _VLMOn = utils.create_vlm_predicate(
     [_movable_object_type, _base_object_type],
     lambda o: _get_vlm_query_str("VLMOn", o)
 )
+_Upright = utils.create_vlm_predicate(
+    "Upright",
+    [_movable_object_type],
+    lambda o: _get_vlm_query_str("Upright", o)
+)
+_Toasted = utils.create_vlm_predicate(
+    "Toasted",
+    [_movable_object_type],
+    lambda o: _get_vlm_query_str("Toasted", o)
+)
+_VLMIn = utils.create_vlm_predicate(
+    "VLMIn",
+    [_movable_object_type, _immovable_object_type],
+    lambda o: _get_vlm_query_str("In", o)
+)
+_Open = utils.create_vlm_predicate(
+    "Open",
+    [_movable_object_type],
+    lambda o: _get_vlm_query_str("Open", o)
+)
+_Stained = utils.create_vlm_predicate(
+    "Stained",
+    [_movable_object_type],
+    lambda o: _get_vlm_query_str("Stained", o)
+)
 
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
     _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
     _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
     _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
-    _IsSemanticallyGreaterThan, _VLMOn
+    _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open, _Stained
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -2426,7 +2451,8 @@ class VLMTestEnv(SpotRearrangementEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty"])
+        # return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Pourable", "Toasted", "VLMIn", "Open"])
+        return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Upright"])
     
     @property
     def goal_predicates(self) -> Set[Predicate]:

@@ -582,6 +582,15 @@ class SpotPerceiver(BasePerceiver):
 class SpotMinimalPerceiver(BasePerceiver):
     """A perceiver for spot envs with minimal functionality."""
 
+    camera_name_to_annotation = {
+        'hand_color_image': "Hand Camera Image",
+        'back_fisheye_image': "Back Camera Image",
+        'frontleft_fisheye_image': "Front Left Camera Image",
+        'frontright_fisheye_image': "Front Right Camera Image",
+        'left_fisheye_image': "Left Camera Image",
+        'right_fisheye_image': "Right Camera Image"
+    }
+
     def render_mental_images(self, observation: Observation,
                              env_task: EnvironmentTask) -> Video:
         raise NotImplementedError()
@@ -672,12 +681,23 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._waiting_for_observation = False
         self._robot = observation.robot
         imgs = observation.rgbd_images
+        img_names = [v.camera_name for _, v in imgs.items()]
         imgs = [v.rgb for _, v in imgs.items()]
-        # import PIL
-        # PIL.Image.fromarray(imgs[0]).show()
+        import pdb; pdb.set_trace()
+        import PIL
+        from PIL import ImageDraw
+        annotated_pil_imgs = []
+        for img, img_name in zip(imgs, img_names):
+            pil_img = PIL.Image.fromarray(img)
+            draw = ImageDraw.Draw(pil_img)
+            font = utils.get_scaled_default_font(draw, 4)
+            annotated_pil_img = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[img_name], font)
+            annotated_pil_imgs.append(pil_img)
+        annotated_imgs = [np.array(img) for img in annotated_pil_imgs]
+        import pdb; pdb.set_trace()
         self._gripper_open_percentage = observation.gripper_open_percentage
         self._curr_state = self._create_state()
-        self._curr_state.simulator_state["images"] = imgs
+        self._curr_state.simulator_state["images"] = annotated_imgs
         ret_state = self._curr_state.copy()
         return ret_state
 
@@ -686,9 +706,13 @@ class SpotMinimalPerceiver(BasePerceiver):
             return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
-        table = Object("table", _immovable_object_type)
+        # table = Object("table", _immovable_object_type)
         cup = Object("cup", _movable_object_type)
-        pan = Object("pan", _container_type)
+        # pan = Object("pan", _container_type)
+        # bread = Object("bread", _movable_object_type)
+        # toaster = Object("toaster", _immovable_object_type)
+        # microwave = Object("microwave", _movable_object_type)
+        # napkin = Object("napkin", _movable_object_type)
         state_dict = {
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
@@ -700,21 +724,21 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qy": 0,
                 "qz": 0,
             },
-            table: {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "qw": 0,
-                "qx": 0,
-                "qy": 0,
-                "qz": 0,
-                "shape": 0,
-                "height": 0,
-                "width" : 0,
-                "length": 0,
-                "object_id": 1,
-                "flat_top_surface": 1
-            },
+            # table: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 1,
+            #     "flat_top_surface": 1
+            # },
             cup: {
                 "x": 0,
                 "y": 0,
@@ -735,26 +759,101 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "in_view": 1,
                 "is_sweeper": 0
             },
-            pan: {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "qw": 0,
-                "qx": 0,
-                "qy": 0,
-                "qz": 0,
-                "shape": 0,
-                "height": 0,
-                "width" : 0,
-                "length": 0,
-                "object_id": 3,
-                "placeable": 1,
-                "held": 0,
-                "lost": 0,
-                "in_hand_view": 0,
-                "in_view": 1,
-                "is_sweeper": 0
-            }
+            # napkin: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 2,
+            #     "placeable": 1,
+            #     "held": 0,
+            #     "lost": 0,
+            #     "in_hand_view": 0,
+            #     "in_view": 1,
+            #     "is_sweeper": 0
+            # },
+            # microwave: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 2,
+            #     "placeable": 1,
+            #     "held": 0,
+            #     "lost": 0,
+            #     "in_hand_view": 0,
+            #     "in_view": 1,
+            #     "is_sweeper": 0
+            # },
+            # bread: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 2,
+            #     "placeable": 1,
+            #     "held": 0,
+            #     "lost": 0,
+            #     "in_hand_view": 0,
+            #     "in_view": 1,
+            #     "is_sweeper": 0
+            # },
+            # toaster: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 1,
+            #     "flat_top_surface": 1
+            # },
+            # pan: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 3,
+            #     "placeable": 1,
+            #     "held": 0,
+            #     "lost": 0,
+            #     "in_hand_view": 0,
+            #     "in_view": 1,
+            #     "is_sweeper": 0
+            # }
         }
         state_dict = {k: list(v.values()) for k, v in state_dict.items()}
         ret_state =  State(state_dict)

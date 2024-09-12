@@ -58,6 +58,8 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
+        utils.abstract(task.init, preds, self._vlm)
+        import pdb; pdb.set_trace()
         # utils.abstract(task.init, preds, self._vlm)
 
         # Run task planning only and then greedily sample and execute in the
