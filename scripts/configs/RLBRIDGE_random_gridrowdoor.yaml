@@ -1,7 +1,7 @@
 # rl_bridge_approach experiments in gridrowdoor env.
 ---
 APPROACHES:
-  oracle:
+  random:
     NAME: "rl_bridge"
     FLAGS:
       explorer: "maple_q"
@@ -11,6 +11,7 @@ APPROACHES:
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
       use_obj_centric: True
+      random_bridge: True
 ENVS:
   RLBRIDGE_gridrowdoor:
     NAME: "grid_row_door"
