@@ -30,7 +30,8 @@ from predicators.spot_utils.perception.object_specific_grasp_selection import \
     brush_prompt, bucket_prompt, football_prompt, train_toy_prompt
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
-from predicators.spot_utils.perception.spot_cameras import capture_images, capture_images_without_context
+from predicators.spot_utils.perception.spot_cameras import capture_images, \
+    capture_images_without_context
 from predicators.spot_utils.skills.spot_find_objects import \
     init_search_for_objects
 from predicators.spot_utils.skills.spot_hand_move import \
@@ -187,15 +188,17 @@ def get_robot(
 
 @functools.lru_cache(maxsize=None)
 def get_robot_only() -> Tuple[Optional[Robot], Optional[LeaseClient]]:
-        hostname = CFG.spot_robot_ip
-        sdk = create_standard_sdk("PredicatorsClient-")
-        robot = sdk.create_robot(hostname)
-        robot.authenticate("user", "bbbdddaaaiii")
-        verify_estop(robot)
-        lease_client = robot.ensure_client(LeaseClient.default_service_name)
-        lease_client.take()
-        lease_keepalive = LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True)
-        return robot, lease_client
+    hostname = CFG.spot_robot_ip
+    sdk = create_standard_sdk("PredicatorsClient-")
+    robot = sdk.create_robot(hostname)
+    robot.authenticate("user", "bbbdddaaaiii")
+    verify_estop(robot)
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)
+    lease_client.take()
+    lease_keepalive = LeaseKeepAlive(lease_client,
+                                     must_acquire=True,
+                                     return_at_exit=True)
+    return robot, lease_client
 
 
 @functools.lru_cache(maxsize=None)
@@ -1481,45 +1484,37 @@ _IsSemanticallyGreaterThan = Predicate(
     "IsSemanticallyGreaterThan", [_base_object_type, _base_object_type],
     _is_semantically_greater_than_classifier)
 
+
 def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
-    return pred_name + "(" + ", ".join(str(obj.name) for obj in objects) + ")"  # pragma: no cover
-_VLMOn = utils.create_vlm_predicate(
-    "VLMOn",
-    [_movable_object_type, _base_object_type],
-    lambda o: _get_vlm_query_str("VLMOn", o)
-)
+    return pred_name + "(" + ", ".join(
+        str(obj.name) for obj in objects) + ")"  # pragma: no cover
+
+
+_VLMOn = utils.create_vlm_predicate("VLMOn",
+                                    [_movable_object_type, _base_object_type],
+                                    lambda o: _get_vlm_query_str("VLMOn", o))
 _Upright = utils.create_vlm_predicate(
-    "Upright",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Upright", o)
-)
+    "Upright", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Upright", o))
 _Toasted = utils.create_vlm_predicate(
-    "Toasted",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Toasted", o)
-)
+    "Toasted", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Toasted", o))
 _VLMIn = utils.create_vlm_predicate(
-    "VLMIn",
-    [_movable_object_type, _immovable_object_type],
-    lambda o: _get_vlm_query_str("In", o)
-)
-_Open = utils.create_vlm_predicate(
-    "Open",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Open", o)
-)
+    "VLMIn", [_movable_object_type, _immovable_object_type],
+    lambda o: _get_vlm_query_str("In", o))
+_Open = utils.create_vlm_predicate("Open", [_movable_object_type],
+                                   lambda o: _get_vlm_query_str("Open", o))
 _Stained = utils.create_vlm_predicate(
-    "Stained",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Stained", o)
-)
+    "Stained", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Stained", o))
 
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
     _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
     _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
     _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
-    _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open, _Stained
+    _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open,
+    _Stained
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -2452,8 +2447,9 @@ class VLMTestEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         # return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Pourable", "Toasted", "VLMIn", "Open"])
-        return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Upright"])
-    
+        return set(p for p in _ALL_PREDICATES
+                   if p.name in ["VLMOn", "Holding", "HandEmpty", "Upright"])
+
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return self.predicates
@@ -2461,7 +2457,7 @@ class VLMTestEnv(SpotRearrangementEnv):
     @classmethod
     def get_name(cls) -> str:
         return "spot_vlm_test_env"
-    
+
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("No dry task for VLMTestEnv.")
@@ -2482,35 +2478,31 @@ class VLMTestEnv(SpotRearrangementEnv):
             LiftedAtom(_NotHolding, [robot, obj]),
             LiftedAtom(_VLMOn, [obj, table])
         }
-        add_effs: Set[LiftedAtom] = {
-            LiftedAtom(_Holding, [robot, obj])
-        }
+        add_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
         del_effs: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, obj]),
             LiftedAtom(_VLMOn, [obj, table])
         }
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
 
         # Place object
         robot = Variable("?robot", _robot_type)
         obj = Variable("?object", _movable_object_type)
         pan = Variable("?pan", _container_type)
         parameters = [robot, obj, pan]
-        preconds: Set[LiftedAtom] = {
-            LiftedAtom(_Holding, [robot, obj])
-        }
+        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
         add_effs: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, obj]),
             LiftedAtom(_VLMOn, [obj, pan])
         }
-        del_effs: Set[LiftedAtom] = {
-            LiftedAtom(_Holding, [robot, obj])
-        }
+        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
 
     # def _generate_train_tasks(self) -> List[EnvironmentTask]:
     #     goal = self._generate_goal_description()  # currently just one goal
@@ -2542,34 +2534,27 @@ class VLMTestEnv(SpotRearrangementEnv):
         # Create constant objects.
         self._spot_object = Object("robot", _robot_type)
         op_to_name = {o.name: o for o in self._create_operators()}
-        op_names_to_keep = {
-            "Pick",
-            "Place"
-        }
+        op_names_to_keep = {"Pick", "Place"}
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
         self._train_tasks = []
         self._test_tasks = []
-    
+
     def _actively_construct_env_task(self) -> EnvironmentTask:
         assert self._robot is not None
         rgbd_images = capture_images_without_context(self._robot)
-        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        gripper_open_percentage = get_robot_gripper_open_percentage(
+            self._robot)
         objects_in_view = []
-        obs = _TruncatedSpotObservation(
-            rgbd_images,
-            set(objects_in_view),
-            set(),
-            set(),
-            self._spot_object,
-            gripper_open_percentage
-        )
+        obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
+                                        set(), set(), self._spot_object,
+                                        gripper_open_percentage)
         goal_description = self._generate_goal_description()
         task = EnvironmentTask(obs, goal_description)
         return task
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the cup in the pan"
-    
+
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         prompt = f"Please set up {train_or_test} task {task_idx}!"
         utils.prompt_user(prompt)
@@ -2587,7 +2572,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         self._current_task_goal_reached = False
         self._last_action = None
         return self._current_task.init_obs
-    
+
     def step(self, action: Action) -> Observation:
         assert self._robot is not None
         action_name = action.extra_info.action_name
@@ -2620,18 +2605,15 @@ class VLMTestEnv(SpotRearrangementEnv):
                 logging.warning("WARNING: the following retryable error "
                                 f"was encountered. Trying again.\n{e}")
         rgbd_images = capture_images_without_context(self._robot)
-        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
+        gripper_open_percentage = get_robot_gripper_open_percentage(
+            self._robot)
         print(gripper_open_percentage)
         objects_in_view = []
-        obs = _TruncatedSpotObservation(
-            rgbd_images,
-            set(objects_in_view),
-            set(),
-            set(),
-            self._spot_object,
-            gripper_open_percentage
-        )
+        obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
+                                        set(), set(), self._spot_object,
+                                        gripper_open_percentage)
         return obs
+
 
 ###############################################################################
 #                                Cube Table Env                               #
