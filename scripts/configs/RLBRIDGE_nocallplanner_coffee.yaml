@@ -1,7 +1,7 @@
 # rl_bridge_approach experiments in gridrowdoor env.
 ---
 APPROACHES:
-  oracle:
+  no_callplanner:
     NAME: "rl_bridge_policy"
     FLAGS:
       explorer: "maple_q"
