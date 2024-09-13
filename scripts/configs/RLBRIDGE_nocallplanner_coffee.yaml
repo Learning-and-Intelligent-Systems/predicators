@@ -26,7 +26,7 @@ FLAGS:
   num_train_tasks: 1
   interactive_num_requests_per_cycle: 5
   online_nsrt_learning_requests_per_cycle: 5
-  max_num_steps_interaction_request: 100
+  max_num_steps_interaction_request: 300
   timeout: 1000
   active_sampler_learning_num_samples: 100
   same_levels: True
