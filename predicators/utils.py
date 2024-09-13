@@ -2580,12 +2580,9 @@ def query_vlm_for_atom_vals(
     if "state_history" in state.simulator_state:
         previous_states = state.simulator_state["state_history"]
     state_imgs_history = [state.simulator_state["images"] for state in previous_states]
-    
-    # TODO: need to somehow get the history of skills executed; i'll think about this more and then implement.
-
     vlm_atoms = sorted(vlm_atoms)
     atom_queries_str = [atom.get_vlm_query_str() for atom in vlm_atoms]
-    vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(CFG.vlm_test_time_atom_label_prompt_type, atom_queries_str, state.simulator_state["vlm_atoms_history"], state_imgs_history, [], skill_history)
+    vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(CFG.vlm_test_time_atom_label_prompt_type, atom_queries_str, state.simulator_state["vlm_atoms_history"], state_imgs_history, [], state.simulator_state["skill_history"])
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     vlm_input_imgs = \

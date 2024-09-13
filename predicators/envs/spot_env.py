@@ -48,7 +48,7 @@ from predicators.spot_utils.utils import _base_object_type, _container_type, \
     update_pbrspot_robot_conf, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, \
-    SpotActionExtraInfo, State, STRIPSOperator, Type, Variable
+    SpotActionExtraInfo, State, STRIPSOperator, Type, Variable, _Option
 
 ###############################################################################
 #                                Base Class                                   #
@@ -106,6 +106,7 @@ class _TruncatedSpotObservation:
     # # A placeholder until all predicates have classifiers
     # nonpercept_atoms: Set[GroundAtom]
     # nonpercept_predicates: Set[Predicate]
+    executed_skill: Optional[_Option] = None
 
 
 class _PartialPerceptionState(State):
@@ -2547,7 +2548,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         objects_in_view = []
         obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
                                         set(), set(), self._spot_object,
-                                        gripper_open_percentage)
+                                        gripper_open_percentage, None)
         goal_description = self._generate_goal_description()
         task = EnvironmentTask(obs, goal_description)
         return task
@@ -2611,7 +2612,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         objects_in_view = []
         obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
                                         set(), set(), self._spot_object,
-                                        gripper_open_percentage)
+                                        gripper_open_percentage, action.get_option())
         return obs
 
 

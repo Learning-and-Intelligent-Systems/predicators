@@ -23,7 +23,7 @@ from predicators.spot_utils.utils import _container_type, \
     get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, \
-    SpotActionExtraInfo, State, Task, Video
+    SpotActionExtraInfo, State, Task, Video, _Option
 
 
 class SpotPerceiver(BasePerceiver):
@@ -621,6 +621,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._ordered_objects: List[Object] = []  # list of all known objects
         self._state_history: Deque[State] = deque(
             maxlen=5) # TODO: (njk) I just picked an arbitrary constant here! Didn't properly consider this.
+        self._executed_skill_history: Deque[_Option] = deque(maxlen=5)
         # # Keep track of objects that are contained (out of view) in another
         # # object, like a bag or bucket. This is important not only for gremlins
         # # but also for small changes in the container's perceived pose.
@@ -707,6 +708,8 @@ class SpotMinimalPerceiver(BasePerceiver):
         ret_state = self._curr_state.copy()
         ret_state.simulator_state["state_history"] = list(self._state_history)
         self._state_history.append(ret_state)
+        self._executed_skill_history.append(observation.executed_skill)
+        ret_state.simulator_state["skill_history"] = list(self._executed_skill_history)
         return ret_state
 
     def _create_state(self) -> State:
