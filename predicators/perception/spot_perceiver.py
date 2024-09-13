@@ -24,6 +24,11 @@ from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, \
     SpotActionExtraInfo, State, Task, Video
 
+from predicators.spot_utils.perception.object_detection import \
+    AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
+    LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
+    visualize_all_artifacts, _query_detic_sam2
+
 
 class SpotPerceiver(BasePerceiver):
     """A perceiver specific to spot envs."""
@@ -683,7 +688,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         imgs = observation.rgbd_images
         img_names = [v.camera_name for _, v in imgs.items()]
         imgs = [v.rgb for _, v in imgs.items()]
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         import PIL
         from PIL import ImageDraw
         annotated_pil_imgs = []
@@ -694,7 +699,7 @@ class SpotMinimalPerceiver(BasePerceiver):
             annotated_pil_img = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[img_name], font)
             annotated_pil_imgs.append(pil_img)
         annotated_imgs = [np.array(img) for img in annotated_pil_imgs]
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         self._gripper_open_percentage = observation.gripper_open_percentage
         self._curr_state = self._create_state()
         self._curr_state.simulator_state["images"] = annotated_imgs
