@@ -724,7 +724,7 @@ class GlobalSettings:
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,
-                    "coffee": 100,
+                    "coffee": 300,
                     "coffeelids": 1000,
                     "kitchen": 1000,
                     # For the very simple touch point environment, restrict

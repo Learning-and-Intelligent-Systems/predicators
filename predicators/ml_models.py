@@ -2084,6 +2084,8 @@ class MPDQNFunction(MapleQFunction):
             X_size = 47
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_callplanner and CFG.use_obj_centric:
             X_size = 5 + 7 + self._max_num_params
+        elif CFG.env in {"coffee", "coffeelids"} and CFG.use_obj_centric:
+            X_size = 5 + 7 + self._max_num_params -1
 
         Y_size = 1
         doorknob_values = []
