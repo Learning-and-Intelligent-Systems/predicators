@@ -29,5 +29,5 @@ FLAGS:
   timeout: 1000
   active_sampler_learning_num_samples: 100
   same_levels: True
-START_SEED: 0
+START_SEED: 4
 NUM_SEEDS: 4
