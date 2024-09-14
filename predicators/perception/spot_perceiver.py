@@ -683,12 +683,40 @@ class SpotMinimalPerceiver(BasePerceiver):
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
+        import pdb; pdb.set_trace()
         self._waiting_for_observation = False
         self._robot = observation.robot
-        imgs = observation.rgbd_images
-        img_names = [v.camera_name for _, v in imgs.items()]
-        imgs = [v.rgb for _, v in imgs.items()]
-        # import pdb; pdb.set_trace()
+        img_objects = observation.rgbd_images  # RGBDImage objects
+        img_names = [v.camera_name for _, v in img_objects.items()]
+        imgs = [v.rotated_rgb for _, v in img_objects.items()]
+        import PIL
+        from PIL import ImageDraw, ImageFont
+        pil_imgs = [PIL.Image.fromarray(img) for img in imgs]
+        # Annotate images with detected objects (names + bounding box)
+        # and camera name.
+        object_detections_per_camera = observation.object_detections_per_camera
+        imgs_with_objects_annotated = []  # These are PIL images.
+        for i, camera_name in enumerate(img_names):
+            draw = ImageDraw.Draw(pil_imgs[i])
+            # Annotate with camera name.
+            font = utils.get_scaled_default_font(draw, 4)
+            _ = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[camera_name], font)
+            # Annotate with object detections.
+            detections = object_detections_per_camera[camera_name]
+            for obj_id, seg_bb in detections:
+                x0, y0, x1, y1 = seg_bb.bounding_box
+                draw.rectangle([(x0, y0), (x1, y1)], outline='green', width=2)
+                text = f"{obj_id.language_id}"
+                font = ImageFont.load_default()
+                text_mask = font.getmask(text)
+                text_width, text_height = text_mask.size
+                text_bbox = [(x0, y0 - text_height - 2), (x0 + text_width + 2, y0)]
+                draw.rectangle(text_bbox, fill='green')
+                draw.text((x0 + 1, y0 - text_height - 1), text, fill='white', font=font)
+
+        import pdb; pdb.set_trace()
+
+
         import PIL
         from PIL import ImageDraw
         annotated_pil_imgs = []

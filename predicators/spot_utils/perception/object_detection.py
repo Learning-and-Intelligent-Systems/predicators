@@ -450,7 +450,7 @@ def _query_detic_sam2(
                                               scores[best_idx])
                 object_id_to_img_detections[obj_id][rgbd.camera_name] = seg_bb
 
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     return object_id_to_img_detections
 
 
