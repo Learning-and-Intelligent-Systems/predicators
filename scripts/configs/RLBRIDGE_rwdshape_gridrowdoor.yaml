@@ -10,7 +10,7 @@ APPROACHES:
       segmenter: "oracle"
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
-      use_obj_centric: False
+      use_obj_centric: True
       rl_rwd_shape: True
 ENVS:
   RLBRIDGE_gridrowdoor:
