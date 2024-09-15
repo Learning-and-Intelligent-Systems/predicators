@@ -10,7 +10,7 @@ APPROACHES:
       segmenter: "oracle"
       demonstrator: "oracle"
       sesame_max_skeletons_optimized: 50
-      use_obj_centric: True
+      use_obj_centric: False
 ENVS:
   RLBRIDGE_gridrowdoor:
     NAME: "grid_row_door"
@@ -29,5 +29,5 @@ FLAGS:
   timeout: 1000
   active_sampler_learning_num_samples: 100
   same_levels: True
-START_SEED: 0
-NUM_SEEDS: 8
+START_SEED: 7
+NUM_SEEDS: 1
