@@ -2,16 +2,16 @@
 from typing import Collection, Dict, Optional, Type
 
 import cv2
-from scipy import ndimage
 import numpy as np
 from bosdyn.api import image_pb2
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
+from scipy import ndimage
 
-from predicators.spot_utils.perception.perception_structs import \
-    RGBDImageWithContext, RGBDImage
+from predicators.spot_utils.perception.perception_structs import RGBDImage, \
+    RGBDImageWithContext
 from predicators.spot_utils.spot_localization import SpotLocalizer
 
 ROTATION_ANGLE = {

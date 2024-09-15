@@ -1,22 +1,22 @@
 """Ground-truth options for Spot environments."""
 
+import logging
 import time
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
-import logging
 
 import numpy as np
 import pbrspot
 from bosdyn.client import math_helpers
-from bosdyn.client.sdk import Robot
 from bosdyn.client.lease import LeaseClient
+from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     SpotRearrangementEnv, _get_sweeping_surface_for_container, \
-    get_detection_id_for_object, get_robot, get_robot_only, \
-    get_robot_gripper_open_percentage, get_simulated_object, \
+    get_detection_id_for_object, get_robot, \
+    get_robot_gripper_open_percentage, get_robot_only, get_simulated_object, \
     get_simulated_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG

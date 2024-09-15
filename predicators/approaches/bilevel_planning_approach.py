@@ -61,7 +61,6 @@ class BilevelPlanningApproach(BaseApproach):
         utils.abstract(task.init, preds, self._vlm)
         import pdb; pdb.set_trace()
         # utils.abstract(task.init, preds, self._vlm)
-
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:

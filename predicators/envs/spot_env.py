@@ -24,13 +24,14 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
-    LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
-    visualize_all_artifacts, _query_detic_sam2
+    LanguageObjectDetectionID, ObjectDetectionID, _query_detic_sam2, \
+    detect_objects, visualize_all_artifacts
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
     brush_prompt, bucket_prompt, football_prompt, train_toy_prompt
-from predicators.spot_utils.perception.perception_structs import \
-    RGBDImageWithContext, RGBDImage, SegmentedBoundingBox
-from predicators.spot_utils.perception.spot_cameras import capture_images, capture_images_without_context
+from predicators.spot_utils.perception.perception_structs import RGBDImage, \
+    RGBDImageWithContext, SegmentedBoundingBox
+from predicators.spot_utils.perception.spot_cameras import capture_images, \
+    capture_images_without_context
 from predicators.spot_utils.skills.spot_find_objects import \
     init_search_for_objects
 from predicators.spot_utils.skills.spot_hand_move import \
