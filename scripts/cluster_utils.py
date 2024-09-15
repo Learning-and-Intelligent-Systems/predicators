@@ -147,13 +147,13 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
     before launching the experiments."""
     old_dir_pattern = " ".join(f"{d}/" for d in SAVE_DIRS)
     return [
-        "git stash",
-        "git fetch --all",
-        f"git checkout {branch}",
-        "git pull",
+        # "git stash",
+        # "git fetch --all",
+        # f"git checkout {branch}",
+        # "git pull",
         # Remove old results.
-        f"rm -rf {old_dir_pattern}",
-        "mkdir -p logs",
+        # f"rm -rf {old_dir_pattern}",
+        # "mkdir -p logs",
     ]
 
 
