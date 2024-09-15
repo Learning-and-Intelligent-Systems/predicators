@@ -1486,7 +1486,7 @@ class MapleQFunction(MLPRegressor):
         elif CFG.env == "doorknobs" and not CFG.use_obj_centric:
             X_size = 304
         elif CFG.env == "coffee" and not CFG.use_obj_centric:
-            X_size = 27
+            X_size = 47
         elif CFG.env == "coffee":
             X_size = 12
         else:
