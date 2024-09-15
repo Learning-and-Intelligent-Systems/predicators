@@ -695,7 +695,6 @@ class SpotMinimalPerceiver(BasePerceiver):
         # Annotate images with detected objects (names + bounding box)
         # and camera name.
         object_detections_per_camera = observation.object_detections_per_camera
-        imgs_with_objects_annotated = []  # These are PIL images.
         for i, camera_name in enumerate(img_names):
             draw = ImageDraw.Draw(pil_imgs[i])
             # Annotate with camera name.
@@ -707,12 +706,12 @@ class SpotMinimalPerceiver(BasePerceiver):
                 x0, y0, x1, y1 = seg_bb.bounding_box
                 draw.rectangle([(x0, y0), (x1, y1)], outline='green', width=2)
                 text = f"{obj_id.language_id}"
-                font = ImageFont.load_default()
+                font = utils.get_scaled_default_font(draw, 3)
                 text_mask = font.getmask(text)
                 text_width, text_height = text_mask.size
-                text_bbox = [(x0, y0 - text_height - 2), (x0 + text_width + 2, y0)]
+                text_bbox = [(x0, y0 - 1.5*text_height), (x0 + text_width + 1, y0)]
                 draw.rectangle(text_bbox, fill='green')
-                draw.text((x0 + 1, y0 - text_height - 1), text, fill='white', font=font)
+                draw.text((x0 + 1, y0 - 1.5*text_height), text, fill='white', font=font)
 
         import pdb; pdb.set_trace()
 
