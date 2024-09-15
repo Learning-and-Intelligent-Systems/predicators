@@ -332,7 +332,7 @@ class GlobalSettings:
     sokoban_gym_name = "Sokoban-v0"
 
     # minigrid env parameters
-    minigrid_gym_name = "MiniGrid-Empty-5x5-v0"
+    minigrid_gym_name = "MiniGrid-GoToObject-8x8-N2-v0"  #"MiniGrid-GoToObject-8x8-N2-v0" #"MiniGrid-Empty-16x16-v0"
 
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
@@ -732,6 +732,7 @@ class GlobalSettings:
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,
+                    "minigrid_env": 1000,
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,

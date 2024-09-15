@@ -1208,15 +1208,15 @@ def run_task_plan_once(
         timeout -= duration
         plan, atoms_seq, metrics = next(
             task_plan(init_atoms,
-                      goal,
-                      ground_nsrts,
-                      reachable_atoms,
-                      heuristic,
-                      seed,
-                      timeout,
-                      max_skeletons_optimized=1,
-                      use_visited_state_set=True,
-                      **kwargs))
+                    goal,
+                    ground_nsrts,
+                    reachable_atoms,
+                    heuristic,
+                    seed,
+                    timeout,
+                    max_skeletons_optimized=1,
+                    use_visited_state_set=True,
+                    **kwargs))
         if len(plan) > max_horizon:
             raise PlanningFailure(
                 "Skeleton produced by A-star exceeds horizon!")
@@ -1243,7 +1243,7 @@ def run_task_plan_once(
             alias_flag = "--alias lama-first"
         else:
             raise ValueError("Unrecognized sesame_task_planner: "
-                             f"{CFG.sesame_task_planner}")
+                            f"{CFG.sesame_task_planner}")
 
         sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
                                             timeout_cmd, alias_flag, exec_str,
@@ -1262,11 +1262,12 @@ def run_task_plan_once(
             list(objects), init_atoms, nsrts, float(max_horizon))
     else:
         raise ValueError("Unrecognized sesame_task_planner: "
-                         f"{CFG.sesame_task_planner}")
+                        f"{CFG.sesame_task_planner}")
 
     necessary_atoms_seq = utils.compute_necessary_atoms_seq(
         plan, atoms_seq, goal)
-
+    if len(plan) != 2:
+        print([(step.name, step.objects) for step in plan])
     return plan, necessary_atoms_seq, metrics
 
 

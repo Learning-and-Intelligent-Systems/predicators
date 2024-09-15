@@ -1,5 +1,6 @@
 """A minigrid-specific perceiver."""
 
+import sys
 from typing import Dict, Tuple
 
 import numpy as np
@@ -21,26 +22,71 @@ class MiniGridPerceiver(BasePerceiver):
 
     def __init__(self) -> None:
         super().__init__()
-        # Used for object tracking of the boxes, which are the only objects
-        # with ambiguity. The keys are the object names.
-        self._box_loc_to_name: Dict[Tuple[int, int], str] = {}
+        # Ditection: 0 - right, 1 - down, 2 - left, 3 - up
+        self.state_dict = {}
+        self.agent_pov_pos = (3,6) # agent's point of view is always at (3,6)
+        self.agent_pos = (0,0) # starts at origin
+        self.direction = 0 # starts facing right
+        self.last_obs = None
 
     @classmethod
     def get_name(cls) -> str:
         return "minigrid_env"
 
     def reset(self, env_task: EnvironmentTask) -> Task:
-        self._box_loc_to_name.clear()  # reset the object tracking dictionary
+        self.state_dict.clear()
         state = self._observation_to_state(env_task.init_obs)
-        assert env_task.goal_description == "Get to the goal"
-        IsAgent, At, IsGoal = MiniGridEnv.get_goal_predicates()
-        assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
-        assert len(MiniGridEnv.get_objects_of_enum(state, "goal")) == 1
-        agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
-        goal_obj = list(MiniGridEnv.get_objects_of_enum(state, "goal"))[0]
-        goal = {GroundAtom(IsAgent, [agent_obj]),
-                GroundAtom(At, [agent_obj, goal_obj]),
-                GroundAtom(IsGoal, [goal_obj])}
+        if env_task.goal_description == "Get to the goal":
+            IsAgent, At, IsGoal, IsBall, IsKey, IsBox, \
+            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey = MiniGridEnv.get_goal_predicates()
+            assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
+            assert len(MiniGridEnv.get_objects_of_enum(state, "goal")) == 1
+            agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
+            goal_obj = list(MiniGridEnv.get_objects_of_enum(state, "goal"))[0]
+            goal = {GroundAtom(IsAgent, [agent_obj]),
+                    GroundAtom(At, [agent_obj, goal_obj]),
+                    GroundAtom(IsGoal, [goal_obj])}
+        elif "go to the " in env_task.goal_description:
+            color, obj_type = env_task.goal_description.split("go to the ")[1].split(" ")[0:2]
+            obj_name = f"{color}_{obj_type}"
+            IsAgent, At, IsGoal, IsBall, IsKey, IsBox, \
+            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey = MiniGridEnv.get_goal_predicates()
+            assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
+            assert len(MiniGridEnv.get_objects_of_enum(state, obj_type)) > 1
+            agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
+            for obj in MiniGridEnv.get_objects_of_enum(state, obj_type):
+                if obj.name == obj_name:
+                    goal_obj = obj
+            obj_type_to_predicate = {
+                "ball": IsBall,
+                "key": IsKey,
+                "box": IsBox
+            }  
+            color_to_predicate = {
+                "red": IsRed,
+                "green": IsGreen,
+                "blue": IsBlue,
+                "purple": IsPurple,
+                "yellow": IsYellow,
+                "grey": IsGrey
+            } 
+            goal = {GroundAtom(IsAgent, [agent_obj]),
+                    GroundAtom(At, [agent_obj, goal_obj]),
+                    GroundAtom(obj_type_to_predicate[obj_type], [goal_obj]),
+                    GroundAtom(color_to_predicate[color], [goal_obj]),
+                    }
+        elif env_task.goal_description == "get to the green goal square":
+            IsAgent, At, IsGoal, IsBall, IsKey, IsBox, \
+            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey = MiniGridEnv.get_goal_predicates()
+            assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
+            assert len(MiniGridEnv.get_objects_of_enum(state, "goal")) == 1
+            agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
+            goal_obj = list(MiniGridEnv.get_objects_of_enum(state, "goal"))[0]
+            goal = {GroundAtom(IsAgent, [agent_obj]),
+                    GroundAtom(At, [agent_obj, goal_obj]),
+                    GroundAtom(IsGoal, [goal_obj])}
+        else:
+            raise NotImplementedError(f"Goal description {env_task.goal_description} not supported")
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
@@ -50,53 +96,120 @@ class MiniGridPerceiver(BasePerceiver):
         objs = []
         visual = obs[0]['image']
         direction = obs[0]['direction']
-        agent_pos = (3,6)
-        # from PIL import Image
-        # import numpy as np
-        # visual_rgb = np.array([[COLORS[IDX_TO_COLOR[visual[r][c][1]]] if IDX_TO_OBJECT[visual[r, c][0]] != 'empty' else [0,0,0] for c in range(visual.shape[1])] for r in range(visual.shape[0])], dtype=np.uint8)
-        # img = Image.fromarray(visual_rgb)
-        # img.show()
         objs.append(('agent',
                      None, 
                      direction,
-                     agent_pos[0],
-                     agent_pos[1]))
+                     0,
+                     0))
         objs.append(('empty',
                      'black', 
                      0,
-                     agent_pos[0],
-                     agent_pos[1]))
+                     0,
+                     0))
         for r in range(visual.shape[0]):
             for c in range(visual.shape[1]):
-                obj = [IDX_TO_OBJECT[visual[r, c][0]], IDX_TO_COLOR[visual[r, c][1]], visual[r, c][2], r, c]
+                obj = [IDX_TO_OBJECT[visual[r, c][0]], IDX_TO_COLOR[visual[r, c][1]], visual[r, c][2], r - self.agent_pov_pos[0], c - self.agent_pov_pos[1]]
                 if obj[0] == 'empty':
                     obj[1] = 'black'
                 objs.append(tuple(obj))
         return objs
+    
+    def transform_point(self, x1, y1, o1, x2, y2):
+        # Compute global coordinates directly
+        x_prime = x1 + x2 * np.cos(o1) - y2 * np.sin(o1)
+        y_prime = y1 + x2 * np.sin(o1) + y2 * np.cos(o1)
+        return x_prime, y_prime
+    
+    # Updated function with mathematically correct direction-to-radians mapping
+    def _globalize_coords(self, r: int, c: int) -> Tuple[int, int]:
+        # Adjusted direction-to-radian mapping
+        direction_to_radian = {
+            0: 0,                # right
+            1: -np.pi / 2,       # down
+            2: np.pi,            # left
+            3: np.pi / 2         # up
+        }
+        o1 = direction_to_radian[self.direction]
+        x1, y1 = self.agent_pos[0], self.agent_pos[1]
+        x2, y2 = r, -c  # Use c directly
+        x_prime, y_prime = self.transform_point(x1, y1, o1, x2, y2)
+        return int(round(x_prime)), int(round(y_prime))
 
     def _observation_to_state(self, obs: Observation) -> State:
-        state_dict = {}
+        import numpy as np
+
+        self.direction = obs[0]['direction']
+        if len(obs) == 5:
+            if obs[4]['last_action'] == 2: # Moved Forward
+                if (not np.array_equal(self.last_obs[0]['image'], obs[0]['image'])) or \
+                    not np.array_equal(obs[0]['image'][self.agent_pov_pos[0], self.agent_pov_pos[1]-1], np.array([2, 5, 0], dtype=np.uint8)):
+                    if self.direction == 0: # right (0, 1)
+                        self.agent_pos = (self.agent_pos[0], self.agent_pos[1] + 1)
+                    elif self.direction == 1: # down (1, 0)
+                        self.agent_pos = (self.agent_pos[0] + 1, self.agent_pos[1])
+                    elif self.direction == 2: # left (0, -1)
+                        self.agent_pos = (self.agent_pos[0], self.agent_pos[1] - 1)
+                    elif self.direction == 3: # up (-1, 0)
+                        self.agent_pos = (self.agent_pos[0] - 1, self.agent_pos[1])
+        self.last_obs = obs
+
         objs = self._observation_to_objects(obs)
 
-        def _get_object_name(r: int, c: int, type_name: str) -> str:
+        def _get_object_name(r: int, c: int, type_name: str, color: str) -> str:
             # Put the location of the static objects in their names for easier
             # debugging.
             if type_name == "agent":
                 return "agent"
-            return f"{type_name}_{r}_{c}"
+            if type_name in ["empty", "wall"]:
+                return f"{type_name}_{r}_{c}"
+            else:
+                return f"{color}_{type_name}"
 
         for type_name, color, obj_state, r, c in objs:
             enum = MiniGridEnv.name_to_enum[type_name]
-            object_name = _get_object_name(r, c, type_name)
+            global_r, global_c = self._globalize_coords(r, c)
+            if type_name in ["goal", "agent"]:
+                object_name = type_name
+                if type_name == "agent":
+                    assert (global_r, global_c) == self.agent_pos
+            else:
+                object_name = _get_object_name(global_r, global_c, type_name, color)
             obj = Object(object_name, MiniGridEnv.object_type)
-            state_dict[obj] = {
-                "row": r,
-                "column": c,
+            self.state_dict[obj] = {
+                "row": global_r,
+                "column": global_c,
                 "type": enum,
                 "state": obj_state,
+                "color": color,
             }
 
-        state = utils.create_state_from_dict(state_dict)
+        if all([val["type"] != MiniGridEnv.name_to_enum['goal'] for key, val in self.state_dict.items()]):
+            enum = MiniGridEnv.name_to_enum["goal"]
+            object_name = "goal"
+            obj = Object(object_name, MiniGridEnv.object_type)
+            self.state_dict[obj] = {
+                "row": sys.maxsize,
+                "column": sys.maxsize,
+                "type": enum,
+                "state": -1,
+                "color": 'green',
+            }
+
+        for color in ['blue', 'green', 'grey', 'purple', 'red', 'yellow']:
+            for obj_type in ['key', 'ball', 'box']:
+                if all([not (val["type"] == MiniGridEnv.name_to_enum[obj_type] and val["color"] == color) for key, val in self.state_dict.items()]):
+                    enum = MiniGridEnv.name_to_enum[obj_type]
+                    object_name = f"{color}_{obj_type}"
+                    obj = Object(object_name, MiniGridEnv.object_type)
+                    self.state_dict[obj] = {
+                        "row": sys.maxsize,
+                        "column": sys.maxsize,
+                        "type": enum,
+                        "state": -1,
+                        "color": color,
+                    }
+
+        state = utils.create_state_from_dict(self.state_dict)
         return state
 
     def render_mental_images(self, observation: Observation,

@@ -34,6 +34,21 @@ class MiniGridGroundTruthOptionFactory(GroundTruthOptionFactory):
             for i, name in {value: key for key, value in Actions.__members__.items()}.items()
         }
 
+        # FindObj option.
+        object_type = types["obj"]
+        FindObjOption = ParameterizedOption(
+                                "FindObj",
+                                [object_type],
+                                Box(low=np.array([]), high=np.array([]), shape=(0, )),
+                                policy=cls._create_find_obj_policy(),
+                                initiable=lambda s, m, o, p: True,
+                                terminal=lambda s, m, o, p: s.get(o[0], "type") == 8 and s.get(o[0], "state") != -1) # 8 is the goal enum type
+        options.add(FindObjOption)
+
+        # ReplanToObj option.
+        ReplanToObj = utils.SingletonParameterizedOption("ReplanToObj", cls._create_policy(discrete_action=6))
+        options.add(ReplanToObj)
+        
         return options
 
     @classmethod
@@ -44,6 +59,18 @@ class MiniGridGroundTruthOptionFactory(GroundTruthOptionFactory):
             del state, memory, objects, params  # unused.
             arr = np.zeros(7, dtype=np.float32)
             arr[discrete_action] = 1
+            return Action(arr)
+
+        return policy
+    
+    @classmethod
+    def _create_find_obj_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            del state, memory, objects, params  # unused.
+            arr = np.zeros(7, dtype=np.float32)
+            arr[np.random.choice([0, 1, 2], 1, p=[0.2, 0.2, 0.6])[0]] = 1
             return Action(arr)
 
         return policy
