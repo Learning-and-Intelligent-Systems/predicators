@@ -3,7 +3,7 @@ import os
 
 
 # Folder path where your files are located
-folder_path = "lockeexperiments/logs"
+folder_path = "bridge_policy_experiment_logs"
 
 # Iterate through all the files in the folder
 counter = 0
@@ -13,7 +13,7 @@ for filename in os.listdir(folder_path):
     # Check if "mapleq" is in the filename
     #CHANGE THIS TO FIND THE WANTED FILES
     # print(filename)
-    if "grid_row_door__rl_bridge_policy__RLBRIDGE_gridrowdoor-rl_rwd_shape" in filename:
+    if "coffee__maple_q__RLBRIDGE_coffee-oracle" in filename:
         file_path = os.path.join(folder_path, filename)
         print(file_path)
         with open(file_path, "r") as f:
@@ -38,7 +38,8 @@ for filename in os.listdir(folder_path):
                 
             match = re.search(r'^SMOOTH REWARDS\s+\[([^\]]+)\]', line)
             if match:
-                testing_time_rewards_list.append(float(match.group(1)))
+                for smoothed_reward in match.group(1).split(","):
+                    testing_time_rewards_list.append(float(smoothed_reward.strip()))
 
         # print(f"Got {len(testing_time_rewards_list)} SMOOTH TEST rewards!\n{testing_time_rewards_list}")
         smooth_test_rwd.append(testing_time_rewards_list)
@@ -51,7 +52,7 @@ print("TEST RWDS", smooth_test_rwd)
 
 
 # Folder path where your files are located
-folder_path = "1232amexperiments/logs"
+folder_path = "bridge_policy_experiment_logs"
 
 # Iterate through all the files in the folder
 counter = 0
@@ -60,7 +61,7 @@ train_rwd =[]
 for filename in os.listdir(folder_path):
     # Check if "mapleq" is in the filename
     #CHANGE THIS TO FIND THE WANTED FILES
-    if "grid_row_door__rl_bridge_policy__RLBRIDGE_gridrowdoor-rl_rwd_shape__" in filename:
+    if "coffee__maple_q__RLBRIDGE_coffee-oracle" in filename:
         file_path = os.path.join(folder_path, filename)
         print(file_path)
         with open(file_path, "r") as f:
@@ -97,7 +98,7 @@ print("TEST RWDS", smooth_test_rwd)
 
 
 # Folder path where your files are located
-folder_path = "1230amexperiments/logs"
+folder_path = "bridge_policy_experiment_logs"
 
 # Iterate through all the files in the folder
 counter = 0
@@ -106,7 +107,7 @@ train_rwd =[]
 for filename in os.listdir(folder_path):
     # Check if "mapleq" is in the filename
     #CHANGE THIS TO FIND THE WANTED FILES
-    if "grid_row_door__rl_bridge_policy__RLBRIDGE_gridrowdoor-rl_rwd_shape__" in filename:
+    if "coffee__maple_q__RLBRIDGE_coffee-oracle" in filename:
         file_path = os.path.join(folder_path, filename)
         print(file_path)
         with open(file_path, "r") as f:
