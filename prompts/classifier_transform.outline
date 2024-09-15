@@ -1,0 +1,77 @@
+Please transform the following predicate classifiers to use an abstract state in terms of a set of GroundAtom--`atoms: Set[GroundAtom]` instead of an State--`state: State`. 
+That is, the new classifiers should have signature of form 
+`_<classifier_name>_holds_abs(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:` 
+instead of
+`_<classifier_name>_holds(state: State, objects: Sequence[Object]) -> bool:`
+
+The untransformed predicates are:
+{ORIGINAL_PREDICATES}
+
+In your response, write each transformd predicate in a Python block as follows:
+```python
+def _<predicate_name>_holds_abs(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:
+    # Implement the boolean classifier function here
+    ...
+
+# Define the predicate name here 
+name: str = ... 
+
+# A list of object-type variables for the predicate, using the ones defined in the environment
+param_types: Sequence[Type] = ... 
+<predicate_name> = NSPredicate(name, param_types, _<predicate_name>_holds_abs)
+```
+
+Note that Each `GroundAtom` object has attribute `predicate: Predicate` and `objects: Sequence[Object]` that can be used to check the predicate and objects used in obtaining such ground atom.
+
+For example, the followings shows an example transformation for the `Clear` predicate:
+The untransformed predicate:
+```python
+def _Clear_holds(state: State, objects: Sequence[Object]) -> bool:
+    block, = objects
+    for other_block in state.get_objects(_block_type):
+        if self._On_holds(state, [other_block, block]):
+            return False
+    return True
+
+_Clear = Predicate("Clear", [_block_type], _Clear_holds)
+```
+The transformed predicate is:
+```python
+def _Clear_holds_abs(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:  
+    blocks, = objects                 
+    for atom in atoms:
+        if atom.predicate == _On:
+            if atom.objects[1] == blocks:
+                return False
+    return True
+
+_Clear = Predicate("Clear", [_block_type], _Clear_holds_abs)
+```
+
+The following shows an example transformation for the `Holding` predicate:
+The untransformed predicate:
+```python
+def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+    block, = objects
+    for other_block in state.get_objects(_block_type):
+        if _On_holds(state, [block, other_block]):
+            return False
+        if _OnTable_holds(state, [block]):
+            return False
+    return True
+
+_Holding = Predicate("Holding", [_block_type], _Holding_holds)
+```
+The transformed predicate is:
+```python
+def _Holding_holds_abs(atoms: Sequence[GroundAtom], objects: Sequence[Object]) -> bool:
+    block, = objects
+    for atom in atoms:
+        if atom.predicate == _On and atom.objects[0] == block:
+            return False
+        if atom_predicate == _OnTable and atom.objects[0] == block:
+            return False
+    return False
+
+_Holding = Predicate("Holding", [_block_type], _Holding_holds_abs)
+```

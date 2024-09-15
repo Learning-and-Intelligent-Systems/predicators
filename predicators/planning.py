@@ -68,7 +68,6 @@ def sesame_plan(
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
     use_visited_state_set: bool = False,
-    concept_predicates: Set[ConceptPredicate] = set(),
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """Run bilevel planning.
 
@@ -85,8 +84,7 @@ def sesame_plan(
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
             abstract_policy, max_policy_guided_rollout, refinement_estimator,
-            check_dr_reachable, allow_noops, use_visited_state_set, 
-            concept_predicates=concept_predicates)
+            check_dr_reachable, allow_noops, use_visited_state_set)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -130,7 +128,6 @@ def _sesame_plan_with_astar(
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
     use_visited_state_set: bool = False,
-    concept_predicates: Set[ConceptPredicate] = set(),
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
@@ -143,8 +140,10 @@ def _sesame_plan_with_astar(
     metrics: Metrics = defaultdict(float)
     # Make a copy of the predicates set to avoid modifying the input set,
     # since we may be adding NotCausesFailure predicates to the set.
-    predicates = predicates.copy()
-    concept_predicates = concept_predicates.copy()
+    concept_predicates = set([pred for pred in predicates.copy() if 
+                              isinstance(pred, ConceptPredicate)])
+    predicates = set([pred for pred in predicates.copy() if not 
+                      isinstance(pred, ConceptPredicate)])
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
@@ -157,7 +156,7 @@ def _sesame_plan_with_astar(
                                        check_dr_reachable, allow_noops)
         heuristic = utils.create_task_planning_heuristic(
             task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
-            predicates, objects)
+            predicates | concept_predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             gen = _skeleton_generator(
@@ -311,10 +310,13 @@ def task_plan_grounding(
                                | ground_nsrt.delete_effects):
                 ground_nsrts.append(ground_nsrt)
     reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
-    reachable_nsrts = [
-        nsrt for nsrt in ground_nsrts
-        if nsrt.preconditions.issubset(reachable_atoms)
-    ]
+    if CFG.sesame_filter_unreachable_nsrt:
+        reachable_nsrts = [
+            nsrt for nsrt in ground_nsrts
+            if nsrt.preconditions.issubset(reachable_atoms)
+        ]
+    else:
+        reachable_nsrts = ground_nsrts
     return reachable_nsrts, reachable_atoms
 
 
@@ -328,6 +330,8 @@ def task_plan(
     timeout: float,
     max_skeletons_optimized: int,
     use_visited_state_set: bool = False,
+    concept_predicates: Set[ConceptPredicate] = set(),
+    task: Optional[Task] = None,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]]:
     """Run only the task planning portion of SeSamE. A* search is run, and
     skeletons that achieve the goal symbolically are yielded. Specifically,
@@ -346,11 +350,11 @@ def task_plan(
     then call this method. See the tests in tests/test_planning for
     usage examples.
     """
-    if not goal.issubset(reachable_atoms):
+    if CFG.sesame_check_dr_reachable and not goal.issubset(reachable_atoms):
         logging.info(f"Detected goal unreachable. Goal: {goal}")
         logging.info(f"Initial atoms: {init_atoms}")
         raise PlanningFailure(f"Goal {goal} not dr-reachable")
-    dummy_task = Task(DefaultState, goal)
+    dummy_task = Task(DefaultState, goal) if task is None else task
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(
         dummy_task,
@@ -361,7 +365,8 @@ def task_plan(
         timeout,
         metrics,
         max_skeletons_optimized,
-        use_visited_state_set=use_visited_state_set)
+        use_visited_state_set=use_visited_state_set,
+        concept_predicates=concept_predicates)
     # Note that we use this pattern to avoid having to catch an exception
     # when _skeleton_generator runs out of skeletons to optimize.
     for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
@@ -498,19 +503,28 @@ def _skeleton_generator(
                     current_node = child_node
                     if time.perf_counter() - start_time >= timeout:
                         break
+
             # Generate primitive successors.
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
+                # if len(concept_predicates) > 0 and metrics["num_nodes_created"] == 2:
+                #     breakpoint()
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 # Compute and add the concept predicate ground atoms
                 concept_atoms = utils.abstract_with_concept_predicates(
                                                         child_atoms, 
                                                         concept_predicates,
                                                         current_objects)
+
                 # logging.debug(f"Applying nsrt: {nsrt.short_str}")
                 # logging.debug(f"Existing atoms: {child_atoms}")
+                # logging.debug(f"Concept preds: {concept_predicates}")
                 # logging.debug(f"Concept atoms: {concept_atoms}")
+                # logging.debug(f"Concept atoms: {concept_atoms}")
+
                 child_atoms |= concept_atoms
+                # logging.debug(f"All atoms: {child_atoms}")
+
 
                 if use_visited_state_set:
                     frozen_atoms = frozenset(child_atoms)
@@ -533,6 +547,8 @@ def _skeleton_generator(
                 # priority is g [cost] plus h [heuristic]
                 priority = (child_node.cumulative_cost +
                             heuristic(child_node.atoms))
+                # logging.debug(f"Priority: {priority}")
+                # logging.debug("\n")
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
                 if time.perf_counter() - start_time >= timeout:
                     break

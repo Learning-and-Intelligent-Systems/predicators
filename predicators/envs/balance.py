@@ -107,7 +107,8 @@ class BalanceEnv(BaseEnv):
             (bbox_features if CFG.env_include_bbox_features else []))
         self._table_type = Type("table", 
             (bbox_features if CFG.env_include_bbox_features else []))
-        self._machine_type = Type("machine", ["is_on"])
+        self._machine_type = Type("machine", ["is_on"] + (bbox_features if 
+                                CFG.env_include_bbox_features else []))
 
         # Predicates
         self._On = Predicate(
@@ -128,10 +129,13 @@ class BalanceEnv(BaseEnv):
         self._Balanced = Predicate("Balanced", 
                                     [self._table_type, self._table_type], 
                                     self._Balanced_holds)
+        self._ClearTable = Predicate("ClearTable", [self._table_type],
+                                     self._ClearTable_holds)
 
-        self._Balanced_abs = Predicate("Balanced", 
+        self._Balanced_abs = ConceptPredicate("Balanced", 
                                     [self._table_type, self._table_type],
-                                    self._Balanced_holds_abs)
+                                    self._Balanced_holds_abs, 
+                                    untransformed_predicate=self._Balanced)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -143,6 +147,14 @@ class BalanceEnv(BaseEnv):
         self._block_size = CFG.balance_block_size
         self._num_blocks_train = CFG.balance_num_blocks_train
         self._num_blocks_test = CFG.balance_num_blocks_test
+
+    def _ClearTable_holds(self, state: State, objects: Sequence[Object]
+                            ) -> bool:
+        table, = objects
+        for block in state.get_objects(self._block_type):
+            if self._OnTable_holds(state, [block, table]):
+                return False
+        return True
 
     def _MachineOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
         machine, = objects
@@ -184,6 +196,38 @@ class BalanceEnv(BaseEnv):
         height2 = count_num_blocks(table2)        
 
         return height1 == height2
+
+    # def _Balanced_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    #     """Check if the blocks are balanced on the table.
+    #     """
+    #     table1, table2 = objects
+    #     if table1 == table2:
+    #         return False
+
+    #     # Function to count the number of blocks in the tower iteratively
+    #     def count_num_blocks(table):
+    #         stack = [(table, 0)]
+    #         count = 0
+
+    #         while stack:
+    #             base_obj, current_count = stack.pop()
+    #             for block in state.get_objects(self._block_type):
+    #                 if base_obj.type == self._block_type and\
+    #                     self._On_holds(state, [block, base_obj]):
+    #                     stack.append((block, current_count + 1))
+    #                 elif base_obj.type == self._table_type and\
+    #                     self._OnTable_holds(state, [block, base_obj]):
+    #                     stack.append((block, current_count + 1))
+    #             count = max(count, current_count)
+
+    #         return count
+
+    #     # Get the height of the blocks using iteration
+    #     height1 = count_num_blocks(table1)
+    #     height2 = count_num_blocks(table2)
+
+    #     return height1 == height2
+
     
     def _Balanced_holds_abs(self, atoms: Set[GroundAtom], 
                             objects: Sequence[Object]) -> bool:
@@ -211,6 +255,36 @@ class BalanceEnv(BaseEnv):
         height2 = count_num_blocks(table2)        
 
         return height1 == height2
+    
+    # def _Balanced_holds_abs(self, atoms: Set[GroundAtom], 
+    #                         objects: Sequence[Object]) -> bool:
+    #     """Check if the blocks are balanced on the table.
+    #     """
+    #     table1, table2 = objects
+    #     if table1 == table2:
+    #         return False
+
+    #     # Function to count the number of blocks in the tower iteratively
+    #     def count_num_blocks(table):
+    #         stack = [(table, 0)]
+    #         count = 0
+
+    #         while stack:
+    #             base_obj, current_count = stack.pop()
+    #             for atom in atoms:
+    #                 if atom.predicate == self._On and atom.objects[1] == base_obj:
+    #                     stack.append((atom.objects[0], current_count + 1))
+    #                 elif atom.predicate == self._OnTable and atom.objects[1] == base_obj:
+    #                     stack.append((atom.objects[0], current_count + 1))
+    #             count = max(count, current_count)
+
+    #         return count
+
+    #     # Get the height of the blocks using iteration
+    #     height1 = count_num_blocks(table1)
+    #     height2 = count_num_blocks(table2)
+
+    #     return height1 == height2
 
     def _MachineOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
         machine, = objects
@@ -355,7 +429,7 @@ class BalanceEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._On, self._OnTable, self._GripperOpen, self._Holding,
-            self._Clear, self._MachineOn, self._Balanced
+            self._Clear, self._MachineOn, self._ClearTable, self._Balanced_abs
         }
 
     @property

@@ -45,7 +45,8 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
         OnTable = predicates['OnTable']
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
-        Balanced = predicates['Balanced']
+        # Balanced = predicates['Balanced']
+        Balanced = predicates['Balanced'].untransformed_predicate
 
         # def _Pick_terminal(s: State, m: Dict, o: Sequence[Object],
         #                    p: Array) -> bool:
@@ -276,7 +277,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
         OnTable = predicates['OnTable']
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
-        Balanced = predicates['Balanced']
+        Balanced = predicates['Balanced'].untransformed_predicate
 
         def get_current_fingers(state: State) -> float:
             robot, = state.get_objects(robot_type)

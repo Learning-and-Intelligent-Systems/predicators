@@ -53,15 +53,16 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Action, AnnotatedPredicate, Dataset, \
     GroundAtomTrajectory, GroundOptionRecord, LowLevelTrajectory, Object, \
     Optional, ParameterizedOption, Predicate, State, Task, Type, _Option, \
-    _TypedEntity
+    _TypedEntity, ConceptPredicate
 from predicators.utils import EnvironmentFailure, OptionExecutionFailure, \
     get_value_from_tuple_key, has_key_in_tuple_key, option_plan_to_policy
 
 import_str = """
 from predicators.settings import CFG
 import numpy as np
-from typing import Sequence
-from predicators.structs import State, Object, Predicate, Type
+from typing import Sequence, Set
+from predicators.structs import State, Object, Predicate, Type, \
+    ConceptPredicate, GroundAtom
 from predicators.utils import RawState, NSPredicate
 """
 
@@ -136,7 +137,9 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task]) -> None:
+                 action_space: Box, train_tasks: List[Task],
+                 initial_concept_predicates: Set[ConceptPredicate] = set(),
+                 ) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         # Initial Predicates
@@ -164,7 +167,15 @@ class VlmInventionApproach(NSRTLearningApproach):
             pass
 
     def _get_current_predicates(self) -> Set[Predicate]:
+        """Get the current set of primitive predicates.
+        """
         return self._initial_predicates | self._learned_predicates
+
+    def _get_current_primitive_predicates(self) -> Set[Predicate]:
+        """Get the current set of primitive predicates.
+        """
+        return self._get_current_predicates() -\
+            self._get_current_concept_predicates()
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         super().load(online_learning_cycle)
@@ -246,14 +257,13 @@ class VlmInventionApproach(NSRTLearningApproach):
             # task.init.state_image.save(CFG.log_file, f"images/init_state{i}.png")
             task.init.labeled_image.save(
                 os.path.join(img_dir, f"init_label{i}.png"))
-        breakpoint()
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 1
         max_invent_ite = 10
         self.manual_prompt = False
-        self.regenerate_response = True
+        self.regenerate_response = False
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
         best_solve_rate, best_ite, clf_acc = -np.inf, 0.0, 0.0
         clf_acc_at_best_solve_rate = 0.0
@@ -264,7 +274,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._init_nsrts = deepcopy(self._nsrts)
         no_improvement = False
         self.state_cache: Dict[int, RawState] = {}
-        self.base_candidates: Set[Predicate] = self._initial_predicates.copy()
+        self.base_prim_candidates: Set[Predicate] =\
+            self._initial_predicates.copy()
 
         # Init data collection
         logging.debug(f"Initial predicates: {self._get_current_predicates()}")
@@ -306,7 +317,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         for ite in range(1, max_invent_ite + 1):
             logging.info(f"===Starting iteration {ite}...")
             if CFG.vlm_invention_alternate_between_p_ad:
-                CFG.vlm_invention_propose_nl_properties = propose_ite % 2 == 0
+                CFG.vlm_invention_propose_nl_properties = propose_it % 2 == 0
                 logging.info("Proposing predicates mainly based on effect: "
                              f"{not CFG.vlm_invention_propose_nl_properties}")
             # Reset at every iteration
@@ -350,128 +361,64 @@ class VlmInventionApproach(NSRTLearningApproach):
                     all_trajs.append(traj)
             logging.info(f"Learning from {len(all_trajs)} trajectories.")
 
-            if ite == 1 or no_improvement:  #or add_new_proposal_at_every_ite:
+            if ite == 1 or no_improvement:  # or add_new_proposal_at_every_ite:
                 logging.info("Accquiring new predicates...")
                 # Invent only when there is no improvement in solve rate
                 # Or when add_new_proposal_at_every_ite is True
-                #   Create prompt to inspect the execution
-                # self.base_candidates: candidates to be unioned with the init set
-                new_proposals = self._generate_predicate_proposals(
-                    env, tasks, ite, all_trajs)
+                prim_pred_proposals, cnpt_pred_proposals =\
+                      self._get_predicate_proposals(env, tasks, ite, all_trajs)
                 logging.info(
-                    f"Done: created {len(new_proposals)} candidates:" +
-                    f"{new_proposals}")
+                    f"Done: created "
+                    f"{len(prim_pred_proposals | cnpt_pred_proposals)} "
+                    f"candidates:\n{prim_pred_proposals | cnpt_pred_proposals}")
                 propose_ite += 1
 
-            # [Start moving out]
-            # Apply the candidate predicates to the data.
+            # Select the predicates to keep
+            self._learned_predicates = self._select_proposed_predicates(
+                                            all_trajs,
+                                            num_solved,
+                                            ite,
+                                            prim_pred_proposals, 
+                                            cnpt_pred_proposals,
+                                            )
 
-            if CFG.vlm_predicator_oracle_learned:
-                self._learned_predicates = new_proposals
-            else:
-                # Select a subset candidates by score optimization
-                self.base_candidates |= new_proposals
-
-                ### Predicate Search
-                # Optionally add grammar to the candidates
-                all_candidates: Dict[Predicate, float] = {}
-                if CFG.vlm_predicator_use_grammar:
-                    grammar = _create_grammar(dataset=Dataset(all_trajs),
-                                              given_predicates=\
-                                self.base_candidates|self._initial_predicates)
-                else:
-                    grammar = _GivenPredicateGrammar(
-                        self.base_candidates | self._initial_predicates)
-                all_candidates.update(
-                    grammar.generate(
-                        max_num=CFG.grammar_search_max_predicates))
-                # logging.debug(f"all candidates {pformat(all_candidates)}")
-                # breakpoint()
-                # Add a atomic states for succ_optn_dict and fail_optn_dict
-                logging.info("[Start] Applying predicates to data...")
-                if num_solved == 0:
-                    score_func_name = "operator_classification_error"
-                else:
-                    score_func_name = "expected_nodes_created"
-                    # score_function = CFG.grammar_search_score_function
-
-                # if score_func_name == "operator_classification_error":
-                # Abstract here because it's used in the score function
-                # Evaluate the newly proposed predicates; the values for
-                # previous proposed should have been cached by the previous
-                # abstract calls.
-                # this is also used in cluster_intersect_and_search pre learner
-                num_states = len(
-                    set(state for optn_dict in
-                        [self.succ_optn_dict, self.fail_optn_dict]
-                        for g_optn in optn_dict.keys()
-                        for state in optn_dict[g_optn].states))
-                logging.debug(f"There are {num_states} distinct states.")
-                for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
-                    for g_optn in optn_dict.keys():
-                        atom_states = []
-                        for state in optn_dict[g_optn].states:
-                            atom_states.append(
-                                utils.abstract(state, set(all_candidates)))
-                        optn_dict[g_optn].abstract_states = atom_states
-
-                # This step should only make VLM calls on the end state
-                # becuaes it would have labled all the other success states
-                # from the previous step.
-                atom_dataset: List[GroundAtomTrajectory] =\
-                    utils.create_ground_atom_dataset(all_trajs,
-                                                     set(all_candidates))
-                logging.info("[Finish] Applying predicates to data....")
-
-                logging.info(f"[ite {ite}] compare abstract accuracy of "
-                             f"{self.base_candidates}")
-                utils.compare_abstract_accuracy(
-                    [s for traj in all_trajs for s in traj.states],
-                    sorted(self.base_candidates - self._initial_predicates),
-                    env.ns_to_sym_predicates)
-                logging.info(f"Abstract accuracy of for the failed states")
-                utils.compare_abstract_accuracy(
-                    list(
-                        set(state for optn_dict in [self.fail_optn_dict]
-                            for g_optn in optn_dict.keys()
-                            for state in optn_dict[g_optn].states)),
-                    sorted(self.base_candidates - self._initial_predicates),
-                    env.ns_to_sym_predicates)
-
-                if CFG.skip_selection_if_no_solve and num_solved == 0:
-                    logging.info("No successful trajectories and not using the"
-                                 "accuracy-based objective. Skip selection.")
-                    self._learned_predicates = set(all_candidates)
-                else:
-                    logging.info("[Start] Predicate search from " +
-                                 f"{self._initial_predicates}...")
-                    score_function = create_score_function(
-                        score_func_name, self._initial_predicates,
-                        atom_dataset, all_candidates, self._train_tasks,
-                        self.succ_optn_dict, self.fail_optn_dict)
-                    start_time = time.perf_counter()
-                    self._learned_predicates = \
-                        self._select_predicates_by_score_hillclimbing(
-                            ite,
-                            all_candidates,
-                            score_function,
-                            initial_predicates = self._initial_predicates)
-                    logging.info("[Finish] Predicate search.")
-                    logging.info(
-                        "Total search time "
-                        f"{time.perf_counter() - start_time:.2f} seconds")
-            # [End moving out]
-
-            # Finally, learn NSRTs via superclass, using all the kept predicates.
-
+            # Finally, learn NSRTs using all the selected predicates
             # When there is successful trajectories, maybe also use the positive
             # data to learn the operators?
             logging.debug(f"has negative states for "
                           f"{list(self.fail_optn_dict.keys())}")
+            # The classification accuracy for the current nsrts.
+            score_dict, _, _ = utils.count_classification_result_for_ops(
+                                self._nsrts,
+                                self.succ_optn_dict,
+                                self.fail_optn_dict,
+                                return_str=False,
+                                initial_ite=False,
+                                print_cm=True)
+
             self._learn_nsrts(all_trajs,
                               online_learning_cycle=None,
                               annotations=None,
-                              fail_optn_dict=self.fail_optn_dict)
+                              fail_optn_dict=self.fail_optn_dict,
+                              score_dict=score_dict)
+
+            # Use the old NSRTs for an option if it had accuracy 1.0 in 
+            # score_dict
+            # TODO: maybe change to only use the old ones if the new ones are 
+            # worse by some metrics (e.g., accuracy).
+            new_nsrts = set()
+            for nsrt_candidate in self._nsrts:
+                if score_dict[str(nsrt_candidate.option)]['acc'] == 1.0:
+                    logging.debug(f"Using old nsrt for {nsrt_candidate.option}")
+                    for old_nsrt in self._previous_nsrts:
+                        if old_nsrt.option == nsrt_candidate.option:
+                            new_nsrts.add(old_nsrt)
+                else:
+                    new_nsrts.add(nsrt_candidate)
+            self._nsrts = new_nsrts
+
+            # How about instead we loop through the previous ones and only use
+            # the new ones if the old ones doesn't have accuracy 1?
 
             # Add init_nsrts whose option isn't in the current nsrts to
             # Is this sufficient? Or should I add back all the operators?
@@ -491,6 +438,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                              p_nsrt.delete_effects, p_nsrt.ignore_effects,
                              p_nsrt.option, p_nsrt.option_vars,
                              p_nsrt._sampler))
+
             # Add the initial nsrts back to the nsrts
             # for p_nsrts in self._init_nsrts:
             #     if not p_nsrts.option in cur_options:
@@ -510,14 +458,14 @@ class VlmInventionApproach(NSRTLearningApproach):
             solve_rate = num_solved / num_tasks
 
             # Print the new classification results with the new operators
-            tp, tn, fp, fn, _, _ = utils.count_classification_result_for_ops(
+            score_dict, _, _ = utils.count_classification_result_for_ops(
                 self._nsrts,
                 self.succ_optn_dict,
                 self.fail_optn_dict,
                 return_str=False,
                 initial_ite=False,
                 print_cm=True)
-            clf_acc = (tp + tn) / (tp + tn + fp + fn)
+            clf_acc = score_dict['overall']['acc']
 
             no_improvement = solve_rate <= prev_solve_rate
             # no_improvement &= clf_acc <= prev_clf_acc
@@ -531,7 +479,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                          f"Prev num skeletons failed {prev_num_failed_plans}\n"
                          f"Clf accuracy: {clf_acc:.2f}. "
                          f"Prev clf accuracy: {prev_clf_acc:.2f}\n")
-            # breakpoint()
+            breakpoint()
 
             # Save the best model
             if solve_rate > best_solve_rate or\
@@ -550,7 +498,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             if solve_rate == 1 or (num_failed_plans == 0
                                    and solve_rate == best_solve_rate):
                 # if solve_rate == 1:
-                if CFG.env in ["pybullet_coffee"]:
+                if CFG.env in ["pybullet_coffee", "pybullet_balance"]:
                     # these are harder
                     if num_failed_plans / num_tasks < 1:
                         break
@@ -572,82 +520,35 @@ class VlmInventionApproach(NSRTLearningApproach):
         self._learned_predicates = best_preds
         return
 
-    def _generate_predicate_proposals(
+    def _get_predicate_proposals(
         self,
         env: BaseEnv,
         tasks: List[Task],
         ite: int,
         all_trajs: List[LowLevelTrajectory],
-    ) -> Set[Predicate]:
+    ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
+        """Get predicate proposals either by using oracle or VLM.
+        """
+
         if CFG.vlm_predicator_oracle_base_grammar:
+            # Get proposals from oracle
             if CFG.neu_sym_predicate:
                 # If using the oracle predicates
                 # With NSP, we only want the GT NSPs besides the initial
                 # predicates
                 # Want to remove the predicates of the same name
                 # Currently assume this is correct
-                new_proposals = env.ns_predicates - self._initial_predicates
+                primitive_preds = env.ns_predicates - self._initial_predicates 
             else:
-                new_proposals = env.oracle_proposed_predicates -\
+                primitive_preds = env.oracle_proposed_predicates -\
                                     self._initial_predicates
+            concept_preds = env.concept_predicates -\
+                    self._initial_concept_predicates
         else:
-            # Create the first prompt
-            max_attempts = 5
-            max_num_groundings, max_num_examples = 1, 1
-            min_imgs, max_imgs = 6, 10
-            obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
-            if os.path.exists(obs_dir):
-                shutil.rmtree(obs_dir, handle_remove_error)
-
-            if CFG.vlm_invent_predicates_in_stages:
-                if CFG.vlm_invent_from_trajs:
-                    create_prompt_func =\
-                        self._create_invention_from_traj_prompt
-                else:
-                    # Current default
-                    create_prompt_func =\
-                        self._create_invention_from_pn_states_prompt
-            else:
-                create_prompt_func =\
-                        self._create_one_step_program_invention_prompt
-
-            for attempt in range(max_attempts):
-                logging.debug(f"Prompt creation attempt {attempt}")
-                if CFG.vlm_invent_from_trajs:
-                    prompt, state_str = create_prompt_func(env, ite, all_trajs)
-                    break
-                else:
-                    prompt, state_str = create_prompt_func(
-                        env,
-                        ite,
-                        max_num_options=10,
-                        max_num_groundings=max_num_groundings,
-                        max_num_examples=max_num_examples,
-                        categories_to_show=['tp', 'fp'])
-
-                    # Load the images accompanying the prompt
-                    images = self._load_images_from_directory(obs_dir)
-
-                    logging.debug(f"Created {len(images)} images")
-                    if min_imgs <= len(images) <= max_imgs: break
-
-                    if len(images) > max_imgs:
-                        if os.path.exists(obs_dir):
-                            shutil.rmtree(obs_dir, handle_remove_error)
-                        if attempt % 2 == 0:
-                            max_num_examples = max(1, max_num_examples - 1)
-                        else:
-                            max_num_groundings = max(1, max_num_groundings - 1)
-                    else:
-                        # Adjust parameters for the next attempt
-                        if attempt % 2 == 0:
-                            max_num_groundings += 1
-                        else:
-                            max_num_examples += 1
-            # Get the proposals
-            new_proposals = self._get_vlm_predicate_proposals(
-                env, prompt, images, ite, tasks, state_str)
-        return new_proposals
+            # Get proposals from VLM
+            primitive_preds, concept_preds = self._get_proposals_from_vlm(
+                env, ite, tasks)
+        return primitive_preds, concept_preds
 
     def _load_images_from_directory(self, directory: str):
         images = []
@@ -1123,15 +1024,182 @@ class VlmInventionApproach(NSRTLearningApproach):
                 logging.info(f"Saved dataset to {ds_fname}\n")
         return results
 
-    def _get_vlm_predicate_proposals(
+    def _select_proposed_predicates(self, 
+                            all_trajs: List[LowLevelTrajectory],
+                            num_solved: int,
+                            ite: int,
+                            prim_pred_proposals: Set[Predicate], 
+                            cnpt_pred_proposals: Optional[Set[
+                                ConceptPredicate]]=None,
+                                ) -> Set[Predicate]:
+        """Select the predicates to keep from the proposed predicates.
+        """
+        if CFG.vlm_predicator_oracle_learned:
+            selected_preds = prim_pred_proposals | cnpt_pred_proposals
+        else:
+            # Select a subset candidates by score optimization
+            self.base_prim_candidates |= prim_pred_proposals
+
+            ## Predicate Search
+            # Optionally add grammar to the candidates
+            all_candidates: Dict[Predicate, float] = {}
+            if CFG.vlm_predicator_use_grammar:
+                grammar = _create_grammar(dataset=Dataset(all_trajs),
+                                            given_predicates=\
+                            self.base_prim_candidates|self._initial_predicates)
+            else:
+                grammar = _GivenPredicateGrammar(
+                    self.base_prim_candidates | self._initial_predicates)
+            all_candidates.update(
+                grammar.generate(
+                    max_num=CFG.grammar_search_max_predicates))
+
+            # Add concept predicates
+            concept_preds_candidates = _GivenPredicateGrammar(
+                cnpt_pred_proposals).generate(
+                    max_num=CFG.grammar_search_max_predicates)
+            all_candidates.update(concept_preds_candidates)
+
+            # logging.debug(f"all candidates {pformat(all_candidates)}")
+            # breakpoint()
+            # Add a atomic states for succ_optn_dict and fail_optn_dict
+            logging.info("[Start] Applying predicates to data...")
+            if num_solved == 0:
+                score_func_name = "operator_classification_error"
+            else:
+                score_func_name = "expected_nodes_created"
+                # score_function = CFG.grammar_search_score_function
+
+            # if score_func_name == "operator_classification_error":
+            # Abstract here because it's used in the score function
+            # Evaluate the newly proposed predicates; the values for
+            # previous proposed should have been cached by the previous
+            # abstract calls.
+            # this is also used in cluster_intersect_and_search pre learner
+            num_states = len(
+                set(state for optn_dict in
+                    [self.succ_optn_dict, self.fail_optn_dict]
+                    for g_optn in optn_dict.keys()
+                    for state in optn_dict[g_optn].states))
+            logging.debug(f"There are {num_states} distinct states.")
+            for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
+                for g_optn in optn_dict.keys():
+                    atom_states = []
+                    for state in optn_dict[g_optn].states:
+                        atom_states.append(
+                            utils.abstract(state, set(all_candidates)))
+                    optn_dict[g_optn].abstract_states = atom_states
+
+            # This step should only make VLM calls on the end state
+            # becuaes it would have labled all the other success states
+            # from the previous step.
+            atom_dataset: List[GroundAtomTrajectory] =\
+                        utils.create_ground_atom_dataset(all_trajs,
+                                                        set(all_candidates))
+            logging.info("[Finish] Applying predicates to data....")
+
+            logging.info(f"[ite {ite}] compare abstract accuracy of "
+                         f"{self.base_prim_candidates}")
+            # utils.compare_abstract_accuracy(
+            #     [s for traj in all_trajs for s in traj.states],
+            #     sorted(self.base_prim_candidates - self._initial_predicates),
+            #     env.ns_to_sym_predicates)
+            # logging.info(f"Abstract accuracy of for the failed states")
+            # utils.compare_abstract_accuracy(
+            #     list(
+            #         set(state for optn_dict in [self.fail_optn_dict]
+            #             for g_optn in optn_dict.keys()
+            #             for state in optn_dict[g_optn].states)),
+            #     sorted(self.base_prim_candidates - self._initial_predicates),
+            #     env.ns_to_sym_predicates)
+
+            if CFG.skip_selection_if_no_solve and num_solved == 0:
+                logging.info("No successful trajectories and not using the"
+                                "accuracy-based objective. Skip selection.")
+                selected_prim_preds = set(all_candidates)
+            else:
+                logging.info("[Start] Predicate search from " +
+                                f"{self._initial_predicates}...")
+                score_function = create_score_function(
+                    score_func_name, self._initial_predicates,
+                    atom_dataset, all_candidates, self._train_tasks,
+                    self.succ_optn_dict, self.fail_optn_dict)
+                start_time = time.perf_counter()
+                selected_preds = \
+                    self._select_predicates_by_score_optimization(
+                        ite,
+                        all_candidates,
+                        score_function,
+                        initial_predicates = self._initial_predicates)
+                logging.info("[Finish] Predicate search.")
+                logging.info(
+                    "Total search time "
+                    f"{time.perf_counter() - start_time:.2f} seconds")
+        
+        return selected_preds
+
+    def _get_proposals_from_vlm(
         self,
         env: BaseEnv,
-        prompt: str,
-        images: List[Image.Image],
+        # prompt: str,
+        # images: List[Image.Image],
         ite: int,
         tasks: List[Task],
-        state_list_str: str = "",
-    ) -> Set[Predicate]:
+        # state_list_str: str = "",
+    ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
+        # Create the first prompt
+        max_attempts = 5
+        max_num_groundings, max_num_examples = 1, 1
+        min_imgs, max_imgs = 6, 10
+        obs_dir = os.path.join(CFG.log_file, f"ite{ite}_obs")
+        if os.path.exists(obs_dir):
+            shutil.rmtree(obs_dir, handle_remove_error)
+
+        if CFG.vlm_invent_predicates_in_stages:
+            if CFG.vlm_invent_from_trajs:
+                create_prompt_func =\
+                    self._create_invention_from_traj_prompt
+            else:
+                # Current default
+                create_prompt_func =\
+                    self._create_invention_from_pn_states_prompt
+        else:
+            create_prompt_func =\
+                    self._create_one_step_program_invention_prompt
+
+        for attempt in range(max_attempts):
+            logging.debug(f"Prompt creation attempt {attempt}")
+            if CFG.vlm_invent_from_trajs:
+                prompt, state_str = create_prompt_func(env, ite, all_trajs)
+                break
+            else:
+                prompt, state_str = create_prompt_func(
+                    env,
+                    ite,
+                    max_num_options=10,
+                    max_num_groundings=max_num_groundings,
+                    max_num_examples=max_num_examples,
+                    categories_to_show=['tp', 'fp'])
+
+                # Load the images accompanying the prompt
+                images = self._load_images_from_directory(obs_dir)
+
+                logging.debug(f"Created {len(images)} images")
+                if min_imgs <= len(images) <= max_imgs: break
+
+                if len(images) > max_imgs:
+                    if os.path.exists(obs_dir):
+                        shutil.rmtree(obs_dir, handle_remove_error)
+                    if attempt % 2 == 0:
+                        max_num_examples = max(1, max_num_examples - 1)
+                    else:
+                        max_num_groundings = max(1, max_num_groundings - 1)
+                else:
+                    # Adjust parameters for the next attempt
+                    if attempt % 2 == 0:
+                        max_num_groundings += 1
+                    else:
+                        max_num_examples += 1
         # (if true) First get proposals in natural language
         if CFG.vlm_invention_propose_nl_properties:
             nl_proposal_f = CFG.log_file + f"ite{ite}_stage0.response"
@@ -1188,7 +1256,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # Generate prompt to write ns_predicates
             s2_prompt = self._create_invention_stage_two_prompt(
-                env, ite, state_list_str, predicate_specs)
+                env, ite, state_str, predicate_specs)
             # Save the query to a file
             response_file = CFG.log_file + f"ite{ite}_stage2.response"
 
@@ -1221,11 +1289,11 @@ class VlmInventionApproach(NSRTLearningApproach):
             #     with open(response_file, 'w') as f:
             #         f.write(response)
 
-        new_candidates = self._parse_predicate_predictions(
-            response_file, tasks)
-        return new_candidates
+        primitive_preds, concept_preds = self._parse_predicate_predictions(
+            response_file, tasks, ite)
+        return primitive_preds, concept_preds
 
-    def _select_predicates_by_score_hillclimbing(
+    def _select_predicates_by_score_optimization(
         self,
         ite: int,
         candidates: Dict[Predicate, float],
@@ -1542,7 +1610,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         pred_str = '\n'.join(pred_str_lst)
         template = template.replace("[PREDICATES_IN_ENV]", pred_str)
 
-        _, _, _, _, summary_str, state_str_set =\
+        _, summary_str, state_str_set =\
             utils.count_classification_result_for_ops(
                 self._nsrts,
                 self.succ_optn_dict,
@@ -1652,7 +1720,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             nsrt_str.append(str(nsrt).replace("NSRT-", "Operator-"))
         template = template.replace("[NSRTS_IN_ENV]", '\n'.join(nsrt_str))
 
-        _, _, _, _, summary_str, _ =\
+        _, summary_str, _ =\
             utils.count_classification_result_for_ops(
                 self._nsrts,
                 self.succ_optn_dict,
@@ -1680,7 +1748,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         self,
         prediction_file: str,
         tasks: List[Task],
-    ) -> Set[Predicate]:
+        ite: int,
+    ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
+
         # Read the prediction file
         with open(prediction_file, 'r') as file:
             response = file.read()
@@ -1693,12 +1763,15 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Extract the Python code block and add it to the list
             python_blocks.append(match.group(1).strip())
 
-        candidates = set()
+        primitive_preds = set()
         context: Dict = {}
-        # add the classifiers of the existing predicates to the context for
+        unconverted_concept_pred_str = []
+        # Add the existing predicates and their classifiers to `context` for
         # potential reuse
         for p in self._initial_predicates:
+            context[f"_{p.name}"] = p
             context[f"_{p.name}_NSP_holds"] = p._classifier
+        
 
         type_init_str = self._env_type_str(self.env_source_code)
         # constants_str = self._constants_str(self.env_source_code)
@@ -1714,44 +1787,97 @@ class VlmInventionApproach(NSRTLearningApproach):
             pred_name = match.group(1)
             logging.info(f"Found definition for predicate {pred_name}")
 
-            # # Type check the code
-            # passed = False
-            # while not passed:
-            #     result, passed = self.type_check_proposed_predicates(pred_name,
-            #                                                          code_str)
-            #     if not passed:
-            #         # Ask the LLM or the User to fix the code
-            #         pass
-            #     else:
-            #         break
-
-            # Instantiate the predicate
-            if CFG.vlm_invent_try_to_use_gt_predicates:
-                if has_key_in_tuple_key(self.env.ns_to_sym_predicates,
-                                        pred_name.strip("_")):
-                    candidates.add(
-                        get_value_from_tuple_key(self.env.ns_to_sym_predicates,
-                                                 pred_name.strip("_")))
-                else:
-                    logging.warning(
-                        f"{pred_name} isn't in the "
-                        "ns_to_sym_predicates dict, please consider adding it."
-                    )
+            # Recognize that it's a concept predicate (not using `get` or 
+            # `evaluate_simple`)
+            # Translate it from using state to abstract state
+            # is_concept_predicate = check_is_concept_predicate(code_str)
+            is_concept_predicate = True
+            if is_concept_predicate:
+                unconverted_concept_pred_str.append(code_str)
             else:
-                # check if it's roughly runable, and add it to list if it is.
+
+                # Type check the code
+                # passed = False
+                # while not passed:
+                #     result, passed = self.type_check_proposed_predicates(pred_name,
+                #                                                          code_str)
+                #     if not passed:
+                #         # Ask the LLM or the User to fix the code
+                #         pass
+                #     else:
+                #         break
+
+                # Instantiate the primitive predicates
+                if CFG.vlm_invent_try_to_use_gt_predicates:
+                    if has_key_in_tuple_key(self.env.ns_to_sym_predicates,
+                                            pred_name.strip("_")):
+                        primitive_preds.add(
+                            get_value_from_tuple_key(
+                                        self.env.ns_to_sym_predicates,
+                                        pred_name.strip("_")))
+                    else:
+                        logging.warning(
+                            f"{pred_name} isn't in the "
+                            "ns_to_sym_predicates dict, please consider adding it."
+                        )
+                else:
+                    # check if it's roughly runable, and add it to list if it is.
+                    try:
+                        exec(code_str, context)
+                        logging.debug(f"Testing predicate {pred_name}")
+                        utils.abstract(tasks[0].init, [context[pred_name]])
+                    except Exception as e:
+                        error_trace = traceback.format_exc()
+                        logging.warning(f"Proposed predicate {pred_name} not "
+                                        f"executable: {e}\n{error_trace}")
+                        continue
+                    else:
+                        primitive_preds.add(context[pred_name])
+        
+        concept_preds = set()
+        if unconverted_concept_pred_str:
+            converted_concept_pred_str = self.translate_concept_predicate(
+                                                ite,
+                                                unconverted_concept_pred_str)
+            # TODO: instantiate the covereted concept prediicates
+            cp_python_blocks = []
+            # Find all Python code blocks in the text
+            for match in pattern.finditer(converted_concept_pred_str):
+                # Extract the Python code block and add it to the list
+                cp_python_blocks.append(match.group(1).strip())
+            for code_str in cp_python_blocks:
                 try:
                     exec(code_str, context)
                     logging.debug(f"Testing predicate {pred_name}")
-                    utils.abstract(tasks[0].init, [context[pred_name]])
+                    utils.abstract(tasks[0].init, set([context[pred_name]]))
                 except Exception as e:
                     error_trace = traceback.format_exc()
-                    logging.warning(f"Proposed predicate {pred_name} not "
-                                    f"executable: {e}\n{error_trace}")
+                    logging.warning(f"We encountered the following error when "
+                    f"testing predicate {pred_name}:\n{e}\n{error_trace}")
                     continue
                 else:
-                    candidates.add(context[pred_name])
+                    concept_preds.add(context[pred_name])
 
-        return candidates
+        return primitive_preds, concept_preds
+
+    def translate_concept_predicate(self, ite: int, code_str: str) -> str:
+        """Call GPT to transform the predicate str
+        """
+        template_f = f"prompts/classifier_transform.outline"
+        with open(template_f, "r") as f:
+            template = f.read()
+        
+        prompt = template.format(ORIGINAL_PREDICATES=add_python_quote(
+            '\n'.join(code_str)))
+        prompt_f = CFG.log_file + f"ite{ite}_classifier_transform.prompt"
+        with open(prompt_f, 'w') as f:
+            f.write(prompt)
+
+        response_f = CFG.log_file + f"ite{ite}_classifier_transform.response"
+        response = self._get_vlm_response(
+            response_f, self._vlm, prompt, [])
+
+        return response
 
     def type_check_proposed_predicates(self, predicate_name: str,
                                        code_block: str) -> Tuple[str, bool]:
@@ -1813,7 +1939,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         vlm_invent_prompt_include_selected_predicates = False
 
         if vlm_invent_prompt_include_all_candidates:
-            predicates_shown = self.base_candidates
+            predicates_shown = self.base_prim_candidates
         elif vlm_invent_prompt_include_selected_predicates:
             predicates_shown = self._get_current_predicates()
         else:

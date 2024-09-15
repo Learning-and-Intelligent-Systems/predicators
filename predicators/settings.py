@@ -87,8 +87,8 @@ class GlobalSettings:
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
     # balance env parameters
-    balance_num_blocks_train = [2, 4]
-    balance_num_blocks_test = [6]
+    balance_num_blocks_train = [2]
+    balance_num_blocks_test = [4, 6]
     balance_holding_goals = False
     balance_block_size = 0.045  # use 0.0505 for real with panda
 
@@ -880,6 +880,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     "coffee": 1000,
                     # with GT preds, 40 is enough for 3 cups in pb_coffee
                     "pybullet_coffee": 100,
+                    # "pybullet_balance": 100,
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,

@@ -481,6 +481,16 @@ class ConceptPredicate(Predicate):
     # treated "specially" by the classifier.
     _classifier: Callable[[Set[GroundAtom], Sequence[Object]],
                           bool] = field(compare=False)
+    untransformed_predicate: Optional[Predicate] = field(default=None, 
+                                                         compare=False)
+
+    @cached_property
+    def _hash(self) -> int:
+        # return hash(str(self))
+        return hash(self.name + str(self.types))
+
+    def __hash__(self) -> int:
+        return self._hash
 
     def holds(self, state: Set[GroundAtom], objects: Sequence[Object]) -> bool:
         """Public method for calling the classifier.

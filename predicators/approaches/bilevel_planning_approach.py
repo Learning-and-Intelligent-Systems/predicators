@@ -81,8 +81,7 @@ class BilevelPlanningApproach(BaseApproach):
         # Run full bilevel planning.
         else:
             option_plan, nsrt_plan, metrics = self._run_sesame_plan(
-                task, nsrts, preds, timeout, seed, 
-                concept_predicates=self._get_current_concept_predicates())
+                task, nsrts, preds, timeout, seed)
             self._last_plan = option_plan
             self._last_nsrt_plan = nsrt_plan
             self._last_partial_refinements = metrics["partial_refinements"]
@@ -191,12 +190,14 @@ class BilevelPlanningApproach(BaseApproach):
 
         Defaults to initial predicates.
         """
-        return self._initial_predicates
+        return self._initial_predicates | self._initial_concept_predicates
     
     def _get_current_concept_predicates(self) -> Set[ConceptPredicate]:
         """Get the current set of concept predicates.
         """
-        return self._initial_concept_predicates
+        cnpt_preds = set([pred for pred in self._get_current_predicates() if
+                          isinstance(pred, ConceptPredicate)])
+        return cnpt_preds
 
     def get_option_model(self) -> _OptionModelBase:
         """For ONLY an oracle approach, we allow the user to get the current

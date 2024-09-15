@@ -72,7 +72,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         elif CFG.save_atoms:
             # Apply predicates to data, producing a dataset of abstract states.
             ground_atom_dataset = utils.create_ground_atom_dataset(
-                trajectories, self._get_current_predicates())
+                trajectories, self._get_current_predicates(),
+                self._get_current_concept_predicates())
             utils.save_ground_atom_dataset(ground_atom_dataset, dataset_fname)
         elif CFG.offline_data_method in [
                 "demo+labelled_atoms", "saved_vlm_img_demos_folder",
@@ -102,14 +103,15 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 ground_atom_dataset.append((ll_traj, atoms))
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,
-                                  self._train_tasks,
-                                  self._get_current_predicates(),
-                                  self._initial_options,
-                                  self._action_space,
-                                  ground_atom_dataset,
-                                  sampler_learner=CFG.sampler_learner,
-                                  annotations=annotations,
-                                  **kwargs)
+                                self._train_tasks,
+                                self._get_current_predicates() |\
+                                    self._get_current_concept_predicates(),
+                                self._initial_options,
+                                self._action_space,
+                                ground_atom_dataset,
+                                sampler_learner=CFG.sampler_learner,
+                                annotations=annotations,
+                                **kwargs)
         save_path = utils.get_approach_save_path_str()
         # NS predicates currently doesn't support saving
         # if not CFG.neu_sym_predicate:

@@ -160,7 +160,7 @@ def count_classification_result_for_ops(
     max_num_examples: int = 2,  # Number of examples per ground option.
     categories_to_show: List[str] = ['tp', 'fp'],
     ite: Optional[int] = 0,
-) -> Tuple[int, int, int, int, str, str]:
+) -> Tuple[Dict[str, Dict[str, float]], str, str]:
 
     np.set_printoptions(precision=1)
     result_str = []
@@ -359,7 +359,31 @@ def count_classification_result_for_ops(
     if print_cm:
         print_confusion_matrix(sum_tp, sum_tn, sum_fp, sum_fn)
 
-    return sum_tp, sum_tn, sum_fp, sum_fn, result_str, state_str_set
+    # Create a dictionary with entries for overall tp, tn, etc, and the score
+    # for each option
+    n_tot = (sum_tp+sum_tn+sum_fp+sum_fn)
+    score_dic = {"overall": {
+                    "tp": sum_tp, "tn": sum_tn, "fp": sum_fp,
+                    "fn": sum_fn, 
+                    "acc": ((sum_tp+sum_tn) / n_tot) if n_tot > 0 else 0}}
+
+    for optn_str, g_optn_dict in accuracy_dict.items():
+        tp = tn = fp = fn = 0
+        for g_optn, data in g_optn_dict.items():
+            tp += tp_state_dict[optn_str][g_optn]['n_tp']
+            tn += tn_state_dict[optn_str][g_optn]['n_tn']
+            fp += fp_state_dict[optn_str][g_optn]['n_fp']
+            fn += fn_state_dict[optn_str][g_optn]['n_fn']
+        
+        # Check to avoid division by zero for each option's accuracy
+        n_tot = tp + tn + fp + fn
+        score_dic[optn_str] = {"acc": ((tp + tn) / n_tot) if n_tot > 0 else 0}
+        score_dic[optn_str]["tp"] = tp
+        score_dic[optn_str]["tn"] = tn
+        score_dic[optn_str]["fp"] = fp
+        score_dic[optn_str]["fn"] = fn
+
+    return score_dic, result_str, state_str_set
 
 
 def remove_duplicates(seq):
@@ -3675,16 +3699,20 @@ def query_vlm_for_atom_vals(
             true_atoms.add(vlm_atoms[i])
     return true_atoms
 
-def abstract_with_concept_predicates(state: Set[GroundAtom],
-            preds: Collection[ConceptPredicate],
-            objects: Collection[Object]) -> Set[GroundAtom]:
+def abstract_with_concept_predicates(
+                    abs_state: Set[GroundAtom],
+                    preds: Collection[ConceptPredicate],
+                    objects: Collection[Object]) -> Set[GroundAtom]:
     """Get the atoms based on the existing atomic state and concept predicates.
     """
     atoms: Set[GroundAtom] = set()
     for pred in preds:
         for choice in get_object_combinations(objects, pred.types):
-            if pred.holds(state, choice):
-                atoms.add(GroundAtom(pred, choice))
+            try:
+                if pred.holds(abs_state, choice):
+                    atoms.add(GroundAtom(pred, choice))
+            except Exception as e:
+                logging.error(f"Error in evaluating concept predicate: {e}")
     return atoms
 
 def abstract(state: State,
@@ -3695,6 +3723,11 @@ def abstract(state: State,
 
     Duplicate arguments in predicates are allowed.
     """
+    # Filter out the concept predicates
+    cnpt_preds = set(pred for pred in preds if isinstance(pred, 
+                                                            ConceptPredicate))
+    preds = set(pred for pred in preds if not isinstance(pred, 
+                                                            ConceptPredicate))
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
     # For NSPredicates, first evaluate the base NSPs, then cache the values,
@@ -3751,6 +3784,10 @@ def abstract(state: State,
             for choice in get_object_combinations(list(state), pred.types):
                 if pred.holds(state, choice):
                     atoms.add(GroundAtom(pred, choice))
+    
+    if len(cnpt_preds) > 0:
+        atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, 
+                                                    list(state))
     return atoms
 
 
@@ -4403,15 +4440,17 @@ def create_dataset_filename_str(
 
 
 def create_ground_atom_dataset(
-        trajectories: Sequence[LowLevelTrajectory],
-        predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
-    """Apply all predicates to all trajectories in the dataset."""
+            trajectories: Sequence[LowLevelTrajectory],
+            predicates: Set[Predicate],
+        ) -> List[GroundAtomTrajectory]:
+    """Apply all predicates to all trajectories in the dataset.
+    Predicates here are primitive predicates.
+    """
     ground_atom_dataset = []
     for traj in trajectories:
         atoms = [abstract(s, predicates) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
     return ground_atom_dataset
-
 
 def prune_ground_atom_dataset(
         ground_atom_dataset: List[GroundAtomTrajectory],

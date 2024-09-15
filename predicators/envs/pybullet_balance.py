@@ -50,16 +50,15 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
         # Predicates
         self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
-                                   self._On_NSP_holds)
+                                        self._On_NSP_holds)
         self._OnTable_NSP = NSPredicate("OnTable", [self._block_type],
                                         self._OnTable_NSP_holds)
         self._Holding_NSP = NSPredicate("Holding", [self._block_type],
                                         self._Holding_NSP_holds)
         self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
-                                            self._GripperOpen_NSP_holds)
-
+                                        self._GripperOpen_NSP_holds)
         self._Clear_NSP = NSPredicate("Clear", [self._block_type],
-                                      self._Clear_NSP_holds)
+                                        self._Clear_NSP_holds)
 
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
@@ -77,16 +76,18 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     @property
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
-            self._On_NSP,
-            self._OnTable_NSP,
-            self._GripperOpen_NSP,
-            self._Holding_NSP,
-            self._Clear_NSP,
+            # self._On_NSP,
+            # self._OnTable_NSP,
+            # self._GripperOpen_NSP,
+            # self._Holding_NSP,
+            # self._Clear_NSP,
+            self._Balanced,
         }
 
     def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> \
             Union[bool, VLMQuery]:
-        """Is there no block on top of the block."""
+        """Is there no block on top of the block.
+        """
         block, = objects
         for other_block in state:
             if other_block.type != self._block_type:
@@ -374,6 +375,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         self._obj_id_to_obj[self._table_ids[0]] = self._table1
         # self._obj_id_to_obj[self._table_ids[1]] = self._table2
         self._obj_id_to_obj[self._table_ids[1]] = self._table3
+        self._obj_id_to_obj[self._button_id] = self._machine
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
             self._block_id_to_block[block_id] = block_obj

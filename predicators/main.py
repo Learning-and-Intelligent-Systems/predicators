@@ -66,6 +66,7 @@ from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
 
+# sys.setrecursionlimit(1000000)
 
 def main() -> None:
     """Main entry point for running approaches in environments."""

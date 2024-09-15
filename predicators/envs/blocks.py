@@ -469,6 +469,16 @@ class BlocksEnv(BaseEnv):
                 return False
         return True
 
+    def _Clear_holds_abs(self, atoms: Set[GroundAtom], 
+                         objects: Sequence[Object]) -> bool:  
+        blocks, = objects                 
+        for atom in atoms:
+            if atom.predicate == self._On:
+                if atom.objects[1] == blocks:
+                    return False
+        return True
+                
+
     def _get_held_block(self, state: State) -> Optional[Object]:
         for block in state:
             if not block.is_instance(self._block_type):

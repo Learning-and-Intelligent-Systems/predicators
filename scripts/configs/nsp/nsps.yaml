@@ -21,26 +21,26 @@ APPROACHES:
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     vlm_predicator_oracle_explore: True
-  nsp-nl: # Our updated main approach
-    NAME: "vlm_online_invention"
-    FLAGS:
-      log_file: "logs/logs_nsp_nl/"
-      strips_learner: "cluster_intersect_and_search"
-      render_init_state: True # True for NSP
-      neu_sym_predicate: True # Needed for NSP
-      vlm_predicator_render_option_state: True # Needed for NSP
-      max_initial_demos: 0
-      vlm_invention_propose_nl_properties: True
-      vlm_invention_alternate_between_p_ad: True
-  # nsp: # Our main approach
+  # nsp-nl: # Our updated main approach
   #   NAME: "vlm_online_invention"
   #   FLAGS:
-  #     log_file: "logs/logs_nsp/"
+  #     log_file: "logs/logs_nsp_nl/"
   #     strips_learner: "cluster_intersect_and_search"
   #     render_init_state: True # True for NSP
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     max_initial_demos: 0
+  #     vlm_invention_propose_nl_properties: True
+  #     vlm_invention_alternate_between_p_ad: True
+  nsp: # Our main approach
+    NAME: "vlm_online_invention"
+    FLAGS:
+      log_file: "logs/logs_nsp/"
+      strips_learner: "cluster_intersect_and_search"
+      render_init_state: True # True for NSP
+      neu_sym_predicate: True # Needed for NSP
+      vlm_predicator_render_option_state: True # Needed for NSP
+      max_initial_demos: 0
   # InterPreT-inspired baseline with symbolic predicates based on object 
   # features, conditioned on image and object-oriented dict observation.
   # interpret: 
@@ -77,8 +77,15 @@ ENVS:
     NAME: "pybullet_balance"
     FLAGS:
       pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
+      excluded_predicates: "Balanced"
       pybullet_camera_width: 800
       num_train_tasks: 5
+      sesame_check_dr_reachable: False
+      sesame_filter_unreachable_nsrt: False
+      # The following two are configured temperarily just for this environment.
+      disable_harmlessness_check: True
+      enable_harmless_op_pruning: False
+      sesame_max_samples_per_step: 1
 
   # pb_cover_w:
   #   NAME: "pybullet_cover_weighted"

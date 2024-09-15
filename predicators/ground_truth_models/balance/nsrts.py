@@ -42,6 +42,7 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Clear = predicates["Clear"]
         Balanced = predicates["Balanced"]
         MachineOn = predicates["MachineOn"]
+        ClearTable = predicates["ClearTable"]
 
         # Options
         Pick = options["Pick"]
@@ -136,7 +137,9 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # option_vars = [block, robot]
         option_vars = [robot]
         option = PutOnTable
-        preconditions = {LiftedAtom(Holding, [block])}
+        preconditions = {
+            LiftedAtom(Holding, [block]),
+            LiftedAtom(ClearTable, [table])}
         add_effects = {
             LiftedAtom(OnTable, [block, table]),
             LiftedAtom(Clear, [block]),

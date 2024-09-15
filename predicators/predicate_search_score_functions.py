@@ -1,4 +1,5 @@
-"""Score functions used for searching over predicate and operator sets."""
+"""Score functions used for searching over predicate and operator sets.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
 from predicators.settings import CFG
 from predicators.structs import NSRT, GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
-    STRIPSOperator, Task, _GroundSTRIPSOperator
+    STRIPSOperator, Task, _GroundSTRIPSOperator, ConceptPredicate
 
 
 def create_score_function(
@@ -45,7 +46,7 @@ def create_score_function(
             initial_predicates, atom_dataset, candidates, train_tasks,
             ["hadd"])
     match = re.match(r"([a-z\,]+)_(\w+)_lookaheaddepth(\d+)",
-                     score_function_name)
+                        score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
         # or it can be multiple heuristic names that are comma-separated, such
@@ -238,10 +239,12 @@ class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
                                 option_specs: List[OptionSpec]) -> float:
         del candidate_predicates, low_level_trajs, segmented_trajs
         nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-        tp, tn, fp, fn, _, _ = utils.count_classification_result_for_ops(
-            nsrts, self.succ_optn_dict, self.fail_optn_dict)
-        accuracy = round(
-            (tp + tn) / (tp + tn + fp + fn), 2) if tp + tn + fp + fn > 0 else 0
+        score_dic, _, _ = utils.count_classification_result_for_ops(nsrts, 
+                            self.succ_optn_dict, self.fail_optn_dict)
+        # accuracy = round(
+        #     (tp + tn) / (tp + tn + fp + fn), 2) if tp + tn + fp + fn > 0 else 0
+        tp, tn, fp, fn, accuracy = score_dic["tp"], score_dic["tn"], \
+            score_dic["fp"], score_dic["fn"], score_dic["acc"]
         num = tp + tn + fp + fn
         logging.debug(f"num: {num}. tp: {tp}, tn: {tn}, fp: {fp}, fn: {fn}, "+\
                     f"accuracy: {accuracy}")
@@ -364,6 +367,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
         assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
+        concept_predicates = set([pred for pred in candidate_predicates if 
+                                  isinstance(pred, ConceptPredicate)])
         score = 0.0
         seen_demos = 0
         assert len(low_level_trajs) == len(segmented_trajs)
@@ -390,6 +395,11 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 CFG.sesame_task_planning_heuristic, init_atoms, goal,
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
+
+            # # Debug
+            # if concept_predicates:
+            #     breakpoint()
+
             # The expected time needed before a low-level plan is found. We
             # approximate this using node creations and by adding a penalty
             # for every skeleton after the first to account for backtracking.
@@ -405,14 +415,16 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             assert max_skeletons <= CFG.sesame_max_skeletons_optimized
             assert not CFG.sesame_use_visited_state_set
             generator = task_plan(init_atoms,
-                                  goal,
-                                  ground_nsrts,
-                                  reachable_atoms,
-                                  heuristic,
-                                  CFG.seed,
-                                  CFG.grammar_search_task_planning_timeout,
-                                  max_skeletons,
-                                  use_visited_state_set=False)
+                                goal,
+                                ground_nsrts,
+                                reachable_atoms,
+                                heuristic,
+                                CFG.seed,
+                                CFG.grammar_search_task_planning_timeout,
+                                max_skeletons,
+                                use_visited_state_set=False,
+                                concept_predicates=concept_predicates,
+                                task=self._train_tasks[ll_traj.train_task_idx])
             try:
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):

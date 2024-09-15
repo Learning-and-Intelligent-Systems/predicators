@@ -12,7 +12,7 @@ from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import PNAD, Datastore, DummyOption, GroundAtom, \
     GroundOptionRecord, LiftedAtom, Object, ParameterizedOption, Predicate, \
-    State, STRIPSOperator, VarToObjSub
+    State, STRIPSOperator, VarToObjSub, ConceptPredicate
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
@@ -129,6 +129,8 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         # Handle optional postprocessing to learn ignore effects.
         pnads = self._postprocessing_learn_ignore_effects(pnads)
 
+        pnads = self._postprocessing_remove_concept_predicate_effect(pnads)
+
         # Log and return the PNADs.
         if self._verbose:
             logging.info("Learned operators (before option learning):")
@@ -149,6 +151,25 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         """Optionally postprocess to learn ignore effects."""
         _ = self  # unused, but may be used in subclasses
         return pnads
+    
+    def _postprocessing_remove_concept_predicate_effect(
+        self, pnads: List[PNAD]
+    ) -> List[PNAD]:
+        """Remove the effects of concept predicates from the operators."""
+        new_pnads = []
+        for pnad in pnads:
+            new_add_effects = set()
+            for atom in pnad.op.add_effects:
+                if not isinstance(atom.predicate, ConceptPredicate):
+                    new_add_effects.add(atom)
+            new_delete_effects = set()
+            for atom in pnad.op.delete_effects:
+                if not isinstance(atom.predicate, ConceptPredicate):
+                    new_delete_effects.add(atom)
+            new_op = pnad.op.copy_with(add_effects=new_add_effects,
+                                       delete_effects=new_delete_effects)
+            new_pnads.append(PNAD(new_op, pnad.datastore, pnad.option_spec))
+        return new_pnads
 
 
 class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
