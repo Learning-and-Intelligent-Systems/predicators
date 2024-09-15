@@ -316,7 +316,7 @@ class GlobalSettings:
 
     # coffee env parameters
     coffee_num_cups_train = [1]
-    coffee_num_cups_test = [4]
+    coffee_num_cups_test = [1]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
     # satellites env parameters

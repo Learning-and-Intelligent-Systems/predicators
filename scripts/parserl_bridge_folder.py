@@ -61,6 +61,7 @@ train_rwd =[]
 for filename in os.listdir(folder_path):
     # Check if "mapleq" is in the filename
     #CHANGE THIS TO FIND THE WANTED FILES
+    # print(filename)
     if "coffee__maple_q__RLBRIDGE_coffee-oracle" in filename:
         file_path = os.path.join(folder_path, filename)
         print(file_path)
@@ -84,9 +85,10 @@ for filename in os.listdir(folder_path):
         for line in log_txt:
             file_path = os.path.join(folder_path, filename)
                 
-            match = re.search(r'^SMOOTH REWARDS\s+([\d\s]+)', line)
+            match = re.search(r'^SMOOTH REWARDS\s+\[([^\]]+)\]', line)
             if match:
-                testing_time_rewards_list.append(float(match.group(1)))
+                for smoothed_reward in match.group(1).split(","):
+                    testing_time_rewards_list.append(float(smoothed_reward.strip()))
 
         # print(f"Got {len(testing_time_rewards_list)} SMOOTH TEST rewards!\n{testing_time_rewards_list}")
         smooth_test_rwd.append(testing_time_rewards_list)
@@ -99,7 +101,6 @@ print("TEST RWDS", smooth_test_rwd)
 
 # Folder path where your files are located
 folder_path = "bridge_policy_experiment_logs"
-
 # Iterate through all the files in the folder
 counter = 0
 smooth_test_rwd =[]
@@ -107,6 +108,7 @@ train_rwd =[]
 for filename in os.listdir(folder_path):
     # Check if "mapleq" is in the filename
     #CHANGE THIS TO FIND THE WANTED FILES
+    # print(filename)
     if "coffee__maple_q__RLBRIDGE_coffee-oracle" in filename:
         file_path = os.path.join(folder_path, filename)
         print(file_path)
@@ -130,13 +132,13 @@ for filename in os.listdir(folder_path):
         for line in log_txt:
             file_path = os.path.join(folder_path, filename)
                 
-            match = re.search(r'^SMOOTH REWARDS\s+([\d\s]+)', line)
+            match = re.search(r'^SMOOTH REWARDS\s+\[([^\]]+)\]', line)
             if match:
-                testing_time_rewards_list.append(float(match.group(1)))
+                for smoothed_reward in match.group(1).split(","):
+                    testing_time_rewards_list.append(float(smoothed_reward.strip()))
 
         # print(f"Got {len(testing_time_rewards_list)} SMOOTH TEST rewards!\n{testing_time_rewards_list}")
         smooth_test_rwd.append(testing_time_rewards_list)
 print("number of files: ", counter)
 print("TRAIN RWDS", train_rwd)
 print("TEST RWDS", smooth_test_rwd)
-
