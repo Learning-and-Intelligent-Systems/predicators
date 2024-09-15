@@ -12,7 +12,7 @@ APPROACHES:
       sesame_max_skeletons_optimized: 50
       use_obj_centric: True
 ENVS:
-  20train10test:
+  coffee20train10test:
     NAME: "coffee"
 ARGS:
   - "debug"
@@ -27,5 +27,5 @@ FLAGS:
   online_nsrt_learning_requests_per_cycle: 10
   max_num_steps_interaction_request: 100
   timeout: 1000
-START_SEED: 0
+START_SEED: 4
 NUM_SEEDS: 4
