@@ -308,7 +308,10 @@ class GridRowDoorEnv(GridRowEnv):
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         rng=self._test_rng
-        num_cells = rng.integers(CFG.test_grid_row_num_cells, 2*CFG.test_grid_row_num_cells+1)
+        new_cells = 2*CFG.test_grid_row_num_cells+1
+        num_cells = rng.integers(CFG.test_grid_row_num_cells, new_cells)
+        print("NUM CELLS", num_cells)
+        import ipdb;ipdb.set_trace()
         cells = [
             Object(f"cell{i}", self._cell_type)
             for i in range(num_cells)
@@ -328,7 +331,11 @@ class GridRowDoorEnv(GridRowEnv):
         tasks: List[EnvironmentTask] = []
 
         door_list: List[List[Object]] = []
-        num_doors = rng.integers(CFG.num_doors, 2*CFG.num_doors+1)
+        new_doors = 2*CFG.num_doors+1
+        num_doors = rng.integers(CFG.num_doors, new_doors)
+        print("NUM DOORS", num_doors)
+        import ipdb;ipdb.set_trace()
+
         for door_num in range(num_doors):
             door = Object(f"door{door_num}", self._door_type)
             door_list.append(door)
