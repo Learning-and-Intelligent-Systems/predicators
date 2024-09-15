@@ -1737,7 +1737,7 @@ class MapleQFunction(MLPRegressor):
                 padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
                 return padded_e
             elif CFG.env == "coffee":
-                pad_length = 20
+                pad_length = 40
                 padded_e = np.pad(e, (0, pad_length - len(e)), 'constant')
                 return padded_e
             pad_length = 300
@@ -2086,6 +2086,9 @@ class MPDQNFunction(MapleQFunction):
             X_size = 5 + 7 + self._max_num_params
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_obj_centric:
             X_size = 5 + 7 + self._max_num_params -1
+        else:
+            X_size = 48
+
 
         Y_size = 1
         doorknob_values = []
