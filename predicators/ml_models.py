@@ -1480,7 +1480,7 @@ class MapleQFunction(MLPRegressor):
         # Q-network.
         num_rwd = 0
         if CFG.env == "grid_row_door" and not CFG.use_obj_centric:
-            X_size = 56
+            X_size = 57
         elif CFG.env == "grid_row_door":
             X_size = 7 + 3 + self._max_num_params + 1
         elif CFG.env == "doorknobs" and not CFG.use_obj_centric:
@@ -2081,13 +2081,13 @@ class MPDQNFunction(MapleQFunction):
         elif CFG.env == "grid_row_door" and CFG.use_obj_centric:
             X_size = 11
         elif CFG.env == "grid_row_door":
-            X_size = 47
+            X_size = 57
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_callplanner and CFG.use_obj_centric:
             X_size = 5 + 7 + self._max_num_params
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_obj_centric:
             X_size = 5 + 7 + self._max_num_params -1
         else:
-            X_size = 48
+            X_size = 47
 
 
         Y_size = 1
