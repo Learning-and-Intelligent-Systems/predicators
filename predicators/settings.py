@@ -316,7 +316,7 @@ class GlobalSettings:
 
     # coffee env parameters
     coffee_num_cups_train = [1]
-    coffee_num_cups_test = [4]
+    coffee_num_cups_test = [1]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
     # satellites env parameters
@@ -724,7 +724,7 @@ class GlobalSettings:
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,
-                    "coffee": 300,
+                    "coffee": 100,
                     "coffeelids": 1000,
                     "kitchen": 1000,
                     # For the very simple touch point environment, restrict
