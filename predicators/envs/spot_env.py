@@ -190,15 +190,15 @@ def get_robot(
 
 @functools.lru_cache(maxsize=None)
 def get_robot_only() -> Tuple[Optional[Robot], Optional[LeaseClient]]:
-        hostname = CFG.spot_robot_ip
-        sdk = create_standard_sdk("PredicatorsClient-")
-        robot = sdk.create_robot(hostname)
-        robot.authenticate("user", "bbbdddaaaiii")
-        verify_estop(robot)
-        lease_client = robot.ensure_client(LeaseClient.default_service_name)
-        lease_client.take()
-        lease_keepalive = LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True)
-        return robot, lease_client
+    hostname = CFG.spot_robot_ip
+    sdk = create_standard_sdk("PredicatorsClient-")
+    robot = sdk.create_robot(hostname)
+    robot.authenticate("user", "bbbdddaaaiii")
+    verify_estop(robot)
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)
+    lease_client.take()
+    lease_keepalive = LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True)
+    return robot, lease_client
 
 
 @functools.lru_cache(maxsize=None)
