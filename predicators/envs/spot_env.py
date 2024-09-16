@@ -106,10 +106,8 @@ class _TruncatedSpotObservation:
     # # A placeholder until all predicates have classifiers
     # nonpercept_atoms: Set[GroundAtom]
     # nonpercept_predicates: Set[Predicate]
-    executed_skill: Optional[_Option] = None
     # Object detections per camera in self.rgbd_images.
     object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]
-    # Last skill
     executed_skill: Optional[_Option] = None
 
 

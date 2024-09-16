@@ -684,7 +684,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         self._waiting_for_observation = False
         self._robot = observation.robot
         img_objects = observation.rgbd_images  # RGBDImage objects
@@ -714,7 +714,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 draw.rectangle(text_bbox, fill='green')
                 draw.text((x0 + 1, y0 - 1.5*text_height), text, fill='white', font=font)
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         import PIL
         from PIL import ImageDraw
         annotated_pil_imgs = []
@@ -730,8 +730,8 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._curr_state = self._create_state()
         self._curr_state.simulator_state["images"] = annotated_imgs
         ret_state = self._curr_state.copy()
-        ret_state.simulator_state["state_history"] = list(self._state_history)
         self._state_history.append(ret_state)
+        ret_state.simulator_state["state_history"] = list(self._state_history)
         self._executed_skill_history.append(observation.executed_skill)
         ret_state.simulator_state["skill_history"] = list(self._executed_skill_history)
         return ret_state
