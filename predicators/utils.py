@@ -2537,7 +2537,7 @@ def get_prompt_for_vlm_state_labelling(
         # and beyond.
         curr_prompt = prompt[:]
         curr_prompt_imgs = [
-            imgs_timestep[0] for imgs_timestep in imgs_history[-1]
+            imgs_timestep for imgs_timestep in imgs_history[-1]
         ]
         if CFG.vlm_include_cropped_images:
             if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover

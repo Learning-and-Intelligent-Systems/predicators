@@ -2,9 +2,8 @@
 
 import logging
 import time
-from collections import deque
 from pathlib import Path
-from typing import Deque, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 import imageio.v2 as iio
 import numpy as np
@@ -619,9 +618,8 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
         self._ordered_objects: List[Object] = []  # list of all known objects
-        self._state_history: Deque[State] = deque(
-            maxlen=5) # TODO: (njk) I just picked an arbitrary constant here! Didn't properly consider this.
-        self._executed_skill_history: Deque[_Option] = deque(maxlen=5)
+        self._state_history: List[State] = []
+        self._executed_skill_history: List[_Option] = []
         # # Keep track of objects that are contained (out of view) in another
         # # object, like a bag or bucket. This is important not only for gremlins
         # # but also for small changes in the container's perceived pose.
