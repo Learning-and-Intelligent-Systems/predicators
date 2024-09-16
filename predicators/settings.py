@@ -434,7 +434,7 @@ class GlobalSettings:
 
     # parameters for vision language models
     # gemini-1.5-pro-latest, gpt-4-turbo, gpt-4o
-    vlm_model_name = "gemini-1.5-flash" #"gemini-1.5-pro-latest"
+    vlm_model_name = "gemini-1.5-flash"  #"gemini-1.5-pro-latest"
     vlm_temperature = 0.0
     vlm_num_completions = 1
     vlm_include_cropped_images = False
@@ -719,6 +719,9 @@ class GlobalSettings:
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
     vlm_predicate_vision_api_generate_ground_atoms = False
+    # At test-time, we will use the below number of states
+    # as part of labelling the current state's VLM atoms.
+    vlm_test_time_atom_label_prompt_type = "per_scene_naive"
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

@@ -29,9 +29,10 @@ class RGBDImageWithContext:
         """The image rotated to be upright."""
         return ndimage.rotate(self.rgb, self.image_rot, reshape=False)
 
+
 @dataclass
 class RGBDImage:
-    """An RGBD image"""
+    """An RGBD image."""
     rgb: NDArray[np.uint8]
     depth: NDArray[np.uint16]
     image_rot: float

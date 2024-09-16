@@ -26,7 +26,7 @@ from predicators.spot_utils.utils import _container_type, \
     get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, \
-    SpotActionExtraInfo, State, Task, Video
+    SpotActionExtraInfo, State, Task, Video, _Option
 
 
 class SpotPerceiver(BasePerceiver):
@@ -581,7 +581,7 @@ class SpotPerceiver(BasePerceiver):
         logging.info(f"Wrote out to {outfile}")
         plt.close()
         return [img]
-    
+
 
 class SpotMinimalPerceiver(BasePerceiver):
     """A perceiver for spot envs with minimal functionality."""
@@ -622,6 +622,8 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
         self._ordered_objects: List[Object] = []  # list of all known objects
+        self._state_history: List[State] = []
+        self._executed_skill_history: List[_Option] = []
         # # Keep track of objects that are contained (out of view) in another
         # # object, like a bag or bucket. This is important not only for gremlins
         # # but also for small changes in the container's perceived pose.
@@ -629,14 +631,14 @@ class SpotMinimalPerceiver(BasePerceiver):
         # Load static, hard-coded features of objects, like their shapes.
         # meta = load_spot_metadata()
         # self._static_object_features = meta.get("static-object-features", {})
-    
+
     def update_perceiver_with_action(self, action: Action) -> None:
         # NOTE: we need to keep track of the previous action
         # because the step function (where we need knowledge
         # of the previous action) occurs *after* the action
         # has already been taken.
         self._prev_action = action
-    
+
     def _create_goal(self, state: State,
                      goal_description: GoalDescription) -> Set[GroundAtom]:
         del state  # not used
@@ -720,14 +722,18 @@ class SpotMinimalPerceiver(BasePerceiver):
             pil_img = PIL.Image.fromarray(img)
             draw = ImageDraw.Draw(pil_img)
             font = utils.get_scaled_default_font(draw, 4)
-            annotated_pil_img = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[img_name], font)
+            annotated_pil_img = utils.add_text_to_draw_img(
+                draw, (0, 0), self.camera_name_to_annotation[img_name], font)
             annotated_pil_imgs.append(pil_img)
         annotated_imgs = [np.array(img) for img in annotated_pil_imgs]
-        # import pdb; pdb.set_trace()
         self._gripper_open_percentage = observation.gripper_open_percentage
         self._curr_state = self._create_state()
         self._curr_state.simulator_state["images"] = annotated_imgs
         ret_state = self._curr_state.copy()
+        ret_state.simulator_state["state_history"] = list(self._state_history)
+        self._state_history.append(ret_state)
+        self._executed_skill_history.append(observation.executed_skill)
+        ret_state.simulator_state["skill_history"] = list(self._executed_skill_history)
         return ret_state
 
     def _create_state(self) -> State:
@@ -778,7 +784,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qz": 0,
                 "shape": 0,
                 "height": 0,
-                "width" : 0,
+                "width": 0,
                 "length": 0,
                 "object_id": 2,
                 "placeable": 1,
@@ -885,7 +891,7 @@ class SpotMinimalPerceiver(BasePerceiver):
             # }
         }
         state_dict = {k: list(v.values()) for k, v in state_dict.items()}
-        ret_state =  State(state_dict)
+        ret_state = State(state_dict)
         ret_state.simulator_state = {}
         ret_state.simulator_state["images"] = []
         return ret_state

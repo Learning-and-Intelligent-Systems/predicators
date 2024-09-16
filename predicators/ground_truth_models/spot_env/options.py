@@ -899,9 +899,11 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
                                   robot_obj_idx, target_obj_idx, do_gaze,
                                   state, memory, objects, params)
 
-def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object], params: Array) -> Action:
+
+def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
     del state, memory, params
-    
+
     robot, lease_client = get_robot_only()
 
     def _teleop(robot: Robot, lease_client: LeaseClient):
@@ -914,15 +916,14 @@ def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object], params
         # Take back control.
         robot, lease_client = get_robot_only()
         lease_client.take()
-    
+
     fn = _teleop
     fn_args = (robot, lease_client)
     sim_fn = lambda _: None
     sim_fn_args = ()
     name = "teleop"
-    action_extra_info = SpotActionExtraInfo(
-        name, objects, fn, fn_args, sim_fn, sim_fn_args
-    )
+    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
+                                            sim_fn_args)
     return utils.create_spot_env_action(action_extra_info)
 
 
@@ -958,7 +959,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "MoveToReadySweep": Box(0, 1, (0, )),  # empty
     "Pick": Box(0, 1, (0, )),  # empty
     "Place": Box(0, 1, (0, ))  # empty
-}   
+}
 
 # NOTE: the policies MUST be unique because they output actions with extra info
 # that includes the name of the operators.

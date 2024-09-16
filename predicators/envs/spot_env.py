@@ -48,7 +48,7 @@ from predicators.spot_utils.utils import _base_object_type, _container_type, \
     update_pbrspot_robot_conf, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, \
-    SpotActionExtraInfo, State, STRIPSOperator, Type, Variable
+    SpotActionExtraInfo, State, STRIPSOperator, Type, Variable, _Option
 
 ###############################################################################
 #                                Base Class                                   #
@@ -106,6 +106,7 @@ class _TruncatedSpotObservation:
     # # A placeholder until all predicates have classifiers
     # nonpercept_atoms: Set[GroundAtom]
     # nonpercept_predicates: Set[Predicate]
+    executed_skill: Optional[_Option] = None
     # Object detections per camera in self.rgbd_images.
     object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]
 
@@ -197,7 +198,9 @@ def get_robot_only() -> Tuple[Optional[Robot], Optional[LeaseClient]]:
     verify_estop(robot)
     lease_client = robot.ensure_client(LeaseClient.default_service_name)
     lease_client.take()
-    lease_keepalive = LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True)
+    lease_keepalive = LeaseKeepAlive(lease_client,
+                                     must_acquire=True,
+                                     return_at_exit=True)
     return robot, lease_client
 
 
@@ -1484,45 +1487,37 @@ _IsSemanticallyGreaterThan = Predicate(
     "IsSemanticallyGreaterThan", [_base_object_type, _base_object_type],
     _is_semantically_greater_than_classifier)
 
+
 def _get_vlm_query_str(pred_name: str, objects: Sequence[Object]) -> str:
-    return pred_name + "(" + ", ".join(str(obj.name) for obj in objects) + ")"  # pragma: no cover
-_VLMOn = utils.create_vlm_predicate(
-    "VLMOn",
-    [_movable_object_type, _base_object_type],
-    lambda o: _get_vlm_query_str("VLMOn", o)
-)
+    return pred_name + "(" + ", ".join(
+        str(obj.name) for obj in objects) + ")"  # pragma: no cover
+
+
+_VLMOn = utils.create_vlm_predicate("VLMOn",
+                                    [_movable_object_type, _base_object_type],
+                                    lambda o: _get_vlm_query_str("VLMOn", o))
 _Upright = utils.create_vlm_predicate(
-    "Upright",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Upright", o)
-)
+    "Upright", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Upright", o))
 _Toasted = utils.create_vlm_predicate(
-    "Toasted",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Toasted", o)
-)
+    "Toasted", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Toasted", o))
 _VLMIn = utils.create_vlm_predicate(
-    "VLMIn",
-    [_movable_object_type, _immovable_object_type],
-    lambda o: _get_vlm_query_str("In", o)
-)
-_Open = utils.create_vlm_predicate(
-    "Open",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Open", o)
-)
+    "VLMIn", [_movable_object_type, _immovable_object_type],
+    lambda o: _get_vlm_query_str("In", o))
+_Open = utils.create_vlm_predicate("Open", [_movable_object_type],
+                                   lambda o: _get_vlm_query_str("Open", o))
 _Stained = utils.create_vlm_predicate(
-    "Stained",
-    [_movable_object_type],
-    lambda o: _get_vlm_query_str("Stained", o)
-)
+    "Stained", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Stained", o))
 
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
     _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
     _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
     _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
-    _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open, _Stained
+    _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open,
+    _Stained
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -2455,8 +2450,9 @@ class VLMTestEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         # return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Pourable", "Toasted", "VLMIn", "Open"])
-        return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Upright"])
-    
+        return set(p for p in _ALL_PREDICATES
+                   if p.name in ["VLMOn", "Holding", "HandEmpty", "Upright"])
+
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return self.predicates
@@ -2464,7 +2460,7 @@ class VLMTestEnv(SpotRearrangementEnv):
     @classmethod
     def get_name(cls) -> str:
         return "spot_vlm_test_env"
-    
+
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("No dry task for VLMTestEnv.")
@@ -2495,35 +2491,31 @@ class VLMTestEnv(SpotRearrangementEnv):
             LiftedAtom(_NotHolding, [robot, obj]),
             LiftedAtom(_VLMOn, [obj, table])
         }
-        add_effs: Set[LiftedAtom] = {
-            LiftedAtom(_Holding, [robot, obj])
-        }
+        add_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
         del_effs: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, obj]),
             LiftedAtom(_VLMOn, [obj, table])
         }
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
 
         # Place object
         robot = Variable("?robot", _robot_type)
         obj = Variable("?object", _movable_object_type)
         pan = Variable("?pan", _container_type)
         parameters = [robot, obj, pan]
-        preconds: Set[LiftedAtom] = {
-            LiftedAtom(_Holding, [robot, obj])
-        }
+        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
         add_effs: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
             LiftedAtom(_NotHolding, [robot, obj]),
             LiftedAtom(_VLMOn, [obj, pan])
         }
-        del_effs: Set[LiftedAtom] = {
-            LiftedAtom(_Holding, [robot, obj])
-        }
+        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs, ignore_effs)
+        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
 
     # def _generate_train_tasks(self) -> List[EnvironmentTask]:
     #     goal = self._generate_goal_description()  # currently just one goal
@@ -2555,10 +2547,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         # Create constant objects.
         self._spot_object = Object("robot", _robot_type)
         op_to_name = {o.name: o for o in self._create_operators()}
-        op_names_to_keep = {
-            "Pick",
-            "Place"
-        }
+        op_names_to_keep = {"Pick", "Place"}
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
         self._train_tasks = []
         self._test_tasks = []
@@ -2649,7 +2638,7 @@ class VLMTestEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the cup in the pan"
-    
+
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         prompt = f"Please set up {train_or_test} task {task_idx}!"
         utils.prompt_user(prompt)
@@ -2667,7 +2656,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         self._current_task_goal_reached = False
         self._last_action = None
         return self._current_task.init_obs
-    
+
     def step(self, action: Action) -> Observation:
         assert self._robot is not None
         action_name = action.extra_info.action_name
@@ -2715,6 +2704,7 @@ class VLMTestEnv(SpotRearrangementEnv):
             object_detections_per_camera
         )
         return obs
+
 
 ###############################################################################
 #                                Cube Table Env                               #

@@ -193,7 +193,8 @@ def capture_images_without_context(
         #                             world_tform_camera, depth_scale,
         #                             transforms_snapshot,
         #                             frame_name_image_sensor, camera_model)
-        rgbd = RGBDImage(rgb_img, depth_img, rot, camera_name, depth_scale, camera_model)
+        rgbd = RGBDImage(rgb_img, depth_img, rot, camera_name, depth_scale,
+                         camera_model)
         rgbds[camera_name] = rgbd
 
     # _LAST_CAPTURED_IMAGES = rgbds
