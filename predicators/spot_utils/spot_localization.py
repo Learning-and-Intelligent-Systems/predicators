@@ -76,7 +76,6 @@ class SpotLocalizer:
         #             raise LocalizationFailure(msg)
         #         logging.warning("Localization failed once, retrying.")
         #         time.sleep(LOCALIZATION_RETRY_WAIT_TIME)
-
         # # Run localize once to start.
         # self.localize()
 

@@ -41,7 +41,7 @@ from predicators.spot_utils.perception.object_specific_grasp_selection import \
 from predicators.spot_utils.perception.perception_structs import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
     LanguageObjectDetectionID, ObjectDetectionID, PythonicObjectDetectionID, \
-    RGBDImageWithContext, SegmentedBoundingBox
+    RGBDImage, RGBDImageWithContext, SegmentedBoundingBox
 from predicators.spot_utils.utils import get_april_tag_transform, \
     get_graph_nav_dir
 from predicators.utils import rotate_point_in_image
@@ -351,6 +351,108 @@ def _query_detic_sam(
 
     return object_id_to_img_detections
 
+def _query_detic_sam2(
+    object_ids: Collection[LanguageObjectDetectionID],
+    rgbds: Dict[str, RGBDImage],
+    max_server_retries: int = 5,
+    detection_threshold: float = CFG.spot_vision_detection_threshold
+) -> Dict[ObjectDetectionID, Dict[str, SegmentedBoundingBox]]:
+    """Returns object ID to image ID (camera) to segmented bounding box."""
+
+    object_id_to_img_detections: Dict[ObjectDetectionID,
+                                      Dict[str, SegmentedBoundingBox]] = {
+                                          obj_id: {}
+                                          for obj_id in object_ids
+                                      }
+
+    # Create buffer dictionary to send to server.
+    buf_dict = {}
+    for camera_name, rgbd in rgbds.items():
+        pil_rotated_img = PIL.Image.fromarray(rgbd.rotated_rgb)  # type: ignore
+        buf_dict[camera_name] = _image_to_bytes(pil_rotated_img)
+
+    # Extract all the classes that we want to detect.
+    classes = sorted(o.language_id for o in object_ids)
+
+    # Query server, retrying to handle possible wifi issues.
+    # import pdb; pdb.set_trace()
+    # imgs = [v.rotated_rgb for _, v in rgbds.items()]
+    # pil_img = PIL.Image.fromarray(imgs[0])
+    # import pdb; pdb.set_trace()
+
+    for _ in range(max_server_retries):
+        try:
+            r = requests.post("http://localhost:5550/batch_predict",
+                              files=buf_dict,
+                              data={"classes": ",".join(classes)})
+            break
+        except requests.exceptions.ConnectionError:
+            continue
+    else:
+        logging.warning("DETIC-SAM FAILED, POSSIBLE SERVER/WIFI ISSUE")
+        return object_id_to_img_detections
+
+    # If the status code is not 200, then fail.
+    if r.status_code != 200:
+        logging.warning(f"DETIC-SAM FAILED! STATUS CODE: {r.status_code}")
+        return object_id_to_img_detections
+
+    # Querying the server succeeded; unpack the contents.
+    with io.BytesIO(r.content) as f:
+        try:
+            server_results = np.load(f, allow_pickle=True)
+        # Corrupted results.
+        except pkl.UnpicklingError:
+            logging.warning("DETIC-SAM FAILED DURING UNPICKLING!")
+            return object_id_to_img_detections
+
+        # Process the results and save all detections per object ID.
+        for camera_name, rgbd in rgbds.items():
+            rot_boxes = server_results[f"{camera_name}_boxes"]
+            ret_classes = server_results[f"{camera_name}_classes"]
+            rot_masks = server_results[f"{camera_name}_masks"]
+            scores = server_results[f"{camera_name}_scores"]
+
+            # Invert the rotation immediately so we don't need to worry about
+            # them henceforth.
+            # h, w = rgbd.rgb.shape[:2]
+            # image_rot = rgbd.image_rot
+            # boxes = [
+            #     _rotate_bounding_box(bb, -image_rot, h, w) for bb in rot_boxes
+            # ]
+            # masks = [
+            #     ndimage.rotate(m.squeeze(), -image_rot, reshape=False)
+            #     for m in rot_masks
+            # ]
+            boxes = rot_boxes
+            masks = rot_masks
+
+            # Filter out detections by confidence. We threshold detections
+            # at a set confidence level minimum, and if there are multiple,
+            # we only select the most confident one. This structure makes
+            # it easy for us to select multiple detections if that's ever
+            # necessary in the future.
+            for obj_id in object_ids:
+                # If there were no detections (which means all the
+                # returned values will be numpy arrays of shape (0, 0))
+                # then just skip this source.
+                if ret_classes.size == 0:
+                    continue
+                obj_id_mask = (ret_classes == obj_id.language_id)
+                if not np.any(obj_id_mask):
+                    continue
+                max_score = np.max(scores[obj_id_mask])
+                best_idx = np.where(scores == max_score)[0].item()
+                if scores[best_idx] < detection_threshold:
+                    continue
+                # Save the detection.
+                seg_bb = SegmentedBoundingBox(boxes[best_idx], masks[best_idx],
+                                              scores[best_idx])
+                object_id_to_img_detections[obj_id][rgbd.camera_name] = seg_bb
+
+    # import pdb; pdb.set_trace()
+    return object_id_to_img_detections
+
 
 def _image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
     """Helper function to convert from a PIL image into a bytes object."""
@@ -522,7 +624,8 @@ def visualize_all_artifacts(artifacts: Dict[str,
             ax_row[2].imshow(rgbd.depth, cmap='Greys_r', vmin=0, vmax=10000)
 
             # Bounding box.
-            ax_row[3].imshow(rgbd.rgb)
+            # ax_row[3].imshow(rgbd.rgb)
+            ax_row[3].imshow(rgbd.rotated_rgb)
             box = seg_bb.bounding_box
             x0, y0 = box[0], box[1]
             w, h = box[2] - box[0], box[3] - box[1]
@@ -534,7 +637,7 @@ def visualize_all_artifacts(artifacts: Dict[str,
                               facecolor=(0, 0, 0, 0),
                               lw=1))
 
-            ax_row[4].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
+            # ax_row[4].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
 
             # Labels.
             abbreviated_name = obj_id.language_id

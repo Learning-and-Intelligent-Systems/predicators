@@ -24,12 +24,12 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
-    LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
-    visualize_all_artifacts
+    LanguageObjectDetectionID, ObjectDetectionID, _query_detic_sam2, \
+    detect_objects, visualize_all_artifacts
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
     brush_prompt, bucket_prompt, football_prompt, train_toy_prompt
-from predicators.spot_utils.perception.perception_structs import \
-    RGBDImageWithContext
+from predicators.spot_utils.perception.perception_structs import RGBDImage, \
+    RGBDImageWithContext, SegmentedBoundingBox
 from predicators.spot_utils.perception.spot_cameras import capture_images, \
     capture_images_without_context
 from predicators.spot_utils.skills.spot_find_objects import \
@@ -107,6 +107,8 @@ class _TruncatedSpotObservation:
     # nonpercept_atoms: Set[GroundAtom]
     # nonpercept_predicates: Set[Predicate]
     executed_skill: Optional[_Option] = None
+    # Object detections per camera in self.rgbd_images.
+    object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]
 
 
 class _PartialPerceptionState(State):
@@ -2465,8 +2467,18 @@ class VLMTestEnv(SpotRearrangementEnv):
 
     @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
-        """Get an object from a perception detection ID."""
-        raise NotImplementedError("No dry task for VLMTestEnv.")
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+        objects = {
+            Object("pan", _movable_object_type),
+            Object("cup", _movable_object_type),
+            Object("chair", _movable_object_type),
+            Object("bowl", _movable_object_type),
+        }
+        for o in objects:
+            detection_id = LanguageObjectDetectionID(o.name)
+            detection_id_to_obj[detection_id] = o
+        return detection_id_to_obj
 
     def _create_operators(self) -> Iterator[STRIPSOperator]:
         # Pick object
@@ -2539,16 +2551,87 @@ class VLMTestEnv(SpotRearrangementEnv):
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
         self._train_tasks = []
         self._test_tasks = []
-
+    
+    def detect_objects(self, rgbd_images: Dict[str, RGBDImage]) -> Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]:
+        object_ids = self._detection_id_to_obj.keys()
+        object_id_to_img_detections = _query_detic_sam2(object_ids, rgbd_images)
+        # This ^ is currently a mapping of object_id -> camera_name -> SegmentedBoundingBox.
+        # We want to do our annotations by camera image, so let's turn this into a
+        # mapping of camera_name -> object_id -> SegmentedBoundingBox. 
+        detections = {k: [] for k in rgbd_images.keys()}
+        for object_id, d in object_id_to_img_detections.items():
+            for camera_name, seg_bb in d.items():
+                detections[camera_name].append((object_id, seg_bb))
+        return detections
+    
     def _actively_construct_env_task(self) -> EnvironmentTask:
         assert self._robot is not None
         rgbd_images = capture_images_without_context(self._robot)
-        gripper_open_percentage = get_robot_gripper_open_percentage(
-            self._robot)
+        # import PIL
+        # imgs = [v.rgb for _, v in rgbd_images.items()]
+        # rot_imgs = [v.rotated_rgb for _, v in rgbd_images.items()]
+        # ex1 = PIL.Image.fromarray(imgs[0])
+        # ex2 = PIL.Image.fromarray(rot_imgs[0])
+        # import pdb; pdb.set_trace()
+        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
         objects_in_view = []
-        obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
-                                        set(), set(), self._spot_object,
-                                        gripper_open_percentage, None)
+
+        # Perform object detection.
+        object_detections_per_camera = self.detect_objects(rgbd_images)
+
+
+        # artifacts = {"language": {"rgbds": rgbd_images, "object_id_to_img_detections": ret}}
+        # detections_outfile = Path(".") / "object_detection_artifacts.png"
+        # no_detections_outfile = Path(".") / "no_detection_artifacts.png"
+        # visualize_all_artifacts(artifacts, detections_outfile, no_detections_outfile)
+
+        # # Draw object bounding box on images.
+        # rgbds = artifacts["language"]["rgbds"]
+        # detections = artifacts["language"]["object_id_to_img_detections"]
+        # flat_detections: List[Tuple[RGBDImage,
+        #                             LanguageObjectDetectionID,
+        #                             SegmentedBoundingBox]] = []
+        # for obj_id, img_detections in detections.items():
+        #     for camera, seg_bb in img_detections.items():
+        #         rgbd = rgbds[camera]
+        #         flat_detections.append((rgbd, obj_id, seg_bb))
+        
+        # # For now assume we only have 1 image, front-left.
+        # import pdb; pdb.set_trace()
+        # import PIL
+        # from PIL import ImageDraw, ImageFont
+        # bb_pil_imgs = []
+        # img = list(rgbd_images.values())[0].rotated_rgb
+        # pil_img = PIL.Image.fromarray(img)
+        # draw = ImageDraw.Draw(pil_img)
+        # for i, (rgbd, obj_id, seg_bb) in enumerate(flat_detections):
+        #     # img = rgbd.rotated_rgb
+        #     # pil_img = PIL.Image.fromarray(img)
+        #     x0, y0, x1, y1 = seg_bb.bounding_box
+        #     draw.rectangle([(x0, y0), (x1, y1)], outline='green', width=2)
+        #     text = f"{obj_id.language_id}"
+        #     font = ImageFont.load_default()
+        #     # font = utils.get_scaled_default_font(draw, 4)
+        #     # text_width, text_height = draw.textsize(text, font)
+        #     # text_width = draw.textlength(text, font)
+        #     # text_height = font.getsize("hg")[1] 
+        #     text_mask = font.getmask(text)
+        #     text_width, text_height = text_mask.size
+        #     text_bbox = [(x0, y0 - text_height - 2), (x0 + text_width + 2, y0)]
+        #     draw.rectangle(text_bbox, fill='green')
+        #     draw.text((x0 + 1, y0 - text_height - 1), text, fill='white', font=font)
+
+        # import pdb; pdb.set_trace()
+        
+        obs = _TruncatedSpotObservation(
+            rgbd_images,
+            set(objects_in_view),
+            set(),
+            set(),
+            self._spot_object,
+            gripper_open_percentage,
+            object_detections_per_camera
+        )
         goal_description = self._generate_goal_description()
         task = EnvironmentTask(obs, goal_description)
         return task
@@ -2606,13 +2689,20 @@ class VLMTestEnv(SpotRearrangementEnv):
                 logging.warning("WARNING: the following retryable error "
                                 f"was encountered. Trying again.\n{e}")
         rgbd_images = capture_images_without_context(self._robot)
-        gripper_open_percentage = get_robot_gripper_open_percentage(
-            self._robot)
-        print(gripper_open_percentage)
+        gripper_open_percentage = get_robot_gripper_open_percentage(self._robot)
         objects_in_view = []
-        obs = _TruncatedSpotObservation(rgbd_images, set(objects_in_view),
-                                        set(), set(), self._spot_object,
-                                        gripper_open_percentage, action.get_option())
+        # Perform object detection.
+        object_detections_per_camera = self.detect_objects(rgbd_images)
+
+        obs = _TruncatedSpotObservation(
+            rgbd_images,
+            set(objects_in_view),
+            set(),
+            set(),
+            self._spot_object,
+            gripper_open_percentage,
+            object_detections_per_camera
+        )
         return obs
 
 

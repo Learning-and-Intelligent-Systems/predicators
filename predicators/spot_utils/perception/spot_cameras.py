@@ -23,12 +23,12 @@ ROTATION_ANGLE = {
     'right_fisheye_image': 180
 }
 RGB_TO_DEPTH_CAMERAS = {
-    "hand_color_image": "hand_depth_in_hand_color_frame",
-    "left_fisheye_image": "left_depth_in_visual_frame",
-    "right_fisheye_image": "right_depth_in_visual_frame",
+    # "hand_color_image": "hand_depth_in_hand_color_frame",
+    # "left_fisheye_image": "left_depth_in_visual_frame",
+    # "right_fisheye_image": "right_depth_in_visual_frame",
     "frontleft_fisheye_image": "frontleft_depth_in_visual_frame",
-    "frontright_fisheye_image": "frontright_depth_in_visual_frame",
-    "back_fisheye_image": "back_depth_in_visual_frame"
+    # "frontright_fisheye_image": "frontright_depth_in_visual_frame",
+    # "back_fisheye_image": "back_depth_in_visual_frame"
 }
 
 # Hack to avoid double image capturing when we want to (1) get object states
@@ -125,7 +125,7 @@ def capture_images_without_context(
     robot: Robot,
     camera_names: Optional[Collection[str]] = None,
     quality_percent: int = 100,
-) -> Dict[str, RGBDImageWithContext]:
+) -> Dict[str, RGBDImage]:
     """Build an image request and get the responses.
 
     If no camera names are provided, all RGB cameras are used.
@@ -174,7 +174,7 @@ def capture_images_without_context(
         rgb_img_resp = name_to_response[camera_name]
         depth_img_resp = name_to_response[RGB_TO_DEPTH_CAMERAS[camera_name]]
         rgb_img = _image_response_to_image(rgb_img_resp)
-        rgb_img = ndimage.rotate(rgb_img, ROTATION_ANGLE[camera_name])
+        # rgb_img = ndimage.rotate(rgb_img, ROTATION_ANGLE[camera_name], reshape=False)
         depth_img = _image_response_to_image(depth_img_resp)
         # # Create transform.
         # camera_tform_body = get_a_tform_b(
