@@ -109,6 +109,8 @@ class _TruncatedSpotObservation:
     executed_skill: Optional[_Option] = None
     # Object detections per camera in self.rgbd_images.
     object_detections_per_camera: Dict[str, List[Tuple[ObjectDetectionID, SegmentedBoundingBox]]]
+    # Last skill
+    executed_skill: Optional[_Option] = None
 
 
 class _PartialPerceptionState(State):
@@ -2630,7 +2632,8 @@ class VLMTestEnv(SpotRearrangementEnv):
             set(),
             self._spot_object,
             gripper_open_percentage,
-            object_detections_per_camera
+            object_detections_per_camera,
+            None
         )
         goal_description = self._generate_goal_description()
         task = EnvironmentTask(obs, goal_description)
@@ -2701,7 +2704,8 @@ class VLMTestEnv(SpotRearrangementEnv):
             set(),
             self._spot_object,
             gripper_open_percentage,
-            object_detections_per_camera
+            object_detections_per_camera,
+            action.get_option()
         )
         return obs
 
