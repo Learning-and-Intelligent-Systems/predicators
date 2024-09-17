@@ -362,6 +362,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     metrics: Metrics = defaultdict(float)
     curr_num_nodes_created = 0.0
     curr_num_nodes_expanded = 0.0
+    import pdb; pdb.set_trace()
     for test_task_idx, env_task in enumerate(test_tasks):
         solve_start = time.perf_counter()
         try:

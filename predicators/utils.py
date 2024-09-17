@@ -2603,6 +2603,7 @@ def query_vlm_for_atom_vals(
     vlm_output_str = vlm_output[0]
     print(f"VLM output: {vlm_output_str}")
     all_vlm_responses = vlm_output_str.strip().split("\n")
+    # import pdb; pdb.set_trace()
     # NOTE: this assumption is likely too brittle; if this is breaking, feel
     # free to remove/adjust this and change the below parsing loop accordingly!
     assert len(atom_queries_list) == len(all_vlm_responses)
@@ -2615,7 +2616,7 @@ def query_vlm_for_atom_vals(
                                     ":"):period_idx].lower().strip() == "true":
             true_atoms.add(vlm_atoms[i])
     
-    breakpoint()
+    # breakpoint()
     # Add the text of the VLM's response to the state, to be used in the future!
     # REMOVE THIS -> AND PUT IT IN THE PERCEIVER
     # Perceiver calls utils.abstract once, and puts it in the state history. 
@@ -2623,7 +2624,7 @@ def query_vlm_for_atom_vals(
     # instead just pull the abstract state from the state simulator state field that has it already. 
     # The appending of vlm atom history is currently done in query_vlm_for_atom_vals() in utils.py,
     # and utils.ground calls that.
-    state.simulator_state["vlm_atoms_history"].append(all_vlm_responses)
+    # state.simulator_state["vlm_atoms_history"].append(all_vlm_responses)
     
     return true_atoms
 
@@ -2652,6 +2653,7 @@ def abstract(state: State,
         for pred in vlm_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
+        # import pdb; pdb.set_trace()
         true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
         atoms |= true_vlm_atoms
     return atoms

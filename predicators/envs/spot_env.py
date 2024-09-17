@@ -2451,7 +2451,7 @@ class VLMTestEnv(SpotRearrangementEnv):
     def predicates(self) -> Set[Predicate]:
         # return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Pourable", "Toasted", "VLMIn", "Open"])
         return set(p for p in _ALL_PREDICATES
-                   if p.name in ["VLMOn", "Holding", "HandEmpty", "Upright"])
+                   if p.name in ["VLMOn", "Holding", "HandEmpty"])
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -2474,6 +2474,7 @@ class VLMTestEnv(SpotRearrangementEnv):
             Object("cup", _movable_object_type),
             Object("chair", _movable_object_type),
             Object("bowl", _movable_object_type),
+            Object("table", _movable_object_type),
         }
         for o in objects:
             detection_id = LanguageObjectDetectionID(o.name)

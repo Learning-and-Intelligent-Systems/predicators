@@ -635,13 +635,6 @@ class SpotMinimalPerceiver(BasePerceiver):
         # self._static_object_features = meta.get("static-object-features", {})
         
 
-    def update_perceiver_with_action(self, action: Action) -> None:
-        # NOTE: we need to keep track of the previous action
-        # because the step function (where we need knowledge
-        # of the previous action) occurs *after* the action
-        # has already been taken.
-        self._prev_action = action
-
     def _create_goal(self, state: State,
                      goal_description: GoalDescription) -> Set[GroundAtom]:
         del state  # not used
@@ -680,11 +673,20 @@ class SpotMinimalPerceiver(BasePerceiver):
         # self._curr_state = state
         self._curr_env = get_or_create_env(CFG.env)
         state = self._create_state()
-        state.simulator_state = {}
-        state.simulator_state["images"] = []
-        # self._curr_state = state
-        self._curr_state = None  # this will get set by self.step()
+        # state.simulator_state = {}
+        # state.simulator_state["images"] = []
+        # state.simulator_state["state_history"] = []
+        # state.simulator_state["skill_history"] = []
+        # state.simulator_state["vlm_atoms_history"] = []
+        self._curr_state = state
         goal = self._create_goal(state, env_task.goal_description)
+
+        # Reset run-specific things.
+        self._state_history = []
+        self._executed_skill_history = []
+        self._vlm_label_history = []
+        self._prev_action = None
+
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
@@ -718,21 +720,66 @@ class SpotMinimalPerceiver(BasePerceiver):
                 draw.rectangle(text_bbox, fill='green')
                 draw.text((x0 + 1, y0 - 1.5*text_height), text, fill='white', font=font)
         
-        import PIL
-        from PIL import ImageDraw
-        annotated_pil_imgs = []
-        for img, img_name in zip(imgs, img_names):
-            pil_img = PIL.Image.fromarray(img)
-            draw = ImageDraw.Draw(pil_img)
-            font = utils.get_scaled_default_font(draw, 4)
-            annotated_pil_img = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[img_name], font)
-            annotated_pil_imgs.append(pil_img)
-        annotated_imgs = [np.array(img) for img in annotated_pil_imgs]
+        # import PIL
+        # from PIL import ImageDraw
+        # annotated_pil_imgs = []
+        # for img, img_name in zip(imgs, img_names):
+        #     pil_img = PIL.Image.fromarray(img)
+        #     draw = ImageDraw.Draw(pil_img)
+        #     font = utils.get_scaled_default_font(draw, 4)
+        #     annotated_pil_img = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[img_name], font)
+        #     annotated_pil_imgs.append(pil_img)
+        annotated_imgs = [np.array(img) for img in pil_imgs]
 
         self._gripper_open_percentage = observation.gripper_open_percentage
 
-        curr_state = self._create_state
+        # check if self._curr_state is what we expect it to be.
+        import pdb; pdb.set_trace()
 
+        self._curr_state = self._create_state()
+        # This state is a default/empty. We have to set the attributes
+        # of the objects and set the simulator state properly. 
+        self._curr_state.simulator_state["images"] = annotated_imgs
+        # At the first timestep, these histories will be empty due to self.reset().
+        # But at every timestep that isn't the first one, they will be non-empty.
+        self._curr_state.simulator_state["state_history"] = list(self._state_history)
+        self._curr_state.simulator_state["skill_history"] = list(self._executed_skill_history)
+        self._curr_state.simulator_state["vlm_label_history"] = list(self._vlm_label_history)
+
+        # Add to histories.
+        # A bit of extra work is required to build the VLM label history. 
+        # We want to keep `utils.abstract()` as straightforward as possible, 
+        # so we'll "rebuild" the VLM labels from the abstract state 
+        # returned by `utils.abstract()`. And since we call this function, 
+        # we might as well store the abstract state as a part of the simulator
+        # state so that we don't need to recompute it later in the approach or 
+        # in planning.
+        assert self._curr_env is not None
+        preds = self._curr_env.predicates
+        state_copy = self._curr_env.copy()
+        abstract_state = utils.abstract(state_copy, preds)
+        self._curr_state.simulator_state["abstract_state"] = abstract_state
+        # Compute all the VLM atoms. `utils.abstract()` only returns the ones that
+        # are True. The remaining ones are the ones that are False.
+        vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+        vlm_atoms = set()
+        for pred in vlm_preds:
+            for choice in utils.get_object_combinations(list(state_copy), pred.types):
+                vlm_atoms.add(GroundAtom(pred, choice))
+        vlm_atoms = sorted(vlm_atoms)
+        import pdb; pdb.set_trace()
+
+        self._state_history.append(self._curr_state.copy())
+        # The executed skill will be `None` in the first timestep.
+        # This should be handled in the function that processes the 
+        # history when passing it to the VLM.
+        self._executed_skill_history.append(observation.executed_skill)
+
+        #############################
+
+
+
+        curr_state = self._create_state
         self._curr_state = self._create_state()
         self._curr_state.simulator_state["images"] = annotated_imgs
         ret_state = self._curr_state.copy()
@@ -777,9 +824,9 @@ class SpotMinimalPerceiver(BasePerceiver):
             return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
-        # table = Object("table", _immovable_object_type)
+        table = Object("table", _immovable_object_type)
         cup = Object("cup", _movable_object_type)
-        # pan = Object("pan", _container_type)
+        pan = Object("pan", _container_type)
         # bread = Object("bread", _movable_object_type)
         # toaster = Object("toaster", _immovable_object_type)
         # microwave = Object("microwave", _movable_object_type)
@@ -795,21 +842,21 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qy": 0,
                 "qz": 0,
             },
-            # table: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 1,
-            #     "flat_top_surface": 1
-            # },
+            table: {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width" : 0,
+                "length": 0,
+                "object_id": 1,
+                "flat_top_surface": 1
+            },
             cup: {
                 "x": 0,
                 "y": 0,
@@ -905,29 +952,32 @@ class SpotMinimalPerceiver(BasePerceiver):
             #     "object_id": 1,
             #     "flat_top_surface": 1
             # },
-            # pan: {
-            #     "x": 0,
-            #     "y": 0,
-            #     "z": 0,
-            #     "qw": 0,
-            #     "qx": 0,
-            #     "qy": 0,
-            #     "qz": 0,
-            #     "shape": 0,
-            #     "height": 0,
-            #     "width" : 0,
-            #     "length": 0,
-            #     "object_id": 3,
-            #     "placeable": 1,
-            #     "held": 0,
-            #     "lost": 0,
-            #     "in_hand_view": 0,
-            #     "in_view": 1,
-            #     "is_sweeper": 0
-            # }
+            pan: {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width" : 0,
+                "length": 0,
+                "object_id": 3,
+                "placeable": 1,
+                "held": 0,
+                "lost": 0,
+                "in_hand_view": 0,
+                "in_view": 1,
+                "is_sweeper": 0
+            }
         }
         state_dict = {k: list(v.values()) for k, v in state_dict.items()}
-        ret_state = State(state_dict)
-        ret_state.simulator_state = {}
-        ret_state.simulator_state["images"] = []
-        return ret_state
+        state = State(state_dict)
+        state.simulator_state = {}
+        state.simulator_state["images"] = []
+        state.simulator_state["state_history"] = []
+        state.simulator_state["skill_history"] = []
+        state.simulator_state["vlm_atoms_history"] = []
+        return state
