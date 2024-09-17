@@ -1,0 +1,34 @@
+# rl_bridge_approach experiments in gridrowdoor env.
+---
+APPROACHES:
+  ourmethod:
+    NAME: "rl_bridge_policy"
+    FLAGS:
+      explorer: "maple_q"
+      bilevel_plan_without_sim: True
+      mlp_regressor_max_itr: 100000
+      segmenter: "oracle"
+      demonstrator: "oracle"
+      sesame_max_skeletons_optimized: 50
+      use_obj_centric: True
+ENVS:
+  RLBRIDGE_coffee:
+    NAME: "coffee"
+ARGS:
+  - "debug"
+FLAGS:
+  max_initial_demos: 0
+  sampler_learner: "oracle"
+  strips_learner: "oracle"
+  num_online_learning_cycles: 200
+  num_test_tasks: 10
+  num_train_tasks: 1
+  interactive_num_requests_per_cycle: 5
+  online_nsrt_learning_requests_per_cycle: 5
+  max_num_steps_interaction_request: 200
+  timeout: 1000
+  horizon: 150
+  active_sampler_learning_num_samples: 100
+  same_levels: True
+START_SEED: 0
+NUM_SEEDS: 8
