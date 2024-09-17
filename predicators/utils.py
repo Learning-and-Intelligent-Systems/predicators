@@ -2618,6 +2618,11 @@ def query_vlm_for_atom_vals(
     breakpoint()
     # Add the text of the VLM's response to the state, to be used in the future!
     # REMOVE THIS -> AND PUT IT IN THE PERCEIVER
+    # Perceiver calls utils.abstract once, and puts it in the state history. 
+    # According to a flag, anywhere else we normally call utils.abstract, we 
+    # instead just pull the abstract state from the state simulator state field that has it already. 
+    # The appending of vlm atom history is currently done in query_vlm_for_atom_vals() in utils.py,
+    # and utils.ground calls that.
     state.simulator_state["vlm_atoms_history"].append(all_vlm_responses)
     
     return true_atoms
