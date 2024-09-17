@@ -4,5 +4,5 @@ _block_type = Type("block", [
     "color_b"] + bbox_features)
 _robot_type = Type(
     "robot", ["pose_x", "pose_y", "pose_z", "fingers"] + bbox_features)
-_table_type = Type("table", bbox_features)
+_plate_type = Type("plate", bbox_features)
 _machine_type = Type("machine", ["is_on"] + bbox_features)

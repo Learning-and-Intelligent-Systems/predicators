@@ -225,6 +225,8 @@ class ImagePatch:
                 dy += 10
             elif obj.type.name == "target":
                 dy += 15
+            elif obj.type.name == "plate":
+                dy += 30
 
             img_np = self.draw_text(vis_image,
                                     obj.id,

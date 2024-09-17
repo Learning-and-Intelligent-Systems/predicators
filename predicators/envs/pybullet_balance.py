@@ -24,9 +24,9 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Table parameters.
-    # _table1_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    # _plate1_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table2_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    # _table3_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    # _plate3_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     # _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
     # button_press_threshold = 1e-3
@@ -45,14 +45,14 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         self._robot_type = Type(
             "robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
             (bbox_features if CFG.env_include_bbox_features else []))
-        self._table_type = Type(
-            "table", (bbox_features if CFG.env_include_bbox_features else []))
+        self._plate_type = Type(
+            "plate", (bbox_features if CFG.env_include_bbox_features else []))
 
         # Predicates
         self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
                                         self._On_NSP_holds)
-        self._OnTable_NSP = NSPredicate("OnTable", [self._block_type],
-                                        self._OnTable_NSP_holds)
+        self._OnPlate_NSP = NSPredicate("OnPlate", [self._block_type],
+                                        self._OnPlate_NSP_holds)
         self._Holding_NSP = NSPredicate("Holding", [self._block_type],
                                         self._Holding_NSP_holds)
         self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
@@ -77,7 +77,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
             # self._On_NSP,
-            # self._OnTable_NSP,
+            # self._OnPlate_NSP,
             # self._GripperOpen_NSP,
             # self._Holding_NSP,
             # self._Clear_NSP,
@@ -130,7 +130,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         return finger_state == 1.0
 
 
-    def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
+    def _OnPlate_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
             bool:
         """Determine if the block in objects is directly resting on the table's
         surface in the scene image."""
@@ -138,13 +138,13 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         block_name = block.id_name
 
         # We know there is only one table in this environment.
-        table = state.get_objects(self._table_type)[0]
-        table_name = table.id_name
+        plate = state.get_objects(self._plate_type)[0]
+        plate_name = plate.id_name
         # Crop the image to the smallest bounding box that include both objects.
-        attention_image = state.crop_to_objects([block, table])
+        attention_image = state.crop_to_objects([block, plate])
 
         return state.evaluate_simple_assertion(
-            f"{block_name} is directly resting on {table_name}'s surface.",
+            f"{block_name} is directly resting on {plate_name}'s surface.",
             attention_image)
 
     def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
@@ -218,16 +218,16 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         #             cls._table2_pose[1] + cls._table_side_w + cls._table_gap, 
         #             cls._table2_pose[2])
         collision_shape_id3 = p.createCollisionShape(shapeType=p.GEOM_BOX,
-                        halfExtents=cls._table_side_half_extents,
+                        halfExtents=cls._plate_half_extents,
                         physicsClientId=physics_client_id)
         visual_shape_id3 = p.createVisualShape(shapeType=p.GEOM_BOX,
-                        halfExtents=cls._table_side_half_extents,
+                        halfExtents=cls._plate_half_extents,
                         rgbaColor=[.9, .9, .9, 1],  # white color
                         physicsClientId=physics_client_id)
-        table3_id = p.createMultiBody(baseMass=0,  # Static object
+        plate3_id = p.createMultiBody(baseMass=0,  # Static object
                                     baseCollisionShapeIndex=collision_shape_id3,
                                     baseVisualShapeIndex=visual_shape_id3,
-                                    basePosition=cls._table3_pose,
+                                    basePosition=cls._plate3_pose,
                                     baseOrientation=cls._table_orientation,
                                     physicsClientId=physics_client_id)
 
@@ -235,21 +235,41 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         #             cls._table2_pose[1] - cls._table_side_w - cls._table_gap, 
         #             cls._table2_pose[2])
         collision_shape_id1 = p.createCollisionShape(shapeType=p.GEOM_BOX,
-                        halfExtents=cls._table_side_half_extents,
+                        halfExtents=cls._plate_half_extents,
                         physicsClientId=physics_client_id)
         visual_shape_id1 = p.createVisualShape(shapeType=p.GEOM_BOX,
-                        halfExtents=cls._table_side_half_extents,
+                        halfExtents=cls._plate_half_extents,
                         rgbaColor=[.9, .9, .9, 1],  # white color
                         physicsClientId=physics_client_id)
-        table1_id = p.createMultiBody(baseMass=0,  # Static object
+        plate1_id = p.createMultiBody(baseMass=0,  # Static object
                                     baseCollisionShapeIndex=collision_shape_id1,
                                     baseVisualShapeIndex=visual_shape_id1,
-                                    basePosition=cls._table1_pose,
+                                    basePosition=cls._plate1_pose,
                                     baseOrientation=cls._table_orientation,
                                     physicsClientId=physics_client_id)
 
-        bodies["table_ids"] = [table1_id, table3_id]
+        bodies["table_ids"] = [plate1_id, plate3_id]
 
+        # Add a beam  
+        collision_shape_id = p.createCollisionShape(
+            shapeType=p.GEOM_BOX,
+            halfExtents=cls._beam_half_extents,
+            physicsClientId=physics_client_id,
+        )
+        visual_shape_id = p.createVisualShape(
+            shapeType=p.GEOM_BOX,
+            halfExtents=cls._beam_half_extents,
+            rgbaColor=[.9, .9, .9, 1],  # Example color
+            physicsClientId=physics_client_id
+        )
+        p.createMultiBody(
+            baseMass=0,  # Static object
+            baseCollisionShapeIndex=collision_shape_id,
+            baseVisualShapeIndex=visual_shape_id,
+            basePosition=cls._beam_pose,
+            physicsClientId=physics_client_id
+        )
+                      
         # Add a light / button that we want to turn on
         button_collision_id = p.createCollisionShape(
             p.GEOM_SPHERE,
@@ -331,9 +351,9 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
-        # self._table1_id = pybullet_bodies["table_id"]
+        # self._plate1_id = pybullet_bodies["table_id"]
         # self._table2_id = pybullet_bodies["table2_id"]
-        # self._table3_id = pybullet_bodies["table3_id"]
+        # self._plate3_id = pybullet_bodies["plate3_id"]
         self._table_ids = pybullet_bodies["table_ids"]
         self._block_ids = pybullet_bodies["block_ids"]
         self._button_id = pybullet_bodies["button_id"]
@@ -372,9 +392,9 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         self._block_id_to_block = {}
         self._obj_id_to_obj = {}
         self._obj_id_to_obj[self._pybullet_robot.robot_id] = self._robot
-        self._obj_id_to_obj[self._table_ids[0]] = self._table1
+        self._obj_id_to_obj[self._table_ids[0]] = self._plate1
         # self._obj_id_to_obj[self._table_ids[1]] = self._table2
-        self._obj_id_to_obj[self._table_ids[1]] = self._table3
+        self._obj_id_to_obj[self._table_ids[1]] = self._plate3
         self._obj_id_to_obj[self._button_id] = self._machine
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
@@ -472,9 +492,9 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         state_dict[self._machine] = np.array([machine_on], dtype=np.float32)
 
         # Get table state.
-        state_dict[self._table1] = np.array([], dtype=np.float32)
+        state_dict[self._plate1] = np.array([], dtype=np.float32)
         # state_dict[self._table2] = np.array([], dtype=np.float32)
-        state_dict[self._table3] = np.array([], dtype=np.float32)
+        state_dict[self._plate3] = np.array([], dtype=np.float32)
 
         state = utils.PyBulletState(state_dict,
                                     simulator_state=joint_positions)
@@ -492,7 +512,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
         # Turn machine on
         if self._PressingButton_holds(state, [self._robot, self._machine]):
-            if self._Balanced_holds(state, [self._table1, self._table3]):
+            if self._Balanced_holds(state, [self._plate1, self._plate3]):
                 p.changeVisualShape(
                     self._button_id,
                     -1,

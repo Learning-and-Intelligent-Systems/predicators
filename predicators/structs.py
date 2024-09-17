@@ -433,6 +433,8 @@ class Predicate:
         if hasattr(self, "parameterized_assertion") and\
             self.parameterized_assertion is not None:
             body_str += f": {self.parameterized_assertion(var_names)}"
+        if hasattr(self, "annotation") and self.annotation is not None:
+            body_str += f" ({self.annotation})"
         return body_str
 
     def pddl_str(self) -> str:

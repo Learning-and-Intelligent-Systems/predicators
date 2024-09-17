@@ -37,12 +37,12 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
         robot_type = types["robot"]
         block_type = types["block"]
         machine_type = types["machine"]
-        table_type = types["table"]
+        plate_type = types["plate"]
         block_size = CFG.blocks_block_size
 
         Holding = predicates['Holding']
         On = predicates['On']
-        OnTable = predicates['OnTable']
+        OnPlate = predicates['OnPlate']
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
         # Balanced = predicates['Balanced']
@@ -78,20 +78,20 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             # terminal=_Stack_terminal,
         )
 
-        # def _PutOnTable_terminal(s: State, m: Dict, o: Sequence[Object],
+        # def _PutOnPlate_terminal(s: State, m: Dict, o: Sequence[Object],
         #                          p: Array) -> bool:
         #     block, _ = o
-        #     return OnTable.holds(s, [block])
+        #     return OnPlate.holds(s, [block])
 
-        PutOnTable = utils.SingletonParameterizedOption(
+        PutOnPlate = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
-            "PutOnTable",
-            cls._create_putontable_policy(action_space, block_size),
-            types=[robot_type],
+            "PutOnPlate",
+            cls._create_putonplate_policy(action_space, block_size),
+            types=[robot_type, plate_type],
             # types=[block_type, robot_type],
             params_space=Box(0, 1, (2, )),
-            # terminal=_PutOnTable_terminal,
+            # terminal=_PutOnPlate_terminal,
         )
 
         # TurnMachineOn
@@ -112,7 +112,7 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
-            types=[robot_type, machine_type, table_type, table_type],
+            types=[robot_type, machine_type, plate_type, plate_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
@@ -120,7 +120,7 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             annotation="Turn the machine on.")
 
 
-        return {Pick, Stack, PutOnTable, TurnMachineOn}
+        return {Pick, Stack, PutOnPlate, TurnMachineOn}
 
     @classmethod
     def _create_turn_machine_on_policy(cls) -> ParameterizedPolicy:
@@ -194,7 +194,7 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
         return policy
 
     @classmethod
-    def _create_putontable_policy(cls, action_space: Box,
+    def _create_putonplate_policy(cls, action_space: Box,
                                   block_size: float) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
@@ -269,12 +269,12 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
         robot_type = types["robot"]
         block_type = types["block"]
         machine_type = types["machine"]
-        table_type = types["table"]
+        plate_type = types["plate"]
         block_size = CFG.blocks_block_size
 
         Holding = predicates['Holding']
         On = predicates['On']
-        OnTable = predicates['OnTable']
+        OnPlate = predicates['OnPlate']
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
         Balanced = predicates['Balanced'].untransformed_predicate
@@ -380,17 +380,17 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
             ],
             annotation="Stack the block in hand onto block ?otherblock")
 
-        # PutOnTable
-        option_types = [robot_type]
+        # PutOnPlate
+        option_types = [robot_type, plate_type]
         params_space = Box(0, 1, (2, ))
         place_z = PyBulletBalanceEnv.table_height + \
             block_size / 2 + cls._offset_z
-        PutOnTable = utils.LinearChainParameterizedOption(
-            "PutOnTable",
+        PutOnPlate = utils.LinearChainParameterizedOption(
+            "PutOnPlate",
             [
                 # Move to above the table at the (x, y) where we will place.
                 cls._create_blocks_move_to_above_table_option(
-                    name="MoveEndEffectorToPrePutOnTable",
+                    name="MoveEndEffectorToPrePutOnPlate",
                     z=PyBulletBalanceEnv.pick_z,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
@@ -398,7 +398,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     params_space=params_space),
                 # Move down to place.
                 cls._create_blocks_move_to_above_table_option(
-                    name="MoveEndEffectorToPutOnTable",
+                    name="MoveEndEffectorToPutOnPlate",
                     z=place_z,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
@@ -418,7 +418,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     option_types=option_types,
                     params_space=params_space),
             ],
-            annotation="Put block on table")
+            annotation="Put block on plate")
 
         # TurnMachineOn
         def _TurnMachineOn_initiable(state: State, memory: Dict,
@@ -438,7 +438,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
-            types=[robot_type, machine_type, table_type, table_type],
+            types=[robot_type, machine_type, plate_type, plate_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
@@ -446,7 +446,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
             annotation="Turn the machine on.")
 
 
-        return {Pick, Stack, PutOnTable, TurnMachineOn}
+        return {Pick, Stack, PutOnPlate, TurnMachineOn}
 
     @classmethod
     def _create_blocks_move_to_above_block_option(
@@ -498,7 +498,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
         def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose, Pose, str]:
-            robot, = objects
+            robot, _ = objects
             current_position = (state.get(robot, "pose_x"),
                                 state.get(robot, "pose_y"),
                                 state.get(robot, "pose_z"))

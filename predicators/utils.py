@@ -2301,13 +2301,14 @@ def run_policy_with_simulator(
             monitor_observed = False
             exception_raised_in_step = False
             try:
-                # logging.debug(f"Step {i} \n"+ pformat(state.pretty_str()))
+                # logging.debug(f"State {i}:\n"+ pformat(state.pretty_str()))
                 act = policy(state)
-                # logging.debug(f"Action {act}")
+                # logging.debug(f"Action {i}: {act}")
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
                 state = simulator(state, act)
+                # logging.debug(f"State {i+1}:\n"+ pformat(state.pretty_str()))
                 actions.append(act)
                 states.append(state)
             except Exception as e:

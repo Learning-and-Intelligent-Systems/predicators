@@ -32,22 +32,22 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         block_type = types["block"]
         robot_type = types["robot"]
         machine_type = types["machine"]
-        table_type = types["table"]
+        plate_type = types["plate"]
 
         # Predicates
         On = predicates["On"]
-        OnTable = predicates["OnTable"]
+        OnPlate = predicates["OnPlate"]
         GripperOpen = predicates["GripperOpen"]
         Holding = predicates["Holding"]
         Clear = predicates["Clear"]
         Balanced = predicates["Balanced"]
         MachineOn = predicates["MachineOn"]
-        ClearTable = predicates["ClearTable"]
+        ClearPlate = predicates["ClearPlate"]
 
         # Options
         Pick = options["Pick"]
         Stack = options["Stack"]
-        PutOnTable = options["PutOnTable"]
+        PutOnPlate = options["PutOnPlate"]
         TurnMachineOn = options["TurnMachineOn"]
 
         nsrts = set()
@@ -55,26 +55,26 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # PickFromTable
         block = Variable("?block", block_type)
         robot = Variable("?robot", robot_type)
-        table = Variable("?table", table_type)
-        parameters = [block, robot, table]
+        plate = Variable("?plate", plate_type)
+        parameters = [block, robot, plate]
         option_vars = [robot, block]
         option = Pick
         preconditions = {
-            LiftedAtom(OnTable, [block, table]),
+            LiftedAtom(OnPlate, [block, plate]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
         add_effects = {LiftedAtom(Holding, [block])}
         delete_effects = {
-            LiftedAtom(OnTable, [block, table]),
+            LiftedAtom(OnPlate, [block, plate]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
 
-        pickfromtable_nsrt = NSRT("PickFromTable", parameters,
+        pickfromplate_nsrt = NSRT("PickFromTable", parameters,
                                   preconditions, add_effects, delete_effects,
                                   set(), option, option_vars, null_sampler)
-        nsrts.add(pickfromtable_nsrt)
+        nsrts.add(pickfromplate_nsrt)
 
         # Unstack
         block = Variable("?block", block_type)
@@ -129,58 +129,61 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                           null_sampler)
         nsrts.add(stack_nsrt)
 
-        # PutOnTable
+        # PutOnPlate
         block = Variable("?block", block_type)
         robot = Variable("?robot", robot_type)
-        table = Variable("?table", table_type)
-        parameters = [block, robot, table]
+        plate = Variable("?plate", plate_type)
+        parameters = [block, robot, plate]
         # option_vars = [block, robot]
-        option_vars = [robot]
-        option = PutOnTable
+        option_vars = [robot, plate]
+        option = PutOnPlate
         preconditions = {
             LiftedAtom(Holding, [block]),
-            LiftedAtom(ClearTable, [table])}
+            LiftedAtom(ClearPlate, [plate])}
         add_effects = {
-            LiftedAtom(OnTable, [block, table]),
+            LiftedAtom(OnPlate, [block, plate]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
         delete_effects = {LiftedAtom(Holding, [block])}
 
-        def putontable_sampler(state: State, goal: Set[GroundAtom],
+        def putonplate_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
             del state, goal # unused
-            block, robot, table = objs
+            block, robot, plate = objs
             # Note: normalized coordinates w.r.t. workspace.
-            x = rng.uniform()
-            if table.name == "table1":
-                y = rng.uniform(0, 
-                    (env_cls.y_table1_ub - env_cls.y_lb) /
-                    (env_cls.y_ub - env_cls.y_lb))
-            elif table.name == "table3":
-                y = rng.uniform(
-                    (env_cls.y_table3_lb - env_cls.y_lb) /
-                    (env_cls.y_ub - env_cls.y_lb)
-                    , 1)
+            # x = rng.uniform()
+            x = 0.09
+            if plate.name == "plate1":
+                # y = rng.uniform(0, 
+                #     (env_cls.y_plate1_ub - env_cls.y_lb) /
+                #     (env_cls.y_ub - env_cls.y_lb))
+                y = 0.06
+            elif plate.name == "plate3":
+                # y = rng.uniform(
+                #     (env_cls.y_plate3_lb - env_cls.y_lb) /
+                #     (env_cls.y_ub - env_cls.y_lb)
+                #     , 1)
+                y = 0.84
             else:
-                raise ValueError(f"Unknown table: {table.name}")
+                raise ValueError(f"Unknown plate: {plate.name}")
             return np.array([x, y], dtype=np.float32)
 
-        putontable_nsrt = NSRT("PutOnTable", parameters, preconditions,
+        putonplate_nsrt = NSRT("PutOnPlate", parameters, preconditions,
                                add_effects, delete_effects, set(), option,
-                               option_vars, putontable_sampler)
-        nsrts.add(putontable_nsrt)
+                               option_vars, putonplate_sampler)
+        nsrts.add(putonplate_nsrt)
 
         # TurnMachineOn
         machine = Variable("?machine", machine_type)
         robot = Variable("?robot", robot_type)
-        table1 = Variable("?table1", table_type)
-        table2 = Variable("?table2", table_type)
-        parameters = [robot, machine, table1, table2]
-        option_vars = [robot, machine, table1, table2]
+        plate1 = Variable("?plate1", plate_type)
+        plate2 = Variable("?plate2", plate_type)
+        parameters = [robot, machine, plate1, plate2]
+        option_vars = [robot, machine, plate1, plate2]
         option = TurnMachineOn
-        preconditions = {LiftedAtom(Balanced, [table1, table2]),
+        preconditions = {LiftedAtom(Balanced, [plate1, plate2]),
                          LiftedAtom(GripperOpen, [robot])}
         add_effects = {LiftedAtom(MachineOn, [machine])}
         delete_effects = set()

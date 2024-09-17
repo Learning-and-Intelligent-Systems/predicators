@@ -262,7 +262,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         num_tasks = len(tasks)
         propose_ite = 1
         max_invent_ite = 10
-        self.manual_prompt = False
+        self.manual_prompt = True
         self.regenerate_response = False
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
         best_solve_rate, best_ite, clf_acc = -np.inf, 0.0, 0.0
@@ -317,7 +317,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         for ite in range(1, max_invent_ite + 1):
             logging.info(f"===Starting iteration {ite}...")
             if CFG.vlm_invention_alternate_between_p_ad:
-                CFG.vlm_invention_propose_nl_properties = propose_it % 2 == 0
+                CFG.vlm_invention_propose_nl_properties = propose_ite % 2 == 1
                 logging.info("Proposing predicates mainly based on effect: "
                              f"{not CFG.vlm_invention_propose_nl_properties}")
             # Reset at every iteration
@@ -890,6 +890,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     (str(e) == "Encountered repeated state."):
                         try:
                             option = option_plan.pop(0)
+                            # logging.debug(f"Executing {option}")
                         except IndexError:
                             # When the option_plan is exhausted
                             # Rendering the final state for success traj
@@ -1200,6 +1201,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         max_num_groundings += 1
                     else:
                         max_num_examples += 1
+        
         # (if true) First get proposals in natural language
         if CFG.vlm_invention_propose_nl_properties:
             nl_proposal_f = CFG.log_file + f"ite{ite}_stage0.response"
@@ -1217,6 +1219,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                 "parts": [response]
             }]
 
+            if self.env.get_name() == "pybullet_balance":
+                response = response.split("\n")[:5]
+                response = "\n".join(response)
             # Second: convert the NL proposals to formal predicate specs.
             template_f = "prompts/invent_0_nl_2_pred_spec.outline"
             with open(template_f, "r") as f:
@@ -1260,34 +1265,13 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Save the query to a file
             response_file = CFG.log_file + f"ite{ite}_stage2.response"
 
+            breakpoint()
             response = self._get_vlm_response(
                 response_file,
                 self._vlm,
                 s2_prompt,
                 images,
             )
-            # if not os.path.exists(response_file) or regenerate_response:
-            #     if manual_prompt:
-            #         # create a empty file for pasting chatGPT response
-            #         with open(response_file, 'w') as file:
-            #             pass
-            #         logging.info(
-            #             f"## Please paste the response from the VLM " +
-            #             f"to {response_file}")
-            #         input("Press Enter when you have pasted the " +
-            #               "response.")
-            #     else:
-            #         # should try both with and without reset
-            #         self._vlm.reset_chat_session()
-            #         # query the VLM until they make the write predication
-            #         response = self._vlm.sample_completions(
-            #             s2_prompt,
-            #             images,
-            #             temperature=0,
-            #             seed=CFG.seed,
-            #             num_completions=1)[0]
-            #     with open(response_file, 'w') as f:
-            #         f.write(response)
 
         primitive_preds, concept_preds = self._parse_predicate_predictions(
             response_file, tasks, ite)
@@ -1556,7 +1540,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         # If NSP, provide the GT goal NSPs, although they are never used.
         pred_str_lst = []
         pred_str_lst.append(self._init_predicate_str(env,
-                                                     self.env_source_code))
+                                                self.env_source_code,
+                                                show_predicate_assertion=True))
         pred_str = '\n'.join(pred_str_lst)
         template = template.replace("[PREDICATES_IN_ENV]", pred_str)
 
@@ -1786,12 +1771,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                 continue
             pred_name = match.group(1)
             logging.info(f"Found definition for predicate {pred_name}")
+            is_concept_predicate = self.check_is_concept_predicate(code_str)
+            logging.info(f"\t it's a concept predicate: {is_concept_predicate}")
 
             # Recognize that it's a concept predicate (not using `get` or 
             # `evaluate_simple`)
             # Translate it from using state to abstract state
-            # is_concept_predicate = check_is_concept_predicate(code_str)
-            is_concept_predicate = True
             if is_concept_predicate:
                 unconverted_concept_pred_str.append(code_str)
             else:
@@ -1860,6 +1845,16 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         return primitive_preds, concept_preds
 
+    @staticmethod
+    def check_is_concept_predicate(code_str: str) -> bool:
+        """Check if the predicate is a concept predicate by looking for
+        `get` or `evaluate_simple` in the code block.
+        """
+        if "state.get(" in code_str or\
+           "state.evaluate_simple_assertion" in code_str:
+            return False
+        return True
+
     def translate_concept_predicate(self, ite: int, code_str: str) -> str:
         """Call GPT to transform the predicate str
         """
@@ -1874,8 +1869,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             f.write(prompt)
 
         response_f = CFG.log_file + f"ite{ite}_classifier_transform.response"
-        response = self._get_vlm_response(
-            response_f, self._vlm, prompt, [])
+        response = self._get_vlm_response(response_f, self._vlm, prompt, [])
 
         return response
 
