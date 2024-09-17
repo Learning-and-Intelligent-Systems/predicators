@@ -2591,7 +2591,7 @@ def query_vlm_for_atom_vals(
     if "state_history" in state.simulator_state:
         prev_states = state.simulator_state["state_history"]
         prev_states_imgs_history = [s.simulator_state["images"] for s in prev_states]
-    images_history = [curr_state_images] + prev_states_imgs_history
+    images_history = prev_states_imgs_history + [curr_state_images]
     skill_history = []
     if "skill_history" in state.simulator_state:
         skill_history = state.simulator_state["skill_history"]
@@ -2606,6 +2606,7 @@ def query_vlm_for_atom_vals(
     vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
         CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
         label_history, images_history, [], skill_history)
+    import pdb; pdb.set_trace()
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     vlm_input_imgs = \
@@ -2652,6 +2653,8 @@ def abstract(state: State,
 
     Duplicate arguments in predicates are allowed.
     """
+    if "abstract_state" in state.simulator_state:
+        return state.simulator_state["abstract_state"]
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
     # Next, classify all non-VLM predicates.

@@ -739,6 +739,9 @@ class SpotMinimalPerceiver(BasePerceiver):
         # At the first timestep, these histories will be empty due to self.reset().
         # But at every timestep that isn't the first one, they will be non-empty.
         self._curr_state.simulator_state["state_history"] = list(self._state_history)
+        # We do this here so the call to `utils.abstract()` a few lines later has the skill
+        # that was just run.
+        self._executed_skill_history.append(observation.executed_skill)  # None in first timestep.
         self._curr_state.simulator_state["skill_history"] = list(self._executed_skill_history)
         self._curr_state.simulator_state["vlm_label_history"] = list(self._vlm_label_history)
 
@@ -753,6 +756,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         assert self._curr_env is not None
         preds = self._curr_env.predicates
         state_copy = self._curr_state.copy()
+        print(f"Right before abstract state, skill in obs: {observation.executed_skill}")
         abstract_state = utils.abstract(state_copy, preds)
         self._curr_state.simulator_state["abstract_state"] = abstract_state
         # Compute all the VLM atoms. `utils.abstract()` only returns the ones that
@@ -763,7 +767,6 @@ class SpotMinimalPerceiver(BasePerceiver):
             for choice in utils.get_object_combinations(list(state_copy), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
         vlm_atoms = sorted(vlm_atoms)
-        atom_queries_list = [atom.get_vlm_query_str() for atom in vlm_atoms]
         reconstructed_all_vlm_responses = []
         for atom in vlm_atoms:
             if atom in abstract_state:
@@ -772,9 +775,9 @@ class SpotMinimalPerceiver(BasePerceiver):
                 truth_value = 'False'
             atom_label = f"* {atom.get_vlm_query_str()}: {truth_value}"
             reconstructed_all_vlm_responses.append(atom_label)
-        self._vlm_label_history.append(reconstructed_all_vlm_responses)
+        str_vlm_response = '\n'.join(reconstructed_all_vlm_responses)
+        self._vlm_label_history.append(str_vlm_response)
         self._state_history.append(self._curr_state.copy())
-        self._executed_skill_history.append(observation.executed_skill)  # None in first timestep.
         return self._curr_state.copy()
 
     def _create_state(self) -> State:
@@ -782,7 +785,7 @@ class SpotMinimalPerceiver(BasePerceiver):
             return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
-        table = Object("table", _immovable_object_type)
+        table = Object("table", _movable_object_type)
         cup = Object("cup", _movable_object_type)
         pan = Object("pan", _container_type)
         # bread = Object("bread", _movable_object_type)
@@ -812,8 +815,13 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "height": 0,
                 "width" : 0,
                 "length": 0,
-                "object_id": 1,
-                "flat_top_surface": 1
+                "object_id": 0,
+                "placeable": 1,
+                "held": 0,
+                "lost": 0,
+                "in_hand_view": 0,
+                "in_view": 1,
+                "is_sweeper": 0
             },
             cup: {
                 "x": 0,
@@ -827,7 +835,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "height": 0,
                 "width": 0,
                 "length": 0,
-                "object_id": 2,
+                "object_id": 1,
                 "placeable": 1,
                 "held": 0,
                 "lost": 0,
@@ -922,7 +930,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "height": 0,
                 "width" : 0,
                 "length": 0,
-                "object_id": 3,
+                "object_id": 2,
                 "placeable": 1,
                 "held": 0,
                 "lost": 0,

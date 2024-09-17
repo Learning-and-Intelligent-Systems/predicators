@@ -491,6 +491,9 @@ class Task:
 
     def goal_holds(self, state: State, vlm: Optional[Any] = None) -> bool:
         """Return whether the goal of this task holds in the given state."""
+        if "abstract_state" in state.simulator_state:
+            abstract_state = state.simulator_state["abstract_state"]
+            return self.goal.issubset(abstract_state)
         from predicators.utils import query_vlm_for_atom_vals
         vlm_atoms = set(atom for atom in self.goal
                         if isinstance(atom.predicate, VLMPredicate))

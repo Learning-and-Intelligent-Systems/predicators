@@ -2485,7 +2485,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         # Pick object
         robot = Variable("?robot", _robot_type)
         obj = Variable("?object", _movable_object_type)
-        table = Variable("?table", _immovable_object_type)
+        table = Variable("?table", _movable_object_type)
         parameters = [robot, obj, table]
         preconds: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
