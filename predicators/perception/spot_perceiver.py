@@ -741,7 +741,14 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._curr_state.simulator_state["state_history"] = list(self._state_history)
         # We do this here so the call to `utils.abstract()` a few lines later has the skill
         # that was just run.
-        self._executed_skill_history.append(observation.executed_skill)  # None in first timestep.
+        executed_skill = None
+
+        if observation.executed_skill is not None:
+            if observation.executed_skill.extra_info.action_name == "done":
+                # Just return the default state
+                return DefaultState
+            executed_skill = observation.executed_skill.get_option()
+        self._executed_skill_history.append(executed_skill)  # None in first timestep.
         self._curr_state.simulator_state["skill_history"] = list(self._executed_skill_history)
         self._curr_state.simulator_state["vlm_label_history"] = list(self._vlm_label_history)
 

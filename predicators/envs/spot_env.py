@@ -2677,7 +2677,16 @@ class VLMTestEnv(SpotRearrangementEnv):
                     self._current_task_goal_reached = False
                     break
                 logging.info("Invalid input, must be either 'y' or 'n'")
-            return self._current_observation
+            return _TruncatedSpotObservation(
+                                    self._current_observation.rgbd_images,
+                                    self._current_observation.objects_in_view,
+                                    set(),
+                                    set(),
+                                    self._spot_object,
+                                    self._current_observation.gripper_open_percentage,
+                                    self._current_observation.object_detections_per_camera,
+                                    action
+                                )
 
         # Execute the action in the real environment. Automatically retry
         # if a retryable error is encountered.
@@ -2704,7 +2713,7 @@ class VLMTestEnv(SpotRearrangementEnv):
             self._spot_object,
             gripper_open_percentage,
             object_detections_per_camera,
-            action.get_option()
+            action
         )
         return obs
 
