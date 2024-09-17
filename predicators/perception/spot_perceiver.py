@@ -730,11 +730,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         #     annotated_pil_img = utils.add_text_to_draw_img(draw, (0, 0), self.camera_name_to_annotation[img_name], font)
         #     annotated_pil_imgs.append(pil_img)
         annotated_imgs = [np.array(img) for img in pil_imgs]
-
         self._gripper_open_percentage = observation.gripper_open_percentage
-
-        # check if self._curr_state is what we expect it to be.
-        import pdb; pdb.set_trace()
 
         self._curr_state = self._create_state()
         # This state is a default/empty. We have to set the attributes
@@ -756,7 +752,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         # in planning.
         assert self._curr_env is not None
         preds = self._curr_env.predicates
-        state_copy = self._curr_env.copy()
+        state_copy = self._curr_state.copy()
         abstract_state = utils.abstract(state_copy, preds)
         self._curr_state.simulator_state["abstract_state"] = abstract_state
         # Compute all the VLM atoms. `utils.abstract()` only returns the ones that
@@ -767,57 +763,19 @@ class SpotMinimalPerceiver(BasePerceiver):
             for choice in utils.get_object_combinations(list(state_copy), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
         vlm_atoms = sorted(vlm_atoms)
-        import pdb; pdb.set_trace()
-
+        atom_queries_list = [atom.get_vlm_query_str() for atom in vlm_atoms]
+        reconstructed_all_vlm_responses = []
+        for atom in vlm_atoms:
+            if atom in abstract_state:
+                truth_value = 'True'
+            else:
+                truth_value = 'False'
+            atom_label = f"* {atom.get_vlm_query_str()}: {truth_value}"
+            reconstructed_all_vlm_responses.append(atom_label)
+        self._vlm_label_history.append(reconstructed_all_vlm_responses)
         self._state_history.append(self._curr_state.copy())
-        # The executed skill will be `None` in the first timestep.
-        # This should be handled in the function that processes the 
-        # history when passing it to the VLM.
-        self._executed_skill_history.append(observation.executed_skill)
-
-        #############################
-
-
-
-        curr_state = self._create_state
-        self._curr_state = self._create_state()
-        self._curr_state.simulator_state["images"] = annotated_imgs
-        ret_state = self._curr_state.copy()
-        self._state_history.append(ret_state)
-        ret_state.simulator_state["state_history"] = list(self._state_history)
-        self._executed_skill_history.append(observation.executed_skill)
-        ret_state.simulator_state["skill_history"] = list(self._executed_skill_history)
-
-        # Save "all_vlm_responses" towards building vlm atom history.
-        # Any time utils.abstract() is called, e.g. approach or planner, 
-        # we may (depending on flags) want to pass in the vlm atom history
-        # into the prompt to the VLM. 
-        # We could save `all_vlm_responses` computed internally by
-        # utils.query_vlm_for_aotm_vals(), but that would require us to 
-        # change how utils.abstract() works. Instead, we'll re-compute the 
-        # `all_vlm_responses` based on the true atoms returned by utils.abstract().
-        assert self._curr_env is not None
-        preds = self._curr_env.predicates
-        state_copy = ret_state.copy()  # temporary, to ease debugging
-        abstract_state = utils.abstract(state_copy, preds)
-        # We should avoid recomputing the abstract state (VLM noise?) so let's store it in 
-        # the state.
-        ret_state.simulator_state["abstract_state"] = abstract_state
-        # Re-compute the VLM labeling for the VLM atoms in this state to store in our 
-        # vlm atom history.
-        # This code also appears in utils.abstract()
-        if self._curr_state is not None:
-            vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
-            vlm_atoms = set()
-            for pred in vlm_preds:
-                for choice in utils.get_object_combinations(list(state_copy), pred.types):
-                    vlm_atoms.add(GroundAtom(pred, choice))
-            vlm_atoms = sorted(vlm_atoms)
-            import pdb; pdb.set_trace()
-            ret_state.simulator_state["vlm_atoms_history"].append(abstract_state)
-        else:
-            self._curr_state = ret_state.copy()
-        return ret_state
+        self._executed_skill_history.append(observation.executed_skill)  # None in first timestep.
+        return self._curr_state.copy()
 
     def _create_state(self) -> State:
         if self._waiting_for_observation:

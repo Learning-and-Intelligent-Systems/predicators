@@ -2499,7 +2499,6 @@ def get_prompt_for_vlm_state_labelling(
         imgs_history: List[List[PIL.Image.Image]],
         cropped_imgs_history: List[List[PIL.Image.Image]],
         skill_history: List[Action]) -> Tuple[str, List[PIL.Image.Image]]:
-    # import pdb; pdb.set_trace()
     """Prompt for generating labels for an entire trajectory. Similar to the
     above prompting method, this outputs a list of prompts to label the state
     at each timestep of traj with atom values).
@@ -2517,7 +2516,6 @@ def get_prompt_for_vlm_state_labelling(
                   encoding="utf-8") as f:
             prompt = f.read()
     except FileNotFoundError:
-        import pdb; pdb.set_trace()
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
     # The prompt ends with a section for 'Predicates', so list these.
@@ -2574,22 +2572,40 @@ def query_vlm_for_atom_vals(
     # vlm can be called on.
     assert state.simulator_state is not None
     assert isinstance(state.simulator_state["images"], List)
-    if "vlm_atoms_history" not in state.simulator_state:
-        state.simulator_state["vlm_atoms_history"] = []
-    imgs = state.simulator_state["images"]
-    previous_states = []
-    # We assume the state.simulator_state contains a list of previous states.
-    if "state_history" in state.simulator_state:
-        previous_states = state.simulator_state["state_history"]
-    state_imgs_history = [
-        state.simulator_state["images"] for state in previous_states
-    ]
+    # if "vlm_atoms_history" not in state.simulator_state:
+    #     state.simulator_state["vlm_atoms_history"] = []
+    # imgs = state.simulator_state["images"]
+    # previous_states = []
+    # # We assume the state.simulator_state contains a list of previous states.
+    # if "state_history" in state.simulator_state:
+    #     previous_states = state.simulator_state["state_history"]
+    # state_imgs_history = [
+    #     state.simulator_state["images"] for state in previous_states
+    # ]
     vlm_atoms = sorted(vlm_atoms)
     atom_queries_list = [atom.get_vlm_query_str() for atom in vlm_atoms]
+    # All "history" fields in the simulator state contain things from 
+    # previous states -- not the current state. 
+    # We want the image history to include the images from the current state.
+    curr_state_images = state.simulator_state["images"]
+    if "state_history" in state.simulator_state:
+        prev_states = state.simulator_state["state_history"]
+        prev_states_imgs_history = [s.simulator_state["images"] for s in prev_states]
+    images_history = [curr_state_images] + prev_states_imgs_history
+    skill_history = []
+    if "skill_history" in state.simulator_state:
+        skill_history = state.simulator_state["skill_history"]
+    label_history = []
+    if "vlm_label_history" in state.simulator_state:
+        label_history = state.simulator_state["vlm_label_history"]
+
+    # vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
+    #     CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
+    #     state.simulator_state["vlm_atoms_history"], state_imgs_history, [],
+    #     state.simulator_state["skill_history"])
     vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
         CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
-        state.simulator_state["vlm_atoms_history"], state_imgs_history, [],
-        state.simulator_state["skill_history"])
+        label_history, images_history, [], skill_history)
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     vlm_input_imgs = \
@@ -2603,7 +2619,6 @@ def query_vlm_for_atom_vals(
     vlm_output_str = vlm_output[0]
     print(f"VLM output: {vlm_output_str}")
     all_vlm_responses = vlm_output_str.strip().split("\n")
-    # import pdb; pdb.set_trace()
     # NOTE: this assumption is likely too brittle; if this is breaking, feel
     # free to remove/adjust this and change the below parsing loop accordingly!
     assert len(atom_queries_list) == len(all_vlm_responses)
@@ -2612,8 +2627,9 @@ def query_vlm_for_atom_vals(
         assert atom_query + ":" in curr_vlm_output_line
         assert "." in curr_vlm_output_line
         period_idx = curr_vlm_output_line.find(".")
-        if curr_vlm_output_line[len(atom_query +
-                                    ":"):period_idx].lower().strip() == "true":
+        # value = curr_vlm_output_line[len(atom_query + ":"):period_idx].lower().strip()
+        value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
+        if value == "true":
             true_atoms.add(vlm_atoms[i])
     
     # breakpoint()
@@ -2625,7 +2641,6 @@ def query_vlm_for_atom_vals(
     # The appending of vlm atom history is currently done in query_vlm_for_atom_vals() in utils.py,
     # and utils.ground calls that.
     # state.simulator_state["vlm_atoms_history"].append(all_vlm_responses)
-    
     return true_atoms
 
 
