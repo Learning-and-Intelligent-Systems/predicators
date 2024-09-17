@@ -41,8 +41,8 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
         block_size = CFG.blocks_block_size
 
         Holding = predicates['Holding']
-        On = predicates['On']
-        OnPlate = predicates['OnPlate']
+        On = predicates['DirectlyOn']
+        OnPlate = predicates['DirectlyOnPlate']
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
         # Balanced = predicates['Balanced']
@@ -273,8 +273,8 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
         block_size = CFG.blocks_block_size
 
         Holding = predicates['Holding']
-        On = predicates['On']
-        OnPlate = predicates['OnPlate']
+        On = predicates['DirectlyOn']
+        OnPlate = predicates['DirectlyOnPlate']
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
         Balanced = predicates['Balanced'].untransformed_predicate

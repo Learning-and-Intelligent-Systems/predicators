@@ -49,10 +49,10 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
             "plate", (bbox_features if CFG.env_include_bbox_features else []))
 
         # Predicates
-        self._On_NSP = NSPredicate("On", [self._block_type, self._block_type],
-                                        self._On_NSP_holds)
-        self._OnPlate_NSP = NSPredicate("OnPlate", [self._block_type],
-                                        self._OnPlate_NSP_holds)
+        self._DirectlyOn_NSP = NSPredicate("DirectlyOn", [self._block_type, self._block_type],
+                                        self._DirectlyOn_NSP_holds)
+        self._DirectlyOnPlate_NSP = NSPredicate("DirectlyOnPlate", [self._block_type],
+                                        self._DirectlyOnPlate_NSP_holds)
         self._Holding_NSP = NSPredicate("Holding", [self._block_type],
                                         self._Holding_NSP_holds)
         self._GripperOpen_NSP = NSPredicate("GripperOpen", [self._robot_type],
@@ -76,8 +76,8 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     @property
     def ns_predicates(self) -> Set[NSPredicate]:
         return {
-            # self._On_NSP,
-            # self._OnPlate_NSP,
+            # self._DirectlyOn_NSP,
+            # self._DirectlyOnPlate_NSP,
             # self._GripperOpen_NSP,
             # self._Holding_NSP,
             # self._Clear_NSP,
@@ -92,7 +92,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         for other_block in state:
             if other_block.type != self._block_type:
                 continue
-            if self._On_holds(state, [other_block, block]):
+            if self._DirectlyOn_holds(state, [other_block, block]):
                 return False
         return True
 
@@ -130,7 +130,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         return finger_state == 1.0
 
 
-    def _OnPlate_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
+    def _DirectlyOnPlate_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
             bool:
         """Determine if the block in objects is directly resting on the table's
         surface in the scene image."""
@@ -147,7 +147,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
             f"{block_name} is directly resting on {plate_name}'s surface.",
             attention_image)
 
-    def _On_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
+    def _DirectlyOn_NSP_holds(state: RawState, objects: Sequence[Object]) -> bool:
         """Determine if the first block in objects is directly on top of the
         second block with no blocks in between in the scene image, by using a
         combination of rules and VLMs."""

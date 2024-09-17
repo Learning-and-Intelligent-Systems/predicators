@@ -35,8 +35,8 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         plate_type = types["plate"]
 
         # Predicates
-        On = predicates["On"]
-        OnPlate = predicates["OnPlate"]
+        On = predicates["DirectlyOn"]
+        OnPlate = predicates["DirectlyOnPlate"]
         GripperOpen = predicates["GripperOpen"]
         Holding = predicates["Holding"]
         Clear = predicates["Clear"]

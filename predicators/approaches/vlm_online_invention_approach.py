@@ -1148,7 +1148,15 @@ class VlmInventionApproach(NSRTLearningApproach):
         tasks: List[Task],
         # state_list_str: str = "",
     ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
-        # Create the first prompt
+        # Stage -1 (optional): get concept predicates based on existing 
+        #       predicates
+        if CFG.vlm_invention_initial_concept_invention:
+            template_f = "prompts/invent_0_initial_concept_invent.outline"
+            
+            prompt_f = CFG.log_file +  
+
+
+        # Create the first prompt.
         max_attempts = 5
         max_num_groundings, max_num_examples = 1, 1
         min_imgs, max_imgs = 6, 10
@@ -1202,7 +1210,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                     else:
                         max_num_examples += 1
         
-        # (if true) First get proposals in natural language
+        
+        # Stage 0 (optional): get proposals in natural language
         if CFG.vlm_invention_propose_nl_properties:
             nl_proposal_f = CFG.log_file + f"ite{ite}_stage0.response"
             response = self._get_vlm_response(nl_proposal_f,
@@ -1235,24 +1244,23 @@ class VlmInventionApproach(NSRTLearningApproach):
                 f.write(prompt)
 
         if CFG.vlm_invent_predicates_in_stages:
-            response_file = CFG.log_file + f"ite{ite}_stage1.response"
+            save_file = CFG.log_file + f"ite{ite}_stage1.response"
         else:
-            response_file = CFG.log_file + f"ite{ite}.response"
+            save_file = CFG.log_file + f"ite{ite}.response"
 
-        # Prompt the VLM to directly OR
-        # first get nl_predicate proposals and then get ns_predicate
-        # implementations.
-
+        # Stage 1: 
+        #   Either prompt the VLM to directly to write predicates
+        #   OR     first get proposals in nl; then write predicates
         response = self._get_vlm_response(
-            response_file, self._vlm, prompt,
+            save_file, self._vlm, prompt,
             [] if CFG.vlm_invention_propose_nl_properties else images)
 
         if CFG.vlm_invent_predicates_in_stages:
             # Get NL predicate dataset
             # --- for each state, the predicates that are true and false
-            # with open(response_file, 'r') as file:
+            # with open(save_file, 'r') as file:
             #     response = file.read()
-            # predicate_specs = parse_nl_predicate_predictions(response_file)
+            # predicate_specs = parse_nl_predicate_predictions(save_file)
             predicate_specs = response
             if CFG.vlm_invention_positive_negative_include_next_state and\
                 not CFG.vlm_invention_propose_nl_properties:
@@ -1262,19 +1270,20 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Generate prompt to write ns_predicates
             s2_prompt = self._create_invention_stage_two_prompt(
                 env, ite, state_str, predicate_specs)
-            # Save the query to a file
-            response_file = CFG.log_file + f"ite{ite}_stage2.response"
+            save_file = CFG.log_file + f"ite{ite}_stage2.response"
 
             breakpoint()
+            # Stage 2: Implement the predicates
             response = self._get_vlm_response(
-                response_file,
+                save_file,
                 self._vlm,
                 s2_prompt,
                 images,
             )
 
+        # Stage 3: Parse and load the predicates
         primitive_preds, concept_preds = self._parse_predicate_predictions(
-            response_file, tasks, ite)
+            save_file, tasks, ite)
         return primitive_preds, concept_preds
 
     def _select_predicates_by_score_optimization(

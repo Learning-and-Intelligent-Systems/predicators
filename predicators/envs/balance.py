@@ -122,14 +122,14 @@ class BalanceEnv(BaseEnv):
                                 CFG.env_include_bbox_features else []))
 
         # Predicates
-        self._On = Predicate(
-            "On", [self._block_type, self._block_type], self._On_holds,
+        self._DirectlyOn = Predicate(
+            "DirectlyOn", [self._block_type, self._block_type], self._DirectlyOn_holds,
             lambda objs:
             f"{objs[0]} is directly on top of {objs[1]} with no blocks in between."
         )
-        self._OnPlate = Predicate("OnPlate", 
+        self._DirectlyOnPlate = Predicate("DirectlyOnPlate", 
                                 [self._block_type, self._plate_type], 
-                                self._OnPlate_holds,
+                                self._DirectlyOnPlate_holds,
             lambda objs:
             f"{objs[0]} is directly resting on the {objs[1]}'s surface.")
         self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
@@ -165,7 +165,7 @@ class BalanceEnv(BaseEnv):
                             ) -> bool:
         plate, = objects
         for block in state.get_objects(self._block_type):
-            if self._OnPlate_holds(state, [block, plate]):
+            if self._DirectlyOnPlate_holds(state, [block, plate]):
                 return False
         return True
 
@@ -195,10 +195,11 @@ class BalanceEnv(BaseEnv):
             def count_recursive(base_obj, count):
                 for block in state.get_objects(self._block_type):
                     if base_obj.type == self._block_type and\
-                            self._On_holds(state, [block, base_obj]):
+                            self._DirectlyOn_holds(state, [block, base_obj]):
                         count = count_recursive(block, count + 1)
                     elif base_obj.type == self._plate_type and\
-                            self._OnPlate_holds(state, [block, base_obj]):
+                            self._DirectlyOnPlate_holds(state, [block, 
+                                                                base_obj]):
                         count = count_recursive(block, count + 1)
                 return count
 
@@ -226,10 +227,10 @@ class BalanceEnv(BaseEnv):
     #             base_obj, current_count = stack.pop()
     #             for block in state.get_objects(self._block_type):
     #                 if base_obj.type == self._block_type and\
-    #                     self._On_holds(state, [block, base_obj]):
+    #                     self._DirectlyOn_holds(state, [block, base_obj]):
     #                     stack.append((block, current_count + 1))
     #                 elif base_obj.type == self._plate_type and\
-    #                     self._OnPlate_holds(state, [block, base_obj]):
+    #                     self._DirectlyOnPlate_holds(state, [block, base_obj]):
     #                     stack.append((block, current_count + 1))
     #             count = max(count, current_count)
 
@@ -253,10 +254,10 @@ class BalanceEnv(BaseEnv):
         def count_num_blocks(table):
             def count_recursive(base_obj, count):
                 for atom in atoms:
-                    if atom.predicate == self._On and\
+                    if atom.predicate == self._DirectlyOn and\
                             atom.objects[1] == base_obj:
                         count = count_recursive(atom.objects[0], count + 1)
-                    elif atom.predicate == self._OnPlate and\
+                    elif atom.predicate == self._DirectlyOnPlate and\
                             atom.objects[1] == base_obj:
                         count = count_recursive(atom.objects[0], count + 1)
                 return count
@@ -285,9 +286,9 @@ class BalanceEnv(BaseEnv):
     #         while stack:
     #             base_obj, current_count = stack.pop()
     #             for atom in atoms:
-    #                 if atom.predicate == self._On and atom.objects[1] == base_obj:
+    #                 if atom.predicate == self._DirectlyOn and atom.objects[1] == base_obj:
     #                     stack.append((atom.objects[0], current_count + 1))
-    #                 elif atom.predicate == self._OnPlate and atom.objects[1] == base_obj:
+    #                 elif atom.predicate == self._DirectlyOnPlate and atom.objects[1] == base_obj:
     #                     stack.append((atom.objects[0], current_count + 1))
     #             count = max(count, current_count)
 
@@ -445,7 +446,7 @@ class BalanceEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._On, self._OnPlate, self._GripperOpen, self._Holding,
+            self._DirectlyOn, self._DirectlyOnPlate, self._GripperOpen, self._Holding,
             self._Clear, self._MachineOn, self._ClearPlate, self._Balanced_abs
         }
 
@@ -459,7 +460,7 @@ class BalanceEnv(BaseEnv):
     def goal_predicates(self) -> Set[Predicate]:
         if CFG.balance_holding_goals:
             return {self._Holding}
-        return {self._On, self._OnPlate}
+        return {self._DirectlyOn, self._DirectlyOnPlate}
 
     @property
     def types(self) -> Set[Type]:
@@ -630,11 +631,11 @@ class BalanceEnv(BaseEnv):
         # Create goal from piles
         goal_atoms = set()
         for pile in goal_piles:
-            goal_atoms.add(GroundAtom(self._OnPlate, [pile[0]]))
+            goal_atoms.add(GroundAtom(self._DirectlyOnPlate, [pile[0]]))
             if len(pile) == 1:
                 continue
             for block1, block2 in zip(pile[1:], pile[:-1]):
-                goal_atoms.add(GroundAtom(self._On, [block1, block2]))
+                goal_atoms.add(GroundAtom(self._DirectlyOn, [block1, block2]))
         return goal_atoms
 
     def _sample_initial_pile_xy(
@@ -667,7 +668,7 @@ class BalanceEnv(BaseEnv):
     def _block_is_clear(self, block: Object, state: State) -> bool:
         return self._Clear_holds(state, [block])
 
-    def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _DirectlyOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block1, block2 = objects
         if state.get(block1, "held") >= self.held_tol or \
            state.get(block2, "held") >= self.held_tol:
@@ -681,21 +682,7 @@ class BalanceEnv(BaseEnv):
         return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
-    def _On_holds_raw(self, state: State, objects: Sequence[Object]) -> bool:
-        block1, block2 = objects
-        if state.get(block1, "held") >= self.held_tol or \
-           state.get(block2, "held") >= self.held_tol:
-            return False
-        x1 = state.get(block1, "pose_x")
-        y1 = state.get(block1, "pose_y")
-        z1 = state.get(block1, "pose_z")
-        x2 = state.get(block2, "pose_x")
-        y2 = state.get(block2, "pose_y")
-        z2 = state.get(block2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
-                           atol=self.on_tol)
-
-    def _OnPlate_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _DirectlyOnPlate_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, table = objects
         y = state.get(block, "pose_y")
         z = state.get(block, "pose_z")
@@ -711,7 +698,6 @@ class BalanceEnv(BaseEnv):
                 raise ValueError("Invalid table name")
         else:
             return False
-
 
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -731,7 +717,7 @@ class BalanceEnv(BaseEnv):
         for other_block in state:
             if other_block.type != self._block_type:
                 continue
-            if self._On_holds(state, [other_block, block]):
+            if self._DirectlyOn_holds(state, [other_block, block]):
                 return False
         return True
 
@@ -782,7 +768,7 @@ class BalanceEnv(BaseEnv):
         with open(json_file, "r", encoding="utf-8") as f:
             task_spec = json.load(f)
         # Create the initial state from the task spec.
-        # One day, we can make the block size a feature of the blocks, but
+        # DirectlyOne day, we can make the block size a feature of the blocks, but
         # for now, we'll just make sure that the block size in the real env
         # matches what we expect in sim.
         assert np.isclose(task_spec["block_size"], self._block_size)
@@ -833,10 +819,10 @@ class BalanceEnv(BaseEnv):
                                          object_names: Collection[str]) -> str:
         # pylint:disable=line-too-long
         return """# Build a tower of block 1, block 2, and block 3, with block 1 on top
-{"On": [["block1", "block2"], ["block2", "block3"]]}
+{"DirectlyOn": [["block1", "block2"], ["block2", "block3"]]}
 
 # Put block 4 on block 3 and block 2 on block 1 and block 1 on table
-{"On": [["block4", "block3"], ["block2", "block1"]], "OnPlate": [["block1"]]}
+{"DirectlyOn": [["block4", "block3"], ["block2", "block1"]], "DirectlyOnPlate": [["block1"]]}
 """
 
 
