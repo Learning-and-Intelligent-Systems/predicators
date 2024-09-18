@@ -737,3 +737,90 @@ class RLFirstBridgeApproach(RLBridgePolicyApproach):
             return action
 
         return _policy
+    
+
+class RwdShapeBridgeApproach(RLBridgePolicyApproach):
+    #basically same approach but stop when u hit a state thats further than the state we broke at and give a positive reward
+    # so u need to modify solve function to switch back to planner after u finished (bridge_done = True)
+    # so like check if the state we get inside of solve function has the atoms of a later state in the plan, 
+    # if so then self.bridge_done = True
+    def __init__(self,
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption],
+                 types: Set[Type],
+                 action_space: Box,
+                 train_tasks: List[Task],
+                 task_planning_heuristic: str = "default",
+                 max_skeletons_optimized: int = -1) -> None:
+        super().__init__(initial_predicates, 
+                 initial_options, 
+                 types,
+                 action_space,
+                 train_tasks,
+                 task_planning_heuristic,
+                 max_skeletons_optimized)
+        self.bridge_done = False
+ 
+
+    def _solve(self,
+               task: Task,
+               timeout: int,
+               train_or_test: str = "test") -> Callable[[State], Action]:
+        # Start by planning. Note that we cannot start with the bridge policy
+        # because the bridge policy takes as input the last failed NSRT.
+        self._current_task = task
+        # import ipdb;ipdb.set_trace()
+        self._current_control = "planner"
+        task_list, option_policy = self._get_option_policy_by_planning(task, timeout)
+        self._current_policy = utils.option_policy_to_policy(
+            option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout,
+            raise_error_on_repeated_state=True,
+        )
+        self._current_plan = task_list
+        if not self._maple_initialized:
+            self.mapleq = MPDQNApproach(self._get_current_predicates(),
+                                         self._initial_options, self._types,
+                                         self._action_space, self._train_tasks, self.CallPlanner)
+            self._maple_initialized = True
+        self._init_nsrts()
+
+        # self.mapleq._q_function.set_grounding(  # pylint: disable=protected-access
+        #     all_objects, goals, all_ground_nsrts)
+
+        # Prevent infinite loops by detecting if the bridge policy is called
+        # twice with the same state.
+        last_bridge_policy_state = DefaultState
+
+        def _policy(s: State) -> Action:
+            nonlocal last_bridge_policy_state
+
+            # Normal execution. Either keep executing the current option, or
+            # switch to the next option if it has terminated.
+            try:
+                action = self._current_policy(s)
+                if train_or_test == "train":
+                    self._policy_logs.append(self._current_control)
+                    self._plan_logs.append(self._current_plan)
+
+                return action
+            except utils.OptionExecutionFailure:
+                failed = True
+                if self._current_control == "bridge":
+                    import ipdb;ipdb.set_trace()
+                # logging.debug("failed" + self._current_control)
+
+            # Switch control from planner to bridge.
+            # assert self._current_control == "planner"
+            self._current_control = "bridge"
+            self.mapleq._q_function._last_planner_state = s
+            if train_or_test == "train":
+                self._policy_logs.append(self._current_control)
+                self._plan_logs.append(self._current_plan)
+            self._bridge_called_state = s
+            self._current_policy = self.mapleq._solve(  # pylint: disable=protected-access
+                task, timeout, train_or_test)
+            action = self._current_policy(s)
+            return action
+
+        return _policy

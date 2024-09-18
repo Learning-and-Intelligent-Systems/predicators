@@ -600,7 +600,7 @@ class GlobalSettings:
     random_bridge = False
     # whether or not we use object centric state vectorization, 
     # should be true for normal rl bridge, false for normal mapleq
-    use_obj_centric = False
+    use_obj_centric = True
     # shivam vats inspo
     rl_rwd_shape = False
 
