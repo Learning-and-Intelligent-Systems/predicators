@@ -1,7 +1,7 @@
-# rl_bridge_approach experiments in DoorKnobs env.
+# rl_bridge_approach experiments in gridrowdoor env.
 ---
 APPROACHES:
-  rl_bridge:
+  ourmethod:
     NAME: "rl_bridge_policy"
     FLAGS:
       explorer: "maple_q"
@@ -12,21 +12,25 @@ APPROACHES:
       sesame_max_skeletons_optimized: 50
       use_obj_centric: True
 ENVS:
-  300interactionsteps:
+  RLBRIDGE_coffee:
     NAME: "coffee"
+    coffee_num_cups_test: [1]
 ARGS:
   - "debug"
 FLAGS:
+  polyak_tau: 0.004
   max_initial_demos: 0
   sampler_learner: "oracle"
   strips_learner: "oracle"
-  num_online_learning_cycles: 50
-  num_test_tasks: 1
+  num_online_learning_cycles: 200
+  num_test_tasks: 10
   num_train_tasks: 1
   interactive_num_requests_per_cycle: 5
   online_nsrt_learning_requests_per_cycle: 5
   max_num_steps_interaction_request: 100
-  same_levels: True 
   timeout: 1000
+  horizon: 100
+  active_sampler_learning_num_samples: 100
+  same_levels: True
 START_SEED: 0
 NUM_SEEDS: 8
