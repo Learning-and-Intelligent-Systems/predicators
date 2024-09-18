@@ -14,6 +14,7 @@ APPROACHES:
 ENVS:
   RLBRIDGE_coffee:
     NAME: "coffee"
+    coffee_num_cups_test: [1]
 ARGS:
   - "debug"
 FLAGS:
@@ -21,13 +22,14 @@ FLAGS:
   sampler_learner: "oracle"
   strips_learner: "oracle"
   num_online_learning_cycles: 100
-  num_test_tasks: 10
+  num_test_tasks: 1
   num_train_tasks: 1
-  interactive_num_requests_per_cycle: 1
-  online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 1
+  interactive_num_requests_per_cycle: 5
+  online_nsrt_learning_requests_per_cycle: 5
+  max_num_steps_interaction_request: 100
   timeout: 1000
-  active_sampler_learning_num_samples: 10
+  horizon: 100
+  active_sampler_learning_num_samples: 100
   same_levels: True
 START_SEED: 0
 NUM_SEEDS: 8
