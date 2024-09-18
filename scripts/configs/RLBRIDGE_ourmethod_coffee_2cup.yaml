@@ -32,5 +32,5 @@ FLAGS:
   horizon: 300
   active_sampler_learning_num_samples: 100
   same_levels: True
-START_SEED: 0
-NUM_SEEDS: 8
+START_SEED: 7
+NUM_SEEDS: 1
