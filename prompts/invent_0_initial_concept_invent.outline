@@ -1,13 +1,7 @@
 Based on existing predicates, create one or more predicates with logical concepts such as transitive closure that might be useful in planning in this domain, with parameters of types available in the current environment.
 
 The existing predicates are:
-Clear(?x:block)
-ClearPlate(?x:plate)
-DirectlyOn(?x:block, ?y:block): block ?x is directly on top of block ?y with no blocks in between.
-DirectlyOnPlate(?x:block, ?y:plate): block ?x is directly resting on the plate ?y's surface.
-GripperOpen(?x:robot)
-Holding(?x:block)
-MachineOn(?x:machine)
+[PREDICATES_IN_ENV]
 
 The available types are:
 {TYPES_IN_ENV}

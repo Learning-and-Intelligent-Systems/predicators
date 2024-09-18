@@ -1151,11 +1151,11 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Stage -1 (optional): get concept predicates based on existing 
         #       predicates
         if CFG.vlm_invention_initial_concept_invention:
-            template_f = "prompts/invent_0_initial_concept_invent.outline"
+            concept_preds = self._invent_initial_concept_predicates(ite, env, 
+                                                                   tasks)
+        else:
+            concept_preds = set()
             
-            prompt_f = CFG.log_file +  
-
-
         # Create the first prompt.
         max_attempts = 5
         max_num_groundings, max_num_examples = 1, 1
@@ -1285,6 +1285,57 @@ class VlmInventionApproach(NSRTLearningApproach):
         primitive_preds, concept_preds = self._parse_predicate_predictions(
             save_file, tasks, ite)
         return primitive_preds, concept_preds
+
+    def _invent_initial_concept_predicates(self, ite: int,
+            env: BaseEnv, tasks: List[Task]) -> Set[ConceptPredicate]:
+        template_f = "prompts/invent_0_initial_concept_invent_s1.outline"
+        with open(template_f, "r") as f:
+            template = f.read()
+
+        # Get existing predicates
+        pred_str = self._init_predicate_str(env,
+                                        self.env_source_code,
+                                        show_predicate_assertion=True)
+        # Get existing types
+        if CFG.neu_sym_predicate:
+            # New version: just read from a file
+            with open(f"./prompts/types_{self.env_name}.py", 'r') as f:
+                type_instan_str = f.read()
+        else:
+            # Old version: extract directly from the source code
+            type_instan_str = self._env_type_str(self.env_source_code)
+        type_instan_str = add_python_quote(type_instan_str)
+        
+        prompt = template.format(
+                                EXISTING_PREDICATES=pred_str,
+                                EXISTING_TYPES=type_instan_str)
+        
+        # Log the prompt
+        prompt_f = CFG.log_file + f"ite{ite}_init_cnpt_s1.prompt"
+        with open(prompt_f, "w") as f:
+            f.write(prompt)
+        
+        # Get the response -- Predicate specification
+        save_f = CFG.log_file + f"ite{ite}_init_cnpt_s1.response"
+        response = self._get_vlm_response(save_f, self._vlm, prompt, [])
+
+        # Get the implementation
+        imp_prompt = self._create_invention_stage_two_prompt(
+                env, ite, "", response, f"ite{ite}_init_cnpt_s2")
+        save_file = CFG.log_file + f"ite{ite}_stage2.response"
+
+        breakpoint()
+        # Stage 2: Implement the predicates
+        response = self._get_vlm_response(
+            save_file,
+            self._vlm,
+            imp_prompt,
+        )
+
+        # Stage 3: Parse and load the predicates
+        _, concept_preds = self._parse_predicate_predictions(
+            save_file, tasks, ite)
+        return concept_preds
 
     def _select_predicates_by_score_optimization(
         self,
@@ -1547,12 +1598,14 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         # Predicates
         # If NSP, provide the GT goal NSPs, although they are never used.
-        pred_str_lst = []
-        pred_str_lst.append(self._init_predicate_str(env,
-                                                self.env_source_code,
-                                                show_predicate_assertion=True))
-        pred_str = '\n'.join(pred_str_lst)
-        template = template.replace("[PREDICATES_IN_ENV]", pred_str)
+        # pred_str_lst = []
+        # pred_str_lst.append()
+        # pred_str = '\n'.join(pred_str_lst)
+        template = template.replace("[PREDICATES_IN_ENV]", 
+                                    self._init_predicate_str(
+                                        env,
+                                        self.env_source_code,
+                                        show_predicate_assertion=True))
 
         # List of states
         template = template.replace("[LISTED_STATES]", state_list_str)
@@ -2137,7 +2190,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                           response_file: str,
                           vlm: VisionLanguageModel,
                           prompt: str,
-                          images: List[Image.Image],
+                          images: List[Image.Image] = [],
                           cache_chat_session: bool = False) -> str:
 
         if not os.path.exists(response_file) or self.regenerate_response:
