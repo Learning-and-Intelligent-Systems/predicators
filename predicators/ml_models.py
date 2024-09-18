@@ -1537,7 +1537,7 @@ class MapleQFunction(MLPRegressor):
             else:
                 best_next_value = 0.0
             Y_arr[i] = reward + self._discount * best_next_value
-        print("WE GOT REWARDS: ", num_rwd)
+        logging.debug("WE GOT REWARDS: " + str(num_rwd))
 
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain

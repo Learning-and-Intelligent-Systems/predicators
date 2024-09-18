@@ -241,8 +241,8 @@ def run_episode_and_get_observations(
                 if act.has_option() and act.get_option() != curr_option:
                     curr_option = act.get_option()
                     metrics["num_options_executed"] += 1
-                    if train_or_test=="test":
-                        logging.info(str(curr_option) + str(train_or_test) )
+                    # if train_or_test=="test":
+                    logging.info(str(curr_option) + str(train_or_test) )
                                     #  + str(cogman._approach._current_control))
                     # print( cogman._approach._current_control)
                 # Note: it's important to call monitor.observe() before
