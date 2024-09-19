@@ -957,8 +957,10 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
     "DropNotPlaceableObject": Box(0, 1, (0, )),  # empty
     "MoveToReadySweep": Box(0, 1, (0, )),  # empty
-    "Pick": Box(0, 1, (0, )),  # empty
-    "Place": Box(0, 1, (0, ))  # empty
+    "Pick1": Box(0, 1, (0, )),  # empty
+    "Place": Box(0, 1, (0, )),  # empty
+    "Pick2": Box(0, 1, (0, )),  # empty
+    "Sweep": Box(0, 1, (0, ))  # empty
 }
 
 # NOTE: the policies MUST be unique because they output actions with extra info
@@ -982,8 +984,10 @@ _OPERATOR_NAME_TO_POLICY = {
     "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,
     "DropNotPlaceableObject": _drop_not_placeable_object_policy,
     "MoveToReadySweep": _move_to_ready_sweep_policy,
-    "Pick": _teleop_policy,
-    "Place": _teleop_policy
+    "Pick1": _teleop_policy,
+    "Place": _teleop_policy,
+    "Pick2": _teleop_policy,
+    "Sweep": _teleop_policy
 }
 
 

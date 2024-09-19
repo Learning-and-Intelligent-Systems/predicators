@@ -2496,41 +2496,41 @@ class VLMTestEnv(SpotRearrangementEnv):
         return detection_id_to_obj
 
     def _create_operators(self) -> Iterator[STRIPSOperator]:
-        # Pick object
-        robot = Variable("?robot", _robot_type)
-        obj = Variable("?object", _movable_object_type)
-        table = Variable("?table", _movable_object_type)
-        parameters = [robot, obj, table]
-        preconds: Set[LiftedAtom] = {
-            LiftedAtom(_HandEmpty, [robot]),
-            LiftedAtom(_NotHolding, [robot, obj]),
-            LiftedAtom(_VLMOn, [obj, table])
-        }
-        add_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
-        del_effs: Set[LiftedAtom] = {
-            LiftedAtom(_HandEmpty, [robot]),
-            LiftedAtom(_NotHolding, [robot, obj]),
-            LiftedAtom(_VLMOn, [obj, table])
-        }
-        ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
-                             ignore_effs)
+        # # Pick object
+        # robot = Variable("?robot", _robot_type)
+        # obj = Variable("?object", _movable_object_type)
+        # table = Variable("?table", _movable_object_type)
+        # parameters = [robot, obj, table]
+        # preconds: Set[LiftedAtom] = {
+        #     LiftedAtom(_HandEmpty, [robot]),
+        #     LiftedAtom(_NotHolding, [robot, obj]),
+        #     LiftedAtom(_VLMOn, [obj, table])
+        # }
+        # add_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
+        # del_effs: Set[LiftedAtom] = {
+        #     LiftedAtom(_HandEmpty, [robot]),
+        #     LiftedAtom(_NotHolding, [robot, obj]),
+        #     LiftedAtom(_VLMOn, [obj, table])
+        # }
+        # ignore_effs: Set[LiftedAtom] = set()
+        # yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
+        #                      ignore_effs)
 
-        # Place object
-        robot = Variable("?robot", _robot_type)
-        obj = Variable("?object", _movable_object_type)
-        pan = Variable("?pan", _container_type)
-        parameters = [robot, obj, pan]
-        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
-        add_effs: Set[LiftedAtom] = {
-            LiftedAtom(_HandEmpty, [robot]),
-            LiftedAtom(_NotHolding, [robot, obj]),
-            LiftedAtom(_VLMOn, [obj, pan])
-        }
-        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
-        ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
-                             ignore_effs)
+        # # Place object
+        # robot = Variable("?robot", _robot_type)
+        # obj = Variable("?object", _movable_object_type)
+        # pan = Variable("?pan", _container_type)
+        # parameters = [robot, obj, pan]
+        # preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
+        # add_effs: Set[LiftedAtom] = {
+        #     LiftedAtom(_HandEmpty, [robot]),
+        #     LiftedAtom(_NotHolding, [robot, obj]),
+        #     LiftedAtom(_VLMOn, [obj, pan])
+        # }
+        # del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
+        # ignore_effs: Set[LiftedAtom] = set()
+        # yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
+        #                      ignore_effs)
         
 
         ##########################################3
@@ -2548,7 +2548,7 @@ class VLMTestEnv(SpotRearrangementEnv):
             LiftedAtom(_NotHolding, [robot, dustpan]),
         }
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
+        yield STRIPSOperator("Pick1", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
 
         # Place(robot, dustpan, mess)
@@ -2581,7 +2581,7 @@ class VLMTestEnv(SpotRearrangementEnv):
             LiftedAtom(_NotHolding, [robot, broom]),
         }
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
+        yield STRIPSOperator("Pick2", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
         
         # Sweep(robot, broom, mess, dustpan)
