@@ -2564,7 +2564,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         }
         del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
+        yield STRIPSOperator("Place1", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
         
         # Pick(robot, broom)
@@ -2598,6 +2598,20 @@ class VLMTestEnv(SpotRearrangementEnv):
         del_effs: Set[LiftedAtom] = set()
         ignore_effs: Set[LiftedAtom] = set()
         yield STRIPSOperator("Sweep", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
+        
+        # Place(robot, broom)
+        robot = Variable("?robot", _robot_type)
+        broom = Variable("?broom", _movable_object_type)
+        parameters = [robot, dustpan]
+        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
+        add_effs: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, broom]),
+        }
+        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
+        ignore_effs: Set[LiftedAtom] = set()
+        yield STRIPSOperator("Place2", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
 
     # def _generate_train_tasks(self) -> List[EnvironmentTask]:

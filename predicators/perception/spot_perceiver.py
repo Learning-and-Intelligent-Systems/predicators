@@ -643,8 +643,10 @@ class SpotMinimalPerceiver(BasePerceiver):
         assert self._curr_env is not None
         pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
         VLMOn = pred_name_to_pred["VLMOn"]
+        Inside = pred_name_to_pred["Inside"]
+        Holding = pred_name_to_pred["Holding"]
         HandEmpty = pred_name_to_pred["HandEmpty"]
-        
+
 
         if goal_description == "put the cup in the pan":
             robot = Object("robot", _robot_type)
@@ -657,7 +659,13 @@ class SpotMinimalPerceiver(BasePerceiver):
             return goal
 
         if goal_description == "put the mess in the dustpan":
-
+            robot = Object("robot", _robot_type)
+            dustpan = Object("dustpan", _movable_object_type)
+            wrappers = Object("wrappers", _movable_object_type)
+            goal = {
+                GroundAtom(Inside, [wrappers, dustpan]),
+                GroundAtom(Holding, [robot, dustpan])
+            }
 
         raise NotImplementedError("Unrecognized goal description")
 
