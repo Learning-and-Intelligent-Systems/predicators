@@ -2625,7 +2625,6 @@ def query_vlm_for_atom_vals(
     # ALTERNATIVE WAY TO PARSE
     if len(label_history) > 0:
         truth_values = re.findall(r'\* (.*): (True|False)', vlm_output_str)
-        import pdb; pdb.set_trace()
         for i, (atom_query, pred_label) in enumerate(zip(atom_queries_list, truth_values)):
             pred, label = pred_label
             assert pred in atom_query

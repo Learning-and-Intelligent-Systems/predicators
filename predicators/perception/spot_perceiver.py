@@ -658,15 +658,26 @@ class SpotMinimalPerceiver(BasePerceiver):
                 # GroundAtom(VLMOn, [cup, pan])
             }
             return goal
+        # if goal_description == "put the mess in the dustpan":
+        #     robot = Object("robot", _robot_type)
+        #     dustpan = Object("dustpan", _dustpan_type)
+        #     wrappers = Object("wrappers", _wrappers_type)
+        #     goal = {
+        #         GroundAtom(Inside, [wrappers, dustpan]),
+        #         GroundAtom(Holding, [robot, dustpan])
+        #     }
+        #     return goal
+
         if goal_description == "put the mess in the dustpan":
             robot = Object("robot", _robot_type)
             dustpan = Object("dustpan", _dustpan_type)
             wrappers = Object("wrappers", _wrappers_type)
             goal = {
-                GroundAtom(Inside, [wrappers, dustpan]),
+                # GroundAtom(Inside, [wrappers, dustpan]),
                 GroundAtom(Holding, [robot, dustpan])
             }
             return goal
+        
         raise NotImplementedError("Unrecognized goal description")
 
     def update_perceiver_with_action(self, action: Action) -> None:
@@ -747,6 +758,19 @@ class SpotMinimalPerceiver(BasePerceiver):
         self._gripper_open_percentage = observation.gripper_open_percentage
 
         self._curr_state = self._create_state()
+        if observation.executed_skill is not None:
+            if "Pick" in observation.executed_skill.extra_info.action_name:
+                for obj in observation.executed_skill.extra_info.operator_objects:
+                    if not obj.is_instance(_robot_type):
+                        # Turn the held feature on
+                        self._curr_state.set(obj, "held", 1.0)
+            if "Place" in observation.executed_skill.extra_info.action_name:
+                for obj in observation.executed_skill.extra_info.operator_objects:
+                    if not obj.is_instance(_robot_type):
+                        # Turn the held feature off 
+                        self._curr_state.set(obj, "held", 0.0)
+
+        # import pdb; pdb.set_trace()
         # This state is a default/empty. We have to set the attributes
         # of the objects and set the simulator state properly. 
         self._curr_state.simulator_state["images"] = annotated_imgs
@@ -800,6 +824,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         str_vlm_response = '\n'.join(reconstructed_all_vlm_responses)
         self._vlm_label_history.append(str_vlm_response)
         self._state_history.append(self._curr_state.copy())
+
         return self._curr_state.copy()
 
     def _create_state(self) -> State:

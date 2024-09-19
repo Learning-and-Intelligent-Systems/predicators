@@ -900,31 +900,34 @@ def _move_to_ready_sweep_policy(state: State, memory: Dict,
                                   state, memory, objects, params)
 
 
-def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
-    del state, memory, params
+def _create_teleop_policy_with_name(name: str) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
+    def _teleop_policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+        nonlocal name
+        del state, memory, params
 
-    robot, lease_client = get_robot_only()
-
-    def _teleop(robot: Robot, lease_client: LeaseClient):
-        prompt = "Press (y) when you are done with teleop."
-        while True:
-            response = utils.prompt_user(prompt).strip()
-            if response == "y":
-                break
-            logging.info("Invalid input. Press (y) when y")
-        # Take back control.
         robot, lease_client = get_robot_only()
-        lease_client.take()
 
-    fn = _teleop
-    fn_args = (robot, lease_client)
-    sim_fn = lambda _: None
-    sim_fn_args = ()
-    name = "teleop"
-    action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
-                                            sim_fn_args)
-    return utils.create_spot_env_action(action_extra_info)
+        def _teleop(robot: Robot, lease_client: LeaseClient):
+            prompt = "Press (y) when you are done with teleop."
+            while True:
+                response = utils.prompt_user(prompt).strip()
+                if response == "y":
+                    break
+                logging.info("Invalid input. Press (y) when y")
+            # Take back control.
+            robot, lease_client = get_robot_only()
+            lease_client.take()
+
+        fn = _teleop
+        fn_args = (robot, lease_client)
+        sim_fn = lambda _: None
+        sim_fn_args = ()
+        name = name
+        action_extra_info = SpotActionExtraInfo(name, objects, fn, fn_args, sim_fn,
+                                                sim_fn_args)
+        return utils.create_spot_env_action(action_extra_info)
+    return _teleop_policy
 
 
 ###############################################################################
@@ -985,11 +988,11 @@ _OPERATOR_NAME_TO_POLICY = {
     "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,
     "DropNotPlaceableObject": _drop_not_placeable_object_policy,
     "MoveToReadySweep": _move_to_ready_sweep_policy,
-    "Pick1": _teleop_policy,
-    "PlaceNextTo": _teleop_policy,
-    "Pick2": _teleop_policy,
-    "Sweep": _teleop_policy,
-    "PlaceOnFloor": _teleop_policy
+    "Pick1": _create_teleop_policy_with_name("Pick1"),
+    "PlaceNextTo": _create_teleop_policy_with_name("PlaceNextTo"),
+    "Pick2": _create_teleop_policy_with_name("Pick2"),
+    "Sweep": _create_teleop_policy_with_name("Sweep"),
+    "PlaceOnFloor": _create_teleop_policy_with_name("PlaceOnFloor")
 }
 
 
