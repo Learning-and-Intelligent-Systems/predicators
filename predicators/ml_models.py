@@ -2202,6 +2202,7 @@ class MPDQNFunction(MapleQFunction):
             self.target_qnet._initialize_net()
             self._qfunc_init = True
         print("WE GOT REWARDS: ", num_rwd)
+        logging.debug("WE GOT REWARDS: " + str(num_rwd))
         # print("DOORKNOB VALUES WE TRAINED ON", set(doorknob_values))
         count = 0
         for i in bad_door_index:
