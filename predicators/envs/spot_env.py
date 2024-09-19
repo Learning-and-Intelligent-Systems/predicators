@@ -42,6 +42,7 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import _base_object_type, _container_type, \
     _immovable_object_type, _movable_object_type, _robot_type, \
+    _broom_type, _dustpan_type, _wrappers_type, \
     construct_state_given_pbrspot, get_allowed_map_regions, \
     get_graph_nav_dir, get_robot_gripper_open_percentage, get_spot_home_pose, \
     load_spot_metadata, object_to_top_down_geom, update_pbrspot_given_state, \
@@ -1517,11 +1518,11 @@ _Messy= utils.create_vlm_predicate(
 # long = "Is the dustpan oriented such that a single sweeping motion with a broom would move the mess into the dustpan?"
 # long = "Touching(dustpan, mess)"
 _Touching = utils.create_vlm_predicate(
-    "Touching", [_movable_object_type, _movable_object_type],
-    lambda o: _get_vlm_query_str("Touching(dustpan, mess)", o))
+    "Touching", [_dustpan_type, _wrappers_type],
+    lambda o: _get_vlm_query_str("Touching", o))
 _Inside = utils.create_vlm_predicate(
-    "Inside", [_movable_object_type, _movable_object_type],
-    lambda o: _get_vlm_query_str("Inside(mess, dustpan)", o))
+    "Inside", [_wrappers_type, _dustpan_type],
+    lambda o: _get_vlm_query_str("Inside", o))
 
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _NotInsideAnyContainer, _FitsInXY,
@@ -2487,8 +2488,8 @@ class VLMTestEnv(SpotRearrangementEnv):
             # Object("chair", _movable_object_type),
             # Object("bowl", _movable_object_type),
             # Object("table", _movable_object_type),
-            Object("wrappers", _movable_object_type),
-            Object("dustpan", _movable_object_type),
+            Object("wrappers", _wrappers_type),
+            Object("dustpan", _dustpan_type),
         }
         for o in objects:
             detection_id = LanguageObjectDetectionID(o.name)
@@ -2536,7 +2537,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         ##########################################3
         # Pick(robot, dustpan)
         robot = Variable("?robot", _robot_type)
-        dustpan = Variable("?dustpan", _movable_object_type)
+        dustpan = Variable("?dustpan", _dustpan_type)
         parameters = [robot, dustpan]
         preconds: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
@@ -2553,8 +2554,8 @@ class VLMTestEnv(SpotRearrangementEnv):
 
         # Place(robot, dustpan, mess)
         robot = Variable("?robot", _robot_type)
-        dustpan = Variable("?dustpan", _movable_object_type)
-        mess = Variable("?mess", _movable_object_type)
+        dustpan = Variable("?dustpan", _dustpan_type)
+        mess = Variable("?mess", _wrappers_type)
         parameters = [robot, dustpan, mess]
         preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
         add_effs: Set[LiftedAtom] = {
@@ -2564,12 +2565,12 @@ class VLMTestEnv(SpotRearrangementEnv):
         }
         del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Place1", parameters, preconds, add_effs, del_effs,
+        yield STRIPSOperator("PlaceNextTo", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
         
         # Pick(robot, broom)
         robot = Variable("?robot", _robot_type)
-        broom = Variable("?broom", _movable_object_type)
+        broom = Variable("?broom", _broom_type)
         parameters = [robot, broom]
         preconds: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
@@ -2586,9 +2587,9 @@ class VLMTestEnv(SpotRearrangementEnv):
         
         # Sweep(robot, broom, mess, dustpan)
         robot = Variable("?robot", _robot_type)
-        broom = Variable("?broom", _movable_object_type)
-        mess = Variable("?mess", _movable_object_type)
-        dustpan = Variable("?dustpan", _movable_object_type)
+        broom = Variable("?broom", _broom_type)
+        mess = Variable("?mess", _wrappers_type)
+        dustpan = Variable("?dustpan", _dustpan_type)
         parameters = [robot, broom, mess, dustpan]
         preconds: Set[LiftedAtom] = {
             LiftedAtom(_Holding, [robot, broom]),
@@ -2603,7 +2604,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         
         # Place(robot, broom)
         robot = Variable("?robot", _robot_type)
-        broom = Variable("?broom", _movable_object_type)
+        broom = Variable("?broom", _broom_type)
         parameters = [robot, broom]
         preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
         add_effs: Set[LiftedAtom] = {
@@ -2612,7 +2613,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         }
         del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
         ignore_effs: Set[LiftedAtom] = set()
-        yield STRIPSOperator("Place2", parameters, preconds, add_effs, del_effs,
+        yield STRIPSOperator("PlaceOnFloor", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
 
     # def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -2645,7 +2646,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         # Create constant objects.
         self._spot_object = Object("robot", _robot_type)
         op_to_name = {o.name: o for o in self._create_operators()}
-        op_names_to_keep = {"Pick1", "Place1", "Pick2", "Sweep", "Place2"}
+        op_names_to_keep = {"Pick1", "PlaceNextTo", "Pick2", "Sweep", "PlaceOnFloor"}
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
         self._train_tasks = []
         self._test_tasks = []

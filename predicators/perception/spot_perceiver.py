@@ -23,6 +23,7 @@ from predicators.spot_utils.perception.object_detection import \
     detect_objects, visualize_all_artifacts
 from predicators.spot_utils.utils import _container_type, \
     _immovable_object_type, _movable_object_type, _robot_type, \
+    _broom_type, _dustpan_type, _wrappers_type, \
     get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, \
@@ -659,8 +660,8 @@ class SpotMinimalPerceiver(BasePerceiver):
             return goal
         if goal_description == "put the mess in the dustpan":
             robot = Object("robot", _robot_type)
-            dustpan = Object("dustpan", _movable_object_type)
-            wrappers = Object("wrappers", _movable_object_type)
+            dustpan = Object("dustpan", _dustpan_type)
+            wrappers = Object("wrappers", _wrappers_type)
             goal = {
                 GroundAtom(Inside, [wrappers, dustpan]),
                 GroundAtom(Holding, [robot, dustpan])
@@ -809,8 +810,9 @@ class SpotMinimalPerceiver(BasePerceiver):
         # table = Object("table", _movable_object_type)
         # cup = Object("cup", _movable_object_type)
         # pan = Object("pan", _container_type)
-        wrappers = Object("wrappers", _movable_object_type)
-        dustpan = Object("dustpan", _movable_object_type)
+        wrappers = Object("wrappers", _wrappers_type)
+        dustpan = Object("dustpan", _dustpan_type)
+        broom = Object("broom", _broom_type)
         # bread = Object("bread", _movable_object_type)
         # toaster = Object("toaster", _immovable_object_type)
         # microwave = Object("microwave", _movable_object_type)
@@ -982,6 +984,26 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "is_sweeper": 0
             },
             dustpan: {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width" : 0,
+                "length": 0,
+                "object_id": 2,
+                "placeable": 1,
+                "held": 0,
+                "lost": 0,
+                "in_hand_view": 0,
+                "in_view": 1,
+                "is_sweeper": 0
+            },
+            broom: {
                 "x": 0,
                 "y": 0,
                 "z": 0,

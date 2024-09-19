@@ -1489,6 +1489,7 @@ def nsrt_plan_to_greedy_option_policy(
             raise OptionExecutionFailure(
                 "Executing the NSRT failed to achieve the necessary atoms.")
         cur_nsrt = nsrt_queue.pop(0)
+        logging.info(f"Running nsrt: {cur_nsrt.name}, {cur_nsrt.objects}")
         cur_option = cur_nsrt.sample_option(state, goal, rng)
         logging.debug(f"Using option {cur_option.name}{cur_option.objects} "
                       "from NSRT plan.")
@@ -2511,13 +2512,13 @@ def get_prompt_for_vlm_state_labelling(
         "/predicators/datasets/vlm_input_data_prompts/atom_labelling/"
     try:
         with open(filepath_prefix +
-                  CFG.grammar_search_vlm_atom_label_prompt_type + ".txt",
+                  prompt_type + ".txt",
                   "r",
                   encoding="utf-8") as f:
             prompt = f.read()
     except FileNotFoundError:
         raise ValueError("Unknown VLM prompting option " +
-                         f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
+                         f"{prompt_type}")
     # The prompt ends with a section for 'Predicates', so list these.
     for atom_str in atoms_list:
         prompt += f"\n{atom_str}"
@@ -2537,7 +2538,8 @@ def get_prompt_for_vlm_state_labelling(
         # and beyond.
         curr_prompt = prompt[:]
         curr_prompt_imgs = [
-            imgs_timestep for imgs_timestep in imgs_history[-1]
+            imgs_history[-2][0],
+            imgs_history[-1][0]
         ]
         if CFG.vlm_include_cropped_images:
             if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
@@ -2553,12 +2555,13 @@ def get_prompt_for_vlm_state_labelling(
             curr_prompt += "\n\nPredicate values in the first scene, " \
             "before the skill was executed: \n"
             curr_prompt += label_history[-1]
+        # import pdb; pdb.set_trace()
         return (curr_prompt, curr_prompt_imgs)
     else:
         # NOTE: we rip out only the first image from each trajectory
         # which is fine for most domains, but will be problematic for
         # situations in which there is more than one image per state.
-        return (prompt, [imgs_history[-1][0]])
+        return (prompt, imgs_history[-1])
 
 
 def query_vlm_for_atom_vals(
@@ -2606,7 +2609,6 @@ def query_vlm_for_atom_vals(
     vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
         CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
         label_history, images_history, [], skill_history)
-    import pdb; pdb.set_trace()
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     vlm_input_imgs = \
@@ -2618,20 +2620,33 @@ def query_vlm_for_atom_vals(
                                         num_completions=1)
     assert len(vlm_output) == 1
     vlm_output_str = vlm_output[0]
-    print(f"VLM output: {vlm_output_str}")
-    all_vlm_responses = vlm_output_str.strip().split("\n")
-    # NOTE: this assumption is likely too brittle; if this is breaking, feel
-    # free to remove/adjust this and change the below parsing loop accordingly!
-    assert len(atom_queries_list) == len(all_vlm_responses)
-    for i, (atom_query, curr_vlm_output_line) in enumerate(
-            zip(atom_queries_list, all_vlm_responses)):
-        assert atom_query + ":" in curr_vlm_output_line
-        assert "." in curr_vlm_output_line
-        period_idx = curr_vlm_output_line.find(".")
-        # value = curr_vlm_output_line[len(atom_query + ":"):period_idx].lower().strip()
-        value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
-        if value == "true":
-            true_atoms.add(vlm_atoms[i])
+    print(f"VLM output: \n{vlm_output_str}")
+
+    # ALTERNATIVE WAY TO PARSE
+    if len(label_history) > 0:
+        truth_values = re.findall(r'\* (.*): (True|False)', vlm_output_str)
+        import pdb; pdb.set_trace()
+        for i, (atom_query, pred_label) in enumerate(zip(atom_queries_list, truth_values)):
+            pred, label = pred_label
+            assert pred in atom_query
+            label = label.lower()
+            if label == "true":
+                true_atoms.add(vlm_atoms[i])
+    else:
+        # import pdb; pdb.set_trace()
+        all_vlm_responses = vlm_output_str.strip().split("\n")
+        # NOTE: this assumption is likely too brittle; if this is breaking, feel
+        # free to remove/adjust this and change the below parsing loop accordingly!
+        assert len(atom_queries_list) == len(all_vlm_responses)
+        for i, (atom_query, curr_vlm_output_line) in enumerate(
+                zip(atom_queries_list, all_vlm_responses)):
+            assert atom_query + ":" in curr_vlm_output_line
+            assert "." in curr_vlm_output_line
+            period_idx = curr_vlm_output_line.find(".")
+            # value = curr_vlm_output_line[len(atom_query + ":"):period_idx].lower().strip()
+            value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
+            if value == "true":
+                true_atoms.add(vlm_atoms[i])
     
     # breakpoint()
     # Add the text of the VLM's response to the state, to be used in the future!

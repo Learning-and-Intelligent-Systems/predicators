@@ -322,10 +322,10 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "DropNotPlaceableObject": utils.null_sampler,
             "MoveToReadySweep": utils.null_sampler,
             "Pick1": utils.null_sampler,
-            "Place1": utils.null_sampler,
+            "PlaceNextTo": utils.null_sampler,
             "Pick2": utils.null_sampler,
             "Sweep": utils.null_sampler,
-            "Place2": utils.null_sampler
+            "PlaceOnFloor": utils.null_sampler
         }
 
         # If we're doing proper bilevel planning with a simulator, then
