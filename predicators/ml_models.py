@@ -2087,7 +2087,7 @@ class MPDQNFunction(MapleQFunction):
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_obj_centric:
             X_size = 5 + 7 + self._max_num_params -1
         else:
-            X_size = 47
+            X_size = 48
 
 
         Y_size = 1
