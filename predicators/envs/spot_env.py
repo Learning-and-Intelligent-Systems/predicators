@@ -1444,8 +1444,8 @@ _On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
 _TopAbove = Predicate("TopAbove", [_base_object_type, _base_object_type],
                       _top_above_classifier)
-_Inside = Predicate("Inside", [_movable_object_type, _container_type],
-                    _inside_classifier)
+# _Inside = Predicate("Inside", [_movable_object_type, _container_type],
+#                     _inside_classifier)
 _FitsInXY = Predicate("FitsInXY", [_movable_object_type, _base_object_type],
                       _fits_in_xy_classifier)
 # NOTE: use this predicate instead if you want to disable inside checking.
@@ -1510,6 +1510,18 @@ _Open = utils.create_vlm_predicate("Open", [_movable_object_type],
 _Stained = utils.create_vlm_predicate(
     "Stained", [_movable_object_type],
     lambda o: _get_vlm_query_str("Stained", o))
+_Messy= utils.create_vlm_predicate(
+    "Messy", [_movable_object_type],
+    lambda o: _get_vlm_query_str("Messy", o))
+
+# long = "Is the dustpan oriented such that a single sweeping motion with a broom would move the mess into the dustpan?"
+# long = "Touching(dustpan, mess)"
+_Touching = utils.create_vlm_predicate(
+    "Touching", [_movable_object_type, _movable_object_type],
+    lambda o: _get_vlm_query_str("Touching(dustpan, mess)", o))
+_Inside = utils.create_vlm_predicate(
+    "Inside", [_movable_object_type, _movable_object_type],
+    lambda o: _get_vlm_query_str("Inside(mess, dustpan)", o))
 
 _ALL_PREDICATES = {
     _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
@@ -1517,7 +1529,7 @@ _ALL_PREDICATES = {
     _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
     _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
     _IsSemanticallyGreaterThan, _VLMOn, _Upright, _Toasted, _VLMIn, _Open,
-    _Stained
+    _Stained, _Messy, _Touching, _Inside
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -2451,7 +2463,7 @@ class VLMTestEnv(SpotRearrangementEnv):
     def predicates(self) -> Set[Predicate]:
         # return set(p for p in _ALL_PREDICATES if p.name in ["VLMOn", "Holding", "HandEmpty", "Pourable", "Toasted", "VLMIn", "Open"])
         return set(p for p in _ALL_PREDICATES
-                   if p.name in ["VLMOn", "Holding", "HandEmpty"])
+                   if p.name in ["Holding", "HandEmpty", "NotHolding", "Touching", "Inside"])
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -2470,11 +2482,13 @@ class VLMTestEnv(SpotRearrangementEnv):
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
         objects = {
-            Object("pan", _movable_object_type),
-            Object("cup", _movable_object_type),
-            Object("chair", _movable_object_type),
-            Object("bowl", _movable_object_type),
-            Object("table", _movable_object_type),
+            # Object("pan", _movable_object_type),
+            # Object("cup", _movable_object_type),
+            # Object("chair", _movable_object_type),
+            # Object("bowl", _movable_object_type),
+            # Object("table", _movable_object_type),
+            Object("wrappers", _movable_object_type),
+            Object("dustpan", _movable_object_type),
         }
         for o in objects:
             detection_id = LanguageObjectDetectionID(o.name)
@@ -2516,6 +2530,74 @@ class VLMTestEnv(SpotRearrangementEnv):
         del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, obj])}
         ignore_effs: Set[LiftedAtom] = set()
         yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
+        
+
+        ##########################################3
+        # Pick(robot, dustpan)
+        robot = Variable("?robot", _robot_type)
+        dustpan = Variable("?dustpan", _movable_object_type)
+        parameters = [robot, dustpan]
+        preconds: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, dustpan]),
+        }
+        add_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
+        del_effs: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, dustpan]),
+        }
+        ignore_effs: Set[LiftedAtom] = set()
+        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
+
+        # Place(robot, dustpan, mess)
+        robot = Variable("?robot", _robot_type)
+        dustpan = Variable("?dustpan", _movable_object_type)
+        mess = Variable("?mess", _movable_object_type)
+        parameters = [robot, dustpan, mess]
+        preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
+        add_effs: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, dustpan]),
+            LiftedAtom(_Touching, [dustpan, mess])
+        }
+        del_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, dustpan])}
+        ignore_effs: Set[LiftedAtom] = set()
+        yield STRIPSOperator("Place", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
+        
+        # Pick(robot, broom)
+        robot = Variable("?robot", _robot_type)
+        broom = Variable("?broom", _movable_object_type)
+        parameters = [robot, broom]
+        preconds: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, broom]),
+        }
+        add_effs: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
+        del_effs: Set[LiftedAtom] = {
+            LiftedAtom(_HandEmpty, [robot]),
+            LiftedAtom(_NotHolding, [robot, broom]),
+        }
+        ignore_effs: Set[LiftedAtom] = set()
+        yield STRIPSOperator("Pick", parameters, preconds, add_effs, del_effs,
+                             ignore_effs)
+        
+        # Sweep(robot, broom, mess, dustpan)
+        robot = Variable("?robot", _robot_type)
+        broom = Variable("?broom", _movable_object_type)
+        mess = Variable("?mess", _movable_object_type)
+        dustpan = Variable("?dustpan", _movable_object_type)
+        parameters = [robot, broom, mess, dustpan]
+        preconds: Set[LiftedAtom] = {
+            LiftedAtom(_Holding, [robot, broom]),
+            LiftedAtom(_Touching, [dustpan, mess])
+        }
+        add_effs: Set[LiftedAtom] = {LiftedAtom(_Inside, [mess, dustpan])}
+        del_effs: Set[LiftedAtom] = set()
+        ignore_effs: Set[LiftedAtom] = set()
+        yield STRIPSOperator("Sweep", parameters, preconds, add_effs, del_effs,
                              ignore_effs)
 
     # def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -2639,7 +2721,8 @@ class VLMTestEnv(SpotRearrangementEnv):
         return task
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "put the cup in the pan"
+        # return "put the cup in the pan"
+        return "put the mess in the dustpan"
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         prompt = f"Please set up {train_or_test} task {task_idx}!"

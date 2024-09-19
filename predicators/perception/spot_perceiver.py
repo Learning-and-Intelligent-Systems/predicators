@@ -644,15 +644,21 @@ class SpotMinimalPerceiver(BasePerceiver):
         pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
         VLMOn = pred_name_to_pred["VLMOn"]
         HandEmpty = pred_name_to_pred["HandEmpty"]
+        
+
         if goal_description == "put the cup in the pan":
             robot = Object("robot", _robot_type)
             cup = Object("cup", _movable_object_type)
             pan = Object("pan", _container_type)
             goal = {
                 GroundAtom(HandEmpty, [robot]),
-                GroundAtom(VLMOn, [cup, pan])
+                # GroundAtom(VLMOn, [cup, pan])
             }
             return goal
+
+        if goal_description == "put the mess in the dustpan":
+
+
         raise NotImplementedError("Unrecognized goal description")
 
     def update_perceiver_with_action(self, action: Action) -> None:
@@ -765,6 +771,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         state_copy = self._curr_state.copy()
         print(f"Right before abstract state, skill in obs: {observation.executed_skill}")
         abstract_state = utils.abstract(state_copy, preds)
+        import pdb; pdb.set_trace()
         self._curr_state.simulator_state["abstract_state"] = abstract_state
         # Compute all the VLM atoms. `utils.abstract()` only returns the ones that
         # are True. The remaining ones are the ones that are False.
@@ -792,9 +799,11 @@ class SpotMinimalPerceiver(BasePerceiver):
             return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
-        table = Object("table", _movable_object_type)
-        cup = Object("cup", _movable_object_type)
-        pan = Object("pan", _container_type)
+        # table = Object("table", _movable_object_type)
+        # cup = Object("cup", _movable_object_type)
+        # pan = Object("pan", _container_type)
+        wrappers = Object("wrappers", _movable_object_type)
+        dustpan = Object("dustpan", _movable_object_type)
         # bread = Object("bread", _movable_object_type)
         # toaster = Object("toaster", _immovable_object_type)
         # microwave = Object("microwave", _movable_object_type)
@@ -810,46 +819,46 @@ class SpotMinimalPerceiver(BasePerceiver):
                 "qy": 0,
                 "qz": 0,
             },
-            table: {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "qw": 0,
-                "qx": 0,
-                "qy": 0,
-                "qz": 0,
-                "shape": 0,
-                "height": 0,
-                "width" : 0,
-                "length": 0,
-                "object_id": 0,
-                "placeable": 1,
-                "held": 0,
-                "lost": 0,
-                "in_hand_view": 0,
-                "in_view": 1,
-                "is_sweeper": 0
-            },
-            cup: {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "qw": 0,
-                "qx": 0,
-                "qy": 0,
-                "qz": 0,
-                "shape": 0,
-                "height": 0,
-                "width": 0,
-                "length": 0,
-                "object_id": 1,
-                "placeable": 1,
-                "held": 0,
-                "lost": 0,
-                "in_hand_view": 0,
-                "in_view": 1,
-                "is_sweeper": 0
-            },
+            # table: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 0,
+            #     "placeable": 1,
+            #     "held": 0,
+            #     "lost": 0,
+            #     "in_hand_view": 0,
+            #     "in_view": 1,
+            #     "is_sweeper": 0
+            # },
+            # cup: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width": 0,
+            #     "length": 0,
+            #     "object_id": 1,
+            #     "placeable": 1,
+            #     "held": 0,
+            #     "lost": 0,
+            #     "in_hand_view": 0,
+            #     "in_view": 1,
+            #     "is_sweeper": 0
+            # },
             # napkin: {
             #     "x": 0,
             #     "y": 0,
@@ -925,7 +934,47 @@ class SpotMinimalPerceiver(BasePerceiver):
             #     "object_id": 1,
             #     "flat_top_surface": 1
             # },
-            pan: {
+            # pan: {
+            #     "x": 0,
+            #     "y": 0,
+            #     "z": 0,
+            #     "qw": 0,
+            #     "qx": 0,
+            #     "qy": 0,
+            #     "qz": 0,
+            #     "shape": 0,
+            #     "height": 0,
+            #     "width" : 0,
+            #     "length": 0,
+            #     "object_id": 2,
+            #     "placeable": 1,
+            #     "held": 0,
+            #     "lost": 0,
+            #     "in_hand_view": 0,
+            #     "in_view": 1,
+            #     "is_sweeper": 0
+            # },
+            wrappers: {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "qw": 0,
+                "qx": 0,
+                "qy": 0,
+                "qz": 0,
+                "shape": 0,
+                "height": 0,
+                "width" : 0,
+                "length": 0,
+                "object_id": 2,
+                "placeable": 1,
+                "held": 0,
+                "lost": 0,
+                "in_hand_view": 0,
+                "in_view": 1,
+                "is_sweeper": 0
+            },
+            dustpan: {
                 "x": 0,
                 "y": 0,
                 "z": 0,
