@@ -272,7 +272,7 @@ def _run_pipeline(env: BaseEnv,
 
             # Learn from online interaction results, unless we are loading
             # and not restarting learning.
-            if (not CFG.load_approach or CFG.restart_learning) and (CFG.approach != "rl_bridge_policy" or any(["bridge" in x for x in cogman._approach._policy_logs])):
+            if (not CFG.load_approach or CFG.restart_learning) and (CFG.approach != "rl_bridge_policy" CFG.use_random or any(["bridge" in x for x in cogman._approach._policy_logs])):
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
                 cogman.learn_from_interaction_results(interaction_results)
