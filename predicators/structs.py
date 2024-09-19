@@ -430,6 +430,8 @@ class LiftedAtom(_Atom):
 
     def ground(self, sub: VarToObjSub) -> GroundAtom:
         """Create a GroundAtom with a given substitution."""
+        # if not set(self.variables).issubset(set(sub.keys())):
+        #     import pdb; pdb.set_trace()
         assert set(self.variables).issubset(set(sub.keys()))
         return GroundAtom(self.predicate, [sub[v] for v in self.variables])
 
@@ -1018,6 +1020,13 @@ class NSRT:
         assert all(
             o.is_instance(p.type) for o, p in zip(objects, self.parameters))
         sub = dict(zip(self.parameters, objects))
+        # try:
+        #     preconditions = {atom.ground(sub) for atom in self.preconditions}
+        #     add_effects = {atom.ground(sub) for atom in self.add_effects}
+        #     delete_effects = {atom.ground(sub) for atom in self.delete_effects}
+        #     option_objs = [sub[v] for v in self.option_vars]
+        # except:
+        #     import pdb; pdb.set_trace()
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}

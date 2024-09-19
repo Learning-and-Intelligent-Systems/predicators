@@ -642,7 +642,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         # not yet set. Hopefully one day other cleanups will enable cleaning.
         assert self._curr_env is not None
         pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
-        VLMOn = pred_name_to_pred["VLMOn"]
+        # VLMOn = pred_name_to_pred["VLMOn"]
         Inside = pred_name_to_pred["Inside"]
         Holding = pred_name_to_pred["Holding"]
         HandEmpty = pred_name_to_pred["HandEmpty"]
@@ -657,7 +657,6 @@ class SpotMinimalPerceiver(BasePerceiver):
                 # GroundAtom(VLMOn, [cup, pan])
             }
             return goal
-
         if goal_description == "put the mess in the dustpan":
             robot = Object("robot", _robot_type)
             dustpan = Object("dustpan", _movable_object_type)
@@ -666,7 +665,7 @@ class SpotMinimalPerceiver(BasePerceiver):
                 GroundAtom(Inside, [wrappers, dustpan]),
                 GroundAtom(Holding, [robot, dustpan])
             }
-
+            return goal
         raise NotImplementedError("Unrecognized goal description")
 
     def update_perceiver_with_action(self, action: Action) -> None:
@@ -779,7 +778,7 @@ class SpotMinimalPerceiver(BasePerceiver):
         state_copy = self._curr_state.copy()
         print(f"Right before abstract state, skill in obs: {observation.executed_skill}")
         abstract_state = utils.abstract(state_copy, preds)
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         self._curr_state.simulator_state["abstract_state"] = abstract_state
         # Compute all the VLM atoms. `utils.abstract()` only returns the ones that
         # are True. The remaining ones are the ones that are False.

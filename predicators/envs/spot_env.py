@@ -1449,8 +1449,8 @@ _TopAbove = Predicate("TopAbove", [_base_object_type, _base_object_type],
 _FitsInXY = Predicate("FitsInXY", [_movable_object_type, _base_object_type],
                       _fits_in_xy_classifier)
 # NOTE: use this predicate instead if you want to disable inside checking.
-_FakeInside = Predicate(_Inside.name, _Inside.types,
-                        _create_dummy_predicate_classifier(_Inside))
+# _FakeInside = Predicate(_Inside.name, _Inside.types,
+#                         _create_dummy_predicate_classifier(_Inside))
 _NotInsideAnyContainer = Predicate("NotInsideAnyContainer",
                                    [_movable_object_type],
                                    _not_inside_any_container_classifier)
@@ -1524,7 +1524,7 @@ _Inside = utils.create_vlm_predicate(
     lambda o: _get_vlm_query_str("Inside(mess, dustpan)", o))
 
 _ALL_PREDICATES = {
-    _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
+    _NEq, _On, _TopAbove, _NotInsideAnyContainer, _FitsInXY,
     _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
     _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
     _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
@@ -2592,6 +2592,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         parameters = [robot, broom, mess, dustpan]
         preconds: Set[LiftedAtom] = {
             LiftedAtom(_Holding, [robot, broom]),
+            LiftedAtom(_NotHolding, [robot, dustpan]),
             LiftedAtom(_Touching, [dustpan, mess])
         }
         add_effs: Set[LiftedAtom] = {LiftedAtom(_Inside, [mess, dustpan])}
@@ -2603,7 +2604,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         # Place(robot, broom)
         robot = Variable("?robot", _robot_type)
         broom = Variable("?broom", _movable_object_type)
-        parameters = [robot, dustpan]
+        parameters = [robot, broom]
         preconds: Set[LiftedAtom] = {LiftedAtom(_Holding, [robot, broom])}
         add_effs: Set[LiftedAtom] = {
             LiftedAtom(_HandEmpty, [robot]),
@@ -2644,7 +2645,7 @@ class VLMTestEnv(SpotRearrangementEnv):
         # Create constant objects.
         self._spot_object = Object("robot", _robot_type)
         op_to_name = {o.name: o for o in self._create_operators()}
-        op_names_to_keep = {"Pick", "Place"}
+        op_names_to_keep = {"Pick1", "Place1", "Pick2", "Sweep", "Place2"}
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
         self._train_tasks = []
         self._test_tasks = []
