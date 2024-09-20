@@ -658,25 +658,25 @@ class SpotMinimalPerceiver(BasePerceiver):
                 # GroundAtom(VLMOn, [cup, pan])
             }
             return goal
-        # if goal_description == "put the mess in the dustpan":
-        #     robot = Object("robot", _robot_type)
-        #     dustpan = Object("dustpan", _dustpan_type)
-        #     wrappers = Object("wrappers", _wrappers_type)
-        #     goal = {
-        #         GroundAtom(Inside, [wrappers, dustpan]),
-        #         GroundAtom(Holding, [robot, dustpan])
-        #     }
-        #     return goal
-
         if goal_description == "put the mess in the dustpan":
             robot = Object("robot", _robot_type)
             dustpan = Object("dustpan", _dustpan_type)
             wrappers = Object("wrappers", _wrappers_type)
             goal = {
-                # GroundAtom(Inside, [wrappers, dustpan]),
+                GroundAtom(Inside, [wrappers, dustpan]),
                 GroundAtom(Holding, [robot, dustpan])
             }
             return goal
+
+        # if goal_description == "put the mess in the dustpan":
+        #     robot = Object("robot", _robot_type)
+        #     dustpan = Object("dustpan", _dustpan_type)
+        #     wrappers = Object("wrappers", _wrappers_type)
+        #     goal = {
+        #         # GroundAtom(Inside, [wrappers, dustpan]),
+        #         GroundAtom(Holding, [robot, dustpan])
+        #     }
+        #     return goal
         
         raise NotImplementedError("Unrecognized goal description")
 
