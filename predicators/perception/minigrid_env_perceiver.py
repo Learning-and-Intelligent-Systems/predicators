@@ -23,23 +23,22 @@ class MiniGridPerceiver(BasePerceiver):
 
     def __init__(self) -> None:
         super().__init__()
-        # Ditection: 0 - right, 1 - down, 2 - left, 3 - up
         self.state_dict = {}
         self.agent_pov_pos = (3,6) # agent's point of view is always at (3,6)
         self.agent_pos = (0,0) # starts at origin
-        self.direction = 0 # starts facing right
+        self.direction = 0 # directions (right, down, left, up)
         self.last_obs = None
 
     @classmethod
     def get_name(cls) -> str:
         return "minigrid_env"
 
-    def reset(self, env_task: EnvironmentTask) -> Task:
-        self.state_dict.clear()
+    def parse_minigrid_task(self, env_task: EnvironmentTask) -> Task:
         state = self._observation_to_state(env_task.init_obs)
         if env_task.goal_description == "Get to the goal":
             IsAgent, At, IsGoal, IsBall, IsKey, IsBox, \
-            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey = MiniGridEnv.get_goal_predicates()
+            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey, \
+            Holding, Near = MiniGridEnv.get_goal_predicates()
             assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
             assert len(MiniGridEnv.get_objects_of_enum(state, "goal")) == 1
             agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
@@ -51,7 +50,8 @@ class MiniGridPerceiver(BasePerceiver):
             color, obj_type = env_task.goal_description.split("go to the ")[1].split(" ")[0:2]
             obj_name = f"{color}_{obj_type}"
             IsAgent, At, IsGoal, IsBall, IsKey, IsBox, \
-            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey = MiniGridEnv.get_goal_predicates()
+            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey, \
+            Holding, Near = MiniGridEnv.get_goal_predicates()
             assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
             assert len(MiniGridEnv.get_objects_of_enum(state, obj_type)) > 1
             agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
@@ -78,7 +78,8 @@ class MiniGridPerceiver(BasePerceiver):
                     }
         elif env_task.goal_description == "get to the green goal square":
             IsAgent, At, IsGoal, IsBall, IsKey, IsBox, \
-            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey = MiniGridEnv.get_goal_predicates()
+            IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey, \
+            Holding, Near = MiniGridEnv.get_goal_predicates()
             assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
             assert len(MiniGridEnv.get_objects_of_enum(state, "goal")) == 1
             agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
@@ -123,6 +124,10 @@ class MiniGridPerceiver(BasePerceiver):
             raise NotImplementedError(f"Goal description {env_task.goal_description} not supported")
         return Task(state, goal)
 
+    def reset(self, env_task: EnvironmentTask) -> Task:
+        self.state_dict.clear()
+        return self.parse_minigrid_task(env_task)
+
     def step(self, observation: Observation) -> State:
         return self._observation_to_state(observation)
     
@@ -154,7 +159,6 @@ class MiniGridPerceiver(BasePerceiver):
         y_prime = y1 + x2 * np.sin(o1) + y2 * np.cos(o1)
         return x_prime, y_prime
     
-    # Updated function with mathematically correct direction-to-radians mapping
     def _globalize_coords(self, r: int, c: int) -> Tuple[int, int]:
         # Adjusted direction-to-radian mapping
         direction_to_radian = {

@@ -193,34 +193,6 @@ class MiniGridEnv(BaseEnv):
     def goal_reached(self) -> bool:
         if len(self._current_observation) == 5:
             return self._current_observation[2]
-        else:
-            return False
-        # if self._gym_env.mission == 'pick up the blue ball':
-        #     goal_balls = [
-        #         y for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, Ball) if y.color == 'blue'
-        #     ]
-        #     if self._gym_env.carrying in goal_balls:
-        #         return True
-        # elif self._gym_env.mission == 'get to the green goal square':
-        #     goal_position = [
-        #         y.cur_pos for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, Goal)
-        #     ]
-        #     if self._gym_env.agent_pos == goal_position[0]:
-        #         return True
-        # elif "go to the " in self._gym_env.mission:
-        #     color, obj_type = self._gym_env.mission.split("go to the ")[1].split(" ")[0:2]
-        #     obj_type_to_instance = {
-        #         "ball": BallObj,
-        #         "key": KeyObj,
-        #         "box": BoxObj
-        #     }   
-        #     goal_position = [
-        #         y.cur_pos for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, obj_type_to_instance[obj_type]) if y.color == color
-        #     ]
-        #     if np.linalg.norm(np.array(self._gym_env.agent_pos) - np.array(goal_position[0])) <=  1:
-        #         return True
-        # else:
-        #     NotImplementedError("Goal not implemented for this mission")
         return False
 
     def _get_tasks(self, num: int,
@@ -321,12 +293,12 @@ class MiniGridEnv(BaseEnv):
     @classmethod
     def _LeftOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         return cls._check_spatial_relation(state, objects, 0, 1)
-    
+
     @classmethod
-    def _IsFacingUp_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _IsFacingRight_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         if cls._check_enum(state, [obj], "agent"):
-            return state.get(obj, "state") == 3
+            return state.get(obj, "state") == 0
         return False
     
     @classmethod
@@ -342,12 +314,12 @@ class MiniGridEnv(BaseEnv):
         if cls._check_enum(state, [obj], "agent"):
             return state.get(obj, "state") == 2
         return False
-    
+
     @classmethod
-    def _IsFacingRight_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _IsFacingUp_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         if cls._check_enum(state, [obj], "agent"):
-            return state.get(obj, "state") == 0
+            return state.get(obj, "state") == 3
         return False
 
     @classmethod

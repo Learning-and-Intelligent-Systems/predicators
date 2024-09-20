@@ -26,7 +26,6 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         obj1 = Variable("?obj1", object_type)
         obj2 = Variable("?obj2", object_type)
         obj3 = Variable("?obj3", object_type)
-        obj3 = Variable("?obj4", object_type)
 
         # Predicates
         At = predicates["At"]
@@ -214,6 +213,7 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(LeftOf, [obj2, obj3]),
             LiftedAtom(IsFacingLeft, [obj1]),
+            LiftedAtom(Found, [obj2])
         }
         add_effects = {LiftedAtom(Holding, [obj2])}
         delete_effects = {LiftedAtom(LeftOf, [obj2, obj1])}
@@ -233,6 +233,7 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(RightOf, [obj2, obj3]),
             LiftedAtom(IsFacingRight, [obj1]),
+            LiftedAtom(Found, [obj2])
         }
         add_effects = {LiftedAtom(Holding, [obj2])}
         delete_effects = {LiftedAtom(RightOf, [obj2, obj1])}
@@ -252,6 +253,7 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(Above, [obj2, obj3]),
             LiftedAtom(IsFacingUp, [obj1]),
+            LiftedAtom(Found, [obj2])
         }
         add_effects = {LiftedAtom(Holding, [obj2])}
         delete_effects = {LiftedAtom(Above, [obj2, obj1])}
@@ -271,6 +273,7 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(Below, [obj2, obj3]),
             LiftedAtom(IsFacingDown, [obj1]),
+            LiftedAtom(Found, [obj2])
         }
         add_effects = {LiftedAtom(Holding, [obj2])}
         delete_effects = {LiftedAtom(Below, [obj2, obj1])}
@@ -305,5 +308,13 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                 {LeftOf, RightOf, Above, Below},
                                 ReplanToObj, [], null_sampler)
         nsrts.add(replan_to_obj_nsrt)
+
+        replan_to_pickable_obj_nsrt = NSRT("ReplanToPickableObj", [obj1, obj2],
+                                {LiftedAtom(IsAgent, [obj1]), LiftedAtom(Unknown, [obj2]), LiftedAtom(Found, [obj2])},
+                                {LiftedAtom(Holding, [obj2])},
+                                set(),
+                                {LeftOf, RightOf, Above, Below},
+                                ReplanToObj, [], null_sampler)
+        nsrts.add(replan_to_pickable_obj_nsrt)
 
         return nsrts

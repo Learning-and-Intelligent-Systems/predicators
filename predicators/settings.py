@@ -332,7 +332,13 @@ class GlobalSettings:
     sokoban_gym_name = "Sokoban-v0"
 
     # minigrid env parameters
-    minigrid_gym_name = "MiniGrid-Fetch-8x8-N3-v0" #"MiniGrid-ObstructedMaze-Full-v0"  #"MiniGrid-GoToObject-8x8-N2-v0" #"MiniGrid-Empty-16x16-v0"
+    # Currently tested envs:
+    # "MiniGrid-Empty-5x5-v0"
+    # "MiniGrid-Empty-8x8-v0"
+    # "MiniGrid-Empty-16x16-v0"
+    # "MiniGrid-GoToObject-8x8-N2-v0"
+    # "MiniGrid-Fetch-8x8-N3-v0" 
+    minigrid_gym_name = "MiniGrid-Fetch-8x8-N3-v0" 
     minigrid_gym_render = False
     minigrid_gym_fully_observable = False
 

@@ -1266,8 +1266,6 @@ def run_task_plan_once(
 
     necessary_atoms_seq = utils.compute_necessary_atoms_seq(
         plan, atoms_seq, goal)
-    if len(plan) != 2:
-        print([(step.name, step.objects) for step in plan])
     return plan, necessary_atoms_seq, metrics
 
 
