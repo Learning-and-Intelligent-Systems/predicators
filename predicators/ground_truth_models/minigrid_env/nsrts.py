@@ -43,12 +43,17 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         IsFacingRight = predicates["IsFacingRight"]
         Unknown = predicates["Unknown"]
         Found = predicates["Found"]
+        Holding = predicates["Holding"]
+        Near = predicates["Near"]
 
         # Options
         MoveForward = options["Forward"]
         TurnLeft = options["Left"]
         TurnRight = options["Right"]
         Pickup = options["Pickup"]
+        Drop = options["Drop"]
+        Toggle = options["Toggle"]
+        Done = options["Done"]
         FindObj = options["FindObj"]
         ReplanToObj = options["ReplanToObj"]
 
@@ -200,85 +205,87 @@ class MiniGridGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     TurnLeft, [], null_sampler)
         nsrts.add(turn_left_from_right_nsrt)
 
-        # # PickFromUp
-        # # Agent, from_loc, pick_loc
-        # parameters = [obj1, obj2, obj3]
-        # preconditions = {
-        #     LiftedAtom(IsAgent, [obj1]),
-        #     LiftedAtom(IsLoc, [obj3]),
-        #     LiftedAtom(IsLoc, [obj2]),
-        #     LiftedAtom(Above, [obj3, obj2]),
-        #     LiftedAtom(At, [obj1, obj2]),
-        #     LiftedAtom(IsFacingUp, [obj1]),
-        # }
-        # add_effects = {LiftedAtom(Holding, [obj1, obj3])}
-        # delete_effects = set()
-        # option = Pickup
-        # option_vars: List[Variable] = []  # dummy - not used
-        # pick_up_nsrt = NSRT("PickFromUp", parameters, preconditions, add_effects,
-        #                     delete_effects, set(), option, option_vars,
-        #                     null_sampler)
-        # nsrts.add(pick_up_nsrt)
+        # Pickup Left
+        # Agent, obj, agent_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsAgent, [obj1]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(LeftOf, [obj2, obj3]),
+            LiftedAtom(IsFacingLeft, [obj1]),
+        }
+        add_effects = {LiftedAtom(Holding, [obj2])}
+        delete_effects = {LiftedAtom(LeftOf, [obj2, obj1])}
+        option = Pickup
+        option_vars: List[Variable] = []
+        pickup_left_nsrt = NSRT("Pickup_Left", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
+        nsrts.add(pickup_left_nsrt)
 
-        # # PickFromDown
-        # # Agent, from_loc, pick_loc
-        # parameters = [obj1, obj2, obj3]
-        # preconditions = {
-        #     LiftedAtom(IsAgent, [obj1]),
-        #     LiftedAtom(IsLoc, [obj3]),
-        #     LiftedAtom(IsLoc, [obj2]),
-        #     LiftedAtom(Below, [obj3, obj2]),
-        #     LiftedAtom(At, [obj1, obj2]),
-        #     LiftedAtom(IsFacingDown, [obj1]),
-        # }
-        # add_effects = {LiftedAtom(Holding, [obj1, obj3])}
-        # delete_effects = set()
-        # option = Pickup
-        # option_vars = []
-        # pick_down_nsrt = NSRT("PickFromDown", parameters, preconditions,
-        #                       add_effects, delete_effects, set(), option,
-        #                       option_vars, null_sampler)
-        # nsrts.add(pick_down_nsrt)
+        # Pickup Right
+        # Agent, obj, agent_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsAgent, [obj1]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(RightOf, [obj2, obj3]),
+            LiftedAtom(IsFacingRight, [obj1]),
+        }
+        add_effects = {LiftedAtom(Holding, [obj2])}
+        delete_effects = {LiftedAtom(RightOf, [obj2, obj1])}
+        option = Pickup
+        option_vars: List[Variable] = []
+        pickup_right_nsrt = NSRT("Pickup_Right", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
+        nsrts.add(pickup_right_nsrt)
 
-        # # PickFromRight
-        # # Agent, from_loc, pick_loc
-        # parameters = [obj1, obj2, obj3]
-        # preconditions = {
-        #     LiftedAtom(IsAgent, [obj1]),
-        #     LiftedAtom(IsLoc, [obj3]),
-        #     LiftedAtom(IsLoc, [obj2]),
-        #     LiftedAtom(RightOf, [obj3, obj2]),
-        #     LiftedAtom(At, [obj1, obj2]),
-        #     LiftedAtom(IsFacingRight, [obj1]),
-        # }
-        # add_effects = {LiftedAtom(Holding, [obj1, obj3])}
-        # delete_effects = set()
-        # option = Pickup
-        # option_vars = []
-        # pick_right_nsrt = NSRT("PickFromRight", parameters, preconditions,
-        #                        add_effects, delete_effects, set(), option,
-        #                        option_vars, null_sampler)
-        # nsrts.add(pick_right_nsrt)
+        # Pickup Up
+        # Agent, obj, agent_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsAgent, [obj1]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(Above, [obj2, obj3]),
+            LiftedAtom(IsFacingUp, [obj1]),
+        }
+        add_effects = {LiftedAtom(Holding, [obj2])}
+        delete_effects = {LiftedAtom(Above, [obj2, obj1])}
+        option = Pickup
+        option_vars: List[Variable] = []
+        pickup_up_nsrt = NSRT("Pickup_Up", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
+        nsrts.add(pickup_up_nsrt)
 
-        # # PickFromLeft
-        # # Agent, from_loc, pick_loc
-        # parameters = [obj1, obj2, obj3]
-        # preconditions = {
-        #     LiftedAtom(IsAgent, [obj1]),
-        #     LiftedAtom(IsLoc, [obj3]),
-        #     LiftedAtom(IsLoc, [obj2]),
-        #     LiftedAtom(LeftOf, [obj3, obj2]),
-        #     LiftedAtom(At, [obj1, obj2]),
-        #     LiftedAtom(IsFacingLeft, [obj1]),
-        # }
-        # add_effects = {LiftedAtom(Holding, [obj1, obj3])}
-        # delete_effects = set()
-        # option = Pickup
-        # option_vars = []
-        # pick_left_nsrt = NSRT("PickFromLeft", parameters, preconditions,
-        #                       add_effects, delete_effects, set(), option,
-        #                       option_vars, null_sampler)
-        # nsrts.add(pick_left_nsrt)
+        # Pickup Down
+        # Agent, obj, agent_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsAgent, [obj1]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(Below, [obj2, obj3]),
+            LiftedAtom(IsFacingDown, [obj1]),
+        }
+        add_effects = {LiftedAtom(Holding, [obj2])}
+        delete_effects = {LiftedAtom(Below, [obj2, obj1])}
+        option = Pickup
+        option_vars: List[Variable] = []
+        pickup_down_nsrt = NSRT("Pickup_Down", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
+        nsrts.add(pickup_down_nsrt)
+
+        # Drop
+        # TODO
+
+        # Toggle
+        # TODO
 
         # For Partial Observability
         # Find Object

@@ -6,6 +6,7 @@ from typing import Dict, Tuple
 import numpy as np
 
 from predicators import utils
+from predicators.settings import CFG
 from predicators.envs.minigrid_env import MiniGridEnv
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.structs import EnvironmentTask, GroundAtom, Object, \
@@ -85,6 +86,39 @@ class MiniGridPerceiver(BasePerceiver):
             goal = {GroundAtom(IsAgent, [agent_obj]),
                     GroundAtom(At, [agent_obj, goal_obj]),
                     GroundAtom(IsGoal, [goal_obj])}
+        elif env_task.goal_description.startswith("get a") or \
+                env_task.goal_description.startswith("go get a") or \
+                env_task.goal_description.startswith("fetch a") or \
+                env_task.goal_description.startswith("go fetch a") or \
+                env_task.goal_description.startswith("you must fetch a") or \
+                env_task.goal_description.startswith("pick up the"):
+                color, obj_type = env_task.goal_description.split(" ")[-2:]
+                obj_name = f"{color}_{obj_type}"
+                IsAgent, At, IsGoal, IsBall, IsKey, IsBox, \
+                IsRed, IsGreen, IsBlue, IsPurple, IsYellow, IsGrey, \
+                Holding, Near = MiniGridEnv.get_goal_predicates()
+                assert len(MiniGridEnv.get_objects_of_enum(state, "agent")) == 1
+                assert len(MiniGridEnv.get_objects_of_enum(state, obj_type)) > 1
+                agent_obj = list(MiniGridEnv.get_objects_of_enum(state, "agent"))[0]
+                for obj in MiniGridEnv.get_objects_of_enum(state, obj_type):
+                    if obj.name == obj_name:
+                        goal_obj = obj
+                obj_type_to_predicate = {
+                    "ball": IsBall,
+                    "key": IsKey,
+                    "box": IsBox
+                }  
+                color_to_predicate = {
+                    "red": IsRed,
+                    "green": IsGreen,
+                    "blue": IsBlue,
+                    "purple": IsPurple,
+                    "yellow": IsYellow,
+                    "grey": IsGrey
+                } 
+                goal = {GroundAtom(Holding, [goal_obj]),
+                        GroundAtom(obj_type_to_predicate[obj_type], [goal_obj]),
+                        GroundAtom(color_to_predicate[color], [goal_obj])}
         else:
             raise NotImplementedError(f"Goal description {env_task.goal_description} not supported")
         return Task(state, goal)
@@ -167,10 +201,13 @@ class MiniGridPerceiver(BasePerceiver):
 
         for type_name, color, obj_state, r, c in objs:
             enum = MiniGridEnv.name_to_enum[type_name]
-            global_r, global_c = self._globalize_coords(r, c)
+            if CFG.minigrid_gym_fully_observable:
+                global_r, global_c = r, c
+            else:
+                global_r, global_c = self._globalize_coords(r, c)
             if type_name in ["goal", "agent"]:
                 object_name = type_name
-                if type_name == "agent":
+                if type_name == "agent" and not CFG.minigrid_gym_fully_observable:
                     assert (global_r, global_c) == self.agent_pos
             else:
                 object_name = _get_object_name(global_r, global_c, type_name, color)

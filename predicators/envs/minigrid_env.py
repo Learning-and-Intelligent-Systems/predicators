@@ -17,6 +17,7 @@ from minigrid.core.constants import (
     OBJECT_TO_IDX,
 )
 from minigrid.core.world_object import Ball as BallObj, Goal, Key as KeyObj, Box as BoxObj
+from minigrid.wrappers import FullyObsWrapper
 
 class MiniGridEnv(BaseEnv):
     """MiniGrid environment wrapping gym-sokoban."""
@@ -50,20 +51,24 @@ class MiniGridEnv(BaseEnv):
                                         self._IsFacingRight_holds)
         self._IsNonGoalLoc = Predicate("IsNonGoalLoc", [self.object_type],
                                        self._IsNonGoalLoc_holds)
-        self._Unkown = Predicate("Unknown", [self.object_type],
+        self._Unknown = Predicate("Unknown", [self.object_type],
                                         self._Unknown_holds)
         self._Found = Predicate("Found", [self.object_type],
                                         self._Found_holds)
         self._IsAgent, self._At, self._IsGoal, self._IsBall, \
         self._IsKey, self._IsBox, self._IsRed, self._IsGreen, \
-        self._IsBlue, self._IsPurple, self._IsYellow, self._IsGrey = self.get_goal_predicates()
+        self._IsBlue, self._IsPurple, self._IsYellow, self._IsGrey, \
+        self._Holding, self._Near = self.get_goal_predicates()
 
         self.last_action = None
 
         # NOTE: we can change the level by modifying what we pass
 
         # into gym.make here.
-        self._gym_env = gym.make(CFG.minigrid_gym_name)
+        if CFG.minigrid_gym_fully_observable:
+            self._gym_env = FullyObsWrapper(gym.make(CFG.minigrid_gym_name))
+        else:
+            self._gym_env = gym.make(CFG.minigrid_gym_name)
 
     @classmethod
     def get_goal_predicates(cls) -> list[Predicate]:
@@ -79,7 +84,9 @@ class MiniGridEnv(BaseEnv):
                 Predicate("IsBlue", [cls.object_type], cls._IsBlue_holds),
                 Predicate("IsPurple", [cls.object_type], cls._IsPurple_holds),
                 Predicate("IsYellow", [cls.object_type], cls._IsYellow_holds),
-                Predicate("IsGrey", [cls.object_type], cls._IsGrey_holds)]
+                Predicate("IsGrey", [cls.object_type], cls._IsGrey_holds),
+                Predicate("Holding", [cls.object_type], cls._Holding_holds),
+                Predicate("Near", [cls.object_type, cls.object_type], cls._Near_holds)]
 
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -126,8 +133,9 @@ class MiniGridEnv(BaseEnv):
             self._At, self._IsLoc, self._Above, self._Below,
             self._RightOf, self._LeftOf, self._IsAgent, self._IsGoal, self._IsNonGoalLoc,
             self._IsFacingUp, self._IsFacingDown, self._IsFacingLeft, self._IsFacingRight,
-            self._Unkown, self._Found, self._IsBall, self._IsKey, self._IsBox, self._IsRed,
-            self._IsGreen, self._IsBlue, self._IsPurple, self._IsYellow, self._IsGrey
+            self._Unknown, self._Found, self._IsBall, self._IsKey, self._IsBox, self._IsRed,
+            self._IsGreen, self._IsBlue, self._IsPurple, self._IsYellow, self._IsGrey,
+            self._Holding, self._Near
         }
 
     @property
@@ -172,35 +180,47 @@ class MiniGridEnv(BaseEnv):
         self._gym_env.render()
         self.last_action = discrete_action
         self._current_observation[4]['last_action'] = self.last_action
+        
+        if CFG.minigrid_gym_render:
+            # save frame to png
+            visual = self._gym_env.get_frame()
+            import matplotlib.pyplot as plt
+            plt.imsave('render.png', visual.astype('uint8'))
+
+
         return self._copy_observation(self._current_observation)
 
     def goal_reached(self) -> bool:
-        if self._gym_env.mission == 'pick up the blue ball':
-            goal_balls = [
-                y for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, Ball) if y.color == 'blue'
-            ]
-            if self._gym_env.carrying in goal_balls:
-                return True
-        elif self._gym_env.mission == 'get to the green goal square':
-            goal_position = [
-                y.cur_pos for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, Goal)
-            ]
-            if self._gym_env.agent_pos == goal_position[0]:
-                return True
-        elif "go to the " in self._gym_env.mission:
-            color, obj_type = self._gym_env.mission.split("go to the ")[1].split(" ")[0:2]
-            obj_type_to_instance = {
-                "ball": BallObj,
-                "key": KeyObj,
-                "box": BoxObj
-            }   
-            goal_position = [
-                y.cur_pos for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, obj_type_to_instance[obj_type]) if y.color == color
-            ]
-            if np.linalg.norm(np.array(self._gym_env.agent_pos) - np.array(goal_position[0])) <=  1:
-                return True
+        if len(self._current_observation) == 5:
+            return self._current_observation[2]
         else:
-            NotImplementedError("Goal not implemented for this mission")
+            return False
+        # if self._gym_env.mission == 'pick up the blue ball':
+        #     goal_balls = [
+        #         y for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, Ball) if y.color == 'blue'
+        #     ]
+        #     if self._gym_env.carrying in goal_balls:
+        #         return True
+        # elif self._gym_env.mission == 'get to the green goal square':
+        #     goal_position = [
+        #         y.cur_pos for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, Goal)
+        #     ]
+        #     if self._gym_env.agent_pos == goal_position[0]:
+        #         return True
+        # elif "go to the " in self._gym_env.mission:
+        #     color, obj_type = self._gym_env.mission.split("go to the ")[1].split(" ")[0:2]
+        #     obj_type_to_instance = {
+        #         "ball": BallObj,
+        #         "key": KeyObj,
+        #         "box": BoxObj
+        #     }   
+        #     goal_position = [
+        #         y.cur_pos for x, y in enumerate(self._gym_env.grid.grid) if isinstance(y, obj_type_to_instance[obj_type]) if y.color == color
+        #     ]
+        #     if np.linalg.norm(np.array(self._gym_env.agent_pos) - np.array(goal_position[0])) <=  1:
+        #         return True
+        # else:
+        #     NotImplementedError("Goal not implemented for this mission")
         return False
 
     def _get_tasks(self, num: int,
@@ -222,7 +242,7 @@ class MiniGridEnv(BaseEnv):
         # Free spaces and goals are locations.
         loc, = objects
         obj_type = int(state.get(loc, "type"))
-        return obj_type in {cls.name_to_enum["empty"], cls.name_to_enum["goal"], cls.name_to_enum["ball"], cls.name_to_enum["key"], cls.name_to_enum["box"]}
+        return obj_type in {cls.name_to_enum["empty"], cls.name_to_enum["goal"]}
 
     @classmethod
     def _IsGoal_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -329,6 +349,19 @@ class MiniGridEnv(BaseEnv):
         if cls._check_enum(state, [obj], "agent"):
             return state.get(obj, "state") == 0
         return False
+
+    @classmethod
+    def _Holding_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj, = objects
+        return int(state.get(obj, "state")) == 3
+
+    @classmethod
+    def _Near_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, ob2 = objects
+        return cls._Above_holds(state, [obj1, ob2]) or \
+                cls._Below_holds(state, [obj1, ob2]) or \
+                cls._RightOf_holds(state, [obj1, ob2]) or \
+                cls._LeftOf_holds(state, [obj1, ob2])
     
     @classmethod
     def _Unknown_holds(cls, state: State, objects: Sequence[Object]) -> bool:
