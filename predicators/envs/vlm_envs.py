@@ -141,3 +141,63 @@ class IceTeaMakingEnv(VLMPredicateEnv):
             "teabag_on_plate(teabag, plate)"
         ])
         return [[a] for a in atom_strs]
+
+
+class MiscEnv(VLMPredicateEnv):
+    """Misc"""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Env-specific types.
+        self._drawer_type = Type("drawer", [], self._object_type)
+        self._table_type = Type("table", [], self._object_type)
+        self._cups_type = Type("cups", [], self._object_type)
+        # self._pan_type = Type("iron_pan", [], self._object_type)
+        # self._broccoli = Type("stuffed_broccoli", [], self._object_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "misc"
+
+    @property
+    def types(self) -> Set[Type]:
+        return super().types | {
+            self._drawer_type
+        }
+    # def types(self) -> Set[Type]:
+    #     return super().types | {
+    #         self._table_type, self._cups_type
+    #     }
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng  # unused.
+        dummy_goal_obj = Object(DUMMY_GOAL_OBJ_NAME, self._goal_object_type)
+        drawer_obj = Object("drawer", self._drawer_type)
+        table_obj = Object("table", self._table_type)
+        cups_obj = Object("cups", self._cups_type)
+        init_state = State({
+            dummy_goal_obj: np.array([0.0]),
+            drawer_obj: np.array([]),
+        })
+        # init_state = State({
+        #     dummy_goal_obj: np.array([0.0]),
+        #     table_obj: np.array([]),
+        #     cups_obj: np.array([]),
+        # })
+        return [
+            EnvironmentTask(
+                init_state,
+                set([GroundAtom(self._DummyGoal, [dummy_goal_obj])]))
+            for _ in range(num)
+        ]
+
+    # def get_vlm_debug_atom_strs(self,
+    #                             train_tasks: List[Task]) -> List[List[str]]:
+    #     del train_tasks
+    #     atom_strs = set([
+    #         "open(drawer)",
+    #         "closed(drawer)"
+    #     ])
+    #     return [[a] for a in atom_strs]

@@ -174,6 +174,7 @@ def _sample_vlm_atom_proposals_from_trajectories(
             traj, trajectory_subsample_freq)
     curr_num_queries = 0
     total_num_queries = len(all_vlm_queries_list)
+    # import pdb; pdb.set_trace()
     for txt_prompt, img_prompt in all_vlm_queries_list:
         aggregated_vlm_output_strs.append(
             vlm.sample_completions(txt_prompt,
@@ -748,6 +749,7 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
     else:  # pragma: no cover
         atom_strs_proposals_list = env.get_vlm_debug_atom_strs(train_tasks)
     # We now parse and sanitize this set of atoms.
+    import pdb; pdb.set_trace()
     atom_proposals_set = _parse_unique_atom_proposals_from_list(
         atom_strs_proposals_list, all_task_objs)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
@@ -756,6 +758,7 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
     # NOTE: we convert to a sorted list here to get rid of randomness from set
     # ordering.
     unique_atoms_list = sorted(atom_proposals_set)
+    logging.info(f"Sanitized final atom proposals: {unique_atoms_list}")
     # Now, query the VLM!
     logging.info("Querying VLM to label every scene...")
     atom_labels = _label_trajectories_with_vlm_atom_values(
