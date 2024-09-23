@@ -153,6 +153,7 @@ def _generate_prompt_for_scene_labelling(
                 curr_prompt += "\n\nPredicate values in the first scene, " \
                 "before the skill was executed: \n"
                 curr_prompt += label_history[-1]
+            # import pdb; pdb.set_trace()
             yield (curr_prompt, curr_prompt_imgs)
     else:
         for curr_imgs in traj.imgs:
