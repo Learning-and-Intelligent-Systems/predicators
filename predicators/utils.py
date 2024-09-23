@@ -3373,15 +3373,6 @@ def create_llm_by_name(
         return GoogleGeminiLLM(model_name)
     return OpenAILLM(model_name)
 
-
-def create_vlm_by_name(
-        model_name: str) -> VisionLanguageModel:  # pragma: no cover
-    """Create particular vlm using a provided name."""
-    if "gemini" in model_name:
-        return GoogleGeminiVLM(model_name)
-    return OpenAIVLM(model_name)
-
-
 def parse_model_output_into_option_plan(
     model_prediction: str, objects: Collection[Object],
     types: Collection[Type], options: Collection[ParameterizedOption],
@@ -3700,7 +3691,7 @@ def query_vlm_for_atom_vals(
             true_atoms.add(vlm_atoms[i])
     return true_atoms
 
-def abstract_with_concept_predicates(
+def _abstract_with_concept_predicates(
                     abs_state: Set[GroundAtom],
                     preds: Collection[ConceptPredicate],
                     objects: Collection[Object]) -> Set[GroundAtom]:
@@ -3713,8 +3704,35 @@ def abstract_with_concept_predicates(
                 if pred.holds(abs_state, choice):
                     atoms.add(GroundAtom(pred, choice))
             except Exception as e:
-                logging.error(f"Error in evaluating concept predicate: {e}")
+                logging.error(f"Error in evaluating concept predicate {pred}: "
+                            f"{e}")
+                raise e
     return atoms
+
+def abstract_with_concept_predicates(
+                    atoms: Set[GroundAtom],
+                    cnpt_preds: Collection[ConceptPredicate],
+                    objects: Collection[Object]) -> Set[GroundAtom]:
+    """Compute the fixed point of concept predicate atoms.
+    """    
+    primitive_atoms = atoms
+    new_concept_atoms = set()
+    prev_new_concept_atoms = set()
+    counter = 0
+    while True:
+        # All the concept atoms that holds; all the previous atoms
+        atoms = primitive_atoms | new_concept_atoms
+        new_concept_atoms = _abstract_with_concept_predicates(
+                                                    atoms, 
+                                                    cnpt_preds, 
+                                                    objects)
+        # logging.debug(f"ite {counter} concept atoms: {new_concept_atoms}")
+        converged = new_concept_atoms == prev_new_concept_atoms
+        if converged:
+            break
+        prev_new_concept_atoms = new_concept_atoms
+        counter += 1
+    return new_concept_atoms
 
 def abstract(state: State,
              preds: Collection[Predicate],
@@ -3787,9 +3805,12 @@ def abstract(state: State,
                     atoms.add(GroundAtom(pred, choice))
     
     if len(cnpt_preds) > 0:
-        atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, 
-                                                    list(state))
+        atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, list(state))
     return atoms
+
+    #     atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, 
+    #                                                 list(state))
+    # return atoms
 
 
 def query_vlm_for_atom_vals_with_VLMQuerys(

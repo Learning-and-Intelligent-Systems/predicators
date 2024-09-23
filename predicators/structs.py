@@ -485,6 +485,14 @@ class ConceptPredicate(Predicate):
                           bool] = field(compare=False)
     untransformed_predicate: Optional[Predicate] = field(default=None, 
                                                          compare=False)
+    auxiliary_concepts: Optional[Set[ConceptPredicate]] = field(default=None,
+                                                                compare=False)
+
+    def update_auxiliary_concepts(self, 
+            auxiliary_concepts: Set[ConceptPredicate]) -> ConceptPredicate:
+        """Create a new ConceptPredicate with updated auxiliary_concepts."""
+        return replace(self, auxiliary_concepts=auxiliary_concepts)
+
 
     @cached_property
     def _hash(self) -> int:

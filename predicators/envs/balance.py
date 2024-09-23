@@ -145,10 +145,13 @@ class BalanceEnv(BaseEnv):
         self._ClearPlate = Predicate("ClearPlate", [self._plate_type],
                                      self._ClearPlate_holds)
 
+        self._OnPlate_abs = ConceptPredicate("OnPlate", 
+                                [self._block_type, self._plate_type],
+                                self._OnPlate_CP_holds,)
         self._Balanced_abs = ConceptPredicate("Balanced", 
-                                    [self._plate_type, self._plate_type],
-                                    self._Balanced_holds_abs, 
-                                    untransformed_predicate=self._Balanced)
+                                [self._plate_type, self._plate_type],
+                                self._EqualBlocksOnPlates_CP_holds, 
+                                untransformed_predicate=self._Balanced)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -160,6 +163,27 @@ class BalanceEnv(BaseEnv):
         self._block_size = CFG.balance_block_size
         self._num_blocks_train = CFG.balance_num_blocks_train
         self._num_blocks_test = CFG.balance_num_blocks_test
+    
+    def _OnPlate_CP_holds(self, atoms: Set[GroundAtom], 
+                          objects: Sequence[Object]) -> bool:
+        x, y = objects
+        for atom in atoms:
+            if atom.predicate == self._DirectlyOnPlate and\
+               atom.objects == [x, y]:
+                return True
+        other_blocks = {a.objects[0] for a in atoms if 
+            a.predicate == self._DirectlyOn or a.predicate == self._OnPlate_abs}
+
+        for other_block in other_blocks:
+            holds1 = False
+            for atom in atoms:
+                if atom.predicate == self._DirectlyOn and\
+                   atom.objects == [x, other_block]:
+                    holds1 = True
+                    break
+            if holds1 and self._OnPlate_CP_holds(atoms, [other_block, y]):
+                return True
+        return False
 
     def _ClearPlate_holds(self, state: State, objects: Sequence[Object]
                             ) -> bool:
@@ -242,8 +266,24 @@ class BalanceEnv(BaseEnv):
 
     #     return height1 == height2
 
-    
-    def _Balanced_holds_abs(self, atoms: Set[GroundAtom], 
+    def _EqualBlocksOnPlates_CP_holds(self, atoms: Set[GroundAtom], 
+                                      objects: Sequence[Object]) -> bool:
+        left_plate, right_plate = objects
+        if left_plate == right_plate:
+            return False
+        left_count = 0
+        right_count = 0
+        for atom in atoms:
+            if atom.predicate == self._OnPlate_abs and\
+               atom.objects[1] == left_plate:
+                left_count += 1
+            if atom.predicate == self._OnPlate_abs and\
+               atom.objects[1] == right_plate:
+                right_count += 1
+        # logging.debug(f"left: {left_count}, right: {right_count}")
+        return left_count == right_count
+ 
+    def _Balanced_CP_holds(self, atoms: Set[GroundAtom], 
                             objects: Sequence[Object]) -> bool:
         """Check if the blocks are balanced on the table.
         """
@@ -270,7 +310,7 @@ class BalanceEnv(BaseEnv):
 
         return height1 == height2
     
-    # def _Balanced_holds_abs(self, atoms: Set[GroundAtom], 
+    # def _Balanced_CP_holds(self, atoms: Set[GroundAtom], 
     #                         objects: Sequence[Object]) -> bool:
     #     """Check if the blocks are balanced on the table.
     #     """
@@ -447,7 +487,8 @@ class BalanceEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._DirectlyOn, self._DirectlyOnPlate, self._GripperOpen, self._Holding,
-            self._Clear, self._MachineOn, self._ClearPlate, self._Balanced_abs
+            self._Clear, self._MachineOn, self._ClearPlate, self._Balanced_abs,
+            self._OnPlate_abs
         }
 
     @property
@@ -561,11 +602,13 @@ class BalanceEnv(BaseEnv):
 
     def _sample_initial_piles(self, num_blocks: int,
                               rng: np.random.Generator) -> List[List[Object]]:
+        n_piles = 0
         piles: List[List[Object]] = []
         for block_num in range(num_blocks):
             block = Object(f"block{block_num}", self._block_type)
             # If coin flip, start new pile
-            if block_num == 0 or rng.uniform() < 0.2:
+            if (block_num == 0 or rng.uniform() < 0.2) and n_piles < 2:
+                n_piles += 1
                 piles.append([])
             # Add block to pile
             piles[-1].append(block)

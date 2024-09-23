@@ -151,7 +151,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         # self._candidates: Set[Predicate] = set()
         self._num_inventions = 0
         # Set up the VLM
-        self._gpt4o = utils.create_vlm_by_name("gpt-4o")
+        self._gpt4o = utils.create_vlm_by_name("gpt-4o",
+                                               system_instruction=\
+"""You are interacting with a PhD student in AI who is passionate about learning new things and aims to change the world in significant ways to make it a better place. Respond in a manner that is insightful, critical, precise, and concise.""")
         self._vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
         self._type_dict = {type.name: type for type in self._types}
 
@@ -262,8 +264,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         num_tasks = len(tasks)
         propose_ite = 1
         max_invent_ite = 10
-        self.manual_prompt = True
-        self.regenerate_response = False
+        self.manual_prompt = False
+        self.regenerate_response = True
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
         best_solve_rate, best_ite, clf_acc = -np.inf, 0.0, 0.0
         clf_acc_at_best_solve_rate = 0.0
@@ -276,6 +278,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.state_cache: Dict[int, RawState] = {}
         self.base_prim_candidates: Set[Predicate] =\
             self._initial_predicates.copy()
+        self.cnpt_pred_candidates: Set[ConceptPredicate] = set()
+        self.env_source_code = getsource(env.__class__)
 
         # Init data collection
         logging.debug(f"Initial predicates: {self._get_current_predicates()}")
@@ -366,7 +370,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 # Invent only when there is no improvement in solve rate
                 # Or when add_new_proposal_at_every_ite is True
                 prim_pred_proposals, cnpt_pred_proposals =\
-                      self._get_predicate_proposals(env, tasks, ite, all_trajs)
+                      self._get_predicate_proposals(env, tasks, ite)
                 logging.info(
                     f"Done: created "
                     f"{len(prim_pred_proposals | cnpt_pred_proposals)} "
@@ -451,6 +455,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # Collect Data again
             # Set up load/save filename for interaction dataset
+            # Add the auxiliary concepts to self._learned_predicates here?
             results = self.collect_dataset(ite, env, tasks)
             num_solved = sum([r.succeeded for r in results])
             num_failed_plans = sum(
@@ -525,7 +530,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         env: BaseEnv,
         tasks: List[Task],
         ite: int,
-        all_trajs: List[LowLevelTrajectory],
+        # all_trajs: List[LowLevelTrajectory],
     ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
         """Get predicate proposals either by using oracle or VLM.
         """
@@ -1148,14 +1153,34 @@ class VlmInventionApproach(NSRTLearningApproach):
         tasks: List[Task],
         # state_list_str: str = "",
     ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
-        # Stage -1 (optional): get concept predicates based on existing 
-        #       predicates
+
+        # Phase 1: invent concept predicates from the existing predicates.
         if CFG.vlm_invention_initial_concept_invention:
-            concept_preds = self._invent_initial_concept_predicates(ite, env, 
-                                                                   tasks)
+            helper_cnpt_preds = self._invent_initial_concept_predicates(ite, 
+                                                                    env, 
+                                                                    tasks)
         else:
-            concept_preds = set()
-            
+            helper_cnpt_preds = set()
+
+        # The intially proposed concept predicates are immediately added to the 
+        #   base candidates
+        self.cnpt_pred_candidates |= helper_cnpt_preds
+
+        # Phase 2: invent other predicates building on existing ones.
+        primitive_preds, concept_preds = self._invent_predicates_from_data(ite, 
+                                                                        env, 
+                                                                        tasks)
+        # all_concept_preds = self.cnpt_pred_candidates | concept_preds
+        self.cnpt_pred_candidates |= concept_preds 
+        breakpoint()
+        return primitive_preds, self.cnpt_pred_candidates
+
+    def _invent_predicates_from_data(self, 
+                                ite: int, 
+                                env: BaseEnv, 
+                                tasks: List[Task]
+                            ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
+        phase_n = "from_data"
         # Create the first prompt.
         max_attempts = 5
         max_num_groundings, max_num_examples = 1, 1
@@ -1165,55 +1190,59 @@ class VlmInventionApproach(NSRTLearningApproach):
             shutil.rmtree(obs_dir, handle_remove_error)
 
         if CFG.vlm_invent_predicates_in_stages:
-            if CFG.vlm_invent_from_trajs:
-                create_prompt_func =\
-                    self._create_invention_from_traj_prompt
-            else:
-                # Current default
-                create_prompt_func =\
-                    self._create_invention_from_pn_states_prompt
+            # if CFG.vlm_invent_from_trajs:
+            #     # From just trajectories; no negative examples
+            #     create_prompt_func =\
+            #         self._create_invention_from_traj_prompt
+            # else:
+            # Both positive and engative examples
+            # [simplify by removing the if case]
+            create_prompt_func =\
+                self._create_invention_from_pn_states_prompt
         else:
             create_prompt_func =\
                     self._create_one_step_program_invention_prompt
 
         for attempt in range(max_attempts):
             logging.debug(f"Prompt creation attempt {attempt}")
-            if CFG.vlm_invent_from_trajs:
-                prompt, state_str = create_prompt_func(env, ite, all_trajs)
-                break
-            else:
-                prompt, state_str = create_prompt_func(
-                    env,
-                    ite,
-                    max_num_options=10,
-                    max_num_groundings=max_num_groundings,
-                    max_num_examples=max_num_examples,
-                    categories_to_show=['tp', 'fp'])
+            # if CFG.vlm_invent_from_trajs:
+            #     prompt, state_str = create_prompt_func(env, ite, all_trajs)
+            #     break
+            # else:
+            prompt, state_str = create_prompt_func(
+                                        env,
+                                        ite,
+                                        max_num_options=10,
+                                        max_num_groundings=max_num_groundings,
+                                        max_num_examples=max_num_examples,
+                                        categories_to_show=['tp', 'fp'],
+                                        phase_n=phase_n)
 
-                # Load the images accompanying the prompt
-                images = self._load_images_from_directory(obs_dir)
+            # Load the images accompanying the prompt
+            images = self._load_images_from_directory(obs_dir)
 
-                logging.debug(f"Created {len(images)} images")
-                if min_imgs <= len(images) <= max_imgs: break
+            logging.debug(f"Created {len(images)} images")
+            if min_imgs <= len(images) <= max_imgs: break
 
-                if len(images) > max_imgs:
-                    if os.path.exists(obs_dir):
-                        shutil.rmtree(obs_dir, handle_remove_error)
-                    if attempt % 2 == 0:
-                        max_num_examples = max(1, max_num_examples - 1)
-                    else:
-                        max_num_groundings = max(1, max_num_groundings - 1)
+            if len(images) > max_imgs:
+                if os.path.exists(obs_dir):
+                    shutil.rmtree(obs_dir, handle_remove_error)
+                if attempt % 2 == 0:
+                    max_num_examples = max(1, max_num_examples - 1)
                 else:
-                    # Adjust parameters for the next attempt
-                    if attempt % 2 == 0:
-                        max_num_groundings += 1
-                    else:
-                        max_num_examples += 1
+                    max_num_groundings = max(1, max_num_groundings - 1)
+            else:
+                # Adjust parameters for the next attempt
+                if attempt % 2 == 0:
+                    max_num_groundings += 1
+                else:
+                    max_num_examples += 1
         
         
-        # Stage 0 (optional): get proposals in natural language
+        # Stage 0 (optional): get predicate proposals in natural language
+        # from gpt4o
         if CFG.vlm_invention_propose_nl_properties:
-            nl_proposal_f = CFG.log_file + f"ite{ite}_stage0.response"
+            nl_proposal_f = CFG.log_file + f"ite{ite}_{phase_n}_s0.response"
             response = self._get_vlm_response(nl_proposal_f,
                                               self._gpt4o,
                                               prompt,
@@ -1229,22 +1258,21 @@ class VlmInventionApproach(NSRTLearningApproach):
             }]
 
             if self.env.get_name() == "pybullet_balance":
-                response = response.split("\n")[:5]
+                response = response.split("\n")[:3]
                 response = "\n".join(response)
-            # Second: convert the NL proposals to formal predicate specs.
+            # Convert the NL proposals to formal predicate specs.
             template_f = "prompts/invent_0_nl_2_pred_spec.outline"
             with open(template_f, "r") as f:
                 template = f.read()
             type_names = str(set(t.name for t in env.types))
-            # The prompt will be treated the same way as without this extra step
             prompt = template.format(CONCEPT_PROPOSALS=response,
                                      TYPES_IN_ENV=type_names)
             # Save the text prompt
-            with open(CFG.log_file + f"ite{ite}_stage1.prompt", 'w') as f:
+            with open(CFG.log_file + f"ite{ite}_{phase_n}_s1.prompt", 'w') as f:
                 f.write(prompt)
 
         if CFG.vlm_invent_predicates_in_stages:
-            save_file = CFG.log_file + f"ite{ite}_stage1.response"
+            save_file = CFG.log_file + f"ite{ite}_{phase_n}_s1.response"
         else:
             save_file = CFG.log_file + f"ite{ite}.response"
 
@@ -1268,47 +1296,43 @@ class VlmInventionApproach(NSRTLearningApproach):
                     predicate_specs)
 
             # Generate prompt to write ns_predicates
-            s2_prompt = self._create_invention_stage_two_prompt(
-                env, ite, state_str, predicate_specs)
-            save_file = CFG.log_file + f"ite{ite}_stage2.response"
+            s2_prompt = self._create_implementation_prompt(
+                env, ite, state_str, predicate_specs, save_fn=f"{phase_n}_s2")
+            save_file = CFG.log_file + f"ite{ite}_{phase_n}_s2.response"
 
-            breakpoint()
             # Stage 2: Implement the predicates
             response = self._get_vlm_response(
                 save_file,
                 self._vlm,
                 s2_prompt,
-                images,
-            )
+                images)
 
         # Stage 3: Parse and load the predicates
         primitive_preds, concept_preds = self._parse_predicate_predictions(
-            save_file, tasks, ite)
+            save_file, tasks, ite, translate_fn=f"{phase_n}_s3")
         return primitive_preds, concept_preds
 
     def _invent_initial_concept_predicates(self, ite: int,
-            env: BaseEnv, tasks: List[Task]) -> Set[ConceptPredicate]:
-        template_f = "prompts/invent_0_initial_concept_invent_s1.outline"
+            env: BaseEnv, tasks: List[Task]
+            ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
+        template_f = "prompts/invent_0_initial_concept_invent.outline"
         with open(template_f, "r") as f:
             template = f.read()
 
+        # Stage 1: Propose the predicates
+        logging.info("Stage 1: Querying VLM for concept predicate proposal.")
         # Get existing predicates
         pred_str = self._init_predicate_str(env,
                                         self.env_source_code,
                                         show_predicate_assertion=True)
         # Get existing types
-        if CFG.neu_sym_predicate:
-            # New version: just read from a file
-            with open(f"./prompts/types_{self.env_name}.py", 'r') as f:
-                type_instan_str = f.read()
-        else:
-            # Old version: extract directly from the source code
-            type_instan_str = self._env_type_str(self.env_source_code)
-        type_instan_str = add_python_quote(type_instan_str)
+        # with open(f"./prompts/types_{self.env_name}.py", 'r') as f:
+        #     type_instan_str = f.read()
+        # type_instan_str = add_python_quote(type_instan_str)
+        type_names = str(set(t.name for t in env.types))
         
-        prompt = template.format(
-                                EXISTING_PREDICATES=pred_str,
-                                EXISTING_TYPES=type_instan_str)
+        prompt = template.format(PREDICATES_IN_ENV=pred_str,
+                                 TYPES_IN_ENV=type_names)
         
         # Log the prompt
         prompt_f = CFG.log_file + f"ite{ite}_init_cnpt_s1.prompt"
@@ -1319,22 +1343,24 @@ class VlmInventionApproach(NSRTLearningApproach):
         save_f = CFG.log_file + f"ite{ite}_init_cnpt_s1.response"
         response = self._get_vlm_response(save_f, self._vlm, prompt, [])
 
-        # Get the implementation
-        imp_prompt = self._create_invention_stage_two_prompt(
-                env, ite, "", response, f"ite{ite}_init_cnpt_s2")
-        save_file = CFG.log_file + f"ite{ite}_stage2.response"
-
-        breakpoint()
         # Stage 2: Implement the predicates
-        response = self._get_vlm_response(
-            save_file,
-            self._vlm,
-            imp_prompt,
-        )
+        # Get the implementation
+        imp_prompt = self._create_implementation_prompt(env, ite, "", 
+                                            response, 
+                                            save_fn="init_cnpt_s2")
+        save_file = CFG.log_file + f"ite{ite}_init_cnpt_s2.response"
+
+        logging.info("Stage 2: Querying VLM for predicate implementation.")
+        response = self._get_vlm_response(save_file,
+                                          self._vlm,
+                                          imp_prompt,
+                                        )
 
         # Stage 3: Parse and load the predicates
-        _, concept_preds = self._parse_predicate_predictions(
-            save_file, tasks, ite)
+        logging.info("Stage 3: Transforming concept predicates.")
+        _, concept_preds =\
+            self._parse_predicate_predictions(
+            save_file, tasks, ite, translate_fn="init_cnpt_s3")
         return concept_preds
 
     def _select_predicates_by_score_optimization(
@@ -1561,25 +1587,31 @@ class VlmInventionApproach(NSRTLearningApproach):
         prompt = template
         return prompt, "\n".join(state_str_lst)
 
-    def _create_invention_stage_two_prompt(
+    def _create_implementation_prompt(
         self,
         env: BaseEnv,
         ite: int,
         state_list_str: str,
         predicate_specs: str,
+        save_fn: str,
     ) -> str:
 
         # Structure classes
         if CFG.neu_sym_predicate:
-            template_file = "invent_0_prog_syn_nesy.outline"
-            state_api_file = "api_raw_state.py"
+            if save_fn == "init_cnpt_s2":
+                # use the simplified version
+                template_file = "invent_0_prog_syn_nesy_simp.outline"
+                state_api_file = "api_raw_state_simp.py"
+            else:
+                template_file = "invent_0_prog_syn_nesy.outline"
+                state_api_file = "api_raw_state.py"
             pred_api_file = "api_nesy_predicate.py"
         else:
             template_file = "invent_0_prog_syn_sym.outline"
             state_api_file = "api_oo_state.py"
             pred_api_file = "api_sym_predicate.py"
 
-        with open(f"prompts/{template_file}", 'r') as f:
+        with open(f"./prompts/{template_file}", 'r') as f:
             template = f.read()
 
         with open(f'./prompts/{state_api_file}', 'r') as f:
@@ -1591,10 +1623,13 @@ class VlmInventionApproach(NSRTLearningApproach):
             add_python_quote(state_str + '\n\n' + pred_str))
 
         # Type Instances
+        # if save_fn == "init_cnpt_s2":
+        #     type_str = str(set(t.name for t in env.types))
+        # else:
         with open(f"./prompts/types_{self.env_name}.py", 'r') as f:
-            type_instan_str = f.read()
-        type_instan_str = add_python_quote(type_instan_str)
-        template = template.replace("[TYPES_IN_ENV]", type_instan_str)
+            type_str = f.read()
+        type_str = add_python_quote(type_str)
+        template = template.replace("[TYPES_IN_ENV]", type_str)
 
         # Predicates
         # If NSP, provide the GT goal NSPs, although they are never used.
@@ -1606,17 +1641,16 @@ class VlmInventionApproach(NSRTLearningApproach):
                                         env,
                                         self.env_source_code,
                                         show_predicate_assertion=True))
-
-        # List of states
+        if state_list_str != "":
+            state_list_str =\
+                "The states the predicates have been evaluated on are:\n" +\
+                state_list_str
         template = template.replace("[LISTED_STATES]", state_list_str)
-
-        # Predicate Specs
         template = template.replace("[PREDICATE_SPECS]", predicate_specs)
 
-        with open(f"{CFG.log_file}/ite{ite}_stage2.prompt", 'w') as f:
+        with open(f"{CFG.log_file}/ite{ite}_{save_fn}.prompt", 'w') as f:
             f.write(template)
         prompt = template
-
         return prompt
 
     def _create_invention_from_pn_states_prompt(
@@ -1628,6 +1662,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         max_num_examples: int = 2,  # Number of examples per ground option.
         categories_to_show: List[str] = ['tp', 'fp'],
         seperate_prompt_per_option: bool = False,
+        phase_n: str = "from_data"
     ) -> str:
         if CFG.vlm_invention_propose_nl_properties:
             template_f = "prompts/invent_0_prog_free_p_nl.outline"
@@ -1642,7 +1677,6 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         # Predicates
         # If NSP, provide the GT goal NSPs, although they are never used.
-        self.env_source_code = getsource(env.__class__)
         pred_str_lst = []
         pred_str_lst.append(
             self._init_predicate_str(
@@ -1675,10 +1709,10 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         # Save the text prompt
         if CFG.vlm_invention_propose_nl_properties:
-            with open(f"{CFG.log_file}/ite{ite}_stage0.prompt", 'w') as f:
+            with open(f"{CFG.log_file}/ite{ite}_{phase_n}_s0.prompt", 'w') as f:
                 f.write(template)
         else:
-            with open(f"{CFG.log_file}/ite{ite}_stage1.prompt", 'w') as f:
+            with open(f"{CFG.log_file}/ite{ite}_{phase_n}_s1.prompt", 'w') as f:
                 f.write(template)
         prompt = template
 
@@ -1796,6 +1830,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         prediction_file: str,
         tasks: List[Task],
         ite: int,
+        translate_fn: str,
     ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
 
         # Read the prediction file
@@ -1812,16 +1847,22 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         primitive_preds = set()
         context: Dict = {}
-        unconverted_concept_pred_str = []
+        untranslated_concept_pred_str = []
         # Add the existing predicates and their classifiers to `context` for
         # potential reuse
         for p in self._initial_predicates:
-            context[f"_{p.name}"] = p
             context[f"_{p.name}_NSP_holds"] = p._classifier
-        
+
+        for p in self.base_prim_candidates | self.cnpt_pred_candidates:
+            context[f"{p.name}"] = p
+
+        for p in self.cnpt_pred_candidates:
+            context[f"_{p.name}_CP_holds"] = p._classifier
+
 
         type_init_str = self._env_type_str(self.env_source_code)
-        # constants_str = self._constants_str(self.env_source_code)
+        
+        # Load the imports and types
         exec(import_str, context)
         exec(type_init_str, context)
 
@@ -1836,18 +1877,17 @@ class VlmInventionApproach(NSRTLearningApproach):
             is_concept_predicate = self.check_is_concept_predicate(code_str)
             logging.info(f"\t it's a concept predicate: {is_concept_predicate}")
 
-            # Recognize that it's a concept predicate (not using `get` or 
-            # `evaluate_simple`)
-            # Translate it from using state to abstract state
+            # Recognize that it's a concept predicate
             if is_concept_predicate:
-                unconverted_concept_pred_str.append(code_str)
+                untranslated_concept_pred_str.append(add_python_quote(
+                    code_str))
             else:
-
                 # Type check the code
                 # passed = False
                 # while not passed:
-                #     result, passed = self.type_check_proposed_predicates(pred_name,
-                #                                                          code_str)
+                #     result, passed = self.type_check_proposed_predicates(
+                #                                                     pred_name,
+                #                                                     code_str)
                 #     if not passed:
                 #         # Ask the LLM or the User to fix the code
                 #         pass
@@ -1882,20 +1922,34 @@ class VlmInventionApproach(NSRTLearningApproach):
                         primitive_preds.add(context[pred_name])
         
         concept_preds = set()
-        if unconverted_concept_pred_str:
-            converted_concept_pred_str = self.translate_concept_predicate(
+        # Translate the potential concept predicates to concept predicates
+        if untranslated_concept_pred_str:
+            logging.info("\nTransforming the potential concept predicates...")
+            translated_concept_pred_str = self.translate_concept_predicate(
                                                 ite,
-                                                unconverted_concept_pred_str)
-            # TODO: instantiate the covereted concept prediicates
-            cp_python_blocks = []
+                                                untranslated_concept_pred_str,
+                                                translate_fn=translate_fn)
+            cn_pred_python_blocks = []
             # Find all Python code blocks in the text
-            for match in pattern.finditer(converted_concept_pred_str):
+            for match in pattern.finditer(translated_concept_pred_str):
                 # Extract the Python code block and add it to the list
-                cp_python_blocks.append(match.group(1).strip())
-            for code_str in cp_python_blocks:
+                cn_pred_python_blocks.append(match.group(1).strip())
+
+            # Instantiate the transformed concept predicates
+            for code_str in cn_pred_python_blocks:
+                # Extract name from code block
+                match = re.search(r'(\w+)\s*=\s*(Concept)?Predicate', code_str)
+                if match is None:
+                    logging.warning("No predicate name found in the code block")
+                    continue
+                pred_name = match.group(1)
+                logging.info(f"Found definition for Concept Predicate "
+                             f"{pred_name}")
+
+                # Instantiate the predicate
                 try:
                     exec(code_str, context)
-                    logging.debug(f"Testing predicate {pred_name}")
+                    logging.debug(f"Testing Concept Predicate {pred_name}")
                     utils.abstract(tasks[0].init, set([context[pred_name]]))
                 except Exception as e:
                     error_trace = traceback.format_exc()
@@ -1903,7 +1957,17 @@ class VlmInventionApproach(NSRTLearningApproach):
                     f"testing predicate {pred_name}:\n{e}\n{error_trace}")
                     continue
                 else:
-                    concept_preds.add(context[pred_name])
+                    logging.debug(f"Added {pred_name}")
+                    concept_pred = context[pred_name]
+                    # Get all the auxiliary concepts
+                    aux_concepts = {p for p in 
+                                concept_preds | self.cnpt_pred_candidates if
+                                p.name in code_str}
+                    logging.debug(f"Found auxiliary concepts: {aux_concepts}")
+                    # Update the concept predicate
+                    concept_pred = concept_pred.update_auxiliary_concepts(
+                                                                aux_concepts)
+                    concept_preds.add(concept_pred)
 
         return primitive_preds, concept_preds
 
@@ -1917,20 +1981,35 @@ class VlmInventionApproach(NSRTLearningApproach):
             return False
         return True
 
-    def translate_concept_predicate(self, ite: int, code_str: str) -> str:
+    def translate_concept_predicate(self, ite: int, code_str: List[str],
+                                    translate_fn: str) -> str:
         """Call GPT to transform the predicate str
         """
         template_f = f"prompts/classifier_transform.outline"
         with open(template_f, "r") as f:
             template = f.read()
         
-        prompt = template.format(ORIGINAL_PREDICATES=add_python_quote(
-            '\n'.join(code_str)))
-        prompt_f = CFG.log_file + f"ite{ite}_classifier_transform.prompt"
+        # Existing primitive predicates
+        primitive_pred_str = self._init_predicate_str(
+                                include_definition=False,
+                                include_primitive_preds=True,
+                                include_concept_preds=False)
+        # Existing concept predicates
+        concept_pred_str = self._init_predicate_str(
+                                include_definition=False,
+                                include_primitive_preds=False,
+                                include_concept_preds=True)
+        if concept_pred_str == "":
+            concept_pred_str = "None"
+
+        prompt = template.format(PRIMITIVE_PREDICATES=primitive_pred_str,
+                                 CONCEPT_PREDICATES=concept_pred_str,
+                                 UNTRANSFORMED_PREDICATES='\n'.join(code_str))
+        prompt_f = CFG.log_file + f"ite{ite}_{translate_fn}_clf_trfm.prompt"
         with open(prompt_f, 'w') as f:
             f.write(prompt)
 
-        response_f = CFG.log_file + f"ite{ite}_classifier_transform.response"
+        response_f = CFG.log_file + f"ite{ite}_{translate_fn}_clf_trfm.response"
         response = self._get_vlm_response(response_f, self._vlm, prompt, [])
 
         return response
@@ -1981,10 +2060,12 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def _init_predicate_str(
         self,
-        env: BaseEnv,
-        source_code: str,
+        env: Optional[BaseEnv] = None,
+        source_code: str = "",
         include_definition: bool = True,
         show_predicate_assertion: bool = False,
+        include_primitive_preds: bool = True,
+        include_concept_preds: bool = True
     ) -> str:
         """Extract the initial predicates from the environment source code If
         NSP, provide the GT goal NSPs, although they are never used."""
@@ -1995,19 +2076,34 @@ class VlmInventionApproach(NSRTLearningApproach):
         vlm_invent_prompt_include_selected_predicates = False
 
         if vlm_invent_prompt_include_all_candidates:
-            predicates_shown = self.base_prim_candidates
+            predicates_shown = self.base_prim_candidates |\
+                               self.cnpt_pred_candidates
         elif vlm_invent_prompt_include_selected_predicates:
             predicates_shown = self._get_current_predicates()
         else:
             predicates_shown = self._initial_predicates
-        init_pred_str.append("\n".join(
-            sorted({
-                p.pretty_str_with_assertion()
-                if show_predicate_assertion else p.pretty_str_with_types()
-                for p in predicates_shown
-            })))
+        # init_pred_str.append("\n".join(
+        #     sorted({
+        #         p.pretty_str_with_assertion()
+        #         if show_predicate_assertion else p.pretty_str_with_types()
+        #         for p in predicates_shown
+        #     })))
+        # init_pred_str = list(sorted({
+        #     p.pretty_str_with_assertion()
+        #     if show_predicate_assertion else p.pretty_str_with_types()
+        #     for p in predicates_shown
+        # }))
+        init_pred_str = []
+        for p in predicates_shown:
+            if include_primitive_preds and not isinstance(p, ConceptPredicate):
+                init_pred_str.append(p.pretty_str_with_assertion())
+            elif include_concept_preds and isinstance(p, ConceptPredicate):
+                init_pred_str.append(p.pretty_str_with_assertion())
+        init_pred_str = sorted(init_pred_str)
 
         if include_definition:
+            assert source_code != "", "Source code must be provided."
+            assert env is not None, "Environment must be provided."
             # Print the variable definitions
             init_pred_str.append("\n")
             constants_str = self._constants_str(source_code)

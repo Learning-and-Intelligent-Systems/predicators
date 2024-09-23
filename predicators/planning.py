@@ -16,7 +16,7 @@ import tempfile
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from itertools import islice
+from itertools import islice, chain
 from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
     Optional, Sequence, Set, Tuple
 
@@ -110,7 +110,6 @@ def sesame_plan(
     raise ValueError("Unrecognized sesame_task_planner: "
                      f"{CFG.sesame_task_planner}")
 
-
 def _sesame_plan_with_astar(
     task: Task,
     option_model: _OptionModelBase,
@@ -129,8 +128,13 @@ def _sesame_plan_with_astar(
     allow_noops: bool = False,
     use_visited_state_set: bool = False,
 ) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
-    """The default version of SeSamE, which runs A* to produce skeletons."""
-    init_atoms = utils.abstract(task.init, predicates)
+    """The default version of SeSamE, which runs A* to produce skeletons.
+    """
+    concept_predicates = set([pred for pred in predicates.copy() if 
+                              isinstance(pred, ConceptPredicate)])
+    concept_predicates |= set(chain.from_iterable(p.auxiliary_concepts for p
+                                in concept_predicates if p.auxiliary_concepts))
+    init_atoms = utils.abstract(task.init, predicates|concept_predicates)
     logging.debug(f"Solving task w. \nInit: {init_atoms} \nGoals: {task.goal}")
     objects = list(task.init)
     start_time = time.perf_counter()
@@ -140,8 +144,6 @@ def _sesame_plan_with_astar(
     metrics: Metrics = defaultdict(float)
     # Make a copy of the predicates set to avoid modifying the input set,
     # since we may be adding NotCausesFailure predicates to the set.
-    concept_predicates = set([pred for pred in predicates.copy() if 
-                              isinstance(pred, ConceptPredicate)])
     predicates = set([pred for pred in predicates.copy() if not 
                       isinstance(pred, ConceptPredicate)])
     # Keep track of partial refinements: skeletons and partial plans. This is
@@ -399,6 +401,9 @@ def _skeleton_generator(
     A*. See Issue #1117 for a discussion on why this is False by
     default.
     """
+    # Expand the set of concept predicates
+    # concept_predicates |= set(chain.from_iterable(p.auxiliary_concepts for p
+    #                             in concept_predicates if p.auxiliary_concepts))
 
     # Initialize the progress bar
     progress_bar = False
@@ -510,6 +515,12 @@ def _skeleton_generator(
                 # if len(concept_predicates) > 0 and metrics["num_nodes_created"] == 2:
                 #     breakpoint()
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
+
+                # Should remove all the previous concept preds atoms before
+                # adding new ones
+                child_atoms = {atom for atom in child_atoms if not 
+                                isinstance(atom.predicate, ConceptPredicate)}
+
                 # Compute and add the concept predicate ground atoms
                 concept_atoms = utils.abstract_with_concept_predicates(
                                                         child_atoms, 
@@ -519,8 +530,7 @@ def _skeleton_generator(
                 # logging.debug(f"Applying nsrt: {nsrt.short_str}")
                 # logging.debug(f"Existing atoms: {child_atoms}")
                 # logging.debug(f"Concept preds: {concept_predicates}")
-                # logging.debug(f"Concept atoms: {concept_atoms}")
-                # logging.debug(f"Concept atoms: {concept_atoms}")
+                # logging.debug(f"Concept  atoms: {concept_atoms}")
 
                 child_atoms |= concept_atoms
                 # logging.debug(f"All atoms: {child_atoms}")

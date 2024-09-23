@@ -139,13 +139,17 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = PutOnPlate
         preconditions = {
             LiftedAtom(Holding, [block]),
-            LiftedAtom(ClearPlate, [plate])}
+            LiftedAtom(ClearPlate, [plate])
+            }
         add_effects = {
             LiftedAtom(OnPlate, [block, plate]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
-        delete_effects = {LiftedAtom(Holding, [block])}
+        delete_effects = {
+            LiftedAtom(Holding, [block]),
+            LiftedAtom(ClearPlate, [plate])
+            }
 
         def putonplate_sampler(state: State, goal: Set[GroundAtom],
                                rng: np.random.Generator,

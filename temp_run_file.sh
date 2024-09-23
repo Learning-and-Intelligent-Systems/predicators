@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /om2/user/ycliang/predicators
+python predicators/main.py --env pybullet_balance --approach oracle --experiment_id pb_balance-oracle_nsrt --debug --env_include_bbox_features False --option_learner no_learning --sampler_learner oracle --max_initial_demos 0 --num_test_tasks 3 --max_num_steps_interaction_request 1000 --num_online_learning_cycles 20 --horizon 1000 --pybullet_control_mode reset --pybullet_camera_width 800 --pybullet_camera_height 900 --vlm_model_name gemini-1.5-pro --num_train_tasks 5 --sesame_check_dr_reachable False --seed $SLURM_ARRAY_TASK_ID

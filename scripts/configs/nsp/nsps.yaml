@@ -77,7 +77,7 @@ ENVS:
     NAME: "pybullet_balance"
     FLAGS:
       pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
-      excluded_predicates: "Balanced"
+      excluded_predicates: "Balanced,OnPlate"
       pybullet_camera_width: 800
       num_train_tasks: 10
       sesame_check_dr_reachable: False
@@ -87,6 +87,7 @@ ENVS:
       enable_harmless_op_pruning: False
       sesame_max_samples_per_step: 1
       sesame_max_skeletons_optimized: 100 # temp
+      vlm_invention_initial_concept_invention: True
 
   # pb_cover_w:
   #   NAME: "pybullet_cover_weighted"
@@ -172,5 +173,5 @@ FLAGS:
   vlm_openai_max_response_tokens: 4096
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
-START_SEED: 1
+START_SEED: 2
 NUM_SEEDS: 1

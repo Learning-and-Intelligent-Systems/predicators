@@ -8,6 +8,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
+from itertools import chain
 from typing import Callable, Collection, Dict, FrozenSet, List, Optional, \
     Sequence, Set, Tuple
 
@@ -367,8 +368,15 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
         assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
-        concept_predicates = set([pred for pred in candidate_predicates if 
+        # Make a copy of the candidate_predicates
+        candidate_predicates_cp = candidate_predicates.copy()
+        concept_predicates = set([pred for pred in candidate_predicates_cp if 
                                   isinstance(pred, ConceptPredicate)])
+        concept_predicates |= set(chain.from_iterable(p.auxiliary_concepts for p
+                                in concept_predicates if p.auxiliary_concepts))
+        candidate_predicates_cp |= concept_predicates
+        logging.debug(f"With aux concepts: {sorted(concept_predicates)}")
+
         score = 0.0
         seen_demos = 0
         assert len(low_level_trajs) == len(segmented_trajs)
@@ -393,7 +401,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.sesame_task_planning_heuristic, init_atoms, goal,
-                ground_nsrts, candidate_predicates | self._initial_predicates,
+                ground_nsrts, candidate_predicates_cp|self._initial_predicates,
                 objects)
 
             # # Debug

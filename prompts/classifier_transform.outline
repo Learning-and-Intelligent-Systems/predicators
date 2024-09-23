@@ -1,16 +1,24 @@
-Please transform the following predicate classifiers to use an abstract state in terms of a set of GroundAtom--`atoms: Set[GroundAtom]` instead of an State--`state: State`. 
-That is, the new classifiers should have signature of form 
-`_<classifier_name>_holds_abs(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:` 
-instead of
-`_<classifier_name>_holds(state: State, objects: Sequence[Object]) -> bool:`
+Please transform the following `NSPredicate`s to `ConceptPredicate`s.
+**Task Overview:**
+Transform the predicate classifiers to use an abstract state represented by a set of `GroundAtom` objects (`atoms: Set[GroundAtom]`) instead of a `State` object (`state: State`).
+The transformed predicates should be instances of `ConceptPredicate` instead of `NSPredicate` and their classifier functions should have the signature:
+`def _<predicate_name>_CP_holds(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:` instead of `_<predicate_name>_NSP_holds(state: State, objects: Sequence[Object]) -> bool:`
 
-The untransformed predicates are:
-{ORIGINAL_PREDICATES}
+**Existing Predicates**
+* Primitive Predicates:
+{PRIMITIVE_PREDICATES}
 
-In your response, write each transformd predicate in a Python block as follows:
+* Concept (Derived) Predicates:
+{CONCEPT_PREDICATES}
+
+**Untransformed Predicates:**
+{UNTRANSFORMED_PREDICATES}
+
+**Response Format:**
+In your response, write each transformed predicate in a Python block formatted as follows:
 ```python
 # Define the classifier function
-def _<predicate_name>_holds_abs(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:
+def _<predicate_name>_CP_holds(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:
     # Implement the boolean classifier function here
     ...
 
@@ -21,64 +29,72 @@ name: str = ...
 param_types: Sequence[Type] = ... 
 
 # Instantiate the predicate
-<predicate_name> = ConceptPredicate(name, param_types, _<predicate_name>_holds_abs)
+<predicate_name> = ConceptPredicate(name, param_types, _<predicate_name>_CP_holds)
 ```
 
-Note that Each `GroundAtom` object has attribute `predicate: Predicate` and `objects: Sequence[Object]` that can be used to check the predicate and objects used in obtaining such ground atom.
 
-For example, the followings shows an example transformation for the `Clear` predicate:
-The untransformed predicate:
+### Example 1: Transforming the `Clear` Predicate
+The untransformed NSPredicate is:
 ```python
-def _Clear_holds(state: State, objects: Sequence[Object]) -> bool:
+def _Clear_NSP_holds(state: State, objects: Sequence[Object]) -> bool:
     block, = objects
     for other_block in state.get_objects(_block_type):
-        if self._On_holds(state, [other_block, block]):
+        if _DirectlyOn_NSP_holds(state, [other_block, block]):
             return False
     return True
 
+name: str = "Clear"
 param_types = [_block_type]
-_Clear = Predicate("Clear", param_types, _Clear_holds)
+Clear = NSPredicate(name, param_types, _Clear_NSP_holds)
 ```
-The transformed predicate is:
+The transformed ConceptPredicate is:
 ```python
-def _Clear_holds_abs(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:  
-    block, = objects                 
+def _Clear_CP_holds(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:
+    block, = objects
     for atom in atoms:
-        if atom.predicate == _On:
-            if atom.objects[1] == block:
-                return False
+        if atom.predicate == DirectlyOn and atom.objects[1] == block:
+            return False
     return True
 
+name: str = "Clear"
 param_types = [_block_type]
-_Clear = ConceptPredicate("Clear", param_types, _Clear_holds_abs)
+Clear = ConceptPredicate(name, param_types, _Clear_CP_holds)
 ```
 
-The following shows an example transformation for the `Holding` predicate:
-The untransformed predicate:
+### Example 2: Transforming the `Holding` Predicate
+The untransformed NSPredicate is:
 ```python
-def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+def _Holding_NSP_holds(state: State, objects: Sequence[Object]) -> bool:
     block, = objects
     for other_block in state.get_objects(_block_type):
-        if _On_holds(state, [block, other_block]):
+        if _DirectlyOn_NSP_holds(state, [block, other_block]):
             return False
-        if _OnTable_holds(state, [block]):
+        if _DirectlyOnTable_NSP_holds(state, [block]):
             return False
     return True
 
+name: str = "Holding"
 param_types = [_block_type]
-_Holding = Predicate("Holding", param_types, _Holding_holds)
+Holding = NSPredicate(name, param_types, _Holding_NSP_holds)
 ```
-The transformed predicate is:
+
+The transformed ConceptPredicate is:
 ```python
-def _Holding_holds_abs(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:
+def _Holding_CP_holds(atoms: Set[GroundAtom], objects: Sequence[Object]) -> bool:
     block, = objects
     for atom in atoms:
-        if atom.predicate == _On and atom.objects[0] == block:
+        if atom.predicate == DirectlyOn and atom.objects[0] == block:
             return False
-        if atom.predicate == _OnTable and atom.objects[0] == block:
+        if atom.predicate == DirectlyOnTable and atom.objects[0] == block:
             return False
     return True
 
+name: str = "Holding"
 param_types = [_block_type]
-_Holding = ConceptPredicate("Holding", param_types, _Holding_holds_abs)
+Holding = ConceptPredicate(name, param_types, _Holding_CP_holds)
 ```
+
+**Important Notes:**
+- Each `GroundAtom` object has the attributes `predicate: Predicate` and `objects: Sequence[Object]`, which you can use to identify the predicate and its associated objects in the ground atom.
+- To check the truth value of ground atoms made from existing **primitive predicates** (such as for `_DirectlyOn` as in `if _DirectlyOn_NSP_holds(state, [other_block, block])` in the example above), you should **iterate over and inspect** the `GroundAtom`s in the `atoms` set, rather than calling their classifier functions (e.g., `_DirectlyOn_holds`).
+- Conversely, to check the truth value of ground atoms made from existing **concept (derived) predicates**, you should **use their classifier functions** in the form `_<predicate_name>_CP_holds`, which may involve recursive calls of the function you’re defining

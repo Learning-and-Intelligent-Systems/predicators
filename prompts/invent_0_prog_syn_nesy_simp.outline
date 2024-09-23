@@ -6,8 +6,6 @@ I will describe the API you should use for writing predicates and the environmen
 
 The environment includes the following object-type variables with features:
 [TYPES_IN_ENV]
-where `bbox_left`, `bbox_lower`, ..., corresponds to the pixel index of the left, lower boundary of the object bounding box in the image starting from (0, 0) at the bottom left corner of the image.
-`pose_x`, `pose_y`, and `pose_z` correspond to the 3d object position in the world frame, so these are not comparable to the bbox values.
 
 The existing predicates are:
 [PREDICATES_IN_ENV]
@@ -21,7 +19,7 @@ Implement each predicate in a Python block as follows:
 ```python
 def _<predicate_name>_NSP_holds(state: State, objects: Sequence[Object]) -> bool:
     # Implement the boolean classifier function here
-    ...
+    ..init_cnpt_s2.
 
 # Define the predicate name here 
 name: str = ... 
@@ -32,10 +30,10 @@ param_types: Sequence[Type] = ...
 ```
 
 - When writing the proposals, strictly adhere to the following guidlines:
-    - Make use of helper functions such as the classifier function in the existing predicates in the form of `_<predicate_name>_NSP_holds`, if they're helpful.
-    - When defining classifier functions, it is recommended to first use rules based on object features to identify scenarios where the predicate is *clearly* False (the robot can't be holding anything if its hand is open). Then, if necessary, use the `evaluate_simple_assertion` method to address potential remaining cases. Reference the format of example predicates;
     - Use only object-type variables defined in the environment when defining  `param_types`.
     - Don't use any undefined constants;
     - Don't use object features that are not present in the definition of that object type.
     - Adhere to the type hints in the predicate definition template.
+    - Make use of helper functions such as the classifier function of the existing predicates in the form of `_<predicate_name>_NSP_holds`, if they're helpful.
     - Your don't need to import anything.
+    - Ensure the classifiers can produce the intended results given any number of objects in a state.

@@ -32,7 +32,7 @@ ENVS:
       pybullet_camera_width: 800
       num_train_tasks: 5
       sesame_check_dr_reachable: False
-      excluded_predicates: "Balanced"
+  #     excluded_predicates: "Balanced"
   # pb_cover_w:
   #   NAME: "pybullet_cover_weighted"
   #   FLAGS:

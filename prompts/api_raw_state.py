@@ -53,7 +53,7 @@ class RawState:
         >>>                         right_margin=20)
         >>>     return state.evaluate_simple_assertion(
         >>>         f"{switch_name} is in the on state.", attention_image)
-        >>> _SwitchOn_NSP = NSPredicate("SwitchOn", [_switch_type], _SwitchOn_NSP_holds)
+        >>> SwitchOn = NSPredicate("SwitchOn", [_switch_type], _SwitchOn_NSP_holds)
         >>>
         >>> # An example for predicate OnTable
         >>> def _OnTable_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
@@ -73,7 +73,7 @@ class RawState:
         >>>     return state.evaluate_simple_assertion(
         >>>         f"{phone_name} is directly resting on {table_name}'s surface.",
         >>>         attention_image)
-        >>> _OnTable_NSP = NSPredicate("OnTable", [_phone_type], _OnTable_NSP_holds)
+        >>> OnTable = NSPredicate("OnTable", [_phone_type], _OnTable_NSP_holds)
         """
 
     def get(self, obj: Object, feature_name: str) -> Any:
@@ -125,7 +125,7 @@ class RawState:
         >>>     return state.evaluate_simple_assertion(
         >>>         f"{block_id} is on top of and covering {target_id}.", 
         >>>         attention_image)
-        >>> _Covers_NSP = NSPredicate("Covers", [_block_type, _target_type],
+        >>> Covers = NSPredicate("Covers", [_block_type, _target_type],
         >>>                       _Covers_holds)
         """
 
@@ -156,7 +156,7 @@ class RawState:
         >>>         if _AppleInBowl_NSP_holds(state, [bowl]):
         >>>             return False
         >>>     return True
-        >>> _BowlEmpty_NSP = NSPredicate("BowlEmpty", [_bowl_type], 
+        >>> BowlEmpty = NSPredicate("BowlEmpty", [_bowl_type], 
         >>>                              _BowlEmpty_NSP_holds)
         """
 
@@ -191,7 +191,7 @@ class RawState:
         >>>     ...
         >>>     return state.evaluate_simple_assertion(f"{door_name} is open", 
         >>>                                         attention_image)
-        >>> _DoorOpen_NSP = NSPredicate("DoorOpen", [_door_type],
+        >>> DoorOpen = NSPredicate("DoorOpen", [_door_type],
         >>>                             _DoorOpen_NSP_holds)
 
         >>> # An example for predicate CupOnShelf
@@ -204,7 +204,7 @@ class RawState:
         >>>     return state.evaluate_simple_assertion(
         >>>             f"{cup_name} is resting on {shelf_name}", 
         >>>             attention_image)
-        >>> _CupOnShelf_NSP = NSPredicate("CupOnShelf", [_cup_type, _shelf_type],
+        >>> CupOnShelf = NSPredicate("CupOnShelf", [_cup_type, _shelf_type],
         >>>                             _CupOnShelf_NSP_holds)
 
         >>> # An example for predicate PotHasTeaBag
@@ -213,7 +213,7 @@ class RawState:
         >>>     ...
         >>>     return state.evaluate_simple_assertion(
         >>>             f"{pot_name} has a tea bag in it", attention_image)
-        >>> _PotHasTeaBag_NSP = NSPredicate("PotHasTeaBag", [_pot_type, _shelf_type],
+        >>> PotHasTeaBag_NSP = NSPredicate("PotHasTeaBag", [_pot_type, _shelf_type],
         >>>                             _PotHasTeaBag_NSP_holds)
 
         >>> # An example for predicate PluggedIn
@@ -223,7 +223,7 @@ class RawState:
         >>>     return state.evaluate_simple_assertion(
         >>>             f"{blender_name} is plugged into a socket", 
         >>>             attention_image)
-        >>> _PluggedIn_NSP = NSPredicate("PluggedIn", [_blender_type],
+        >>> PluggedIn = NSPredicate("PluggedIn", [_blender_type],
         >>>                             _PluggedIn_NSP_holds)
 
         >>> # An example for predicate Cooked
@@ -232,7 +232,7 @@ class RawState:
         >>>     ...
         >>>     return state.evaluate_simple_assertion(
         >>>             f"{patty_name} is not raw and cooked", attention_image)
-        >>> _Cooked_NSP = NSPredicate("Cooked", [_patty_type],
+        >>> Cooked = NSPredicate("Cooked", [_patty_type],
         >>>                             _Cooked_NSP_holds)
 
         >>> # An example for predicate Holding
@@ -244,7 +244,7 @@ class RawState:
         >>>     return state.evaluate_simple_assertion(
         >>>             f"{robot_name} is holding {stick_name}",
         >>>             attention_image)
-        >>> _Holding_NSP = NSPredicate("Holding", [_stick_type],
+        >>> Holding = NSPredicate("Holding", [_stick_type],
         >>>                             _Holding_NSP_holds)
 
         >>> # An example for predicate Sliced
@@ -253,6 +253,6 @@ class RawState:
         >>>     ...
         >>>     return state.evaluate_simple_assertion(
         >>>             f"{tomate_name} is sliced to pieces", attention_image)
-        >>> _Sliced_NSP = NSPredicate("Sliced", [_tomate_type],
+        >>> Sliced = NSPredicate("Sliced", [_tomate_type],
         >>>                             _Sliced_NSP_holds)
         """

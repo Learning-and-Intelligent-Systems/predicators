@@ -1,12 +1,9 @@
 Based on existing predicates, create one or more predicates with logical concepts such as transitive closure that might be useful in planning in this domain, with parameters of types available in the current environment.
 
 The existing predicates are:
-[PREDICATES_IN_ENV]
-
+{PREDICATES_IN_ENV}
 The available types are:
 {TYPES_IN_ENV}
-
-If a predicate requires parameters that doesn't exist in the environment, convert them into more specific predicates. For example, instead of proposing HasColor(?block:block, ?color:color), use more specific predicates like IsRed(?block:block), IsWhite(?block:block), .., as the environment does not include a `color` type.
 
 Instructions for Response:
 Propose predicates in the following format:
@@ -15,12 +12,9 @@ Propose predicates in the following format:
     1. <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
     
     2. <predicate2_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
-    2. <predicate3_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
-    2. ...
     
     3. ...
     ```
 
-* The assertion should be very clear, precise, and unambiguous, and about the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable.
+* The assertion should be very clear, precise, and unambiguous, and include the logical concept used. It should be about the relationship or properties of the variables `?<var1>`, `?<var2>`, etc.
 * Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> actual types from the state dictionary provided. Do not use types that are not present in the states (e.g., int, float, string, number etc).
-* Group predicates into chunks, separated by an empty line, corresponding to the proposed properties.
