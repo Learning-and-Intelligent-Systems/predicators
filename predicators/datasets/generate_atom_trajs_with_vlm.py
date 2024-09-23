@@ -793,7 +793,6 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         state_trajs=state_trajs,
         known_predicates=known_predicates)
     _debug_log_atoms_trajs(ground_atoms_trajs)
-    import ipdb; ipdb.set_trace()
     return ground_atoms_trajs
 
 
