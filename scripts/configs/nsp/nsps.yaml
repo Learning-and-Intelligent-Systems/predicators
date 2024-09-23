@@ -86,7 +86,6 @@ ENVS:
       disable_harmlessness_check: True
       enable_harmless_op_pruning: False
       sesame_max_samples_per_step: 1
-      sesame_max_skeletons_optimized: 100 # temp
       vlm_invention_initial_concept_invention: True
 
   # pb_cover_w:
@@ -173,5 +172,5 @@ FLAGS:
   vlm_openai_max_response_tokens: 4096
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
-START_SEED: 2
+START_SEED: 3
 NUM_SEEDS: 1

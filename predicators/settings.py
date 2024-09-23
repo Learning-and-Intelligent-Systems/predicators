@@ -882,7 +882,6 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     "coffee": 1000,
                     # with GT preds, 40 is enough for 3 cups in pb_coffee
                     "pybullet_coffee": 100,
-                    # "pybullet_balance": 100,
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,

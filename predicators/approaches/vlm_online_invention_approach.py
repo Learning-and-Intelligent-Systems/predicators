@@ -66,7 +66,6 @@ from predicators.structs import State, Object, Predicate, Type, \
 from predicators.utils import RawState, NSPredicate
 """
 
-
 def handle_remove_error(func, path, exc_info):
     # Check if the error is a permission error
     if not os.access(path, os.W_OK):
@@ -1248,6 +1247,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                               prompt,
                                               images,
                                               cache_chat_session=True)
+            breakpoint()
             # Prepare the chat history for Gemini
             self._vlm.chat_history = [{
                 "role": "user",
@@ -2287,7 +2287,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                           vlm: VisionLanguageModel,
                           prompt: str,
                           images: List[Image.Image] = [],
-                          cache_chat_session: bool = False) -> str:
+                          cache_chat_session: bool = False,
+                          temperature: float = 0.0) -> str:
 
         if not os.path.exists(response_file) or self.regenerate_response:
             if self.manual_prompt:
@@ -2302,7 +2303,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 response = vlm.sample_completions(
                     prompt,
                     images,
-                    temperature=0,
+                    temperature=temperature,
                     seed=CFG.seed,
                     num_completions=1,
                     cache_chat_session=cache_chat_session)[0]

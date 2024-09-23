@@ -99,20 +99,21 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
             del memory, params  # unused
-            robot, _, table1, table2 = objects
+            robot, plate1, plate2 = objects
             return GripperOpen.holds(state, [robot]) and\
-                    Balanced.holds(state, [table1, table2])
+                    Balanced.holds(state, [plate1, plate2])
 
         def _TurnMachineOn_terminal(state: State, memory: Dict,
                                     objects: Sequence[Object],
                                     params: Array) -> bool:
             del memory, params  # unused
-            _, machine, _, _ = objects
+            machine = state.get_objects(machine_type)[0]
+            # _, machine, _, _ = objects
             return MachineOn.holds(state, [machine])
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
-            types=[robot_type, machine_type, plate_type, plate_type],
+            types=[robot_type, plate_type, plate_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
@@ -425,20 +426,21 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
             del memory, params  # unused
-            robot, _, table1, table2 = objects
+            robot, plate1, plate2 = objects
             return GripperOpen.holds(state, [robot]) and\
-                    Balanced.holds(state, [table1, table2])
+                    Balanced.holds(state, [plate1, plate2])
 
         def _TurnMachineOn_terminal(state: State, memory: Dict,
                                     objects: Sequence[Object],
                                     params: Array) -> bool:
             del memory, params  # unused
-            machine = objects[1]
+            machine = state.get_objects(machine_type)[0]
+            # machine = objects[1]
             return MachineOn.holds(state, [machine])
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
-            types=[robot_type, machine_type, plate_type, plate_type],
+            types=[robot_type, plate_type, plate_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
