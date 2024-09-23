@@ -749,7 +749,7 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
     else:  # pragma: no cover
         atom_strs_proposals_list = env.get_vlm_debug_atom_strs(train_tasks)
     # We now parse and sanitize this set of atoms.
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     atom_proposals_set = _parse_unique_atom_proposals_from_list(
         atom_strs_proposals_list, all_task_objs)
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
