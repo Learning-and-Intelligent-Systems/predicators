@@ -704,6 +704,9 @@ class GlobalSettings:
     # saved_vlm_img_demos_folder
     vlm_trajs_folder_name = ""
     vlm_predicate_vision_api_generate_ground_atoms = False
+    # At test-time, we will use the below number of states
+    # as part of labelling the current state's VLM atoms.
+    vlm_test_time_atom_label_prompt_type = "per_scene_naive"
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:

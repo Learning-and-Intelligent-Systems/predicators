@@ -95,69 +95,11 @@ def _generate_prompt_for_scene_labelling(
     Note that all our prompts are saved as separate txt files under the
     'vlm_input_data_prompts/atom_labelling' folder.
     """
-    filepath_prefix = utils.get_path_to_predicators_root() + \
-        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/"
-    try:
-        with open(filepath_prefix +
-                  CFG.grammar_search_vlm_atom_label_prompt_type + ".txt",
-                  "r",
-                  encoding="utf-8") as f:
-            prompt = f.read()
-    except FileNotFoundError:
-        raise ValueError("Unknown VLM prompting option " +
-                         f"{CFG.grammar_search_vlm_atom_label_prompt_type}")
-    # The prompt ends with a section for 'Predicates', so list these.
-    for atom_str in atoms_list:
-        prompt += f"\n{atom_str}"
-
-    if "img_option_diffs" in CFG.grammar_search_vlm_atom_label_prompt_type:
-        # In this case, we need to load the 'per_scene_naive' prompt as well
-        # for the first timestep.
-        with open(filepath_prefix + "per_scene_naive.txt",
-                  "r",
-                  encoding="utf-8") as f:
-            init_prompt = f.read()
-        for atom_str in atoms_list:
-            init_prompt += f"\n{atom_str}"
-        if len(label_history) == 0:
-            yield (init_prompt, traj.imgs[0])
-
-        # Now, we use actual difference-based prompting for the second timestep
-        # and beyond.
-        for i in range(1, len(traj.imgs)):
-            curr_prompt = prompt[:]
-            # Here, we want to give the VLM the images corresponding to the
-            # states at timestep t-1 and timestep t. Note that in the general
-            # case, there can be multiple images associated with each state, but
-            # for now we assume that there is just a single image. So, here we
-            # give the VLM the image from the state at t-1, and the image from
-            # the state at t.
-            curr_prompt_imgs = [
-                imgs_timestep[0] for imgs_timestep in traj.imgs[i - 1:i + 1]
-            ]
-            if CFG.vlm_include_cropped_images:
-                if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
-                    curr_prompt_imgs.extend([
-                        traj.cropped_imgs[i - 1][1],
-                        traj.cropped_imgs[i - 1][0]
-                    ])
-                else:
-                    raise NotImplementedError(
-                        f"Cropped images not implemented for {CFG.env}.")
-            curr_prompt += "\n\nSkill executed between states: "
-            skill_name = traj.actions[i - 1].name + str(
-                traj.actions[i - 1].objects)
-            curr_prompt += skill_name
-
-            if "label_history" in CFG.grammar_search_vlm_atom_label_prompt_type:
-                curr_prompt += "\n\nPredicate values in the first scene, " \
-                "before the skill was executed: \n"
-                curr_prompt += label_history[-1]
-            yield (curr_prompt, curr_prompt_imgs)
-    else:
-        for curr_imgs in traj.imgs:
-            # NOTE: same problem with ripping out images as in the above note.
-            yield (prompt, [curr_imgs[0]])
+    for i in range(len(traj.imgs)):
+        yield utils.get_prompt_for_vlm_state_labelling(
+            CFG.grammar_search_vlm_atom_label_prompt_type, atoms_list,
+            label_history, traj.imgs[:i + 1], traj.cropped_imgs[:i + 1],
+            traj.actions)
 
 
 def _sample_vlm_atom_proposals_from_trajectories(
@@ -1029,7 +971,9 @@ def create_ground_atom_data_from_generated_demos(
                     assert prev_state.simulator_state is not None
                     assert "images" in prev_state.simulator_state
                     relevant_states_for_crop = [state, prev_state]
-                    if i != 0:
+                    if i == 0:
+                        cropped_state_imgs.append([])
+                    else:
                         # Figure out which cells to include in the crop.
                         action = curr_traj_actions_for_vlm[i - 1].get_option()
                         min_col = env.num_cols
