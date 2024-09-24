@@ -9,7 +9,7 @@ import copy
 import io
 import logging
 from collections import defaultdict
-from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import Callable, List, Optional, Sequence, Set, Tuple, Dict
 
 import matplotlib
 import matplotlib.image as mpimg
@@ -1132,7 +1132,7 @@ class BurgerNoMoveEnv(BurgerEnv):
             # import pdb; pdb.set_trace()
             return EnvironmentTask(state, goal, alt_goal_desc=alt_goal)
 
-        def name_to_obj(state_dict: dict) -> dict[str, Object]:
+        def name_to_obj(state_dict: dict) -> Dict[str, Object]:
             d = {}
             for obj in state_dict.keys():
                 d[obj.name] = obj
