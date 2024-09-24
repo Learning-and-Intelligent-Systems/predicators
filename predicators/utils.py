@@ -2375,7 +2375,7 @@ def get_prompt_for_vlm_state_labelling(
         prompt_type: str, atoms_list: List[str], label_history: List[str],
         imgs_history: List[List[PIL.Image.Image]],
         cropped_imgs_history: List[List[PIL.Image.Image]],
-        skill_history: List[Action]) -> Tuple[str, List[PIL.Image.Image]]:
+        skill_history: List[_Option]) -> Tuple[str, List[PIL.Image.Image]]:
     """Prompt for labelling atom values in a trajectory.
 
     Note that all our prompts are saved as separate txt files under the
@@ -2425,11 +2425,10 @@ def get_prompt_for_vlm_state_labelling(
             "before the skill was executed: \n"
             curr_prompt += label_history[-1]
         return (curr_prompt, curr_prompt_imgs)
-    else:
-        # NOTE: we rip out only the first image from each trajectory
-        # which is fine for most domains, but will be problematic for
-        # situations in which there is more than one image per state.
-        return (prompt, imgs_history[-1])
+    # NOTE: we rip out only the first image from each trajectory
+    # which is fine for most domains, but will be problematic for
+    # situations in which there is more than one image per state.
+    return (prompt, imgs_history[-1])
 
 
 def query_vlm_for_atom_vals(
@@ -2450,8 +2449,8 @@ def query_vlm_for_atom_vals(
     vlm_atoms = sorted(vlm_atoms)
     atom_queries_list = [atom.get_vlm_query_str() for atom in vlm_atoms]
     prev_states_imgs_history = []
-    prev_state_cropped_imgs_history = []
-    if "state_history" in state.simulator_state:
+    prev_state_cropped_imgs_history: List[List[PIL.Image.Image]] = []
+    if "state_history" in state.simulator_state:  # pragma: no cover
         prev_states = state.simulator_state["state_history"]
         prev_states_imgs_history = [
             s.simulator_state["images"] for s in prev_states
@@ -2462,14 +2461,15 @@ def query_vlm_for_atom_vals(
             ]
     images_history = prev_states_imgs_history + [curr_state_imgs]
     skill_history = []
-    if "skill_history" in state.simulator_state:
+    if "skill_history" in state.simulator_state:  # pragma: no cover
         skill_history = state.simulator_state["skill_history"]
     label_history = []
-    if "vlm_label_history" in state.simulator_state:
+    if "vlm_label_history" in state.simulator_state:  # pragma: no cover
         label_history = state.simulator_state["vlm_label_history"]
     vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
         CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
-        label_history, images_history, [], skill_history)
+        label_history, images_history, prev_state_cropped_imgs_history,
+        skill_history)
     # Query VLM.
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
