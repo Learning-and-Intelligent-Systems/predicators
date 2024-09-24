@@ -2521,9 +2521,6 @@ def abstract(state: State,
             for choice in get_object_combinations(list(state), pred.types):
                 vlm_atoms.add(GroundAtom(pred, choice))
         true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
-        if true_vlm_atoms is None:
-            import ipdb
-            ipdb.set_trace()
         atoms |= true_vlm_atoms
     return atoms
 
