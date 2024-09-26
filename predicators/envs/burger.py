@@ -9,7 +9,7 @@ import copy
 import io
 import logging
 from collections import defaultdict
-from typing import Callable, List, Optional, Sequence, Set, Tuple, Dict
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.image as mpimg
@@ -898,11 +898,6 @@ class BurgerEnv(BaseEnv):
         # closing the buffers.
         ret_img = copy.deepcopy(jpeg_img)
         ret_arr = np.array(ret_img)
-
-        # import PIL.Image
-        # temp = PIL.Image.fromarray(ret_arr)
-        # import pdb; pdb.set_trace()
-
         buf.close()
         jpeg_buf.close()
         return [ret_arr]
@@ -1128,8 +1123,6 @@ class BurgerNoMoveEnv(BurgerEnv):
             # function does not use the task argument, so this is ok.
             state.simulator_state["images"] = self.render_state(
                 state, DefaultEnvironmentTask)
-            # PIL.Image.fromarray(state.simulator_state["images"][0]).show()
-            # import pdb; pdb.set_trace()
             return EnvironmentTask(state, goal, alt_goal_desc=alt_goal)
 
         def name_to_obj(state_dict: dict) -> Dict[str, Object]:
@@ -1171,7 +1164,8 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             for _ in range(CFG.num_train_tasks // 4):
                 # train task 1
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 bottom_bun = d["bottom_bun1"]
                 patty = d["patty1"]
@@ -1186,11 +1180,12 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._On, [top_bun, patty])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
                 # train task 2
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 bottom_bun = d["bottom_bun1"]
                 tomato = d["lettuce1"]
@@ -1205,11 +1200,12 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._On, [top_bun, tomato])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
                 # train task 3
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 patty = d["patty1"]
                 tomato = d["lettuce1"]
@@ -1223,11 +1219,12 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._GoalHack4, [patty, tomato])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
                 # train task 4
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 patty = d["patty1"]
                 tomato = d["lettuce1"]
@@ -1245,12 +1242,13 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._GoalHack4, [patty, tomato])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
             for _ in range(CFG.num_test_tasks):
                 # test task 1
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 bottom_bun = d["bottom_bun1"]
                 patty = d["patty1"]
@@ -1283,7 +1281,8 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             for _ in range(CFG.num_train_tasks // 3):
                 # train task 1
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 bottom_bun = d["bottom_bun1"]
                 patty = d["patty1"]
@@ -1298,11 +1297,12 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._On, [top_bun, patty])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
                 # train task 2
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 patty = d["patty1"]
                 r, c = shuffled_spots[7]  # next empty cell
@@ -1320,11 +1320,12 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._GoalHack6, [patty, patty2])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
                 # train task 3
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 patty = d["patty1"]
                 r, c = shuffled_spots[7]  # next empty cell
@@ -1342,12 +1343,13 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._GoalHack6, [patty2, patty])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
             for _ in range(CFG.num_test_tasks):
                 # test task 1
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 bottom_bun = d["bottom_bun1"]
                 patty = d["patty1"]
@@ -1372,7 +1374,6 @@ class BurgerNoMoveEnv(BurgerEnv):
                 test_tasks.append(test_task)
             return train_tasks, test_tasks
 
-
         def create_tasks_for_type_three(
         ) -> Tuple[List[EnvironmentTask], List[EnvironmentTask]]:
             train_tasks = []
@@ -1380,7 +1381,8 @@ class BurgerNoMoveEnv(BurgerEnv):
 
             for _ in range(CFG.num_train_tasks):
                 # train task 1
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 d = name_to_obj(state_dict)
                 bottom_bun = d["bottom_bun1"]
                 patty = d["patty1"]
@@ -1395,12 +1397,13 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._On, [top_bun, patty])
                 }
                 train_task = create_task(state_dict, hidden_state, train_goal,
-                                        alt_train_goal)
+                                         alt_train_goal)
                 train_tasks.append(train_task)
 
             for _ in range(CFG.num_test_tasks):
                 # test task 1
-                state_dict, hidden_state, shuffled_spots = create_default_state()
+                state_dict, hidden_state, shuffled_spots = create_default_state(
+                )
                 state_dict = {
                     self._robot: state_dict[self._robot],
                     self._grill: state_dict[self._grill]

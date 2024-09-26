@@ -1017,7 +1017,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return (atom_dataset, candidates)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        import pdb; pdb.set_trace()
         if CFG.offline_data_method in [
                 "geo_and_demo_with_vlm_imgs", "geo_and_demo+labelled_atoms",
                 "geo_and_saved_vlm_img_demos_folder"
@@ -1051,7 +1050,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 self._learned_predicates = set(
                     p for p in candidates.keys()
                     if p.name in debug_predicate_names)
-                import pdb; pdb.set_trace()
             else:
                 # Create the score function that will be used to guide search.
                 score_function = create_score_function(
