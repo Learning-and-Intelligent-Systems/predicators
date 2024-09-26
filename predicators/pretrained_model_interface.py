@@ -290,7 +290,7 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
     """
 
     @retry(wait=wait_random_exponential(min=1, max=60),
-           stop=stop_after_attempt(10))
+           stop=stop_after_attempt(20))
     def _sample_completions(
             self,
             prompt: str,
