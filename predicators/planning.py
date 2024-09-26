@@ -512,6 +512,7 @@ def _skeleton_generator(
             # Generate primitive successors.
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
+                # breakpoint()
                 # if len(concept_predicates) > 0 and metrics["num_nodes_created"] == 2:
                 #     breakpoint()
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))

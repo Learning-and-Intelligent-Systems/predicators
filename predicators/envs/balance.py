@@ -150,7 +150,8 @@ class BalanceEnv(BaseEnv):
                                 self._OnPlate_CP_holds,)
         self._Balanced_abs = ConceptPredicate("Balanced", 
                                 [self._plate_type, self._plate_type],
-                                self._EqualBlocksOnPlates_CP_holds, 
+                                # self._EqualBlocksOnPlates_CP_holds, 
+                                self._Balanced_CP_holds, 
                                 untransformed_predicate=self._Balanced)
 
         # Static objects (always exist no matter the settings).

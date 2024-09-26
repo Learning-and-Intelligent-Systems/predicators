@@ -186,10 +186,15 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         #     )
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
-        op_score = self.evaluate_with_operators(candidate_predicates,
+        try:
+            op_score = self.evaluate_with_operators(candidate_predicates,
                                                 low_level_trajs,
                                                 segmented_trajs, strips_ops,
                                                 option_specs)
+        except RecursionError as e:
+            logging.warning(f"Recursion error {e} in evaluating candidates: "
+                            f"{candidate_predicates}")
+            op_score = float('inf')
         pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
@@ -244,8 +249,9 @@ class _ClassificationErrorScoreFunction(_OperatorLearningBasedScoreFunction):
                             self.succ_optn_dict, self.fail_optn_dict)
         # accuracy = round(
         #     (tp + tn) / (tp + tn + fp + fn), 2) if tp + tn + fp + fn > 0 else 0
-        tp, tn, fp, fn, accuracy = score_dic["tp"], score_dic["tn"], \
-            score_dic["fp"], score_dic["fn"], score_dic["acc"]
+        tp, tn, fp, fn, accuracy = score_dic["overall"]["tp"], \
+                score_dic["overall"]["tn"], score_dic["overall"]["fp"], \
+                score_dic["overall"]["fn"], score_dic["overall"]["acc"]
         num = tp + tn + fp + fn
         logging.debug(f"num: {num}. tp: {tp}, tn: {tn}, fp: {fp}, fn: {fn}, "+\
                     f"accuracy: {accuracy}")

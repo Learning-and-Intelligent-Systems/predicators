@@ -32,7 +32,6 @@ def _get_wrapper_cls_from_name(name: str) -> TypingType[BaseApproachWrapper]:
 
 
 def create_approach(name: str, initial_predicates: Set[Predicate],
-                    initial_concept_predicates: Set[ConceptPredicate],
                     initial_options: Set[ParameterizedOption],
                     types: Set[Type], action_space: Box,
                     train_tasks: List[Task]) -> BaseApproach:
@@ -51,7 +50,6 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
         return wrapper_cls(base_approach, initial_predicates, 
                            initial_options,
                            types, action_space, train_tasks,
-                        initial_concept_predicates=initial_concept_predicates
                            )
 
     # Handle main approaches.
@@ -59,5 +57,4 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
     return cls(initial_predicates, 
                initial_options, types, action_space,
                train_tasks,
-            initial_concept_predicates=initial_concept_predicates
                )

@@ -276,6 +276,31 @@ class GoogleGeminiModel(PretrainedLargeModel):
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()
 
+        if CFG.vlm_model_name == "gemini-1.5-pro-exp-0801":
+            keys = [
+                os.getenv("GOOGLE_API_KEY"),
+                os.getenv("GOOGLE_API_KEY1"),
+                os.getenv("GOOGLE_API_KEY2"),
+                os.getenv("GOOGLE_API_KEY3"),
+                os.getenv("GOOGLE_API_KEY4"),
+                os.getenv("GOOGLE_API_KEY5"),
+            ]
+        else:
+            keys = [
+                os.getenv("GOOGLE_API_KEY"),
+            ]
+
+        self.key_gen = self.key_generator(keys)
+
+    def key_generator(self, keys):
+        while True:
+            for key in keys:
+                if key is not None:
+                    yield key
+
+    def get_new_key(self):
+        return next(self.key_gen)
+
     def reset_chat_session(self) -> None:
         """Reset the chat session."""
         # make sure the instance has the chat_seesion attribute
@@ -468,27 +493,8 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         return responses
 
 
-keys = [
-    os.getenv("GOOGLE_API_KEY"),
-    # os.getenv("GOOGLE_API_KEY1"),
-    # os.getenv("GOOGLE_API_KEY2"),
-    # os.getenv("GOOGLE_API_KEY3"),
-    # os.getenv("GOOGLE_API_KEY4"),
-]
 
 
-def key_generator(keys):
-    while True:
-        for key in keys:
-            if key is not None:
-                yield key
-
-
-key_gen = key_generator(keys)
-
-
-def get_new_key():
-    return next(key_gen)
 
 
 class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
@@ -512,7 +518,7 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
     ) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is not None or self.chat_history
-        genai.configure(api_key=get_new_key())
+        genai.configure(api_key=self.get_new_key())
         # pylint:disable=no-member
         self._model = genai.GenerativeModel(
             model_name=self._model_name,

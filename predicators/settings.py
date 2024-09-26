@@ -468,7 +468,9 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_invention_positive_negative_include_next_state = False
     vlm_invention_propose_nl_properties = False
     vlm_invention_alternate_between_p_ad = False
-    vlm_invention_initial_concept_invention = True
+    vlm_invention_initial_concept_invention = False
+    vlm_invention_use_concept_predicates = False
+    vlm_invention_max_invent_ite = 10
     vlm_temperature = 0.0
     vlm_num_completions = 1
 
@@ -743,7 +745,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
-    grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
+    grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z", "?w", "?v"]
     grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
@@ -773,6 +775,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     skip_selection_if_no_solve = False
     vlm_predicator_oracle_explore = False
     use_partial_plans_prefix_as_demo = True
+    use_old_nsrt_if_new_is_worse = False
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms

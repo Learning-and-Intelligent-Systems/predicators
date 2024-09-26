@@ -4,6 +4,7 @@ Example run:     python scripts/run_interactive_yaml.py -c
 vlm_predicate_cover.yaml
 """
 import ast
+import sys
 import base64
 import errno
 import importlib.util
@@ -65,6 +66,7 @@ from predicators.structs import State, Object, Predicate, Type, \
     ConceptPredicate, GroundAtom
 from predicators.utils import RawState, NSPredicate
 """
+sys.setrecursionlimit(10000)  # Example value, adjust as needed
 
 def handle_remove_error(func, path, exc_info):
     # Check if the error is a permission error
@@ -137,7 +139,6 @@ class VlmInventionApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task],
-                 initial_concept_predicates: Set[ConceptPredicate] = set(),
                  ) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
@@ -255,14 +256,15 @@ class VlmInventionApproach(NSRTLearningApproach):
         for i, task in enumerate(tasks):
             img_dir = os.path.join(CFG.log_file, "images")
             os.makedirs(img_dir, exist_ok=True)
-            # task.init.state_image.save(CFG.log_file, f"images/init_state{i}.png")
+            # task.init.state_image.save(
+            #     os.path.join(img_dir, f"init_unlab{i}.png"))
             task.init.labeled_image.save(
                 os.path.join(img_dir, f"init_label{i}.png"))
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
         propose_ite = 1
-        max_invent_ite = 10
+        max_invent_ite = CFG.vlm_invention_max_invent_ite
         self.manual_prompt = False
         self.regenerate_response = True
         # solve_rate, prev_solve_rate = 0.0, np.inf  # init to inf
@@ -320,7 +322,12 @@ class VlmInventionApproach(NSRTLearningApproach):
         for ite in range(1, max_invent_ite + 1):
             logging.info(f"===Starting iteration {ite}...")
             if CFG.vlm_invention_alternate_between_p_ad:
-                CFG.vlm_invention_propose_nl_properties = propose_ite % 2 == 1
+                if CFG.env in ["pybullet_balance"]:
+                    CFG.vlm_invention_propose_nl_properties =\
+                        propose_ite % 2 == 1
+                else:
+                    CFG.vlm_invention_propose_nl_properties =\
+                        propose_ite % 2 == 0
                 logging.info("Proposing predicates mainly based on effect: "
                              f"{not CFG.vlm_invention_propose_nl_properties}")
             # Reset at every iteration
@@ -379,7 +386,7 @@ class VlmInventionApproach(NSRTLearningApproach):
             # Select the predicates to keep
             self._learned_predicates = self._select_proposed_predicates(
                                             all_trajs,
-                                            num_solved,
+                                            best_solve_rate,
                                             ite,
                                             prim_pred_proposals, 
                                             cnpt_pred_proposals,
@@ -409,16 +416,24 @@ class VlmInventionApproach(NSRTLearningApproach):
             # score_dict
             # TODO: maybe change to only use the old ones if the new ones are 
             # worse by some metrics (e.g., accuracy).
-            new_nsrts = set()
-            for nsrt_candidate in self._nsrts:
-                if score_dict[str(nsrt_candidate.option)]['acc'] == 1.0:
-                    logging.debug(f"Using old nsrt for {nsrt_candidate.option}")
-                    for old_nsrt in self._previous_nsrts:
-                        if old_nsrt.option == nsrt_candidate.option:
-                            new_nsrts.add(old_nsrt)
-                else:
-                    new_nsrts.add(nsrt_candidate)
-            self._nsrts = new_nsrts
+            if CFG.use_old_nsrt_if_new_is_worse:
+                new_nsrts = set()
+                for nsrt_candidate in self._nsrts:
+                    # prev_nsrts_w_same_optn = {nsrt for nsrt in self._previous_nsrts
+                    #                         if nsrt.option == nsrt_candidate.option}
+                    # prev_empty_precon = all(n.preconditions == set() for n in 
+                    #                         prev_nsrts_w_same_optn)
+                    if score_dict[str(nsrt_candidate.option)]['acc'] == 1.0:
+                        # Use the old one if it helps with planning
+                        # logging.debug(f"Old NSRTs have empty precon {prev_empty_precon}")
+                        logging.debug(f"Using old nsrt for {nsrt_candidate.option}")
+                        for old_nsrt in self._previous_nsrts:
+                            if old_nsrt.option == nsrt_candidate.option:
+                                new_nsrts.add(old_nsrt)
+                        # new_nsrts = prev_nsrts_w_same_optn
+                    else:
+                        new_nsrts.add(nsrt_candidate)
+                self._nsrts = new_nsrts
 
             # How about instead we loop through the previous ones and only use
             # the new ones if the old ones doesn't have accuracy 1?
@@ -452,6 +467,8 @@ class VlmInventionApproach(NSRTLearningApproach):
                 logging.info(nsrt)
             logging.info("")
 
+            # Set the predicates to be the ones that are used in operators
+
             # Collect Data again
             # Set up load/save filename for interaction dataset
             # Add the auxiliary concepts to self._learned_predicates here?
@@ -483,7 +500,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                          f"Prev num skeletons failed {prev_num_failed_plans}\n"
                          f"Clf accuracy: {clf_acc:.2f}. "
                          f"Prev clf accuracy: {prev_clf_acc:.2f}\n")
-            breakpoint()
 
             # Save the best model
             if solve_rate > best_solve_rate or\
@@ -1091,8 +1107,10 @@ class VlmInventionApproach(NSRTLearningApproach):
                 for g_optn in optn_dict.keys():
                     atom_states = []
                     for state in optn_dict[g_optn].states:
-                        atom_states.append(
-                            utils.abstract(state, set(all_candidates)))
+                        # TODO: remove the candidates if we get an error
+                        #   this can replace the error check in get proposals
+                        atoms = utils.abstract(state, set(all_candidates))
+                        atom_states.append(atoms)
                     optn_dict[g_optn].abstract_states = atom_states
 
             # This step should only make VLM calls on the end state
@@ -1156,8 +1174,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         # Phase 1: invent concept predicates from the existing predicates.
         if CFG.vlm_invention_initial_concept_invention:
             helper_cnpt_preds = self._invent_initial_concept_predicates(ite, 
-                                                                    env, 
-                                                                    tasks)
+                                                                        env, 
+                                                                        tasks)
         else:
             helper_cnpt_preds = set()
 
@@ -1171,7 +1189,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                                         tasks)
         # all_concept_preds = self.cnpt_pred_candidates | concept_preds
         self.cnpt_pred_candidates |= concept_preds 
-        breakpoint()
         return primitive_preds, self.cnpt_pred_candidates
 
     def _invent_predicates_from_data(self, 
@@ -1247,7 +1264,6 @@ class VlmInventionApproach(NSRTLearningApproach):
                                               prompt,
                                               images,
                                               cache_chat_session=True)
-            breakpoint()
             # Prepare the chat history for Gemini
             self._vlm.chat_history = [{
                 "role": "user",
@@ -1874,8 +1890,13 @@ class VlmInventionApproach(NSRTLearningApproach):
                 continue
             pred_name = match.group(1)
             logging.info(f"Found definition for predicate {pred_name}")
-            is_concept_predicate = self.check_is_concept_predicate(code_str)
-            logging.info(f"\t it's a concept predicate: {is_concept_predicate}")
+            if CFG.vlm_invention_use_concept_predicates:
+                is_concept_predicate = self.check_is_concept_predicate(code_str)
+                logging.info(f"\t it's a concept predicate: "
+                             f"{is_concept_predicate}")
+            else:
+                is_concept_predicate = False
+                logging.info(f"\t concept predicate disabled")
 
             # Recognize that it's a concept predicate
             if is_concept_predicate:
@@ -1950,7 +1971,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                 try:
                     exec(code_str, context)
                     logging.debug(f"Testing Concept Predicate {pred_name}")
-                    utils.abstract(tasks[0].init, set([context[pred_name]]))
+                    utils.abstract(tasks[0].init, 
+                                    self._get_current_predicates() |\
+                                        set([context[pred_name]]))
                 except Exception as e:
                     error_trace = traceback.format_exc()
                     logging.warning(f"We encountered the following error when "

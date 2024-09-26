@@ -32,6 +32,8 @@ APPROACHES:
       max_initial_demos: 0
       vlm_invention_propose_nl_properties: True
       vlm_invention_alternate_between_p_ad: True
+      vlm_invention_initial_concept_invention: True
+      vlm_invention_use_concept_predicates: True
   # nsp: # Our main approach
   #   NAME: "vlm_online_invention"
   #   FLAGS:
@@ -72,37 +74,11 @@ APPROACHES:
   #     neu_sym_predicate: True # Needed for NSP
   #     vlm_predicator_render_option_state: True # Needed for NSP
   #     max_initial_demos: 0
+  #     vlm_invention_propose_nl_properties: True
+  #     vlm_invention_alternate_between_p_ad: True
+  #     vlm_invention_initial_concept_invention: True
+  #     vlm_invention_use_concept_predicates: True
 ENVS:
-  pb_balance:
-    NAME: "pybullet_balance"
-    FLAGS:
-      pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
-      excluded_predicates: "Balanced,OnPlate"
-      pybullet_camera_width: 800
-      num_train_tasks: 10
-      sesame_check_dr_reachable: False
-      sesame_filter_unreachable_nsrt: False
-      # The following two are configured temperarily just for this environment.
-      disable_harmlessness_check: True
-      enable_harmless_op_pruning: False
-      sesame_max_samples_per_step: 1
-      vlm_invention_initial_concept_invention: True
-
-  # pb_cover_w:
-  #   NAME: "pybullet_cover_weighted"
-  #   FLAGS:
-  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/cover"
-  #     num_train_tasks: 10 #0 # pybullet_coffee, cover
-  #     # excluded_predicates: "IsLight"
-  #     excluded_predicates: "all"
-  #     cover_typed_options_no_sampler: True
-  #     cover_initial_holding_prob: 0.0
-  #     cover_weighted_ratio: 0.5
-  #     pybullet_camera_width: 800
-  #     cover_num_blocks_train: 2
-  #     cover_num_targets_train: 2
-  #     cover_block_widths: "[0.04,0.04,0.04]"
-  #     cover_target_widths: "[0.02,0.02,0.02]"
   # pb_cover:
   #   NAME: "pybullet_cover_typed_options"
   #   FLAGS:
@@ -119,6 +95,12 @@ ENVS:
   #     num_train_tasks: 40 #0 # pybullet_coffee, cover
   #     excluded_predicates: "all"
   #     pybullet_camera_width: 800
+  #     vlm_model_name: "gemini-1.5-pro"
+  #     grammar_search_search_algorithm: "gbfs" # "hill_climbing"
+  #     sesame_check_dr_reachable: False
+  #     sesame_filter_unreachable_nsrt: False
+  #     disable_harmlessness_check: True
+  #     enable_harmless_op_pruning: False
   # pb_coffee:
   #   NAME: "pybullet_coffee"
   #   FLAGS:
@@ -131,10 +113,43 @@ ENVS:
   #     coffee_combined_move_and_twist_policy: True
   #     coffee_mac_requires_jug_to_turn_on: True
   #     pybullet_camera_width: 1200 # 1200 for coffee
+  pb_cover_w:
+    NAME: "pybullet_cover_weighted"
+    FLAGS:
+      pretrained_model_prompt_cache_dir: "pretrained_model_cache/cover"
+      num_train_tasks: 10 #0 # pybullet_coffee, cover
+      # excluded_predicates: "IsLight"
+      excluded_predicates: "all"
+      cover_typed_options_no_sampler: True
+      cover_initial_holding_prob: 0.0
+      cover_weighted_ratio: 0.5
+      pybullet_camera_width: 800
+      cover_num_blocks_train: 2
+      cover_num_targets_train: 2
+      cover_block_widths: "[0.04,0.04,0.04]"
+      cover_target_widths: "[0.02,0.02,0.02]"
+      vlm_model_name: "gemini-1.5-pro-exp-0801"
+  # pb_balance:
+  #   NAME: "pybullet_balance"
+  #   FLAGS:
+  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
+  #     excluded_predicates: "Balanced,OnPlate"
+  #     pybullet_camera_width: 800
+  #     num_train_tasks: 10
+  #     sesame_check_dr_reachable: False
+  #     sesame_filter_unreachable_nsrt: False
+  #     # The following two are configured temperarily just for this environment.
+  #     disable_harmlessness_check: True
+  #     enable_harmless_op_pruning: False
+  #     sesame_max_samples_per_step: 1
+  #     use_old_nsrt_if_new_is_worse: True
+  #     vlm_invention_max_invent_ite: 5
+  #     # Uncomment when using the main, comment out when using interpret
+  #     vlm_model_name: "gemini-1.5-pro-exp-0801" 
 ARGS:
   - "debug"
 FLAGS:
-  timeout: 300 #300
+  timeout: 1000 #300
   pybullet_control_mode: "reset" # need for blocks and coffee
 
   # Approach
@@ -147,7 +162,7 @@ FLAGS:
   grammar_search_search_algorithm: "hill_climbing" # "hill_climbing"
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
-  grammar_search_grammar_includes_negation: True # relaxation 2
+  grammar_search_grammar_includes_negation:  # relaxation 2
   grammar_search_grammar_includes_foralls: False  # relaxation 2
   grammar_search_prune_redundant_preds: False
 
@@ -163,7 +178,7 @@ FLAGS:
   vlm_invent_from_trajs: False
   vlm_invention_positive_negative_include_next_state: True
   save_nsp_image_patch_before_query: False
-  vlm_model_name: "gemini-1.5-pro-exp-0801"
+  vlm_model_name: "gemini-1.5-pro"
   # vlm_model_name: "gpt-4o"
   vlm_temperature: 0
   vlm_use_chat_mode: True
@@ -172,5 +187,5 @@ FLAGS:
   vlm_openai_max_response_tokens: 4096
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
-START_SEED: 3
-NUM_SEEDS: 1
+START_SEED: 1
+NUM_SEEDS: 3

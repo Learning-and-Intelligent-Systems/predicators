@@ -186,7 +186,7 @@ def main() -> None:
     approach_name = CFG.approach
     if CFG.approach_wrapper:
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
-    approach = create_approach(approach_name, preds, concept_preds, options, 
+    approach = create_approach(approach_name, preds, options, 
                                env.types,
                                env.action_space, approach_train_tasks)
     if approach.is_learning_based:

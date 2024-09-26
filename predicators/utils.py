@@ -1758,7 +1758,7 @@ BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
 
 @dataclass
 class RawState(PyBulletState):
-    state_image: PIL.Image.Image = field(default_factory=PIL.Image.new)
+    state_image: PIL.Image.Image = None
     obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
     labeled_image: Optional[PIL.Image.Image] = None
     option_history: Optional[List[str]] = None

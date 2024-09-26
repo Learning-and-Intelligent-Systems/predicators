@@ -3,6 +3,11 @@
 APPROACHES:
   oracle_nsrt:
     NAME: "oracle"
+    ARGS:
+    - "make_test_videos"
+    FLAGS:
+      video_fps: 20
+      coffee_jug_pickable_pred: True
   # maple_q: # MAPLE baseline
   #   NAME: "maple_q"
   #   FLAGS:
@@ -17,6 +22,7 @@ APPROACHES:
   #     # Because MAPLE can't generalize to unseen goals
   #     blocks_num_blocks_test: "[3,4]"
   #     coffee_num_cups_test: "[1]"
+  #     balance_num_blocks_test: "[2,4]"
   # vlm_plan: # ViLa baseline
   #   NAME: "vlm_open_loop"
   #   FLAGS:
@@ -25,14 +31,18 @@ APPROACHES:
   #     log_file: "logs/vila/"
   #     render_init_state: True
   #     label_objs_with_id_name: True
+  #     vlm_model_name: "gemini-1.5-pro"
 ENVS:
   pb_balance:
     NAME: "pybullet_balance"
     FLAGS:
+      timeout: 1000 #300
       pybullet_camera_width: 800
-      num_train_tasks: 5
+      num_train_tasks: 10
       sesame_check_dr_reachable: False
-  #     excluded_predicates: "Balanced"
+      sesame_filter_unreachable_nsrt: False
+      # excluded_predicates: "Balanced,OnPlate"
+      online_nsrt_learning_requests_per_cycle: 100
   # pb_cover_w:
   #   NAME: "pybullet_cover_weighted"
   #   FLAGS:
@@ -65,6 +75,7 @@ ENVS:
 ARGS:
   - "debug"
 FLAGS:
+  sesame_check_expected_atoms: False
   env_include_bbox_features: False
   option_learner: no_learning
   sampler_learner: "oracle"
