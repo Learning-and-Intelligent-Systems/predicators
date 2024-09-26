@@ -1,0 +1,40 @@
+# Experiments to test predicate invention with VLMs
+---
+APPROACHES:
+  invent_allexclude_backchaining:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj
+
+ENVS:
+  burger_no_move:
+    NAME: "burger_no_move_more_stacks"
+    FLAGS:
+      burger_no_move_task_type: "more_stacks"
+      bilevel_plan_without_sim: True
+      segmenter: option_changes
+      grammar_search_vlm_atom_label_prompt_type: img_option_diffs_label_history_burger
+      grammar_search_task_planning_timeout: 10.0
+      sesame_max_skeletons_optimized: 200
+      disable_harmlessness_check: True
+      sesame_task_planner: fdopt
+      excluded_predicates: IsCooked,IsSliced
+      option_model_terminate_on_repeat: False
+      allow_exclude_goal_predicates: True
+      grammar_search_prune_redundant_preds: False
+      grammar_search_predicate_cost_upper_bound: 7
+      allow_state_allclose_comparison_despite_simulator_state: True
+      grammar_search_max_predicates: 200
+      grammar_search_parallelize_vlm_labelling: True
+      cluster_and_intersect_soft_intersection_for_preconditions: True
+      vlm_include_cropped_images: True
+      timeout: 80
+
+ARGS: []
+FLAGS: 
+  vlm_model_name: gpt-4o
+  num_train_tasks: 8
+  num_test_tasks: 10
+START_SEED: 456
+NUM_SEEDS: 10
+...
