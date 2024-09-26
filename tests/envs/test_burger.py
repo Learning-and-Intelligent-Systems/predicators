@@ -298,7 +298,8 @@ def test_burger_no_move():
         "sesame_task_planner": "fdopt",
         "burger_no_move_task_type": "combo_burger",
         "burger_dummy_render": True,
-        "seed": 0
+        "seed": 0,
+        "num_train_tasks": 4,
     })
     env = BurgerNoMoveEnv()
     task = env.get_test_tasks()[0]
@@ -439,7 +440,8 @@ def test_burger_no_move():
         "sesame_task_planner": "fdopt",
         "burger_no_move_task_type": "fatter_burger",
         "burger_dummy_render": True,
-        "seed": 0
+        "seed": 0,
+        "num_train_tasks": 3,
     })
     env = BurgerNoMoveEnv()
     task = env.get_train_tasks()[0]
