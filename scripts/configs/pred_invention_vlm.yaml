@@ -36,5 +36,5 @@ FLAGS:
   num_train_tasks: 8
   num_test_tasks: 10
 START_SEED: 456
-NUM_SEEDS: 10
+NUM_SEEDS: 1
 ...
