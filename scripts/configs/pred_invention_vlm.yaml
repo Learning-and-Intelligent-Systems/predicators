@@ -7,8 +7,8 @@ APPROACHES:
       grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj
 
 ENVS:
-  burger_no_move:
-    NAME: "burger_no_move_more_stacks"
+  burger_no_move_more_stacks:
+    NAME: "burger_no_move"
     FLAGS:
       burger_no_move_task_type: "more_stacks"
       bilevel_plan_without_sim: True
