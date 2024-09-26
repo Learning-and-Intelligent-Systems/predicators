@@ -25,7 +25,7 @@ ENVS:
       grammar_search_predicate_cost_upper_bound: 7
       allow_state_allclose_comparison_despite_simulator_state: True
       grammar_search_max_predicates: 200
-      grammar_search_parallelize_vlm_labelling: True
+      grammar_search_parallelize_vlm_labeling: True
       cluster_and_intersect_soft_intersection_for_preconditions: True
       vlm_include_cropped_images: True
       timeout: 80
