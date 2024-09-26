@@ -153,6 +153,7 @@ def _generate_prompt_for_scene_labelling(
                 curr_prompt += "\n\nPredicate values in the first scene, " \
                 "before the skill was executed: \n"
                 curr_prompt += label_history[-1]
+            # import pdb; pdb.set_trace()
             yield (curr_prompt, curr_prompt_imgs)
     else:
         for curr_imgs in traj.imgs:
@@ -793,7 +794,6 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         state_trajs=state_trajs,
         known_predicates=known_predicates)
     _debug_log_atoms_trajs(ground_atoms_trajs)
-    import ipdb; ipdb.set_trace()
     return ground_atoms_trajs
 
 

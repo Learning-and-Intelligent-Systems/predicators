@@ -1345,7 +1345,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                                         alt_train_goal)
                 train_tasks.append(train_task)
 
-            for _ in range(len(CFG.num_test_tasks)):
+            for _ in range(CFG.num_test_tasks):
                 # test task 1
                 state_dict, hidden_state, shuffled_spots = create_default_state()
                 d = name_to_obj(state_dict)
@@ -1397,7 +1397,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                 train_task = create_task(state_dict, hidden_state, train_goal,
                                         alt_train_goal)
                 train_tasks.append(train_task)
-            
+
             for _ in range(CFG.num_test_tasks):
                 # test task 1
                 state_dict, hidden_state, shuffled_spots = create_default_state()
