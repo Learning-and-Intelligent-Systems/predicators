@@ -444,6 +444,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}.mp4"
+            metrics[f"PER_TASK_task{test_task_idx}_num_steps"] = len(traj[1])
         else:
             if not caught_exception:
                 log_message = "Policy failed to reach goal"
