@@ -331,6 +331,22 @@ class GlobalSettings:
     # initialization and resetting. use Sokoban-small-v0 for tests
     sokoban_gym_name = "Sokoban-v0"
 
+    # minigrid env parameters
+    # Currently tested envs:
+    # "MiniGrid-Empty-5x5-v0"
+    # "MiniGrid-Empty-8x8-v0"
+    # "MiniGrid-Empty-16x16-v0"
+    # "MiniGrid-GoToObject-8x8-N2-v0"
+    # "MiniGrid-Fetch-8x8-N3-v0" 
+    minigrid_gym_name = "MiniGrid-Fetch-8x8-N3-v0" 
+    minigrid_gym_render = False
+    minigrid_gym_fully_observable = False
+
+    # mini_behavior env parameters
+    mini_behavior_env_name = "MiniGrid-SortingBooks-16x16-N2-v0"
+    mini_behavior_env_render = False
+    mini_behavior_env_fully_observable = True
+
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
     kitchen_goals = "all"
@@ -717,7 +733,9 @@ class GlobalSettings:
             # The method used for perception: now only "trivial" or "sokoban".
             perceiver=defaultdict(lambda: "trivial", {
                 "sokoban": "sokoban",
-                "kitchen": "kitchen",
+                "minigrid_env": "minigrid_env",
+                "mini_behavior_env": "mini_behavior_env",
+                "kitchen": "kitchen"
             })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
@@ -731,6 +749,7 @@ class GlobalSettings:
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,
+                    "minigrid_env": 1000,
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
