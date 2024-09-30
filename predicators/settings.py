@@ -342,6 +342,11 @@ class GlobalSettings:
     minigrid_gym_render = False
     minigrid_gym_fully_observable = False
 
+    # mini_behavior env parameters
+    mini_behavior_env_name = "MiniGrid-SortingBooks-16x16-N2-v0"
+    mini_behavior_env_render = False
+    mini_behavior_env_fully_observable = True
+
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
     kitchen_goals = "all"
@@ -726,7 +731,8 @@ class GlobalSettings:
             perceiver=defaultdict(lambda: "trivial", {
                 "sokoban": "sokoban",
                 "minigrid_env": "minigrid_env",
-                "kitchen": "kitchen",
+                "mini_behavior_env": "mini_behavior_env",
+                "kitchen": "kitchen"
             })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
