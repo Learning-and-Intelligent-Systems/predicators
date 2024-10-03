@@ -964,6 +964,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             _rename_predicates_to_remove_incompatible_chars(candidates)
         # Apply the candidate predicates to the data.
         logging.info("Applying predicates to data...")
+
         # Get the template str for the dataset filename for saving
         # a ground atom dataset.
         dataset_fname, _ = utils.create_dataset_filename_str(True)
@@ -976,6 +977,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             f"_{CFG.grammar_search_grammar_use_diff_features}" + \
             f"_{CFG.grammar_search_use_handcoded_debug_grammar}" + \
             dataset_fname[-5:]
+
         # Load pre-saved data if the CFG.load_atoms flag is set.
         atom_dataset: Optional[List[GroundAtomTrajectory]] = None
         if CFG.load_atoms:
