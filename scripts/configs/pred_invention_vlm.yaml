@@ -19,12 +19,6 @@ APPROACHES:
     NAME: "grammar_search_invention"
     FLAGS: 
       offline_data_method: demos
-  llm-operator-learner:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      strips_learner: "llm"
   ours-no-geo:
     NAME: "grammar_search_invention"
     FLAGS:
