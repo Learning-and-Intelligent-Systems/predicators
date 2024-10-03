@@ -960,7 +960,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         for predicate, cost in candidates.items():
             logging.info(f"{predicate} {cost}")
         # Now, rename these predicates to be compatible with PDDL planners!
-        renamed_preds = self.rename_predicates_to_remove_incompatible_chars(candidates)
+        renamed_candidates = self.\
+            _rename_predicates_to_remove_incompatible_chars(candidates)
         # Apply the candidate predicates to the data.
         logging.info("Applying predicates to data...")
         # Get the template str for the dataset filename for saving
@@ -983,13 +984,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         else:
             atom_dataset = utils.create_ground_atom_dataset(
                 dataset.trajectories,
-                set(renamed_preds) | self._initial_predicates)         
+                set(renamed_candidates) | self._initial_predicates)
             # Save this atoms dataset if the save_atoms flag is set.
             if CFG.save_atoms:
                 utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
         logging.info("Done.")
-        assert atom_dataset is not None     
-        return (atom_dataset, renamed_preds)
+        assert atom_dataset is not None
+        return (atom_dataset, renamed_candidates)
 
     def _parse_atom_dataset_from_annotated_dataset(
         self, dataset: Dataset
@@ -1016,7 +1017,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         logging.debug(f"All candidate predicates: {candidates.keys()}")
         return (atom_dataset, candidates)
 
-    def rename_predicates_to_remove_incompatible_chars(self, predicates_and_costs: Dict[Predicate, float]) -> Set[Predicate]:
+    def _rename_predicates_to_remove_incompatible_chars(
+        self, predicates_and_costs: Dict[Predicate,
+                                         float]) -> Dict[Predicate, float]:
         """Renames predicates to get rid of characters in the name that are
         incompatible with PDDL planners like FD."""
         renamed_predicates: Dict[Predicate, float] = {}
@@ -1029,7 +1032,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             renamed_pred = Predicate(new_name, p.types, p._classifier)  # pylint:disable=protected-access
             renamed_predicates[renamed_pred] = predicates_and_costs[p]
         return renamed_predicates
-
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         if CFG.offline_data_method in [
@@ -1085,14 +1087,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         annotations = None
         if dataset.has_annotations:
             if CFG.offline_data_method in [
-                "geo_and_demo_with_vlm_imgs", "geo_and_demo+labelled_atoms",
-                "geo_and_saved_vlm_img_demos_folder"
+                    "geo_and_demo_with_vlm_imgs",
+                    "geo_and_demo+labelled_atoms",
+                    "geo_and_saved_vlm_img_demos_folder"
             ]:
                 # IMPORTANT: in this case, we need to make sure the dataset
                 # annotations include the geo predicates as well as the VLM
                 # predicates, so we need to set the annotations to the generated
                 # atom_dataset and not just the dataset.annotations.
-                # We also need to re-ground the 
                 annotations = [atoms_data[1] for atoms_data in atom_dataset]
             else:
                 annotations = dataset.annotations
