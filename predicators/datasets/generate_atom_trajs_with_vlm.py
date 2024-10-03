@@ -71,7 +71,8 @@ def _generate_prompt_for_atom_proposals(
         # camera view, but probably will need to be amended in the future!
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
-    elif "options_labels_whole_traj" in CFG.grammar_search_vlm_atom_proposal_prompt_type:
+    elif "options_labels_whole_traj" in \
+        CFG.grammar_search_vlm_atom_proposal_prompt_type:
         prompt += "\nSkills executed in trajectory:\n"
         prompt += "\n".join(act.name + str(act.objects)
                             for act in traj.actions)
