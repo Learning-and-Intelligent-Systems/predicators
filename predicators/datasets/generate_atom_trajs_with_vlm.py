@@ -80,7 +80,7 @@ def _generate_prompt_for_atom_proposals(
         # naive_whole_traj.
         ret_list.append(
             (prompt, [traj.imgs[i][0] for i in range(len(traj.imgs))]))
-    else:
+    else: # pragma: no cover.
         raise ValueError("Unknown VLM prompting option " +
                          f"{CFG.grammar_search_vlm_atom_proposal_prompt_type}")
     return ret_list
