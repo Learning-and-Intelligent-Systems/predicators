@@ -688,7 +688,8 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
-    grammar_search_vlm_atom_proposal_prompt_type = "options_labels_whole_traj"
+    grammar_search_vlm_atom_proposal_prompt_type = \
+        "options_labels_whole_traj_diverse"
     grammar_search_vlm_atom_label_prompt_type = "per_scene_naive"
     grammar_search_vlm_atom_proposal_use_debug = False
     grammar_search_parallelize_vlm_labeling = True

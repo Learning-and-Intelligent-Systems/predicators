@@ -1085,17 +1085,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         elif CFG.grammar_search_pred_selection_approach == "no_select":
             self._learned_predicates = set(candidates.keys())
         logging.info("Done.")
-        # Now, rename these predicates to be compatible with PDDL planners!
-        renamed_predicates: Set[Predicate] = set()
-        for p in self._learned_predicates:
-            if isinstance(p, VLMPredicate):  # pragma: no cover.
-                renamed_predicates.add(p)
-                continue
-            new_name = p.name.replace("(", "[").replace(")",
-                                                        "]").replace(" ", "_")
-            renamed_pred = Predicate(new_name, p.types, p._classifier)  # pylint:disable=protected-access
-            renamed_predicates.add(renamed_pred)
-        self._learned_predicates = renamed_predicates
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         annotations = None
         if dataset.has_annotations:
@@ -1108,7 +1097,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # annotations include the geo predicates as well as the VLM
                 # predicates, so we need to set the annotations to the generated
                 # atom_dataset and not just the dataset.annotations.
-                # We also need to re-ground the
                 annotations = [atoms_data[1] for atoms_data in atom_dataset]
             else:
                 annotations = dataset.annotations

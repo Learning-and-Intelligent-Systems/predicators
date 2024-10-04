@@ -660,12 +660,12 @@ def test_loading_saved_vlm_img_demos_folder_non_dummy_goal():
 @pytest.mark.parametrize(
     "atom_proposal_prompt_type, atom_labelling_prompt_type",
     [("naive_each_step", "per_scene_naive"),
-     ("options_labels_whole_traj", "per_scene_naive"),
+     ("options_labels_whole_traj_diverse", "per_scene_naive"),
      ("naive_whole_traj", "per_scene_cot"),
      ("not_a_real_prompt_type", "per_scene_cot"),
      ("naive_whole_traj", "not_a_real_prompt_type"),
-     ("options_labels_whole_traj", "img_option_diffs"),
-     ("options_labels_whole_traj", "img_option_diffs_label_history")])
+     ("options_labels_whole_traj_diverse", "img_option_diffs"),
+     ("options_labels_whole_traj_diverse", "img_option_diffs_label_history")])
 def test_loading_saved_vlm_img_demos_folder_dummy_goal(
         atom_proposal_prompt_type, atom_labelling_prompt_type):
     """Test loading a dataset from img demo files."""
@@ -726,7 +726,7 @@ def test_env_debug_grammar():
         "seed": 456,
         "vlm_trajs_folder_name": "ice_tea_making__vlm_demos__456__1",
         "grammar_search_vlm_atom_proposal_prompt_type":
-        "options_labels_whole_traj",
+        "options_labels_whole_traj_diverse",
         "grammar_search_vlm_atom_label_prompt_type": "per_scene_naive",
         "grammar_search_vlm_atom_proposal_use_debug": True
     })
@@ -805,7 +805,7 @@ def test_loading_txt_files():
         "num_train_tasks": 1,
         "included_options": "PickPlace",
         "excluded_predicates": "all",
-        "vlm_predicate_vision_api_generate_ground_atoms": True
+        "vlm_predicate_vision_api_generate_ground_atoms": True,
     }])
 def test_create_ground_atom_data_from_generated_demos(config):
     """Tests for the create_ground_atom_data_from_generated_demos method."""
@@ -860,7 +860,7 @@ def test_vlm_include_cropped_images():
         "seed": 456,
         "vlm_trajs_folder_name": "ice_tea_making__vlm_demos__456__1",
         "grammar_search_vlm_atom_proposal_prompt_type":
-        "options_labels_whole_traj",
+        "options_labels_whole_traj_diverse",
         "grammar_search_vlm_atom_label_prompt_type":
         "img_option_diffs_label_history",
         "pretrained_model_prompt_cache_dir":
