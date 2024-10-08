@@ -132,6 +132,15 @@ class BurgerEnv(BaseEnv):
     def get_name(cls) -> str:
         return "burger"
 
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            self._object_type, self._item_type, self._station_type,
+            self._robot_type, self._patty_type, self._tomato_type,
+            self._cheese_type, self._bottom_bun_type, self._top_bun_type,
+            self._grill_type, self._cutting_board_type
+        }
+
     def get_edge_cells_for_object_placement(
             self, rng: np.random.Generator) -> List[Tuple[int, int]]:
         """Selects edge cells such that if objects were placed in these cells,
@@ -1002,16 +1011,6 @@ class BurgerNoMoveEnv(BurgerEnv):
         self._GoalHack7 = Predicate("GoalHack7",
                                     [self._grill_type, self._patty_type],
                                     self._GoalHack5_holds)
-
-    # Redefining types here for use by the INTERPRET baseline.
-    @property
-    def types(self) -> Set[Type]:
-        return {
-            self._object_type, self._item_type, self._station_type,
-            self._robot_type, self._patty_type, self._tomato_type,
-            self._cheese_type, self._bottom_bun_type, self._top_bun_type,
-            self._grill_type, self._cutting_board_type
-        }
 
     def _OnGround_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
