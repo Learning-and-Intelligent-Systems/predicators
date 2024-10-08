@@ -304,8 +304,8 @@ def test_burger_no_move():
     env = BurgerNoMoveEnv()
     task = env.get_test_tasks()[0]
     assert len(env.predicates) == 13
-    assert len(env.goal_predicates) == 4
-    assert len(env.agent_goal_predicates) == 5
+    assert len(env.goal_predicates) == 7
+    assert len(env.agent_goal_predicates) == 7
     assert len(env.get_vlm_debug_atom_strs([])) == 3
     rng = np.random.default_rng(0)
     assert len(env.get_edge_cells_for_object_placement(
