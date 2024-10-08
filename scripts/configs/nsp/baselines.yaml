@@ -1,28 +1,34 @@
 # Config files for all none nsp-derived baselines
 ---
 APPROACHES:
-  oracle_nsrt:
-    NAME: "oracle"
-    ARGS:
-    - "make_test_videos"
-    FLAGS:
-      video_fps: 20
-      coffee_jug_pickable_pred: True
-  # maple_q: # MAPLE baseline
-  #   NAME: "maple_q"
+  # oracle_model:
+  #   NAME: "oracle"
   #   FLAGS:
-  #     excluded_predicates: "all"
-  #     num_train_tasks: 1000
-  #     log_file: "logs/maple/"
-  #     explorer: "maple_q"
-  #     mlp_regressor_max_itr: 640000
-  #     active_sampler_learning_batch_size: 512
-  #     maple_assert_oracle_strips: False
-  #     online_learning_assert_no_exclude_pred: False
-  #     # Because MAPLE can't generalize to unseen goals
-  #     blocks_num_blocks_test: "[3,4]"
-  #     coffee_num_cups_test: "[1]"
-  #     balance_num_blocks_test: "[2,4]"
+  #   # # Uncomment if want to save images
+  #     num_train_tasks: 5
+  #     log_file: "logs/logs_oracle_model/"
+  #     render_init_state: True # for saving init figures
+    # # Uncomment if want to make vidoes
+    # ARGS:
+    # - "make_test_videos"
+    # FLAGS:
+    #   video_fps: 20
+    #   coffee_jug_pickable_pred: True
+  maple_q: # MAPLE baseline
+    NAME: "maple_q"
+    FLAGS:
+      excluded_predicates: "all"
+      num_train_tasks: 1000
+      log_file: "logs/maple/"
+      explorer: "maple_q"
+      mlp_regressor_max_itr: 640000
+      active_sampler_learning_batch_size: 512
+      maple_assert_oracle_strips: False
+      online_learning_assert_no_exclude_pred: False
+      # Because MAPLE can't generalize to unseen goals
+      blocks_num_blocks_test: "[3,4]"
+      coffee_num_cups_test: "[1]"
+      balance_num_blocks_test: "[2,4]"
   # vlm_plan: # ViLa baseline
   #   NAME: "vlm_open_loop"
   #   FLAGS:
@@ -33,16 +39,17 @@ APPROACHES:
   #     label_objs_with_id_name: True
   #     vlm_model_name: "gemini-1.5-pro"
 ENVS:
-  pb_balance:
-    NAME: "pybullet_balance"
-    FLAGS:
-      timeout: 1000 #300
-      pybullet_camera_width: 800
-      num_train_tasks: 10
-      sesame_check_dr_reachable: False
-      sesame_filter_unreachable_nsrt: False
-      # excluded_predicates: "Balanced,OnPlate"
-      online_nsrt_learning_requests_per_cycle: 100
+  # pb_balance:
+  #   NAME: "pybullet_balance"
+  #   FLAGS:
+  #     timeout: 1000 #300
+  #     # pybullet_camera_width: 800
+  #     num_train_tasks: 10
+  #     sesame_check_dr_reachable: False
+  #     sesame_filter_unreachable_nsrt: False
+  #     # excluded_predicates: "Balanced,OnPlate"
+  #     online_nsrt_learning_requests_per_cycle: 100
+  #     sesame_task_planning_heuristic: "goal_count"
   # pb_cover_w:
   #   NAME: "pybullet_cover_weighted"
   #   FLAGS:
@@ -50,20 +57,28 @@ ENVS:
   #     cover_typed_options_no_sampler: True
   #     cover_initial_holding_prob: 0.0
   #     cover_weighted_ratio: 0.5
-  #     cover_num_blocks_train: 2
-  #     cover_num_targets_train: 2
-  #     cover_block_widths: "[0.04,0.04,0.04]"
-  #     cover_target_widths: "[0.02,0.02,0.02]"
   # pb_cover:
   #   NAME: "pybullet_cover_typed_options"
   #   FLAGS:
   #     online_nsrt_learning_requests_per_cycle: 40
   #     cover_typed_options_no_sampler: True
   #     cover_initial_holding_prob: 0.5
+  pb_cover_4000:
+    NAME: "pybullet_cover_typed_options"
+    FLAGS:
+      online_nsrt_learning_requests_per_cycle: 4000
+      cover_typed_options_no_sampler: True
+      cover_initial_holding_prob: 0.5
   # pb_blocks:
   #   NAME: "pybullet_blocks"
   #   FLAGS:
+  #     timeout: 300000 #300
   #     online_nsrt_learning_requests_per_cycle: 400
+  #     blocks_use_derived_predicates: True
+  #     sesame_check_dr_reachable: False
+  #     sesame_filter_unreachable_nsrt: False
+  #     # sesame_task_planning_heuristic: "blind"
+  #     sesame_task_planning_heuristic: "goal_count"
   # pb_coffee:
   #   NAME: "pybullet_coffee"
   #   FLAGS:
@@ -80,7 +95,7 @@ FLAGS:
   option_learner: no_learning
   sampler_learner: "oracle"
   max_initial_demos: 0
-  num_test_tasks: 3
+  num_test_tasks: 50
   max_num_steps_interaction_request: 1000
   num_online_learning_cycles: 20
   horizon: 1000

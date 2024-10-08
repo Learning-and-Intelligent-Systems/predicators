@@ -6,6 +6,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
+from pympler import asizeof
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
@@ -268,6 +269,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         optn_to_fail_data: Dict[str,
                                 List[Tuple[State, Set[GroundAtom],
                                            List[Object]]]] = defaultdict(list)
+        # Negative States, Part 1
         for gop_str, optn_rec in self.fail_optn_dict.items():
             # logging.debug(f"Accessing option record for {gop_str}")
             for s, ab_s in zip(optn_rec.states, optn_rec.abstract_states):
@@ -282,6 +284,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
             neg_data = optn_to_fail_data[option_name]
             neg_data_from_pnad = []
             if CFG.CIS_use_other_pnads_neg_data:
+                # Negative States, Part 2
                 # Loop over the PNADs to find the other PNADs with the same option
                 # and add their data to the negative data
                 for other_pnad in pnads:
@@ -306,6 +309,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                 f"{len(neg_data)} negatives, "
                 f"{len(neg_data_from_pnad)} negatives from other pnads and "
                 f"{len(pnad.datastore)} positive data for: {pnad}")
+            # Search for Optimal Preconditions
             refined_preconditions = self._run_search(pnad,
                                                      init_preconditions,
                                                      fail_data=neg_data +
@@ -325,6 +329,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         """Run search to find a single precondition set for the pnad
         operator."""
         initial_state = frozenset(init_preconditions)
+        logging.debug(f"Init precond: {initial_state}")
         check_goal = lambda s: False
         # the classification function
         # states in the datastore the option is successfully executed
@@ -338,7 +343,7 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         elif CFG.precondition_search_algorithm == "hill_climbing":
             path, _, heuristics = utils.run_hill_climbing(
                 initial_state, check_goal, self._get_precondition_successors,
-                score_func)
+                score_func, enforced_depth=5)
             # logging.info("\nHill climbing summary:")
             # for i in range(1, len(path)):
             #     new_additions = path[i] - path[i - 1]
@@ -369,10 +374,14 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         # are all the states in fail_optn_dict with the same option.
         # Get the tp, fn, tn, fp states for each ground_option
         candidate_op = pnad.op.copy_with(preconditions=preconditions)
+        # Checking the memory usuage of the candidate op
+        # memory_usage = asizeof.asizeof(candidate_op)
+        # memory_usage_mb = memory_usage / (1024 * 1024)
+        # logging.info(f"Memory usage of the candidate op: {memory_usage_mb:.2f} MB")
         option_spec = pnad.option_spec
         optn_var = option_spec[1]
         n_succ_states, n_fail_states = len(succ_data), len(fail_data)
-        tp_states, fn_states, tn_states, fp_states = [], [], [], []
+        tp_states, fn_states, tn_states, fp_states = 0, 0, 0, 0
         n_tot = n_succ_states + n_fail_states
 
         # TP: states that satisfy the preconditions given the partial varToObj
@@ -390,9 +399,11 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
             # if ground_op.preconditions.issubset(seg.init_atoms):
             g_pre = {a.ground(var_to_obj) for a in preconditions}
             if g_pre.issubset(seg.init_atoms):
-                tp_states.append(seg.states[0])
+                tp_states += 1
+                # tp_states.append(seg.states[0])
             else:
-                fn_states.append(seg.states[0])
+                fn_states += 1
+                # fn_states.append(seg.states[0])
 
         # For the fail_states, we only have a partial sub. for the options
         # and we need to compute the false positives and true negatives based on
@@ -409,13 +420,17 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                     gnsrt.preconditions.issubset(atom_state)
                     for gnsrt in ground_nsrts
             ]):
-                fp_states.append(state)
+                fp_states += 1
+                # fp_states.append(state)
             else:
-                tn_states.append(state)
+                tn_states += 1
+                # tn_states.append(state)
 
         # Convert the states to string
-        n_tp, n_fn = len(tp_states), len(fn_states)
-        n_tn, n_fp = len(tn_states), len(fp_states)
+        # n_tp, n_fn = len(tp_states), len(fn_states)
+        # n_tn, n_fp = len(tn_states), len(fp_states)
+        n_tp, n_fn = tp_states, fn_states
+        n_tn, n_fp = tn_states, fp_states
         acc = (n_tp + n_tn) / n_tot
         # If there are a lot of failed states and a lot of success states, then
         # fp would be very small even with a weak precondition.

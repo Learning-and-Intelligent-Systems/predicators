@@ -51,6 +51,7 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 from tabulate import tabulate
 from tqdm import tqdm
+from pympler import asizeof
 
 from predicators.args import create_arg_parser
 from predicators.image_patch_wrapper import ImagePatch
@@ -1900,9 +1901,9 @@ class RawState(PyBulletState):
                         "fingers"
                 ]) or (object_features and attribute not in [
                     "is_heavy",
-                    "grasp",
-                    "held",
-                    "is_held",
+                    # "grasp",
+                    # "held",
+                    # "is_held",
                 ]):
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)
@@ -2839,6 +2840,10 @@ def _run_heuristic_search(
 
     while len(queue) > 0 and time.perf_counter() - start_time < timeout and \
             num_expansions < max_expansions and num_evals < max_evals:
+        # Checking the memory usuage of the queue
+        memory_usage = asizeof.asizeof(queue)
+        memory_usage_mb = memory_usage / (1024 * 1024)
+        logging.info(f"Memory usage of the candidate op: {memory_usage_mb:.2f} MB")
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
@@ -3691,6 +3696,11 @@ def query_vlm_for_atom_vals(
             true_atoms.add(vlm_atoms[i])
     return true_atoms
 
+class PredicateEvaluationError(Exception):
+    def __init__(self, message, pred):
+        super().__init__(message)
+        self.pred = pred
+
 def _abstract_with_concept_predicates(
                     abs_state: Set[GroundAtom],
                     preds: Collection[ConceptPredicate],
@@ -3706,7 +3716,10 @@ def _abstract_with_concept_predicates(
             except Exception as e:
                 logging.error(f"Error in evaluating concept predicate {pred}: "
                             f"{e}")
-                raise e
+                # raise e
+                raise PredicateEvaluationError(
+                        f"Error in evaluating concept predicate {pred}: {e}", 
+                        pred)
     return atoms
 
 def abstract_with_concept_predicates(
@@ -3736,7 +3749,8 @@ def abstract_with_concept_predicates(
 
 def abstract(state: State,
              preds: Collection[Predicate],
-             vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
+             vlm: Optional[VisionLanguageModel] = None,
+             return_valid_preds: bool = False) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
@@ -3745,33 +3759,33 @@ def abstract(state: State,
     # Filter out the concept predicates
     cnpt_preds = set(pred for pred in preds if isinstance(pred, 
                                                             ConceptPredicate))
-    preds = set(pred for pred in preds if not isinstance(pred, 
+    prim_preds = set(pred for pred in preds if not isinstance(pred, 
                                                             ConceptPredicate))
     # Start by pulling out all VLM predicates.
-    vlm_preds = set(pred for pred in preds if isinstance(pred, VLMPredicate))
+    vlm_preds = set(pred for pred in prim_preds if isinstance(pred, VLMPredicate))
     # For NSPredicates, first evaluate the base NSPs, then cache the values,
     #   then evaluate the derived NSPs.
-    derived_preds = set(pred for pred in preds
+    derived_preds = set(pred for pred in prim_preds
                         if isinstance(pred, DerivedPredicate))
-    base_ns_preds = set(pred for pred in preds
+    base_ns_preds = set(pred for pred in prim_preds
                         if isinstance(pred, NSPredicate)) - derived_preds
 
     # Next, classify all non-VLM predicates.
     atoms: Set[GroundAtom] = set()
-    for pred in preds:
+    for pred in prim_preds:
         if pred not in vlm_preds | base_ns_preds | derived_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 if pred.holds(state, choice):
                     atoms.add(GroundAtom(pred, choice))
-    if len(vlm_preds) > 0:
-        # Now, aggregate all the VLM predicates and make a single call to a
-        # VLM to get their values.
-        vlm_atoms = set()
-        for pred in vlm_preds:
-            for choice in get_object_combinations(list(state), pred.types):
-                vlm_atoms.add(GroundAtom(pred, choice))
-        true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
-        atoms |= true_vlm_atoms
+    # if len(vlm_preds) > 0:
+    #     # Now, aggregate all the VLM predicates and make a single call to a
+    #     # VLM to get their values.
+    #     vlm_atoms = set()
+    #     for pred in vlm_preds:
+    #         for choice in get_object_combinations(list(state), pred.types):
+    #             vlm_atoms.add(GroundAtom(pred, choice))
+    #     true_vlm_atoms = query_vlm_for_atom_vals(vlm_atoms, state, vlm)
+    #     atoms |= true_vlm_atoms
 
     if len(base_ns_preds) > 0:
         # Now, aggregate all the NS predicates and make a single call to a
@@ -3798,15 +3812,29 @@ def abstract(state: State,
                 vlm_queries, state, None, base_ns_preds)
             atoms |= set(vlm_atoms)
 
+    # Evaluate derived predicates
     if len(derived_preds) > 0:
         for pred in derived_preds:
             for choice in get_object_combinations(list(state), pred.types):
                 if pred.holds(state, choice):
                     atoms.add(GroundAtom(pred, choice))
-    
+    # logging.debug(f"preds before evaluating concept predicates: {preds}")
     if len(cnpt_preds) > 0:
-        atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, list(state))
-    return atoms
+        try:
+            atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, 
+                                                  list(state))
+        except PredicateEvaluationError as e:
+            buggy_pred = e.pred
+            # logging.debug(f"preds before {buggy_pred} is removed: {preds}")
+            cnpt_preds.remove(buggy_pred)
+            # logging.debug(f"preds after {buggy_pred} is removed: {preds}")
+            return abstract(state, prim_preds | cnpt_preds, vlm, 
+                            return_valid_preds)
+
+    if return_valid_preds:
+        return atoms, preds | cnpt_preds
+    else:
+        return atoms
 
     #     atoms |= abstract_with_concept_predicates(atoms, cnpt_preds, 
     #                                                 list(state))
@@ -5735,3 +5763,7 @@ def add_text_to_draw_img(
     # Add the text to the image
     draw.text(position, text, fill="red", font=font)
     return draw
+
+def nsrt_has_repeated_objects(ground_nsrt: _GroundNSRT) -> bool:
+    """Check if an NSRT has repeated objects."""
+    return len(ground_nsrt.objects) != len(set(ground_nsrt.objects))

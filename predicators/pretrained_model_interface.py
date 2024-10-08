@@ -294,7 +294,8 @@ class GoogleGeminiModel(PretrainedLargeModel):
 
     def key_generator(self, keys):
         while True:
-            for key in keys:
+            for i, key in enumerate(keys):
+                logging.debug(f"Using api key {i}")
                 if key is not None:
                     yield key
 

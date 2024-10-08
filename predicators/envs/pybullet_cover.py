@@ -28,7 +28,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     # Object parameters.
     _obj_len_hgt: ClassVar[float] = 0.045
-    _max_obj_width: ClassVar[float] = 0.07  # highest width normalized to this
+    # _max_obj_width: ClassVar[float] = 0.07  # highest width normalized to this
+    _max_obj_width: ClassVar[float] = 0.06  # highest width normalized to this
 
     # Dimension and workspace parameters.
     _table_height: ClassVar[float] = 0.2
@@ -479,9 +480,8 @@ class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
     the tasks with the heavy blocks are not achievable.
     """
     # Define colors
-    light_color = [0, 0, 0, 1]  # heavy block color
-    # light_color = [1, 1, 1, 1]  # light block color
-    heavy_color = [1, 1, 1, 1]  # light block color
+    light_color = [0, 0, 0, 1]  # light block color
+    heavy_color = [1, 1, 1, 1]  # heavy block color
     target_colr = [0.5, 1, 0.5, 1]
 
     def __init__(self, use_gui: bool = True) -> None:

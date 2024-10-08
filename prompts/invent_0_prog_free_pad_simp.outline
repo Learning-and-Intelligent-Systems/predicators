@@ -1,0 +1,27 @@
+Context: You are an expert AI researcher tasked with inventing task-specific state abstraction predicates for effective and efficient robotic planning.
+
+The existing predicates are:
+[PREDICATES_IN_ENV]
+
+The available types are:
+[TYPES_IN_ENV]
+
+The robot tried to execute its skills and got the following results:
+[OPERATOR_PERFORMACE]
+
+Objective: Examine each object's property before and after each action's execution. Propose new predicates that are important in describing the preconditions (conditions that must be True for an action to be executed) and effects of each action. Propose at least one per action.
+For each predicate you generate, also propose variations that make similar or opposite assertions, so that any predicate relevant to the action is included and can be later refined or selected.
+
+Instructions for Response:
+1. Propose predicates in the following format:
+    ```plaintext
+    # Predicate Proposals
+    * <predicate1_name>(?<var1>:<type1>, ?<var2>:<type2>, ...): <The assertion this predicate is making>.
+    * ...
+    ```
+
+2. In your response, please following the following guidelines:
+    * The assertion should be very clear, precise, and unambiguous, and about the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable. The assertion should be detailed enough for an external observer to confidently and correctly determine its truth value based on the provided state information.
+    * Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1>, and <obj1> with actual names and types from the state dictionary provided. *Do not* use types that are not present in the states (e.g., int or float).
+    * Do not use bold or italic fonts in your response.
+    * Respond only with the section outlined above.

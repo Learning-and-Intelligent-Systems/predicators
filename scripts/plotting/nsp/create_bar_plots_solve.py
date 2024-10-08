@@ -55,15 +55,17 @@ KEYS = [
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
-    ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
-    # ("Cover_Heavy", pd_create_equal_selector("ENV", "pybullet_cover_weighted")),
+    # ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
     # ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
-    # ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
+    ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
+    # ("Cover_Heavy", pd_create_equal_selector("ENV", "pybullet_cover_weighted")),
     # ("Balance", pd_create_equal_selector("ENV", "pybullet_balance")),
 ]
 
 # See PLOT_GROUPS comment.
 BAR_GROUPS = [
+    ("Manual",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_model" in v)),
     # ("oracle invent",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_invention" in v)),
     # ("oracle explore",
@@ -71,15 +73,18 @@ BAR_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "nsp-nl" in v)),
     ("MAPLE", lambda df:
         (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
-        (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "15" == v))
+        (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))
+        # (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "15" == v)) # blocks
     ),
     ("ViLa", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "vlm_plan" in v)),
     ("Sym. pred.", lambda df: 
         df["EXPERIMENT_ID"].apply(lambda v: "interpret" in v)),
     # ("ablate select obj.",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_acc_select" in v)),
-    ("ablate op.learner",
+    ("Ablate op.",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_new_op_learner" in v)),
+    ("No invent",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_invent" in v)),
 
     # ("Bisimulation",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
@@ -96,7 +101,6 @@ BAR_GROUPS = [
 ]
 
 #################### Should not need to change below here #####################
-
 
 def _main() -> None:
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -128,7 +132,7 @@ def _main() -> None:
                 plot_labels.append(label)
                 plot_means.append(mean[0])
                 plot_stds.append(std[0])
-            ax.barh(plot_labels, plot_means, xerr=plot_stds)
+            ax.barh(plot_labels, plot_means, xerr=plot_stds, color='green')
             ax.set_xlim(X_LIM)
             ax.tick_params(axis='y', colors='black')
             ax.set_title(plot_title)

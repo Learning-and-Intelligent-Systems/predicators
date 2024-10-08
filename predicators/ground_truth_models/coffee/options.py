@@ -265,6 +265,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             y = state.get(robot, "y")
             z = state.get(robot, "z")
             robot_pos = (x, y, z)
+            # logging.debug("Using the non pybullet policy")
             if abs(delta_rot) < cls.twist_policy_tol:
                 # Move up to stop twisting.
                 return cls._get_move_action(state,
@@ -520,7 +521,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_coffee environment."""
 
     env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletCoffeeEnv
-    # twist_policy_tol: ClassVar[float] = 1e-3
+    # twist_policy_tol: ClassVar[float] = 1e-2
     pick_policy_tol: ClassVar[float] = 1e-3
     pour_policy_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3

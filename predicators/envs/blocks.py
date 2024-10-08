@@ -23,7 +23,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
-    Object, Predicate, State, Type
+    Object, Predicate, State, Type, ConceptPredicate
 
 
 class BlocksEnv(BaseEnv):
@@ -83,6 +83,8 @@ class BlocksEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+        self._Clear_abs = ConceptPredicate("Clear", [self._block_type], 
+                                           self._Clear_CP_holds)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -208,7 +210,8 @@ class BlocksEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._On, self._OnTable, self._GripperOpen, self._Holding,
-            self._Clear
+            self._Clear_abs if CFG.blocks_use_derived_predicates 
+            else self._Clear
         }
 
     @property
@@ -457,6 +460,15 @@ class BlocksEnv(BaseEnv):
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return self._get_held_block(state) == block
+
+    def _Clear_CP_holds(self, atoms: Set[GroundAtom], objects: Sequence[Object]
+                        ) -> bool:
+        block, = objects
+        for atom in atoms:
+            if atom.predicate == self._On:
+                if atom.objects[1] == block:
+                    return False
+        return True
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         if self._Holding_holds(state, objects):

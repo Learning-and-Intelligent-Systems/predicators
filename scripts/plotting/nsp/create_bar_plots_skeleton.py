@@ -4,6 +4,7 @@ For example, https://arxiv.org/abs/2203.09634 Figure 3
 """
 
 import os
+import math
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -42,29 +43,60 @@ COLUMN_NAMES_AND_KEYS = [
     ("PERC_SOLVED", "perc_solved"),
     ("ONLINE_LEARNING_CYCLE", "cycle"),  # add to select model at specific cycle
     ("AVG_NUM_FAILED_PLAN", "avg_num_skeletons_optimized"),
+    ("PERC_PLANS_USED", "perc_skeletons_optimized"),
 ]
 
 DERIVED_KEYS = [("perc_solved",
-                 lambda r: 100 * r["num_solved"] / r["num_test_tasks"])]
+                 lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
+            ("perc_skeletons_optimized",
+            lambda r: 100 
+                        * ((0 if math.isinf(r["avg_num_skeletons_optimized"]) 
+                                else r["avg_num_skeletons_optimized"]) 
+                        * r["num_solved"] 
+                    + (8 if r["env"] in
+                                    ["pybullet_cover_typed_options",
+                                     "pybullet_cover_weighted",
+                                     "pybullet_blocks",
+                                     "pybullet_balance"
+                    ] else 100) * (r["num_test_tasks"] - r["num_solved"])) /
+                    ((8 if r["env"] in
+                                    ["pybullet_cover_typed_options",
+                                     "pybullet_cover_weighted",
+                                     "pybullet_blocks",
+                                     "pybullet_balance"
+                    ] else 100) * r["num_test_tasks"])),
+            # lambda r: 100 * 
+            #     ((r["num_solved"] / r["num_test_tasks"]) * 
+            #         r["avg_num_skeletons_optimized"] / (8 if r["env"] in
+            #                         ["pybullet_cover_typed_options",
+            #                          "pybullet_cover_weighted",
+            #                          "pybullet_blocks",
+            #                          "pybullet_balance"
+            #                          ] else 100)) +
+            #     (1-(r["num_solved"] / r["num_test_tasks"])) * 1),
+            ] 
 
 KEYS = [
         # "PERC_SOLVED", 
-        "AVG_NUM_FAILED_PLAN"
+        "PERC_PLANS_USED"
         ]
 
 # The keys of the dict are (df key, df value), and the dict values are
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
-    ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
-    ("Cover_Heavy", pd_create_equal_selector("ENV", 
-                                             "pybullet_cover_weighted")),
-    ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
+    # ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
+    # ("Cover_Heavy", pd_create_equal_selector("ENV", 
+    #                                          "pybullet_cover_weighted")),
+    # ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
     ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
+    # ("Balance", pd_create_equal_selector("ENV", "pybullet_balance")),
 ]
 
 # See PLOT_GROUPS comment.
 BAR_GROUPS = [
+    ("Manual",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_model" in v)),
     # ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
     # ("oracle invent",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_invention" in v)),
@@ -79,8 +111,10 @@ BAR_GROUPS = [
         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "interpret" in v)),
     # ("ablate select obj.",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_acc_select" in v)),
-    ("ablate op.learner",
+    ("Ablate op.",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_new_op_learner" in v)),
+    ("No invent",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_invent" in v)),
 
     # ("Bisimulation",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
@@ -129,11 +163,23 @@ def _main() -> None:
                 plot_labels.append(label)
                 plot_means.append(mean[0])
                 plot_stds.append(std[0])
-            ax.barh(plot_labels, plot_means, xerr=plot_stds)
-            if plot_title == "Coffee":
-                ax.set_xlim(-1, 100)
-            else:
-                ax.set_xlim(-1, 8)
+
+            # Draw a vertical dashed line at 100/8
+            x_coordinate = 100 / (8 if plot_title in
+                                    ["Cover",
+                                     "Cover_Heavy",
+                                     "Blocks",
+                                     "Balance"
+                                     ] else 100)
+            ax.axvline(x=x_coordinate, color='black', linestyle='--', 
+                       linewidth=1)
+
+            ax.barh(plot_labels, plot_means, xerr=plot_stds, color="red")
+            # if plot_title == "Coffee":
+            #     ax.set_xlim(-1, 100)
+            # else:
+            #     ax.set_xlim(0, 400)
+            ax.set_xlim(-5, 110)
             ax.tick_params(axis='y', colors='black')
             ax.set_title(plot_title)
             plt.gca().invert_yaxis()

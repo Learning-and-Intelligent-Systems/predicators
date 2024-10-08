@@ -185,7 +185,7 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         plate1 = Variable("?plate1", plate_type)
         plate2 = Variable("?plate2", plate_type)
         parameters = [robot, machine, plate1, plate2]
-        option_vars = [robot, plate1, plate2]
+        option_vars = [plate1, plate2]
         option = TurnMachineOn
         preconditions = {LiftedAtom(Balanced, [plate1, plate2]),
                          LiftedAtom(GripperOpen, [robot])}

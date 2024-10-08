@@ -151,6 +151,18 @@ def main() -> None:
         env) if CFG.approach != "oracle" else included_preds
     # Create the train tasks.
     env_train_tasks = env.get_train_tasks()
+
+    # Save the init images
+    for i, task in enumerate(env_train_tasks):
+        img_dir = os.path.join(CFG.log_file, "images")
+        os.makedirs(img_dir, exist_ok=True)
+        # task.init.state_image.save(
+        #     os.path.join(img_dir, f"init_unlab{i}.png"))
+        if hasattr(task.init, "labeled_image"):
+            task.init.labeled_image.save(os.path.join(img_dir, 
+                                                    f"trn_init_labeled{i}.png"))
+        if i == 10:
+            break
     # We assume that a train Task can be constructed from a EnvironmentTask.
     # In other words, the initial obs is assumed to contain enough information
     # to determine all of the objects and their initial states. We only make
@@ -388,6 +400,18 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
     if CFG.approach != "oracle":
         test_tasks = [task.replace_goal_with_alt_goal() for task in test_tasks]
+    
+    # Save the init images
+    for i, task in enumerate(test_tasks):
+        img_dir = os.path.join(CFG.log_file, "images")
+        os.makedirs(img_dir, exist_ok=True)
+        # task.init.state_image.save(
+        #     os.path.join(img_dir, f"init_unlab{i}.png"))
+        if hasattr(task.init, "labeled_image"):
+            task.init.labeled_image.save(os.path.join(img_dir, 
+                                        f"tst_init_labeled{i}.png"))
+        if i == 10:
+            break
     # # Check rendering by saving the image of the init state of tasks
     # Save all the masks
     # for obj, mask in task.init.obj_mask_dict.items():

@@ -4,6 +4,7 @@ from typing import Dict, Sequence, Set
 
 import numpy as np
 
+from predicators.settings import CFG
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
@@ -46,16 +47,20 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = [robot, block]
         option = Pick
         preconditions = {
-            LiftedAtom(OnTable, [block]),
+            # LiftedAtom(OnTable, [block]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
+        if CFG.approach != "vlm_online_invention":
+            preconditions.add(LiftedAtom(OnTable, [block]))
+
         add_effects = {LiftedAtom(Holding, [block])}
         delete_effects = {
             LiftedAtom(OnTable, [block]),
-            LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
+        if not CFG.blocks_use_derived_predicates:
+            delete_effects.add(LiftedAtom(Clear, [block]))
 
         pickfromtable_nsrt = NSRT("PickFromTable", parameters,
                                   preconditions, add_effects, delete_effects,
@@ -70,19 +75,27 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = [robot, block]
         option = Pick
         preconditions = {
-            LiftedAtom(On, [block, otherblock]),
+            # LiftedAtom(On, [block, otherblock]),
             LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
+        if CFG.approach != "vlm_online_invention":
+            preconditions.add(LiftedAtom(On, [block, otherblock])),
         add_effects = {
             LiftedAtom(Holding, [block]),
-            LiftedAtom(Clear, [otherblock])
         }
+        if not CFG.blocks_use_derived_predicates:
+            add_effects.add(LiftedAtom(Clear, [otherblock]))
+
         delete_effects = {
             LiftedAtom(On, [block, otherblock]),
-            LiftedAtom(Clear, [block]),
+            # LiftedAtom(Clear, [block]),
+            # LiftedAtom(Clear, [block]) if not CFG.blocks_use_derived_predicates,
             LiftedAtom(GripperOpen, [robot])
         }
+        if not CFG.blocks_use_derived_predicates:
+            delete_effects.add(LiftedAtom(Clear, [block]))
+
         unstack_nsrt = NSRT("Unstack", parameters, preconditions, add_effects,
                             delete_effects, set(), option, option_vars,
                             null_sampler)
@@ -102,13 +115,17 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {
             LiftedAtom(On, [block, otherblock]),
-            LiftedAtom(Clear, [block]),
+            # LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
+        if not CFG.blocks_use_derived_predicates:
+            add_effects.add(LiftedAtom(Clear, [block]))
         delete_effects = {
             LiftedAtom(Holding, [block]),
-            LiftedAtom(Clear, [otherblock])
+            # LiftedAtom(Clear, [otherblock])
         }
+        if not CFG.blocks_use_derived_predicates:
+            delete_effects.add(LiftedAtom(Clear, [otherblock]))
 
         stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
                           delete_effects, set(), option, option_vars,
@@ -125,9 +142,11 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {LiftedAtom(Holding, [block])}
         add_effects = {
             LiftedAtom(OnTable, [block]),
-            LiftedAtom(Clear, [block]),
+            # LiftedAtom(Clear, [block]),
             LiftedAtom(GripperOpen, [robot])
         }
+        if not CFG.blocks_use_derived_predicates:
+            add_effects.add(LiftedAtom(Clear, [block]))
         delete_effects = {LiftedAtom(Holding, [block])}
 
         def putontable_sampler(state: State, goal: Set[GroundAtom],

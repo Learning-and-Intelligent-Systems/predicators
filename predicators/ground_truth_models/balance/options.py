@@ -99,7 +99,8 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
             del memory, params  # unused
-            robot, plate1, plate2 = objects
+            plate1, plate2 = objects
+            robot = state.get_objects(robot_type)[0]
             return GripperOpen.holds(state, [robot]) and\
                     Balanced.holds(state, [plate1, plate2])
 
@@ -113,7 +114,7 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
-            types=[robot_type, plate_type, plate_type],
+            types=[plate_type, plate_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
@@ -131,11 +132,12 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             # This policy moves the robot up to be level with the button in the
             # z direction and then moves forward in the y direction to press it.
             del memory, params  # unused
-            robot = objects[0]
+            robot = [r for r in state if r.type.name == "robot"][0]
+            # robot = objects[0]
             x = state.get(robot, "pose_x")
             y = state.get(robot, "pose_y")
             z = state.get(robot, "pose_z")
-            robot_pos = (x, y, z)
+            # robot_pos = (x, y, z)
             button_pos = (cls.env_cls.button_x, cls.env_cls.button_y,
                           cls.env_cls.button_z)
             arr = np.r_[button_pos, 1.0].astype(np.float32)
@@ -426,7 +428,9 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
             del memory, params  # unused
-            robot, plate1, plate2 = objects
+            plate1, plate2 = objects
+            robot = state.get_objects(robot_type)[0]
+            # robot = [r for r in state if r.type.name == "robot"][0]
             return GripperOpen.holds(state, [robot]) and\
                     Balanced.holds(state, [plate1, plate2])
 
@@ -440,7 +444,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
-            types=[robot_type, plate_type, plate_type],
+            types=[plate_type, plate_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
@@ -529,7 +533,9 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
             # This policy moves the robot up to be level with the button in the
             # z direction and then moves forward in the y direction to press it.
             del memory, params  # unused
-            robot = objects[0]
+            # robot = objects[0]
+            # robot = state.get_objects(cls.env_cls._robot_type)[0]
+            robot = [r for r in state if r.type.name == "robot"][0]
             x = state.get(robot, "pose_x")
             y = state.get(robot, "pose_y")
             z = state.get(robot, "pose_z")

@@ -551,7 +551,9 @@ class CoffeeEnv(BaseEnv):
                     #                   self.jug_init_rot_ub)
                     rot = self.jug_init_rot_ub
                 else:
-                    rot = 0.0
+                    # rot = rng.choice([0.1, -0.1])
+                    rot = rng.uniform(-0.1, 0.1)
+                    # rot = 0
 
                 # Manual
                 # if is_train:
@@ -693,7 +695,7 @@ class CoffeeEnv(BaseEnv):
         else:
             # in pb-coffee determine by grasp check
             # pick_jug_rot_tol = 1/5 * np.pi
-            pick_jug_rot_tol = 0.5
+            pick_jug_rot_tol = 0.1
             # pick_jug_rot_tol = - np.pi / 4
 
         return abs(jug_rot) <= pick_jug_rot_tol

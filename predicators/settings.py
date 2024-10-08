@@ -85,6 +85,7 @@ class GlobalSettings:
     blocks_num_blocks_test = [5, 6]
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
+    blocks_use_derived_predicates = False
 
     # balance env parameters
     balance_num_blocks_train = [2, 4]
@@ -505,6 +506,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     bilevel_plan_without_sim = False
     sesame_check_dr_reachable = True
     sesame_filter_unreachable_nsrt = True
+    sesame_filter_nsrts_with_repeated_objects = False
 
     # evaluation parameters
     log_dir = "logs"
@@ -970,22 +972,22 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # "cover_place_hard": 1,
                 })[args.get("env", "")],
             cover_num_blocks_test=defaultdict(
-                lambda: 2,
+                lambda: 3,
                 {
                     # "cover_place_hard": 1,
                 })[args.get("env", "")],
             cover_num_targets_test=defaultdict(
-                lambda: 2,
+                lambda: 3,
                 {
                     # "cover_place_hard": 1,
                 })[args.get("env", "")],
             cover_block_widths=defaultdict(
-                lambda: [0.1, 0.07, 0.07, 0.07],
+                lambda: [0.05,0.05,0.06,0.04],
                 {
                     # "cover_place_hard": [0.1],
                 })[args.get("env", "")],
             cover_target_widths=defaultdict(
-                lambda: [0.05, 0.03, 0.03, 0.03],
+                lambda: [0.02,0.02,0.02,0.02],
                 {
                     # "cover_place_hard": [0.05],
                 })[args.get("env", "")],

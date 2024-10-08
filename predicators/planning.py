@@ -288,6 +288,13 @@ def filter_nsrts(
         ]
     else:
         reachable_nsrts = nonempty_ground_nsrts
+    
+    if CFG.sesame_filter_nsrts_with_repeated_objects:
+        # Filter nsrts that have the same object appear twice in its params
+        reachable_nsrts = [
+            ground_nsrt for ground_nsrt in reachable_nsrts
+            if not utils.nsrt_has_repeated_objects(ground_nsrt)
+        ]
     return reachable_nsrts
 
 

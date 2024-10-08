@@ -253,13 +253,13 @@ class VlmInventionApproach(NSRTLearningApproach):
 
     def learn_from_tasks(self, env: BaseEnv, tasks: List[Task]) -> None:
         """Learn from interacting with the offline dataset."""
-        for i, task in enumerate(tasks):
-            img_dir = os.path.join(CFG.log_file, "images")
-            os.makedirs(img_dir, exist_ok=True)
-            # task.init.state_image.save(
-            #     os.path.join(img_dir, f"init_unlab{i}.png"))
-            task.init.labeled_image.save(
-                os.path.join(img_dir, f"init_label{i}.png"))
+        # for i, task in enumerate(tasks):
+        #     img_dir = os.path.join(CFG.log_file, "images")
+        #     os.makedirs(img_dir, exist_ok=True)
+        #     # task.init.state_image.save(
+        #     #     os.path.join(img_dir, f"init_unlab{i}.png"))
+        #     task.init.labeled_image.save(
+        #         os.path.join(img_dir, f"init_label{i}.png"))
         self.env = env
         self.env_name = env.get_name()
         num_tasks = len(tasks)
@@ -308,12 +308,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                       f"{pformat(self._nsrts)}")
         results = self.collect_dataset(0, env, tasks)
         num_solved = sum([r.succeeded for r in results])
-        num_failed_plans = prev_num_failed_plans = sum(
-            [len(r.info['partial_refinements']) for r in results])
-        solve_rate = prev_solve_rate = num_solved / num_tasks
+        num_failed_plans = prev_num_failed_plans =\
+            num_failed_plans_at_best_solve_rate = sum(
+                [len(r.info['partial_refinements']) for r in results])
+        solve_rate = prev_solve_rate = best_solve_rate = num_solved / num_tasks
         logging.info(f"===ite 0; no invent solve rate {solve_rate}; "
                      f"num skeletons failed {num_failed_plans}\n")
-
         self.succ_optn_dict: Dict[str, GroundOptionRecord] =\
             defaultdict(GroundOptionRecord)
         self.fail_optn_dict: Dict[str, GroundOptionRecord] =\
@@ -524,7 +524,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                         break
                 else:
                     # if CFG.env in ["pybullet_cover_typed_options"]:
-                    if num_failed_plans == 0:
+                    if num_failed_plans == 0 and solve_rate == best_solve_rate:
                         break
             time.sleep(5)
 
@@ -1103,15 +1103,24 @@ class VlmInventionApproach(NSRTLearningApproach):
                     for g_optn in optn_dict.keys()
                     for state in optn_dict[g_optn].states))
             logging.debug(f"There are {num_states} distinct states.")
+            logging.debug(f"all candidates before filtering through abstract "
+                          f"{all_candidates}")
             for optn_dict in [self.succ_optn_dict, self.fail_optn_dict]:
                 for g_optn in optn_dict.keys():
                     atom_states = []
                     for state in optn_dict[g_optn].states:
                         # TODO: remove the candidates if we get an error
                         #   this can replace the error check in get proposals
-                        atoms = utils.abstract(state, set(all_candidates))
+                        atoms, valid_preds = utils.abstract(
+                                                    state, 
+                                                    set(all_candidates), 
+                                                    return_valid_preds=True)
+                        all_candidates = {k: v for k, v in 
+                                    all_candidates.items() if k in valid_preds}
                         atom_states.append(atoms)
                     optn_dict[g_optn].abstract_states = atom_states
+            logging.debug(f"all candidates after filtering through abstract "
+                          f"{all_candidates}")
 
             # This step should only make VLM calls on the end state
             # becuaes it would have labled all the other success states
@@ -1172,7 +1181,8 @@ class VlmInventionApproach(NSRTLearningApproach):
     ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
 
         # Phase 1: invent concept predicates from the existing predicates.
-        if CFG.vlm_invention_initial_concept_invention:
+        #   only do it in ite 1 for convenience
+        if CFG.vlm_invention_initial_concept_invention and ite == 1:
             helper_cnpt_preds = self._invent_initial_concept_predicates(ite, 
                                                                         env, 
                                                                         tasks)
@@ -1217,7 +1227,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                 self._create_invention_from_pn_states_prompt
         else:
             create_prompt_func =\
-                    self._create_one_step_program_invention_prompt
+                self._create_one_step_program_invention_prompt
 
         for attempt in range(max_attempts):
             logging.debug(f"Prompt creation attempt {attempt}")
@@ -1238,7 +1248,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             images = self._load_images_from_directory(obs_dir)
 
             logging.debug(f"Created {len(images)} images")
-            if min_imgs <= len(images) <= max_imgs: break
+            if (min_imgs <= len(images) <= max_imgs) or\
+               (attempt == max_attempts - 1): break
 
             if len(images) > max_imgs:
                 if os.path.exists(obs_dir):
@@ -1273,9 +1284,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                 "parts": [response]
             }]
 
-            if self.env.get_name() == "pybullet_balance":
-                response = response.split("\n")[:3]
-                response = "\n".join(response)
+            # if self.env.get_name() == "pybullet_balance":
+            #     response = response.split("\n")[:3]
+            #     response = "\n".join(response)
             # Convert the NL proposals to formal predicate specs.
             template_f = "prompts/invent_0_nl_2_pred_spec.outline"
             with open(template_f, "r") as f:
@@ -1297,7 +1308,8 @@ class VlmInventionApproach(NSRTLearningApproach):
         #   OR     first get proposals in nl; then write predicates
         response = self._get_vlm_response(
             save_file, self._vlm, prompt,
-            [] if CFG.vlm_invention_propose_nl_properties else images)
+            [] if CFG.vlm_invention_propose_nl_properties else images,
+            temperature=0.3)
 
         if CFG.vlm_invent_predicates_in_stages:
             # Get NL predicate dataset
@@ -1306,10 +1318,10 @@ class VlmInventionApproach(NSRTLearningApproach):
             #     response = file.read()
             # predicate_specs = parse_nl_predicate_predictions(save_file)
             predicate_specs = response
-            if CFG.vlm_invention_positive_negative_include_next_state and\
-                not CFG.vlm_invention_propose_nl_properties:
-                predicate_specs = self._parse_pad_labels_to_truth_values(
-                    predicate_specs)
+            # if CFG.vlm_invention_positive_negative_include_next_state and\
+            #     not CFG.vlm_invention_propose_nl_properties:
+            #     predicate_specs = self._parse_pad_labels_to_truth_values(
+            #         predicate_specs)
 
             # Generate prompt to write ns_predicates
             s2_prompt = self._create_implementation_prompt(
@@ -1325,7 +1337,8 @@ class VlmInventionApproach(NSRTLearningApproach):
 
         # Stage 3: Parse and load the predicates
         primitive_preds, concept_preds = self._parse_predicate_predictions(
-            save_file, tasks, ite, translate_fn=f"{phase_n}_s3")
+            save_file, tasks, ite, env.types, translate_fn=f"{phase_n}_s3")
+        # breakpoint()
         return primitive_preds, concept_preds
 
     def _invent_initial_concept_predicates(self, ite: int,
@@ -1376,7 +1389,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         logging.info("Stage 3: Transforming concept predicates.")
         _, concept_preds =\
             self._parse_predicate_predictions(
-            save_file, tasks, ite, translate_fn="init_cnpt_s3")
+            save_file, tasks, ite, env.types, translate_fn="init_cnpt_s3")
         return concept_preds
 
     def _select_predicates_by_score_optimization(
@@ -1684,7 +1697,8 @@ class VlmInventionApproach(NSRTLearningApproach):
             template_f = "prompts/invent_0_prog_free_p_nl.outline"
         else:
             if CFG.vlm_invention_positive_negative_include_next_state:
-                template_f = "prompts/invent_0_prog_free_pad.outline"
+                # template_f = "prompts/invent_0_prog_free_pad.outline"
+                template_f = "prompts/invent_0_prog_free_pad_simp.outline"
             else:
                 template_f = "prompts/invent_0_prog_free_p.outline"
 
@@ -1706,6 +1720,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         #     pred_str_lst.append(self._invented_predicate_str(ite))
         pred_str = '\n'.join(pred_str_lst)
         template = template.replace("[PREDICATES_IN_ENV]", pred_str)
+
+        type_names = str(set(t.name for t in env.types))
+        template = template.replace("[TYPES_IN_ENV]", type_names)
 
         _, summary_str, state_str_set =\
             utils.count_classification_result_for_ops(
@@ -1846,6 +1863,7 @@ class VlmInventionApproach(NSRTLearningApproach):
         prediction_file: str,
         tasks: List[Task],
         ite: int,
+        valid_types: Set[Type],
         translate_fn: str,
     ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
 
@@ -1933,6 +1951,12 @@ class VlmInventionApproach(NSRTLearningApproach):
                     try:
                         exec(code_str, context)
                         logging.debug(f"Testing predicate {pred_name}")
+                        # Check1: Make sure it uses types present in the environment
+                        proposed_pred = context[pred_name]
+                        for t in proposed_pred.types:
+                            if t not in valid_types:
+                                logging.warning(f"Type {t} not in the environment")
+                                raise Exception(f"Type {t} not in the environment")
                         utils.abstract(tasks[0].init, [context[pred_name]])
                     except Exception as e:
                         error_trace = traceback.format_exc()
@@ -1971,6 +1995,14 @@ class VlmInventionApproach(NSRTLearningApproach):
                 try:
                     exec(code_str, context)
                     logging.debug(f"Testing Concept Predicate {pred_name}")
+                    # Check1: Make sure it uses types present in the environment
+                    proposed_pred = context[pred_name]
+                    for t in proposed_pred.types:
+                        if t not in valid_types:
+                            logging.warning(f"Type {t} not in the environment")
+                            raise Exception(f"Type {t} not in the environment")
+
+                    # Check2: Make sure it's executable
                     utils.abstract(tasks[0].init, 
                                     self._get_current_predicates() |\
                                         set([context[pred_name]]))

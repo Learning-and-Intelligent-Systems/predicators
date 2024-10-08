@@ -341,10 +341,6 @@ class BalanceEnv(BaseEnv):
 
     #     return height1 == height2
 
-    def _MachineOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        machine, = objects
-        return state.get(machine, "is_on") > 0.5
-
     @classmethod
     def get_name(cls) -> str:
         return "balance"

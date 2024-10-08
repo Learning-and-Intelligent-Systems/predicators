@@ -248,7 +248,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # LiftedAtom(JugFilled, [jug]),
             LiftedAtom(NotAboveCup, [robot, jug]),
         }
-        if not CFG.coffee_exclude_JugFilled_in_preconds:
+        if CFG.approach != "vlm_online_invention":
             preconditions.add(LiftedAtom(JugFilled, [jug]))
         add_effects = {
             LiftedAtom(JugAboveCup, [jug, cup]),
@@ -280,7 +280,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(RobotAboveCup, [robot, other_cup]),
             LiftedAtom(NotSameCup, [cup, other_cup]),
         }
-        if not CFG.coffee_exclude_JugFilled_in_preconds:
+        if CFG.approach != "vlm_online_invention":
             preconditions.add(LiftedAtom(JugFilled, [jug]))
         add_effects = {
             LiftedAtom(JugAboveCup, [jug, cup]),
