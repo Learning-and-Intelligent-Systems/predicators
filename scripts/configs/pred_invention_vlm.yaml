@@ -23,18 +23,18 @@ APPROACHES:
   #   NAME: "grammar_search_invention"
   #   FLAGS:
   #     grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
-  interpret:
-    NAME: "grammar_search_invention"
+  # interpret:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     offline_data_method: demo_with_vlm_imgs
+  #     vlm_predicate_vision_api_generate_ground_atoms: True
+  vila-with-fewshot:
+    NAME: "vlm_open_loop"
     FLAGS:
-      offline_data_method: demo_with_vlm_imgs
-      vlm_predicate_vision_api_generate_ground_atoms: True
-  # vila-with-fewshot:
-  #   NAME: "vlm_open_loop"
-  #   FLAGS:
-  #     vlm_open_loop_use_training_demos: True
-  # vila-pure:
-  #   NAME: "vlm_open_loop"
-  #   FLAGS:
+      vlm_open_loop_use_training_demos: True
+  vila-pure:
+    NAME: "vlm_open_loop"
+    FLAGS:
       vlm_open_loop_use_training_demos: False
 
 ENVS:
@@ -72,7 +72,7 @@ ARGS:
 FLAGS: 
   vlm_model_name: gpt-4o
   num_train_tasks: 8
-  num_test_tasks: 3
+  num_test_tasks: 10
 START_SEED: 0
 NUM_SEEDS: 1
 ...
