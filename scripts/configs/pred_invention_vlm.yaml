@@ -51,15 +51,19 @@ ENVS:
       sesame_task_planner: fdopt
       excluded_predicates: all
       option_model_terminate_on_repeat: False
+      grammar_search_vlm_atom_proposal_use_debug: False
       allow_exclude_goal_predicates: True
       grammar_search_prune_redundant_preds: True
       grammar_search_predicate_cost_upper_bound: 7
       allow_state_allclose_comparison_despite_simulator_state: True
       grammar_search_max_predicates: 200
       grammar_search_parallelize_vlm_labeling: True
+      grammar_search_use_handcoded_debug_grammar: False
+      grammar_search_select_all_debug: False
       cluster_and_intersect_soft_intersection_for_preconditions: True
       vlm_include_cropped_images: True
       timeout: 80
+      grammar_search_include_givens: False
       cluster_and_intersect_prune_low_data_pnads: True
       cluster_and_intersect_min_datastore_fraction: 0.2
 
@@ -68,7 +72,7 @@ ARGS:
 FLAGS: 
   vlm_model_name: gpt-4o
   num_train_tasks: 8
-  num_test_tasks: 10
-START_SEED: 456
+  num_test_tasks: 3
+START_SEED: 0
 NUM_SEEDS: 1
 ...
