@@ -1503,10 +1503,19 @@ class BurgerNoMoveEnv(BurgerEnv):
     @property
     def agent_goal_predicates(self) -> Set[Predicate]:
         preds_by_task_type = {
-            "more_stacks": {self._On, self._OnGround, self._GoalHack2, self._Clear, self._Holding},
+            "more_stacks": {
+                self._On, self._OnGround, self._GoalHack2, self._Clear,
+                self._Holding
+            },
             "fatter_burger": {
-                self._On, self._OnGround, self._GoalHack2, self._GoalHack5,
-                self._GoalHack6, self._GoalHack7, self._Clear, self._Holding,
+                self._On,
+                self._OnGround,
+                self._GoalHack2,
+                self._GoalHack5,
+                self._GoalHack6,
+                self._GoalHack7,
+                self._Clear,
+                self._Holding,
             },
             "combo_burger": {
                 self._On, self._OnGround, self._GoalHack2, self._GoalHack3,
@@ -1514,7 +1523,7 @@ class BurgerNoMoveEnv(BurgerEnv):
             }
         }
         return preds_by_task_type[CFG.burger_no_move_task_type]
-    
+
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return self.agent_goal_predicates
