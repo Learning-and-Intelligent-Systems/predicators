@@ -63,7 +63,7 @@ ENVS:
       cluster_and_intersect_soft_intersection_for_preconditions: True
       vlm_include_cropped_images: True
       timeout: 80
-      grammar_search_include_givens: False
+      grammar_search_grammar_includes_givens: False
       cluster_and_intersect_prune_low_data_pnads: True
       cluster_and_intersect_min_datastore_fraction: 0.2
 
