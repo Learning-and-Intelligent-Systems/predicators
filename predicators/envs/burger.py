@@ -1501,23 +1501,32 @@ class BurgerNoMoveEnv(BurgerEnv):
         }
 
     @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._OnGround, self._IsCooked, self._IsSliced}
-
-    @property
     def agent_goal_predicates(self) -> Set[Predicate]:
         preds_by_task_type = {
-            "more_stacks": {self._On, self._OnGround, self._GoalHack2},
+            "more_stacks": {
+                self._On, self._OnGround, self._GoalHack2, self._Clear,
+                self._Holding
+            },
             "fatter_burger": {
-                self._On, self._OnGround, self._GoalHack2, self._GoalHack5,
-                self._GoalHack6, self._GoalHack7
+                self._On,
+                self._OnGround,
+                self._GoalHack2,
+                self._GoalHack5,
+                self._GoalHack6,
+                self._GoalHack7,
+                self._Clear,
+                self._Holding,
             },
             "combo_burger": {
                 self._On, self._OnGround, self._GoalHack2, self._GoalHack3,
-                self._GoalHack4
+                self._GoalHack4, self._Clear, self._Holding
             }
         }
         return preds_by_task_type[CFG.burger_no_move_task_type]
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return self.agent_goal_predicates
 
     def get_vlm_debug_atom_strs(self,
                                 train_tasks: List[Task]) -> List[List[str]]:
