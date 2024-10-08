@@ -18,7 +18,7 @@ APPROACHES:
   ours-no-visual:
     NAME: "grammar_search_invention"
     FLAGS: 
-      offline_data_method: demos
+      offline_data_method: demo
   # ours-no-geo:
   #   NAME: "grammar_search_invention"
   #   FLAGS:
