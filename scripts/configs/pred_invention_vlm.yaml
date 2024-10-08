@@ -52,7 +52,7 @@ ENVS:
       excluded_predicates: all
       option_model_terminate_on_repeat: False
       allow_exclude_goal_predicates: True
-      grammar_search_prune_redundant_preds: False
+      grammar_search_prune_redundant_preds: True
       grammar_search_predicate_cost_upper_bound: 7
       allow_state_allclose_comparison_despite_simulator_state: True
       grammar_search_max_predicates: 200
