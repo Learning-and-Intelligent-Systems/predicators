@@ -132,15 +132,6 @@ class BurgerEnv(BaseEnv):
     def get_name(cls) -> str:
         return "burger"
 
-    @property
-    def types(self) -> Set[Type]:
-        return {
-            self._object_type, self._item_type, self._station_type,
-            self._robot_type, self._patty_type, self._tomato_type,
-            self._cheese_type, self._bottom_bun_type, self._top_bun_type,
-            self._grill_type, self._cutting_board_type
-        }
-
     def get_edge_cells_for_object_placement(
             self, rng: np.random.Generator) -> List[Tuple[int, int]]:
         """Selects edge cells such that if objects were placed in these cells,
@@ -970,6 +961,24 @@ class BurgerEnv(BaseEnv):
 class BurgerNoMoveEnv(BurgerEnv):
     """BurgerEnv but with the movement option wrapped inside each of the other
     options."""
+
+    # Types
+    _object_type = Type("object", [])
+    _item_or_station_type = Type("item_or_station", [], _object_type)
+    # _item_type = Type("item", [], _item_or_station_type)
+    # _station_type = Type("station", [], _item_or_station_type)
+    _item_type = Type("item", [], _object_type)
+    _station_type = Type("station", [], _object_type)
+    _robot_type = Type("robot", ["row", "col", "z", "fingers", "dir"],
+                       _object_type)
+    _patty_type = Type("patty", ["row", "col", "z"], _item_type)
+    _tomato_type = Type("lettuce", ["row", "col", "z"], _item_type)
+    _cheese_type = Type("cheese", ["row", "col", "z"], _item_type)
+    _bottom_bun_type = Type("bottom_bun", ["row", "col", "z"], _item_type)
+    _top_bun_type = Type("top_bun", ["row", "col", "z"], _item_type)
+    _grill_type = Type("grill", ["row", "col", "z"], _station_type)
+    _cutting_board_type = Type("cutting_board", ["row", "col", "z"],
+                               _station_type)
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
