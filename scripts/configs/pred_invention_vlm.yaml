@@ -4,7 +4,7 @@ APPROACHES:
   ours:
     NAME: "grammar_search_invention"
     FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
       offline_data_method: geo_and_demo_with_vlm_imgs
   # ours-no-subselection:
   #   NAME: "grammar_search_invention"
@@ -63,7 +63,8 @@ ENVS:
       cluster_and_intersect_prune_low_data_pnads: True
       cluster_and_intersect_min_datastore_fraction: 0.2
 
-ARGS: []
+ARGS:
+  - "load_data"
 FLAGS: 
   vlm_model_name: gpt-4o
   num_train_tasks: 8
