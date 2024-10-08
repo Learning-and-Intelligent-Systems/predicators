@@ -6,36 +6,36 @@ APPROACHES:
     FLAGS:
       grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj
       offline_data_method: geo_and_demo_with_vlm_imgs
-  ours-no-subselection:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_pred_selection_approach: no_select
-  ours-no-invent:
-    NAME: "nsrt_learning"
-    FLAGS: {}
-  ours-no-visual:
-    NAME: "grammar_search_invention"
-    FLAGS: 
-      offline_data_method: demos
-  ours-no-geo:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
-  interpret:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      offline_data_method: demo_with_vlm_imgs
-      vlm_predicate_vision_api_generate_ground_atoms: True
-  vila-with-fewshot:
-    NAME: "vlm_open_loop"
-    FLAGS:
-      vlm_open_loop_use_training_demos: True
-  vila-pure:
-    NAME: "vlm_open_loop"
-    FLAGS:
-      vlm_open_loop_use_training_demos: False
+  # ours-no-subselection:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_pred_selection_approach: no_select
+  # ours-no-invent:
+  #   NAME: "nsrt_learning"
+  #   FLAGS: {}
+  # ours-no-visual:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS: 
+  #     offline_data_method: demos
+  # ours-no-geo:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+  # interpret:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     offline_data_method: demo_with_vlm_imgs
+  #     vlm_predicate_vision_api_generate_ground_atoms: True
+  # vila-with-fewshot:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: True
+  # vila-pure:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: False
 
 ENVS:
   burger_no_move_more_stacks:
@@ -49,7 +49,7 @@ ENVS:
       sesame_max_skeletons_optimized: 200
       disable_harmlessness_check: True
       sesame_task_planner: fdopt
-      excluded_predicates: IsCooked,IsSliced
+      excluded_predicates: all
       option_model_terminate_on_repeat: False
       allow_exclude_goal_predicates: True
       grammar_search_prune_redundant_preds: False
@@ -60,6 +60,8 @@ ENVS:
       cluster_and_intersect_soft_intersection_for_preconditions: True
       vlm_include_cropped_images: True
       timeout: 80
+      cluster_and_intersect_prune_low_data_pnads: True
+      cluster_and_intersect_min_datastore_fraction: 0.2
 
 ARGS: []
 FLAGS: 
