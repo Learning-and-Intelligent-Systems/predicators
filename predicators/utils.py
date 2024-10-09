@@ -2485,7 +2485,8 @@ def query_vlm_for_atom_vals(
     all_vlm_responses = vlm_output_str.strip().split("\n")
     # NOTE: this assumption is likely too brittle; if this is breaking, feel
     # free to remove/adjust this and change the below parsing loop accordingly!
-    assert len(atom_queries_list) == len(all_vlm_responses)
+    if len(atom_queries_list) != len(all_vlm_responses):
+        return set()
     for i, (atom_query, curr_vlm_output_line) in enumerate(
             zip(atom_queries_list, all_vlm_responses)):
         assert atom_query + ":" in curr_vlm_output_line

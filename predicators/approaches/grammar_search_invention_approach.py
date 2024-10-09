@@ -885,6 +885,7 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
     base_grammar: _PredicateGrammar
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        forall_penalty = CFG.grammar_search_forall_penalty
         for (predicate, cost) in self.base_grammar.enumerate():
             yield (predicate, cost)
             if predicate.arity == 0:
@@ -894,14 +895,15 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
             forall_predicate = Predicate(str(forall_classifier), [],
                                          forall_classifier)
             assert forall_predicate.arity == 0
-            yield (forall_predicate, cost + 1)  # add arity + 1 to cost
+            yield (forall_predicate, cost + forall_penalty)
             # Generate NOT-Forall(x)
             notforall_classifier = _NegationClassifier(forall_predicate)
             notforall_predicate = Predicate(str(notforall_classifier),
                                             forall_predicate.types,
                                             notforall_classifier)
             assert notforall_predicate.arity == 0
-            yield (notforall_predicate, cost + 1)  # add arity + 1 to cost
+            yield (notforall_predicate, cost + forall_penalty)
+
             # Generate UFFs
             if predicate.arity >= 2:
                 for idx in range(predicate.arity):
@@ -911,14 +913,14 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                                               [predicate.types[idx]],
                                               uff_classifier)
                     assert uff_predicate.arity == 1
-                    yield (uff_predicate, cost + 2)  # add arity + 1 to cost
+                    yield (uff_predicate, cost + forall_penalty + 1)
                     # Negated UFF
                     notuff_classifier = _NegationClassifier(uff_predicate)
                     notuff_predicate = Predicate(str(notuff_classifier),
                                                  uff_predicate.types,
                                                  notuff_classifier)
                     assert notuff_predicate.arity == 1
-                    yield (notuff_predicate, cost + 2)  # add arity + 1 to cost
+                    yield (notuff_predicate, cost + forall_penalty + 1)
 
 
 ################################################################################
