@@ -67,8 +67,7 @@ ENVS:
       cluster_and_intersect_prune_low_data_pnads: True
       cluster_and_intersect_min_datastore_fraction: 0.2
 
-ARGS:
-- "load_data"
+ARGS: []
 FLAGS: 
   vlm_model_name: gpt-4o
   num_train_tasks: 8
