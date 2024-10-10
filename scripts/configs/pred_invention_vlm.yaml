@@ -55,8 +55,6 @@ ENVS:
       allow_exclude_goal_predicates: True
       grammar_search_prune_redundant_preds: True
       grammar_search_predicate_cost_upper_bound: 13
-      grammar_search_pred_complexity_weight: 10
-      grammar_search_forall_penalty: 5
       allow_state_allclose_comparison_despite_simulator_state: True
       grammar_search_max_predicates: 200
       grammar_search_parallelize_vlm_labeling: True
