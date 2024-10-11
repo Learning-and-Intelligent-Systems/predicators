@@ -1055,6 +1055,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Otherwise, we only want to invent geo predicates, and directly
             # select all the VLM predicates.
             else:
+                import ipdb; ipdb.set_trace()
                 atom_dataset = atom_dataset_from_grammar
                 candidates = candidates_from_grammar
                 self._initial_predicates |= set(candidates_from_vlm.keys())
