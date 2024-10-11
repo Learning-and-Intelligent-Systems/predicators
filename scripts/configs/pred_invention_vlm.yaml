@@ -75,6 +75,7 @@ ENVS:
   #     grammar_search_grammar_includes_givens: False
   #     cluster_and_intersect_prune_low_data_pnads: True
   #     cluster_and_intersect_min_datastore_fraction: 0.2
+  #     num_train_tasks: 8
   burger_no_move_fatter_burger:
     NAME: "burger_no_move"
     FLAGS:
@@ -103,11 +104,12 @@ ENVS:
       grammar_search_grammar_includes_givens: False
       cluster_and_intersect_prune_low_data_pnads: True
       cluster_and_intersect_min_datastore_fraction: 0.2
+      num_train_tasks: 6
+
 
 ARGS: []
 FLAGS: 
   vlm_model_name: gpt-4o
-  num_train_tasks: 8
   num_test_tasks: 10
 START_SEED: 0
 NUM_SEEDS: 5
