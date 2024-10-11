@@ -1,11 +1,11 @@
 # Experiments to test predicate invention with VLMs
 ---
 APPROACHES:
-  # ours:
-  #   NAME: "grammar_search_invention"
-  #   FLAGS:
-  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
-  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  ours:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+      offline_data_method: geo_and_demo_with_vlm_imgs
   ours-no-subselection:
     NAME: "grammar_search_invention"
     FLAGS:
