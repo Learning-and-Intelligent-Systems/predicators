@@ -81,6 +81,6 @@ FLAGS:
   vlm_model_name: gpt-4o
   num_train_tasks: 8
   num_test_tasks: 10
-START_SEED: 1
-NUM_SEEDS: 4
+START_SEED: 0
+NUM_SEEDS: 5
 ...
