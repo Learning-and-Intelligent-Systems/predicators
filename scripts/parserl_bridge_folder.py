@@ -4,7 +4,7 @@ import os
 
 # Folder path where your files are located
 folder_path = "lockeexperiments/logs"
-file_name = "grid_row_door__rl_bridge_policy__RLBRIDGE_gridrowdoor-rl_rwd_shape__"
+file_name = "coffee__rl_bridge_policy__RLBRIDGE_coffee-nocallplanner"
 
 # Iterate through all the files in the folder
 counter = 0
@@ -39,7 +39,8 @@ for filename in os.listdir(folder_path):
                 
             match = re.search(r'^SMOOTH REWARDS\s+\[([^\]]+)\]', line)
             if match:
-                testing_time_rewards_list.append(float(match.group(1)))
+                for smoothed_reward in match.group(1).split(","):
+                    testing_time_rewards_list.append(float(smoothed_reward.strip()))
 
         # print(f"Got {len(testing_time_rewards_list)} SMOOTH TEST rewards!\n{testing_time_rewards_list}")
         smooth_test_rwd.append(testing_time_rewards_list)
@@ -86,8 +87,8 @@ for filename in os.listdir(folder_path):
                 
             match = re.search(r'^SMOOTH REWARDS\s+([\d\s]+)', line)
             if match:
-                for smooth_reward in match.group(1).split(" "):
-                    testing_time_rewards_list.append(float(smooth_reward))
+                for smoothed_reward in match.group(1).split(","):
+                    testing_time_rewards_list.append(float(smoothed_reward.strip()))
 
         # print(f"Got {len(testing_time_rewards_list)} SMOOTH TEST rewards!\n{testing_time_rewards_list}")
         smooth_test_rwd.append(testing_time_rewards_list)
@@ -133,8 +134,8 @@ for filename in os.listdir(folder_path):
                 
             match = re.search(r'^SMOOTH REWARDS\s+([\d\s]+)', line)
             if match:
-                for smooth_reward in match.group(1).split(" "):
-                    testing_time_rewards_list.append(float(smooth_reward))
+                for smoothed_reward in match.group(1).split(","):
+                    testing_time_rewards_list.append(float(smoothed_reward.strip()))
 
         # print(f"Got {len(testing_time_rewards_list)} SMOOTH TEST rewards!\n{testing_time_rewards_list}")
         smooth_test_rwd.append(testing_time_rewards_list)
