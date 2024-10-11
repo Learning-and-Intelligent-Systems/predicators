@@ -1046,9 +1046,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 self._generate_atom_dataset_via_grammar(dataset)
             atom_dataset_from_vlm, candidates_from_vlm = \
                 self._parse_atom_dataset_from_annotated_dataset(dataset)
-            atom_dataset = utils.merge_ground_atom_datasets(
-                atom_dataset_from_grammar, atom_dataset_from_vlm)
-            candidates = candidates_from_grammar | candidates_from_vlm
+            # If grammar_search_invent_geo_predicates_only is False, then we
+            # want to invent both VLM and geo predicates
+            if not CFG.grammar_search_invent_geo_predicates_only:
+                atom_dataset = utils.merge_ground_atom_datasets(
+                    atom_dataset_from_grammar, atom_dataset_from_vlm)
+                candidates = candidates_from_grammar | candidates_from_vlm
+            # Otherwise, we only want to invent geo predicates, and directly
+            # select all the VLM predicates.
+            else:
+                atom_dataset = atom_dataset_from_grammar
+                candidates = candidates_from_grammar
+                self._initial_predicates |= set(candidates_from_vlm.keys())
         elif not CFG.offline_data_method in [
                 "demo+labelled_atoms", "saved_vlm_img_demos_folder",
                 "demo_with_vlm_imgs"

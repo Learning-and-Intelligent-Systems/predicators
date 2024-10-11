@@ -695,6 +695,7 @@ class GlobalSettings:
     grammar_search_vlm_atom_proposal_use_debug = False
     grammar_search_parallelize_vlm_labeling = True
     grammar_search_select_all_debug = False
+    grammar_search_invent_geo_predicates_only = False
 
     # grammar search clustering algorithm parameters
     grammar_search_clustering_gmm_num_components = 10
