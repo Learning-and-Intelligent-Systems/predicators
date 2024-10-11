@@ -1396,24 +1396,70 @@ class BurgerNoMoveEnv(BurgerEnv):
         ) -> Tuple[List[EnvironmentTask], List[EnvironmentTask]]:
             train_tasks = []
             test_tasks = []
-
+            made_double_patty_train_task = False
             for _ in range(CFG.num_train_tasks):
                 # train task 1
                 state_dict, hidden_state, shuffled_spots = create_default_state(
                 )
-                d = name_to_obj(state_dict)
-                bottom_bun = d["bottom_bun1"]
-                patty = d["patty1"]
-                top_bun = d["top_bun1"]
-                train_goal = {
-                    GroundAtom(self._IsCooked, [patty]),
-                    GroundAtom(self._On, [patty, bottom_bun]),
-                    GroundAtom(self._On, [top_bun, patty])
+                state_dict = {
+                    self._robot: state_dict[self._robot],
+                    self._grill: state_dict[self._grill]
                 }
-                alt_train_goal = {
-                    GroundAtom(self._GoalHack2, [bottom_bun, patty]),
-                    GroundAtom(self._On, [top_bun, patty])
-                }
+                hidden_state = {}
+                # Create patty.
+                r, c = shuffled_spots[1]
+                patty = Object("patty1", self._patty_type)
+                state_dict[patty] = {"row": r, "col": c, "z": 0}
+                hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
+                # Create bottom bun.
+                r, c = shuffled_spots[6]
+                bottom_bun = Object("bottom_bun1", self._bottom_bun_type)
+                state_dict[bottom_bun] = {"row": r, "col": c, "z": 0}
+                hidden_state[bottom_bun] = {"is_held": 0.0}
+                # Create top bun.
+                r, c = shuffled_spots[8]
+                top_bun = Object("top_bun1", self._top_bun_type)
+                state_dict[top_bun] = {"row": r, "col": c, "z": 0}
+                hidden_state[top_bun] = {"is_held": 0.0}
+                if not made_double_patty_train_task:
+                    # Make an extra patty, bottom bun and top bun.
+                    r, c = shuffled_spots[2]
+                    patty2 = Object("patty2", self._patty_type)
+                    state_dict[patty2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
+                    r, c = shuffled_spots[7]
+                    bottom_bun2 = Object("bottom_bun2", self._bottom_bun_type)
+                    state_dict[bottom_bun2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[bottom_bun2] = {"is_held": 0.0}
+                    r, c = shuffled_spots[9]
+                    top_bun2 = Object("top_bun2", self._top_bun_type)
+                    state_dict[top_bun2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[top_bun2] = {"is_held": 0.0}
+                    train_goal = {
+                        GroundAtom(self._IsCooked, [patty]),
+                        GroundAtom(self._On, [patty, bottom_bun]),
+                        GroundAtom(self._On, [top_bun, patty]),
+                        GroundAtom(self._IsCooked, [patty2]),
+                        GroundAtom(self._On, [patty2, bottom_bun2]),
+                        GroundAtom(self._On, [top_bun2, patty2])
+                    }
+                    alt_train_goal = {
+                        GroundAtom(self._GoalHack2, [bottom_bun, patty]),
+                        GroundAtom(self._On, [top_bun, patty]),
+                        GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
+                        GroundAtom(self._On, [top_bun2, patty2])
+                    }
+                    made_double_patty_train_task = True
+                else:
+                    train_goal = {
+                        GroundAtom(self._IsCooked, [patty]),
+                        GroundAtom(self._On, [patty, bottom_bun]),
+                        GroundAtom(self._On, [top_bun, patty]),
+                    }
+                    alt_train_goal = {
+                        GroundAtom(self._GoalHack2, [bottom_bun, patty]),
+                        GroundAtom(self._On, [top_bun, patty]),
+                    }
                 train_task = create_task(state_dict, hidden_state, train_goal,
                                          alt_train_goal)
                 train_tasks.append(train_task)

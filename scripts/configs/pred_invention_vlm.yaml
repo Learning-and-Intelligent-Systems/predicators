@@ -6,12 +6,20 @@ APPROACHES:
     FLAGS:
       grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
       offline_data_method: geo_and_demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: False
+  ours-vlm-subselection:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
+      offline_data_method: geo_and_demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: True
   ours-no-subselection:
     NAME: "grammar_search_invention"
     FLAGS:
       grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
       offline_data_method: geo_and_demo_with_vlm_imgs
       grammar_search_pred_selection_approach: no_select
+      grammar_search_invent_geo_predicates_only: False
   ours-no-invent:
     NAME: "nsrt_learning"
     FLAGS: {}
@@ -23,6 +31,7 @@ APPROACHES:
     NAME: "grammar_search_invention"
     FLAGS:
       grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: False
   interpret:
     NAME: "grammar_search_invention"
     FLAGS:
@@ -55,8 +64,6 @@ ENVS:
       allow_exclude_goal_predicates: True
       grammar_search_prune_redundant_preds: True
       grammar_search_predicate_cost_upper_bound: 13
-      grammar_search_pred_complexity_weight: 10
-      grammar_search_forall_penalty: 5
       allow_state_allclose_comparison_despite_simulator_state: True
       grammar_search_max_predicates: 200
       grammar_search_parallelize_vlm_labeling: True
