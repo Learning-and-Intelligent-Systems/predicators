@@ -1074,8 +1074,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                CFG.grammar_search_use_handcoded_debug_grammar:
                 # Skip hill-climbing and select all the predicates from the
                 # debug grammar.
+                # Same functionality as _rename_predicates_to_remove_incompatible_chars.
+                # We have to do it again here because the predicates in
+                # _DEBUG_GEOMETRIC_PREDICATES haven't been renamed to make them
+                # compatible with fast-downward. If we do rename them, grammar
+                # generation gets messed up (for an not-yet-investigated reason).
+                def rename(p: str) -> str:
+                    return p.replace("(", "[").replace(")", "]").replace(" ", "_")
+                renamed_debug_geometric_predicates = [rename(p) for p in _DEBUG_GEOMETRIC_PREDICATES[CFG.env]]
                 debug_predicate_names = _DEBUG_VLM_PREDICATES[
-                    CFG.env] + _DEBUG_GEOMETRIC_PREDICATES[CFG.env]
+                    CFG.env] + renamed_debug_geometric_predicates
                 self._learned_predicates = set(
                     p for p in candidates.keys()
                     if p.name in debug_predicate_names)
