@@ -468,7 +468,14 @@ _DEBUG_GEOMETRIC_PREDICATES = {
         "((0:robot).fingers<=[idx 0]0.5)"
     ],
     "burger_no_move": [
-        "((0:robot).fingers<=[idx 0]0.5)"
+       "NOT-Forall[0:top_bun].[((0:top_bun).col<=[idx 0]2.0)(0)]",
+        "Forall[0:cutting_board].[((0:cutting_board).row<=[idx 0]2.0)(0)]",
+        "Forall[0:top_bun].[((0:top_bun).col<=[idx 0]2.0)(0)]",
+        "((0:robot).fingers<=[idx 0]0.5)",
+        "Forall[0:top_bun].[((0:top_bun).row<=[idx 0]2.0)(0)]",
+        "NOT-Forall[0:cheese].[((0:cheese).row<=[idx 1]1.0)(0)]",
+        "Forall[0:lettuce].[((0:lettuce).col<=[idx 0]2.0)(0)]"
+
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
