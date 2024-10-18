@@ -132,6 +132,7 @@ def _sesame_plan_with_astar(
     """
     concept_predicates = set([pred for pred in predicates.copy() if 
                               isinstance(pred, ConceptPredicate)])
+    # TODO: make sure it expands until no more new predicates are added
     concept_predicates |= set(chain.from_iterable(p.auxiliary_concepts for p
                                 in concept_predicates if p.auxiliary_concepts))
     init_atoms = utils.abstract(task.init, predicates|concept_predicates)
@@ -156,9 +157,18 @@ def _sesame_plan_with_astar(
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
         reachable_nsrts = filter_nsrts(task, init_atoms, ground_nsrts,
                                        check_dr_reachable, allow_noops)
-        heuristic = utils.create_task_planning_heuristic(
-            task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
-            predicates | concept_predicates, objects)
+        try:
+            heuristic = utils.create_task_planning_heuristic(
+                task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
+                predicates | concept_predicates, objects)
+        except Exception as e:
+            logging.error(f"Error creating heuristic: {e}")
+            logging.error(f"Init atoms: {init_atoms}")
+            logging.error(f"task.goal: {task.goal}")
+            logging.error(f"reachable_nsrts: {reachable_nsrts}")
+            logging.error(f"predicates: {predicates}")
+            logging.error(f"concept_predicates: {concept_predicates}")
+            raise
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             gen = _skeleton_generator(
@@ -326,6 +336,13 @@ def task_plan_grounding(
         ]
     else:
         reachable_nsrts = ground_nsrts
+
+    if CFG.sesame_filter_nsrts_with_repeated_objects:
+        # Filter nsrts that have the same object appear twice in its params
+        reachable_nsrts = [
+            ground_nsrt for ground_nsrt in reachable_nsrts
+            if not utils.nsrt_has_repeated_objects(ground_nsrt)
+        ]
     return reachable_nsrts, reachable_atoms
 
 
@@ -464,6 +481,8 @@ def _skeleton_generator(
             # logging.debug(f"Start optimizing skeleton {num_skeleton_optimized} "
             #     f"{[g_nsrt.ground_option_str() for g_nsrt in node.skeleton]}")
             metrics["num_skeletons_optimized"] += 1
+            # logging.debug(f"Found plan {node.skeleton}")
+            # logging.debug(f"Atom sequence:\n{node.atoms_sequence}")
             yield node.skeleton, node.atoms_sequence
         else:
             # Generate successors.

@@ -552,7 +552,8 @@ class CoffeeEnv(BaseEnv):
                     rot = self.jug_init_rot_ub
                 else:
                     # rot = rng.choice([0.1, -0.1])
-                    rot = rng.uniform(-0.1, 0.1)
+                    epsilon = 1e-10
+                    rot = rng.uniform(-0.1 + epsilon, 0.1 - epsilon)
                     # rot = 0
 
                 # Manual

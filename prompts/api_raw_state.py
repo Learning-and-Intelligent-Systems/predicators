@@ -99,7 +99,7 @@ class RawState:
         >>> def _GripperOpen_NSP_holds(state: RawState, objects: Sequence[Object]
         >>>                     ) -> bool:
         >>>     robot, = objects
-        >>>     return state.get(robot, "gripper") > 0.5
+        >>>     return state.get(robot, "gripper") > 0.3
         >>> _GripperOpen_NSP = NSPredicate("GripperOpen", [_robot_type], 
         >>>                             _GripperOpen_NSP_holds)
         >>>
@@ -239,7 +239,7 @@ class RawState:
         >>> def _Holding_NSP_holds(state: RawState, 
         >>>                         objects: Sequence[Object]) -> bool:
         >>>     ... 
-        >>>     if state.get(robot, "gripper") > 0.5:
+        >>>     if state.get(robot, "gripper") > 0.3:
         >>>         return False
         >>>     return state.evaluate_simple_assertion(
         >>>             f"{robot_name} is holding {stick_name}",

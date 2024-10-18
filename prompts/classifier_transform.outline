@@ -96,5 +96,5 @@ Holding = ConceptPredicate(name, param_types, _Holding_CP_holds)
 
 **Important Notes:**
 - Each `GroundAtom` object has the attributes `predicate: Predicate` and `objects: Sequence[Object]`, which you can use to identify the predicate and its associated objects in the ground atom.
-- To check the truth value of ground atoms made from existing **primitive predicates** (such as for `_DirectlyOn` as in `if _DirectlyOn_NSP_holds(state, [other_block, block])` in the example above), you should **iterate over and inspect** the `GroundAtom`s in the `atoms` set, rather than calling their classifier functions (e.g., `_DirectlyOn_holds`).
+- To check the truth value of ground atoms made from existing **primitive predicates** (such as for `DirectlyOn` as in `if _DirectlyOn_NSP_holds(state, [other_block, block])` in the example above), you should **iterate over and inspect** the `GroundAtom`s in the `atoms` set, rather than calling their classifier functions (e.g., `_DirectlyOn_NSP_holds`).
 - Conversely, to check the truth value of ground atoms made from existing **concept (derived) predicates**, you should **use their classifier functions** in the form `_<predicate_name>_CP_holds`, which may involve recursive calls of the function you’re defining

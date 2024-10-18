@@ -189,7 +189,7 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = TurnMachineOn
         preconditions = {LiftedAtom(Balanced, [plate1, plate2]),
                          LiftedAtom(GripperOpen, [robot])}
-        add_effects = {LiftedAtom(MachineOn, [machine])}
+        add_effects = {LiftedAtom(MachineOn, [machine, robot])}
         delete_effects = set()
 
         turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters, preconditions,

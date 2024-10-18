@@ -137,7 +137,8 @@ class BalanceEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
-        self._MachineOn = Predicate("MachineOn", [self._machine_type],
+        self._MachineOn = Predicate("MachineOn", [self._machine_type, 
+                                                    self._robot_type],
                                           self._MachineOn_holds)
         self._Balanced = Predicate("Balanced", 
                                     [self._plate_type, self._plate_type], 
@@ -195,7 +196,7 @@ class BalanceEnv(BaseEnv):
         return True
 
     def _MachineOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        machine, = objects
+        machine, _ = objects
         return state.get(machine, "is_on") > 0.5
 
     def _PressingButton_holds(self, state: State,
@@ -371,7 +372,8 @@ class BalanceEnv(BaseEnv):
     def _transition_pressbutton(self, state: State, x: float, y: float,
                                 z: float) -> State:
         next_state = state.copy()
-        machine_was_on = self._MachineOn_holds(state, [self._machine])
+        machine_was_on = self._MachineOn_holds(state, [self._machine, 
+                                                        self._robot])
         balanced = self._Balanced_holds(state, [self._plate1, self._plate3])
         if not machine_was_on and balanced:
             next_state.set(self._machine, "is_on", 1.0)
@@ -585,10 +587,11 @@ class BalanceEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for idx in range(num_tasks):
-            num_blocks = rng.choice(possible_num_blocks)
+            num_blocks = rng.choice(possible_num_blocks, p=[0.3, 0.7])
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
-            goal = set([GroundAtom(self._MachineOn, [self._machine])])
+            goal = set([GroundAtom(self._MachineOn, [self._machine, 
+                                                    self._robot])])
             # while True:  # repeat until goal is not satisfied
             #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
             #     if not all(goal_atom.holds(init_state) for goal_atom in goal):
@@ -604,7 +607,9 @@ class BalanceEnv(BaseEnv):
         for block_num in range(num_blocks):
             block = Object(f"block{block_num}", self._block_type)
             # If coin flip, start new pile
-            if (block_num == 0 or rng.uniform() < 0.2) and n_piles < 2:
+            # if (block_num == 0 or rng.uniform() < 0.2) and n_piles < 2:
+            # increase the chance of starting a new pile
+            if (block_num == 0 or rng.uniform() < 0.4) and n_piles < 2:
                 n_piles += 1
                 piles.append([])
             # Add block to pile

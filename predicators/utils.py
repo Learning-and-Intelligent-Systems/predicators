@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import random
 import contextlib
 import copy
 import functools
@@ -160,6 +161,7 @@ def count_classification_result_for_ops(
     max_num_groundings: int = 2,  # Number of ground options per option.3
     max_num_examples: int = 2,  # Number of examples per ground option.
     categories_to_show: List[str] = ['tp', 'fp'],
+    show_when_acc_is_one: bool = False,
     ite: Optional[int] = 0,
 ) -> Tuple[Dict[str, Dict[str, float]], str, str]:
 
@@ -355,6 +357,7 @@ def count_classification_result_for_ops(
             max_num_examples,
             categories_to_show,
             ite,
+            show_when_acc_is_one,
         )
 
     if print_cm:
@@ -405,6 +408,7 @@ def summarize_results_in_str(
     max_num_examples: int,
     categories_to_show: List[str] = ['tp', 'fp'],
     ite: Optional[int] = 0,
+    show_when_acc_is_one: bool = False,
 ) -> Tuple[str, Set[str]]:
     result_str = []
     state_str_set = set()
@@ -421,8 +425,8 @@ def summarize_results_in_str(
     # dict mapping state hash to int
     state_hash_to_id: Dict[str, int] = {}
 
-    for option_str, ground_options in accuracy_dict.items():
-        for ground_option_str, data in ground_options.items():
+    for option_str, gop_dict in accuracy_dict.items():
+        for ground_option_str, data in gop_dict.items():
             acc = data['acc']
             option_dict[option_str].append((ground_option_str, acc))
 
@@ -434,13 +438,16 @@ def summarize_results_in_str(
         option_dict[option_str] = sorted_ground_options
     logging.debug(pformat(option_dict))
 
-    for optn_idx, optn_str in enumerate(option_dict.keys()):
+    option_names = list(option_dict.keys())
+    random.shuffle(option_names)
+    for optn_idx, optn_str in enumerate(option_names):
         if optn_idx == max_num_options: break
         n_g_optn_shown = 0
         for (g_optn, acc) in option_dict[optn_str]:
             if n_g_optn_shown == max_num_groundings: break
             # Show max_num_groundins whose accuracy are less than 1.
-            if acc < 1:
+            
+            if acc < 1 or show_when_acc_is_one:
                 n_g_optn_shown += 1
             # else:
             #     continue
@@ -479,109 +486,47 @@ def summarize_results_in_str(
 
             # if n_succ_states:
             # if n_tp and "tp" in categories_to_show:
-            if n_tp and "tp" in categories_to_show and\
-               n_fp and "fp" in categories_to_show:
-                # and n_fp because without false positives, there isn't
-                # anything to learn
-
-                # [Simplified]
-                # result_str.append(
-                #     f"Action {g_optn} *successfully* executed on the following "
-                #     + f"states (positive states):")
-                # [Detailed]
-                # result_str.append(
-                # f"Option {g_optn} was applied on {n_tot} states and "+
-                # f"*successfully* executed on {n_succ_states}/{n_tot} states "+
-                # "(ground truth positive states).")
-
-                if n_tp and "tp" in categories_to_show and n_fp:
-                    # [Detailed] True Positive
-                    # result_str.append(
-                    # f"  Out of the {n_succ_states} GT positive states, "+
-                    # f"with the current predicates and operators, "+
-                    # f"{n_tp}/{n_succ_states} states *satisfy* at least one of its "+
-                    # "operators' precondition (true positives)"+
-                    # (f", to list {max_num_examples}:" if
-                    #     uniq_n_tp > max_num_examples else ":"))
-                    # result_str = append_classification_result_for_ops(
-                    #     result_str, g_optn, tp_states,
-                    #     max_num_examples, "tp", state_hash_to_id)
-
-                    # [Simplified] True Positive
-                    # result_str.append(f"To list {max_num_examples}:" if
-                    #                   uniq_n_tp > max_num_examples)
-                    result_str, state_str_set =\
+            # when both n_tp and n_fp, show this
+            # when show_when_acc_is_one, show this
+            # when n_fp is 0 but n_failed_state
+            # want to add when n_neg, but is this always 
+            # when invent from effect, when there are not enough states, we
+            #   also show positive states for options with with no fp state
+            # when invent from pos and neg, we show tp and tn when num images
+            #   is 0 
+            if ((n_tp and n_fp) or show_when_acc_is_one
+                # (n_fp == 0 and n_fail_states and not show_when_acc_is_one)
+                ) and\
+                "tp" in categories_to_show and "fp" in categories_to_show:
+                # Todo: when inventing from effect, can also propose even when
+                #       there is no fp.
+                result_str, state_str_set =\
                         append_classification_result_for_ops(
                             result_str, state_str_set, g_optn, tp_states,
                             max_num_examples, "tp",
                             state_hash_to_id, ite)
 
-                # Ignored in the simplified prompt
-                # False Negative
-                if n_fn and "fn" in categories_to_show:
-                    result_str.append(
-                        f"  Out of the {n_succ_states} GT positive states, " +
-                        f"with the current predicates and operators, " +
-                        f"{n_fn}/{n_succ_states} states *no longer satisfy* any of its "
-                        + "operators' precondition (false negatives)" +
-                        (f", to list {max_num_examples}:"
-                         if uniq_n_fn > max_num_examples else ":"))
-                    result_str, state_str_set =\
-                        append_classification_result_for_ops(
-                            result_str, state_str_set, g_optn, fn_states,
-                            max_num_examples, "fn", state_hash_to_id, ite)
 
             # GT Negative
             # if n_fail_states:
             # if n_fp and "fp" in categories_to_show:
-            if n_tp and "tp" in categories_to_show and \
-               n_fp and "fp" in categories_to_show:
-                # [Simplified]
-                # result_str.append(
-                #     f"Action {g_optn} *failed* to executed on the following " +
-                #     f"states (negative states):")
-                # # [Detailed]
-                # result_str.append(
-                # f"Option {g_optn} was applied on {n_tot} states and "+
-                # f"*failed* to executed on {n_fail_states}/{n_tot} states "+
-                # "(ground truth negative states).")
-                if n_fp and "fp" in categories_to_show and n_tp:
-                    # [Detailed] False Positive
-                    # result_str.append(
-                    # f"  Out of the {n_fail_states} GT negative states, "+
-                    # f"with the current predicates and operators, "+
-                    # f"{n_fp}/{n_fail_states} states *satisfy* at least one of its "+
-                    # "operators' precondition (false positives)"+
-                    # (f", to list {max_num_examples}:" if
-                    #     uniq_n_fp > max_num_examples else ":"))
-                    # result_str = append_classification_result_for_ops(
-                    #     result_str, g_optn, fp_states,
-                    #     max_num_examples, "fp", state_hash_to_id)
+            if n_tp and n_fp and\
+                "tp" in categories_to_show and "fp" in categories_to_show:
 
-                    # [Simplified] False Positive
-                    # result_str.append(f"To list {max_num_examples}:" if
-                    #                   uniq_n_fp > max_num_examples else
-                    #                   "They are:")
-                    result_str, state_str_set =\
+                result_str, state_str_set =\
                         append_classification_result_for_ops(
                             result_str, state_str_set, g_optn, fp_states,
                             max_num_examples, "fp", state_hash_to_id, ite)
-
-                # Ignored in the simplified prompt
-                # and (n_tn/n_fail_states) < 1:
-                if n_tn and "tn" in categories_to_show:
-                    # True Negative
-                    result_str.append(
-                        f"  Out of the {n_fail_states} GT negative states, " +
-                        f"with the current predicates and operators, " +
-                        f"{n_tn}/{n_fail_states} states *no longer satisfy* any of its "
-                        + "operators' precondition (true negatives)" +
-                        (f", to list {max_num_examples}:"
-                         if uniq_n_tn > max_num_examples else ":"))
-                    result_str, state_str_set =\
+            
+            if n_fail_states and show_when_acc_is_one and\
+                CFG.vlm_invention_propose_nl_properties:
+                # when there is no fp, but there are failed states
+                # and we are prompting based on positive and negative states
+                # we just use some of the failed states
+                result_str, state_str_set =\
                         append_classification_result_for_ops(
-                        result_str, state_str_set, g_optn, tn_states,
-                        max_num_examples, "tn", state_hash_to_id, ite)
+                            result_str, state_str_set, g_optn, tn_states,
+                            max_num_examples, "fp", state_hash_to_id, ite)
 
                 if not (n_fp and "fp" in categories_to_show) and \
                    not (n_tn and "tn" in categories_to_show):
@@ -3742,6 +3687,7 @@ def abstract_with_concept_predicates(
         # logging.debug(f"ite {counter} concept atoms: {new_concept_atoms}")
         converged = new_concept_atoms == prev_new_concept_atoms
         if converged:
+            # logging.debug("converged")
             break
         prev_new_concept_atoms = new_concept_atoms
         counter += 1
@@ -3761,22 +3707,33 @@ def abstract(state: State,
                                                             ConceptPredicate))
     prim_preds = set(pred for pred in preds if not isinstance(pred, 
                                                             ConceptPredicate))
+
     # Start by pulling out all VLM predicates.
     vlm_preds = set(pred for pred in prim_preds if isinstance(pred, VLMPredicate))
     # For NSPredicates, first evaluate the base NSPs, then cache the values,
     #   then evaluate the derived NSPs.
-    derived_preds = set(pred for pred in prim_preds
-                        if isinstance(pred, DerivedPredicate))
+    # derived_preds = set(pred for pred in prim_preds
+    #                     if isinstance(pred, DerivedPredicate))
     base_ns_preds = set(pred for pred in prim_preds
-                        if isinstance(pred, NSPredicate)) - derived_preds
+                        if isinstance(pred, NSPredicate))
 
     # Next, classify all non-VLM predicates.
     atoms: Set[GroundAtom] = set()
-    for pred in prim_preds:
-        if pred not in vlm_preds | base_ns_preds | derived_preds:
-            for choice in get_object_combinations(list(state), pred.types):
-                if pred.holds(state, choice):
-                    atoms.add(GroundAtom(pred, choice))
+    prim_preds_copy = prim_preds.copy()
+    for pred in prim_preds_copy:
+        pred_atoms = set()
+        if pred not in vlm_preds | base_ns_preds:
+            try:
+                for choice in get_object_combinations(list(state), pred.types):
+                    if pred.holds(state, choice):
+                        pred_atoms.add(GroundAtom(pred, choice))
+            except Exception as e:
+                logging.error(f"Error in evaluating symbolic predicate {pred}: "
+                                f"{e}")
+                prim_preds.remove(pred)
+            else:
+                atoms |= pred_atoms
+
     # if len(vlm_preds) > 0:
     #     # Now, aggregate all the VLM predicates and make a single call to a
     #     # VLM to get their values.
@@ -3792,19 +3749,32 @@ def abstract(state: State,
         # VLM to get their values.
         vlm_queries = []
         for pred in base_ns_preds:
-            for choice in get_object_combinations(list(state), pred.types):
-                eval_result = pred.holds(state, choice)
-                ground_atom = GroundAtom(pred, choice)
-                if eval_result == True:
-                    # If the ground predicate returns true -> add it to atoms
-                    atoms.add(ground_atom)
-                elif isinstance(eval_result, VLMQuery):
-                    # If pred evalation return query request->add it query list
-                    query = eval_result
-                    query.ground_atom = ground_atom
-                    vlm_queries.append(query)
-                elif eval_result != False:
-                    logging.error(f"invalid evaluation result: {eval_result}")
+            pred_atoms = set()
+            pred_queries = []
+            try:
+                for choice in get_object_combinations(list(state), pred.types):
+                    eval_result = pred.holds(state, choice)
+                    
+                    ground_atom = GroundAtom(pred, choice)
+                    if eval_result == True:
+                        # If the ground predicate returns true -> add it to atoms
+                        pred_atoms.add(ground_atom)
+                        # atoms.add(ground_atom)
+                    elif isinstance(eval_result, VLMQuery):
+                        # If pred evalation return query request->add it query list
+                        query = eval_result
+                        query.ground_atom = ground_atom
+                        pred_queries.append(query)
+                        # vlm_queries.append(query)
+                    elif eval_result != False:
+                        logging.error(f"invalid evaluation result: {eval_result}")
+            except Exception as e:
+                # If error, move on to the next predicate
+                logging.error(f"Error in evaluating NS predicate {pred}: {e}")
+                prim_preds.remove(pred)
+            else:
+                atoms |= pred_atoms
+                vlm_queries.extend(pred_queries)
 
         # Make the query, cache the results and add the ones that holds.
         if len(vlm_queries) > 0:
@@ -3812,12 +3782,12 @@ def abstract(state: State,
                 vlm_queries, state, None, base_ns_preds)
             atoms |= set(vlm_atoms)
 
-    # Evaluate derived predicates
-    if len(derived_preds) > 0:
-        for pred in derived_preds:
-            for choice in get_object_combinations(list(state), pred.types):
-                if pred.holds(state, choice):
-                    atoms.add(GroundAtom(pred, choice))
+    # # Evaluate derived predicates
+    # if len(derived_preds) > 0:
+    #     for pred in derived_preds:
+    #         for choice in get_object_combinations(list(state), pred.types):
+    #             if pred.holds(state, choice):
+    #                 atoms.add(GroundAtom(pred, choice))
     # logging.debug(f"preds before evaluating concept predicates: {preds}")
     if len(cnpt_preds) > 0:
         try:
@@ -3832,7 +3802,7 @@ def abstract(state: State,
                             return_valid_preds)
 
     if return_valid_preds:
-        return atoms, preds | cnpt_preds
+        return atoms, prim_preds | cnpt_preds
     else:
         return atoms
 
@@ -5767,3 +5737,7 @@ def add_text_to_draw_img(
 def nsrt_has_repeated_objects(ground_nsrt: _GroundNSRT) -> bool:
     """Check if an NSRT has repeated objects."""
     return len(ground_nsrt.objects) != len(set(ground_nsrt.objects))
+
+def op_has_repeated_objects(ground_op: _GroundSTRIPSOperator) -> bool:
+    """Check if an NSRT has repeated objects."""
+    return len(ground_op.objects) != len(set(ground_op.objects))

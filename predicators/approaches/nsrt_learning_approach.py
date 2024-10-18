@@ -7,6 +7,7 @@ or options.
 import logging
 import time
 from typing import Any, Dict, List, Optional, Set
+from itertools import chain
 
 import dill as pkl
 from gym.spaces import Box
@@ -18,7 +19,8 @@ from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Dataset, GroundAtomTrajectory, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type
+    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type,\
+    ConceptPredicate
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -101,10 +103,16 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             for ll_traj, atoms in zip(trajectories,
                                       annotations_with_only_selected_preds):
                 ground_atom_dataset.append((ll_traj, atoms))
+        # TODO: make sure it expands until no more new predicates are added
+        aux_preds = set(chain.from_iterable(p.auxiliary_concepts for p
+                                in (self._get_current_predicates() |\
+                                self._get_current_concept_predicates()) if 
+                                    isinstance(p, ConceptPredicate) and\
+                                    p.auxiliary_concepts))
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,
                                 self._train_tasks,
-                                self._get_current_predicates() |\
+                                self._get_current_predicates() | aux_preds |\
                                     self._get_current_concept_predicates(),
                                 self._initial_options,
                                 self._action_space,

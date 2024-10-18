@@ -140,7 +140,7 @@ class PretrainedLargeModel(abc.ABC):
         assert cached_prompt == prompt
         completions = completion_strs.split(_CACHE_SEP)
 
-        if cache_chat_session:
+        if cache_chat_session and self.get_id().startswith("OpenAI"):
             assert isinstance(self, OpenAIModel), "Have only implemented "\
                 "OpenAIModel"
             system_message = self.prepare_system_message()
@@ -340,7 +340,6 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
         seed: int,
         stop_token: Optional[str] = None,
         num_completions: int = 1,
-        cache_chat_session: bool = False,
     ) -> List[str]:  # pragma: no cover
         del imgs, seed, stop_token  # unused
         messages = [{"role": "user", "content": prompt, "type": "text"}]
@@ -370,7 +369,6 @@ class GoogleGeminiLLM(LargeLanguageModel, GoogleGeminiModel):
         seed: int,
         stop_token: Optional[str] = None,
         num_completions: int = 1,
-        cache_chat_session: bool = False,
     ) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is None
@@ -415,7 +413,7 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         content: List[Dict[str, Union[str, Collection[str]]]] = []
         if prefix:
             content.append({"text": prefix, "type": "text"})
-        assert images or self.chat_history
+        # assert images or self.chat_history
         assert detail in ["auto", "low", "high"]
         for img in images:
             img_resized = img
@@ -465,7 +463,6 @@ class OpenAIVLM(VisionLanguageModel, OpenAIModel):
         seed: int,
         stop_token: Optional[str] = None,
         num_completions: int = 1,
-        cache_chat_session: bool = False,
     ) -> List[str]:  # pragma: no cover
         """Query the model and get responses."""
         del seed, stop_token  # unused.
@@ -515,7 +512,6 @@ class GoogleGeminiVLM(VisionLanguageModel, GoogleGeminiModel):
         seed: int,
         stop_token: Optional[str] = None,
         num_completions: int = 1,
-        cache_chat_session: bool = False,
     ) -> List[str]:  # pragma: no cover
         del seed, stop_token  # unused
         assert imgs is not None or self.chat_history

@@ -144,12 +144,22 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         logging.debug(
             f"Evaluating predicates: {sorted(candidate_predicates)}," +
             f" with total cost {total_cost}")
+        # expand the set of candidate predicates to include the auxiliary 
+        # predicates
+        # TODO: make sure it expands until no more new predicates are added
+        candidates_with_aux = set(chain.from_iterable(p.auxiliary_concepts for p
+                            in candidate_predicates if 
+                                        isinstance(p, ConceptPredicate) and\
+                                        p.auxiliary_concepts))
+        candidates_with_aux |= candidate_predicates
+        logging.debug(f"\t candidates with aux: {sorted(candidates_with_aux)}")
+
         start_time = time.perf_counter()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset,
-            candidate_predicates | self._initial_predicates)
+            candidates_with_aux | self._initial_predicates)
         segmented_trajs = [
-            segment_trajectory(ll_traj, set(candidate_predicates), atom_seq)
+            segment_trajectory(ll_traj, set(candidates_with_aux), atom_seq)
             for (ll_traj, atom_seq) in pruned_atom_data
         ]
         # Each entry in pruned_atom_data is a tuple of (low-level trajectory,
@@ -157,6 +167,11 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         # it's prone to causing bugs -- we should rarely care about the
         # low-level ground atoms sequence after segmentation.
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        # print an initial low-level state and abstract state for debug
+        # logging.debug(f"Example low-level state: "
+        #               f"{pruned_atom_data[0][0].states[0].pretty_str()}")
+        # logging.debug(f"Example abstract state: "
+        #               f"{pruned_atom_data[0][1][0]}")
         del pruned_atom_data
         try:
             pnads = learn_strips_operators(
@@ -198,6 +213,9 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
+        # logging.debug(f"\tOp score: {op_score}")
+        # logging.debug(f"\tOp penalty: {op_penalty}")
+        # logging.debug(f"\tPredicate penalty: {pred_penalty}")
         logging.debug(f"\tTotal score: {total_score} computed in "
                       f"{time.perf_counter()-start_time:.3f} seconds")
         # pre_str = [p.name for p in candidate_predicates]
@@ -378,6 +396,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
         candidate_predicates_cp = candidate_predicates.copy()
         concept_predicates = set([pred for pred in candidate_predicates_cp if 
                                   isinstance(pred, ConceptPredicate)])
+        # TODO: make sure it expands until no more new predicates are added
         concept_predicates |= set(chain.from_iterable(p.auxiliary_concepts for p
                                 in concept_predicates if p.auxiliary_concepts))
         candidate_predicates_cp |= concept_predicates
@@ -428,6 +447,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             assert max_skeletons <= CFG.sesame_max_skeletons_optimized
             assert not CFG.sesame_use_visited_state_set
+            # logging.debug(f"task: {ll_traj.train_task_idx}, init_atom: {init_atoms}, goal: {goal}")
             generator = task_plan(init_atoms,
                                 goal,
                                 ground_nsrts,
@@ -446,14 +466,19 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     # Estimate the probability that this skeleton is refinable.
                     refinement_prob = self._get_refinement_prob(
                         demo_atoms_sequence, plan_atoms_sequence)
+                    # logging.debug(f"demo_atoms_sequence: {demo_atoms_sequence}")
+                    # logging.debug(f"idx: {idx}, refinement_prob: {refinement_prob}")
                     # Get the number of nodes that have been created or
                     # expanded so far.
                     assert self.metric_name in metrics
+                    # t_iter
                     num_nodes = metrics[self.metric_name]
                     # This contribution to the expected number of nodes is for
                     # the event that the current skeleton is refinable, but no
                     # previous skeleton has been refinable.
+                    # L6: p_terminate = 1 - p_term * p_refined
                     p = refinable_skeleton_not_found_prob * refinement_prob
+                    # L8: t_expected = t_expected + p_terminate * t_iter
                     expected_planning_time += p * num_nodes
                     # Apply a penalty to account for the time that we'd spend
                     # in backtracking if the last skeleton was not refinable.
@@ -466,6 +491,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 # Note if we failed to find any skeleton, the next lines add
                 # the upper bound with refinable_skeleton_not_found_prob = 1.0,
                 # so no special action is required.
+                # logging.debug("Planning timeout or failure.")
                 pass
             # After exhausting the skeleton budget or timeout, we use this
             # probability to estimate a "worst-case" planning time, making the

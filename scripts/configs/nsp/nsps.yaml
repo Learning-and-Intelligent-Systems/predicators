@@ -87,7 +87,7 @@ ENVS:
   # pb_blocks:
   #   NAME: "pybullet_blocks"
   #   FLAGS:
-  # timeout: 300000 #300
+  #     timeout: 30000
   #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/blocks"
   #     num_train_tasks: 20 #0 # pybullet_coffee, cover
   #     excluded_predicates: "all"
@@ -98,8 +98,7 @@ ENVS:
   #     sesame_filter_unreachable_nsrt: False
   #     disable_harmlessness_check: True
   #     enable_harmless_op_pruning: False
-      # sesame_task_planning_heuristic: "goal_count"
-      # vlm_invention_max_invent_ite: 5
+  #     sesame_task_planning_heuristic: "goal_count"
   # pb_cover_w:
   #   NAME: "pybullet_cover_weighted"
   #   FLAGS:
@@ -112,43 +111,41 @@ ENVS:
   #     cover_weighted_ratio: 0.5
   #     pybullet_camera_width: 800
   #     vlm_model_name: "gemini-1.5-pro-exp-0801"
-  #     vlm_invention_max_invent_ite: 5
-  # pb_coffee:
-  #   NAME: "pybullet_coffee"
-  #   FLAGS:
-  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/coffee"
-  #     num_train_tasks: 5 #0 # pybullet_coffee, cover
-  #     excluded_predicates: "Holding,JugInMachine,MachineOn,OnTable,HandEmpty,RobotAboveCup,JugAboveCup,NotAboveCup,PressingButton,Twisting,NotSameCup,JugPickable"
-  #     coffee_num_cups_train: '[1]'
-  #     coffee_twist_sampler: False
-  #     coffee_rotated_jug_ratio: 0.5
-  #     coffee_combined_move_and_twist_policy: True
-  #     coffee_mac_requires_jug_to_turn_on: True
-  #     pybullet_camera_width: 1200 # 1200 for coffee
-  #     vlm_invention_max_invent_ite: 5
-  pb_balance:
-    NAME: "pybullet_balance"
+  pb_coffee:
+    NAME: "pybullet_coffee"
     FLAGS:
-      pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
-      excluded_predicates: "Balanced,OnPlate"
-      pybullet_camera_width: 800
-      num_train_tasks: 10
-      sesame_check_dr_reachable: False
-      sesame_filter_unreachable_nsrt: False
-      # The following two are configured temperarily just for this environment.
-      disable_harmlessness_check: True
-      enable_harmless_op_pruning: False
-      sesame_max_samples_per_step: 1
-      use_old_nsrt_if_new_is_worse: True
-      vlm_invention_max_invent_ite: 10
-      # Uncomment when using the main, comment out when using interpret
-      vlm_model_name: "gemini-1.5-pro-exp-0801" 
-      sesame_task_planning_heuristic: "goal_count"
-      precondition_search_algorithm: "hill_climbing"
+      pretrained_model_prompt_cache_dir: "pretrained_model_cache/coffee"
+      num_train_tasks: 5 #0 # pybullet_coffee, cover
+      excluded_predicates: "Holding,JugInMachine,MachineOn,OnTable,HandEmpty,RobotAboveCup,JugAboveCup,NotAboveCup,PressingButton,Twisting,NotSameCup,JugPickable"
+      coffee_num_cups_train: '[1]'
+      coffee_twist_sampler: False
+      coffee_rotated_jug_ratio: 0.5
+      coffee_combined_move_and_twist_policy: True
+      coffee_mac_requires_jug_to_turn_on: True
+      pybullet_camera_width: 1200 # 1200 for coffee
+  # pb_balance:
+  #   NAME: "pybullet_balance"
+  #   FLAGS:
+  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
+  #     excluded_predicates: "Balanced,OnPlate"
+  #     pybullet_camera_width: 800
+  #     num_train_tasks: 10
+  #     sesame_check_dr_reachable: False
+  #     sesame_filter_unreachable_nsrt: False
+  #     # The following two are configured temperarily just for this environment.
+  #     disable_harmlessness_check: True
+  #     enable_harmless_op_pruning: False
+  #     sesame_max_samples_per_step: 1
+  #     use_old_nsrt_if_new_is_worse: True
+  #     vlm_invention_max_invent_ite: 10
+  #     # Uncomment when using the main, comment out when using interpret
+  #     # vlm_model_name: "gemini-1.5-pro-exp-0801" 
+  #     # implement_predicates_at_once: True
+  #     sesame_task_planning_heuristic: "goal_count"
 ARGS:
   - "debug"
 FLAGS:
-  timeout: 10
+  timeout: 300
   pybullet_control_mode: "reset" # need for blocks and coffee
 
   # Approach
@@ -158,6 +155,7 @@ FLAGS:
   sampler_learner: oracle
   CIS_use_other_pnads_neg_data: True
   grammar_search_search_algorithm: "gbfs" # "hill_climbing"
+  precondition_search_algorithm: "hill_climbing"
   # grammar_search_search_algorithm: "hill_climbing" # "hill_climbing"
   grammar_search_grammar_use_single_feature: False
   grammar_search_grammar_use_skip_grammar: False
@@ -177,7 +175,7 @@ FLAGS:
   vlm_invent_from_trajs: False
   vlm_invention_positive_negative_include_next_state: True
   save_nsp_image_patch_before_query: False
-  vlm_model_name: "gemini-1.5-pro-002"
+  vlm_model_name: "gemini-1.5-pro"
   # vlm_model_name: "gpt-4o"
   vlm_temperature: 0
   vlm_use_chat_mode: True
@@ -187,5 +185,5 @@ FLAGS:
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   sesame_filter_nsrts_with_repeated_objects: True
-START_SEED: 3
-NUM_SEEDS: 1
+START_SEED: 1
+NUM_SEEDS: 5

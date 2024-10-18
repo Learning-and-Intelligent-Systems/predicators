@@ -434,7 +434,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
                 physicsClientId=self._physics_client_id)
         
         # Update the button color
-        if self._MachineOn_holds(state, [self._machine]):
+        if self._MachineOn_holds(state, [self._machine, self._robot]):
             button_color = self._button_color_on
         else:
             button_color = self._button_color_off

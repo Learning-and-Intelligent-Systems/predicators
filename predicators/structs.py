@@ -413,10 +413,11 @@ class Predicate:
         return body_str
 
     def pretty_str_with_assertion(self) -> str:
-        if hasattr(self._classifier, "pretty_str"):
-            # This is an invented predicate, from the predicate grammar.
-            pretty_str_f = getattr(self._classifier, "pretty_str")
-            return pretty_str_f()
+        # if hasattr(self._classifier, "pretty_str"):
+        #     # This is an invented predicate, from the predicate grammar.
+        #     pretty_str_f = getattr(self._classifier, "pretty_str")
+        #     return pretty_str_f()
+
         # This is a known predicate, not from the predicate grammar.
         var_names = []
         vars_str = []

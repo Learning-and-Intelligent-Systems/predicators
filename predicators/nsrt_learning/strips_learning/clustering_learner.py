@@ -278,6 +278,10 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
                     (s, ab_s, optn_rec.optn_objs))
 
         for pnad in pnads:
+            temp_precon = self._induce_preconditions_via_intersection(
+                pnad)
+            logging.debug(f"\nPrecondition before processing: {temp_precon}")
+            logging.debug(f"it's learned from {len(pnad.datastore)} segments")
             # Take the data from the other PNAD of the same option as negative
             # data
             option_name = pnad.option_spec[0].name
@@ -374,10 +378,6 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         # are all the states in fail_optn_dict with the same option.
         # Get the tp, fn, tn, fp states for each ground_option
         candidate_op = pnad.op.copy_with(preconditions=preconditions)
-        # Checking the memory usuage of the candidate op
-        # memory_usage = asizeof.asizeof(candidate_op)
-        # memory_usage_mb = memory_usage / (1024 * 1024)
-        # logging.info(f"Memory usage of the candidate op: {memory_usage_mb:.2f} MB")
         option_spec = pnad.option_spec
         optn_var = option_spec[1]
         n_succ_states, n_fail_states = len(succ_data), len(fail_data)
@@ -398,7 +398,8 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
             # ground_op = candidate_op.ground(var_to_obj)
             # if ground_op.preconditions.issubset(seg.init_atoms):
             g_pre = {a.ground(var_to_obj) for a in preconditions}
-            if g_pre.issubset(seg.init_atoms):
+            # if g_pre.issubset(seg.init_atoms):
+            if all(atom in seg.init_atoms for atom in g_pre):
                 tp_states += 1
                 # tp_states.append(seg.states[0])
             else:
@@ -413,18 +414,29 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
             # self.fail_optn_dict because the var name in the pnad (which is
             # the same as in candidate_op) is different from the var name in
             # the fail_optn_dict.
-            ground_nsrts = utils.all_ground_operators_given_partial(
+            ground_ops = utils.all_ground_operators_given_partial(
                 candidate_op, set(state), dict(zip(optn_var, optn_objs)))
 
-            if any([
-                    gnsrt.preconditions.issubset(atom_state)
-                    for gnsrt in ground_nsrts
-            ]):
+            # filter the ground_ops with repeated arguments
+            if CFG.sesame_filter_nsrts_with_repeated_objects:
+                # Filter ops that have the same object appear twice in its 
+                # params
+                ground_ops = [gop for gop in ground_ops
+                                if not utils.op_has_repeated_objects(gop)]
+
+            # if any([gop.preconditions.issubset(atom_state) for gop in 
+            #         ground_ops
+            # ]):
+            if any(gop.preconditions.issubset(atom_state) for gop in 
+                   ground_ops):
                 fp_states += 1
                 # fp_states.append(state)
             else:
                 tn_states += 1
                 # tn_states.append(state)
+            
+            # Explicitly delete variables to release memory
+            del ground_ops
 
         # Convert the states to string
         # n_tp, n_fn = len(tp_states), len(fn_states)
@@ -442,18 +454,33 @@ class ClusterIntersectAndSearchSTRIPSLearner(ClusterAndIntersectSTRIPSLearner):
         cost = -acc + complexity_penalty
         logging.debug(f"{preconditions} gets score {cost}: tot={n_tot}, "
                       f"tp={n_tp}, tn={n_tn}, fp={n_fp}")
+
+        # Explicitly delete variables to release memory
+        del candidate_op, option_spec, optn_var, g_pre
+
         return cost
 
+    # @staticmethod
+    # def _get_precondition_successors(
+    #     preconditions: FrozenSet[LiftedAtom]
+    # ) -> Iterator[Tuple[int, FrozenSet[LiftedAtom], float]]:
+    #     """The successors remove each atom in the preconditions."""
+    #     preconditions_sorted = sorted(preconditions)
+    #     for i in range(len(preconditions_sorted)):
+    #         successor = preconditions_sorted[:i] + preconditions_sorted[i + 1:]
+    #         yield i, frozenset(successor), 1.0
+    
     @staticmethod
     def _get_precondition_successors(
         preconditions: FrozenSet[LiftedAtom]
     ) -> Iterator[Tuple[int, FrozenSet[LiftedAtom], float]]:
         """The successors remove each atom in the preconditions."""
-        preconditions_sorted = sorted(preconditions)
-        for i in range(len(preconditions_sorted)):
-            successor = preconditions_sorted[:i] + preconditions_sorted[i + 1:]
+        preconditions_sorted = tuple(preconditions)
+        length = len(preconditions_sorted)
+        for i in range(length):
+            # Use generator expression to avoid creating intermediate lists
+            successor = (preconditions_sorted[j] for j in range(length) if j != i)
             yield i, frozenset(successor), 1.0
-
 
 class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via search,

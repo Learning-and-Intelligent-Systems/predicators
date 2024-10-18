@@ -109,8 +109,9 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                                     params: Array) -> bool:
             del memory, params  # unused
             machine = state.get_objects(machine_type)[0]
+            robot = state.get_objects(robot_type)[0]
             # _, machine, _, _ = objects
-            return MachineOn.holds(state, [machine])
+            return MachineOn.holds(state, [machine, robot])
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
@@ -439,8 +440,9 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                                     params: Array) -> bool:
             del memory, params  # unused
             machine = state.get_objects(machine_type)[0]
+            robot = state.get_objects(robot_type)[0]
             # machine = objects[1]
-            return MachineOn.holds(state, [machine])
+            return MachineOn.holds(state, [machine, robot])
 
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",

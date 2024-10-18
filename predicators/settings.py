@@ -778,6 +778,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_predicator_oracle_explore = False
     use_partial_plans_prefix_as_demo = True
     use_old_nsrt_if_new_is_worse = False
+    implement_predicates_at_once = True
 
     # filepath to be used if offline_data_method is set to
     # demo+labelled_atoms
