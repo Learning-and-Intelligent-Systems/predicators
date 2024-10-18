@@ -1305,6 +1305,12 @@ class BurgerNoMoveEnv(BurgerEnv):
                 bottom_bun = d["bottom_bun1"]
                 patty = d["patty1"]
                 top_bun = d["top_bun1"]
+                # Add another top bun to counteract over-specific forall top-bun
+                # predicates
+                r, c = shuffled_spots[9]
+                top_bun2 = Object("top_bun2", self._top_bun_type)
+                state_dict[top_bun2] = {"row": r, "col": c, "z": 0}
+                hidden_state[top_bun2] = {"is_held": 0.0}
                 train_goal = {
                     GroundAtom(self._IsCooked, [patty]),
                     GroundAtom(self._On, [patty, bottom_bun]),
