@@ -106,7 +106,7 @@ ENVS:
       cluster_and_intersect_min_datastore_fraction: 0.05
       num_train_tasks: 12
       precondition_soft_intersection_threshold_percent: 0.8
-      grammar_search_early_termination_heuristic_thresh: 1000
+      grammar_search_early_termination_heuristic_thresh: 2000
 
 
 ARGS: []
