@@ -1163,6 +1163,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 _check_goal,
                 _get_successors,
                 score_function.evaluate,
+                early_termination_heuristic_thresh=CFG.grammar_search_early_termination_heuristic_thresh,
                 enforced_depth=CFG.grammar_search_hill_climbing_depth,
                 parallelize=CFG.grammar_search_parallelize_hill_climbing)
             logging.info("\nHill climbing summary:")
