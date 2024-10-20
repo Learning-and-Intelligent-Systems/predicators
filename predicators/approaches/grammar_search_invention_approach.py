@@ -1074,12 +1074,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                CFG.grammar_search_use_handcoded_debug_grammar:
                 # Skip hill-climbing and select all the predicates from the
                 # debug grammar.
-                # Same functionality as _rename_predicates_to_remove_incompatible_chars.
+                # Same functionality as
+                # _rename_predicates_to_remove_incompatible_chars.
                 # We have to do it again here because the predicates in
                 # _DEBUG_GEOMETRIC_PREDICATES haven't been renamed to make them
                 # compatible with fast-downward. If we do rename them, grammar
-                # generation gets messed up (for an not-yet-investigated reason).
-                def rename(p: str) -> str:
+                # generation gets messed up (for a
+                # not-yet-investigated reason).
+                def rename(p: str) -> str:  # pragma: no cover
                     return p.replace("(", "[").replace(")",
                                                        "]").replace(" ", "_")
 
@@ -1165,7 +1167,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 enforced_depth=CFG.grammar_search_hill_climbing_depth,
                 parallelize=CFG.grammar_search_parallelize_hill_climbing)
             logging.info("\nHill climbing summary:")
-            for i in range(1, len(path)):
+            for i in range(1, len(path)):  # pragma: no cover
                 new_additions = path[i] - path[i - 1]
                 assert len(new_additions) == 1
                 new_addition = next(iter(new_additions))
@@ -1221,7 +1223,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
                      f"{len(candidates)} candidates:")
-        for pred in kept_predicates:
+        for pred in kept_predicates:  # pragma: no cover
             logging.info(f"\t{pred}")
         score_function.evaluate(kept_predicates)  # log useful numbers
 
