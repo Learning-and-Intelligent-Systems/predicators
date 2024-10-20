@@ -468,14 +468,7 @@ _DEBUG_GEOMETRIC_PREDICATES = {
         "((0:robot).fingers<=[idx 0]0.5)"
     ],
     "burger_no_move": [
-    #    "NOT-Forall[0:top_bun].[((0:top_bun).col<=[idx 0]2.0)(0)]",
-    #     "Forall[0:cutting_board].[((0:cutting_board).row<=[idx 0]2.0)(0)]",
-    #     "Forall[0:top_bun].[((0:top_bun).col<=[idx 0]2.0)(0)]",
         "((0:robot).fingers<=[idx 0]0.5)",
-        # "Forall[0:top_bun].[((0:top_bun).row<=[idx 0]2.0)(0)]",
-        # "NOT-Forall[0:cheese].[((0:cheese).row<=[idx 1]1.0)(0)]",
-        # "Forall[0:lettuce].[((0:lettuce).col<=[idx 0]2.0)(0)]"
-
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -1087,8 +1080,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # compatible with fast-downward. If we do rename them, grammar
                 # generation gets messed up (for an not-yet-investigated reason).
                 def rename(p: str) -> str:
-                    return p.replace("(", "[").replace(")", "]").replace(" ", "_")
-                renamed_debug_geometric_predicates = [rename(p) for p in _DEBUG_GEOMETRIC_PREDICATES[CFG.env]]
+                    return p.replace("(", "[").replace(")",
+                                                       "]").replace(" ", "_")
+
+                renamed_debug_geometric_predicates = [
+                    rename(p) for p in _DEBUG_GEOMETRIC_PREDICATES[CFG.env]
+                ]
                 debug_predicate_names = _DEBUG_VLM_PREDICATES[
                     CFG.env] + renamed_debug_geometric_predicates
                 self._learned_predicates = set(
@@ -1163,7 +1160,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 _check_goal,
                 _get_successors,
                 score_function.evaluate,
-                early_termination_heuristic_thresh=CFG.grammar_search_early_termination_heuristic_thresh,
+                early_termination_heuristic_thresh=CFG.
+                grammar_search_early_termination_heuristic_thresh,
                 enforced_depth=CFG.grammar_search_hill_climbing_depth,
                 parallelize=CFG.grammar_search_parallelize_hill_climbing)
             logging.info("\nHill climbing summary:")
