@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+import random
 
 import numpy as np
 import pybullet as p
@@ -922,7 +923,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 physicsClientId=self._physics_client_id)
 
             # Create the visual_shape.
-            color = self.cup_colors[cup_idx % len(self.cup_colors)]
+            # color = self.cup_colors[cup_idx % len(self.cup_colors)]
+            color = random.choice(self.cup_colors)
             p.changeVisualShape(cup_id,
                                 -1,
                                 rgbaColor=color,

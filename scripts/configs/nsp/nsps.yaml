@@ -111,37 +111,37 @@ ENVS:
   #     cover_weighted_ratio: 0.5
   #     pybullet_camera_width: 800
   #     vlm_model_name: "gemini-1.5-pro-exp-0801"
-  pb_coffee:
-    NAME: "pybullet_coffee"
-    FLAGS:
-      pretrained_model_prompt_cache_dir: "pretrained_model_cache/coffee"
-      num_train_tasks: 5 #0 # pybullet_coffee, cover
-      excluded_predicates: "Holding,JugInMachine,MachineOn,OnTable,HandEmpty,RobotAboveCup,JugAboveCup,NotAboveCup,PressingButton,Twisting,NotSameCup,JugPickable"
-      coffee_num_cups_train: '[1]'
-      coffee_twist_sampler: False
-      coffee_rotated_jug_ratio: 0.5
-      coffee_combined_move_and_twist_policy: True
-      coffee_mac_requires_jug_to_turn_on: True
-      pybullet_camera_width: 1200 # 1200 for coffee
-  # pb_balance:
-  #   NAME: "pybullet_balance"
+  # pb_coffee:
+  #   NAME: "pybullet_coffee"
   #   FLAGS:
-  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
-  #     excluded_predicates: "Balanced,OnPlate"
-  #     pybullet_camera_width: 800
-  #     num_train_tasks: 10
-  #     sesame_check_dr_reachable: False
-  #     sesame_filter_unreachable_nsrt: False
-  #     # The following two are configured temperarily just for this environment.
-  #     disable_harmlessness_check: True
-  #     enable_harmless_op_pruning: False
-  #     sesame_max_samples_per_step: 1
-  #     use_old_nsrt_if_new_is_worse: True
-  #     vlm_invention_max_invent_ite: 10
-  #     # Uncomment when using the main, comment out when using interpret
-  #     # vlm_model_name: "gemini-1.5-pro-exp-0801" 
-  #     # implement_predicates_at_once: True
-  #     sesame_task_planning_heuristic: "goal_count"
+  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/coffee"
+  #     num_train_tasks: 8 #0 # pybullet_coffee, cover
+  #     excluded_predicates: "Holding,JugInMachine,MachineOn,OnTable,HandEmpty,RobotAboveCup,JugAboveCup,NotAboveCup,PressingButton,Twisting,NotSameCup,JugPickable"
+  #     coffee_num_cups_train: '[1]'
+  #     coffee_twist_sampler: False
+  #     coffee_rotated_jug_ratio: 0.5
+  #     coffee_combined_move_and_twist_policy: True
+  #     coffee_mac_requires_jug_to_turn_on: True
+  #     pybullet_camera_width: 1200 # 1200 for coffee
+  pb_balance:
+    NAME: "pybullet_balance"
+    FLAGS:
+      pretrained_model_prompt_cache_dir: "pretrained_model_cache/balance"
+      excluded_predicates: "Balanced,OnPlate"
+      pybullet_camera_width: 800
+      num_train_tasks: 10
+      sesame_check_dr_reachable: False
+      sesame_filter_unreachable_nsrt: False
+      # The following two are configured temperarily just for this environment.
+      disable_harmlessness_check: True
+      enable_harmless_op_pruning: False
+      sesame_max_samples_per_step: 1
+      use_old_nsrt_if_new_is_worse: True
+      vlm_invention_max_invent_ite: 15
+      # Uncomment when using the main, comment out when using interpret
+      # vlm_model_name: "gemini-1.5-pro-exp-0801" 
+      # implement_predicates_at_once: True
+      sesame_task_planning_heuristic: "goal_count"
 ARGS:
   - "debug"
 FLAGS:
@@ -185,5 +185,5 @@ FLAGS:
   # pybullet_camera_width: 900 # 900 for cover and blocks
   pybullet_camera_height: 900
   sesame_filter_nsrts_with_repeated_objects: True
-START_SEED: 1
-NUM_SEEDS: 5
+START_SEED: 4
+NUM_SEEDS: 2

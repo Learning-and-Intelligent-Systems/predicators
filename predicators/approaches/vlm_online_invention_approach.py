@@ -155,6 +155,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                                                system_instruction=\
 """You are interacting with a PhD student in AI who is passionate about learning new things and aims to change the world in significant ways to make it a better place. Respond in a manner that is insightful, critical, precise, and concise.""")
         self._vlm = utils.create_vlm_by_name(CFG.vlm_model_name)
+        self._gemini_exp = utils.create_vlm_by_name("gemini-1.5-pro-exp-0801")
         self._type_dict = {type.name: type for type in self._types}
 
     @classmethod
@@ -1299,9 +1300,9 @@ class VlmInventionApproach(NSRTLearningApproach):
         response = self._get_vlm_response(
             save_file, 
             # self._vlm, 
-            self._gpt4o if CFG.env in [
-            "pybullet_balance",
-            "pybullet_cover_weighted"
+            self._gemini_exp if CFG.env in [
+                "pybullet_balance",
+                "pybullet_cover_weighted"
             ] else self._vlm,
             prompt,
             [] if CFG.vlm_invention_propose_nl_properties else images,
@@ -1929,8 +1930,7 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             # Recognize that it's a concept predicate
             if is_concept_predicate:
-                untranslated_concept_pred_str.append(add_python_quote(
-                    code_str))
+                untranslated_concept_pred_str.append(add_python_quote(code_str))
             else:
                 # Type check the code
                 # passed = False
