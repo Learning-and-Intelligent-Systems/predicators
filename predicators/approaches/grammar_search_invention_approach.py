@@ -13,6 +13,7 @@ from operator import le
 from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Optional, \
     Sequence, Set, Tuple
 
+import dill as pkl
 import numpy as np
 from gym.spaces import Box
 from scipy.stats import kstest
@@ -943,6 +944,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     @classmethod
     def get_name(cls) -> str:
         return "grammar_search_invention"
+
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        super().load(online_learning_cycle)
+        preds, _ = utils.extract_preds_and_types(self._nsrts)
+        self._learned_predicates = set(
+            preds.values()) - self._initial_predicates
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
