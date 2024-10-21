@@ -13,7 +13,6 @@ from operator import le
 from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Optional, \
     Sequence, Set, Tuple
 
-import dill as pkl
 import numpy as np
 from gym.spaces import Box
 from scipy.stats import kstest
