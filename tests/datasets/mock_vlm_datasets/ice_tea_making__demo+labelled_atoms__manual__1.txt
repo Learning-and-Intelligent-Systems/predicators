@@ -1,29 +1,44 @@
 ===
-{*Holding(spoon): True.
-*Submerged(teabag): False.
-*Submerged(spoon): False.} ->
+{hand_grasping_spoon(hand, spoon): True.
+hand_grasping_teabag(hand, teabag): True.
+spoon_in_cup(spoon, cup): True.
+spoon_on_plate(spoon, plate): True.
+teabag_in_cup(teabag, cup): True.
+teabag_on_plate(teabag, plate): True.} ->
 
 pick(teabag, hand)[] -> 
 
-{*Holding(spoon): True.
-*Submerged(teabag): False.
-*Submerged(spoon): False.} ->
+{hand_grasping_spoon(hand, spoon): True.
+hand_grasping_teabag(hand, teabag): True.
+spoon_in_cup(spoon, cup): True.
+spoon_on_plate(spoon, plate): True.
+teabag_in_cup(teabag, cup): True.
+teabag_on_plate(teabag, plate): True.} ->
 
 place_in(teabag, cup)[] -> 
 
-{*Holding(spoon): True.
-*Submerged(teabag): False.
-*Submerged(spoon): False.} ->
+{hand_grasping_spoon(hand, spoon): True.
+hand_grasping_teabag(hand, teabag): True.
+spoon_in_cup(spoon, cup): True.
+spoon_on_plate(spoon, plate): True.
+teabag_in_cup(teabag, cup): True.
+teabag_on_plate(teabag, plate): True.} ->
 
 pick(spoon, hand)[] -> 
 
-{*Holding(spoon): True.
-*Submerged(teabag): False.
-*Submerged(spoon): False.} ->
+{hand_grasping_spoon(hand, spoon): True.
+hand_grasping_teabag(hand, teabag): True.
+spoon_in_cup(spoon, cup): True.
+spoon_on_plate(spoon, plate): True.
+teabag_in_cup(teabag, cup): True.
+teabag_on_plate(teabag, plate): True.} ->
 
 place_in(spoon, cup)[] -> 
 
-{*Holding(spoon): True.
-*Submerged(teabag): False.
-*Submerged(spoon): False.}
+{hand_grasping_spoon(hand, spoon): True.
+hand_grasping_teabag(hand, teabag): True.
+spoon_in_cup(spoon, cup): True.
+spoon_on_plate(spoon, plate): True.
+teabag_in_cup(teabag, cup): True.
+teabag_on_plate(teabag, plate): True.}
 ===

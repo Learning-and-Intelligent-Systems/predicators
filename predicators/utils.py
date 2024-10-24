@@ -2424,9 +2424,6 @@ def get_prompt_for_vlm_state_labelling(
             curr_prompt += "\n\nPredicate values in the first scene, " \
             "before the skill was executed: \n"
             curr_prompt += label_history[-1]
-
-        # import pdb; pdb.set_trace()
-
         return (curr_prompt, curr_prompt_imgs)
     # NOTE: we rip out only the first image from each trajectory
     # which is fine for most domains, but will be problematic for
