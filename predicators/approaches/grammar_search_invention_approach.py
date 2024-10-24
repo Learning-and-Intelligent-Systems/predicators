@@ -1114,7 +1114,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 candidates, self._initial_predicates, dataset, atom_dataset)
         elif CFG.grammar_search_pred_selection_approach == "no_select":
             self._learned_predicates = set(candidates.keys())
-        import pdb; pdb.set_trace()
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         annotations = None

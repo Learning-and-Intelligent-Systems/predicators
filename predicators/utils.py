@@ -2375,7 +2375,7 @@ def get_prompt_for_vlm_state_labelling(
         prompt_type: str, atoms_list: List[str], label_history: List[str],
         imgs_history: List[List[PIL.Image.Image]],
         cropped_imgs_history: List[List[PIL.Image.Image]],
-        skill_history: List[_Option], train_or_test: str = "test") -> Tuple[str, List[PIL.Image.Image]]:
+        skill_history: List[_Option]) -> Tuple[str, List[PIL.Image.Image]]:
     """Prompt for labelling atom values in a trajectory.
 
     Note that all our prompts are saved as separate txt files under the

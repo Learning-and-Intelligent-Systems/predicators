@@ -59,9 +59,6 @@ class BilevelPlanningApproach(BaseApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        # import pdb; pdb.set_trace()
-        # nsrt_plan, atoms_seq, metrics = self._run_task_plan(task, nsrts, preds, timeout, seed)
-
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
