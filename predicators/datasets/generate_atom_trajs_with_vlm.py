@@ -167,7 +167,8 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
                                                          0.0,
                                                          CFG.seed,
                                                          num_completions=1)
-        if CFG.vlm_double_check_output:
+        if CFG.vlm_double_check_output and len(curr_traj_txt_outputs) > 0 and \
+            "label_history" in CFG.grammar_search_vlm_atom_label_prompt_type:
             # Double check the VLM's reasoning.
             # The current implementation checks that the VLM made correct use
             # of the previous timestep's labels.
@@ -209,11 +210,9 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
                         i += 1
                 return substrings
 
-            if len(curr_traj_txt_outputs) > 0:
-                prev_labels = extract_labels(curr_traj_txt_outputs[-1])
-                prev_labels_str = "\n".join(prev_labels)
-                double_check_prompt += prev_labels_str
-
+            prev_labels = extract_labels(curr_traj_txt_outputs[-1])
+            prev_labels_str = "\n".join(prev_labels)
+            double_check_prompt += prev_labels_str
             double_checked_labelling = vlm.sample_completions(
                 prompt=double_check_prompt,
                 imgs=img_prompt,
