@@ -166,46 +166,44 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
                                                          0.0,
                                                          CFG.seed,
                                                          num_completions=1)
-        # Double check that the VLM's reasoning made use of the correct previous
-        # labels.
-        double_check_prompt = "[START OF PROMPT]\n" + text_prompt[:] + "\n[END OF PROMPT]\n\n"
-        double_check_prompt += "To this prompt, you responded with:\n"
-        double_check_prompt += "[Start of your previous answer]\n"
-        double_check_prompt += curr_vlm_atom_labelling[0] + "\n[End of your previous answer.]\n\n"
-        double_check_prompt += "Sometimes your reasoning about the value of a predicate at the current timestep uses an incorrect value of that predicate in the previous timestep. Below, I give you give you the values of the predicates at the previous timestep once again. Please check your reasoning and provide a corrected version of your previous answer, if it needs correcting. Regardless of whether or not it needs correctly, your reply should be formatted exactly the same as the previous answer.\n\n"
-        double_check_prompt += "Truth values of predicates at previous timestep]\n\n"
-
-        def extract_substrings(text):
-            substrings = []
-            i = 0
-            # Loop through the text character by character
-            while i < len(text):
-                # Look for the '*' character
-                if text[i] == '*':
-                    start = i
-                    # Search for the occurrence of 'True' or 'False'
-                    while i < len(text) and 'True' not in text[start:i+4] and 'False' not in text[start:i+5]:
+        if CFG.double_check_vlm_output:
+            # Double check the VLM's reasoning.
+            # The current implementation checks that the VLM made correct use
+            # of the previous timestep's labels.
+            double_check_prompt = "[START OF PROMPT]\n" + text_prompt[:] + "\n[END OF PROMPT]\n\n"
+            double_check_prompt += "To this prompt, you responded with:\n"
+            double_check_prompt += "[Start of your previous answer]\n" + curr_vlm_atom_labelling[0] + "\n[End of your previous answer]\n\n"
+            previous_timestep_check_prompt = get_path_to_predicators_root() + \
+                "/predicators/datasets/vlm_input_data_prompts/atom_labelling/double_check_prompt_prev_labels.txt"
+            double_check_prompt += previous_timestep_check_prompt
+            double_check_prompt += "\n\nTruth values of predicates at previous timestep:\n\n"
+            def extract_labels(text):
+                substrings = []
+                i = 0
+                # Loop through the text character by character.
+                while i < len(text):
+                    # Look for the '*' character.
+                    if text[i] == '*':
+                        start = i
+                        # Search for the occurrence of 'True' or 'False'.
+                        while i < len(text) and 'True' not in text[start:i+4] and 'False' not in text[start:i+5]:
+                            i += 1
+                        if 'True' in text[start:i+4]:
+                            substrings.append(text[start:i+4].strip())
+                            i += 4  # Move the pointer past 'True'.
+                        elif 'False' in text[start:i+5]:
+                            substrings.append(text[start:i+5].strip())
+                            i += 5  # Move the pointer past 'False'.
+                    else:
                         i += 1
-                    # Once 'True' or 'False' is found, capture the substring
-                    if 'True' in text[start:i+4]:
-                        substrings.append(text[start:i+4].strip())
-                        i += 4  # Move the pointer past 'True'
-                    elif 'False' in text[start:i+5]:
-                        substrings.append(text[start:i+5].strip())
-                        i += 5  # Move the pointer past 'False'
-                else:
-                    i += 1
-            return substrings
-        if len(curr_traj_txt_outputs) > 0:
-            prev_labels = extract_substrings(curr_traj_txt_outputs[-1])
-            prev_labels_str = "\n".join(prev_labels)
-            double_check_prompt += prev_labels_str
+                return substrings
+            if len(curr_traj_txt_outputs) > 0:
+                prev_labels = extract_labels(curr_traj_txt_outputs[-1])
+                prev_labels_str = "\n".join(prev_labels)
+                double_check_prompt += prev_labels_str
 
-            # import pdb; pdb.set_trace()
-
-            curr_vlm_atom_labelling2 = vlm.sample_completions(prompt=double_check_prompt, imgs=img_prompt, temperature=0.0, seed=CFG.seed, num_completions=1)
-            # import pdb; pdb.set_trace()
-            curr_vlm_atom_labelling = curr_vlm_atom_labelling2
+            double_checked_labelling = vlm.sample_completions(prompt=double_check_prompt, imgs=img_prompt, temperature=0.0, seed=CFG.seed, num_completions=1)
+            curr_vlm_atom_labelling = double_checked_labelling
 
         assert len(curr_vlm_atom_labelling) == 1
         sanitized_output = curr_vlm_atom_labelling[0].replace('\\', '')
