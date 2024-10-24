@@ -806,6 +806,7 @@ def test_loading_txt_files():
         "included_options": "PickPlace",
         "excluded_predicates": "all",
         "vlm_predicate_vision_api_generate_ground_atoms": True,
+        "vlm_double_check_output": True
     }])
 def test_create_ground_atom_data_from_generated_demos(config):
     """Tests for the create_ground_atom_data_from_generated_demos method."""

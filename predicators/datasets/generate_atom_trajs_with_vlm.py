@@ -167,7 +167,7 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
                                                          0.0,
                                                          CFG.seed,
                                                          num_completions=1)
-        if CFG.double_check_vlm_output:
+        if CFG.vlm_double_check_output:
             # Double check the VLM's reasoning.
             # The current implementation checks that the VLM made correct use
             # of the previous timestep's labels.
