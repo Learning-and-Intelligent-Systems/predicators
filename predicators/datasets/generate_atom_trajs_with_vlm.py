@@ -335,12 +335,16 @@ def _parse_unique_atom_proposals_from_list(
                 for og in other_groundings:
                     all_atom_groundings.add(og)
             logging.debug(f"Proposed atom: {atom} is valid: {atom_is_valid}")
+    logging.info("VISUAL PREDICATES PROPOSED")
+    for unique_pred in unique_predicates:
+        logging.info(unique_pred)
     logging.info(f"VLM proposed a total of {num_atoms_considered} atoms.")
     logging.info(f"Of these, {len(atoms_strs_set)} were valid and unique.")
     logging.info(
         f"For the {len(unique_predicates)} predicates, there were " \
         f"{len(all_atom_groundings)} unique groundings."
     )
+    logging.info("END VISUAL PREDICATES PROPOSALS")
     return all_atom_groundings
 
 
