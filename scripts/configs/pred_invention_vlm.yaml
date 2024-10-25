@@ -41,10 +41,10 @@ APPROACHES:
     NAME: "vlm_open_loop"
     FLAGS:
       vlm_open_loop_use_training_demos: True
-  vila-pure:
-    NAME: "vlm_open_loop"
-    FLAGS:
-      vlm_open_loop_use_training_demos: False
+  # vila-pure:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: False
 
 ENVS:
   burger_no_move_more_stacks:
@@ -147,7 +147,7 @@ ENVS:
 
 ARGS: []
 FLAGS: 
-  vlm_model_name: gpt-4o
+  vlm_model_name: gemini-1.5-pro-latest
   num_test_tasks: 10
 START_SEED: 0
 NUM_SEEDS: 5
