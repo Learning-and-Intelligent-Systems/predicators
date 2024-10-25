@@ -7,19 +7,19 @@ APPROACHES:
   #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
   #     offline_data_method: geo_and_demo_with_vlm_imgs
   #     grammar_search_invent_geo_predicates_only: False
-  ours-vlm-subselection:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_invent_geo_predicates_only: True
-  ours-no-subselection:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_pred_selection_approach: no_select
-      grammar_search_invent_geo_predicates_only: False
+  # ours-vlm-subselection:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: True
+  # ours-no-subselection:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_pred_selection_approach: no_select
+  #     grammar_search_invent_geo_predicates_only: False
   # ours-no-invent:
   #   NAME: "nsrt_learning"
   #   FLAGS: {}
@@ -37,14 +37,14 @@ APPROACHES:
   #   FLAGS:
   #     offline_data_method: demo_with_vlm_imgs
   #     vlm_predicate_vision_api_generate_ground_atoms: True
-  # vila-with-fewshot:
-  #   NAME: "vlm_open_loop"
-  #   FLAGS:
-  #     vlm_open_loop_use_training_demos: True
-  # vila-pure:
-  #   NAME: "vlm_open_loop"
-  #   FLAGS:
-  #     vlm_open_loop_use_training_demos: False
+  vila-with-fewshot:
+    NAME: "vlm_open_loop"
+    FLAGS:
+      vlm_open_loop_use_training_demos: True
+  vila-pure:
+    NAME: "vlm_open_loop"
+    FLAGS:
+      vlm_open_loop_use_training_demos: False
 
 ENVS:
   burger_no_move_more_stacks:
