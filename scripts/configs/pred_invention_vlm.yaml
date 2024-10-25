@@ -7,31 +7,31 @@ APPROACHES:
   #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
   #     offline_data_method: geo_and_demo_with_vlm_imgs
   #     grammar_search_invent_geo_predicates_only: False
-  # ours-vlm-subselection:
-  #   NAME: "grammar_search_invention"
-  #   FLAGS:
-  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
-  #     offline_data_method: geo_and_demo_with_vlm_imgs
-  #     grammar_search_invent_geo_predicates_only: True
-  # ours-no-subselection:
-  #   NAME: "grammar_search_invention"
-  #   FLAGS:
-  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
-  #     offline_data_method: geo_and_demo_with_vlm_imgs
-  #     grammar_search_pred_selection_approach: no_select
-  #     grammar_search_invent_geo_predicates_only: False
-  ours-no-invent:
-    NAME: "nsrt_learning"
-    FLAGS: {}
-  ours-no-visual:
-    NAME: "grammar_search_invention"
-    FLAGS: 
-      offline_data_method: demo
-  ours-no-geo:
+  ours-vlm-subselection:
     NAME: "grammar_search_invention"
     FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
+      offline_data_method: geo_and_demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: True
+  ours-no-subselection:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+      offline_data_method: geo_and_demo_with_vlm_imgs
+      grammar_search_pred_selection_approach: no_select
       grammar_search_invent_geo_predicates_only: False
+  # ours-no-invent:
+  #   NAME: "nsrt_learning"
+  #   FLAGS: {}
+  # ours-no-visual:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS: 
+  #     offline_data_method: demo
+  # ours-no-geo:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: False
   # interpret:
   #   NAME: "grammar_search_invention"
   #   FLAGS:
