@@ -20,31 +20,31 @@ APPROACHES:
   #     offline_data_method: geo_and_demo_with_vlm_imgs
   #     grammar_search_pred_selection_approach: no_select
   #     grammar_search_invent_geo_predicates_only: False
-  # ours-no-invent:
-  #   NAME: "nsrt_learning"
-  #   FLAGS: {}
-  # ours-no-visual:
-  #   NAME: "grammar_search_invention"
-  #   FLAGS: 
-  #     offline_data_method: demo
-  # ours-no-geo:
-  #   NAME: "grammar_search_invention"
-  #   FLAGS:
-  #     grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
-  #     grammar_search_invent_geo_predicates_only: False
-  interpret:
+  ours-no-invent:
+    NAME: "nsrt_learning"
+    FLAGS: {}
+  ours-no-visual:
+    NAME: "grammar_search_invention"
+    FLAGS: 
+      offline_data_method: demo
+  ours-no-geo:
     NAME: "grammar_search_invention"
     FLAGS:
-      offline_data_method: demo_with_vlm_imgs
-      vlm_predicate_vision_api_generate_ground_atoms: True
-  vila-with-fewshot:
-    NAME: "vlm_open_loop"
-    FLAGS:
-      vlm_open_loop_use_training_demos: True
-  vila-pure:
-    NAME: "vlm_open_loop"
-    FLAGS:
-      vlm_open_loop_use_training_demos: False
+      grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+      grammar_search_invent_geo_predicates_only: False
+  # interpret:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     offline_data_method: demo_with_vlm_imgs
+  #     vlm_predicate_vision_api_generate_ground_atoms: True
+  # vila-with-fewshot:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: True
+  # vila-pure:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: False
 
 ENVS:
   burger_no_move_more_stacks:
