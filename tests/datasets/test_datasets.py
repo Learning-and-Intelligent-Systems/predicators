@@ -670,24 +670,19 @@ def test_loading_saved_vlm_img_demos_folder_dummy_goal(
         atom_proposal_prompt_type, atom_labelling_prompt_type):
     """Test loading a dataset from img demo files."""
     utils.reset_config({
-        "env":
-        "ice_tea_making",
-        "num_train_tasks":
-        1,
-        "offline_data_method":
-        "saved_vlm_img_demos_folder",
-        "data_dir":
-        "tests/datasets/mock_vlm_datasets",
-        "seed":
-        456,
-        "vlm_trajs_folder_name":
-        "ice_tea_making__vlm_demos__456__1",
+        "env": "ice_tea_making",
+        "num_train_tasks": 1,
+        "offline_data_method": "saved_vlm_img_demos_folder",
+        "data_dir": "tests/datasets/mock_vlm_datasets",
+        "seed": 456,
+        "vlm_trajs_folder_name": "ice_tea_making__vlm_demos__456__1",
         "grammar_search_vlm_atom_proposal_prompt_type":
         atom_proposal_prompt_type,
         "grammar_search_vlm_atom_label_prompt_type":
         atom_labelling_prompt_type,
         "pretrained_model_prompt_cache_dir":
-        "tests/datasets/mock_vlm_datasets/cache"
+        "tests/datasets/mock_vlm_datasets/cache",
+        "vlm_double_check_output": True
     })
     env = IceTeaMakingEnv()
     train_tasks = env.get_train_tasks()
@@ -805,7 +800,7 @@ def test_loading_txt_files():
         "num_train_tasks": 1,
         "included_options": "PickPlace",
         "excluded_predicates": "all",
-        "vlm_predicate_vision_api_generate_ground_atoms": True,
+        "vlm_predicate_vision_api_generate_ground_atoms": True
     }])
 def test_create_ground_atom_data_from_generated_demos(config):
     """Tests for the create_ground_atom_data_from_generated_demos method."""

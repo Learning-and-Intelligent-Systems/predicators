@@ -101,9 +101,10 @@ def _generate_prompt_for_scene_labelling(
         yield utils.get_prompt_for_vlm_state_labelling(
             CFG.grammar_search_vlm_atom_label_prompt_type, atoms_list,
             label_history, traj.imgs[:i + 1], traj.cropped_imgs[:i + 1],
-            traj.actions)
+            traj.actions[:i])
 
 
+#
 def _sample_vlm_atom_proposals_from_trajectories(
         trajectories: List[ImageOptionTrajectory],
         vlm: VisionLanguageModel,
@@ -166,6 +167,60 @@ def _label_single_trajectory_with_vlm_atom_values(indexed_traj: Tuple[
                                                          0.0,
                                                          CFG.seed,
                                                          num_completions=1)
+        if CFG.vlm_double_check_output and len(curr_traj_txt_outputs) > 0 and \
+            "label_history" in CFG.grammar_search_vlm_atom_label_prompt_type:
+            # Double check the VLM's reasoning.
+            # The current implementation checks that the VLM made correct use
+            # of the previous timestep's labels.
+            double_check_prompt = "[START OF PROMPT]\n" + text_prompt[:] + \
+                "\n[END OF PROMPT]\n\n"
+            double_check_prompt += "To this prompt, you responded with:\n"
+            double_check_prompt += "[Start of your previous answer]\n" + \
+                curr_vlm_atom_labelling[0] + \
+                "\n[End of your previous answer]\n\n"
+            # pylint: disable=line-too-long
+            previous_timestep_check_prompt = utils.get_path_to_predicators_root() + \
+                "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
+                "double_check_prompt_prev_labels.txt"
+            # pylint: enable=line-too-long
+            double_check_prompt += previous_timestep_check_prompt
+            double_check_prompt += "\n\nTruth values of predicates at " + \
+                "the previous timestep:\n\n"
+
+            def extract_labels(text: str) -> List[str]:
+                substrings = []
+                i = 0
+                # Loop through the text character by character.
+                while i < len(text):
+                    # Look for the '*' character.
+                    if text[i] == '*':
+                        start = i
+                        # Search for the occurrence of 'True' or 'False'.
+                        while i < len(text) and 'True' not in text[
+                                start:i + 4] and 'False' not in text[start:i +
+                                                                     5]:
+                            i += 1
+                        if 'True' in text[start:i + 4]:
+                            substrings.append(text[start:i + 4].strip())
+                            i += 4  # Move the pointer past 'True'.
+                        elif 'False' in text[start:i + 5]:
+                            substrings.append(text[start:i + 5].strip())
+                            i += 5  # Move the pointer past 'False'.
+                    else:
+                        i += 1
+                return substrings
+
+            prev_labels = extract_labels(curr_traj_txt_outputs[-1])
+            prev_labels_str = "\n".join(prev_labels)
+            double_check_prompt += prev_labels_str
+            double_checked_labelling = vlm.sample_completions(
+                prompt=double_check_prompt,
+                imgs=img_prompt,
+                temperature=0.0,
+                seed=CFG.seed,
+                num_completions=1)
+            curr_vlm_atom_labelling = double_checked_labelling
+
         assert len(curr_vlm_atom_labelling) == 1
         sanitized_output = curr_vlm_atom_labelling[0].replace('\\', '')
         curr_traj_txt_outputs.append(sanitized_output)
