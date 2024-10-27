@@ -2489,11 +2489,14 @@ def query_vlm_for_atom_vals(
         return set()
     for i, (atom_query, curr_vlm_output_line) in enumerate(
             zip(atom_queries_list, all_vlm_responses)):
-        assert atom_query + ":" in curr_vlm_output_line
-        assert "." in curr_vlm_output_line
-        value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
-        if value == "true":
-            true_atoms.add(vlm_atoms[i])
+        try:
+            assert atom_query + ":" in curr_vlm_output_line
+            assert "." in curr_vlm_output_line
+            value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
+            if value == "true":
+                true_atoms.add(vlm_atoms[i])
+        except AssertionError:
+            continue
     return true_atoms
 
 

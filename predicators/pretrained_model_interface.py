@@ -123,7 +123,10 @@ class PretrainedLargeModel(abc.ABC):
         with open(cache_filepath, 'r', encoding='utf-8') as f:
             cache_str = f.read()
         logging.debug(f"Loaded model response from {cache_filepath}.")
-        assert cache_str.count(_CACHE_SEP) == num_completions
+        try:
+            assert cache_str.count(_CACHE_SEP) == num_completions
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
         cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
         assert cached_prompt == prompt
         completions = completion_strs.split(_CACHE_SEP)
