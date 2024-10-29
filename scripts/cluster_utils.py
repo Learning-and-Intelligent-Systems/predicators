@@ -155,7 +155,6 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         f"rm -rf {old_dir_pattern}",
         "mkdir -p logs",
     ]
-    return []
 
 
 def run_cmds_on_machine(
