@@ -146,15 +146,15 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
     """Get the commands that should be run while already in the repository but
     before launching the experiments."""
     old_dir_pattern = " ".join(f"{d}/" for d in SAVE_DIRS)
-    # return [
-    #     "git stash",
-    #     "git fetch --all",
-    #     f"git checkout {branch}",
-    #     "git pull",
-    #     # Remove old results.
-    #     f"rm -rf {old_dir_pattern}",
-    #     "mkdir -p logs",
-    # ]
+    return [
+        "git stash",
+        "git fetch --all",
+        f"git checkout {branch}",
+        "git pull",
+        # Remove old results.
+        f"rm -rf {old_dir_pattern}",
+        "mkdir -p logs",
+    ]
     return []
 
 
