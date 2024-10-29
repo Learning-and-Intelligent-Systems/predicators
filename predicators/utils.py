@@ -2495,7 +2495,7 @@ def query_vlm_for_atom_vals(
             value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
             if value == "true":
                 true_atoms.add(vlm_atoms[i])
-        except AssertionError:
+        except AssertionError:  # pragma: no cover
             continue
     return true_atoms
 

@@ -712,6 +712,8 @@ class GlobalSettings:
     # At test-time, we will use the below number of states
     # as part of labelling the current state's VLM atoms.
     vlm_test_time_atom_label_prompt_type = "per_scene_naive"
+    # Whether or not to save eval trajectories
+    save_eval_trajs = True
 
     @classmethod
     def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
