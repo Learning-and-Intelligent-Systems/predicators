@@ -209,6 +209,14 @@ README of that repo suggests!"
             burner3_position = (260, 250)
             burner4_text = "burner4"
             burner4_position = (185, 260)
+            knob1_text = "knob1"
+            knob1_position = (260, 155)
+            knob2_text = "knob2"
+            knob2_position = (160, 170)
+            knob3_text = "knob3"
+            knob3_position = (260, 125)
+            knob4_text = "knob4"
+            knob4_position = (160, 125)
             burner1_img = utils.add_text_to_draw_img(draw, burner1_position,
                                                      burner1_text, font)
             burner2_img = utils.add_text_to_draw_img(burner1_img,
@@ -217,8 +225,16 @@ README of that repo suggests!"
             burner3_img = utils.add_text_to_draw_img(burner2_img,
                                                      burner3_position,
                                                      burner3_text, font)
-            _ = utils.add_text_to_draw_img(burner3_img, burner4_position,
+            burner4_img = utils.add_text_to_draw_img(burner3_img, burner4_position,
                                            burner4_text, font)
+            knob1_img = utils.add_text_to_draw_img(burner4_img, knob1_position,
+                                           knob1_text, font)
+            knob2_img = utils.add_text_to_draw_img(knob1_img, knob2_position,
+                                           knob2_text, font)
+            knob3_img = utils.add_text_to_draw_img(knob2_img, knob3_position,
+                                           knob3_text, font)
+            _ = utils.add_text_to_draw_img(knob3_img, knob4_position,
+                                           knob4_text, font)
             curr_img_arr = np.array(curr_img_pil)
         return [curr_img_arr]
 
