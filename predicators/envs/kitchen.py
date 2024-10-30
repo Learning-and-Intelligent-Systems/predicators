@@ -202,13 +202,13 @@ README of that repo suggests!"
             font = utils.get_scaled_default_font(draw, 3)
             # Define the text and position
             burner1_text = "burner1"
-            burner1_position = (300, 305)
+            burner1_position = (300, 285)
             burner2_text = "burner2"
-            burner2_position = (210, 325)
+            burner2_position = (210, 305)
             burner3_text = "burner3"
-            burner3_position = (260, 250)
+            burner3_position = (260, 225)
             burner4_text = "burner4"
-            burner4_position = (185, 260)
+            burner4_position = (185, 240)
             knob1_text = "knob1"
             knob1_position = (260, 155)
             knob2_text = "knob2"
