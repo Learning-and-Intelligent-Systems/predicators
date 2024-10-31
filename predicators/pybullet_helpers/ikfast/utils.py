@@ -243,7 +243,8 @@ def ikfast_inverse_kinematics(
     rot_matrix = matrix_from_quat(base_from_ee.orientation).tolist()
 
     # Sampler for free joints
-    generator = free_joints_generator(robot, free_joint_infos, max_distance, rng)
+    generator = free_joints_generator(robot, free_joint_infos, max_distance,
+                                      rng)
     if max_attempts < np.inf:  # pragma: no cover
         generator = islice(generator, max_attempts)
 
