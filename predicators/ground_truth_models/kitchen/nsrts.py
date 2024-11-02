@@ -393,11 +393,10 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def knob_turn_on_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
-            del state, goal, objs  # unused
+            del state, goal  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
-                # Push slightly inward.
-                push_angle = np.pi / 8
+                push_angle = np.pi / 9
             else:
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
@@ -420,9 +419,10 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def move_and_knob_turn_on_sampler(state: State, goal: Set[GroundAtom],
                                           rng: np.random.Generator,
                                           objs: Sequence[Object]) -> Array:
-            move_sample = moveto_preturnon_sampler(state, goal, rng, objs[:2])
+            # move_sample = moveto_preturnon_sampler(state, goal, rng, objs[:2])
             turn_on_sample = knob_turn_on_sampler(state, goal, rng, objs)
-            return np.concatenate([move_sample, turn_on_sample], axis=0)
+            # return np.concatenate([move_sample, turn_on_sample], axis=0)
+            return turn_on_sample
 
         move_and_turn_on_knob_nsrt = NSRT("MoveAndTurnOnKnob", parameters,
                                           preconditions, add_effects,
@@ -601,7 +601,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         else:
             nsrts.add(push_kettle_onto_burner_nsrt)
             nsrts.add(push_kettle_onto_burner_and_boil_nsrt)
-            nsrts.add(move_and_turn_on_knob_and_boil_kettle_nsrt)
+            # nsrts.add(move_and_turn_on_knob_and_boil_kettle_nsrt)
             nsrts.add(move_and_turn_on_knob_nsrt)
         nsrts.add(move_to_pre_pull_kettle_nsrt)
         nsrts.add(pull_kettle_nsrt)

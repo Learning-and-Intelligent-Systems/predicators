@@ -80,7 +80,7 @@ class KitchenEnv(BaseEnv):
     }
 
     at_pre_turn_atol = 0.1  # tolerance for AtPreTurnOn/Off
-    ontop_atol = 0.15  # tolerance for OnTop
+    ontop_atol = 0.18  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
     microhandle_open_thresh = -0.65
@@ -247,15 +247,18 @@ README of that repo suggests!"
         OnTop = self._pred_name_to_pred["OnTop"]
         TurnedOn = self._pred_name_to_pred["TurnedOn"]
         KettleBoiling = self._pred_name_to_pred["KettleBoiling"]
+        KnobAndBurnerLinked = self._pred_name_to_pred["KnobAndBurnerLinked"]
         goal_preds = set()
         if CFG.kitchen_goals in ["all", "kettle_only"]:
             goal_preds.add(OnTop)
         if CFG.kitchen_goals in ["all", "knob_only"]:
             goal_preds.add(TurnedOn)
+            goal_preds.add(KnobAndBurnerLinked)
         if CFG.kitchen_goals in ["all", "light_only"]:
             goal_preds.add(TurnedOn)
         if CFG.kitchen_goals in ["all", "boil_kettle"]:
             goal_preds.add(KettleBoiling)
+            goal_preds.add(KnobAndBurnerLinked)
         return goal_preds
 
     @classmethod
