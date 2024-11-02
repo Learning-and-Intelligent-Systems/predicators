@@ -173,6 +173,7 @@ ENVS:
       num_train_tasks: 3
       precondition_soft_intersection_threshold_percent: 0.8
       vlm_double_check_output: True
+      grammar_search_early_termination_heuristic_thresh: 100
 
 ARGS: []
 FLAGS: 
