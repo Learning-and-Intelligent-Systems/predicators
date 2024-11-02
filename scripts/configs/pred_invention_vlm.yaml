@@ -151,6 +151,7 @@ ENVS:
       kitchen_use_perfect_samplers: True
       kitchen_render_set_of_marks: True
       kitchen_use_combo_move_nsrts: True
+      kitchen_randomize_init_state: True
       bilevel_plan_without_sim: True
       segmenter: option_changes
       grammar_search_vlm_atom_label_prompt_type: img_option_diffs_label_history
