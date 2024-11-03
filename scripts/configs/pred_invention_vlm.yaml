@@ -1,12 +1,12 @@
 # Experiments to test predicate invention with VLMs
 ---
 APPROACHES:
-  ours:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_invent_geo_predicates_only: False
+  # ours:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: False
   ours-vlm-subselection:
     NAME: "grammar_search_invention"
     FLAGS:
@@ -175,6 +175,7 @@ ENVS:
       precondition_soft_intersection_threshold_percent: 0.8
       vlm_double_check_output: True
       grammar_search_early_termination_heuristic_thresh: 100
+      sesame_task_planner: fdopt
 
 ARGS: []
 FLAGS: 
