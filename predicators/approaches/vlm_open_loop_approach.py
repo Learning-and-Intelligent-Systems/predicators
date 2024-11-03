@@ -26,6 +26,7 @@ from PIL import ImageDraw
 
 from predicators import utils
 from predicators.approaches import ApproachFailure
+from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.settings import CFG
@@ -69,6 +70,35 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """Adds the images and plans from the training dataset to the base
         prompt for use at test time!"""
+        
+        def _append_to_prompt_state_imgs_list(state: State) -> None:
+            assert state.simulator_state is not None
+            assert len(
+                state.simulator_state["images"]) == num_imgs_per_state
+            for img_num, img in enumerate(state.simulator_state["images"]):
+                pil_img = PIL.Image.fromarray(img)  # type: ignore
+                width, height = pil_img.size
+                font_size = 15
+                text = f"Demonstration {traj_num}, " + \
+                    f"State {state_num}, Image {img_num}"
+                draw = ImageDraw.Draw(pil_img)
+                font = utils.get_scaled_default_font(draw, font_size)
+                text_width, text_height = draw.textbbox((0, 0),
+                                                        text,
+                                                        font=font)[2:]
+                # Create a new image with additional space for text!
+                new_image = PIL.Image.new(
+                    "RGB", (width, height + text_height + 10), "white")
+                new_image.paste(pil_img, (0, 0))
+                draw = ImageDraw.Draw(new_image)
+                text_x = (width - text_width) / 2
+                text_y = height + 5
+                draw.text((text_x, text_y), text, font=font, fill="black")
+                # pylint:disable=protected-access
+                self._prompt_state_imgs_list.append(
+                    draw._image)  # type: ignore[attr-defined]
+                # pylint: enable=protected-access
+        
         if not CFG.vlm_open_loop_use_training_demos:
             return None
         # Crawl thru the dataset and pull out all the images.
@@ -79,41 +109,27 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
             dataset.trajectories[0].states[0].simulator_state["images"], List)
         num_imgs_per_state = len(
             dataset.trajectories[0].states[0].simulator_state["images"])
+        segmented_trajs = [
+            segment_trajectory(traj, self._initial_predicates)
+            for traj in dataset.trajectories
+        ]
         self._prompt_demos_str = ""
-        for traj_num, traj in enumerate(dataset.trajectories):
-            traj_goal = self._train_tasks[traj.train_task_idx].goal
+        for traj_num, seg_traj in enumerate(zip(segmented_trajs, dataset.trajectories)):
+            segment_traj, ll_traj = seg_traj
+            if not ll_traj.is_demo:
+                continue
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
             self._prompt_demos_str += f"Demonstration {traj_num}, " + \
                 f"Goal: {str(sorted(traj_goal))}\n"
-            for state_num, state in enumerate(traj.states):
-                assert state.simulator_state is not None
-                assert len(
-                    state.simulator_state["images"]) == num_imgs_per_state
-                for img_num, img in enumerate(state.simulator_state["images"]):
-                    pil_img = PIL.Image.fromarray(img)  # type: ignore
-                    width, height = pil_img.size
-                    font_size = 15
-                    text = f"Demonstration {traj_num}, " + \
-                        f"State {state_num}, Image {img_num}"
-                    draw = ImageDraw.Draw(pil_img)
-                    font = utils.get_scaled_default_font(draw, font_size)
-                    text_width, text_height = draw.textbbox((0, 0),
-                                                            text,
-                                                            font=font)[2:]
-                    # Create a new image with additional space for text!
-                    new_image = PIL.Image.new(
-                        "RGB", (width, height + text_height + 10), "white")
-                    new_image.paste(pil_img, (0, 0))
-                    draw = ImageDraw.Draw(new_image)
-                    text_x = (width - text_width) / 2
-                    text_y = height + 5
-                    draw.text((text_x, text_y), text, font=font, fill="black")
-                    # pylint:disable=protected-access
-                    self._prompt_state_imgs_list.append(
-                        draw._image)  # type: ignore[attr-defined]
-                    # pylint: enable=protected-access
-            for action_num, action in enumerate(traj.actions):
-                self._prompt_demos_str += f"Action {action_num}, from " + \
-                    f"state {action_num} is {action.get_option()}\n"
+            for state_num, seg in enumerate(segment_traj):
+                state = seg.states[0]
+                _append_to_prompt_state_imgs_list(state)
+                action = seg.get_option()
+                self._prompt_demos_str += f"Action {state_num}, from " + \
+                    f"state {state_num} is {action}\n"
+            # Make sure to append the final state of the final segment!
+            state = seg.states[-1]
+            _append_to_prompt_state_imgs_list(state)
         return None
 
     def _get_current_nsrts(self) -> Set[utils.NSRT]:

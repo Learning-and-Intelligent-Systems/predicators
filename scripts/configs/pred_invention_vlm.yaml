@@ -7,36 +7,36 @@ APPROACHES:
   #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
   #     offline_data_method: geo_and_demo_with_vlm_imgs
   #     grammar_search_invent_geo_predicates_only: False
-  ours-vlm-subselection:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_invent_geo_predicates_only: True
-  ours-no-subselection:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_pred_selection_approach: no_select
-      grammar_search_invent_geo_predicates_only: False
-  ours-no-invent:
-    NAME: "nsrt_learning"
-    FLAGS: {}
-  ours-no-visual:
-    NAME: "grammar_search_invention"
-    FLAGS: 
-      offline_data_method: demo
-  ours-no-geo:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
-      grammar_search_invent_geo_predicates_only: False
-  interpret:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      offline_data_method: demo_with_vlm_imgs
-      vlm_predicate_vision_api_generate_ground_atoms: True
+  # ours-vlm-subselection:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: True
+  # ours-no-subselection:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_pred_selection_approach: no_select
+  #     grammar_search_invent_geo_predicates_only: False
+  # ours-no-invent:
+  #   NAME: "nsrt_learning"
+  #   FLAGS: {}
+  # ours-no-visual:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS: 
+  #     offline_data_method: demo
+  # ours-no-geo:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: False
+  # interpret:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     offline_data_method: demo_with_vlm_imgs
+  #     vlm_predicate_vision_api_generate_ground_atoms: True
   vila-with-fewshot:
     NAME: "vlm_open_loop"
     FLAGS:
@@ -155,8 +155,8 @@ ENVS:
       bilevel_plan_without_sim: True
       segmenter: option_changes
       grammar_search_vlm_atom_label_prompt_type: img_option_diffs_label_history
-      grammar_search_task_planning_timeout: 10.0
-      sesame_max_skeletons_optimized: 200
+      grammar_search_task_planning_timeout: 3.0
+      sesame_max_skeletons_optimized: 5
       disable_harmlessness_check: True
       excluded_predicates: all
       grammar_search_vlm_atom_proposal_use_debug: False
@@ -175,7 +175,6 @@ ENVS:
       precondition_soft_intersection_threshold_percent: 0.8
       vlm_double_check_output: True
       grammar_search_early_termination_heuristic_thresh: 100
-      sesame_task_planner: fdopt
 
 ARGS: []
 FLAGS: 
