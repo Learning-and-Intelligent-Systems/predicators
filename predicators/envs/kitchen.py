@@ -81,7 +81,7 @@ class KitchenEnv(BaseEnv):
 
     at_pre_turn_atol = 0.1  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.18  # tolerance for OnTop
-    on_angle_thresh = -0.28 # -0.4  # dial is On if less than this threshold
+    on_angle_thresh = -0.28  # -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
     microhandle_open_thresh = -0.65
     hinge_open_thresh = 0.084
@@ -225,14 +225,15 @@ README of that repo suggests!"
             burner3_img = utils.add_text_to_draw_img(burner2_img,
                                                      burner3_position,
                                                      burner3_text, font)
-            burner4_img = utils.add_text_to_draw_img(burner3_img, burner4_position,
-                                           burner4_text, font)
+            burner4_img = utils.add_text_to_draw_img(burner3_img,
+                                                     burner4_position,
+                                                     burner4_text, font)
             knob1_img = utils.add_text_to_draw_img(burner4_img, knob1_position,
-                                           knob1_text, font)
+                                                   knob1_text, font)
             knob2_img = utils.add_text_to_draw_img(knob1_img, knob2_position,
-                                           knob2_text, font)
+                                                   knob2_text, font)
             knob3_img = utils.add_text_to_draw_img(knob2_img, knob3_position,
-                                           knob3_text, font)
+                                                   knob3_text, font)
             _ = utils.add_text_to_draw_img(knob3_img, knob4_position,
                                            knob4_text, font)
             curr_img_arr = np.array(curr_img_pil)

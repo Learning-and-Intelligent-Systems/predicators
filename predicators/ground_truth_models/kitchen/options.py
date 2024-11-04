@@ -453,14 +453,16 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _MoveAndTurnOnKnob_initiable(state: State, memory: Dict,
                                          objects: Sequence[Object],
                                          params: Array) -> bool:
-            del params # unused
+            del params  # unused
             gripper, obj = objects
             memory["gripper_infront_knob"] = False
-            movement_params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "on"),
-                              dtype=np.float32)
+            movement_params = np.array(KitchenEnv.get_pre_push_delta_pos(
+                obj, "on"),
+                                       dtype=np.float32)
             memory["movement_params"] = movement_params
-            
-            return _MoveTo_initiable(state, memory, [gripper, obj], movement_params)
+
+            return _MoveTo_initiable(state, memory, [gripper, obj],
+                                     movement_params)
 
         def _MoveAndTurnOnKnob_policy(state: State, memory: Dict,
                                       objects: Sequence[Object],
@@ -472,7 +474,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                     memory["gripper_infront_knob"] = True
                 else:
                     return _MoveTo_policy(state, memory, [gripper, obj],
-                                         memory["movement_params"])
+                                          memory["movement_params"])
             return _TurnOnKnob_policy(state, memory, objects, params)
 
         def _MoveAndTurnOnKnob_terminal(state: State, memory: Dict,
@@ -488,7 +490,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             "MoveAndTurnOnKnob",
             types=[gripper_type, knob_type],
             # The parameter is a push direction angle with respect to x.
-            params_space=Box(low=np.array([-np.pi]), high=np.array([np.pi]), shape=(1, )),
+            params_space=Box(low=np.array([-np.pi]),
+                             high=np.array([np.pi]),
+                             shape=(1, )),
             policy=_MoveAndTurnOnKnob_policy,
             initiable=_MoveAndTurnOnKnob_initiable,
             terminal=_MoveAndTurnOnKnob_terminal)

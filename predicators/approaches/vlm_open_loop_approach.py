@@ -26,9 +26,9 @@ from PIL import ImageDraw
 
 from predicators import utils
 from predicators.approaches import ApproachFailure
-from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
+from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
 from predicators.structs import Action, Box, Dataset, ParameterizedOption, \
     Predicate, State, Task, Type, _Option
@@ -70,11 +70,10 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """Adds the images and plans from the training dataset to the base
         prompt for use at test time!"""
-        
+
         def _append_to_prompt_state_imgs_list(state: State) -> None:
             assert state.simulator_state is not None
-            assert len(
-                state.simulator_state["images"]) == num_imgs_per_state
+            assert len(state.simulator_state["images"]) == num_imgs_per_state
             for img_num, img in enumerate(state.simulator_state["images"]):
                 pil_img = PIL.Image.fromarray(img)  # type: ignore
                 width, height = pil_img.size
@@ -87,8 +86,9 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                                                         text,
                                                         font=font)[2:]
                 # Create a new image with additional space for text!
-                new_image = PIL.Image.new(
-                    "RGB", (width, height + text_height + 10), "white")
+                new_image = PIL.Image.new("RGB",
+                                          (width, height + text_height + 10),
+                                          "white")
                 new_image.paste(pil_img, (0, 0))
                 draw = ImageDraw.Draw(new_image)
                 text_x = (width - text_width) / 2
@@ -98,7 +98,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                 self._prompt_state_imgs_list.append(
                     draw._image)  # type: ignore[attr-defined]
                 # pylint: enable=protected-access
-        
+
         if not CFG.vlm_open_loop_use_training_demos:
             return None
         # Crawl thru the dataset and pull out all the images.
@@ -114,7 +114,8 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
             for traj in dataset.trajectories
         ]
         self._prompt_demos_str = ""
-        for traj_num, seg_traj in enumerate(zip(segmented_trajs, dataset.trajectories)):
+        for traj_num, seg_traj in enumerate(
+                zip(segmented_trajs, dataset.trajectories)):
             segment_traj, ll_traj = seg_traj
             if not ll_traj.is_demo:
                 continue
