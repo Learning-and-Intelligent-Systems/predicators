@@ -245,7 +245,8 @@ class OpenAILLM(LargeLanguageModel, OpenAIModel):
         responses = [
             self.call_openai_api(messages,
                                  model=self._model_name,
-                                 temperature=temperature)
+                                 temperature=temperature,
+                                 max_tokens=self._max_tokens)
             for _ in range(num_completions)
         ]
         return responses
