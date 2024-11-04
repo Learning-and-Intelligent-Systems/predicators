@@ -171,8 +171,8 @@ class OpenAIModel():
             assert "OPENAI_API_KEY" in os.environ
             key = os.environ["OPENAI_API_KEY"]
 
-    # @retry(wait=wait_random_exponential(min=1, max=60),
-    #        stop=stop_after_attempt(10))
+    @retry(wait=wait_random_exponential(min=1, max=60),
+           stop=stop_after_attempt(10))
     def call_openai_api(self,
                         messages: list,
                         model: str = "gpt-4",

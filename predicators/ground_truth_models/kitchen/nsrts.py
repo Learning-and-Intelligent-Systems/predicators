@@ -393,7 +393,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def knob_turn_on_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
-            del state, goal  # unused
+            del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 push_angle = np.pi / 9
@@ -419,9 +419,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def move_and_knob_turn_on_sampler(state: State, goal: Set[GroundAtom],
                                           rng: np.random.Generator,
                                           objs: Sequence[Object]) -> Array:
-            # move_sample = moveto_preturnon_sampler(state, goal, rng, objs[:2])
             turn_on_sample = knob_turn_on_sampler(state, goal, rng, objs)
-            # return np.concatenate([move_sample, turn_on_sample], axis=0)
             return turn_on_sample
 
         move_and_turn_on_knob_nsrt = NSRT("MoveAndTurnOnKnob", parameters,

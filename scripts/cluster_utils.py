@@ -145,7 +145,6 @@ def generate_run_configs(config_filename: str,
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
     """Get the commands that should be run while already in the repository but
     before launching the experiments."""
-    # return []
     old_dir_pattern = " ".join(f"{d}/" for d in SAVE_DIRS)
     return [
         "git stash",
