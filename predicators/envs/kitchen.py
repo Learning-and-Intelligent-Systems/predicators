@@ -81,7 +81,7 @@ class KitchenEnv(BaseEnv):
 
     at_pre_turn_atol = 0.1  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.18  # tolerance for OnTop
-    on_angle_thresh = -0.4  # dial is On if less than this threshold
+    on_angle_thresh = -0.28 # -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
     microhandle_open_thresh = -0.65
     hinge_open_thresh = 0.084
@@ -574,7 +574,7 @@ README of that repo suggests!"
     def On_holds(cls,
                  state: State,
                  objects: Sequence[Object],
-                 thresh_pad: float = -0.03) -> bool:
+                 thresh_pad: float = -0.06) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.knob_type):
