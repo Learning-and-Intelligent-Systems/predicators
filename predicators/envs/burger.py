@@ -1272,6 +1272,15 @@ class BurgerNoMoveEnv(BurgerEnv):
                 patty = d["patty1"]
                 tomato = d["lettuce1"]
                 top_bun = d["top_bun1"]
+
+                # replace the cheese with a bottom bun
+                cheese1 = [o for o in state_dict.keys() if o.name == "cheese1"][0]
+                state_dict.pop(cheese1)
+                hidden_state.pop(cheese1)
+                r, c = shuffled_spots[4]  # where the cheese was
+                bottom_bun2 = Object("bottom_bun2", self._bottom_bun_type)
+                state_dict[bottom_bun2] = {"row": r, "col": c, "z": 0}
+                hidden_state[bottom_bun2] = {"is_held": 0.0}
                 r, c = shuffled_spots[7]  # next empty cell
                 patty2 = Object("patty2", self._patty_type)
                 state_dict[patty2] = {"row": r, "col": c, "z": 0}
@@ -1280,6 +1289,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                 lettuce2 = Object("lettuce2", self._tomato_type)
                 state_dict[lettuce2] = {"row": r, "col": c, "z": 0}
                 hidden_state[lettuce2] = {"is_sliced": 1.0, "is_held": 0.0}
+
                 test_goal = {
                     GroundAtom(self._IsCooked, [patty]),
                     GroundAtom(self._IsSliced, [tomato]),
@@ -1288,11 +1298,14 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._On, [top_bun, tomato]),
                     GroundAtom(self._IsCooked, [patty2]),
                     GroundAtom(self._IsSliced, [lettuce2]),
+                    GroundAtom(self._On, [patty2, bottom_bun2]),
+                    GroundAtom(self._On, [lettuce2, patty2]),
                 }
                 alt_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                     GroundAtom(self._GoalHack4, [patty, tomato]),
                     GroundAtom(self._On, [top_bun, tomato]),
+                    GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
                     GroundAtom(self._GoalHack4, [patty2, lettuce2]),
                 }
                 test_task = create_task(state_dict, hidden_state, test_goal,

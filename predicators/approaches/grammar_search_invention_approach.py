@@ -1105,6 +1105,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     CFG.grammar_search_score_function,
                     self._initial_predicates, atom_dataset, candidates,
                     self._train_tasks)
+                # self._learned_predicates = set(p for p in candidates if p.name in ["cooked0", "free0", "chopped0"])
+                # import pdb; pdb.set_trace()
                 self._learned_predicates = \
                     self._select_predicates_by_score_hillclimbing(
                     candidates, score_function, self._initial_predicates,
