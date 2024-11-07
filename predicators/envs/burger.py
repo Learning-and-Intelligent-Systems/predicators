@@ -1296,8 +1296,8 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._On, [patty, bottom_bun]),
                     GroundAtom(self._On, [tomato, patty]),
                     GroundAtom(self._On, [top_bun, tomato]),
-                    GroundAtom(self._IsSliced, [lettuce2]),
-                    GroundAtom(self._On, [patty2, bottom_bun2]),
+                    # GroundAtom(self._IsSliced, [lettuce2]),
+                    # GroundAtom(self._On, [patty2, bottom_bun2]),
                 }
                 alt_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),

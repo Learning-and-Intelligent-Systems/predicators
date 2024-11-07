@@ -202,6 +202,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
         parsed_option_plan = utils.parse_model_output_into_option_plan(
             parsable_plan_prediction, objects_list, self._types,
             self._initial_options, True)
+        print(parsed_option_plan)
         for option_tuple in parsed_option_plan:
             option_plan.append(option_tuple[0].ground(
                 option_tuple[1], np.array(option_tuple[2])))
