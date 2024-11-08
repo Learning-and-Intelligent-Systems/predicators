@@ -122,6 +122,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
             self._prompt_demos_str += f"Demonstration {traj_num}, " + \
                 f"Goal: {str(sorted(traj_goal))}\n"
+            assert len(segment_traj) > 0
             for state_num, seg in enumerate(segment_traj):
                 state = seg.states[0]
                 _append_to_prompt_state_imgs_list(state)
@@ -129,7 +130,7 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                 self._prompt_demos_str += f"Action {state_num}, from " + \
                     f"state {state_num} is {action}\n"
             # Make sure to append the final state of the final segment!
-            state = seg.states[-1]
+            state = seg.states[-1]  # pylint:disable=undefined-loop-variable
             _append_to_prompt_state_imgs_list(state)
         return None
 

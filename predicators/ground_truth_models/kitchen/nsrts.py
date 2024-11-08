@@ -470,10 +470,17 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         option = MoveAndTurnOnKnob
         option_vars = [gripper, knob]
-        move_and_turn_on_knob_and_boil_kettle_nsrt = NSRT(
-            "MoveAndTurnOnKnobAndBoilKettle", parameters, preconditions,
-            add_effects, delete_effects, ignore_effects, option, option_vars,
-            move_and_knob_turn_on_sampler)
+        # NOTE: commenting out this NSRT to make demonstrations for VLM
+        # predicate invention in kitchen unimodal to make learning visual
+        # predicates easier (if we move kettle before turning on knob,
+        # it's hard to see that the burner is actually on...)
+        # move_and_turn_on_knob_and_boil_kettle_nsrt = NSRT(
+        #     "MoveAndTurnOnKnobAndBoilKettle", parameters, preconditions,
+        #     add_effects, delete_effects, ignore_effects, option, option_vars,
+        #     move_and_knob_turn_on_sampler)
+        _ = NSRT("MoveAndTurnOnKnobAndBoilKettle", parameters, preconditions,
+                 add_effects, delete_effects, ignore_effects, option,
+                 option_vars, move_and_knob_turn_on_sampler)
 
         # TurnOffKnob
         parameters = [gripper, knob]
