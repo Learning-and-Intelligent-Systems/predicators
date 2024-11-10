@@ -367,7 +367,10 @@ class VlmInventionApproach(NSRTLearningApproach):
 
             if ite == 1 or no_improvement:  # or add_new_proposal_at_every_ite:
                 if CFG.vlm_invention_alternate_between_p_ad:
-                    if CFG.env in ["pybullet_balance"]:
+                    if CFG.env in [
+                                    "pybullet_balance",
+                                    "pybullet_cover_weighted",
+                                    ]:
                         CFG.vlm_invention_propose_nl_properties =\
                             propose_ite % 2 == 1
                     else:
@@ -572,8 +575,9 @@ class VlmInventionApproach(NSRTLearningApproach):
                     self._initial_concept_predicates
         else:
             # Get proposals from VLM
-            primitive_preds, concept_preds = self._get_proposals_from_vlm(
-                env, ite, tasks)
+            primitive_preds, concept_preds = self._get_proposals_from_vlm(env, 
+                                                                ite, tasks)
+
         return primitive_preds, concept_preds
 
     def _load_images_from_directory(self, directory: str):
@@ -1100,8 +1104,7 @@ class VlmInventionApproach(NSRTLearningApproach):
                     for state in optn_dict[g_optn].states:
                         # TODO: remove the candidates if we get an error
                         #   this can replace the error check in get proposals
-                        atoms, valid_preds = utils.abstract(
-                                                    state, 
+                        atoms, valid_preds = utils.abstract(state, 
                                                     set(all_candidates), 
                                                     return_valid_preds=True)
                         all_candidates = {k: v for k, v in 
@@ -1184,9 +1187,14 @@ class VlmInventionApproach(NSRTLearningApproach):
         self.cnpt_pred_candidates |= helper_cnpt_preds
 
         # Phase 2: invent other predicates building on existing ones.
-        primitive_preds, concept_preds = self._invent_predicates_from_data(ite, 
-                                                                        env, 
-                                                                        tasks)
+        num_proposal_batches = CFG.vlm_invention_proposal_batches
+        primitive_preds, concept_preds = set(), set()
+        for i in range(num_proposal_batches):
+            p_preds, c_preds = self._invent_predicates_from_data(ite, env, 
+                                                tasks, proposal_batch_id=i)
+            primitive_preds |= p_preds
+            concept_preds |= c_preds
+
         # all_concept_preds = self.cnpt_pred_candidates | concept_preds
         self.cnpt_pred_candidates |= concept_preds 
         return primitive_preds, self.cnpt_pred_candidates
@@ -1194,9 +1202,10 @@ class VlmInventionApproach(NSRTLearningApproach):
     def _invent_predicates_from_data(self, 
                                 ite: int, 
                                 env: BaseEnv, 
-                                tasks: List[Task]
+                                tasks: List[Task],
+                                proposal_batch_id: int = 0
                             ) -> Tuple[Set[Predicate], Set[ConceptPredicate]]:
-        phase_n = "from_data"
+        phase_n = f"from_data_b{proposal_batch_id}"
         # Create the first prompt.
         max_attempts = 10
         max_num_groundings, max_num_examples = 1, 1
@@ -1259,21 +1268,33 @@ class VlmInventionApproach(NSRTLearningApproach):
             response = self._get_vlm_response(nl_proposal_f,
                                               self._gpt4o if CFG.env in [
                                                 "pybullet_balance",
-                                                "pybullet_cover_weighted"
+                                                # "pybullet_cover_weighted"
                                               ] else self._vlm,
                                               prompt,
                                               images,
                                               cache_chat_session=True,
                                               temperature=0.5,
-                                              seed=CFG.seed * (ite+1))
+                        seed=CFG.seed * 100 + (ite+1) * 10 + proposal_batch_id)
             # Prepare the chat history for Gemini
-            self._vlm.chat_history = [{
-                "role": "user",
-                "parts": [prompt] + images
-            }, {
-                "role": "model",
-                "parts": [response]
-            }]
+            if CFG.env in [
+                "pybullet_balance",
+                "pybullet_cover_weighted"
+                ]:
+                self._gemini_exp.chat_history = [{
+                    "role": "user",
+                    "parts": [prompt] + images
+                }, {
+                    "role": "model",
+                    "parts": [response]
+                }]
+            else:
+                self._vlm.chat_history = [{
+                    "role": "user",
+                    "parts": [prompt] + images
+                }, {
+                    "role": "model",
+                    "parts": [response]
+                }]
 
             # if self.env.get_name() == "pybullet_balance":
             #     response = response.split("\n")[:3]
@@ -1303,10 +1324,11 @@ class VlmInventionApproach(NSRTLearningApproach):
             self._gemini_exp if CFG.env in [
                 "pybullet_balance",
                 "pybullet_cover_weighted"
-            ] else self._vlm,
+            ] and CFG.vlm_invention_propose_nl_properties else self._vlm,
             prompt,
             [] if CFG.vlm_invention_propose_nl_properties else images,
-            temperature=0.3)
+            temperature=0,
+            seed=CFG.seed * 100 + (ite+1) * 10 + proposal_batch_id)
 
         # if CFG.vlm_invent_predicates_in_stages:
         predicate_specs = response
@@ -1322,12 +1344,13 @@ class VlmInventionApproach(NSRTLearningApproach):
             response = self._get_vlm_response(
                 save_file,
                 # self._vlm,
-                self._gpt4o if CFG.env in [
+                self._gemini_exp if CFG.env in [
                 "pybullet_balance",
                 "pybullet_cover_weighted"
-                ] else self._vlm,
+                ] and CFG.vlm_invention_propose_nl_properties else self._vlm,
                 s2_prompt,
-                images)
+                images,
+                seed=CFG.seed * 100 + (ite+1) * 10 + proposal_batch_id)
         # Or implement N at a time.
         else:
             # 1. Parse the specs

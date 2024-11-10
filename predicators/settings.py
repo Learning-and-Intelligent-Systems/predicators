@@ -462,6 +462,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_use_chat_mode = False
     query_vlm_for_each_assertion = False
     query_vlm_for_each_predicate = False
+    max_evaluate_predicates = 10
     vlm_invent_include_option_history = False
     vlm_invent_try_to_use_gt_predicates = False
     vlm_invent_predicates_in_stages = False
@@ -472,6 +473,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
     vlm_invention_initial_concept_invention = False
     vlm_invention_use_concept_predicates = False
     vlm_invention_max_invent_ite = 10
+    vlm_invention_proposal_batches = 1
     vlm_temperature = 0.0
     vlm_num_completions = 1
 
@@ -983,7 +985,7 @@ You are an AI researcher who will answer whether each assertion holds in the ima
                     # "cover_place_hard": 1,
                 })[args.get("env", "")],
             cover_block_widths=defaultdict(
-                lambda: [0.05,0.05,0.06,0.04],
+                lambda: [0.06,0.06,0.06,0.04],
                 {
                     # "cover_place_hard": [0.1],
                 })[args.get("env", "")],

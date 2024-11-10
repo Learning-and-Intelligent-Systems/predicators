@@ -447,7 +447,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             assert max_skeletons <= CFG.sesame_max_skeletons_optimized
             assert not CFG.sesame_use_visited_state_set
-            # logging.debug(f"task: {ll_traj.train_task_idx}, init_atom: {init_atoms}, goal: {goal}")
+            logging.debug(f"task: {ll_traj.train_task_idx}, init_atom: {init_atoms}, goal: {goal}")
             generator = task_plan(init_atoms,
                                 goal,
                                 ground_nsrts,

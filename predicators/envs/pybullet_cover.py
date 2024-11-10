@@ -480,9 +480,9 @@ class PyBulletCoverWeighted(PyBulletCoverTypedOptionEnv):
     the tasks with the heavy blocks are not achievable.
     """
     # Define colors
-    light_color = [0, 0, 0, 1]  # light block color
-    heavy_color = [1, 1, 1, 1]  # heavy block color
-    target_colr = [0.5, 1, 0.5, 1]
+    light_color = [0, 1, 0, 1]  # light block color -> green
+    heavy_color = [1, 0, 0, 1]  # heavy block color -> red
+    target_colr = [0, 0, 1, 1]
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)

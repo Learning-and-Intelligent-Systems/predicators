@@ -3847,17 +3847,52 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                 logging.warning(f"VLM didn't response neither true/false, "
                                 f"response: {vlm_output_str}")
     else:
-        pred_name_to_queries = defaultdict(list)
-        if CFG.query_vlm_for_each_predicate:
-            # group querys by their lifted predicates
+        query_groups = defaultdict(list)
+        # if CFG.query_vlm_for_each_predicate:
+        #     for query in queries:
+        #         pred_name_to_queries[query.ground_atom.predicate.name].append(query)
+        # else:
+        if CFG.max_evaluate_predicates <= 0:
+            query_groups["all"].extend(queries)
+        else:
+            pred_name_to_queries = defaultdict(list)
             for query in queries:
                 pred_name_to_queries[query.ground_atom.predicate.name].append(
                     query)
-        else:
-            # If evaluate all queries at once
-            pred_name_to_queries["all"].extend(queries)
 
-        for queries in pred_name_to_queries.values():
+            if CFG.query_vlm_for_each_predicate:
+                query_groups = pred_name_to_queries
+            else:
+                # Group queries from n predicates together
+                group_index = 0
+                combined_queries = []
+                # Combine queries from 10 predicates
+                for i, (_, pred_queries) in\
+                        enumerate(pred_name_to_queries.items()):
+                    combined_queries.extend(pred_queries)
+                    # Check if we have collected queries from 10 predicates
+                    if (i + 1) % CFG.max_evaluate_predicates == 0:
+                        query_groups[group_index] = combined_queries[:]
+                        combined_queries = []
+                        group_index += 1
+
+                # Add any remaining queries to the last group
+                if combined_queries:
+                    query_groups[group_index] = combined_queries
+                
+        # pred_name_to_queries = defaultdict(list)
+        # if CFG.query_vlm_for_each_predicate:
+        #     # group querys by their lifted predicates
+        #     for query in queries:
+        #         pred_name_to_queries[query.ground_atom.predicate.name].append(
+        #             query)
+        # else:
+        #     # If evaluate all queries at once
+        #     pred_name_to_queries["all"].extend(queries)
+
+        # take 10 entryies from the dictionary at time
+        # merge all the dictionary values (lists) to a single list
+        for queries in query_groups.values():
             # logging.debug("Start processing queries")
             attention_image = state_ip.crop_to_bboxes(
                 [query.attention_box for query in queries])
@@ -3973,28 +4008,6 @@ def query_vlm_for_atom_vals_with_VLMQuerys(
                         state, ground_atom.objects, False)
             logging.debug("done")
 
-    # else:
-    #     attention_image = state_ip.crop_to_bboxes(
-    #         [query.attention_box for query in queries])
-    #     attention_image = attention_image.cropped_image_in_PIL
-    #     prompts = "\n".join([f"{i+1}. {query.query_str}" for i, query in
-    #         enumerate(queries)])
-    #     vlm_output = vlm.sample_completions(prompt=prompts,
-    #                                         imgs=[attention_image],
-    #                                         temperature=CFG.vlm_temperature,
-    #                                         seed=CFG.seed,
-    #                                         num_completions=1)
-    #     assert len(vlm_output) == 1
-    #     vlm_output_str = vlm_output[0].lower()
-    #     all_vlm_responses = vlm_output_str.strip().split("\n")
-
-    #     assert len(queries) == len(all_vlm_responses)
-    #     for query, response in zip(queries, all_vlm_responses):
-    #         if "true" in response:
-    #             true_atom.add(query.ground_atom)
-    #         elif "false" not in response:
-    #             logging.warning(f"VLM didn't response neither true/false, "
-    #                             f"response: {response}")
     return true_atom
 
 

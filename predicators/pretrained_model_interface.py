@@ -210,7 +210,7 @@ class OpenAIModel():
             key = os.environ["OPENAI_API_KEY"]
 
     @retry(wait=wait_random_exponential(min=1, max=60),
-           stop=stop_after_attempt(10))
+           stop=stop_after_attempt(100))
     def call_openai_api(self,
                         messages: list,
                         model: str = "gpt-4",
@@ -276,7 +276,7 @@ class GoogleGeminiModel(PretrainedLargeModel):
         if CFG.vlm_use_chat_mode:
             self.chat_session = self._model.start_chat()
 
-        if CFG.vlm_model_name == "gemini-1.5-pro-exp-0801":
+        if self._model_name == "gemini-1.5-pro-exp-0801":
             keys = [
                 os.getenv("GOOGLE_API_KEY"),
                 os.getenv("GOOGLE_API_KEY1"),

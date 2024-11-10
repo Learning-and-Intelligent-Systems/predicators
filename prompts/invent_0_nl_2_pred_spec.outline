@@ -23,4 +23,4 @@ Propose predicates in the following format:
 
 * The assertion should be very clear, precise, and unambiguous, and about the relationship or properties of the variables `?<var1>`, `?<var2>`, etc., if applicable.
 * Replace placeholders like <predicate1_name>, <var1>, etc., with actual names; <type1> actual types from the state dictionary provided. Do not use types that are not present in the states (e.g., int, float, string, number etc).
-* Group predicates into chunks, separated by an empty line, corresponding to the proposed properties.
+* Group predicates into chunks, separated by an empty line, corresponding to the proposed properties. Do not include any additional information outside the requested content.

@@ -55,16 +55,16 @@ KEYS = [
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
-    # ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
+    ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
     # ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
     ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
-    # ("Cover_Heavy", pd_create_equal_selector("ENV", "pybullet_cover_weighted")),
-    # ("Balance", pd_create_equal_selector("ENV", "pybullet_balance")),
+    ("Cover Heavy", pd_create_equal_selector("ENV", "pybullet_cover_weighted")),
+    ("Balance", pd_create_equal_selector("ENV", "pybullet_balance")),
 ]
 
 # See PLOT_GROUPS comment.
 BAR_GROUPS = [
-    ("Manual",
+    ("Oracle",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_model" in v)),
     # ("oracle invent",
     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_invention" in v)),
