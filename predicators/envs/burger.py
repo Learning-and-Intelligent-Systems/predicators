@@ -1312,7 +1312,6 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                     GroundAtom(self._GoalHack4, [patty, tomato]),
                     GroundAtom(self._On, [top_bun, tomato]),
-                    GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
                 }
                 if i < CFG.burger_num_test_start_holding:
                     alt_test_goal.add(
