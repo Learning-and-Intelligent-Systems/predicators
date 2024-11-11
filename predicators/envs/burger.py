@@ -1079,7 +1079,6 @@ class BurgerNoMoveEnv(BurgerEnv):
     def _get_tasks(self, num: int, rng: np.random.Generator,
                    train_or_test: str) -> List[EnvironmentTask]:
         spots_for_objects = self.get_edge_cells_for_object_placement(rng)
-
         def create_default_state() -> Tuple[dict, dict, List[Tuple[int, int]]]:
             state_dict = {}
             hidden_state = {}
@@ -1263,7 +1262,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                                          alt_train_goal)
                 train_tasks.append(train_task)
 
-            for _ in range(CFG.num_test_tasks):
+            for i in range(CFG.num_test_tasks):
                 # test task 1
                 state_dict, hidden_state, shuffled_spots = create_default_state(
                 )
@@ -1273,28 +1272,32 @@ class BurgerNoMoveEnv(BurgerEnv):
                 tomato = d["lettuce1"]
                 top_bun = d["top_bun1"]
 
-                # replace the cheese with a bottom bun
-                cheese1 = [o for o in state_dict.keys() if o.name == "cheese1"][0]
-                state_dict.pop(cheese1)
-                hidden_state.pop(cheese1)
-                r, c = shuffled_spots[4]  # where the cheese was
-                bottom_bun2 = Object("bottom_bun2", self._bottom_bun_type)
-                state_dict[bottom_bun2] = {"row": r, "col": c, "z": 0}
-                hidden_state[bottom_bun2] = {"is_held": 0.0}
-                r, c = shuffled_spots[7]  # next empty cell
-                patty2 = Object("patty2", self._patty_type)
-                state_dict[patty2] = {"row": r, "col": c, "z": 0}
-                hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
-                r, c = shuffled_spots[8]  # next empty cell
-                lettuce2 = Object("lettuce2", self._tomato_type)
-                state_dict[lettuce2] = {"row": r, "col": c, "z": 0}
-                hidden_state[lettuce2] = {"is_sliced": 1.0, "is_held": 0.0}
-
-                # start out holding patty2.
-                state_dict[self._robot]["fingers"] = 1.0
-                state_dict[patty2]["row"] = state_dict[self._robot]["row"]
-                state_dict[patty2]["col"] = state_dict[self._robot]["col"]
-                hidden_state[patty2] = {"is_cooked": 1.0, "is_held": 1.0}
+                if i < CFG.burger_num_test_start_holding:
+                    # replace the cheese with a bottom bun
+                    cheese1 = [
+                        o for o in state_dict.keys() if o.name == "cheese1"
+                    ][0]
+                    state_dict.pop(cheese1)
+                    hidden_state.pop(cheese1)
+                    r, c = shuffled_spots[4]  # where the cheese was
+                    bottom_bun2 = Object("bottom_bun2", self._bottom_bun_type)
+                    state_dict[bottom_bun2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[bottom_bun2] = {"is_held": 0.0}
+                    # add another patty
+                    r, c = shuffled_spots[7]  # next empty cell
+                    patty2 = Object("patty2", self._patty_type)
+                    state_dict[patty2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
+                    # add another lettuce
+                    r, c = shuffled_spots[8]  # next empty cell
+                    lettuce2 = Object("lettuce2", self._tomato_type)
+                    state_dict[lettuce2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[lettuce2] = {"is_sliced": 1.0, "is_held": 0.0}
+                    # start out holding patty2.
+                    state_dict[self._robot]["fingers"] = 1.0
+                    state_dict[patty2]["row"] = state_dict[self._robot]["row"]
+                    state_dict[patty2]["col"] = state_dict[self._robot]["col"]
+                    hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 1.0}
 
                 test_goal = {
                     GroundAtom(self._IsCooked, [patty]),
@@ -1302,18 +1305,19 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._On, [patty, bottom_bun]),
                     GroundAtom(self._On, [tomato, patty]),
                     GroundAtom(self._On, [top_bun, tomato]),
-                    # GroundAtom(self._IsCooked, [patty2]),
-                    # GroundAtom(self._IsSliced, [lettuce2]),
-                    # GroundAtom(self._On, [patty2, bottom_bun2]),
-                    # GroundAtom(self._On, [lettuce2, patty2]),
                 }
+                if i < CFG.burger_num_test_start_holding:
+                    test_goal.add(GroundAtom(self._IsCooked, [patty2]))
+                    test_goal.add(GroundAtom(self._On, [patty2, bottom_bun2]))
                 alt_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                     GroundAtom(self._GoalHack4, [patty, tomato]),
                     GroundAtom(self._On, [top_bun, tomato]),
-                    # GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
-                    # GroundAtom(self._GoalHack4, [patty2, lettuce2]),
+                    GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
                 }
+                if i < CFG.burger_num_test_start_holding:
+                    alt_test_goal.add(
+                        GroundAtom(self._GoalHack2, [bottom_bun2, patty2]))
                 test_task = create_task(state_dict, hidden_state, test_goal,
                                         alt_test_goal)
                 test_tasks.append(test_task)
@@ -1357,6 +1361,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                 patty2 = Object("patty2", self._patty_type)
                 state_dict[patty2] = {"row": r, "col": c, "z": 0}
                 hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
+
                 train_goal = {
                     GroundAtom(self._On, [patty, self._cutting_board]),
                     GroundAtom(self._IsCooked, [patty]),
@@ -1394,7 +1399,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                                          alt_train_goal)
                 train_tasks.append(train_task)
 
-            for _ in range(CFG.num_test_tasks):
+            for i in range(CFG.num_test_tasks):
                 # test task 1
                 state_dict, hidden_state, shuffled_spots = create_default_state(
                 )
@@ -1406,17 +1411,46 @@ class BurgerNoMoveEnv(BurgerEnv):
                 patty2 = Object("patty2", self._patty_type)
                 state_dict[patty2] = {"row": r, "col": c, "z": 0}
                 hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
+
+                if i < CFG.burger_num_test_start_holding:
+                    # replace the cheese with a bottom bun
+                    cheese1 = [
+                        o for o in state_dict.keys() if o.name == "cheese1"
+                    ][0]
+                    state_dict.pop(cheese1)
+                    hidden_state.pop(cheese1)
+                    r, c = shuffled_spots[4]  # where the cheese was
+                    bottom_bun2 = Object("bottom_bun2", self._bottom_bun_type)
+                    state_dict[bottom_bun2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[bottom_bun2] = {"is_held": 0.0}
+                    # add another patty
+                    r, c = shuffled_spots[8]  # next empty cell
+                    patty3 = Object("patty3", self._patty_type)
+                    state_dict[patty3] = {"row": r, "col": c, "z": 0}
+                    hidden_state[patty3] = {"is_cooked": 0.0, "is_held": 0.0}
+                    # start out holding patty3.
+                    state_dict[self._robot]["fingers"] = 1.0
+                    state_dict[patty3]["row"] = state_dict[self._robot]["row"]
+                    state_dict[patty3]["col"] = state_dict[self._robot]["col"]
+                    hidden_state[patty3] = {"is_cooked": 0.0, "is_held": 1.0}
+
                 test_goal = {
                     GroundAtom(self._IsCooked, [patty]),
                     GroundAtom(self._On, [patty, bottom_bun]),
                     GroundAtom(self._On, [patty2, patty]),
                     GroundAtom(self._On, [top_bun, patty2])
                 }
+                if i < CFG.burger_num_test_start_holding:
+                    test_goal.add(GroundAtom(self._IsCooked, [patty3]))
+                    test_goal.add(GroundAtom(self._On, [patty3, bottom_bun2]))
                 alt_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                     GroundAtom(self._GoalHack6, [patty, patty2]),
                     GroundAtom(self._On, [top_bun, patty2])
                 }
+                if i < CFG.burger_num_test_start_holding:
+                    alt_test_goal.add(
+                        GroundAtom(self._GoalHack2, [bottom_bun2, patty3]))
                 test_task = create_task(state_dict, hidden_state, test_goal,
                                         alt_test_goal)
                 test_tasks.append(test_task)
@@ -1494,7 +1528,7 @@ class BurgerNoMoveEnv(BurgerEnv):
                                          alt_train_goal)
                 train_tasks.append(train_task)
 
-            for _ in range(CFG.num_test_tasks):
+            for i in range(CFG.num_test_tasks):
                 # test task 1
                 state_dict, hidden_state, shuffled_spots = create_default_state(
                 )
@@ -1545,6 +1579,23 @@ class BurgerNoMoveEnv(BurgerEnv):
                 bottom_bun5 = Object("bottom_bun5", self._bottom_bun_type)
                 state_dict[bottom_bun5] = {"row": r, "col": c, "z": 0}
                 hidden_state[bottom_bun5] = {"is_held": 0.0}
+
+                if i < CFG.burger_num_test_start_holding:
+                    r, c = shuffled_spots[11]  # next empty cell
+                    bottom_bun6 = Object("bottom_bun6", self._bottom_bun_type)
+                    state_dict[bottom_bun6] = {"row": r, "col": c, "z": 0}
+                    hidden_state[bottom_bun6] = {"is_held": 0.0}
+                    # add another patty
+                    r, c = shuffled_spots[11]  # next empty cell
+                    patty6 = Object("patty6", self._patty_type)
+                    state_dict[patty6] = {"row": r, "col": c, "z": 0}
+                    hidden_state[patty6] = {"is_cooked": 0.0, "is_held": 0.0}
+                    # start out holding patty6.
+                    state_dict[self._robot]["fingers"] = 1.0
+                    state_dict[patty6]["row"] = state_dict[self._robot]["row"]
+                    state_dict[patty6]["col"] = state_dict[self._robot]["col"]
+                    hidden_state[patty6] = {"is_cooked": 0.0, "is_held": 1.0}
+
                 test_goal = {
                     GroundAtom(self._On, [patty, bottom_bun]),
                     GroundAtom(self._On, [patty2, bottom_bun2]),
@@ -1557,6 +1608,9 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._IsCooked, [patty4]),
                     GroundAtom(self._IsCooked, [patty5])
                 }
+                if i < CFG.burger_num_test_start_holding:
+                    test_goal.add(GroundAtom(self._IsCooked, [patty6]))
+                    test_goal.add(GroundAtom(self._On, [patty6, bottom_bun6]))
                 alt_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                     GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
@@ -1564,6 +1618,9 @@ class BurgerNoMoveEnv(BurgerEnv):
                     GroundAtom(self._GoalHack2, [bottom_bun4, patty4]),
                     GroundAtom(self._GoalHack2, [bottom_bun5, patty5])
                 }
+                if i < CFG.burger_num_test_start_holding:
+                    alt_test_goal.add(
+                        GroundAtom(self._GoalHack2, [bottom_bun6, patty6]))
                 test_task = create_task(state_dict, hidden_state, test_goal,
                                         alt_test_goal)
                 test_tasks.append(test_task)
