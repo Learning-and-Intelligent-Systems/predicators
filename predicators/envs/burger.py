@@ -1290,23 +1290,29 @@ class BurgerNoMoveEnv(BurgerEnv):
                 state_dict[lettuce2] = {"row": r, "col": c, "z": 0}
                 hidden_state[lettuce2] = {"is_sliced": 1.0, "is_held": 0.0}
 
+                # start out holding patty2.
+                state_dict[self._robot]["fingers"] = 1.0
+                state_dict[patty2]["row"] = state_dict[self._robot]["row"]
+                state_dict[patty2]["col"] = state_dict[self._robot]["col"]
+                hidden_state[patty2] = {"is_cooked": 1.0, "is_held": 1.0}
+
                 test_goal = {
                     GroundAtom(self._IsCooked, [patty]),
                     GroundAtom(self._IsSliced, [tomato]),
                     GroundAtom(self._On, [patty, bottom_bun]),
                     GroundAtom(self._On, [tomato, patty]),
                     GroundAtom(self._On, [top_bun, tomato]),
-                    GroundAtom(self._IsCooked, [patty2]),
-                    GroundAtom(self._IsSliced, [lettuce2]),
-                    GroundAtom(self._On, [patty2, bottom_bun2]),
-                    GroundAtom(self._On, [lettuce2, patty2]),
+                    # GroundAtom(self._IsCooked, [patty2]),
+                    # GroundAtom(self._IsSliced, [lettuce2]),
+                    # GroundAtom(self._On, [patty2, bottom_bun2]),
+                    # GroundAtom(self._On, [lettuce2, patty2]),
                 }
                 alt_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                     GroundAtom(self._GoalHack4, [patty, tomato]),
                     GroundAtom(self._On, [top_bun, tomato]),
-                    GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
-                    GroundAtom(self._GoalHack4, [patty2, lettuce2]),
+                    # GroundAtom(self._GoalHack2, [bottom_bun2, patty2]),
+                    # GroundAtom(self._GoalHack4, [patty2, lettuce2]),
                 }
                 test_task = create_task(state_dict, hidden_state, test_goal,
                                         alt_test_goal)
