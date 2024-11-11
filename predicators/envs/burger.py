@@ -1145,7 +1145,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
         def name_to_obj(state_dict: dict) -> Dict[str, Object]:
             d = {}
-            for obj in state_dict.keys():
+            for obj in state_dict:
                 d[obj.name] = obj
             return d
 
@@ -1275,9 +1275,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
                 if i < CFG.burger_num_test_start_holding:
                     # replace the cheese with a bottom bun
-                    cheese1 = [
-                        o for o in state_dict.keys() if o.name == "cheese1"
-                    ][0]
+                    cheese1 = [o for o in state_dict if o.name == "cheese1"][0]
                     state_dict.pop(cheese1)
                     hidden_state.pop(cheese1)
                     r, c = shuffled_spots[4]  # where the cheese was
@@ -1415,9 +1413,7 @@ class BurgerNoMoveEnv(BurgerEnv):
 
                 if i < CFG.burger_num_test_start_holding:
                     # replace the cheese with a bottom bun
-                    cheese1 = [
-                        o for o in state_dict.keys() if o.name == "cheese1"
-                    ][0]
+                    cheese1 = [o for o in state_dict if o.name == "cheese1"][0]
                     state_dict.pop(cheese1)
                     hidden_state.pop(cheese1)
                     r, c = shuffled_spots[4]  # where the cheese was
