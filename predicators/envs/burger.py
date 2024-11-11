@@ -1079,6 +1079,7 @@ class BurgerNoMoveEnv(BurgerEnv):
     def _get_tasks(self, num: int, rng: np.random.Generator,
                    train_or_test: str) -> List[EnvironmentTask]:
         spots_for_objects = self.get_edge_cells_for_object_placement(rng)
+
         def create_default_state() -> Tuple[dict, dict, List[Tuple[int, int]]]:
             state_dict = {}
             hidden_state = {}

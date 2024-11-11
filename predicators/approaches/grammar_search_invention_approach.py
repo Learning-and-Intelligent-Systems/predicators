@@ -1109,11 +1109,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 #     p for p in candidates
                 #     if p.name in ["cooked0", "free0", "chopped0"])
                 # import pdb; pdb.set_trace()
-                # self._learned_predicates = \
-                #     self._select_predicates_by_score_hillclimbing(
-                #     candidates, score_function, self._initial_predicates,
-                #     atom_dataset, self._train_tasks)
-            import pdb; pdb.set_trace()
+                self._learned_predicates = \
+                    self._select_predicates_by_score_hillclimbing(
+                    candidates, score_function, self._initial_predicates,
+                    atom_dataset, self._train_tasks)
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             self._learned_predicates = self._select_predicates_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset)
