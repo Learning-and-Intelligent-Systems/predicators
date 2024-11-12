@@ -363,7 +363,7 @@ def test_burger_no_move():
 
     option_plan = [n.option.ground(n.option_objs, []) for n in plan]
     policy = utils.option_plan_to_policy(option_plan)
-    # Get a test task where we don't start out 
+    # Get a test task where we don't start out
     # holding something.
     traj, _ = utils.run_policy(policy,
                                env,
