@@ -1359,7 +1359,6 @@ class BurgerNoMoveEnv(BurgerEnv):
                 patty2 = Object("patty2", self._patty_type)
                 state_dict[patty2] = {"row": r, "col": c, "z": 0}
                 hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
-
                 train_goal = {
                     GroundAtom(self._On, [patty, self._cutting_board]),
                     GroundAtom(self._IsCooked, [patty]),

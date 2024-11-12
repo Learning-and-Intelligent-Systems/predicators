@@ -211,7 +211,6 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                 num_completions=1)
         plan_prediction_txt = vlm_output[0]
         option_plan: List[_Option] = []
-        # import pdb; pdb.set_trace()
         try:
             start_index = plan_prediction_txt.index("Plan:\n") + len("Plan:\n")
             parsable_plan_prediction = plan_prediction_txt[start_index:]
