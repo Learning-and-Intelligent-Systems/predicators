@@ -362,6 +362,8 @@ class GlobalSettings:
     # Replace actual rendering with dummy rendering (black 16x16 image) to speed
     # up rendering -- used in testing or when debugging.
     burger_dummy_render = False
+    # Number of test tasks where you start out holding a patty.
+    burger_num_test_start_holding = 5
 
     # parameters for random options approach
     random_options_max_tries = 100
