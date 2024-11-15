@@ -1,50 +1,78 @@
 # Experiments to test predicate invention with VLMs
 ---
 APPROACHES:
-  ours:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_invent_geo_predicates_only: False
-  ours-vlm-subselection:
+  # ours:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: False
+  #     cluster_and_intersect_soft_intersection_for_preconditions: True
+  #     cluster_and_intersect_prune_low_data_pnads: True
+  ours-no-diversity:
     NAME: "grammar_search_invention"
     FLAGS:
       grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
       offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_invent_geo_predicates_only: True
-  ours-no-subselection:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
-      offline_data_method: geo_and_demo_with_vlm_imgs
-      grammar_search_pred_selection_approach: no_select
       grammar_search_invent_geo_predicates_only: False
-  ours-no-invent:
-    NAME: "nsrt_learning"
-    FLAGS: {}
-  ours-no-visual:
-    NAME: "grammar_search_invention"
-    FLAGS: 
-      offline_data_method: demo
-  ours-no-geo:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
-      grammar_search_invent_geo_predicates_only: False
-  interpret:
-    NAME: "grammar_search_invention"
-    FLAGS:
-      offline_data_method: demo_with_vlm_imgs
-      vlm_predicate_vision_api_generate_ground_atoms: True
-  vila-with-fewshot:
-    NAME: "vlm_open_loop"
-    FLAGS:
-      vlm_open_loop_use_training_demos: True
-  vila-pure:
-    NAME: "vlm_open_loop"
-    FLAGS:
-      vlm_open_loop_use_training_demos: False
+      cluster_and_intersect_soft_intersection_for_preconditions: False
+      cluster_and_intersect_prune_low_data_pnads: False
+  # ours-no-op-noise-tolerance:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: False
+  #     cluster_and_intersect_soft_intersection_for_preconditions: True
+  #     cluster_and_intersect_prune_low_data_pnads: True
+  # ours-vlm-subselection:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_specific
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: True
+  #     cluster_and_intersect_soft_intersection_for_preconditions: True
+  #     cluster_and_intersect_prune_low_data_pnads: True
+  # ours-no-subselection:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: options_labels_whole_traj_diverse
+  #     offline_data_method: geo_and_demo_with_vlm_imgs
+  #     grammar_search_pred_selection_approach: no_select
+  #     grammar_search_invent_geo_predicates_only: False
+  #     cluster_and_intersect_soft_intersection_for_preconditions: True
+  #     cluster_and_intersect_prune_low_data_pnads: True
+  # ours-no-invent:
+  #   NAME: "nsrt_learning"
+  #   FLAGS: {}
+  # ours-no-visual:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS: 
+  #     offline_data_method: demo
+  #     cluster_and_intersect_soft_intersection_for_preconditions: True
+  #     cluster_and_intersect_prune_low_data_pnads: True
+  # ours-no-geo:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     grammar_search_vlm_atom_proposal_prompt_type: demo_with_vlm_imgs
+  #     grammar_search_invent_geo_predicates_only: False
+  #     cluster_and_intersect_soft_intersection_for_preconditions: True
+  #     cluster_and_intersect_prune_low_data_pnads: True
+  # interpret:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     offline_data_method: demo_with_vlm_imgs
+  #     vlm_predicate_vision_api_generate_ground_atoms: True
+  #     cluster_and_intersect_soft_intersection_for_preconditions: True
+  #     cluster_and_intersect_prune_low_data_pnads: True
+  # vila-with-fewshot:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: True
+  # vila-pure:
+  #   NAME: "vlm_open_loop"
+  #   FLAGS:
+  #     vlm_open_loop_use_training_demos: False
 
 ENVS:
   burger_no_move_more_stacks:
@@ -69,13 +97,11 @@ ENVS:
       grammar_search_parallelize_vlm_labeling: True
       grammar_search_use_handcoded_debug_grammar: False
       grammar_search_select_all_debug: False
-      cluster_and_intersect_soft_intersection_for_preconditions: True
       vlm_include_cropped_images: True
       timeout: 80
       grammar_search_grammar_includes_givens: False
-      cluster_and_intersect_prune_low_data_pnads: True
+      num_train_tasks: 12
       cluster_and_intersect_min_datastore_fraction: 0.05
-      num_train_tasks: 12 # 8 for VILA
       precondition_soft_intersection_threshold_percent: 0.8
       grammar_search_early_termination_heuristic_thresh: 2000
       vlm_double_check_output: True
