@@ -11,9 +11,9 @@ rcParams['font.size'] = 16
 # Define the data for each environment
 data_combo_burger = {
     'EXPERIMENT_ID': [
-        'INTERPRET', 'Ours', 'Ours-no-geo', 'Ours-no-invent',
-        'Ours-no-subselection', 'Ours-no-visual', 'Ours-vlm-subselection', 
-        'VILA-pure', 'VILA-with-fewshot'
+        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'No subselect', 'No visual', 'VLM subselect', 
+        'ViLa', 'ViLa fewshot'
     ],
     'NUM_SOLVED': [0.00, 8.20, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 3.80],
     'NUM_SOLVED_STDDEV': [0.00, 1.17, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.40]
@@ -21,9 +21,9 @@ data_combo_burger = {
 
 data_fatter_burger = {
     'EXPERIMENT_ID': [
-        'INTERPRET', 'Ours', 'Ours-no-geo', 'Ours-no-invent',
-        'Ours-no-subselection', 'Ours-no-visual', 'Ours-vlm-subselection', 
-        'VILA-pure', 'VILA-with-fewshot'
+        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'No subselect', 'No visual', 'VLM subselect', 
+        'ViLa', 'ViLa fewshot'
     ],
     'NUM_SOLVED': [0.00, 9.60, 1.20, 0.00, 0.00, 1.20, 3.00, 0.80, 3.80],
     'NUM_SOLVED_STDDEV': [0.00, 0.80, 2.40, 0.00, 0.00, 2.40, 1.41, 0.40, 0.40]
@@ -31,9 +31,9 @@ data_fatter_burger = {
 
 data_more_stacks = {
     'EXPERIMENT_ID': [
-        'INTERPRET', 'Ours', 'Ours-no-geo', 'Ours-no-invent',
-        'Ours-no-subselection', 'Ours-no-visual', 'Ours-vlm-subselection', 
-        'VILA-pure', 'VILA-with-fewshot'
+        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'No subselect', 'No visual', 'VLM subselect', 
+        'ViLa', 'ViLa fewshot'
     ],
     'NUM_SOLVED': [0.00, 9.40, 0.00, 0.00, 0.00, 0.00, 3.60, 0.80, 3.80],
     'NUM_SOLVED_STDDEV': [0.00, 0.80, 0.00, 0.00, 0.00, 0.00, 2.24, 1.17, 0.40]
@@ -41,9 +41,9 @@ data_more_stacks = {
 
 data_kitchen_boil_kettle = {
     'EXPERIMENT_ID': [
-        'INTERPRET', 'Ours', 'Ours-no-geo', 'Ours-no-invent',
-        'Ours-no-subselection', 'Ours-no-visual', 'Ours-vlm-subselection', 
-        'VILA-pure', 'VILA-with-fewshot'
+        'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
+        'No subselect', 'No visual', 'VLM subselect', 
+        'ViLa', 'ViLa fewshot'
     ],
     'NUM_SOLVED': [0.00, 9.80, 9.80, 0.00, 0.00, 9.80, 1.00, 6.60, 10.00],
     'NUM_SOLVED_STDDEV': [0.00, 0.40, 0.40, 0.00, 0.00, 0.40, 2.00, 1.02, 0.00]
@@ -57,9 +57,8 @@ df_kitchen_boil_kettle = pd.DataFrame(data_kitchen_boil_kettle)
 
 # Reorder the 'EXPERIMENT_ID' column to match 'custom_order'
 custom_order = [
-    'Ours', 'Ours-no-geo', 'Ours-no-invent', 'Ours-no-subselection',
-    'Ours-no-visual', 'Ours-vlm-subselection', 'INTERPRET', 'VILA-pure', 
-    'VILA-with-fewshot'
+    'Ours', 'VLM subselect', 'No subselect', 'No feat.', 'No visual', 'No invent',
+    'VLM feat. pred', 'ViLa', 'ViLa fewshot'
 ]
 
 # Apply Categorical ordering before any transformations
