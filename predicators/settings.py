@@ -320,6 +320,10 @@ class GlobalSettings:
     coffee_num_cups_test = [2, 3]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
     coffee_rotated_jug_ratio = 0.5
+    coffee_twist_sampler = True
+    coffee_combined_move_and_twist_policy = False
+    coffee_move_back_after_place_and_push = False
+    coffee_jug_pickable_pred = False
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]

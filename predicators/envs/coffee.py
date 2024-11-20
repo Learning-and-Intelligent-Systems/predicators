@@ -526,18 +526,15 @@ class CoffeeEnv(BaseEnv):
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
 
-            if CFG.coffee_no_rotated_jug:
-                rot = 0
+            # Auto
+            p = CFG.coffee_rotated_jug_ratio
+            add_rotation = rng.choice([True, False], p=[p, 1 - p])
+            if add_rotation:
+                logging.info(f"Adding rotation to jug to task {task_idx}")
+                rot = self.jug_init_rot_ub
             else:
-                # Auto
-                p = CFG.coffee_rotated_jug_ratio
-                add_rotation = rng.choice([True, False], p=[p, 1 - p])
-                if add_rotation:
-                    logging.info(f"Adding rotation to jug to task {task_idx}")
-                    rot = self.jug_init_rot_ub
-                else:
-                    epsilon = 1e-10
-                    rot = rng.uniform(-0.1 + epsilon, 0.1 - epsilon)
+                epsilon = 1e-10
+                rot = rng.uniform(-0.1 + epsilon, 0.1 - epsilon)
 
             state_dict[self._jug] = {
                 "x": x,

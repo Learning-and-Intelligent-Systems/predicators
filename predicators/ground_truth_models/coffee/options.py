@@ -115,19 +115,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             holds = Holding.holds(state, [robot, jug])
             return holds
 
-        def _PickJug_annotation(entities: List[_TypedEntity]) -> str:
-            _, jug = entities
-            return f"Pick up {jug.id_name}."
-
         PickJug = ParameterizedOption(
             "PickJug",
             types=[robot_type, jug_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_pick_jug_policy(),
             initiable=_PickJug_initial,
-            terminal=_PickJug_terminal,
-            annotation="Pick up the jug.",
-            parameterized_annotation=_PickJug_annotation)
+            terminal=_PickJug_terminal)
 
         # PlaceJugInMachine
         def _PlaceJugInMachine_terminal(state: State, memory: Dict,
@@ -138,19 +132,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             return not Holding.holds(state, [robot, jug]) and \
                 JugInMachine.holds(state, [jug, machine])
 
-        def _PlaceJug_annotation(entities: List[_TypedEntity]) -> str:
-            _, jug, machine = entities
-            return f"Place {jug.id_name} in {machine.id_name}."
-
         PlaceJugInMachine = ParameterizedOption(
             "PlaceJugInMachine",
             types=[robot_type, jug_type, machine_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_place_jug_in_machine_policy(),
             initiable=lambda s, m, o, p: True,
-            terminal=_PlaceJugInMachine_terminal,
-            annotation="Place the jug in the machine.",
-            parameterized_annotation=_PlaceJug_annotation)
+            terminal=_PlaceJugInMachine_terminal)
         cls.PlaceJugInMachine = PlaceJugInMachine
 
         # TurnMachineOn
@@ -168,19 +156,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             _, machine = objects
             return MachineOn.holds(state, [machine])
 
-        def _TurnMachineOn_annotation(entities: List[_TypedEntity]) -> str:
-            _, machine = entities
-            return f"Turn on {machine.id_name}."
-
         TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
             types=[robot_type, machine_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
-            terminal=_TurnMachineOn_terminal,
-            annotation="Turn the machine on.",
-            parameterized_annotation=_TurnMachineOn_annotation)
+            terminal=_TurnMachineOn_terminal)
         cls.TurnMachineOn = TurnMachineOn
 
         # Pour
@@ -196,19 +178,13 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             _, _, cup = objects
             return CupFilled.holds(state, [cup])
 
-        def _Pour_annotation(entities: List[_TypedEntity]) -> str:
-            _, jug, cup = entities
-            return f"Pour liquid from {jug.id_name} into {cup.id_name}."
-
         Pour = ParameterizedOption(
             "Pour",
             types=[robot_type, jug_type, cup_type],
             params_space=Box(0, 1, (0, )),
             policy=cls._create_pour_policy(),
             initiable=_Pour_initiable,
-            terminal=_Pour_terminal,
-            annotation="Pour liquid from the jug to the cup",
-            parameterized_annotation=_Pour_annotation)
+            terminal=_Pour_terminal)
 
         return {
             PickJug, PlaceJugInMachine, TurnMachineOn, Pour, MoveToTwistJug,
@@ -581,24 +557,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         options.remove(TwistJug)
         options.add(TwistJug)
 
-        # def _TwistJug_initiable(state: State, memory: Dict,
-        #                         objects: Sequence[Object],
-        #                         params: Array) -> bool:
-        #     del memory, params
-        #     _, jug = objects
-        #     machine = state.get_objects(machine_type)[0]
-        #     return not JugInMachine.holds(state, [jug, machine])
-
-        def _Twist_parameterized_annotation(
-                entities: List[_TypedEntity]) -> str:
-            _, jug = entities
-            return f"Rotate {jug.id_name} to a desiable orientation."
-
         if CFG.coffee_combined_move_and_twist_policy:
             Twist = utils.LinearChainParameterizedOption(
-                "Twist", [cls.MoveToTwistParamOption, TwistJug],
-                annotation="Rotate the jug to the desired rotation.",
-                parameterized_annotation=_Twist_parameterized_annotation)
+                "Twist", [cls.MoveToTwistParamOption, TwistJug])
             options.add(Twist)
             options.remove(cls.MoveToTwistParamOption)
             options.remove(TwistJug)

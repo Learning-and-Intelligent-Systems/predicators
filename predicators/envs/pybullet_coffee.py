@@ -148,24 +148,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-        self._table_type = Type(
-            "table",
-            [] + (bbox_features if CFG.env_include_bbox_features else []))
-        self._robot_type = Type(
-            "robot", ["x", "y", "z", "tilt", "wrist", "fingers"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
-        self._jug_type = Type(
-            "jug", ["x", "y", "z", "rot", "is_held", "is_filled"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
-        self._machine_type = Type(
-            "coffee_machine", ["is_on"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
-        self._cup_type = Type("cup", [
-            "x", "y", "z", "capacity_liquid", "target_liquid", "current_liquid"
-        ] + (bbox_features if CFG.env_include_bbox_features else []))
-
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
