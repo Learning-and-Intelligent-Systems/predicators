@@ -21,7 +21,6 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
     Observation, State, Video
-from predicators.utils import RawState
 
 
 class PyBulletEnv(BaseEnv):
@@ -302,13 +301,8 @@ class PyBulletEnv(BaseEnv):
         original_image = np.array(rgbImg, dtype=np.uint8).reshape(
             (height, width, 4))
         seg_image = np.array(segImg).reshape((height, width))
-        # imageio.imsave(f'./prompts/og_image.png', original_image)
-        # imageio.imsave(f'./prompts/seg_image.png', seg_image)
 
         state_img = Image.fromarray(original_image[:, :, :3])
-        # state_img = Image.fromarray(original_image)
-        # img_dict['scene'] = ImageWithBox(
-        #     Image.fromarray(original_image), 0, height-1, 0, width-1)
 
         # Iterate over all bodies
         for bodyId, obj in self._obj_id_to_obj.items():
@@ -318,33 +312,6 @@ class PyBulletEnv(BaseEnv):
             mask = seg_image == bodyId
             mask_dict[obj] = mask
 
-            # Image.fromarray(mask).save(f'images/mask_{obj.name}.png')
-        # for bodyId in range(1, p.getNumBodies(self._physics_client_id)):
-        #     # Create a mask for the current body using the segmentation mask
-        #     mask = seg_image == bodyId
-        #     try:
-        #         mask_dict[self._obj_id_to_obj[bodyId]] = mask
-        #     except:
-        #         breakpoint()
-
-        # Option 1: mask everything besides the object out
-        # obj_only_img = np.where(mask[..., None], original_image, 0)
-
-        # # Get the indices of the pixels that belong to the object
-        # y_indices, x_indices = np.where(mask)
-
-        # # Get the bounding box
-        # left = x_indices.min()
-        # right = x_indices.max()
-        # lower = y_indices.min()
-        # upper = y_indices.max()
-        # cropped_image = original_image[lower:upper+1, left:right+1]
-
-        # Add the cropped image to the dictionary
-        # img_dict[str(bodyId)] = Image.fromarray(cropped_image)
-        # img_dict[str(bodyId)] = ImageWithBox(
-        #     Image.fromarray(cropped_image), left, lower, right, upper)
-
         return state_img, mask_dict
 
     def get_observation(self, render: bool = False) -> Observation:
@@ -352,15 +319,11 @@ class PyBulletEnv(BaseEnv):
         assert isinstance(self._current_observation, State)
         state_copy = self._current_observation.copy()
         if render:
-            rendered_state = RawState(state_copy.data,
-                                      state_copy.simulator_state,
-                                      *self.render_segmented_obj())
-            rendered_state.label_all_objects()
-            if CFG.env_include_bbox_features:
-                rendered_state.add_bbox_features()
-            return rendered_state
-        else:
-            return state_copy
+            image = utils.label_all_objects(*self.render_segmented_obj())
+            sim_state = {"joint_positions": state_copy.simulator_state,
+                         "images": [image]}
+            state_copy.simulator_state = sim_state
+        return state_copy
 
     def step(self, action: Action) -> Observation:
         # Send the action to the robot.

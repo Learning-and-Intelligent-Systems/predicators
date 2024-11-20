@@ -53,7 +53,7 @@ class Type:
         return hash((self.name, tuple(self.feature_names)))
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class _TypedEntity:
     """Struct defining an entity with some type, either an object (e.g.,
     block3) or a variable (e.g., ?block).
@@ -62,6 +62,7 @@ class _TypedEntity:
     """
     name: str
     type: Type
+    id: Optional[int] = None
 
     @cached_property
     def _str(self) -> str:
@@ -88,7 +89,7 @@ class _TypedEntity:
         return False
 
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class Object(_TypedEntity):
     """Struct defining an Object, which is just a _TypedEntity whose name does
     not start with "?"."""
@@ -101,8 +102,12 @@ class Object(_TypedEntity):
         # frozen=True and eq=True, so we need to override it.
         return self._hash
 
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Object):
+            return self.name == other.name and self.type == other.type
+        return False
 
-@dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class Variable(_TypedEntity):
     """Struct defining a Variable, which is just a _TypedEntity whose name
     starts with "?"."""

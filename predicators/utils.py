@@ -59,6 +59,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
+from predicators.image_patch_wrapper import ImagePatch
 
 if TYPE_CHECKING:
     from predicators.envs import BaseEnv
@@ -1035,15 +1036,22 @@ class PyBulletState(State):
     @property
     def joint_positions(self) -> JointPositions:
         """Expose the current joints state in the simulator_state."""
-        return cast(JointPositions, self.simulator_state)
+        # if the simulator state is an array
+        if isinstance(self.simulator_state, Dict):
+            jp = self.simulator_state["joint_positions"]
+        else:
+            jp = self.simulator_state
+        return cast(JointPositions, jp)
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.
         return State(self.data).allclose(State(other.data))
 
     def copy(self) -> State:
-        state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_positions)
+        copy = super().copy()
+        state_dict_copy = copy.data
+        # simulator_state_copy = list(self.joint_positions)
+        simulator_state_copy = copy.simulator_state
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
 class StateWithCache(State):
@@ -4088,3 +4096,9 @@ def add_text_to_draw_img(
 def wrap_angle(angle: float) -> float:
     """Wrap an angle in radians to [-pi, pi]."""
     return np.arctan2(np.sin(angle), np.cos(angle))
+
+def label_all_objects(img, obj_mask_dict):
+    state_ip = ImagePatch(img)
+    state_ip.label_all_objects(obj_mask_dict)
+    labeled_image = state_ip.cropped_image_in_PIL
+    return labeled_image

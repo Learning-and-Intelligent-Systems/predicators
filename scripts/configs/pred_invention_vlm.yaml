@@ -150,10 +150,15 @@ ENVS:
       num_train_tasks: 5 #0 # pybullet_coffee, cover
       excluded_predicates: all
       coffee_num_cups_train: '[1]'
-      coffee_rotated_jug_ratio: 0.5
+      coffee_rotated_jug_ratio: 0
       pybullet_camera_height: 900  # for high quality, use 900
       pybullet_camera_width: 1200 # 1200 for coffee
       pybullet_control_mode: "reset" # need for blocks and coffee
+      rgb_observation: True
+      coffee_twist_sampler: False
+      coffee_combined_move_and_twist_policy: True
+      sesame_check_expected_atoms: False
+
   # kitchen_boil_kettle:
   #   NAME: "kitchen"
   #   FLAGS:
