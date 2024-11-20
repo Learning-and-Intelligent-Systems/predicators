@@ -143,6 +143,16 @@ ENVS:
   #     precondition_soft_intersection_threshold_percent: 0.8
   #     grammar_search_early_termination_heuristic_thresh: 2000
   #     vlm_double_check_output: True
+  coffee:
+    NAME: "pybullet_coffee"
+    FLAGS:
+      pretrained_model_prompt_cache_dir: "pretrained_model_cache/coffee"
+      num_train_tasks: 5 #0 # pybullet_coffee, cover
+      excluded_predicates: all
+      coffee_num_cups_train: '[1]'
+      coffee_rotated_jug_ratio: 0.5
+      pybullet_camera_height: 900  # for high quality, use 900
+      pybullet_camera_width: 1200 # 1200 for coffee
   kitchen_boil_kettle:
     NAME: "kitchen"
     FLAGS:
