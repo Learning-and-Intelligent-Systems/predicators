@@ -4084,3 +4084,7 @@ def add_text_to_draw_img(
     # Add the text to the image
     draw.text(position, text, fill="red", font=font)
     return draw
+
+def wrap_angle(angle: float) -> float:
+    """Wrap an angle in radians to [-pi, pi]."""
+    return np.arctan2(np.sin(angle), np.cos(angle))
