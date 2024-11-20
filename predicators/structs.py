@@ -2034,3 +2034,4 @@ AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
 RGBA = Tuple[float, float, float, float]
 BridgePolicy = Callable[[State, Set[GroundAtom], List[_Option]], _Option]
 BridgeDataset = List[Tuple[Set[_Option], _GroundNSRT, Set[GroundAtom], State]]
+Mask = NDArray[np.bool]
