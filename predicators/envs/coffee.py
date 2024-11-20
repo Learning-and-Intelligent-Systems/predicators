@@ -99,27 +99,20 @@ class CoffeeEnv(BaseEnv):
         super().__init__(use_gui)
 
         # Types
-        bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
         self._table_type = Type(
-            "table",
-            [] + (bbox_features if CFG.env_include_bbox_features else []))
+            "table", [])
         self._robot_type = Type(
-            "robot", ["x", "y", "z", "tilt", "wrist", "fingers"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
+            "robot", ["x", "y", "z", "tilt", "wrist", "fingers"])
         self._jug_type = Type(
-            "jug", ["x", "y", "z", "rot", "is_held", "is_filled"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
-        self._machine_type = Type(
-            "coffee_machine", ["is_on"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
+            "jug", ["x", "y", "z", "rot", "is_held", "is_filled"])
+        self._machine_type = Type("coffee_machine", ["is_on"])
         self._cup_type = Type("cup", [
             "x", "y", "z", "capacity_liquid", "target_liquid", "current_liquid"
-        ] + (bbox_features if CFG.env_include_bbox_features else []))
+        ])
 
         # Predicates
         self._CupFilled = Predicate("CupFilled", [self._cup_type],
-                                    self._CupFilled_holds,
-                                    lambda objs: f"{objs[0]} has coffee in it")
+                                    self._CupFilled_holds)
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._jug_type],
                                   self._Holding_holds)

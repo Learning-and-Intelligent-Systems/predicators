@@ -1046,7 +1046,6 @@ class PyBulletState(State):
         simulator_state_copy = list(self.joint_positions)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
-
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for
     state equality checks.
