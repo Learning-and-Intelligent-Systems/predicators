@@ -185,8 +185,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         }
 
         # Predicates
-        self._CupFilled_NSP = NSPredicate("CupFilled", [self._cup_type],
-                                          self._CupFilled_NSP_holds)
         self._Holding_NSP = Predicate("Holding",
                                       [self._robot_type, self._jug_type],
                                       self._Holding_NSP_holds)
@@ -202,19 +200,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._MachineOn_NSP = Predicate("MachineOn", [self._machine_type],
                                         self._MachineOn_NSP_holds)
 
-    @property
-    def ns_predicates(self) -> Set[NSPredicate]:
-        return {
-            self._CupFilled_NSP,
-            self._JugFilled_NSP,
-            self._Holding_NSP,
-            self._HandEmpty,
-            self._JugInMachine_NSP,
-            self._JugPickable_NSP,
-            self._OnTable_NSP,
-            self._MachineOn_NSP,
-        }
-
     def _MachineOn_NSP_holds(self, state: RawState,
                              objects: Sequence[Object]) -> bool:
         machine, = objects
@@ -223,14 +208,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return state.evaluate_simple_assertion(f"{machine_name} is on",
                                                attention_image)
 
-    def _CupFilled_NSP_holds(self, state: RawState,
-                             objects: Sequence[Object]) -> bool:
-        """Determine if the cup is filled coffee."""
-        cup, = objects
-        cup_name = cup.id_name
-        attention_image = state.crop_to_objects([cup])
-        return state.evaluate_simple_assertion(f"{cup_name} has coffee in it",
-                                               attention_image)
 
     def _Holding_NSP_holds(self, state: RawState,
                            objects: Sequence[Object]) -> bool:
