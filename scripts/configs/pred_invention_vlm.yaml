@@ -153,6 +153,7 @@ ENVS:
       coffee_rotated_jug_ratio: 0.5
       pybullet_camera_height: 900  # for high quality, use 900
       pybullet_camera_width: 1200 # 1200 for coffee
+      pybullet_control_mode: "reset" # need for blocks and coffee
   # kitchen_boil_kettle:
   #   NAME: "kitchen"
   #   FLAGS:
