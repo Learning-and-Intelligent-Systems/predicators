@@ -17,8 +17,6 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
     Predicate, State, Type
-from predicators.utils import NSPredicate, RawState, VLMQuery
-
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     """PyBullet Coffee domain."""
