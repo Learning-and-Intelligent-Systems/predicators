@@ -1,4 +1,9 @@
-"""A PyBullet version of CoffeeEnv."""
+"""A PyBullet version of CoffeeEnv.
+python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
+--coffee_rotated_jug_ratio 0.5 \
+--sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
+--pybullet_control_mode "reset" --coffee_twist_sampler False 
+"""
 
 import logging
 from pathlib import Path
@@ -953,27 +958,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 physicsClientId=self._physics_client_id)
 
         if self._PressingButton_holds(state, [self._robot, self._machine]):
-            if CFG.coffee_mac_requires_jug_to_turn_on:
-                if self._JugInMachine_holds(state, [self._jug, self._machine]):
-                    p.changeVisualShape(
-                        self._button_id,
-                        -1,
-                        rgbaColor=self.button_color_on,
-                        physicsClientId=self._physics_client_id)
-                    p.changeVisualShape(
-                        self._button_id,
-                        0,
-                        rgbaColor=self.button_color_on,
-                        physicsClientId=self._physics_client_id)
-            else:
-                p.changeVisualShape(self._button_id,
-                                    -1,
-                                    rgbaColor=self.button_color_on,
-                                    physicsClientId=self._physics_client_id)
-                p.changeVisualShape(self._button_id,
-                                    0,
-                                    rgbaColor=self.button_color_on,
-                                    physicsClientId=self._physics_client_id)
+            p.changeVisualShape(self._button_id,
+                                -1,
+                                rgbaColor=self.button_color_on,
+                                physicsClientId=self._physics_client_id)
+            p.changeVisualShape(self._button_id,
+                                0,
+                                rgbaColor=self.button_color_on,
+                                physicsClientId=self._physics_client_id)
             # the jug is only filled if it's in the machine
             if self._JugInMachine_holds(state, [self._jug, self._machine]):
                 if not self._jug_filled:

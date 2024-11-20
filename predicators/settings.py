@@ -742,6 +742,7 @@ class GlobalSettings:
                     # tasks take more actions to complete.
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
+                    "pybullet_coffee": 2000,
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,
@@ -799,6 +800,7 @@ class GlobalSettings:
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
+                    "pybullet_coffee": 100,
                     "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
