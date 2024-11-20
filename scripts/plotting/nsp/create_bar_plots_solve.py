@@ -55,11 +55,11 @@ KEYS = [
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = [
-    ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
-    # ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
-    ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
-    ("Cover Heavy", pd_create_equal_selector("ENV", "pybullet_cover_weighted")),
-    ("Balance", pd_create_equal_selector("ENV", "pybullet_balance")),
+    # ("Cover", pd_create_equal_selector("ENV", "pybullet_cover_typed_options")),
+    ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
+    # ("Coffee", pd_create_equal_selector("ENV", "pybullet_coffee")),
+    # ("Cover Heavy", pd_create_equal_selector("ENV", "pybullet_cover_weighted")),
+    # ("Balance", pd_create_equal_selector("ENV", "pybullet_balance")),
 ]
 
 # See PLOT_GROUPS comment.
@@ -73,8 +73,8 @@ BAR_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "nsp-nl" in v)),
     ("MAPLE", lambda df:
         (df["EXPERIMENT_ID"].apply(lambda v: "maple_q" in v)) &
-        (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))
-        # (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "15" == v)) # blocks
+        # (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "19" == v))
+        (df["ONLINE_LEARNING_CYCLE"].apply(lambda v: "15" == v)) # blocks
     ),
     ("ViLa", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "vlm_plan" in v)),
     ("Sym. pred.", lambda df: 

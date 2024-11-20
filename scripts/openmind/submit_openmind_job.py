@@ -89,7 +89,7 @@ def submit_openmind_job(entry_point: str,
         f.write(mystr)
 
     # Should update these configs
-    cmd = "sbatch --time=1:00:00 "
+    cmd = "sbatch --time=1-00:00 "
     if use_gpu:
         cmd += "--gres=gpu:1 "
     # else:

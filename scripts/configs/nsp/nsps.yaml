@@ -84,21 +84,21 @@ ENVS:
   #     cover_typed_options_no_sampler: True
   #     cover_initial_holding_prob: 0.0
   #     pybullet_camera_width: 800
-  # pb_blocks:
-  #   NAME: "pybullet_blocks"
-  #   FLAGS:
-  #     timeout: 30000
-  #     pretrained_model_prompt_cache_dir: "pretrained_model_cache/blocks"
-  #     num_train_tasks: 20 #0 # pybullet_coffee, cover
-  #     excluded_predicates: "all"
-  #     pybullet_camera_width: 800
-  #     vlm_model_name: "gemini-1.5-pro"
-  #     grammar_search_search_algorithm: "gbfs" # "hill_climbing"
-  #     sesame_check_dr_reachable: False
-  #     sesame_filter_unreachable_nsrt: False
-  #     disable_harmlessness_check: True
-  #     enable_harmless_op_pruning: False
-  #     sesame_task_planning_heuristic: "goal_count"
+  pb_blocks:
+    NAME: "pybullet_blocks"
+    FLAGS:
+      timeout: 30000
+      pretrained_model_prompt_cache_dir: "pretrained_model_cache/blocks"
+      num_train_tasks: 20 #0 # pybullet_coffee, cover
+      excluded_predicates: "all"
+      pybullet_camera_width: 800
+      vlm_model_name: "gemini-1.5-pro"
+      grammar_search_search_algorithm: "gbfs" # "hill_climbing"
+      sesame_check_dr_reachable: False
+      sesame_filter_unreachable_nsrt: False
+      disable_harmlessness_check: True
+      enable_harmless_op_pruning: False
+      sesame_task_planning_heuristic: "goal_count"
   # pb_coffee:
   #   NAME: "pybullet_coffee"
   #   FLAGS:
