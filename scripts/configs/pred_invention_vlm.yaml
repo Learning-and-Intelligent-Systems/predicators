@@ -182,5 +182,5 @@ FLAGS:
   num_test_tasks: 10
   save_eval_trajs: False
 START_SEED: 0
-NUM_SEEDS: 5
+NUM_SEEDS: 1
 ...
