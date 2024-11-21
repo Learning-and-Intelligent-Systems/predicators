@@ -13,7 +13,7 @@ data_combo_burger = {
     'EXPERIMENT_ID': [
         'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
         'No subselect', 'No visual', 'VLM subselect', 
-        'ViLa', 'ViLa fewshot'
+        'ViLa', 'ViLa fewshot', 'No noise tol.'
     ],
     'NUM_SOLVED': [0.00, 8.20, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 3.80],
     'NUM_SOLVED_STDDEV': [0.00, 1.17, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.40]
