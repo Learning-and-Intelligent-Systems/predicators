@@ -869,22 +869,12 @@ def _create_prompt_from_image_option_traj(
     for i, a in enumerate(image_option_traj.actions):
         state = image_option_traj.states[i]
         demo_str.append(f"state {i}:")
-        # NOTE: it's important to set the round_feat_vals argument to False
-        # here. If we set it to True, then the VLM might mistakenly propose
-        # predicates that work given rounding, but fail otherwise.
-        # So for instance, a predicate classifier that does `== 0` would
-        # work for a value 0.00123 rounded to a single decimal place,
-        # but wouldn't actually work when deployed on the number 0.00123!
-        demo_str.append(
-            state.dict_str(indent=2,
-                           object_features=True,
-                           round_feat_vals=False))
+        demo_str.append(state.dict_str(indent=2, object_features=True))
         demo_str.append(f"action {i}: {a.name}")
     num_states = len(image_option_traj.states)
     state = image_option_traj.states[-1]
     demo_str.append(f"state {num_states}:")
-    demo_str.append(
-        state.dict_str(indent=2, object_features=True, round_feat_vals=False))
+    demo_str.append(state.dict_str(indent=2, object_features=True))
     demo_str_ = '\n'.join(demo_str)
     template = template.replace("[DEMO_TRAJECTORY]", demo_str_)
 
