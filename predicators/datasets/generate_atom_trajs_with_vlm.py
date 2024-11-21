@@ -831,6 +831,7 @@ def _generate_ground_atoms_with_vlm_oo_code_gen(
             ground_atoms = utils.abstract(state, candidates | known_predicates)
             ground_atoms_traj.append(ground_atoms)
         ground_atoms_trajs.append(ground_atoms_traj)
+    import ipdb; ipdb.set_trace()
     return ground_atoms_trajs
 
 
