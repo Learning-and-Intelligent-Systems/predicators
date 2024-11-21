@@ -215,14 +215,14 @@ class State:
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
-    def dict_str(self, indent: int = 0, object_features: bool = True) -> str:
+    def dict_str(self, indent: int = 0, object_features: bool = True, round_feat_vals: bool = True) -> str:
         """Return a dictionary representation of the state."""
         state_dict = {}
         for obj in self:
             obj_dict = {}
             if obj.type.name == "robot" or object_features:
                 for attribute, value in zip(obj.type.feature_names, self[obj]):
-                    if isinstance(value, (float, int, np.float32)):
+                    if isinstance(value, (float, int, np.float32)) and round_feat_vals:
                         value = round(float(value), 1)
                     obj_dict[attribute] = value
             obj_name = obj.name
