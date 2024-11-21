@@ -13,7 +13,7 @@ data_combo_burger = {
     'EXPERIMENT_ID': [
         'VLM feat. pred', 'Ours', 'No feat.', 'No invent',
         'No subselect', 'No visual', 'VLM subselect', 
-        'ViLa', 'ViLa fewshot', 'No noise tol.'
+        'ViLa', 'ViLa fewshot'
     ],
     'NUM_SOLVED': [0.00, 8.20, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 3.80],
     'NUM_SOLVED_STDDEV': [0.00, 1.17, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.40]
@@ -45,8 +45,8 @@ data_kitchen_boil_kettle = {
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
-    'NUM_SOLVED': [0.00, 9.80, 9.80, 0.00, 0.00, 9.80, 1.00, 6.60, 10.00],
-    'NUM_SOLVED_STDDEV': [0.00, 0.40, 0.40, 0.00, 0.00, 0.40, 2.00, 1.02, 0.00]
+    'NUM_SOLVED': [9.60, 9.80, 9.80, 0.00, 0.00, 9.80, 1.00, 6.60, 10.00],
+    'NUM_SOLVED_STDDEV': [0.49, 0.40, 0.40, 0.00, 0.00, 0.40, 2.00, 1.02, 0.00]
 }
 
 # Convert each dataset to a DataFrame
@@ -78,8 +78,8 @@ fig, axes = plt.subplots(1, 4, figsize=(18, 6), sharey=True)
 unique_palette = sns.color_palette("pastel", n_colors=len(df_combo_burger))
 
 # Plot in the new order: 'Boil Kettle', 'More Stacks', 'Bigger Burger', then 'Combo Burger'
-environments = [df_kitchen_boil_kettle, df_more_stacks, df_fatter_burger, df_combo_burger]
-titles = ["Kitchen Boil Kettle", "More Burger Stacks", "Bigger Burger", "Combo Burger"]
+environments = [df_kitchen_boil_kettle, df_fatter_burger, df_more_stacks, df_combo_burger]
+titles = ["Kitchen Boil Kettle", "Bigger Burger", "More Burger Stacks", "Combo Burger"]
 
 for i, (df, title) in enumerate(zip(environments, titles)):
     sns.barplot(
