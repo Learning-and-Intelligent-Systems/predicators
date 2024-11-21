@@ -38,8 +38,6 @@ setup(
         "ImageHash",
         "google-generativeai",
         "tenacity",
-        "opencv-python",
-        "torchvision"
     ],
     include_package_data=True,
     extras_require={
