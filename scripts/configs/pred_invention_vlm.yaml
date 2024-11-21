@@ -175,6 +175,7 @@ ENVS:
       precondition_soft_intersection_threshold_percent: 0.8
       vlm_double_check_output: True
       grammar_search_early_termination_heuristic_thresh: 100
+
 ARGS: []
 FLAGS: 
   vlm_model_name: gpt-4o
