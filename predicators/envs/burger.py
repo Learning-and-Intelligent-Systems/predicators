@@ -902,6 +902,279 @@ class BurgerEnv(BaseEnv):
         jpeg_buf.close()
         return [ret_arr]
 
+    def render_state2(self,
+                     state: State,
+                     task: EnvironmentTask,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> Video:
+        if CFG.burger_dummy_render:
+            return [np.zeros((16, 16), dtype=np.uint8)]
+        fig = self.render_state_plt2(state, task, action, caption)
+        # Create an in-memory binary stream.
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+        # Rewind the stream to the beginning so that it can be read from.
+        buf.seek(0)
+        img = Image.open(buf)
+        plt.close(fig)
+
+        # Convert the image to RGB mode to save as JPEG, because
+        # JPEG format does not support images with an alpha channel
+        # (transparency).
+        img_rgb = img.convert("RGB")
+        jpeg_buf = io.BytesIO()
+        img_rgb.save(jpeg_buf, format="JPEG")
+        jpeg_buf.seek(0)
+        jpeg_img = Image.open(jpeg_buf)
+
+        # If we return jpeg_img, we get this error:
+        # `ValueError: I/O operation on closed file`, so we copy it before
+        # closing the buffers.
+        ret_img = copy.deepcopy(jpeg_img)
+        ret_arr = np.array(ret_img)
+        buf.close()
+        jpeg_buf.close()
+        return [ret_arr]
+
+    def render_state_plt(
+            self,
+            state: State,
+            task: EnvironmentTask,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        CFG.burger_render_set_of_marks = False
+        figsize = (self.num_cols * 2, self.num_rows * 2)
+        # The DPI has to be sufficiently high otherwise when the matplotlib
+        # figure gets converted to a PIL image, text in the image can become
+        # blurry.
+        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=216)
+        fontsize = 14
+
+        # Plot vertical lines
+        for i in range(self.num_cols + 1):
+            ax.axvline(x=i, color="k", linestyle="-")
+
+        # Plot horizontal lines
+        for i in range(self.num_rows + 1):
+            ax.axhline(y=i, color="k", linestyle="-")
+
+        # Draw robot
+        x, y = self.get_position(self._robot, state)
+        robot_direction = self.enum_to_dir[state.get(self._robot, "dir")]
+        robot_img = mpimg.imread(
+            utils.get_env_asset_path(f"imgs/robot_{robot_direction}.png"))
+        img_size = (0.7, 0.7)
+        ax.imshow(robot_img,
+                  extent=[
+                      x + (1 - img_size[0]) / 2, x + (1 + img_size[0]) / 2,
+                      y + (1 - img_size[1]) / 2, y + (1 + img_size[1]) / 2
+                  ])
+        if CFG.burger_render_set_of_marks:
+            ax.text(x + 1 / 2,
+                    y + (1 - img_size[1]) / 2,
+                    self._robot.name,
+                    fontsize=fontsize,
+                    color="red",
+                    ha="center",
+                    va="top",
+                    bbox=dict(facecolor="black",
+                              alpha=0.5,
+                              boxstyle="square,pad=0.0"))
+
+        # Draw grill
+        x, y = self.get_position(self._grill, state)
+        grill_img = mpimg.imread(utils.get_env_asset_path("imgs/grill.png"))
+        ax.imshow(grill_img, extent=[x, x + 1, y, y + 1])
+        if CFG.burger_render_set_of_marks:
+            ax.text(x + 1 / 2,
+                    y + (1 - img_size[1]) / 2,
+                    self._grill.name,
+                    fontsize=fontsize,
+                    color="red",
+                    ha="center",
+                    va="top",
+                    bbox=dict(facecolor="black",
+                              alpha=0.5,
+                              boxstyle="square,pad=0.0"))
+
+        # Draw cutting board
+        if self._cutting_board in state:
+            x, y = self.get_position(self._cutting_board, state)
+            cutting_board_img = mpimg.imread(
+                utils.get_env_asset_path("imgs/cutting_board.png"))
+            ax.imshow(cutting_board_img, extent=[x, x + 1, y, y + 1])
+            if CFG.burger_render_set_of_marks:
+                ax.text(x + 1 / 2,
+                        y + (1 - img_size[1]) / 2,
+                        self._cutting_board.name,
+                        fontsize=fontsize,
+                        color="red",
+                        ha="center",
+                        va="top",
+                        bbox=dict(facecolor="black",
+                                  alpha=0.5,
+                                  boxstyle="square,pad=0.0"))
+
+        # Draw items
+        type_to_img = {
+            self._top_bun_type:
+            mpimg.imread("predicators/envs/assets/imgs/top_bun.png"),
+            self._bottom_bun_type:
+            mpimg.imread("predicators/envs/assets/imgs/bottom_bun.png"),
+            self._cheese_type:
+            mpimg.imread("predicators/envs/assets/imgs/cheese.png"),
+            self._tomato_type:
+            mpimg.imread(utils.get_env_asset_path("imgs/uncut_lettuce.png")),
+            self._patty_type:
+            mpimg.imread(
+                utils.get_env_asset_path("imgs/realistic_raw_patty_full.png"))
+        }
+        held_img_size = (0.3, 0.3)
+        offset = held_img_size[1] * (1 / 3)
+        items = [obj for obj in state if obj.is_instance(self._item_type)]
+        assert state.simulator_state is not None
+        assert "state" in state.simulator_state
+        for item in items:
+            img = type_to_img[item.type]
+            if "is_cooked" in state.simulator_state["state"][
+                    item] and self._IsCooked_holds(state, [item]):
+                img = mpimg.imread(
+                    utils.get_env_asset_path(
+                        "imgs/realistic_cooked_patty_full.png"))
+            elif "is_sliced" in state.simulator_state["state"][
+                    item] and self._IsSliced_holds(state, [item]):
+                img = mpimg.imread(
+                    utils.get_env_asset_path("imgs/cut_lettuce.png"))
+            zorder = state.get(item, "z")
+            is_held = state.simulator_state["state"][item]["is_held"] > 0.5
+            x, y = self.get_position(item, state)
+            # If the item is held, make it smaller so that it does obstruct the
+            # robot.
+            img_size = (0.7, 0.7)
+            if is_held:
+                extent = [
+                    x + (1 - held_img_size[0]) * (1 / 2),
+                    x + (1 + held_img_size[0]) * (1 / 2), y + offset,
+                    y + held_img_size[1] + offset
+                ]
+            # If the item is on top of something else, make it look like it by
+            # moving it up a little.
+            elif zorder > 0:
+                offset = 0.1 * zorder
+                extent = [
+                    x + (1 - img_size[0]) * (1 / 2),
+                    x + (1 + img_size[0]) * (1 / 2),
+                    y + (1 - img_size[1]) / 2 + offset,
+                    y + (1 + img_size[1]) / 2 + offset
+                ]
+            else:
+                extent = [
+                    x + (1 - img_size[0]) * (1 / 2),
+                    x + (1 + img_size[0]) * (1 / 2), y + (1 - img_size[1]) / 2,
+                    y + (1 + img_size[1]) / 2
+                ]
+            ax.imshow(img, extent=extent, zorder=zorder)
+            if CFG.burger_render_set_of_marks:
+                if is_held:
+                    rx, _ = self.get_position(self._robot, state)
+                    # If the robot is on the right edge, put text labels for
+                    # held items on the left side so that they don't extend past
+                    # the edge of the grid and make the image larger.
+                    if rx == self.num_cols - 1:
+                        horizontal_align = "right"
+                        text_x = x + (1 - held_img_size[0]) * (1 / 2)
+                    else:
+                        horizontal_align = "left"
+                        text_x = x + (1 + held_img_size[0]) * (1 / 2)
+                    ax.text(text_x,
+                            y + offset + held_img_size[1] / 2,
+                            item.name,
+                            fontsize=fontsize,
+                            color="red",
+                            ha=horizontal_align,
+                            va="top",
+                            bbox=dict(facecolor="black",
+                                      alpha=0.5,
+                                      boxstyle="square,pad=0.0"))
+                else:
+                    if zorder > 0:
+                        # If the item is on the grill or cutting board, and
+                        # there is not an item on top of it, then put its text
+                        # label near the top of the cell.
+                        if self._cutting_board in state:
+                            check = (self._On_holds(state, [item, self._grill])
+                                     or self._On_holds(state, [
+                                         item, self._cutting_board
+                                     ])) and self._Clear_holds(state, [item])
+                        else:
+                            check = self._On_holds(state, [
+                                item, self._grill
+                            ]) and self._Clear_holds(state, [item])
+                        if check:
+                            ax.text(x + 1 / 2,
+                                    y + (1 + img_size[1]) / 2,
+                                    item.name,
+                                    fontsize=fontsize,
+                                    color="red",
+                                    ha="center",
+                                    va="bottom",
+                                    bbox=dict(facecolor="black",
+                                              alpha=0.5,
+                                              boxstyle="square,pad=0.0"))
+                        else:
+                            ax.text(x,
+                                    y + (0.1 * zorder) + (1 - img_size[1]) / 2,
+                                    item.name,
+                                    fontsize=fontsize,
+                                    color="red",
+                                    ha="left",
+                                    va="top",
+                                    bbox=dict(facecolor="black",
+                                              alpha=0.5,
+                                              boxstyle="square,pad=0.0"))
+                    else:
+                        # If something is on top of this item or this item is on
+                        # something else, then put the text label on the left
+                        # side of the cell.
+                        if not self._Clear_holds(
+                                state, [item]) or not self._OnNothing_holds(
+                                    state, [item]):
+                            ax.text(x,
+                                    y + (1 - img_size[1]) / 2,
+                                    item.name,
+                                    fontsize=fontsize,
+                                    color="red",
+                                    ha="left",
+                                    va="top",
+                                    bbox=dict(facecolor="black",
+                                              alpha=0.5,
+                                              boxstyle="square,pad=0.0"))
+                        else:
+                            ax.text(x + 1 / 2,
+                                    y + (1 - img_size[1]) / 2,
+                                    item.name,
+                                    fontsize=fontsize,
+                                    color="red",
+                                    ha="center",
+                                    va="top",
+                                    bbox=dict(facecolor="black",
+                                              alpha=0.5,
+                                              boxstyle="square,pad=0.0"))
+
+        # Draw background
+        floor_img = mpimg.imread(
+            utils.get_env_asset_path("imgs/floorwood.png"))
+        for y in range(self.num_rows):
+            for x in range(self.num_cols):
+                ax.imshow(floor_img, extent=[x, x + 1, y, y + 1], zorder=-1)
+
+        ax.set_xlim(0, self.num_cols)
+        ax.set_ylim(0, self.num_rows)
+        ax.set_aspect("equal")
+        ax.axis("off")
+        plt.tight_layout()
+        return fig
+
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
 
@@ -1278,25 +1551,41 @@ class BurgerNoMoveEnv(BurgerEnv):
                     cheese1 = [o for o in state_dict if o.name == "cheese1"][0]
                     state_dict.pop(cheese1)
                     hidden_state.pop(cheese1)
-                    r, c = shuffled_spots[4]  # where the cheese was
+                    r, c = shuffled_spots[4]  # take the cheese's spot
                     bottom_bun2 = Object("bottom_bun2", self._bottom_bun_type)
                     state_dict[bottom_bun2] = {"row": r, "col": c, "z": 0}
                     hidden_state[bottom_bun2] = {"is_held": 0.0}
                     # add another patty
-                    r, c = shuffled_spots[7]  # next empty cell
+                    r, c = (2, 2)  # put it where the robot is
                     patty2 = Object("patty2", self._patty_type)
                     state_dict[patty2] = {"row": r, "col": c, "z": 0}
-                    hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
-                    # add another lettuce
-                    r, c = shuffled_spots[8]  # next empty cell
-                    lettuce2 = Object("lettuce2", self._tomato_type)
-                    state_dict[lettuce2] = {"row": r, "col": c, "z": 0}
-                    hidden_state[lettuce2] = {"is_sliced": 1.0, "is_held": 0.0}
-                    # start out holding patty2.
-                    state_dict[self._robot]["fingers"] = 1.0
-                    state_dict[patty2]["row"] = state_dict[self._robot]["row"]
-                    state_dict[patty2]["col"] = state_dict[self._robot]["col"]
                     hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 1.0}
+                    state_dict[self._robot]["fingers"] = 1.0
+                    # add another lettuce
+                    r, c = shuffled_spots[7]  # next empty cell
+                    tomato2 = Object("lettuce2", self._tomato_type)
+                    state_dict[tomato2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[tomato2] = {"is_sliced": 0.0, "is_held": 0.0}
+                    # add another top bun
+                    r, c = shuffled_spots[8]
+                    top_bun2 = Object("top_bun2", self._top_bun_type)
+                    state_dict[top_bun2] = {"row": r, "col": c, "z": 0}
+                    hidden_state[top_bun2] = {"is_held": 0.0}
+                    # add another bottom bun
+                    r, c = shuffled_spots[9]
+                    bottom_bun3 = Object("bottom_bun3", self._bottom_bun_type)
+                    state_dict[bottom_bun3] = {"row": r, "col": c, "z": 0}
+                    hidden_state[bottom_bun3] = {"is_held": 0.0}
+                    # add another patty
+                    r, c = shuffled_spots[10]
+                    patty3 = Object("patty3", self._patty_type)
+                    state_dict[patty3] = {"row": r, "col": c, "z": 0}
+                    hidden_state[patty3] = {"is_cooked": 0.0, "is_held": 0.0}
+                    # add another top bun
+                    r, c = shuffled_spots[11]
+                    top_bun3 = Object("top_bun3", self._top_bun_type)
+                    state_dict[top_bun3] = {"row": r, "col": c, "z": 0}
+                    hidden_state[top_bun3] = {"is_held": 0.0}
 
                 test_goal = {
                     GroundAtom(self._IsCooked, [patty]),
@@ -1308,14 +1597,23 @@ class BurgerNoMoveEnv(BurgerEnv):
                 if i < CFG.burger_num_test_start_holding:
                     test_goal.add(GroundAtom(self._IsCooked, [patty2]))
                     test_goal.add(GroundAtom(self._On, [patty2, bottom_bun2]))
+                    test_goal.add(GroundAtom(self._IsSliced, [tomato2]))
+                    test_goal.add(GroundAtom(self._On, [tomato2, patty2]))
+                    test_goal.add(GroundAtom(self._On, [top_bun2, tomato2]))
+                    test_goal.add(GroundAtom(self._IsCooked, [patty3]))
+                    test_goal.add(GroundAtom(self._On, [patty3, bottom_bun3]))
+                    test_goal.add(GroundAtom(self._On, [top_bun3, patty3]))
                 alt_test_goal = {
                     GroundAtom(self._GoalHack2, [bottom_bun, patty]),
                     GroundAtom(self._GoalHack4, [patty, tomato]),
                     GroundAtom(self._On, [top_bun, tomato]),
                 }
                 if i < CFG.burger_num_test_start_holding:
-                    alt_test_goal.add(
-                        GroundAtom(self._GoalHack2, [bottom_bun2, patty2]))
+                    alt_test_goal.add(GroundAtom(self._GoalHack2, [bottom_bun2, patty2]))
+                    alt_test_goal.add(GroundAtom(self._GoalHack4, [patty2, tomato2]))
+                    alt_test_goal.add(GroundAtom(self._On, [top_bun2, tomato2]))
+                    alt_test_goal.add(GroundAtom(self._GoalHack2, [bottom_bun3, patty3]))
+                    alt_test_goal.add(GroundAtom(self._On, [top_bun3, patty3]))
                 test_task = create_task(state_dict, hidden_state, test_goal,
                                         alt_test_goal)
                 test_tasks.append(test_task)
@@ -1460,33 +1758,37 @@ class BurgerNoMoveEnv(BurgerEnv):
                 # train task 1
                 state_dict, hidden_state, shuffled_spots = create_default_state(
                 )
-                state_dict = {
-                    self._robot: state_dict[self._robot],
-                    self._grill: state_dict[self._grill]
-                }
-                hidden_state = {}
-                # Create patty.
-                r, c = shuffled_spots[1]
-                patty = Object("patty1", self._patty_type)
-                state_dict[patty] = {"row": r, "col": c, "z": 0}
-                hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
-                # Create bottom bun.
-                r, c = shuffled_spots[6]
-                bottom_bun = Object("bottom_bun1", self._bottom_bun_type)
-                state_dict[bottom_bun] = {"row": r, "col": c, "z": 0}
-                hidden_state[bottom_bun] = {"is_held": 0.0}
-                # Create top bun.
-                r, c = shuffled_spots[8]
-                top_bun = Object("top_bun1", self._top_bun_type)
-                state_dict[top_bun] = {"row": r, "col": c, "z": 0}
-                hidden_state[top_bun] = {"is_held": 0.0}
+                d = name_to_obj(state_dict)
+                bottom_bun = d["bottom_bun1"]
+                patty = d["patty1"]
+                top_bun = d["top_bun1"]
+                # state_dict = {
+                #     self._robot: state_dict[self._robot],
+                #     self._grill: state_dict[self._grill]
+                # }
+                # hidden_state = {}
+                # # Create patty.
+                # r, c = shuffled_spots[1]
+                # patty = Object("patty1", self._patty_type)
+                # state_dict[patty] = {"row": r, "col": c, "z": 0}
+                # hidden_state[patty] = {"is_cooked": 0.0, "is_held": 0.0}
+                # # Create bottom bun.
+                # r, c = shuffled_spots[6]
+                # bottom_bun = Object("bottom_bun1", self._bottom_bun_type)
+                # state_dict[bottom_bun] = {"row": r, "col": c, "z": 0}
+                # hidden_state[bottom_bun] = {"is_held": 0.0}
+                # # Create top bun.
+                # r, c = shuffled_spots[8]
+                # top_bun = Object("top_bun1", self._top_bun_type)
+                # state_dict[top_bun] = {"row": r, "col": c, "z": 0}
+                # hidden_state[top_bun] = {"is_held": 0.0}
                 if not made_double_patty_train_task:
                     # Make an extra patty, bottom bun and top bun.
-                    r, c = shuffled_spots[2]
+                    r, c = shuffled_spots[7]
                     patty2 = Object("patty2", self._patty_type)
                     state_dict[patty2] = {"row": r, "col": c, "z": 0}
                     hidden_state[patty2] = {"is_cooked": 0.0, "is_held": 0.0}
-                    r, c = shuffled_spots[7]
+                    r, c = shuffled_spots[8]
                     bottom_bun2 = Object("bottom_bun2", self._bottom_bun_type)
                     state_dict[bottom_bun2] = {"row": r, "col": c, "z": 0}
                     hidden_state[bottom_bun2] = {"is_held": 0.0}

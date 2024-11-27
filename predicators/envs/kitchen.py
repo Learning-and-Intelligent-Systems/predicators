@@ -11,8 +11,7 @@ from PIL import ImageDraw
 
 try:
     import gymnasium as mujoco_kitchen_gym
-    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, \
-        get_site_xmat, get_site_xpos
+    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, get_site_xmat, get_site_xpos
     from gymnasium_robotics.utils.rotations import mat2quat
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
@@ -123,9 +122,9 @@ README of that repo suggests!"
         self._pred_name_to_pred = self.create_predicates()
 
         render_mode = "human" if self._using_gui else "rgb_array"
-        self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
-                                                render_mode=render_mode,
-                                                ik_controller=True)
+        from gymnasium_robotics import register_robotics_envs
+        register_robotics_envs()
+        self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1", render_mode=render_mode, ik_controller=True)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")

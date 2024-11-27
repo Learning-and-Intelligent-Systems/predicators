@@ -64,6 +64,7 @@ class BilevelPlanningApproach(BaseApproach):
         if self._plan_without_sim:
             nsrt_plan, atoms_seq, metrics = self._run_task_plan(
                 task, nsrts, preds, timeout, seed)
+            print("Length of plan: ", len(nsrt_plan))
             self._last_nsrt_plan = nsrt_plan
             self._last_atoms_seq = atoms_seq
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,

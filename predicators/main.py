@@ -396,7 +396,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
         solved = False
         caught_exception = False
         if CFG.make_test_videos or CFG.make_failure_videos:
-            monitor = utils.VideoMonitor(env.render)
+            monitor = utils.VideoMonitor(env.render2)
         else:
             monitor = None
         try:

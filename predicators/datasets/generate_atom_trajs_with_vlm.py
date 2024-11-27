@@ -120,6 +120,7 @@ def _sample_vlm_atom_proposals_from_trajectories(
     curr_num_queries = 0
     total_num_queries = len(all_vlm_queries_list)
     for txt_prompt, img_prompt in all_vlm_queries_list:
+        # import pdb; pdb.set_trace()
         aggregated_vlm_output_strs.append(
             vlm.sample_completions(txt_prompt,
                                    img_prompt,
@@ -750,9 +751,11 @@ def _generate_ground_atoms_with_vlm_pure_visual_preds(
         logging.info("Done querying VLM for candidate atoms!")
     else:  # pragma: no cover
         atom_strs_proposals_list = env.get_vlm_debug_atom_strs(train_tasks)
+    # import pdb; pdb.set_trace()
     # We now parse and sanitize this set of atoms.
     atom_proposals_set = _parse_unique_atom_proposals_from_list(
         atom_strs_proposals_list, all_task_objs)
+    # import pdb; pdb.set_trace()
     assert len(atom_proposals_set) > 0, "Atom proposals set is empty!"
     # Given this set of unique atom proposals, we now ask the VLM
     # to label these in every scene from the demonstrations.

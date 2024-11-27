@@ -1193,6 +1193,7 @@ def run_task_plan_once(
     """
 
     init_atoms = utils.abstract(task.init, preds)
+    import pdb; pdb.set_trace()
     goal = task.goal
     objects = set(task.init)
 

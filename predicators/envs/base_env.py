@@ -171,6 +171,18 @@ class BaseEnv(abc.ABC):
         return self.render_state(self._current_observation, self._current_task,
                                  action, caption)
 
+    def render2(self,
+               action: Optional[Action] = None,
+               caption: Optional[str] = None) -> Video:
+        """Render the current state and action into a list of images.
+
+        By default, calls render_state, but subclasses may override.
+        """
+        assert isinstance(self._current_observation, State), \
+            "render_state() only works in fully-observed environments."
+        return self.render_state2(self._current_observation, self._current_task,
+                                 action, caption)
+
     def get_train_tasks(self) -> List[EnvironmentTask]:
         """Return the ordered list of tasks for training."""
         if not self._train_tasks:

@@ -1075,6 +1075,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 self._parse_atom_dataset_from_annotated_dataset(dataset)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
+        # import pdb; pdb.set_trace()
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
             if CFG.grammar_search_select_all_debug and \
                CFG.grammar_search_use_handcoded_debug_grammar:
