@@ -1044,6 +1044,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return renamed_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        import ipdb; ipdb.set_trace()
         if CFG.offline_data_method in [
                 "geo_and_demo_with_vlm_imgs", "geo_and_demo+labelled_atoms",
                 "geo_and_saved_vlm_img_demos_folder"
