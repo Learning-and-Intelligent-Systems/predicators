@@ -1070,6 +1070,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset, candidates = self._generate_atom_dataset_via_grammar(
                 dataset)
         else:
+            import ipdb; ipdb.set_trace()
             # In this case, we're inventing over already-labelled atoms.
             atom_dataset, candidates = \
                 self._parse_atom_dataset_from_annotated_dataset(dataset)
