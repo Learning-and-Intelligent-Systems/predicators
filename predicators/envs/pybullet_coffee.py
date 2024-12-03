@@ -649,8 +649,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             logging.debug(reconstructed_state.pretty_str())
             raise ValueError("Could not reconstruct state.")
 
-    def _get_state(self) -> State:
-        """Create a State based on the current PyBullet state."""
+    def _get_state(self, render_obs:bool=False) -> State:
+        """Create a State instance based on the current PyBullet state."""
         state_dict = {}
 
         # Get robot state.
@@ -727,8 +727,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         }
 
         state = utils.create_state_from_dict(state_dict)
+        if render_obs:
+            image = utils.label_all_objects(*self.render_segmented_obj())
+            sim_state = {"joint_positions": joint_positions,
+                         "images": [image]}
+        else:
+            sim_state = joint_positions
         state = utils.PyBulletState(state.data,
-                                    simulator_state=joint_positions)
+                                    simulator_state=sim_state)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
@@ -740,10 +746,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         current_ee_rpy = self._pybullet_robot.forward_kinematics(
             self._pybullet_robot.get_joints()).rpy
         state = super().step(action, render_obs=render_obs)
-        # If the robot is sufficiently close to the button, turn on the machine
-        # and update the status of the jug.
+
+        # Move the liquid inside
         if self._jug_filled:
-            # Move the liquid inside
             pos, quat = p.getBasePositionAndOrientation(
                 self._jug_id, physicsClientId=self._physics_client_id)
             p.resetBasePositionAndOrientation(
@@ -752,6 +757,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 quat,
                 physicsClientId=self._physics_client_id)
 
+        # If the robot is sufficiently close to the button, turn on the machine
+        # and update the status of the jug.
         if self._PressingButton_holds(state, [self._robot, self._machine]):
             p.changeVisualShape(self._button_id,
                                 -1,
@@ -767,7 +774,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                     self._jug_liquid_id = \
                         self._create_pybullet_liquid_for_jug()
                 self._jug_filled = True
-            self._current_observation = self._get_state()
+            self._current_observation = self._get_state(render_obs)
             state = self._current_observation.copy()
         # If the robot is pouring into a cup, raise the liquid in it.
         if abs(state.get(self._robot, "tilt") -
@@ -790,7 +797,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                              physicsClientId=self._physics_client_id)
             self._cup_to_liquid_id[cup] = self._create_pybullet_liquid_for_cup(
                 cup, state)
-            self._current_observation = self._get_state()
+            self._current_observation = self._get_state(render_obs)
             state = self._current_observation.copy()
         # Handle twisting
         elif self._Twisting_holds(state, [self._robot, self._jug]):
@@ -819,7 +826,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
 
-            self._current_observation = self._get_state()
+            self._current_observation = self._get_state(render_obs)
             state = self._current_observation.copy()
 
         return state
