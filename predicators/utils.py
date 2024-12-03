@@ -2480,8 +2480,11 @@ def query_vlm_for_atom_vals(
     # Query VLM.
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
-    vlm_input_imgs = \
-        [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
+    if CFG.env in ["pybullet_coffee"]:
+        vlm_input_imgs = [img_arr for img_arr in imgs] # type: ignore
+    else:
+        vlm_input_imgs = \
+            [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
     vlm_output = vlm.sample_completions(vlm_query_str,
                                         vlm_input_imgs,
                                         0.0,
