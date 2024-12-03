@@ -325,7 +325,7 @@ class PyBulletEnv(BaseEnv):
             state_copy.simulator_state = sim_state
         return state_copy
 
-    def step(self, action: Action) -> Observation:
+    def step(self, action: Action, render_obs: bool = False) -> Observation:
         # Send the action to the robot.
         target_joint_positions = action.arr.tolist()
         self._pybullet_robot.set_motors(target_joint_positions)
@@ -378,7 +378,8 @@ class PyBulletEnv(BaseEnv):
 
         # Depending on the observation mode, either return object-centric state
         # or object_centric + rgb observation
-        observation_copy = self.get_observation(render=CFG.rgb_observation)
+        observation_copy = self.get_observation(
+                    render=CFG.rgb_observation or render_obs)
 
         return observation_copy
         # state_copy = self._current_observation.copy()

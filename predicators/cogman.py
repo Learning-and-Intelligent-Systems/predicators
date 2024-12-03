@@ -206,7 +206,12 @@ def run_episode_and_get_observations(
         env.reset(train_or_test, task_idx)
         if monitor is not None:
             monitor.reset(train_or_test, task_idx)
-    obs = env.get_observation()
+    render_obs = cogman._approach.get_name() == "oracle" and\
+                 CFG.offline_data_method == "geo_and_demo_with_vlm_imgs"
+    if CFG.env == "pybullet_coffee":
+        obs = env.get_observation(render=render_obs)
+    else:
+        obs = env.get_observation()
     observations = [obs]
     actions: List[Action] = []
     curr_option: Optional[_Option] = None
@@ -236,7 +241,10 @@ def run_episode_and_get_observations(
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True
-                obs = env.step(act)
+                if CFG.env == "pybullet_coffee":
+                    obs = env.step(act, render_obs=render_obs)
+                else:
+                    obs = env.step(act)
                 actions.append(act)
                 observations.append(obs)
             except Exception as e:

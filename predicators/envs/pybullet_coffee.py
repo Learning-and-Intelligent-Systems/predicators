@@ -735,11 +735,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         return state
 
-    def step(self, action: Action) -> State:
+    def step(self, action: Action, render_obs: bool = False) -> State:
         # What's the previous robot state?
         current_ee_rpy = self._pybullet_robot.forward_kinematics(
             self._pybullet_robot.get_joints()).rpy
-        state = super().step(action)
+        state = super().step(action, render_obs=render_obs)
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
         if self._jug_filled:

@@ -154,7 +154,6 @@ ENVS:
       pybullet_camera_height: 900  # for high quality, use 900
       pybullet_camera_width: 1200 # 1200 for coffee
       pybullet_control_mode: "reset" # need for blocks and coffee
-      rgb_observation: True
       coffee_twist_sampler: False
       sesame_check_expected_atoms: False
       coffee_jug_pickable_pred: True
@@ -192,7 +191,8 @@ ENVS:
   #     vlm_double_check_output: True
   #     grammar_search_early_termination_heuristic_thresh: 100
 
-ARGS: []
+ARGS:
+  - "debug"
 FLAGS: 
   vlm_model_name: gpt-4o
   num_test_tasks: 10
