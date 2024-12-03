@@ -7,7 +7,7 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 import random
 
 import numpy as np
@@ -21,7 +21,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
-    Predicate, State, Type
+    Predicate, State
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     """PyBullet Coffee domain."""
