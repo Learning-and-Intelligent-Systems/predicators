@@ -3,6 +3,14 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_rotated_jug_ratio 0.5 \
 --sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
 --pybullet_control_mode "reset" --coffee_twist_sampler False 
+
+To generate video demos:
+python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
+--coffee_rotated_jug_ratio 0.5 \
+--sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
+--pybullet_control_mode "reset" --coffee_twist_sampler False \
+--make_test_videos --num_test_tasks 1 --video_fps 20 \
+--pybullet_camera_height 900 --pybullet_camera_width 900
 """
 
 import logging
