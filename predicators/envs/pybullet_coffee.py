@@ -11,6 +11,15 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --pybullet_control_mode "reset" --coffee_twist_sampler False \
 --make_test_videos --num_test_tasks 1 --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900
+
+To generate grid-world videos:
+python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
+--coffee_rotated_jug_ratio 0 \
+--sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
+--pybullet_control_mode "reset" --coffee_twist_sampler False \
+--make_test_videos --num_test_tasks 1 --video_fps 20 \
+--pybullet_camera_height 300 --pybullet_camera_width 300 \
+--coffee_render_grid_world True
 """
 
 import logging
@@ -130,19 +139,30 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     table_pose: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
     table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
-    # Camera parameters.
-    _camera_distance: ClassVar[float] = 1.3  #0.8
-    _camera_yaw: ClassVar[float] = 70
-    _camera_pitch: ClassVar[float] = -38  # lower
-    _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
-    # Camera font view parameters.
-    _camera_distance_front: ClassVar[float] = 1
-    _camera_yaw_front: ClassVar[float] = 180
-    _camera_pitch_front: ClassVar[float] = -24
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        if CFG.coffee_render_grid_world:
+            # Camera parameters for grid world
+            self._camera_distance: ClassVar[float] = 3
+            self._camera_fov: ClassVar[float] = 10
+            self._camera_yaw: ClassVar[float] = 90
+            self._camera_pitch: ClassVar[float] = 0  # lower
+            # cup <-> jug, robot <-> machine
+            self._camera_target: ClassVar[Pose3D] = (0.75, 1.33, 0.3)
+        else:
+            # Camera parameters -- standard
+            self._camera_distance: ClassVar[float] = 1.3
+            self._camera_yaw: ClassVar[float] = 70
+            self._camera_pitch: ClassVar[float] = -38  # lower
+            self._camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
+
+        # Camera font view parameters.
+        self._camera_distance_front: ClassVar[float] = 1
+        self._camera_yaw_front: ClassVar[float] = 180
+        self._camera_pitch_front: ClassVar[float] = -24
 
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}

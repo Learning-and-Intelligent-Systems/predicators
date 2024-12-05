@@ -53,6 +53,7 @@ class PyBulletEnv(BaseEnv):
     _camera_yaw: ClassVar[float] = 90.0
     _camera_pitch: ClassVar[float] = -24
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
+    _camera_fov: ClassVar[float] = 60
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -213,12 +214,40 @@ class PyBulletEnv(BaseEnv):
         # Reset robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
 
+    def render_grid(self,
+                    action: Optional[Action] = None,
+                    caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        """Render the current state in a ARC problem like grid
+        """
+        # Step 1: Convert the existing state into a numpy integer array grid.
+        state = self._current_observation.copy()
+
+        # Project the position of each object to a position in the grid.
+        grid_size = 16
+        camera_distance = 0.8
+        camera_yaw = 90
+        camera_pitch = 0
+        grid = np.zeros((grid_size, grid_size), dtype=np.int32)
+        # can we get object positions from the object state? -> seem no
+        # -> but will try to get a minimal version working
+        # --> next: can we get object positions from pybullet?
+        objs = list(state.data)
+        grid_pos_dict = {}
+        for o in objs:
+            obj_pos = state.get(o, "x"), state.get(o, "y"), state.get(o, "z")
+            
+
+        
+
+        # Step 2: Render the grid into a figure with matplotlib.
+        pass
+
     def render(self,
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:  # pragma: no cover
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
-        del caption  # unused
+        del action, caption  # unused
 
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=self._camera_target,
@@ -233,7 +262,7 @@ class PyBulletEnv(BaseEnv):
         height = CFG.pybullet_camera_height
 
         proj_matrix = p.computeProjectionMatrixFOV(
-            fov=60,
+            fov=self._camera_fov,
             aspect=float(width / height),
             nearVal=0.1,
             farVal=100.0,
