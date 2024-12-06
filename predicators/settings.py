@@ -326,6 +326,7 @@ class GlobalSettings:
     coffee_jug_pickable_pred = False
     coffee_render_grid_world = False
     coffee_simple_tasks = False
+    coffee_machine_have_light_bar = True
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]

@@ -268,7 +268,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Make new cups.
         self._cup_id_to_cup = {}
         self._cup_to_capacity = {}
-        for cup_idx, cup_obj in enumerate(cup_objs):
+        for _, cup_obj in enumerate(cup_objs):
             cup_cap = state.get(cup_obj, "capacity_liquid")
             cup_height = cup_cap
             cx = state.get(cup_obj, "x")
@@ -832,13 +832,16 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Add a button. Could do this as a link on the machine, but since
         # both never move, it doesn't matter.
         button_height = cls.button_radius / 2
+        button_position = (cls.button_x, cls.button_y, cls.button_z)
+        button_orientation = p.getQuaternionFromEuler(
+            [0.0, np.pi / 2, np.pi / 2])
+
+        # Create button shapes
         collision_id_button = p.createCollisionShape(
             p.GEOM_CYLINDER,
             radius=cls.button_radius,
             height=button_height,
             physicsClientId=physics_client_id)
-
-        # Create the visual_shape for the button.
         visual_id_button = p.createVisualShape(
             p.GEOM_CYLINDER,
             radius=cls.button_radius,
@@ -846,63 +849,49 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             rgbaColor=cls.button_color_off,
             physicsClientId=physics_client_id)
 
-        # Create the body.
-        pose_button = (
-            cls.button_x,
-            cls.button_y,
-            cls.button_z,
-        )
+        if CFG.coffee_machine_have_light_bar:
+            # Create light bar shapes
+            half_extents_bar = (
+                cls.machine_z_len / 6 - 0.01,  # z
+                cls.machine_x_len * 5 / 6,  # x
+                cls.machine_top_y_len / 2)  # y
+            collision_id_light_bar = p.createCollisionShape(p.GEOM_BOX,
+                halfExtents=half_extents_bar,
+                physicsClientId=physics_client_id)
+            visual_id_light_bar = p.createVisualShape(p.GEOM_BOX,
+                halfExtents=half_extents_bar, rgbaColor=cls.button_color_off,
+                physicsClientId=physics_client_id)
 
-        # Facing outward.
-        orientation_button = p.getQuaternionFromEuler(
-            [0.0, np.pi / 2, np.pi / 2])
+            # Link properties relative to the button
+            link_positions = [[cls.machine_z_len / 6 - 0.017,  # larger is down
+                cls.machine_x_len / 6 - 0.001, cls.machine_top_y_len / 2 - 0.001]]
+            link_orientations = [[0, 0, 0, 1]]  # same orientation as the button
 
-        # Add a light bar at the same position as the button.
-        half_extents_bar = (
-            cls.machine_z_len / 6 - 0.01,  # z
-            cls.machine_x_len * 5 / 6,  # x
-            cls.machine_top_y_len / 2  # y
-        )
-        collision_id_light_bar = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_bar,
-            physicsClientId=physics_client_id)
-        visual_id_light_bar = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_bar,
-            # rgbaColor=(0.2, 0.2, 0.2, 1.0),
-            rgbaColor=cls.button_color_off,
-            physicsClientId=physics_client_id)
-
-        # The light bar will have the same pose and orientation as the button.
-        link_mass = 0
-        link_collision_ids = [collision_id_light_bar]
-        link_visual_ids = [visual_id_light_bar]
-        # relative position to the button
-        link_positions = [[
-            cls.machine_z_len / 6 - 0.017,  # larger is down
-            cls.machine_x_len / 6 - 0.001,
-            cls.machine_top_y_len / 2 - 0.001
-        ]]
-        link_orientations = [[0, 0, 0, 1]]  # same orientation as the button
-
-        button_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id_button,
-            baseVisualShapeIndex=visual_id_button,
-            basePosition=pose_button,
-            baseOrientation=orientation_button,
-            linkMasses=[link_mass],
-            linkCollisionShapeIndices=link_collision_ids,
-            linkVisualShapeIndices=link_visual_ids,
-            linkPositions=link_positions,
-            linkOrientations=link_orientations,
-            linkInertialFramePositions=[[0, 0, 0]],
-            linkInertialFrameOrientations=[[0, 0, 0, 1]],
-            linkParentIndices=[0],
-            linkJointTypes=[p.JOINT_FIXED],
-            linkJointAxis=[[0, 0, 0]],
-            physicsClientId=physics_client_id)
+            button_id = p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=collision_id_button,
+                baseVisualShapeIndex=visual_id_button,
+                basePosition=button_position,
+                baseOrientation=button_orientation,
+                linkMasses=[0],
+                linkCollisionShapeIndices=[collision_id_light_bar],
+                linkVisualShapeIndices=[visual_id_light_bar],
+                linkPositions=link_positions,
+                linkOrientations=link_orientations,
+                linkInertialFramePositions=[[0, 0, 0]],
+                linkInertialFrameOrientations=[[0, 0, 0, 1]],
+                linkParentIndices=[0],
+                linkJointTypes=[p.JOINT_FIXED],
+                linkJointAxis=[[0, 0, 0]],
+                physicsClientId=physics_client_id)
+        else:
+            button_id = p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=collision_id_button,
+                baseVisualShapeIndex=visual_id_button,
+                basePosition=button_position,
+                baseOrientation=button_orientation,
+                physicsClientId=physics_client_id)
         return button_id
     
     @classmethod
