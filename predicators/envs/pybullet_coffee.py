@@ -12,14 +12,17 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --make_test_videos --num_test_tasks 1 --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900
 
+For simple task:
 To generate grid-world videos:
 python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_rotated_jug_ratio 0 \
 --sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
 --pybullet_control_mode "reset" --coffee_twist_sampler False \
 --make_test_videos --num_test_tasks 1 --video_fps 20 \
---pybullet_camera_height 64 --pybullet_camera_width 64 \
---coffee_render_grid_world True --coffee_simple_tasks True
+--pybullet_camera_height 300 --pybullet_camera_width 300 \
+--coffee_render_grid_world True --coffee_simple_tasks True \
+--coffee_machine_have_light_bar False \
+--coffee_move_back_after_place_and_push True
 """
 
 import logging
@@ -68,6 +71,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     z_ub: ClassVar[float] = 0.75
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
+    # robot_rest_y: ClassVar[float] = ((y_ub + y_lb) / 2.0) - 0.1
     robot_init_z: ClassVar[float] = z_ub - 0.1
     robot_base_pos: ClassVar[Pose3D] = (0.75, 0.72, 0.0)
     robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
@@ -80,14 +84,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.15 * (y_ub - y_lb)
     machine_z_len: ClassVar[float] = 0.5 * (z_ub - z_lb)
-    machine_top_y_len: ClassVar[float] = 1.5 * machine_y_len
+    machine_top_y_len: ClassVar[float] = 1.3 * machine_y_len
     machine_x: ClassVar[float] = x_ub - machine_x_len / 2 - init_padding
     machine_y: ClassVar[float] = y_ub - machine_y_len / 2 - init_padding
     button_radius: ClassVar[float] = 0.6 * machine_y_len
+    button_height = button_radius / 4
     button_x: ClassVar[float] = machine_x
-    button_y: ClassVar[
-        float] = machine_y - machine_y_len / 2 - machine_top_y_len
-    button_z: ClassVar[float] = z_lb + machine_z_len - button_radius - 0.01
+    button_y: ClassVar[float] =\
+        machine_y - machine_y_len / 2 - machine_top_y_len - button_height/2
+    button_z: ClassVar[float] = z_lb + machine_z_len - button_radius
     button_press_threshold: ClassVar[float] = 1e-3
     machine_color: ClassVar[Tuple[float, float, float, float]] =\
         (0.1, 0.1, 0.1, 1) # Black
@@ -834,7 +839,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _add_pybullet_machine_butthon(cls, physics_client_id) -> int:
         # Add a button. Could do this as a link on the machine, but since
         # both never move, it doesn't matter.
-        button_height = cls.button_radius / 2
         button_position = (cls.button_x, cls.button_y, cls.button_z)
         button_orientation = p.getQuaternionFromEuler(
             [0.0, np.pi / 2, np.pi / 2])
@@ -843,12 +847,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         collision_id_button = p.createCollisionShape(
             p.GEOM_CYLINDER,
             radius=cls.button_radius,
-            height=button_height,
+            height=cls.button_height,
             physicsClientId=physics_client_id)
         visual_id_button = p.createVisualShape(
             p.GEOM_CYLINDER,
             radius=cls.button_radius,
-            length=button_height,
+            length=cls.button_height,
             rgbaColor=cls.button_color_off,
             physicsClientId=physics_client_id)
 

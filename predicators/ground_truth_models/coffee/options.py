@@ -576,9 +576,11 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 y = state.get(robot, "y")
                 z = state.get(robot, "z")
                 robot_pos = (x, y, z)
-                target_x = cls.env_cls.robot_init_x
-                target_y = cls.env_cls.robot_init_y
-                target_z = cls.env_cls.robot_init_z
+                # target_x = cls.env_cls.robot_init_x
+                target_x = x
+                target_y = cls.env_cls.y_lb + 0.1
+                # target_z = cls.env_cls.robot_init_z
+                target_z = z
                 target_pos = (target_x, target_y, target_z)
                 return np.allclose(robot_pos, target_pos, atol=1e-2)
 
@@ -592,7 +594,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             )
 
             MoveBackAfterPush = ParameterizedOption(
-                "MoveBackAfterPlace",
+                "MoveBackAfterPush",
                 types=[robot_type, machine_type],
                 params_space=Box(0, 1, (0, )),
                 policy=cls._create_move_back_after_place_or_push_policy(),
@@ -606,8 +608,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 
             TurnMachineOn = utils.LinearChainParameterizedOption(
                 "TurnMachineOn", [cls.TurnMachineOn, MoveBackAfterPush])
-            options.remove(PlaceJugInMachine)
-            options.remove(TurnMachineOn)
+            options.remove(cls.PlaceJugInMachine)
+            options.remove(cls.TurnMachineOn)
             options.add(PlaceJugInMachine)
             options.add(TurnMachineOn)
         return options
@@ -624,9 +626,12 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             y = state.get(robot, "y")
             z = state.get(robot, "z")
             robot_pos = (x, y, z)
-            target_x = cls.env_cls.robot_init_x
-            target_y = cls.env_cls.robot_init_y
-            target_z = cls.env_cls.robot_init_z
+            # target_x = cls.env_cls.robot_init_x
+            target_x = x
+            # target_y = cls.env_cls.robot_init_y
+            target_y = cls.env_cls.y_lb + 0.1
+            # target_z = cls.env_cls.robot_init_z
+            target_z = z
             target_pos = (target_x, target_y, target_z)
             return cls._get_move_action(state, target_pos, robot_pos)
 
