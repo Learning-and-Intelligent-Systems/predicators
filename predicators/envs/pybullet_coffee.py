@@ -94,13 +94,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                      float]] = (0.5, 0.2, 0.2, 1.0)
     plate_color_off: ClassVar[Tuple[float, float, float,
                                     float]] = machine_color
+    # Jug setting
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)  # kettle urdf
     jug_init_x_lb: ClassVar[
         float] = machine_x - machine_x_len / 2 + init_padding
     jug_init_x_ub: ClassVar[
         float] = machine_x + machine_x_len / 2 - init_padding
-    # adding 1 extra padding
     jug_init_y_lb: ClassVar[float] = y_lb + 3 * jug_radius + init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - 4 * jug_radius - init_padding
@@ -117,6 +117,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
     dispense_area_y: ClassVar[float] = machine_y - 5 * jug_radius
+    dispense_radius = 2 * jug_radius
+    dispense_height = 0.005
     # Cup settings.
     cup_radius: ClassVar[float] = 0.6 * jug_radius
     cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
@@ -198,335 +200,21 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         physics_client_id, pybullet_robot, bodies = super(
         ).initialize_pybullet(using_gui)
 
-        # Draw the workspace on the table for clarity.
-        for z in [cls.z_lb, cls.z_ub]:
-            p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
-                               [cls.x_ub, cls.y_lb, z], [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-            p.addUserDebugLine([cls.x_lb, cls.y_ub, z],
-                               [cls.x_ub, cls.y_ub, z], [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-            p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
-                               [cls.x_lb, cls.y_ub, z], [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-            p.addUserDebugLine([cls.x_ub, cls.y_lb, z],
-                               [cls.x_ub, cls.y_ub, z], [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-        # Draw different sampling regions for reference.
-        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
-                           [cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
-                           [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
-                           [cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
-                           [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
-                           [cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
-                           [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
-                           [cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
-                           [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
-                           [0.0, 0.0, 1.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        # Draw coordinate frame labels for reference.
-        p.addUserDebugLine([0, 0, 0], [0.25, 0, 0], [1.0, 0.0, 0.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([0, 0, 0], [0.0, 0.25, 0], [1.0, 0.0, 0.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
-                           physicsClientId=physics_client_id)
-        p.addUserDebugLine([0, 0, 0], [0.0, 0, 0.25], [1.0, 0.0, 0.0],
-                           lineWidth=5.0,
-                           physicsClientId=physics_client_id)
-        p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
-                           physicsClientId=physics_client_id)
+        cls._add_pybullet_debug_lines(physics_client_id)
 
-        # Load table.
-        table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
-                              useFixedBase=True,
-                              physicsClientId=physics_client_id)
-        p.resetBasePositionAndOrientation(table_id,
-                                          cls.table_pose,
-                                          cls.table_orientation,
-                                          physicsClientId=physics_client_id)
+        table_id = cls._add_pybullet_table(physics_client_id)
         bodies["table_id"] = table_id
 
-        ## Load coffee machine.
-        # new body and top
-        # Create the first box (main body base)
-        half_extents_base = (
-            cls.machine_x_len,
-            cls.machine_y_len / 2,
-            cls.machine_z_len / 2,
-        )
-        collision_id_base = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_base,
-            physicsClientId=physics_client_id)
-        visual_id_base = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_base,
-            rgbaColor=cls.machine_color,
-            physicsClientId=physics_client_id)
-        pose_base = (
-            cls.machine_x,
-            cls.machine_y,
-            cls.z_lb + cls.machine_z_len / 2,  # z
-        )
-        orientation_base = [0, 0, 0, 1]
-
-        # Create the second box (top)
-        half_extents_top = (
-            cls.machine_x_len * 5 / 6,
-            cls.machine_top_y_len / 2,
-            cls.machine_z_len / 6,
-        )
-        collision_id_top = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_top,
-            physicsClientId=physics_client_id)
-        visual_id_top = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_top,
-            rgbaColor=cls.machine_color,
-            physicsClientId=physics_client_id)
-        pose_top = (
-            -cls.machine_x_len / 6,  # x relative to base
-            -cls.machine_y_len / 2 -
-            cls.machine_top_y_len / 2,  # y relative to base
-            cls.machine_z_len / 3)
-        orientation_top = cls._default_orn
-
-        # Create the dispense area -- base.
-        # Define the dimensions for the dispense area
-        dispense_radius = 2 * cls.jug_radius
-        dispense_height = 0.005
-        half_extents_dispense_base = (cls.machine_x_len,
-                                      1.1 * dispense_radius + cls.jug_radius +
-                                      0.003, dispense_height)
-        collision_id_dispense_base = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_dispense_base,
-            physicsClientId=physics_client_id)
-        visual_id_dispense_base = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_dispense_base,
-            rgbaColor=cls.machine_color,
-            physicsClientId=physics_client_id)
-        # the relative position for the dispense area
-        pose_dispense_base = (
-            0,
-            -cls.machine_y_len - dispense_radius + 0.01,
-            -cls.machine_z_len / 2,
-        )
-        orientation_dispense_base = cls._default_orn
-
-        # Create the multibody with a fixed link
-        link_mass = 0
-        link_inertial_frame_position = [0, 0, 0]
-        link_inertial_frame_orientation = [0, 0, 0, 1]
-
-        machine_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id_base,
-            baseVisualShapeIndex=visual_id_base,
-            basePosition=pose_base,
-            baseOrientation=orientation_base,
-            linkMasses=[link_mass, link_mass],
-            linkCollisionShapeIndices=[
-                collision_id_top, collision_id_dispense_base
-            ],
-            linkVisualShapeIndices=[visual_id_top, visual_id_dispense_base],
-            linkPositions=[pose_top, pose_dispense_base],
-            linkOrientations=[orientation_top, orientation_dispense_base],
-            linkInertialFramePositions=[
-                link_inertial_frame_position, link_inertial_frame_position
-            ],
-            linkInertialFrameOrientations=[
-                link_inertial_frame_orientation,
-                link_inertial_frame_orientation
-            ],
-            linkParentIndices=[0, 0],
-            linkJointTypes=[p.JOINT_FIXED, p.JOINT_FIXED],
-            linkJointAxis=[[0, 0, 0], [0, 0, 0]],
-            physicsClientId=physics_client_id)
-
+        machine_id = cls._add_pybullet_coffee_machine(physics_client_id)
         bodies["machine_id"] = machine_id
 
-        ## Create the dispense area -- base.
-        pose = (
-            cls.dispense_area_x,
-            cls.dispense_area_y,
-            # cls.z_lb + dispense_height)
-            cls.z_lb)
-        orientation = cls._default_orn
-
-        # Dispense area circle
-        # Create the collision shape.
-        collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=dispense_radius,
-            height=dispense_height,
-            physicsClientId=physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                        radius=dispense_radius +
-                                        0.8 * cls.jug_radius,
-                                        length=dispense_height,
-                                        rgbaColor=cls.plate_color_off,
-                                        physicsClientId=physics_client_id)
-
-        # Create the body.
-        dispense_area_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=pose,
-            baseOrientation=orientation,
-            physicsClientId=physics_client_id)
+        dispense_area_id = cls._add_pybullet_dispense_area(physics_client_id)
         bodies["dispense_area_id"] = dispense_area_id
 
-        # Add a button. Could do this as a link on the machine, but since
-        # both never move, it doesn't matter.
-        button_height = cls.button_radius / 2
-        collision_id_button = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=cls.button_radius,
-            height=button_height,
-            physicsClientId=physics_client_id)
-
-        # Create the visual_shape for the button.
-        visual_id_button = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=cls.button_radius,
-            length=button_height,
-            rgbaColor=cls.button_color_off,
-            physicsClientId=physics_client_id)
-
-        # Create the body.
-        pose_button = (
-            cls.button_x,
-            cls.button_y,
-            cls.button_z,
-        )
-
-        # Facing outward.
-        orientation_button = p.getQuaternionFromEuler(
-            [0.0, np.pi / 2, np.pi / 2])
-
-        # Add a light bar at the same position as the button.
-        half_extents_bar = (
-            cls.machine_z_len / 6 - 0.01,  # z
-            cls.machine_x_len * 5 / 6,  # x
-            cls.machine_top_y_len / 2  # y
-        )
-        collision_id_light_bar = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_bar,
-            physicsClientId=physics_client_id)
-        visual_id_light_bar = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents_bar,
-            # rgbaColor=(0.2, 0.2, 0.2, 1.0),
-            rgbaColor=cls.button_color_off,
-            physicsClientId=physics_client_id)
-
-        # The light bar will have the same pose and orientation as the button.
-        link_mass = 0
-        link_collision_ids = [collision_id_light_bar]
-        link_visual_ids = [visual_id_light_bar]
-        # relative position to the button
-        link_positions = [[
-            cls.machine_z_len / 6 - 0.017,  # larger is down
-            cls.machine_x_len / 6 - 0.001,
-            cls.machine_top_y_len / 2 - 0.001
-        ]]
-        link_orientations = [[0, 0, 0, 1]]  # same orientation as the button
-
-        button_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id_button,
-            baseVisualShapeIndex=visual_id_button,
-            basePosition=pose_button,
-            baseOrientation=orientation_button,
-            linkMasses=[link_mass],
-            linkCollisionShapeIndices=link_collision_ids,
-            linkVisualShapeIndices=link_visual_ids,
-            linkPositions=link_positions,
-            linkOrientations=link_orientations,
-            linkInertialFramePositions=[[0, 0, 0]],
-            linkInertialFrameOrientations=[[0, 0, 0, 1]],
-            linkParentIndices=[0],
-            linkJointTypes=[p.JOINT_FIXED],
-            linkJointAxis=[[0, 0, 0]],
-            physicsClientId=physics_client_id)
-
+        button_id = cls._add_pybullet_machine_butthon(physics_client_id)
         bodies["button_id"] = button_id
 
-        # Load coffee jug.
-        # This pose doesn't matter because it gets overwritten in reset.
-        jug_pose = ((cls.jug_init_x_lb + cls.jug_init_x_ub) / 2,
-                    (cls.jug_init_y_lb + cls.jug_init_y_ub) / 2,
-                    cls.z_lb + cls.jug_height / 2)
-        # The jug orientation updates based on the rotation of the state.
-        rot = (cls.jug_init_rot_lb + cls.jug_init_rot_ub) / 2
-        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
-
-        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
-        jug_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/kettle.urdf"),
-            useFixedBase=True,
-            # globalScaling=0.075, # original jug
-            globalScaling=0.09,  # enlarged jug
-            physicsClientId=physics_client_id)
-
-        p.changeVisualShape(jug_id,
-                            0,
-                            rgbaColor=cls.jug_color,
-                            physicsClientId=physics_client_id)
-        # remove the lid
-        p.changeVisualShape(jug_id,
-                            1,
-                            rgbaColor=[1, 1, 1, 0],
-                            physicsClientId=physics_client_id)
-        p.resetBasePositionAndOrientation(jug_id,
-                                          jug_pose,
-                                          jug_orientation,
-                                          physicsClientId=physics_client_id)
+        jug_id = cls._add_pybullet_jug(physics_client_id)
         bodies["jug_id"] = jug_id
 
         return physics_client_id, pybullet_robot, bodies
@@ -1002,3 +690,340 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                  basePosition=pose,
                                  baseOrientation=orientation,
                                  physicsClientId=self._physics_client_id)
+    
+    @classmethod
+    def _add_pybullet_coffee_machine(cls, physics_client_id) -> int:
+        # Create the first box (main body base)
+        half_extents_base = (
+            cls.machine_x_len,
+            cls.machine_y_len / 2,
+            cls.machine_z_len / 2,
+        )
+        collision_id_base = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_base,
+            physicsClientId=physics_client_id)
+        visual_id_base = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_base,
+            rgbaColor=cls.machine_color,
+            physicsClientId=physics_client_id)
+        pose_base = (
+            cls.machine_x,
+            cls.machine_y,
+            cls.z_lb + cls.machine_z_len / 2,  # z
+        )
+        orientation_base = [0, 0, 0, 1]
+
+        # Create the second box (top)
+        half_extents_top = (
+            cls.machine_x_len * 5 / 6,
+            cls.machine_top_y_len / 2,
+            cls.machine_z_len / 6,
+        )
+        collision_id_top = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_top,
+            physicsClientId=physics_client_id)
+        visual_id_top = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_top,
+            rgbaColor=cls.machine_color,
+            physicsClientId=physics_client_id)
+        pose_top = (
+            -cls.machine_x_len / 6,  # x relative to base
+            -cls.machine_y_len / 2 -
+            cls.machine_top_y_len / 2,  # y relative to base
+            cls.machine_z_len / 3)
+        orientation_top = cls._default_orn
+
+        # Create the dispense area -- base.
+        # Define the dimensions for the dispense area
+        half_extents_dispense_base = (cls.machine_x_len,
+                                      1.1 * cls.dispense_radius + cls.jug_radius +
+                                      0.003, cls.dispense_height)
+        collision_id_dispense_base = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_dispense_base,
+            physicsClientId=physics_client_id)
+        visual_id_dispense_base = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_dispense_base,
+            rgbaColor=cls.machine_color,
+            physicsClientId=physics_client_id)
+        # the relative position for the dispense area
+        pose_dispense_base = (
+            0,
+            -cls.machine_y_len - cls.dispense_radius + 0.01,
+            -cls.machine_z_len / 2,
+        )
+        orientation_dispense_base = cls._default_orn
+
+        # Create the multibody with a fixed link
+        link_mass = 0
+        link_inertial_frame_position = [0, 0, 0]
+        link_inertial_frame_orientation = [0, 0, 0, 1]
+
+        machine_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id_base,
+            baseVisualShapeIndex=visual_id_base,
+            basePosition=pose_base,
+            baseOrientation=orientation_base,
+            linkMasses=[link_mass, link_mass],
+            linkCollisionShapeIndices=[
+                collision_id_top, collision_id_dispense_base
+            ],
+            linkVisualShapeIndices=[visual_id_top, visual_id_dispense_base],
+            linkPositions=[pose_top, pose_dispense_base],
+            linkOrientations=[orientation_top, orientation_dispense_base],
+            linkInertialFramePositions=[
+                link_inertial_frame_position, link_inertial_frame_position
+            ],
+            linkInertialFrameOrientations=[
+                link_inertial_frame_orientation,
+                link_inertial_frame_orientation
+            ],
+            linkParentIndices=[0, 0],
+            linkJointTypes=[p.JOINT_FIXED, p.JOINT_FIXED],
+            linkJointAxis=[[0, 0, 0], [0, 0, 0]],
+            physicsClientId=physics_client_id)
+
+        return machine_id
+
+    @classmethod
+    def _add_pybullet_dispense_area(cls, physics_client_id) -> int:
+        ## Create the dispense area -- base.
+        pose = (
+            cls.dispense_area_x,
+            cls.dispense_area_y,
+            # cls.z_lb + dispense_height)
+            cls.z_lb)
+        orientation = cls._default_orn
+
+        # Dispense area circle
+        # Create the collision shape.
+        collision_id = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=cls.dispense_radius,
+            height=cls.dispense_height,
+            physicsClientId=physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+                                        radius=cls.dispense_radius +
+                                        0.8 * cls.jug_radius,
+                                        length=cls.dispense_height,
+                                        rgbaColor=cls.plate_color_off,
+                                        physicsClientId=physics_client_id)
+
+        # Create the body.
+        dispense_area_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=physics_client_id)
+        return dispense_area_id
+
+    @classmethod
+    def _add_pybullet_machine_butthon(cls, physics_client_id) -> int:
+        # Add a button. Could do this as a link on the machine, but since
+        # both never move, it doesn't matter.
+        button_height = cls.button_radius / 2
+        collision_id_button = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=cls.button_radius,
+            height=button_height,
+            physicsClientId=physics_client_id)
+
+        # Create the visual_shape for the button.
+        visual_id_button = p.createVisualShape(
+            p.GEOM_CYLINDER,
+            radius=cls.button_radius,
+            length=button_height,
+            rgbaColor=cls.button_color_off,
+            physicsClientId=physics_client_id)
+
+        # Create the body.
+        pose_button = (
+            cls.button_x,
+            cls.button_y,
+            cls.button_z,
+        )
+
+        # Facing outward.
+        orientation_button = p.getQuaternionFromEuler(
+            [0.0, np.pi / 2, np.pi / 2])
+
+        # Add a light bar at the same position as the button.
+        half_extents_bar = (
+            cls.machine_z_len / 6 - 0.01,  # z
+            cls.machine_x_len * 5 / 6,  # x
+            cls.machine_top_y_len / 2  # y
+        )
+        collision_id_light_bar = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_bar,
+            physicsClientId=physics_client_id)
+        visual_id_light_bar = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents_bar,
+            # rgbaColor=(0.2, 0.2, 0.2, 1.0),
+            rgbaColor=cls.button_color_off,
+            physicsClientId=physics_client_id)
+
+        # The light bar will have the same pose and orientation as the button.
+        link_mass = 0
+        link_collision_ids = [collision_id_light_bar]
+        link_visual_ids = [visual_id_light_bar]
+        # relative position to the button
+        link_positions = [[
+            cls.machine_z_len / 6 - 0.017,  # larger is down
+            cls.machine_x_len / 6 - 0.001,
+            cls.machine_top_y_len / 2 - 0.001
+        ]]
+        link_orientations = [[0, 0, 0, 1]]  # same orientation as the button
+
+        button_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id_button,
+            baseVisualShapeIndex=visual_id_button,
+            basePosition=pose_button,
+            baseOrientation=orientation_button,
+            linkMasses=[link_mass],
+            linkCollisionShapeIndices=link_collision_ids,
+            linkVisualShapeIndices=link_visual_ids,
+            linkPositions=link_positions,
+            linkOrientations=link_orientations,
+            linkInertialFramePositions=[[0, 0, 0]],
+            linkInertialFrameOrientations=[[0, 0, 0, 1]],
+            linkParentIndices=[0],
+            linkJointTypes=[p.JOINT_FIXED],
+            linkJointAxis=[[0, 0, 0]],
+            physicsClientId=physics_client_id)
+        return button_id
+    
+    @classmethod
+    def _add_pybullet_jug(cls, physics_client_id) -> int:
+        # Load coffee jug.
+        # This pose doesn't matter because it gets overwritten in reset.
+        jug_pose = ((cls.jug_init_x_lb + cls.jug_init_x_ub) / 2,
+                    (cls.jug_init_y_lb + cls.jug_init_y_ub) / 2,
+                    cls.z_lb + cls.jug_height / 2)
+        # The jug orientation updates based on the rotation of the state.
+        rot = (cls.jug_init_rot_lb + cls.jug_init_rot_ub) / 2
+        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
+
+        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
+        jug_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/kettle.urdf"),
+            useFixedBase=True,
+            # globalScaling=0.075, # original jug
+            globalScaling=0.09,  # enlarged jug
+            physicsClientId=physics_client_id)
+
+        p.changeVisualShape(jug_id,
+                            0,
+                            rgbaColor=cls.jug_color,
+                            physicsClientId=physics_client_id)
+        # remove the lid
+        p.changeVisualShape(jug_id,
+                            1,
+                            rgbaColor=[1, 1, 1, 0],
+                            physicsClientId=physics_client_id)
+        p.resetBasePositionAndOrientation(jug_id,
+                                          jug_pose,
+                                          jug_orientation,
+                                          physicsClientId=physics_client_id)
+        return jug_id
+
+    @classmethod
+    def _add_pybullet_table(cls, physics_client_id) -> int:
+        table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                              useFixedBase=True,
+                              physicsClientId=physics_client_id)
+        p.resetBasePositionAndOrientation(table_id,
+                                          cls.table_pose,
+                                          cls.table_orientation,
+                                          physicsClientId=physics_client_id)
+        return table_id
+
+    @classmethod
+    def _add_pybullet_debug_lines(cls, physics_client_id: int) -> None:
+        # Draw the workspace on the table for clarity.
+        for z in [cls.z_lb, cls.z_ub]:
+            p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
+                               [cls.x_ub, cls.y_lb, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_lb, cls.y_ub, z],
+                               [cls.x_ub, cls.y_ub, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_lb, cls.y_lb, z],
+                               [cls.x_lb, cls.y_ub, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_ub, cls.y_lb, z],
+                               [cls.x_ub, cls.y_ub, z], [1.0, 0.0, 0.0],
+                               lineWidth=5.0,
+                               physicsClientId=physics_client_id)
+        # Draw different sampling regions for reference.
+        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
+                           [cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
+                           [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.jug_init_x_lb, cls.jug_init_y_lb, cls.z_lb],
+                           [cls.jug_init_x_lb, cls.jug_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.jug_init_x_ub, cls.jug_init_y_lb, cls.z_lb],
+                           [cls.jug_init_x_ub, cls.jug_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
+                           [cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
+                           [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_lb, cls.cup_init_y_lb, cls.z_lb],
+                           [cls.cup_init_x_lb, cls.cup_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([cls.cup_init_x_ub, cls.cup_init_y_lb, cls.z_lb],
+                           [cls.cup_init_x_ub, cls.cup_init_y_ub, cls.z_lb],
+                           [0.0, 0.0, 1.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        # Draw coordinate frame labels for reference.
+        p.addUserDebugLine([0, 0, 0], [0.25, 0, 0], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([0, 0, 0], [0.0, 0.25, 0], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
+                           physicsClientId=physics_client_id)
+        p.addUserDebugLine([0, 0, 0], [0.0, 0, 0.25], [1.0, 0.0, 0.0],
+                           lineWidth=5.0,
+                           physicsClientId=physics_client_id)
+        p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
+                           physicsClientId=physics_client_id)
