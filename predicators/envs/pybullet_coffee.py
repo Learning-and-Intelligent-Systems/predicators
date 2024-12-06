@@ -41,7 +41,11 @@ from predicators.structs import Action, Array, EnvironmentTask, Object, \
     Predicate, State
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
-    """PyBullet Coffee domain."""
+    """PyBullet Coffee domain.
+    x: cup <-> jug, 
+    y: robot <-> machine
+    z: up <-> down
+    """
 
     # Need to override a number of settings to conform to the actual dimensions
     # of the robots, table, etc.
@@ -79,11 +83,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     machine_top_y_len: ClassVar[float] = 1.5 * machine_y_len
     machine_x: ClassVar[float] = x_ub - machine_x_len / 2 - init_padding
     machine_y: ClassVar[float] = y_ub - machine_y_len / 2 - init_padding
-    button_radius: ClassVar[float] = 0.2 * machine_y_len
+    button_radius: ClassVar[float] = 0.6 * machine_y_len
     button_x: ClassVar[float] = machine_x
     button_y: ClassVar[
         float] = machine_y - machine_y_len / 2 - machine_top_y_len
-    button_z: ClassVar[float] = z_lb + machine_z_len - button_radius
+    button_z: ClassVar[float] = z_lb + machine_z_len - button_radius - 0.01
     button_press_threshold: ClassVar[float] = 1e-3
     machine_color: ClassVar[Tuple[float, float, float, float]] =\
         (0.1, 0.1, 0.1, 1) # Black
@@ -154,7 +158,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._camera_fov: ClassVar[float] = 8
             self._camera_yaw: ClassVar[float] = 90
             self._camera_pitch: ClassVar[float] = 0  # lower
-            # cup <-> jug, robot <-> machine
             self._camera_target: ClassVar[Pose3D] = (0.75, 1.33, 0.3)
         else:
             # Camera parameters -- standard
