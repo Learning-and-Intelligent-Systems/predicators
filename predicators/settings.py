@@ -325,6 +325,7 @@ class GlobalSettings:
     coffee_move_back_after_place_and_push = False
     coffee_jug_pickable_pred = False
     coffee_render_grid_world = False
+    coffee_simple_tasks = False
 
     # satellites env parameters
     satellites_num_sat_train = [2, 3]

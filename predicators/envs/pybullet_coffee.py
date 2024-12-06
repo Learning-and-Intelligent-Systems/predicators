@@ -18,8 +18,8 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
 --pybullet_control_mode "reset" --coffee_twist_sampler False \
 --make_test_videos --num_test_tasks 1 --video_fps 20 \
---pybullet_camera_height 300 --pybullet_camera_width 300 \
---coffee_render_grid_world True
+--pybullet_camera_height 64 --pybullet_camera_width 64 \
+--coffee_render_grid_world True --coffee_simple_tasks True
 """
 
 import logging
@@ -94,8 +94,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                      float]] = (0.5, 0.2, 0.2, 1.0)
     plate_color_off: ClassVar[Tuple[float, float, float,
                                     float]] = machine_color
-    jug_color: ClassVar[Tuple[float, float, float, float]] =\
-        (0.5,1,0,0.5) # Green
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)  # kettle urdf
     jug_init_x_lb: ClassVar[
@@ -112,6 +110,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_handle_height: ClassVar[float] = jug_height
     jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
+    # jug_color: ClassVar[Tuple[float, float, float, float]] =\
+    #     (0.5,1,0,0.5) # Green
+    jug_color: ClassVar[Tuple[float, float, float, float]] =\
+                (1,1,1,0.5) # White
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
     dispense_area_y: ClassVar[float] = machine_y - 5 * jug_radius
@@ -147,7 +149,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         if CFG.coffee_render_grid_world:
             # Camera parameters for grid world
             self._camera_distance: ClassVar[float] = 3
-            self._camera_fov: ClassVar[float] = 10
+            self._camera_fov: ClassVar[float] = 8
             self._camera_yaw: ClassVar[float] = 90
             self._camera_pitch: ClassVar[float] = 0  # lower
             # cup <-> jug, robot <-> machine
@@ -988,7 +990,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             p.GEOM_CYLINDER,
             radius=liquid_radius,
             length=liquid_height,
-            rgbaColor=(0.2 * 1.5, 0.05 * 1.5, 0.0, 1.0),
+            # rgbaColor=(0.2 * 1.5, 0.05 * 1.5, 0.0, 1.0), # brown
+            rgbaColor=(0.8, 0, 0, 1.0), # red
             physicsClientId=self._physics_client_id)
 
         pose, orientation = p.getBasePositionAndOrientation(

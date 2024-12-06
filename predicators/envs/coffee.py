@@ -472,9 +472,15 @@ class CoffeeEnv(BaseEnv):
         }
         for task_idx in range(num):
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
-            num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
+            if CFG.coffee_simple_tasks:
+                num_cups = 0
+            else:
+                num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
-            goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
+            if CFG.coffee_simple_tasks:
+                goal = {GroundAtom(self._JugFilled, [self._jug])}
+            else:
+                goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
             # Sample initial positions for cups, making sure to keep them
             # far enough apart from one another.
             radius = self.cup_radius + self.init_padding

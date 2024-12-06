@@ -100,6 +100,12 @@ class PyBulletEnv(BaseEnv):
                    useFixedBase=True,
                    physicsClientId=physics_client_id)
 
+        # Change the visual appearance to white
+        # plane_id = p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), 
+        #             basePosition=[-2, 0, 0],
+        #             baseOrientation=p.getQuaternionFromEuler([0, 1.57, 0])
+        #             )  # Rotate 90 degrees around Z-axis
+        # p.changeVisualShape(plane_id, -1, rgbaColor=[1, 1, 1, 1])
         # Load robot.
         pybullet_robot = cls._create_pybullet_robot(physics_client_id)
 
