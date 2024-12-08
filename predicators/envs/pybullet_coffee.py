@@ -24,7 +24,7 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_machine_have_light_bar False \
 --coffee_move_back_after_place_and_push True
 """
-
+import math
 import logging
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
@@ -42,7 +42,6 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
     Predicate, State
-
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     """PyBullet Coffee domain.
     x: cup <-> jug, 
@@ -167,7 +166,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         else:
             # Camera parameters -- standard
             self._camera_distance: ClassVar[float] = 1.3
-            self._camera_yaw: ClassVar[float] = 70
+            if CFG.coffee_machine_needs_plug_in:
+                self._camera_yaw: ClassVar[float] = -70
+            else:
+                self._camera_yaw: ClassVar[float] = 70
             self._camera_pitch: ClassVar[float] = -38  # lower
             self._camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
@@ -224,6 +226,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         jug_id = cls._add_pybullet_jug(physics_client_id)
         bodies["jug_id"] = jug_id
+    
+        if CFG.coffee_machine_needs_plug_in:
+            plug_id = cls._add_pybullet_powercord(physics_client_id)
+            bodies["plug_id"] = plug_id
+
+            socket_id = cls._add_pybullet_socket(physics_client_id)
+            bodies["socket_id"] = socket_id
 
         return physics_client_id, pybullet_robot, bodies
 
@@ -823,7 +832,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                         0.8 * cls.jug_radius,
                                         length=cls.dispense_height,
                                         rgbaColor=cls.plate_color_off,
-                                        physicsClientId=physics_client_id)
+                                        physicsClientId=physics_client_id
+                                        )
 
         # Create the body.
         dispense_area_id = p.createMultiBody(
@@ -946,6 +956,122 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                           physicsClientId=physics_client_id)
         return table_id
 
+    @classmethod
+    def _add_pybullet_powercord(cls, physics_client_id) -> int:
+        '''First segment connects the machine, last connects to the wall
+        '''
+        # Rope parameters
+        # todo: set base position at the machine
+        num_links = 20
+        link_length = 0.02
+        base_position = [cls.machine_x - cls.machine_x_len/2 - 2*link_length, 
+                         cls.machine_y - cls.machine_y_len/2, 
+                         cls.z_lb + link_length / 2]
+        curvature_amplitude = 0.0  # Amplitude of the curve
+        segments = []
+
+        # Create rope segments
+        for i in range(num_links):
+            # Position each segment along an arc with curvature
+            x_pos = base_position[0] - i * link_length
+            y_pos = base_position[1] + curvature_amplitude *\
+                                        math.sin(i * math.pi / (num_links - 1))
+            z_pos = base_position[2]  # Maintain height
+            link_pos = [x_pos, y_pos, z_pos]
+
+            # Set color: Red for the first link, Blue for the last link, and 
+            # Black for others
+            if i == 0:
+                color = [1, 0, 0, 1]  # Red
+            elif i == num_links - 1:
+                color = [0, 0, 1, 1]  # Blue
+            else:
+                color = [0, 0, 0, 1]  # Black
+
+            # Create collision and visual shapes
+            segment = p.createCollisionShape(p.GEOM_BOX, 
+                                    halfExtents=[
+                                        link_length / 2, 
+                                        link_length / 2, 
+                                        link_length / 2],
+                                    physicsClientId=physics_client_id
+                                    )
+            visual_shape = p.createVisualShape(p.GEOM_BOX, 
+                                    halfExtents=[
+                                        link_length / 2, 
+                                        link_length / 2, 
+                                        link_length / 2], 
+                                    rgbaColor=color,
+                                    physicsClientId=physics_client_id
+                                    )
+            segment_id = p.createMultiBody(
+                baseMass=0.0,
+                baseCollisionShapeIndex=segment,
+                baseVisualShapeIndex=visual_shape,
+                basePosition=link_pos,
+                physicsClientId=physics_client_id
+            )
+            segments.append(segment_id)
+
+        # Connect segments with joints
+        for i in range(len(segments) - 1):
+            p.createConstraint(
+                parentBodyUniqueId=segments[i],
+                parentLinkIndex=-1,
+                childBodyUniqueId=segments[i + 1],
+                childLinkIndex=-1,
+                jointType=p.JOINT_POINT2POINT,
+                jointAxis=[0, 0, 0],
+                # End of the current segment
+                parentFramePosition=[-link_length / 2, 0, 0],
+                # Start of the next segment
+                childFramePosition=[+link_length / 2, 0, 0]
+            )
+        return segments[-1]
+
+    @classmethod
+    def _add_pybullet_socket(cls, physics_client_id: int) -> None:
+        # Add the blue socket block
+        socket_width = socket_height = 0.1
+        socket_depth = 0.02
+
+        socket_position = [
+            (cls.x_lb + cls.x_ub) / 2,
+            cls.y_ub ,
+            cls.z_lb + socket_height * 2
+        ]
+        socket_collision_shape = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=[socket_width / 2, socket_depth / 2, socket_height / 2],
+            physicsClientId=physics_client_id
+        )
+        socket_visual_shape = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=[socket_width / 2, socket_depth / 2, socket_height / 2],
+            rgbaColor=[0, 0, 1, 1],  # Blue color
+            physicsClientId=physics_client_id
+        )
+        socket_id = p.createMultiBody(
+            baseMass=0.0,
+            baseCollisionShapeIndex=socket_collision_shape,
+            baseVisualShapeIndex=socket_visual_shape,
+            basePosition=socket_position,
+            physicsClientId=physics_client_id
+        )
+
+        # # Connect the last segment to the socket
+        # p.createConstraint(
+        #     parentBodyUniqueId=segments[-1],
+        #     parentLinkIndex=-1,
+        #     childBodyUniqueId=socket_id,
+        #     childLinkIndex=-1,
+        #     jointType=p.JOINT_FIXED,
+        #     jointAxis=[0, 0, 0],
+        #     parentFramePosition=[-link_length / 2, 0, 0],
+        #     childFramePosition=[socket_size / 2, 0, 0],
+        #     physicsClientId=physics_client_id
+        # )
+        return socket_id
     @classmethod
     def _add_pybullet_debug_lines(cls, physics_client_id: int) -> None:
         # Draw the workspace on the table for clarity.
