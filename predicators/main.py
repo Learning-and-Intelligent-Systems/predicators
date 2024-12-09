@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
+import colorlog
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -71,14 +72,48 @@ def main() -> None:
     utils.update_config(args)
     str_args = " ".join(sys.argv)
     # Log to stderr.
-    handlers: List[logging.Handler] = [logging.StreamHandler()]
+    colorlog_handler = colorlog.StreamHandler()
+    colorlog_handler.setFormatter(
+        colorlog.ColoredFormatter('%(log_color)s%(levelname)s: %(message)s',
+                                  log_colors={
+                                      'DEBUG': 'cyan',
+                                      'INFO': 'green',
+                                      'WARNING': 'yellow',
+                                      'ERROR': 'red',
+                                      'CRITICAL': 'red,bg_white',
+                                  },
+                                  reset=True,
+                                  style='%'))
+    # handlers: List[logging.Handler] = [logging.StreamHandler()]
+    handlers: List[logging.Handler] = [colorlog_handler]
     if CFG.log_file:
-        handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
+        CFG.log_file += f"{CFG.env}/seed{CFG.seed}/"
+        os.makedirs(CFG.log_file, exist_ok=True)
+
+        timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
+        # handlers.append(logging.FileHandler(CFG.log_file + timestamp,
+        #                                     mode='w'))
+        # Handler for DEBUG level messages
+        debug_handler = logging.FileHandler(CFG.log_file + "r" + timestamp +
+                                            "_debug",
+                                            mode='w')
+        debug_handler.setLevel(logging.DEBUG)
+        handlers.append(debug_handler)
+
+        # Handler for INFO level messages
+        info_handler = logging.FileHandler(CFG.log_file + "r" + timestamp +
+                                           "_info",
+                                           mode='w')
+        info_handler.setLevel(logging.INFO)
+        handlers.append(info_handler)
+
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
                         handlers=handlers,
                         force=True)
     logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
+    logging.getLogger('libpng').setLevel(logging.ERROR)
+    logging.getLogger('PIL').setLevel(logging.ERROR)    
     if CFG.log_file:
         logging.info(f"Logging to {CFG.log_file}")
     logging.info(f"Running command: python {str_args}")
