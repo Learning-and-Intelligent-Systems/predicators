@@ -170,6 +170,7 @@ def _sesame_plan_with_astar(
                            key=lambda s: estimator.get_cost(task, *s)))
             refinement_start_time = time.perf_counter()
             for skeleton, atoms_sequence in gen:
+                logging.debug(f"Found skeleton: {[n.name for n in skeleton]}")
                 if CFG.sesame_use_necessary_atoms:
                     atoms_seq = utils.compute_necessary_atoms_seq(
                         skeleton, atoms_sequence, task.goal)
@@ -194,6 +195,8 @@ def _sesame_plan_with_astar(
                     return plan, skeleton, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
+                    logging.debug("Exiting search due to timeout.")
+                    logging.debug(f"Partial refinements: {partial_refinements}")
                     raise PlanningTimeout(
                         "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})
@@ -543,6 +546,7 @@ def run_low_level_search(
     plan_found = False
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
+            logging.debug("Exiting low-level search due to timeout.")
             return longest_failed_refinement, False
         assert num_tries[cur_idx] < max_tries[cur_idx]
         try_start_time = time.perf_counter()
@@ -562,9 +566,11 @@ def run_low_level_search(
         cur_idx += 1
         if option.initiable(state):
             try:
+                logging.debug(f"Running option {option}")
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
             except EnvironmentFailure as e:
+                logging.debug(f"Discovered a failure: {e}")
                 can_continue_on = False
                 # Remember only the most recent failure.
                 discovered_failures[cur_idx - 1] = _DiscoveredFailure(e, nsrt)
@@ -586,11 +592,18 @@ def run_low_level_search(
                             break
                 if static_obj_changed:
                     can_continue_on = False
-                # Check if we have exceeded the horizon.
+                # Check if we have exceeded the horizon in total.
                 elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                    logging.debug("Cannot continue: exceeded total horizon.")
+                    can_continue_on = False
+                # Check if we have exceeded the horizon individually.
+                elif num_actions >= CFG.max_num_steps_option_rollout:
+                    logging.debug("Cannot continue: exceeded individual "
+                                  "horizon.")
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:
+                    logging.debug("Cannot continue: an noop")
                     can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.
