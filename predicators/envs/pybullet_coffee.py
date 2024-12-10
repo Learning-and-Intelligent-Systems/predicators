@@ -23,6 +23,18 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_render_grid_world True --coffee_simple_tasks True \
 --coffee_machine_have_light_bar False \
 --coffee_move_back_after_place_and_push True
+
+Needs pluged in:
+python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
+--coffee_rotated_jug_ratio 0.5 \
+--sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
+--pybullet_control_mode "reset" --coffee_twist_sampler False \
+--make_test_videos --num_test_tasks 1 --video_fps 20 \
+--pybullet_camera_height 300 --pybullet_camera_width 300 \
+--coffee_render_grid_world False --coffee_simple_tasks True \
+--coffee_machine_have_light_bar False \
+--coffee_move_back_after_place_and_push True \
+--coffee_machine_has_plug True --sesame_max_skeletons_optimized 1
 """
 import math
 import logging
@@ -54,6 +66,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     grasp_finger_tol: ClassVar[float] = 1e-2
     grasp_position_tol: ClassVar[float] = 1e-2
     dispense_tol: ClassVar[float] = 1e-2
+    plugged_in_tol: ClassVar[float] = 1e-2
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1.0
     init_padding: ClassVar[float] = 0.05
@@ -142,6 +155,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         (121 / 255, 37 / 255, 117 / 255, 1.),
         (35 / 255, 100 / 255, 54 / 255, 1.),
     ]
+    # Powercord / Plug settings.
+    num_cord_links = 10
+    cord_link_length = 0.02
+    # num_cord_links = 5
+    # cord_link_length = 0.04
+    cord_start_x = machine_x - machine_x_len / 2 - 4 * cord_link_length
+    cord_start_y = machine_y - machine_y_len / 2
+    cord_start_z = z_lb + cord_link_length / 2
+    plug_x = cord_start_x - (num_cord_links - 1) * cord_link_length
+    plug_y = cord_start_y
+    plug_z = cord_start_z
+    # Socket settings.
+    socket_height: ClassVar[float] = 0.1
+    socket_width: ClassVar[float] = 0.1
+    socket_depth: ClassVar[float] = 0.01
+    socket_x: ClassVar[float] = (x_lb + x_ub) / 2
+    socket_y: ClassVar[float] = machine_y
+    socket_z: ClassVar[float] = z_lb + socket_height * 2
+    # Pour settings.
     pour_x_offset: ClassVar[float] = cup_radius
     pour_y_offset: ClassVar[float] = -3 * (cup_radius + jug_radius)
     pour_z_offset: ClassVar[float] = 2.5 * (cup_capacity_ub + jug_height - \
@@ -166,8 +198,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         else:
             # Camera parameters -- standard
             self._camera_distance: ClassVar[float] = 1.3
-            if CFG.coffee_machine_needs_plug_in:
-                self._camera_yaw: ClassVar[float] = -70
+            if CFG.coffee_machine_has_plug:
+                # self._camera_yaw: ClassVar[float] = -70
+                self._camera_yaw: ClassVar[float] = -90
             else:
                 self._camera_yaw: ClassVar[float] = 70
             self._camera_pitch: ClassVar[float] = -38  # lower
@@ -186,6 +219,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._jug_filled = False
         self._jug_liquid_id = None
         self._obj_id_to_obj: Dict[int, Object] = {}
+
+        self._machine_plugged_in_id = None
 
     @property
     def oracle_proposed_predicates(self) -> Set[Predicate]:
@@ -221,13 +256,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         dispense_area_id = cls._add_pybullet_dispense_area(physics_client_id)
         bodies["dispense_area_id"] = dispense_area_id
 
-        button_id = cls._add_pybullet_machine_butthon(physics_client_id)
+        button_id = cls._add_pybullet_machine_button(physics_client_id)
         bodies["button_id"] = button_id
 
         jug_id = cls._add_pybullet_jug(physics_client_id)
         bodies["jug_id"] = jug_id
     
-        if CFG.coffee_machine_needs_plug_in:
+        if CFG.coffee_machine_has_plug:
             plug_id = cls._add_pybullet_powercord(physics_client_id)
             bodies["plug_id"] = plug_id
 
@@ -242,6 +277,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._machine_id = pybullet_bodies["machine_id"]
         self._dispense_area_id = pybullet_bodies["dispense_area_id"]
         self._button_id = pybullet_bodies["button_id"]
+        self._plug_id = pybullet_bodies["plug_id"]
+        self._socket_id = pybullet_bodies["socket_id"]
 
     @classmethod
     def _create_pybullet_robot(
@@ -375,6 +412,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             rgbaColor=plate_color,
                             physicsClientId=self._physics_client_id)
 
+        if self._machine_plugged_in_id is not None:
+            p.removeConstraint(self._machine_plugged_in_id,
+                               physicsClientId=self._physics_client_id)
+            self._machine_plugged_in_id = None
+
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
         if not reconstructed_state.allclose(state):
@@ -449,6 +491,16 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         }
         state_dict[self._table] = {}
 
+        # Get plug state.
+        if CFG.coffee_machine_has_plug:
+            (x, y, z), _ = p.getBasePositionAndOrientation(
+                self._plug_id, physicsClientId=self._physics_client_id)
+            state_dict[self._plug] = {
+                "x": x,
+                "y": y,
+                "z": z,
+                "plugged_in": float(self._machine_plugged_in_id is not None),
+                                    }
         # Get machine state.
         button_color = p.getVisualShapeData(
             self._button_id, physicsClientId=self._physics_client_id)[0][-1]
@@ -491,6 +543,20 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 pos,
                 quat,
                 physicsClientId=self._physics_client_id)
+        
+        if self._PluggedIn_holds(state, [self._plug]) and \
+            self._machine_plugged_in_id is None:
+            # Create a constraint between plug and socket
+            self._machine_plugged_in_id = p.createConstraint(
+                parentBodyUniqueId=self._socket_id,
+                parentLinkIndex=-1,
+                childBodyUniqueId=self._plug_id,
+                childLinkIndex=-1,
+                jointAxis=[0, 0, 0],
+                jointType=p.JOINT_FIXED,
+                parentFramePosition=[0, 0, 0],
+                childFramePosition=[0, 0, 0],
+            )
 
         # If the robot is sufficiently close to the button, turn on the machine
         # and update the status of the jug.
@@ -503,11 +569,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 0,
                                 rgbaColor=self.button_color_on,
                                 physicsClientId=self._physics_client_id)
+
             # the jug is only filled if it's in the machine
-            if self._JugInMachine_holds(state, [self._jug, self._machine]):
+            # and when the machine requires to plug in, the plug is in the 
+            # socket
+            if self._JugInMachine_holds(state, [self._jug, self._machine]) and\
+                    (not CFG.coffee_machine_has_plug or 
+                    self._machine_plugged_in_id is not None):
                 if not self._jug_filled:
-                    self._jug_liquid_id = \
-                        self._create_pybullet_liquid_for_jug()
+                    self._jug_liquid_id = self._create_pybullet_liquid_for_jug()
                 self._jug_filled = True
             self._current_observation = self._get_state(render_obs)
             state = self._current_observation.copy()
@@ -579,7 +649,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return self._add_pybullet_state_to_tasks([task])[0]
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        return [self._jug_id]
+        return [self._jug_id, self._plug_id]
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
         if CFG.pybullet_robot == "fetch":
@@ -846,7 +916,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return dispense_area_id
 
     @classmethod
-    def _add_pybullet_machine_butthon(cls, physics_client_id) -> int:
+    def _add_pybullet_machine_button(cls, physics_client_id) -> int:
         # Add a button. Could do this as a link on the machine, but since
         # both never move, it doesn't matter.
         button_position = (cls.button_x, cls.button_y, cls.button_z)
@@ -962,20 +1032,18 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         '''
         # Rope parameters
         # todo: set base position at the machine
-        num_links = 20
-        link_length = 0.02
-        base_position = [cls.machine_x - cls.machine_x_len/2 - 2*link_length, 
-                         cls.machine_y - cls.machine_y_len/2, 
-                         cls.z_lb + link_length / 2]
-        curvature_amplitude = 0.0  # Amplitude of the curve
+        base_position = [cls.cord_start_x,
+                            cls.cord_start_y,
+                            cls.cord_start_z]
+        # curvature_amplitude = 0.0  # Amplitude of the curve
         segments = []
 
         # Create rope segments
-        for i in range(num_links):
+        for i in range(cls.num_cord_links):
             # Position each segment along an arc with curvature
-            x_pos = base_position[0] - i * link_length
-            y_pos = base_position[1] + curvature_amplitude *\
-                                        math.sin(i * math.pi / (num_links - 1))
+            x_pos = base_position[0] - i * cls.cord_link_length
+            y_pos = base_position[1] #+ curvature_amplitude *\
+                            # math.sin(i * math.pi / (cls.num_cord_links - 1))
             z_pos = base_position[2]  # Maintain height
             link_pos = [x_pos, y_pos, z_pos]
 
@@ -983,7 +1051,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             # Black for others
             if i == 0:
                 color = [1, 0, 0, 1]  # Red
-            elif i == num_links - 1:
+            elif i == cls.num_cord_links - 1:
                 color = [0, 0, 1, 1]  # Blue
             else:
                 color = [0, 0, 0, 1]  # Black
@@ -991,21 +1059,21 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             # Create collision and visual shapes
             segment = p.createCollisionShape(p.GEOM_BOX, 
                                     halfExtents=[
-                                        link_length / 2, 
-                                        link_length / 2, 
-                                        link_length / 2],
+                                        cls.cord_link_length / 2, 
+                                        cls.cord_link_length / 2, 
+                                        cls.cord_link_length / 2],
                                     physicsClientId=physics_client_id
                                     )
             visual_shape = p.createVisualShape(p.GEOM_BOX, 
                                     halfExtents=[
-                                        link_length / 2, 
-                                        link_length / 2, 
-                                        link_length / 2], 
+                                        cls.cord_link_length / 2, 
+                                        cls.cord_link_length / 2, 
+                                        cls.cord_link_length / 2], 
                                     rgbaColor=color,
                                     physicsClientId=physics_client_id
                                     )
             segment_id = p.createMultiBody(
-                baseMass=0.0,
+                baseMass=0.01,
                 baseCollisionShapeIndex=segment,
                 baseVisualShapeIndex=visual_shape,
                 basePosition=link_pos,
@@ -1023,31 +1091,33 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 jointType=p.JOINT_POINT2POINT,
                 jointAxis=[0, 0, 0],
                 # End of the current segment
-                parentFramePosition=[-link_length / 2, 0, 0],
+                parentFramePosition=[-cls.cord_link_length / 2, 0, 0],
                 # Start of the next segment
-                childFramePosition=[+link_length / 2, 0, 0]
+                childFramePosition=[+cls.cord_link_length / 2, 0, 0]
             )
         return segments[-1]
 
     @classmethod
     def _add_pybullet_socket(cls, physics_client_id: int) -> None:
         # Add the blue socket block
-        socket_width = socket_height = 0.1
-        socket_depth = 0.02
 
         socket_position = [
-            (cls.x_lb + cls.x_ub) / 2,
-            cls.y_ub ,
-            cls.z_lb + socket_height * 2
+            cls.socket_x,
+            cls.socket_y,
+            cls.socket_z
         ]
         socket_collision_shape = p.createCollisionShape(
             p.GEOM_BOX,
-            halfExtents=[socket_width / 2, socket_depth / 2, socket_height / 2],
+            halfExtents=[cls.socket_width / 2, 
+                         cls.socket_depth / 2, 
+                         cls.socket_height / 2],
             physicsClientId=physics_client_id
         )
         socket_visual_shape = p.createVisualShape(
             p.GEOM_BOX,
-            halfExtents=[socket_width / 2, socket_depth / 2, socket_height / 2],
+            halfExtents=[cls.socket_width / 2, 
+                         cls.socket_depth / 2, 
+                         cls.socket_height / 2],
             rgbaColor=[0, 0, 1, 1],  # Blue color
             physicsClientId=physics_client_id
         )
@@ -1067,7 +1137,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #     childLinkIndex=-1,
         #     jointType=p.JOINT_FIXED,
         #     jointAxis=[0, 0, 0],
-        #     parentFramePosition=[-link_length / 2, 0, 0],
+        #     parentFramePosition=[-cls.cord_link_length / 2, 0, 0],
         #     childFramePosition=[socket_size / 2, 0, 0],
         #     physicsClientId=physics_client_id
         # )

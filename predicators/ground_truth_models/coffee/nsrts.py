@@ -27,6 +27,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         jug_type = types["jug"]
         cup_type = types["cup"]
         machine_type = types["coffee_machine"]
+        plug_type = types["plug"]
 
         # Predicates
         CupFilled = predicates["CupFilled"]
@@ -43,6 +44,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Twisting = predicates["Twisting"]
         NotSameCup = predicates["NotSameCup"]
         JugPickable = predicates["JugPickable"]
+        PluggedIn = predicates["PluggedIn"]
 
         # Options
         if CFG.coffee_combined_move_and_twist_policy:
@@ -56,6 +58,26 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Pour = options["Pour"]
 
         nsrts = set()
+
+        if CFG.coffee_machine_has_plug:
+            # PlugIn
+            plug = Variable("?plug", plug_type)
+            robot = Variable("?robot", robot_type)
+            parameters = [robot, plug]
+            option_vars = [robot, plug]
+            option = options["PlugIn"]
+            preconditions = {
+                LiftedAtom(HandEmpty, [robot])
+            }
+            add_effects = {
+                LiftedAtom(PluggedIn, [plug]),
+            }
+            delete_effects = set()
+            ignore_effects = set()
+            plug_in_nsrt = NSRT("PlugIn", parameters, preconditions, 
+                                add_effects, delete_effects, ignore_effects, 
+                                option, option_vars, null_sampler)
+            nsrts.add(plug_in_nsrt)
 
         if not CFG.coffee_combined_move_and_twist_policy:
             # MoveToTwistJug
@@ -189,6 +211,7 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         jug = Variable("?jug", jug_type)
         machine = Variable("?machine", machine_type)
+        plug = Variable("?plug", plug_type)
         parameters = [robot, jug, machine]
         option_vars = [robot, machine]
         option = TurnMachineOn
@@ -196,6 +219,9 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(JugInMachine, [jug, machine]),
         }
+        if CFG.coffee_machine_has_plug:
+            parameters.append(plug)
+            preconditions.add(LiftedAtom(PluggedIn, [plug]))
         add_effects = {
             LiftedAtom(JugFilled, [jug]),
             LiftedAtom(MachineOn, [machine]),

@@ -44,6 +44,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         jug_type = types["jug"]
         machine_type = types["coffee_machine"]
         cup_type = types["cup"]
+        plug_type = types["plug"]
 
         # Predicates
         Twisting = predicates["Twisting"]
@@ -53,6 +54,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         MachineOn = predicates["MachineOn"]
         CupFilled = predicates["CupFilled"]
         JugPickable = predicates["JugPickable"]
+        PluggedIn = predicates["PluggedIn"]
 
         # MoveToTwistJug
         def _MoveToTwistJug_terminal(state: State, memory: Dict,
@@ -165,6 +167,31 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_TurnMachineOn_terminal)
         cls.TurnMachineOn = TurnMachineOn
 
+        if CFG.coffee_machine_has_plug:
+            # Plug in the plug to the socket
+            def _PlugIn_initiable(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+                    del memory, params
+                    robot, plug = objects
+                    finger_open = state.get(robot, "fingers") > 0.3
+                    return finger_open
+            
+            def _PlugIn_terminal(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+                    del memory, params
+                    robot, plug = objects
+                    finger_open = state.get(robot, "fingers") > 0.3
+                    return PluggedIn.holds(state, [plug]) and finger_open
+
+            PlugIn = ParameterizedOption(
+                "PlugIn",
+                types=[robot_type, plug_type],
+                params_space=Box(0, 1, (0, )),
+                policy=cls._create_plug_in_policy(),
+                initiable=_PlugIn_initiable,
+                terminal=_PlugIn_terminal)
+
+
         # Pour
         def _Pour_initiable(state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
@@ -188,7 +215,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         return {
             PickJug, PlaceJugInMachine, TurnMachineOn, Pour, MoveToTwistJug,
-            TwistJug
+            TwistJug, PlugIn
         }
 
     @classmethod
@@ -613,6 +640,90 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             options.add(PlaceJugInMachine)
             options.add(TurnMachineOn)
         return options
+
+    @classmethod
+    def _create_plug_in_policy(cls) -> ParameterizedPolicy:
+        
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            '''This works by first rotate the gripper by 90 degrees, then
+            move the gripper to the plug, then close the fingers to pick
+            1) Rotate, 2) Pick up, 3) Rotate back, 4) Plug in, 5) Place
+            '''
+            del memory, params
+
+            robot, plug = objects
+            target_wrist = cls.env_cls.robot_init_wrist
+
+            # 5) When it has been plugged in, open the finger
+            plugged_in = state.get(plug, "plugged_in")
+            if plugged_in > 0.5:
+                return cls._get_place_action(state)
+
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            wrist = state.get(robot, "wrist")
+            robot_pos = (x, y, z)
+            finger = state.get(robot, "fingers")
+            gripper_open = finger > 0.3
+
+            plug_x = state.get(plug, "x")
+            plug_y = state.get(plug, "y")
+            plug_z = state.get(plug, "z")
+            plug_pos = (plug_x, plug_y, plug_z)
+            sq_dist_to_plug = np.sum(np.subtract(plug_pos, robot_pos)**2)
+
+            # When it's close, pick it up
+            if sq_dist_to_plug < cls.pick_policy_tol:
+                # 2) Pick up
+                if gripper_open:
+                    return cls._get_pick_action(state)
+                else:
+                    # 3) Rotate back & 4) Plug in.
+                    # After grasping, move to the socket
+                    socket_pos = (cls.env_cls.socket_x, 
+                                    cls.env_cls.socket_y, 
+                                    cls.env_cls.socket_z)
+                    # # Adding a waypoint to avoid collision
+                    # waypoint = (cls.env_cls.plug_x,
+                    #             cls.env_cls.dispense_area_y,
+                    #             cls.env_cls.socket_z)
+                    # # sq_dist_to_way_point = np.sum(np.subtract(waypoint, 
+                    # #                                           robot_pos)**2)
+                    # z_distance = np.abs(z - cls.env_cls.socket_z)
+                    # if z_distance > cls.pick_policy_tol: # and \
+                    #     # sq_dist_to_way_point > cls.env_cls.pick_policy_tol:
+                    #     target_robot_pos = waypoint
+                    # else:
+                    target_robot_pos = socket_pos
+                    # Rotate back to init orientation
+                    dwrist = np.clip(target_wrist - wrist, 
+                                    -cls.env_cls.max_angular_vel,
+                                    cls.env_cls.max_angular_vel) /\
+                            cls.env_cls.max_angular_vel
+
+                    return cls._get_move_action(state, 
+                                            target_robot_pos, 
+                                            robot_pos,
+                                            finger_status="closed",
+                                            dwrist=dwrist)
+
+            # When the gripper is far away from the plug, move to it
+            target_robot_pos = plug_pos
+            target_wrist = 0
+            dwrist = np.clip(target_wrist - wrist, 
+                             -cls.env_cls.max_angular_vel,
+                             cls.env_cls.max_angular_vel) /\
+                    cls.env_cls.max_angular_vel
+
+            # 2) Pick up
+            return cls._get_move_action(state,
+                                        target_robot_pos,
+                                        robot_pos,
+                                        finger_status="open",
+                                        dwrist=dwrist)
+        return policy
 
     @classmethod
     def _create_move_back_after_place_or_push_policy(
