@@ -1,0 +1,76 @@
+# Additional info associated with the map.
+---
+spot-home-pose:
+  x: 1.5
+  y: 0.7
+  angle: -0.3
+# The info below is used to transform april tag x, y, z detections into object
+# x, y, z. For example, if a tag is hanging off the side of a table, we would
+# want to use the center of the table as the origin of the table object.
+april-tag-offsets:
+  tag-408:  # smooth table
+    x: 0.25
+    y: 0.1
+    z: -0.2
+# Known immovable objects. Assuming default rotations.
+known-immovable-objects:
+  smooth_table:
+    x: 0.72
+    y: 1.25
+    z: -0.42
+  floor:
+    x: 0.0
+    y: 0.0
+    z: -0.5
+# Static object features, including the shapes and sizes of known objects.
+static-object-features:
+  smooth_table:
+    shape: 2  # cylinder
+    height: 0.52
+    length: 0.51
+    width: 0.51
+    flat_top_surface: 1
+    placeable: 0
+  sticky_table:
+    shape: 2  # cylinder
+    height: 0.52
+    length: 0.51
+    width: 0.51
+    flat_top_surface: 1
+    placeable: 0
+  cube:
+    shape: 1  # cuboid
+    height: 0.083
+    length: 0.083
+    width: 0.083
+    placeable: 1
+  soda_can:
+    shape: 2
+    height: 0.114
+    length: 0.065
+    width: 0.065
+    placeable: 1
+  floor:
+    shape: 1
+    height: 0.0001
+    length: 10000000  # effectively infinite
+    width: 10000000
+  black_table:
+    shape: 1
+    height: 0.74
+    length: 1.07
+    width: 0.51
+    flat_top_surface: 1
+    placeable: 0
+  bucket:
+    shape: 2
+    height: 0.4
+    width: 0.23
+    length: 0.23
+    placeable: 1
+  chair:
+    shape: 2
+    height: 0.8
+    length: 0.5
+    width: 0.5
+    placeable: 0

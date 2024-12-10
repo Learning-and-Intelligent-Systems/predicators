@@ -183,12 +183,16 @@ class State:
         """Return whether this state is close enough to another one, i.e., its
         objects are the same, and the features are close."""
         if self.simulator_state is not None or \
-            other.simulator_state is not None:
+           other.simulator_state is not None:
             if not CFG.allow_state_allclose_comparison_despite_simulator_state:
                 raise NotImplementedError("Cannot use allclose when "
                                           "simulator_state is not None.")
             if self.simulator_state != other.simulator_state:
                 return False
+        return self._allclose(other)
+
+    def _allclose(self, other: State) -> bool:
+        """Helper for allclose() that does not check simulator states."""
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
@@ -1188,6 +1192,16 @@ class Action:
         assert not self.has_option()
 
 
+class SpotAction(Action):
+    """Subclassed to avoid issues with pickling bosdyn functions."""
+
+    def __getnewargs__(self) -> Tuple:  # pragma: no cover
+        return (self._arr, self._option)
+
+    def __getstate__(self) -> Dict:  # pragma: no cover
+        return {"_arr": self._arr, "_option": self._option}
+
+
 @dataclass(frozen=True, repr=False, eq=False)
 class LowLevelTrajectory:
     """A structure representing a low-level trajectory, containing a state
@@ -1981,6 +1995,29 @@ class GroundMacro:
 
     def __len__(self) -> int:
         return len(self.ground_nsrts)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class SpotActionExtraInfo:
+    """A sequence of things that are in the extra_info field of actions for the
+    SpotEnv.
+
+    We expect every action is linked to a parameterized skill. Thus, the
+    action name is the skill name. The operator objects are the discrete
+    skill parameters. The real_world_fn is an implementation of the
+    policy for the skill that should execute on a real world spot robot.
+    The real_world_fn_args are the arguments that this function requires
+    (which includes the continuous params and any other necessary)
+    params. The simulation_fn is an implementation of the skill policy
+    that should execute with a pbrspot simulation. The
+    simulation_fn_args are the arguments the simulation_fn requires.
+    """
+    action_name: str
+    operator_objects: Sequence[Object]
+    real_world_fn: Optional[Callable]
+    real_world_fn_args: Tuple
+    simulation_fn: Optional[Callable]
+    simulation_fn_args: Tuple
 
 
 # Convenience higher-order types useful throughout the code

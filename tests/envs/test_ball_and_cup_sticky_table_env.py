@@ -216,7 +216,12 @@ def test_sticky_table():
         for i, ground_nsrt in enumerate(ground_nsrt_plan):
             if i == len(ground_nsrt_plan) - 1:
                 state = utils.run_ground_nsrt_with_assertions(
-                    ground_nsrt, state, env, rng, assert_effects=False)
+                    ground_nsrt,
+                    state,
+                    env,
+                    rng,
+                    assert_add_effects=False,
+                    assert_delete_effects=False)
                 assert BallOnFloor([ball]).holds(state)
             else:
                 state = utils.run_ground_nsrt_with_assertions(
@@ -237,7 +242,12 @@ def test_sticky_table():
         for i, ground_nsrt in enumerate(ground_nsrt_plan):
             if i == len(ground_nsrt_plan) - 1:
                 state = utils.run_ground_nsrt_with_assertions(
-                    ground_nsrt, state, env, rng, assert_effects=False)
+                    ground_nsrt,
+                    state,
+                    env,
+                    rng,
+                    assert_add_effects=False,
+                    assert_delete_effects=False)
                 if CupOnTable([cup, sticky_table]).holds(state):
                     num_success_places += 1
             else:

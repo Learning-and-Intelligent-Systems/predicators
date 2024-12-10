@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import contextlib
+import curses
 import functools
 import gc
 import heapq as hq
@@ -16,6 +17,7 @@ import pkgutil
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -27,6 +29,13 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
+try:  # pragma: no cover
+    from gtts import gTTS
+    from playsound import playsound
+    _TTS_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover
+    _TTS_AVAILABLE = False
+
 import dill as pkl
 import imageio
 import matplotlib
@@ -34,6 +43,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
 import PIL.Image
+from bosdyn.client import math_helpers
 from gym.spaces import Box
 from matplotlib import patches
 from numpy.typing import NDArray
@@ -54,16 +64,22 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
+    ParameterizedOption, Predicate, Segment, SpotAction, SpotActionExtraInfo, \
+    State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
+    VLMPredicate, _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, \
+    _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
 if TYPE_CHECKING:
     from predicators.envs import BaseEnv
 
-matplotlib.use("Agg")
+# NOTE: some spot utilities use plt.show(), which requires a GUI back-end.
+# But testing in headless mode requires a non-GUI backend.
+try:
+    matplotlib.use("TkAgg")
+except ImportError:  # pragma: no cover
+    matplotlib.use("Agg")
 
 # Unpickling CUDA models errs out if the device isn't recognized because of
 # an unusual name, including in supercloud, but we can set it manually
@@ -271,6 +287,25 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
     return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
 
 
+def prompt_user(prompt: str) -> str:  # pragma: no cover
+    """Ask the user for input with voice and text."""
+    if _TTS_AVAILABLE:
+        with tempfile.NamedTemporaryFile() as voice:
+            gTTS(text=prompt, lang="en").write_to_fp(voice)
+            playsound(voice.name)
+    return input(prompt)
+
+
+def wait_for_any_button_press(msg: str) -> None:  # pragma: no cover
+    """Print some text and wait for the user to press any button."""
+    stdscr = curses.initscr()
+    curses.noecho()
+    stdscr.addstr(msg)
+    stdscr.getkey()
+    curses.flushinp()
+    curses.endwin()
+
+
 def construct_active_sampler_input(state: State, objects: Sequence[Object],
                                    params: Array,
                                    param_option: ParameterizedOption) -> Array:
@@ -330,6 +365,74 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 for obj in objects:
                     sampler_input_lst.extend(state[obj])
                 sampler_input_lst.extend(params)
+        elif "spot" in CFG.env:  # pragma: no cover
+            if "SweepIntoContainer" in param_option.name:
+                _, _, target, _, container = objects
+                for obj in [target, container]:
+                    sampler_input_lst.append(state.get(obj, "x"))
+                    sampler_input_lst.append(state.get(obj, "y"))
+                sampler_input_lst.extend(params)
+            elif "SweepTwoObjects" in param_option.name:
+                _, _, target1, target2, _, container = objects
+                for obj in [target1, target2, container]:
+                    sampler_input_lst.append(state.get(obj, "x"))
+                    sampler_input_lst.append(state.get(obj, "y"))
+                sampler_input_lst.extend(params)
+            elif "Pick" in param_option.name:
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    target_obj = objects[1]
+                    object_id = state.get(target_obj, "object_id")
+                    sampler_input_lst.append(object_id)
+                sampler_input_lst.extend(params)
+            elif "Place" in param_option.name and "OnTop" in param_option.name:
+                surface_obj = objects[2]
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    held_obj = objects[1]
+                    sampler_input_lst.append(state.get(held_obj, "object_id"))
+                    sampler_input_lst.append(
+                        state.get(surface_obj, "object_id"))
+                if surface_obj.type.name == "drafting_table":
+                    sampler_input_lst.extend([
+                        state.get(surface_obj, "sticky-region-x"),
+                        state.get(surface_obj, "sticky-region-y")
+                    ])
+                else:
+                    sampler_input_lst.extend([0.0, 0.0])
+                # Samples are relative dx, dy, dz, and we only need
+                # dx and dy for the table!
+                sampler_input_lst.extend(params[:2])
+            elif param_option.name.startswith("DropObjectInside") and \
+                len(objects) == 3:
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    _, held_obj, container_obj = objects
+                    held_object_id = state.get(held_obj, "object_id")
+                    sampler_input_lst.append(held_object_id)
+                    container_obj_id = state.get(container_obj, "object_id")
+                    sampler_input_lst.append(container_obj_id)
+                sampler_input_lst.extend(params)
+            else:
+                base_feat_names = [
+                    "x",
+                    "y",
+                    "z",
+                    "qw",
+                    "qx",
+                    "qy",
+                    "qz",
+                    "shape",
+                    "height",
+                    "width",
+                    "length",
+                ]
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    base_feat_names.append("object_id")
+                for obj in objects:
+                    if obj.type.name == "robot":
+                        sampler_input_lst.extend(state[obj])
+                    else:
+                        for feat in base_feat_names:
+                            sampler_input_lst.append(state.get(obj, feat))
+                sampler_input_lst.extend(params)
         else:
             raise NotImplementedError("Oracle feature selection not "
                                       f"implemented for {CFG.env}")
@@ -351,8 +454,10 @@ class _Geom2D(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
         """Samples a random point inside the 2D shape."""
         raise NotImplementedError("Override me!")
 
@@ -372,6 +477,10 @@ class LineSegment(_Geom2D):
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         ax.plot([self.x1, self.x2], [self.y1, self.y2], **kwargs)
 
+    @staticmethod
+    def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
+        return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
+
     def contains_point(self, x: float, y: float) -> bool:
         # https://stackoverflow.com/questions/328107
         a = (self.x1, self.y1)
@@ -381,14 +490,15 @@ class LineSegment(_Geom2D):
         # if the distance from a to b is (approximately) equal to the distance
         # from a to c and the distance from c to b.
         eps = 1e-6
+        return -eps < self._dist(a, c) + self._dist(c, b) - self._dist(a,
+                                                                       b) < eps
 
-        def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
-            return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
-
-        return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
-
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge == 0.0, "not yet implemented" + \
+            " non-infinite min_dist_from_edge"
         line_slope = (self.y2 - self.y1) / (self.x2 - self.x1)
         y_intercept = self.y2 - (line_slope * self.x2)
         random_x_point = rng.uniform(self.x1, self.x2)
@@ -417,9 +527,13 @@ class Circle(_Geom2D):
                                        (other_circle.y - self.y)**2)
         return (dist_between_centers + other_circle.radius) <= self.radius
 
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
-        rand_mag = rng.uniform(0, self.radius)
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge < self.radius, "min_dist_from_edge is " + \
+            "greater than radius"
+        rand_mag = rng.uniform(0, self.radius - min_dist_from_edge)
         rand_theta = rng.uniform(0, 2 * np.pi)
         x_point = self.x + rand_mag * np.cos(rand_theta)
         y_point = self.y + rand_mag * np.sin(rand_theta)
@@ -464,8 +578,12 @@ class Triangle(_Geom2D):
         has_pos = sign1 or sign2 or sign3
         return not has_neg or not has_pos
 
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge == 0.0, "not yet implemented" + \
+            " non-zero min_dist_from_edge"
         a = np.array([self.x2 - self.x1, self.y2 - self.y1])
         b = np.array([self.x3 - self.x1, self.y3 - self.y1])
         u1 = rng.uniform(0, 1)
@@ -574,10 +692,17 @@ class Rectangle(_Geom2D):
         return 0 <= rx <= self.width and \
                0 <= ry <= self.height
 
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
-        rand_width = rng.uniform(0, self.width)
-        rand_height = rng.uniform(0, self.height)
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge <= self.width / 2 and \
+            min_dist_from_edge <= self.height / 2, \
+                "cannot achieve sample with min_dist_from_edge"
+        rand_width = rng.uniform(min_dist_from_edge,
+                                 self.width - min_dist_from_edge)
+        rand_height = rng.uniform(min_dist_from_edge,
+                                  self.height - min_dist_from_edge)
         # First rotate, then translate.
         rx, ry = np.array([rand_width, rand_height]) @ self.rotation_matrix.T
         x = rx + self.x
@@ -1006,8 +1131,6 @@ class SingletonParameterizedOption(ParameterizedOption):
         # has been executed yet.
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-            if "start_state" in memory:
-                assert state.allclose(memory["start_state"])
             # Always update the memory dict due to the "is" check in _terminal.
             memory["start_state"] = state
             assert initiable is not None
@@ -3060,6 +3183,17 @@ def compute_necessary_atoms_seq(
     return necessary_atoms_seq
 
 
+def compute_atoms_seq_from_plan(
+        skeleton: List[_GroundNSRT],
+        init_atoms: Set[GroundAtom]) -> List[Set[GroundAtom]]:
+    """Compute a sequence of atoms by applying ground NSRTs from a plan in
+    sequence."""
+    atoms_sequence = [init_atoms]
+    for ground_nsrt in skeleton:
+        atoms_sequence.append(apply_operator(ground_nsrt, atoms_sequence[-1]))
+    return atoms_sequence
+
+
 def get_successors_from_ground_ops(
         atoms: Set[GroundAtom],
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
@@ -4002,6 +4136,46 @@ def beta_from_mean_and_variance(mean: float,
     return rv
 
 
+def rotate_point_in_image(r: float, c: float, rot_degrees: float, height: int,
+                          width: int) -> Tuple[int, int]:
+    """If an image has been rotated using ndimage.rotate, this computes the
+    location of a pixel (r, c) in that image following the same rotation.
+
+    The rotation is expected in degrees, following ndimage.rotate.
+    """
+    rotation_radians = np.radians(rot_degrees)
+    transform_matrix = np.array(
+        [[np.cos(rotation_radians), -np.sin(rotation_radians)],
+         [np.sin(rotation_radians),
+          np.cos(rotation_radians)]])
+    # Subtract the center of the image from the pixel location to
+    # translate the rotation to the origin.
+    center = np.array([(height - 1) / 2., (width - 1) / 2])
+    centered_pt = np.subtract([r, c], center)
+    # Apply the rotation.
+    rotated_pt_centered = np.matmul(transform_matrix, centered_pt)
+    # Add the center of the image back to the pixel location to
+    # translate the rotation back from the origin.
+    rotated_pt = rotated_pt_centered + center
+    return rotated_pt[0], rotated_pt[1]
+
+
+def get_se3_pose_from_state(
+        state: State, obj: Object) -> math_helpers.SE3Pose:  # pragma: no cover
+    """Helper for spot environments."""
+    return math_helpers.SE3Pose(
+        state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z"),
+        math_helpers.Quat(state.get(obj, "qw"), state.get(obj, "qx"),
+                          state.get(obj, "qy"), state.get(obj, "qz")))
+
+
+def create_spot_env_action(
+        action_extra_info: SpotActionExtraInfo) -> Action:  # pragma: no cover
+    """Helper for spot environments."""
+    return SpotAction(np.array([], dtype=np.float32),
+                      extra_info=action_extra_info)
+
+
 def _obs_to_state_pass_through(obs: Observation) -> State:
     """Helper for run_ground_nsrt_with_assertions."""
     assert isinstance(obs, State)
@@ -4016,7 +4190,8 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
                                     obs_to_state: Callable[
                                         [Observation],
                                         State] = _obs_to_state_pass_through,
-                                    assert_effects: bool = True,
+                                    assert_add_effects: bool = True,
+                                    assert_delete_effects: bool = True,
                                     max_steps: int = 400) -> State:
     """Utility for tests.
 
@@ -4037,10 +4212,11 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
         state = obs_to_state(obs)
         if option.terminal(state):
             break
-    if assert_effects:
+    if assert_add_effects:
         for atom in ground_nsrt.add_effects:
             assert atom.holds(state), \
                 f"Add effect for {ground_nsrt_str} failed: {atom}"
+    if assert_delete_effects:
         for atom in ground_nsrt.delete_effects:
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"

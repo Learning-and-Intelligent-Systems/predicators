@@ -31,6 +31,8 @@ def segment_trajectory(
         return _segment_with_oracle(ll_traj, predicates, atom_seq)
     if CFG.segmenter == "contacts":
         return _segment_with_contact_changes(ll_traj, predicates, atom_seq)
+    if CFG.segmenter == "spot":  # pragma: no cover
+        return _segment_with_spot_changes(ll_traj, predicates, atom_seq)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 
@@ -117,6 +119,49 @@ def _segment_with_option_changes(
                 return True
             return option_t.terminal(ll_traj.states[t + 1])
         return option_t is not ll_traj.actions[t + 1].get_option()
+
+    return _segment_with_switch_function(ll_traj, predicates, atom_seq,
+                                         _switch_fn)
+
+
+def _segment_with_spot_changes(
+        ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
+        atom_seq: List[Set[GroundAtom]]) -> List[Segment]:  # pragma: no cover
+
+    # Rare edge case: the trajectory starts with a special action, like "find".
+    # In this case, just chop off the beginning of the trajectory until a non
+    # special action is used.
+    opt_ts = [t for t, act in enumerate(ll_traj.actions) if act.has_option()]
+    if not opt_ts:
+        return []
+    start_t = min(opt_ts)
+    if ll_traj.is_demo:
+        is_demo = True
+        train_task_idx = ll_traj.train_task_idx
+    else:
+        is_demo = False
+        train_task_idx = None
+    ll_traj = LowLevelTrajectory(ll_traj.states[start_t:],
+                                 ll_traj.actions[start_t:], is_demo,
+                                 train_task_idx)
+    atom_seq = atom_seq[start_t:]
+
+    def _switch_fn(t: int) -> bool:
+        # Actions without options are "special". We include them in the options
+        # that came before them. For example, if an object gets lost during
+        # placing, the special "find" action is included in the segment for
+        # placing. Note that the current implementation assumes that the
+        # regular options are singleton options (terminate immediately).
+        act = ll_traj.actions[t]
+        if not act.has_option():
+            assert t > 0
+            last_act = ll_traj.actions[t - 1]
+            last_option = last_act.get_option()
+            act.set_option(last_option)
+        if t == len(ll_traj.actions) - 1:
+            return True
+        next_action_has_option = ll_traj.actions[t + 1].has_option()
+        return next_action_has_option
 
     return _segment_with_switch_function(ll_traj, predicates, atom_seq,
                                          _switch_fn)

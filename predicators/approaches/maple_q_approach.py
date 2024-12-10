@@ -68,6 +68,12 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                train_or_test: str = "") -> Callable[[State], Action]:
 
         def _option_policy(state: State) -> _Option:
+            if len(self._q_function._ordered_ground_nsrts) == 0:  # pragma: no cover  # pylint: disable=protected-access
+                # In spot envs, all the train tasks are empty,
+                # and so the ground nsrts will be empty as well.
+                assert "spot" in CFG.env
+                self._set_grounding_from_state(state)
+                assert len(self._q_function._ordered_ground_nsrts) > 0  # pylint: disable=protected-access
             return self._q_function.get_option(
                 state,
                 task.goal,
@@ -77,6 +83,47 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
         return utils.option_policy_to_policy(
             _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
+
+    def _set_grounding_from_state(self,
+                                  state: State) -> None:  # pragma: no cover
+        """Helper method to setup the MAPLE-Q network in the situation where
+        all the training tasks are empty originally.
+
+        This happens with spot environments.
+        """
+        all_ground_nsrts: Set[_GroundNSRT] = set()
+        if CFG.sesame_grounder == "naive":
+            for nsrt in self._nsrts:
+                all_objects = set(state)
+                all_ground_nsrts.update(
+                    utils.all_ground_nsrts(nsrt, all_objects))
+        elif CFG.sesame_grounder == "fd_translator":
+            all_objects = set(state)
+            curr_task_types = {o.type for o in state}
+            # Ensure we crawl the type hierarchy to find all
+            # parent types.
+            parent_types = set()
+            for t in curr_task_types:
+                curr_t = t
+                while curr_t.parent is not None:
+                    parent_types.add(curr_t.parent)
+                    curr_t = curr_t.parent
+            curr_task_types |= parent_types
+            curr_init_atoms = utils.abstract(state,
+                                             self._get_current_predicates())
+            # In this case, need to consider all possible training task
+            # goals we might encounter.
+            for task in self._train_tasks:
+                all_ground_nsrts.update(
+                    utils.all_ground_nsrts_fd_translator(
+                        self._nsrts, all_objects,
+                        self._get_current_predicates(), curr_task_types,
+                        curr_init_atoms, task.goal))
+        else:
+            raise ValueError(
+                f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+        goals = [t.goal for t in self._train_tasks]
+        self._q_function.set_grounding(all_objects, goals, all_ground_nsrts)
 
     def _create_explorer(self) -> BaseExplorer:
         """Create a new explorer at the beginning of each interaction cycle."""
@@ -126,7 +173,11 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # objects in the Q function so that it can define its inputs.
         # Do not set grounding for rl_bridge_policy since it was set already
         # in init_nsrts
-        if not online_learning_cycle and CFG.approach != "rl_bridge_policy":
+        if (online_learning_cycle is None or len(
+                self._q_function._ordered_ground_nsrts) + len(  # pylint: disable=protected-access
+                    self._q_function._ordered_frozen_goals) + len(  # pylint: disable=protected-access
+                        self._q_function._ordered_objects) == 0) and \
+            CFG.approach != "rl_bridge_policy":  # pylint: disable=protected-access
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
                 for nsrt in self._nsrts:

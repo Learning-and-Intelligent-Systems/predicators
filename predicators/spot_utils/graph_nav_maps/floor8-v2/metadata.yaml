@@ -1,0 +1,144 @@
+# Additional info associated with the map.
+---
+spot-home-pose:
+  x: 1.4
+  y: 0.5
+  angle: 0.0
+# The info below is used to transform april tag x, y, z detections into object
+# x, y, z. For example, if a tag is hanging off the side of a table, we would
+# want to use the center of the table as the origin of the table object.
+april-tag-offsets:
+  tag-408:  # smooth table
+    x: 0.25
+    y: 0.1
+    z: -0.2
+  tag-409:  # sticky table
+    x: 0.25
+    y: -0.1
+    z: -0.2
+# Allowed regions. Each region is defined by a set of points
+# that form the boundary of the region. We will check
+# whether a pose is within the region by checking whether the
+# robot will be within the convex hull of these boundary
+# points.
+allowed-regions:
+  main-room:
+    - [3.6, -1.3]
+    - [0.16, -1.3]
+    - [0.069, 1.8]
+    - [3.7, 2.3]
+  hallway:
+    - [-2.1, 1.9]
+    - [-1.8, -3.7]
+    - [-0.3, 2.1]
+    - [-0.49, -3.6]
+# Known immovable objects. Assuming default rotations.
+known-immovable-objects:
+  floor:
+    x: 1.4
+    y: 0.5
+    z: -0.5
+  black_table:
+    x: 3.2
+    y: 0.5
+    z: -0.1
+  shelf1:
+    x: 3.5
+    y: 2.25
+    z: 0.05
+    yaw: 0.7
+# Static object features, including the shapes and sizes of known objects.
+static-object-features:
+  smooth_table:
+    shape: 2  # cylinder
+    height: 0.52
+    length: 0.51
+    width: 0.51
+    flat_top_surface: 1
+  sticky_table:
+    shape: 2  # cylinder
+    height: 0.52
+    length: 0.51
+    width: 0.51
+    flat_top_surface: 1
+  cube:
+    shape: 1  # cuboid
+    height: 0.083
+    length: 0.083
+    width: 0.083
+    placeable: 1  # true, can be placed
+    is_sweeper: 0
+  brush:
+    shape: 1  # cuboid
+    height: 0.1
+    length: 0.1
+    width: 0.1
+    placeable: 1
+    is_sweeper: 0
+  train_toy:
+    shape: 2
+    height: 0.114
+    length: 0.065
+    width: 0.065
+    placeable: 1
+    is_sweeper: 0
+  football:
+    shape: 2
+    height: 0.08
+    length: 0.1
+    width: 0.1
+    placeable: 1
+    is_sweeper: 0
+  floor:
+    shape: 1
+    height: 0.0001
+    length: 10000000  # effectively infinite
+    width: 10000000
+    flat_top_surface: 1
+  black_table:
+    shape: 1
+    height: 0.74
+    length: 0.75
+    width: 0.51
+    flat_top_surface: 1
+  shelf1:
+    shape: 1
+    height: 0.1
+    length: 0.4
+    width: 0.2
+    flat_top_surface: 0
+  brush:
+    shape: 1
+    height: 0.1
+    length: 0.2
+    width: 0.1
+    placeable: 1
+    is_sweeper: 1
+  bucket:
+    shape: 1
+    height: 0.05
+    width: 0.3
+    length: 0.4
+    placeable: 1
+    is_sweeper: 0
+    # Important for TopAbove that the bucket appears to always be on the ground
+    z: -0.45
+    # Rotation can't be detected.
+    qw: 1
+    qx: 0
+    qy: 0
+    qz: 0
+  chair:
+    shape: 2
+    height: 0.8
+    length: 0.5
+    width: 0.5
+    placeable: 0  # false, can't be placed
+    is_sweeper: 0
+    z: -0.1  # the chair can move in the x/y plane only
+# This should be calculable, but I'm lazy. These values represent the SE2 pose
+# (in the table frame) for the robot before placing the container.
+prepare_container_relative_xy:
+  dx: -0.8
+  dy: -0.6
+  angle: 0.0

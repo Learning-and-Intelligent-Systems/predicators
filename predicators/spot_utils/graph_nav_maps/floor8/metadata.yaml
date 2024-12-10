@@ -1,0 +1,18 @@
+# Additional info associated with the map.
+---
+spot-home-pose:
+  x: 2.0
+  y: -0.5
+  angle: 1.57079632679  # pi / 2
+# The info below is used to transform april tag x, y, z detections into object
+# x, y, z. For example, if a tag is hanging off the side of a table, we would
+# want to use the center of the table as the origin of the table object.
+april-tag-offsets:
+  tag-408:  # non-sticky table
+    x: -0.1
+    y: 0.25
+    z: 0.05
+  tag-409:  # sticky table
+    x: 0.1
+    y: 0.25
+    z: 0.05

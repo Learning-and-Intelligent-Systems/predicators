@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<robot name="soda_can" xmlns:xacro="http://ros.org/wiki/xacro">
+  <link name="base_link">
+  </link>
+  <link name="can(14)">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.03175" length="0.1222"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.03175" length="0.1222"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="base_link_can(14)_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="can(14)"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+  </joint>
+</robot>

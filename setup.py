@@ -1,6 +1,8 @@
 """Setup script."""
 from setuptools import find_packages, setup
 
+path_to_myproject = "."
+
 setup(
     name="predicators",
     version="0.1.0",
@@ -32,9 +34,16 @@ setup(
         "types-PyYAML",
         "lisdf",
         "seaborn==0.12.1",
+        "moviepy==1.0.3",
+        "apriltag==0.0.16",
+        "scikit-image==0.19.3",
+        "protobuf==4.22.0",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
+        "bosdyn-client >= 3.1",
+        "opencv-python == 4.7.0.72",
         "pg3@git+https://github.com/tomsilver/pg3.git",
         "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git",  # pylint: disable=line-too-long
+        "pbrspot@git+https://github.com/NishanthJKumar/pbrspot.git",
         "ImageHash",
         "google-generativeai",
         "tenacity",
