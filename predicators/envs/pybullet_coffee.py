@@ -264,8 +264,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         bodies["jug_id"] = jug_id
     
         if CFG.coffee_machine_has_plug:
-            plug_id = cls._add_pybullet_powercord(physics_client_id)
-            bodies["plug_id"] = plug_id
+            cord_ids = cls._add_pybullet_powercord(physics_client_id)
+            bodies["cord_ids"] = cord_ids
+            bodies["plug_id"] = cord_ids[-1]
 
             socket_id = cls._add_pybullet_socket(physics_client_id)
             bodies["socket_id"] = socket_id
@@ -278,8 +279,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._machine_id = pybullet_bodies["machine_id"]
         self._dispense_area_id = pybullet_bodies["dispense_area_id"]
         self._button_id = pybullet_bodies["button_id"]
-        self._plug_id = pybullet_bodies["plug_id"]
-        self._socket_id = pybullet_bodies["socket_id"]
+        if CFG.coffee_machine_has_plug:
+            self._cord_ids = pybullet_bodies.get("cord_ids")
+            self._plug_id = pybullet_bodies["plug_id"]
+            self._socket_id = pybullet_bodies["socket_id"]
 
     @classmethod
     def _create_pybullet_robot(
@@ -414,11 +417,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             physicsClientId=self._physics_client_id)
 
         # Reset plug
-        if self._machine_plugged_in_id is not None:
-            p.removeConstraint(self._machine_plugged_in_id,
-                               physicsClientId=self._physics_client_id)
-            self._machine_plugged_in_id = None
-        self._plug_id = self._add_pybullet_powercord(self._physics_client_id)
+        if CFG.coffee_machine_has_plug:
+            p.removeBody(self._plug_id, self._physics_client_id)
+            if self._machine_plugged_in_id is not None:
+                p.removeConstraint(self._machine_plugged_in_id,
+                                physicsClientId=self._physics_client_id)
+                self._machine_plugged_in_id = None
+            self._cord_ids = self._add_pybullet_powercord(
+                                self._physics_client_id)
+            self._plug_id = self._cord_ids[-1]
 
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
@@ -1031,7 +1038,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return table_id
 
     @classmethod
-    def _add_pybullet_powercord(cls, physics_client_id) -> int:
+    def _add_pybullet_powercord(cls, physics_client_id) -> List[int]:
         '''First segment connects the machine, last connects to the wall
         '''
         # Rope parameters
@@ -1099,7 +1106,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 # Start of the next segment
                 childFramePosition=[+cls.cord_link_length / 2, 0, 0]
             )
-        return segments[-1]
+        return segments
 
     @classmethod
     def _add_pybullet_socket(cls, physics_client_id: int) -> None:
