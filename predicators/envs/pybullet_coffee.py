@@ -34,7 +34,9 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_render_grid_world False --coffee_simple_tasks True \
 --coffee_machine_have_light_bar False \
 --coffee_move_back_after_place_and_push True \
---coffee_machine_has_plug True --sesame_max_skeletons_optimized 1
+--coffee_machine_has_plug True --sesame_max_skeletons_optimized 1 \
+--make_failure_videos \
+--debug --horizon 50 --option_model_terminate_on_repeat False
 """
 import math
 import logging
@@ -418,7 +420,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Reset plug
         if CFG.coffee_machine_has_plug:
-            p.removeBody(self._plug_id, self._physics_client_id)
+            for id in self._cord_ids:
+                p.removeBody(id, self._physics_client_id)
             if self._machine_plugged_in_id is not None:
                 p.removeConstraint(self._machine_plugged_in_id,
                                 physicsClientId=self._physics_client_id)
@@ -449,7 +452,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             "y": ry,
             "z": rz,
             "tilt": tilt,
-            "wrist": wrist,
+            "wrist": utils.wrap_angle(wrist),
             "fingers": fingers
         }
         joint_positions = self._pybullet_robot.get_joints()
@@ -539,11 +542,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return state
 
     def step(self, action: Action, render_obs: bool = False) -> State:
-        logging.debug(f"Taking action {action}.")
         # What's the previous robot state?
+        # logging.debug("[env] start simulation step")
         current_ee_rpy = self._pybullet_robot.forward_kinematics(
             self._pybullet_robot.get_joints()).rpy
         state = super().step(action, render_obs=render_obs)
+        # logging.debug("[env] set robot state")
+        # logging.debug(f"tracking state: {state.pretty_str()}")
 
         # Move the liquid inside
         if self._jug_filled:
@@ -557,6 +562,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         
         if self._PluggedIn_holds(state, [self._plug]) and \
             self._machine_plugged_in_id is None:
+            # logging.debug("[env] plug in the machine")
             # Create a constraint between plug and socket
             self._machine_plugged_in_id = p.createConstraint(
                 parentBodyUniqueId=self._socket_id,
@@ -628,8 +634,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                     d_roll -= np.pi
                 if d_yaw > 0:
                     d_roll += np.pi
-            if d_roll > 2 * np.pi / 3:
-                d_roll
 
             (jx, jy, _), orn = p.getBasePositionAndOrientation(
                 self._jug_id, physicsClientId=self._physics_client_id)

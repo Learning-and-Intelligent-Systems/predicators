@@ -11,6 +11,7 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 from PIL import Image
+import logging
 
 from predicators import utils
 from predicators.envs import BaseEnv

@@ -1203,10 +1203,12 @@ def run_policy_with_simulator(
     exception_raised_in_step = False
     if not termination_function(state):
         for _ in range(max_num_steps):
+            # logging.debug(f"State: {state.pretty_str()}")
             monitor_observed = False
             exception_raised_in_step = False
             try:
                 act = policy(state)
+                # logging.debug(f"Action: {act}")
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
@@ -3471,14 +3473,18 @@ def create_video_from_partial_refinements(
         _, plan = max(partial_refinements, key=lambda x: len(x[1]))
         policy = option_plan_to_policy(plan)
         video: Video = []
+        logging.debug("reset env for create video")
         state = env.reset(train_or_test, task_idx)
         for _ in range(max_num_steps):
+            logging.debug(f"state: {state.pretty_str()}")
             try:
                 act = policy(state)
+                logging.debug(f"act: {act}")
             except OptionExecutionFailure:
                 video.extend(env.render())
                 break
             video.extend(env.render(act))
+            logging.debug("Finished rendering.")
             try:
                 state = env.step(act)
             except EnvironmentFailure:

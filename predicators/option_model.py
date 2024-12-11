@@ -10,6 +10,7 @@ import abc
 from typing import Callable, Set, Tuple
 
 import numpy as np
+import logging
 
 from predicators import utils
 from predicators.envs import create_new_env
@@ -104,8 +105,10 @@ class _OracleOptionModel(_OptionModelBase):
             def _terminal(s: State) -> bool:
                 nonlocal last_state
                 if option_copy.terminal(s):
+                    # logging.debug("Option reached terminal state.")
                     return True
                 if last_state is not DefaultState and last_state.allclose(s):
+                    # logging.debug("Option got stuck.")
                     raise utils.OptionExecutionFailure("Option got stuck.")
                 last_state = s
                 return False
