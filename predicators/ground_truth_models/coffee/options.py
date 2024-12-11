@@ -685,18 +685,20 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     socket_pos = (cls.env_cls.socket_x, 
                                     cls.env_cls.socket_y, 
                                     cls.env_cls.socket_z)
-                    # # Adding a waypoint to avoid collision
-                    # waypoint = (cls.env_cls.plug_x,
-                    #             cls.env_cls.dispense_area_y,
-                    #             cls.env_cls.socket_z)
-                    # # sq_dist_to_way_point = np.sum(np.subtract(waypoint, 
-                    # #                                           robot_pos)**2)
-                    # z_distance = np.abs(z - cls.env_cls.socket_z)
-                    # if z_distance > cls.pick_policy_tol: # and \
-                    #     # sq_dist_to_way_point > cls.env_cls.pick_policy_tol:
-                    #     target_robot_pos = waypoint
-                    # else:
-                    target_robot_pos = socket_pos
+                    # Adding a waypoint to avoid collision
+                    waypoint = (cls.env_cls.plug_x,
+                                cls.env_cls.dispense_area_y,
+                                cls.env_cls.socket_z)
+                    # sq_dist_to_way_point = np.sum(np.subtract(waypoint, 
+                    #                                           robot_pos)**2)
+                    xz_distance = np.sum(np.subtract((x, z), 
+                                (cls.env_cls.socket_x, cls.env_cls.socket_z)
+                                )**2)
+                    if xz_distance > 0.01: # and \
+                        # sq_dist_to_way_point > cls.env_cls.pick_policy_tol:
+                        target_robot_pos = waypoint
+                    else:
+                        target_robot_pos = socket_pos
                     # Rotate back to init orientation
                     dwrist = np.clip(target_wrist - wrist, 
                                     -cls.env_cls.max_angular_vel,
