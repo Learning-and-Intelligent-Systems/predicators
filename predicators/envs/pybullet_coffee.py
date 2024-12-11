@@ -161,7 +161,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # num_cord_links = 5
     # cord_link_length = 0.04
     cord_start_x = machine_x - machine_x_len / 2 - 4 * cord_link_length
-    cord_start_y = machine_y - machine_y_len / 2
+    # cord_start_y = machine_y - machine_y_len / 2
+    cord_start_y = machine_y - machine_y_len 
     cord_start_z = z_lb + cord_link_length / 2
     plug_x = cord_start_x - (num_cord_links - 1) * cord_link_length
     plug_y = cord_start_y
@@ -200,7 +201,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._camera_distance: ClassVar[float] = 1.3
             if CFG.coffee_machine_has_plug:
                 # self._camera_yaw: ClassVar[float] = -70
-                self._camera_yaw: ClassVar[float] = -90
+                self._camera_yaw: ClassVar[float] = -100
             else:
                 self._camera_yaw: ClassVar[float] = 70
             self._camera_pitch: ClassVar[float] = -38  # lower
@@ -412,10 +413,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             rgbaColor=plate_color,
                             physicsClientId=self._physics_client_id)
 
+        # Reset plug
         if self._machine_plugged_in_id is not None:
             p.removeConstraint(self._machine_plugged_in_id,
                                physicsClientId=self._physics_client_id)
             self._machine_plugged_in_id = None
+        self._plug_id = self._add_pybullet_powercord(self._physics_client_id)
 
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
@@ -529,6 +532,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return state
 
     def step(self, action: Action, render_obs: bool = False) -> State:
+        logging.debug(f"Taking action {action}.")
         # What's the previous robot state?
         current_ee_rpy = self._pybullet_robot.forward_kinematics(
             self._pybullet_robot.get_joints()).rpy
