@@ -3476,15 +3476,15 @@ def create_video_from_partial_refinements(
         logging.debug("reset env for create video")
         state = env.reset(train_or_test, task_idx)
         for _ in range(max_num_steps):
-            logging.debug(f"state: {state.pretty_str()}")
+            # logging.debug(f"state: {state.pretty_str()}")
             try:
                 act = policy(state)
-                logging.debug(f"act: {act}")
+                # logging.debug(f"act: {act}")
             except OptionExecutionFailure:
                 video.extend(env.render())
                 break
             video.extend(env.render(act))
-            logging.debug("Finished rendering.")
+            # logging.debug("Finished rendering.")
             try:
                 state = env.step(act)
             except EnvironmentFailure:

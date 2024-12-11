@@ -160,13 +160,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Powercord / Plug settings.
     num_cord_links = 10
     cord_link_length = 0.02
+    cord_segment_gap = 0.00
     # num_cord_links = 5
     # cord_link_length = 0.04
     cord_start_x = machine_x - machine_x_len / 2 - 4 * cord_link_length
     # cord_start_y = machine_y - machine_y_len / 2
     cord_start_y = machine_y - machine_y_len 
     cord_start_z = z_lb + cord_link_length / 2
-    plug_x = cord_start_x - (num_cord_links - 1) * cord_link_length
+    plug_x = cord_start_x - (num_cord_links - 1) * cord_link_length -\
+             cord_segment_gap * (num_cord_links - 1)
     plug_y = cord_start_y
     plug_z = cord_start_z
     # Socket settings.
@@ -266,7 +268,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         bodies["jug_id"] = jug_id
     
         if CFG.coffee_machine_has_plug:
-            cord_ids = cls._add_pybullet_powercord(physics_client_id)
+            cord_ids = cls._add_pybullet_cord(physics_client_id)
             bodies["cord_ids"] = cord_ids
             bodies["plug_id"] = cord_ids[-1]
 
@@ -426,7 +428,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 p.removeConstraint(self._machine_plugged_in_id,
                                 physicsClientId=self._physics_client_id)
                 self._machine_plugged_in_id = None
-            self._cord_ids = self._add_pybullet_powercord(
+            self._cord_ids = self._add_pybullet_cord(
                                 self._physics_client_id)
             self._plug_id = self._cord_ids[-1]
 
@@ -1042,7 +1044,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return table_id
 
     @classmethod
-    def _add_pybullet_powercord(cls, physics_client_id) -> List[int]:
+    def _add_pybullet_cord(cls, physics_client_id) -> List[int]:
         '''First segment connects the machine, last connects to the wall
         '''
         # Rope parameters
@@ -1055,8 +1057,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create rope segments
         for i in range(cls.num_cord_links):
+            
             # Position each segment along an arc with curvature
-            x_pos = base_position[0] - i * cls.cord_link_length
+            x_pos = base_position[0] - i * (cls.cord_link_length + cls.cord_segment_gap)
             y_pos = base_position[1] #+ curvature_amplitude *\
                             # math.sin(i * math.pi / (cls.num_cord_links - 1))
             z_pos = base_position[2]  # Maintain height
@@ -1087,8 +1090,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     rgbaColor=color,
                                     physicsClientId=physics_client_id
                                     )
+            base_mass = 0 if i == 0 else 0.001
             segment_id = p.createMultiBody(
-                baseMass=0.01,
+                baseMass=base_mass,
                 baseCollisionShapeIndex=segment,
                 baseVisualShapeIndex=visual_shape,
                 basePosition=link_pos,
@@ -1097,19 +1101,37 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             segments.append(segment_id)
 
         # Connect segments with joints
+        half_gap = cls.cord_segment_gap / 2
         for i in range(len(segments) - 1):
-            p.createConstraint(
+            constraint_id = p.createConstraint(
                 parentBodyUniqueId=segments[i],
                 parentLinkIndex=-1,
                 childBodyUniqueId=segments[i + 1],
                 childLinkIndex=-1,
                 jointType=p.JOINT_POINT2POINT,
                 jointAxis=[0, 0, 0],
-                # End of the current segment
-                parentFramePosition=[-cls.cord_link_length / 2, 0, 0],
-                # Start of the next segment
-                childFramePosition=[+cls.cord_link_length / 2, 0, 0]
+                parentFramePosition=[-cls.cord_link_length / 2 - half_gap, 0, 0],
+                childFramePosition=[cls.cord_link_length / 2 + half_gap, 0, 0]
             )
+            # Adjust constraint parameters for softness
+            p.changeConstraint(
+                constraint_id,
+                maxForce=0.1,    # Lower max force for flexibility
+                erp=0.1         # Adjust error reduction parameter
+            )
+        # for i in range(len(segments) - 1):
+        #     p.createConstraint(
+        #         parentBodyUniqueId=segments[i],
+        #         parentLinkIndex=-1,
+        #         childBodyUniqueId=segments[i + 1],
+        #         childLinkIndex=-1,
+        #         jointType=p.JOINT_POINT2POINT,
+        #         jointAxis=[0, 0, 0],
+        #         # End of the current segment
+        #         parentFramePosition=[-cls.cord_link_length / 2, 0, 0],
+        #         # Start of the next segment
+        #         childFramePosition=[+cls.cord_link_length / 2, 0, 0]
+        #     )
         return segments
 
     @classmethod
