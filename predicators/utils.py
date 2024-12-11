@@ -1490,8 +1490,8 @@ def nsrt_plan_to_greedy_option_policy(
                 "Executing the NSRT failed to achieve the necessary atoms.")
         cur_nsrt = nsrt_queue.pop(0)
         cur_option = cur_nsrt.sample_option(state, goal, rng)
-        logging.debug(f"Using option {cur_option.name}{cur_option.objects} "
-                      "from NSRT plan.")
+        logging.debug(f"Using option {cur_option.name}{cur_option.objects}"
+                      f"{cur_option.params} from NSRT plan.")
         return cur_option
 
     return _option_policy
@@ -2494,28 +2494,106 @@ def parse_model_output_into_option_plan(
     return option_plan
 
 
+def get_prompt_for_vlm_state_labelling(
+        prompt_type: str, atoms_list: List[str], label_history: List[str],
+        imgs_history: List[List[PIL.Image.Image]],
+        cropped_imgs_history: List[List[PIL.Image.Image]],
+        skill_history: List[_Option]) -> Tuple[str, List[PIL.Image.Image]]:
+    """Prompt for labelling atom values in a trajectory.
+
+    Note that all our prompts are saved as separate txt files under the
+    'vlm_input_data_prompts/atom_labelling' folder.
+    """
+    # Load the pre-specified prompt.
+    filepath_prefix = get_path_to_predicators_root() + \
+        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/"
+    try:
+        with open(filepath_prefix + prompt_type + ".txt",
+                  "r",
+                  encoding="utf-8") as f:
+            prompt = f.read()
+    except FileNotFoundError:
+        raise ValueError("Unknown VLM prompting option " + f"{prompt_type}")
+    # The prompt ends with a section for 'Predicates', so list these.
+    for atom_str in atoms_list:
+        prompt += f"\n{atom_str}"
+
+    if "img_option_diffs" in prompt_type:
+        # In this case, we need to load the 'per_scene_naive' prompt as well
+        # for the first timestep.
+        with open(filepath_prefix + "per_scene_naive.txt",
+                  "r",
+                  encoding="utf-8") as f:
+            init_prompt = f.read()
+        for atom_str in atoms_list:
+            init_prompt += f"\n{atom_str}"
+        if len(label_history) == 0:
+            return (init_prompt, imgs_history[0])
+        # Now, we use actual difference-based prompting for the second timestep
+        # and beyond.
+        curr_prompt = prompt[:]
+        curr_prompt_imgs = [imgs_history[-2][0], imgs_history[-1][0]]
+        if CFG.vlm_include_cropped_images:
+            if CFG.env in ["burger", "burger_no_move"]:  # pragma: no cover
+                curr_prompt_imgs.extend(
+                    [cropped_imgs_history[-1][1], cropped_imgs_history[-1][0]])
+            else:
+                raise NotImplementedError(
+                    f"Cropped images not implemented for {CFG.env}.")
+        curr_prompt += "\n\nSkill executed between states: "
+        skill_name = skill_history[-1].name + str(skill_history[-1].objects)
+        curr_prompt += skill_name
+        if "label_history" in prompt_type:
+            curr_prompt += "\n\nPredicate values in the first scene, " \
+            "before the skill was executed: \n"
+            curr_prompt += label_history[-1]
+        return (curr_prompt, curr_prompt_imgs)
+    # NOTE: we rip out only the first image from each trajectory
+    # which is fine for most domains, but will be problematic for
+    # situations in which there is more than one image per state.
+    return (prompt, imgs_history[-1])
+
+
 def query_vlm_for_atom_vals(
         vlm_atoms: Collection[GroundAtom],
         state: State,
         vlm: Optional[VisionLanguageModel] = None) -> Set[GroundAtom]:
     """Given a set of ground atoms, queries a VLM and gets the subset of these
     atoms that are true."""
+    # Short-circuit this function in the case where there are no atoms that
+    # need be labelled.
+    if len(vlm_atoms) == 0:
+        return set()
     true_atoms: Set[GroundAtom] = set()
-    # This only works if state.simulator_state is some list of images that the
-    # vlm can be called on.
+    # Get quantities necessary to construct prompt to query VLM.
     assert state.simulator_state is not None
     assert isinstance(state.simulator_state["images"], List)
-    imgs = state.simulator_state["images"]
+    curr_state_imgs = state.simulator_state["images"]
     vlm_atoms = sorted(vlm_atoms)
-    atom_queries_str = "\n* "
-    atom_queries_str += "\n* ".join(atom.get_vlm_query_str()
-                                    for atom in vlm_atoms)
-    filepath_to_vlm_prompt = get_path_to_predicators_root() + \
-        "/predicators/datasets/vlm_input_data_prompts/atom_labelling/" + \
-        "per_scene_naive.txt"
-    with open(filepath_to_vlm_prompt, "r", encoding="utf-8") as f:
-        vlm_query_str = f.read()
-    vlm_query_str += atom_queries_str
+    atom_queries_list = [atom.get_vlm_query_str() for atom in vlm_atoms]
+    prev_states_imgs_history = []
+    prev_state_cropped_imgs_history: List[List[PIL.Image.Image]] = []
+    if "state_history" in state.simulator_state:  # pragma: no cover
+        prev_states = state.simulator_state["state_history"]
+        prev_states_imgs_history = [
+            s.simulator_state["images"] for s in prev_states
+        ]
+        if "cropped_images" in prev_states[0].simulator_state:
+            prev_states_imgs_history = [
+                s.simulator_state["cropped_images"] for s in prev_states
+            ]
+    images_history = prev_states_imgs_history + [curr_state_imgs]
+    skill_history = []
+    if "skill_history" in state.simulator_state:  # pragma: no cover
+        skill_history = state.simulator_state["skill_history"]
+    label_history = []
+    if "vlm_label_history" in state.simulator_state:  # pragma: no cover
+        label_history = state.simulator_state["vlm_label_history"]
+    vlm_query_str, imgs = get_prompt_for_vlm_state_labelling(
+        CFG.vlm_test_time_atom_label_prompt_type, atom_queries_list,
+        label_history, images_history, prev_state_cropped_imgs_history,
+        skill_history)
+    # Query VLM.
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     vlm_input_imgs = \
@@ -2527,20 +2605,21 @@ def query_vlm_for_atom_vals(
                                         num_completions=1)
     assert len(vlm_output) == 1
     vlm_output_str = vlm_output[0]
-    all_atom_queries = atom_queries_str.strip().split("\n")
     all_vlm_responses = vlm_output_str.strip().split("\n")
-
     # NOTE: this assumption is likely too brittle; if this is breaking, feel
     # free to remove/adjust this and change the below parsing loop accordingly!
-    assert len(all_atom_queries) == len(all_vlm_responses)
+    if len(atom_queries_list) != len(all_vlm_responses):
+        return set()
     for i, (atom_query, curr_vlm_output_line) in enumerate(
-            zip(all_atom_queries, all_vlm_responses)):
-        assert atom_query + ":" in curr_vlm_output_line
-        assert "." in curr_vlm_output_line
-        period_idx = curr_vlm_output_line.find(".")
-        if curr_vlm_output_line[len(atom_query +
-                                    ":"):period_idx].lower().strip() == "true":
-            true_atoms.add(vlm_atoms[i])
+            zip(atom_queries_list, all_vlm_responses)):
+        try:
+            assert atom_query + ":" in curr_vlm_output_line
+            assert "." in curr_vlm_output_line
+            value = curr_vlm_output_line.split(': ')[-1].strip('.').lower()
+            if value == "true":
+                true_atoms.add(vlm_atoms[i])
+        except AssertionError:  # pragma: no cover
+            continue
     return true_atoms
 
 

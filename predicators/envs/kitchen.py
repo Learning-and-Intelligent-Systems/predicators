@@ -80,8 +80,8 @@ class KitchenEnv(BaseEnv):
     }
 
     at_pre_turn_atol = 0.1  # tolerance for AtPreTurnOn/Off
-    ontop_atol = 0.15  # tolerance for OnTop
-    on_angle_thresh = -0.4  # dial is On if less than this threshold
+    ontop_atol = 0.18  # tolerance for OnTop
+    on_angle_thresh = -0.28  # -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
     microhandle_open_thresh = -0.65
     hinge_open_thresh = 0.084
@@ -202,13 +202,21 @@ README of that repo suggests!"
             font = utils.get_scaled_default_font(draw, 3)
             # Define the text and position
             burner1_text = "burner1"
-            burner1_position = (300, 305)
+            burner1_position = (300, 285)
             burner2_text = "burner2"
-            burner2_position = (210, 325)
+            burner2_position = (210, 305)
             burner3_text = "burner3"
-            burner3_position = (260, 250)
+            burner3_position = (260, 225)
             burner4_text = "burner4"
-            burner4_position = (185, 260)
+            burner4_position = (185, 240)
+            knob1_text = "knob1"
+            knob1_position = (260, 155)
+            knob2_text = "knob2"
+            knob2_position = (160, 170)
+            knob3_text = "knob3"
+            knob3_position = (260, 125)
+            knob4_text = "knob4"
+            knob4_position = (160, 125)
             burner1_img = utils.add_text_to_draw_img(draw, burner1_position,
                                                      burner1_text, font)
             burner2_img = utils.add_text_to_draw_img(burner1_img,
@@ -217,8 +225,17 @@ README of that repo suggests!"
             burner3_img = utils.add_text_to_draw_img(burner2_img,
                                                      burner3_position,
                                                      burner3_text, font)
-            _ = utils.add_text_to_draw_img(burner3_img, burner4_position,
-                                           burner4_text, font)
+            burner4_img = utils.add_text_to_draw_img(burner3_img,
+                                                     burner4_position,
+                                                     burner4_text, font)
+            knob1_img = utils.add_text_to_draw_img(burner4_img, knob1_position,
+                                                   knob1_text, font)
+            knob2_img = utils.add_text_to_draw_img(knob1_img, knob2_position,
+                                                   knob2_text, font)
+            knob3_img = utils.add_text_to_draw_img(knob2_img, knob3_position,
+                                                   knob3_text, font)
+            _ = utils.add_text_to_draw_img(knob3_img, knob4_position,
+                                           knob4_text, font)
             curr_img_arr = np.array(curr_img_pil)
         return [curr_img_arr]
 
@@ -231,15 +248,18 @@ README of that repo suggests!"
         OnTop = self._pred_name_to_pred["OnTop"]
         TurnedOn = self._pred_name_to_pred["TurnedOn"]
         KettleBoiling = self._pred_name_to_pred["KettleBoiling"]
+        KnobAndBurnerLinked = self._pred_name_to_pred["KnobAndBurnerLinked"]
         goal_preds = set()
         if CFG.kitchen_goals in ["all", "kettle_only"]:
             goal_preds.add(OnTop)
         if CFG.kitchen_goals in ["all", "knob_only"]:
             goal_preds.add(TurnedOn)
+            goal_preds.add(KnobAndBurnerLinked)
         if CFG.kitchen_goals in ["all", "light_only"]:
             goal_preds.add(TurnedOn)
         if CFG.kitchen_goals in ["all", "boil_kettle"]:
             goal_preds.add(KettleBoiling)
+            goal_preds.add(KnobAndBurnerLinked)
         return goal_preds
 
     @classmethod
@@ -555,7 +575,7 @@ README of that repo suggests!"
     def On_holds(cls,
                  state: State,
                  objects: Sequence[Object],
-                 thresh_pad: float = -0.03) -> bool:
+                 thresh_pad: float = -0.06) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.knob_type):

@@ -267,6 +267,38 @@ def test_geo_and_vlm_invention():
     assert approach._get_current_predicates() == env.goal_predicates  # pylint:disable=protected-access
 
 
+def test_geo_only_invention_with_all_vlm():
+    """Test invention where we only want to invent geo predicates, and use all
+    vlm predicates directly."""
+    utils.reset_config({
+        "env": "ice_tea_making",
+        "num_train_tasks": 1,
+        "num_test_tasks": 0,
+        "offline_data_method": "geo_and_demo+labelled_atoms",
+        "data_dir": "tests/datasets/mock_vlm_datasets",
+        "handmade_demo_filename":
+        "ice_tea_making__demo+labelled_atoms__manual__1.txt",
+        "grammar_search_select_all_debug": True,
+        "grammar_search_use_handcoded_debug_grammar": True,
+        "grammar_search_invent_geo_predicates_only": True,
+        "disable_harmlessness_check": True
+    })
+    env = IceTeaMakingEnv()
+    train_tasks = env.get_train_tasks()
+    predicates, _ = utils.parse_config_excluded_predicates(env)
+    loaded_dataset = create_dataset(env, train_tasks,
+                                    get_gt_options(env.get_name()), predicates)
+    approach = GrammarSearchInventionApproach(env.goal_predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              train_tasks)
+    approach.learn_from_offline_dataset(loaded_dataset)
+    # There are 6 predicates aside from the goal predicate in this txt file,
+    # so we expect the total number of predicates to be 7.
+    assert len(approach._get_current_predicates()) == 7  # pylint:disable=protected-access
+    assert env.goal_predicates.issubset(approach._get_current_predicates())  # pylint:disable=protected-access
+
+
 def test_select_all_debug_predicates():
     """Test selecting all debug predicates from the debug grammar."""
     utils.reset_config({

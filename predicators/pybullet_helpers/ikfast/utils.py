@@ -165,6 +165,7 @@ def free_joints_generator(
     robot: SingleArmPyBulletRobot,
     free_joint_infos: List[JointInfo],
     max_distance: float,
+    rng: np.random.Generator,
 ) -> Iterator[Union[JointPositions, np.ndarray]]:
     """A generator that samples joint positions for free joints in the given
     robot that are within the joint limits.
@@ -206,7 +207,7 @@ def free_joints_generator(
         # Note: Caelan used convex combination to sample, but uniform
         # sampling is sufficient for our use case.
         while True:
-            yield np.random.uniform(lower_limits, upper_limits)
+            yield rng.uniform(lower_limits, upper_limits)
 
 
 def ikfast_inverse_kinematics(
@@ -242,7 +243,8 @@ def ikfast_inverse_kinematics(
     rot_matrix = matrix_from_quat(base_from_ee.orientation).tolist()
 
     # Sampler for free joints
-    generator = free_joints_generator(robot, free_joint_infos, max_distance)
+    generator = free_joints_generator(robot, free_joint_infos, max_distance,
+                                      rng)
     if max_attempts < np.inf:  # pragma: no cover
         generator = islice(generator, max_attempts)
 

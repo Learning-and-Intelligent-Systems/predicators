@@ -422,17 +422,19 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 total_low_level_action_cost += (
                     len(traj[1]) *
                     CFG.refinement_data_low_level_execution_cost)
-            # Save the successful trajectory, e.g., for playback on a robot.
-            traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
-            traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
-            # Include the original task too so we know the goal.
-            traj_data = {
-                "task": env_task,
-                "trajectory": traj,
-                "pybullet_robot": CFG.pybullet_robot
-            }
-            with open(traj_file_path, "wb") as f:
-                pkl.dump(traj_data, f)
+            if CFG.save_eval_trajs:
+                # Save the successful trajectory, e.g., for playback on a
+                # robot.
+                traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
+                traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
+                # Include the original task too so we know the goal.
+                traj_data = {
+                    "task": env_task,
+                    "trajectory": traj,
+                    "pybullet_robot": CFG.pybullet_robot
+                }
+                with open(traj_file_path, "wb") as f:
+                    pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
@@ -450,6 +452,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}.mp4"
+            metrics[f"PER_TASK_task{test_task_idx}_num_steps"] = len(traj[1])
         else:
             if not caught_exception:
                 log_message = "Policy failed to reach goal"

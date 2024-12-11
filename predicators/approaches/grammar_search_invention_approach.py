@@ -468,7 +468,7 @@ _DEBUG_GEOMETRIC_PREDICATES = {
         "((0:robot).fingers<=[idx 0]0.5)"
     ],
     "burger_no_move": [
-        "((0:robot).fingers<=[idx 0]0.5)"
+        "((0:robot).fingers<=[idx 0]0.5)",
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -885,6 +885,7 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
     base_grammar: _PredicateGrammar
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        forall_penalty = CFG.grammar_search_forall_penalty
         for (predicate, cost) in self.base_grammar.enumerate():
             yield (predicate, cost)
             if predicate.arity == 0:
@@ -894,14 +895,15 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
             forall_predicate = Predicate(str(forall_classifier), [],
                                          forall_classifier)
             assert forall_predicate.arity == 0
-            yield (forall_predicate, cost + 1)  # add arity + 1 to cost
+            yield (forall_predicate, cost + forall_penalty)
             # Generate NOT-Forall(x)
             notforall_classifier = _NegationClassifier(forall_predicate)
             notforall_predicate = Predicate(str(notforall_classifier),
                                             forall_predicate.types,
                                             notforall_classifier)
             assert notforall_predicate.arity == 0
-            yield (notforall_predicate, cost + 1)  # add arity + 1 to cost
+            yield (notforall_predicate, cost + forall_penalty)
+
             # Generate UFFs
             if predicate.arity >= 2:
                 for idx in range(predicate.arity):
@@ -911,14 +913,14 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                                               [predicate.types[idx]],
                                               uff_classifier)
                     assert uff_predicate.arity == 1
-                    yield (uff_predicate, cost + 2)  # add arity + 1 to cost
+                    yield (uff_predicate, cost + forall_penalty + 1)
                     # Negated UFF
                     notuff_classifier = _NegationClassifier(uff_predicate)
                     notuff_predicate = Predicate(str(notuff_classifier),
                                                  uff_predicate.types,
                                                  notuff_classifier)
                     assert notuff_predicate.arity == 1
-                    yield (notuff_predicate, cost + 2)  # add arity + 1 to cost
+                    yield (notuff_predicate, cost + forall_penalty + 1)
 
 
 ################################################################################
@@ -942,6 +944,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def get_name(cls) -> str:
         return "grammar_search_invention"
 
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        super().load(online_learning_cycle)
+        preds, _ = utils.extract_preds_and_types(self._nsrts)
+        self._learned_predicates = set(
+            preds.values()) - self._initial_predicates
+
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
@@ -959,6 +967,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         self._metrics["grammar_size"] = len(candidates)
         for predicate, cost in candidates.items():
             logging.info(f"{predicate} {cost}")
+        # Now, rename these predicates to be compatible with PDDL planners!
+        renamed_candidates = self.\
+            _rename_predicates_to_remove_incompatible_chars(candidates)
         # Apply the candidate predicates to the data.
         logging.info("Applying predicates to data...")
 
@@ -983,13 +994,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         else:
             atom_dataset = utils.create_ground_atom_dataset(
                 dataset.trajectories,
-                set(candidates) | self._initial_predicates)
+                set(renamed_candidates) | self._initial_predicates)
             # Save this atoms dataset if the save_atoms flag is set.
             if CFG.save_atoms:
                 utils.save_ground_atom_dataset(atom_dataset, dataset_fname)
         logging.info("Done.")
         assert atom_dataset is not None
-        return (atom_dataset, candidates)
+        return (atom_dataset, renamed_candidates)
 
     def _parse_atom_dataset_from_annotated_dataset(
         self, dataset: Dataset
@@ -1016,6 +1027,22 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         logging.debug(f"All candidate predicates: {candidates.keys()}")
         return (atom_dataset, candidates)
 
+    def _rename_predicates_to_remove_incompatible_chars(
+        self, predicates_and_costs: Dict[Predicate,
+                                         float]) -> Dict[Predicate, float]:
+        """Renames predicates to get rid of characters in the name that are
+        incompatible with PDDL planners like FD."""
+        renamed_predicates: Dict[Predicate, float] = {}
+        for p in predicates_and_costs:
+            if isinstance(p, VLMPredicate):  # pragma: no cover.
+                renamed_predicates[p] = predicates_and_costs[p]
+                continue
+            new_name = p.name.replace("(", "[").replace(")",
+                                                        "]").replace(" ", "_")
+            renamed_pred = Predicate(new_name, p.types, p._classifier)  # pylint:disable=protected-access
+            renamed_predicates[renamed_pred] = predicates_and_costs[p]
+        return renamed_predicates
+
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         if CFG.offline_data_method in [
                 "geo_and_demo_with_vlm_imgs", "geo_and_demo+labelled_atoms",
@@ -1027,7 +1054,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 self._parse_atom_dataset_from_annotated_dataset(dataset)
             atom_dataset = utils.merge_ground_atom_datasets(
                 atom_dataset_from_grammar, atom_dataset_from_vlm)
-            candidates = candidates_from_grammar | candidates_from_vlm
+            # If grammar_search_invent_geo_predicates_only is False, then we
+            # want to invent both VLM and geo predicates
+            if not CFG.grammar_search_invent_geo_predicates_only:
+                candidates = candidates_from_grammar | candidates_from_vlm
+            # Otherwise, we only want to invent geo predicates, and directly
+            # select all the VLM predicates.
+            else:
+                candidates = candidates_from_grammar
+                self._initial_predicates |= set(candidates_from_vlm.keys())
         elif not CFG.offline_data_method in [
                 "demo+labelled_atoms", "saved_vlm_img_demos_folder",
                 "demo_with_vlm_imgs"
@@ -1045,8 +1080,22 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                CFG.grammar_search_use_handcoded_debug_grammar:
                 # Skip hill-climbing and select all the predicates from the
                 # debug grammar.
+                # Same functionality as
+                # _rename_predicates_to_remove_incompatible_chars.
+                # We have to do it again here because the predicates in
+                # _DEBUG_GEOMETRIC_PREDICATES haven't been renamed to make them
+                # compatible with fast-downward. If we do rename them, grammar
+                # generation gets messed up (for a
+                # not-yet-investigated reason).
+                def rename(p: str) -> str:  # pragma: no cover
+                    return p.replace("(", "[").replace(")",
+                                                       "]").replace(" ", "_")
+
+                renamed_debug_geometric_predicates = [
+                    rename(p) for p in _DEBUG_GEOMETRIC_PREDICATES[CFG.env]
+                ]
                 debug_predicate_names = _DEBUG_VLM_PREDICATES[
-                    CFG.env] + _DEBUG_GEOMETRIC_PREDICATES[CFG.env]
+                    CFG.env] + renamed_debug_geometric_predicates
                 self._learned_predicates = set(
                     p for p in candidates.keys()
                     if p.name in debug_predicate_names)
@@ -1066,21 +1115,21 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         elif CFG.grammar_search_pred_selection_approach == "no_select":
             self._learned_predicates = set(candidates.keys())
         logging.info("Done.")
-        # Now, rename these predicates to be compatible with PDDL planners!
-        renamed_predicates: Set[Predicate] = set()
-        for p in self._learned_predicates:
-            if isinstance(p, VLMPredicate):  # pragma: no cover.
-                renamed_predicates.add(p)
-                continue
-            new_name = p.name.replace("(", "[").replace(")",
-                                                        "]").replace(" ", "_")
-            renamed_pred = Predicate(new_name, p.types, p._classifier)  # pylint:disable=protected-access
-            renamed_predicates.add(renamed_pred)
-        self._learned_predicates = renamed_predicates
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         annotations = None
         if dataset.has_annotations:
-            annotations = dataset.annotations
+            if CFG.offline_data_method in [
+                    "geo_and_demo_with_vlm_imgs",
+                    "geo_and_demo+labelled_atoms",
+                    "geo_and_saved_vlm_img_demos_folder"
+            ]:
+                # IMPORTANT: in this case, we need to make sure the dataset
+                # annotations include the geo predicates as well as the VLM
+                # predicates, so we need to set the annotations to the generated
+                # atom_dataset and not just the dataset.annotations.
+                annotations = [atoms_data[1] for atoms_data in atom_dataset]
+            else:
+                annotations = dataset.annotations
         self._learn_nsrts(dataset.trajectories,
                           online_learning_cycle=None,
                           annotations=annotations)
@@ -1119,10 +1168,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 _check_goal,
                 _get_successors,
                 score_function.evaluate,
+                early_termination_heuristic_thresh=CFG.
+                grammar_search_early_termination_heuristic_thresh,
                 enforced_depth=CFG.grammar_search_hill_climbing_depth,
                 parallelize=CFG.grammar_search_parallelize_hill_climbing)
             logging.info("\nHill climbing summary:")
-            for i in range(1, len(path)):
+            for i in range(1, len(path)):  # pragma: no cover
                 new_additions = path[i] - path[i - 1]
                 assert len(new_additions) == 1
                 new_addition = next(iter(new_additions))
@@ -1178,7 +1229,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
                      f"{len(candidates)} candidates:")
-        for pred in kept_predicates:
+        for pred in kept_predicates:  # pragma: no cover
             logging.info(f"\t{pred}")
         score_function.evaluate(kept_predicates)  # log useful numbers
 

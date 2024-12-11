@@ -1133,6 +1133,12 @@ def test_abstract():
     vlm_atoms_set = utils.abstract(vlm_state, [vlm_pred], _DummyVLM())
     assert len(vlm_atoms_set) == 1
     assert "IsFishy" in str(vlm_atoms_set)
+    # Now, teset the case where the VLM response is wrong/bad.
+    vlm_pred2 = VLMPredicate("IsSnakey", [], lambda s, o: NotImplementedError,
+                             lambda o: "is_snakey")
+    vlm_atoms_set = utils.abstract(vlm_state, [vlm_pred, vlm_pred2],
+                                   _DummyVLM())
+    assert len(vlm_atoms_set) == 0
 
 
 def test_create_new_variables():
