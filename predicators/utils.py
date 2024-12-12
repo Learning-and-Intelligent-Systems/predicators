@@ -1202,7 +1202,8 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     exception_raised_in_step = False
     if not termination_function(state):
-        for _ in range(max_num_steps):
+        for i in range(max_num_steps):
+            logging.debug(f"Step {i}")
             # logging.debug(f"State: {state.pretty_str()}")
             monitor_observed = False
             exception_raised_in_step = False
@@ -1216,6 +1217,7 @@ def run_policy_with_simulator(
                 actions.append(act)
                 states.append(state)
             except Exception as e:
+                logging.debug(f"Exception during running policy: {e}")
                 if exceptions_to_break_on is not None and \
                     type(e) in exceptions_to_break_on:
                     if monitor_observed:

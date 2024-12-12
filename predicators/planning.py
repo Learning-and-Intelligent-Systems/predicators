@@ -681,6 +681,7 @@ def run_low_level_search(
                                     longest_failed_refinement
                                 })
                     return longest_failed_refinement, False
+        logging.debug("Option succeed!")
     # Should only get here if the skeleton was empty.
     assert not skeleton
     return [], True

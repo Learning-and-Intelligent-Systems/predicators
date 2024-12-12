@@ -63,11 +63,14 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # PlugIn
             plug = Variable("?plug", plug_type)
             robot = Variable("?robot", robot_type)
-            parameters = [robot, plug]
+            jug = Variable("?jug", jug_type)
+            parameters = [robot, plug, jug]
             option_vars = [robot, plug]
             option = options["PlugIn"]
             preconditions = {
-                LiftedAtom(HandEmpty, [robot])
+                LiftedAtom(HandEmpty, [robot]),
+                LiftedAtom(OnTable, [jug]), 
+                # just a limitation of the current controller
             }
             add_effects = {
                 LiftedAtom(PluggedIn, [plug]),

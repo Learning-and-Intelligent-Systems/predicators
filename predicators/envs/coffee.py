@@ -484,8 +484,13 @@ class CoffeeEnv(BaseEnv):
                 num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
             if CFG.coffee_simple_tasks:
-                # goal = {GroundAtom(self._JugFilled, [self._jug])}
-                goal = {GroundAtom(self._PluggedIn, [self._plug])}
+                # goal = {
+                # }
+                goal = {
+                    GroundAtom(self._JugFilled, [self._jug]),
+                    # GroundAtom(self._PluggedIn, [self._plug]),
+                    # GroundAtom(self._JugInMachine, [self._jug, self._machine]),
+                    }
             else:
                 goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
             # Sample initial positions for cups, making sure to keep them
@@ -671,6 +676,7 @@ class CoffeeEnv(BaseEnv):
     def _PressingButton_holds(self, state: State,
                               objects: Sequence[Object]) -> bool:
         robot, _ = objects
+        # have a tighter threshold for x, z than y
         button_pos = (self.button_x, self.button_y, self.button_z)
         x = state.get(robot, "x")
         y = state.get(robot, "y")

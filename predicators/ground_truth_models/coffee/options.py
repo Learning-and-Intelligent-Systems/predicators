@@ -167,7 +167,17 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_TurnMachineOn_terminal)
         cls.TurnMachineOn = TurnMachineOn
 
+
         if CFG.coffee_machine_has_plug:
+
+            RestoreForPlugIn = ParameterizedOption(
+                "RestoreForPlugIn",
+                types=[robot_type, plug_type],
+                params_space=Box(0, 1, (0, )),
+                policy=cls._create_move_to_initial_position_policy(),
+                initiable=lambda s, m, o, p: True,
+                terminal=cls._Restore_terminal)
+
             # Plug in the plug to the socket
             def _PlugIn_initiable(state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
@@ -183,13 +193,19 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                     finger_open = state.get(robot, "fingers") > 0.3
                     return PluggedIn.holds(state, [plug]) and finger_open
 
-            PlugIn = ParameterizedOption(
+            _PlugIn = ParameterizedOption(
                 "PlugIn",
                 types=[robot_type, plug_type],
                 params_space=Box(0, 1, (0, )),
                 policy=cls._create_plug_in_policy(),
                 initiable=_PlugIn_initiable,
                 terminal=_PlugIn_terminal)
+
+            PlugIn = utils.LinearChainParameterizedOption(
+                "PlugIn", [RestoreForPlugIn, _PlugIn, RestoreForPlugIn])
+            
+            
+
 
 
         # Pour
@@ -213,10 +229,27 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=_Pour_initiable,
             terminal=_Pour_terminal)
 
-        return {
+        options = {
             PickJug, PlaceJugInMachine, TurnMachineOn, Pour, MoveToTwistJug,
-            TwistJug, PlugIn
+            TwistJug
         }
+        if CFG.coffee_machine_has_plug:
+            options.add(PlugIn)
+        return options
+
+    @classmethod
+    def _Restore_terminal(cls, state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> bool:
+        del memory, params
+        robot = objects[0]
+        robot_pos = (state.get(robot, "x"),
+                        state.get(robot, "y"),
+                        state.get(robot, "z"))
+        robot_init_pos = (cls.env_cls.robot_init_x,
+                            cls.env_cls.robot_init_y,
+                            cls.env_cls.robot_init_z)
+        return np.allclose(robot_pos, robot_init_pos, atol=1e-2)
 
     @classmethod
     def _create_move_to_twist_policy(cls) -> ParameterizedPolicy:
@@ -385,6 +418,30 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             return cls._get_move_action(state, (x, y, cls.env_cls.button_z),
                                         robot_pos)
 
+        return policy
+    
+    @classmethod
+    def _create_move_to_initial_position_policy(cls) -> ParameterizedPolicy:
+
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            # This policy moves the robot to the initial position
+            del memory, params
+            robot = objects[0]
+            robot_pos = (state.get(robot, "x"),
+                            state.get(robot, "y"),
+                            state.get(robot, "z"))
+            target_pos = (cls.env_cls.robot_init_x,
+                            cls.env_cls.robot_init_y,
+                            cls.env_cls.robot_init_z)
+            robot_tilt = state.get(robot, "tilt")
+            robot_wrists = state.get(robot, "wrist")
+            target_tilt = cls.env_cls.robot_init_tilt
+            target_wrists = cls.env_cls.robot_init_wrist
+            return cls._get_move_action(state, target_pos, robot_pos,
+                                        dtilt=target_tilt - robot_tilt,
+                                        dwrist=target_wrists - robot_wrists,
+                                        finger_status="open")
         return policy
 
     @classmethod
@@ -711,8 +768,14 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                                             finger_status="closed",
                                             dwrist=dwrist)
 
+            # When moving toward the plug, first map to the correct x-y location
+            # at the initial height(z), then move down to pick up the plug
+            xy_sq_dist = np.sum(np.subtract(plug_pos[:2], robot_pos[:2])**2)
+            if xy_sq_dist > 0.01:
+                target_robot_pos = (plug_x, plug_y, cls.env_cls.socket_z)
+            else:
+                target_robot_pos = plug_pos
             # When the gripper is far away from the plug, move to it
-            target_robot_pos = plug_pos
             target_wrist = 0
             dwrist = np.clip(target_wrist - wrist, 
                              -cls.env_cls.max_angular_vel,
@@ -738,6 +801,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             x = state.get(robot, "x")
             y = state.get(robot, "y")
             z = state.get(robot, "z")
+            wrist = state.get(robot, "wrist")
+            dwrist = cls.env_cls.robot_init_wrist - wrist
             robot_pos = (x, y, z)
             # target_x = cls.env_cls.robot_init_x
             target_x = x
@@ -746,7 +811,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # target_z = cls.env_cls.robot_init_z
             target_z = z
             target_pos = (target_x, target_y, target_z)
-            return cls._get_move_action(state, target_pos, robot_pos)
+            return cls._get_move_action(state, target_pos, robot_pos, 
+                                        dwrist=dwrist)
 
         return policy
 
