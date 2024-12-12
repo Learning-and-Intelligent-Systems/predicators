@@ -122,8 +122,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     float]] = machine_color
     # Jug setting
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
-    jug_height: ClassVar[float] = 0.19 * (z_ub - z_lb)  # kettle urdf
-    # jug_height: ClassVar[float] = 0.z_lb)  # kettle urdf
+    # jug_height: ClassVar[float] = 0.19 * (z_ub - z_lb)  # kettle urdf
+    jug_height: ClassVar[float] = 0.03 * (z_ub - z_lb)  # new cup 
     jug_init_x_lb: ClassVar[
         float] = machine_x - machine_x_len / 2 + init_padding
     jug_init_x_ub: ClassVar[
@@ -134,7 +134,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_init_y_ub_og: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius  # kettle urdf
-    jug_handle_height: ClassVar[float] = jug_height
+    # jug_handle_height: ClassVar[float] = jug_height # old kettle
+    jug_handle_height: ClassVar[float] =  0.08 # new jug
     jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # jug_color: ClassVar[Tuple[float, float, float, float]] =\
@@ -208,13 +209,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             # Camera parameters -- standard
             self._camera_distance: ClassVar[float] = 1.3
             if CFG.coffee_machine_has_plug:
-                self._camera_yaw: ClassVar[float] = -60
-                # self._camera_yaw: ClassVar[float] = -100
+                # self._camera_yaw: ClassVar[float] = -60
+                self._camera_yaw: ClassVar[float] = -90
                 # self._camera_yaw: ClassVar[float] = -180
             else:
                 self._camera_yaw: ClassVar[float] = 70
-            self._camera_pitch: ClassVar[float] = -38  # lower
-            # self._camera_pitch: ClassVar[float] = 0  # even lower
+            # self._camera_pitch: ClassVar[float] = -38  # lower
+            self._camera_pitch: ClassVar[float] = 0  # even lower
             self._camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
         # Camera font view parameters.
@@ -1027,41 +1028,40 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     @classmethod
     def _add_pybullet_jug(cls, physics_client_id) -> int:
         # Load coffee jug.
+
         # This pose doesn't matter because it gets overwritten in reset.
-        jug_pose = ((cls.jug_init_x_lb + cls.jug_init_x_ub) / 2,
-                    (cls.jug_init_y_lb + cls.jug_init_y_ub) / 2,
-                    cls.z_lb + cls.jug_height / 2)
-        # The jug orientation updates based on the rotation of the state.
-        rot = (cls.jug_init_rot_lb + cls.jug_init_rot_ub) / 2
+        jug_loc = ((0,0,0))
+        rot = 0
         jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
 
-        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
-        jug_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/kettle.urdf"),
-            globalScaling=0.09,  # enlarged jug
-            useFixedBase=False,
-            physicsClientId=physics_client_id)
+        # Old jug
+        # jug_id = p.loadURDF(
+        #     utils.get_env_asset_path("urdf/kettle.urdf"),
+        #     globalScaling=0.09,  # enlarged jug
+        #     useFixedBase=False,
+        #     physicsClientId=physics_client_id)
 
-        p.changeVisualShape(jug_id,
-                            0,
-                            rgbaColor=cls.jug_color,
-                            physicsClientId=physics_client_id)
-        # remove the lid
-        p.changeVisualShape(jug_id,
-                            1,
-                            rgbaColor=[1, 1, 1, 0],
-                            physicsClientId=physics_client_id)
-        p.changeDynamics(
-            bodyUniqueId=jug_id,
-            linkIndex=-1,  # -1 for the base link
-            mass=0.1,
-            physicsClientId=physics_client_id
-        )
+        # p.changeVisualShape(jug_id,
+        #                     0,
+        #                     rgbaColor=cls.jug_color,
+        #                     physicsClientId=physics_client_id)
+        # # remove the lid
+        # p.changeVisualShape(jug_id,
+        #                     1,
+        #                     rgbaColor=[1, 1, 1, 0],
+        #                     physicsClientId=physics_client_id)
+        # p.changeDynamics(
+        #     bodyUniqueId=jug_id,
+        #     linkIndex=-1,  # -1 for the base link
+        #     mass=0.1,
+        #     physicsClientId=physics_client_id
+        # )
 
         # new cup
-        # jug_id = cls.create_cup(physics_client_id)
+        jug_id = cls.create_cup(physics_client_id)
+        logging.debug(f"jug_id {jug_id}")
         p.resetBasePositionAndOrientation(jug_id,
-                                          jug_pose,
+                                          jug_loc,
                                           jug_orientation,
                                           physicsClientId=physics_client_id)
 
@@ -1072,9 +1072,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Parameters
         cup_thickness = 0.1 * scale # Wall thickness
         cup_width = 5 * cup_thickness  # Width of the cup
-        cup_height = 4 * cup_thickness  # Height of the cup
+        # cup_height = 4 * cup_thickness  # Height of the cup
+        cup_height = 6 * cup_thickness  # Height of the cup
         handle_x_len = 3 * cup_thickness
-        handle_y_len = cup_thickness
+        handle_y_len = 2*cup_thickness
         handle_z_len = 3 * cup_thickness
         handle_x = cup_width / 2 + handle_x_len / 2  # Offset for the handle
         handle_z = cup_height / 2 # Offset for the handle
@@ -1137,11 +1138,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Combine all into a single multi-body object
         cup_id = p.createMultiBody(
-            baseMass=0.02,
+            baseMass=0.1,
             baseCollisionShapeIndex=-1,  # No collision for the base
             baseVisualShapeIndex=-1,  # No visual for the base
-            basePosition=[0, 0, 0],
-            linkMasses=[0.02] * len(collision_shapes),  # Static links
+            # basePosition=[0, 0, -cup_height/2],
+            # basePosition=[-cup_width/2 - 2*handle_x_len/3, 0, cup_height],
+            basePosition=[-cup_width/2 - 2*handle_x_len/3, 0, -7*cup_height/8],
+            linkMasses=[0.1] * len(collision_shapes),  # Static links
             linkCollisionShapeIndices=collision_shapes,
             linkVisualShapeIndices=visual_shapes,
             linkPositions=base_positions,
