@@ -209,13 +209,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             # Camera parameters -- standard
             self._camera_distance: ClassVar[float] = 1.3
             if CFG.coffee_machine_has_plug:
-                # self._camera_yaw: ClassVar[float] = -60
-                self._camera_yaw: ClassVar[float] = -90
+                self._camera_yaw: ClassVar[float] = -60
+                # self._camera_yaw: ClassVar[float] = -90
                 # self._camera_yaw: ClassVar[float] = -180
             else:
                 self._camera_yaw: ClassVar[float] = 70
-            # self._camera_pitch: ClassVar[float] = -38  # lower
-            self._camera_pitch: ClassVar[float] = 0  # even lower
+            self._camera_pitch: ClassVar[float] = -38  # lower
+            # self._camera_pitch: ClassVar[float] = 0  # even lower
             self._camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
         # Camera font view parameters.
