@@ -122,7 +122,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Jug setting
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
     # jug_height: ClassVar[float] = 0.19 * (z_ub - z_lb)  # kettle urdf
-    jug_height: ClassVar[float] = 0.03 * (z_ub - z_lb)  # new cup 
+    jug_height: ClassVar[float] = 0.12#0.1 * (z_ub - z_lb)  # new cup 
     jug_init_x_lb: ClassVar[
         float] = machine_x - machine_x_len / 2 + init_padding
     jug_init_x_ub: ClassVar[
@@ -134,7 +134,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius  # kettle urdf
     # jug_handle_height: ClassVar[float] = jug_height # old kettle
-    jug_handle_height: ClassVar[float] =  0.08 # new jug
+    jug_handle_height: ClassVar[float] =  0.1 # new jug
     jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # jug_color: ClassVar[Tuple[float, float, float, float]] =\
@@ -793,20 +793,17 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                  physicsClientId=self._physics_client_id)
 
     def _create_pybullet_liquid_for_jug(self) -> Optional[int]:
-        liquid_height = self.jug_height * 0.6
+        liquid_height = self.jug_height * 0.8
         liquid_radius = self.jug_radius * 1.3
-
+        
         collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=liquid_radius,
-            height=liquid_height,
+            p.GEOM_BOX,
+            halfExtents=[liquid_radius, liquid_radius, liquid_height / 2],
             physicsClientId=self._physics_client_id)
 
         visual_id = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=liquid_radius,
-            length=liquid_height,
-            # rgbaColor=(0.2 * 1.5, 0.05 * 1.5, 0.0, 1.0), # brown
+            p.GEOM_BOX,
+            halfExtents=[liquid_radius, liquid_radius, liquid_height / 2],
             rgbaColor=(0.35, 0.1, 0.0, 1.0),
             physicsClientId=self._physics_client_id)
 
@@ -1032,11 +1029,11 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
 
         # Old jug
-        # jug_id = p.loadURDF(
-        #     utils.get_env_asset_path("urdf/kettle.urdf"),
-        #     globalScaling=0.09,  # enlarged jug
-        #     useFixedBase=False,
-        #     physicsClientId=physics_client_id)
+        jug_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/jug-pixel.urdf"),
+            globalScaling=0.2,  # enlarged jug
+            useFixedBase=False,
+            physicsClientId=physics_client_id)
 
         # p.changeVisualShape(jug_id,
         #                     0,
@@ -1054,8 +1051,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             physicsClientId=physics_client_id
         )
 
-        # new cup
-        # jug_id = cls.create_cup(physics_client_id)
         p.resetBasePositionAndOrientation(jug_id,
                                           jug_loc,
                                           jug_orientation,
