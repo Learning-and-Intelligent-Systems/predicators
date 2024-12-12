@@ -900,7 +900,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             current_jug_pos = (jx, jy, jz)
             target_jug_pos = (cls.env_cls.dispense_area_x,
                               cls.env_cls.dispense_area_y,
-                              cls.env_cls.z_lb + cls.env_cls.jug_handle_height)
+                              cls.env_cls.z_lb + cls.env_cls.jug_height)
             dx, dy, dz = np.subtract(target_jug_pos, current_jug_pos)
 
             # Get the target robot position.

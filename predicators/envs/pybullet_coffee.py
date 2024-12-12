@@ -30,14 +30,13 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
 --coffee_twist_sampler False \
 --make_test_videos --num_test_tasks 1 --video_fps 20 \
---pybullet_camera_height 300 --pybullet_camera_width 300 \
+--pybullet_camera_height 900 --pybullet_camera_width 900 \
 --coffee_render_grid_world False --coffee_simple_tasks True \
 --coffee_machine_have_light_bar False \
 --coffee_move_back_after_place_and_push True \
 --coffee_machine_has_plug True --sesame_max_skeletons_optimized 1 \
 --make_failure_videos \
---debug --horizon 100 --option_model_terminate_on_repeat False \
---pybullet_sim_steps_per_action 100 --max_num_steps_option_rollout 50
+--debug --option_model_terminate_on_repeat False
 """
 import math
 import logging
@@ -968,14 +967,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Create button shapes
         collision_id_button = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=cls.button_radius,
-            height=cls.button_height,
+            p.GEOM_BOX,
+            halfExtents=[cls.button_radius, cls.button_radius, cls.button_height / 2],
             physicsClientId=physics_client_id)
         visual_id_button = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=cls.button_radius,
-            length=cls.button_height,
+            p.GEOM_BOX,
+            halfExtents=[cls.button_radius, cls.button_radius, cls.button_height / 2],
             rgbaColor=cls.button_color_power_off if \
                 CFG.coffee_machine_has_plug else cls.button_color_off,
             physicsClientId=physics_client_id)
@@ -1050,16 +1047,15 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         #                     1,
         #                     rgbaColor=[1, 1, 1, 0],
         #                     physicsClientId=physics_client_id)
-        # p.changeDynamics(
-        #     bodyUniqueId=jug_id,
-        #     linkIndex=-1,  # -1 for the base link
-        #     mass=0.1,
-        #     physicsClientId=physics_client_id
-        # )
+        p.changeDynamics(
+            bodyUniqueId=jug_id,
+            linkIndex=-1,  # -1 for the base link
+            mass=0.1,
+            physicsClientId=physics_client_id
+        )
 
         # new cup
-        jug_id = cls.create_cup(physics_client_id)
-        logging.debug(f"jug_id {jug_id}")
+        # jug_id = cls.create_cup(physics_client_id)
         p.resetBasePositionAndOrientation(jug_id,
                                           jug_loc,
                                           jug_orientation,
