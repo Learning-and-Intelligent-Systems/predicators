@@ -15,8 +15,8 @@ data_combo_burger = {
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
-    'NUM_SOLVED': [0.00, 8.20, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 3.80],
-    'NUM_SOLVED_STDDEV': [0.00, 1.17, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.40]
+    'NUM_SOLVED': [0.00, 8.20, 6.40, 0.00, 0.00, 0.00, 0.00, 0.00, 3.80],
+    'NUM_SOLVED_STDDEV': [0.00, 1.17, 3.38, 0.00, 0.00, 0.00, 0.00, 0.00, 0.40]
 }
 
 data_fatter_burger = {
@@ -25,8 +25,8 @@ data_fatter_burger = {
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
-    'NUM_SOLVED': [0.00, 9.60, 1.20, 0.00, 0.00, 1.20, 3.00, 0.80, 3.80],
-    'NUM_SOLVED_STDDEV': [0.00, 0.80, 2.40, 0.00, 0.00, 2.40, 1.41, 0.40, 0.40]
+    'NUM_SOLVED': [0.00, 9.60, 1.80, 0.00, 0.00, 1.20, 3.00, 0.80, 3.80],
+    'NUM_SOLVED_STDDEV': [0.00, 0.80, 3.60, 0.00, 0.00, 2.40, 1.41, 0.40, 0.40]
 }
 
 data_more_stacks = {
@@ -35,8 +35,8 @@ data_more_stacks = {
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
-    'NUM_SOLVED': [0.00, 9.40, 0.00, 0.00, 0.00, 0.00, 3.60, 0.80, 3.80],
-    'NUM_SOLVED_STDDEV': [0.00, 0.80, 0.00, 0.00, 0.00, 0.00, 2.24, 1.17, 0.40]
+    'NUM_SOLVED': [0.00, 9.40, 5.20, 0.00, 0.00, 0.00, 3.60, 0.80, 3.80],
+    'NUM_SOLVED_STDDEV': [0.00, 0.80, 4.31, 0.00, 0.00, 0.00, 2.24, 1.17, 0.40]
 }
 
 data_kitchen_boil_kettle = {
@@ -45,8 +45,8 @@ data_kitchen_boil_kettle = {
         'No subselect', 'No visual', 'VLM subselect', 
         'ViLa', 'ViLa fewshot'
     ],
-    'NUM_SOLVED': [9.60, 9.80, 9.80, 0.00, 0.00, 9.80, 1.00, 6.60, 10.00],
-    'NUM_SOLVED_STDDEV': [0.49, 0.40, 0.40, 0.00, 0.00, 0.40, 2.00, 1.02, 0.00]
+    'NUM_SOLVED': [9.60, 9.80, 3.80, 0.00, 0.00, 9.80, 1.00, 6.60, 10.00],
+    'NUM_SOLVED_STDDEV': [0.49, 0.40, 4.66, 0.00, 0.00, 0.40, 2.00, 1.02, 0.00]
 }
 
 # Convert each dataset to a DataFrame
