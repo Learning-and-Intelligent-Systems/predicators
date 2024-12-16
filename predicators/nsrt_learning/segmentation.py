@@ -4,10 +4,11 @@ from typing import Callable, List, Optional, Set
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options, _get_options_by_names
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
     Predicate, Segment, State
+import numpy as np
 
 
 def segment_trajectory(
@@ -29,6 +30,14 @@ def segment_trajectory(
         return _segment_with_atom_changes(ll_traj, predicates, atom_seq)
     if CFG.segmenter == "oracle":
         return _segment_with_oracle(ll_traj, predicates, atom_seq)
+    if CFG.segmenter == "minigrid_index":
+        # assign index to option
+        MoveForward, TurnLeft, TurnRight, Pickup, Drop, Toggle, Done = _get_options_by_names(CFG.env, ["Forward", "Left", "Right", "Pickup", "Drop", "Toggle", "Done"])
+        int_to_option = {0: TurnLeft, 1: TurnRight, 2: MoveForward, 3: Pickup, 4: Drop, 5: Toggle, 6: Done}
+        for i, action in enumerate(ll_traj.actions):
+            ll_traj.actions[i] = Action(action._arr, int_to_option[np.argmax(action._arr)])
+        return _segment_with_switch_function(ll_traj, predicates, atom_seq,
+                                             lambda _: True)
     if CFG.segmenter == "contacts":
         return _segment_with_contact_changes(ll_traj, predicates, atom_seq)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")

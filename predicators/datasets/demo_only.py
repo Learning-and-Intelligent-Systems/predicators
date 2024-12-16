@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
+from predicators.approaches.minigrid_controller_approach import \
+    MinigridControllerApproach
 from predicators.cogman import CogMan, run_episode_and_get_states
 from predicators.envs import BaseEnv
 from predicators.execution_monitoring import create_execution_monitor
@@ -27,7 +29,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                      known_options: Set[ParameterizedOption],
                      annotate_with_gt_ops: bool) -> Dataset:
     """Create offline datasets by collecting demos."""
-    assert CFG.demonstrator in ("oracle", "human")
+    assert CFG.demonstrator in ("oracle", "human", "minigrid_controller")
     dataset_fname, dataset_fname_template = utils.create_dataset_filename_str(
         saving_ground_atoms=False)
     os.makedirs(CFG.data_dir, exist_ok=True)
@@ -150,6 +152,17 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         perceiver = create_perceiver(CFG.perceiver)
         execution_monitor = create_execution_monitor(CFG.execution_monitor)
         cogman = CogMan(oracle_approach, perceiver, execution_monitor)
+    elif CFG.demonstrator == "minigrid_controller":  # pragma no cover
+        options = get_gt_options(env.get_name())
+        oracle_approach = MinigridControllerApproach(
+            env.predicates,
+            options,
+            env.types,
+            env.action_space,
+            train_tasks)
+        perceiver = create_perceiver(CFG.perceiver)
+        execution_monitor = create_execution_monitor(CFG.execution_monitor)
+        cogman = CogMan(oracle_approach, perceiver, execution_monitor)
     else:  # pragma: no cover
         # Disable all built-in keyboard shortcuts.
         keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
@@ -177,6 +190,23 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             break
         try:
             if CFG.demonstrator == "oracle":
+                # In this case, we use the instantiated cogman to generate
+                # demonstrations. Importantly, we want to access state-action
+                # trajectories, not observation-action ones.
+                env_task = env.get_train_tasks()[idx]
+                cogman.reset(env_task)
+                traj, _, _ = run_episode_and_get_states(
+                    cogman,
+                    env,
+                    "train",
+                    idx,
+                    max_num_steps=CFG.horizon,
+                    exceptions_to_break_on={
+                        utils.OptionExecutionFailure,
+                        utils.HumanDemonstrationFailure,
+                    },
+                    monitor=video_monitor)
+            elif CFG.demonstrator == "minigrid_controller":  # pragma: no cover
                 # In this case, we use the instantiated cogman to generate
                 # demonstrations. Importantly, we want to access state-action
                 # trajectories, not observation-action ones.

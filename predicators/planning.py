@@ -1244,7 +1244,7 @@ def run_task_plan_once(
         else:
             raise ValueError("Unrecognized sesame_task_planner: "
                             f"{CFG.sesame_task_planner}")
-
+        
         sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
                                             timeout_cmd, alias_flag, exec_str,
                                             list(objects), init_atoms)

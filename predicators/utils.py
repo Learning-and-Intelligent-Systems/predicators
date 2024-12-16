@@ -993,7 +993,9 @@ class SingletonParameterizedOption(ParameterizedOption):
         types: Optional[Sequence[Type]] = None,
         params_space: Optional[Box] = None,
         initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
-                                     bool]] = None
+                                     bool]] = None,
+        parent: ParameterizedOption = field(repr=False),
+        objects: Sequence[Object] = [],
     ) -> None:
         if types is None:
             types = []
@@ -1001,6 +1003,8 @@ class SingletonParameterizedOption(ParameterizedOption):
             params_space = Box(0, 1, (0, ))
         if initiable is None:
             initiable = lambda _1, _2, _3, _4: True
+        self.parent = self
+        self.objects = objects
 
         # Wrap the given initiable so that we can track whether the action
         # has been executed yet.
@@ -1829,7 +1833,6 @@ def run_hill_climbing(
                      f"with heuristic {last_heuristic}")
     start_time = time.perf_counter()
     while True:
-
         # Stops when heuristic reaches specified value.
         if early_termination_heuristic_thresh is not None \
             and last_heuristic <= early_termination_heuristic_thresh:

@@ -91,7 +91,7 @@ def learn_nsrts_from_data(
             predicates,
             segmented_trajs,
             verify_harmlessness=True,
-            verbose=(CFG.option_learner != "no_learning"),
+            verbose=True, #(CFG.option_learner != "no_learning"),
             annotations=annotations)
 
         # Save least complex learned PNAD set across data orderings.

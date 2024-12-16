@@ -80,6 +80,12 @@ class CogMan:
         # Check if we should replan.
         if self._exec_monitor.step(state):
             logging.info("[CogMan] Replanning triggered.")
+            # ####
+            # # Here is where you change goal, but the environment goal check is the same
+            # if CFG.goal_replanning:
+            #     new_goal = set([ground_atom for ground_atom in self._current_goal if ground_atom.predicate.name != "Holding"])
+            #     self._current_goal = new_goal
+            # ####
             assert self._current_goal is not None
             task = Task(state, self._current_goal)
             self._reset_policy(task)

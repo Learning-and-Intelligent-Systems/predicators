@@ -1,6 +1,6 @@
 """A MiniGrid environment wrapping https://github.com/mpSchrader/gym-sokoban."""
 import sys
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set
 
 import gymnasium as gym
 import matplotlib
@@ -25,37 +25,51 @@ class MiniGridEnv(BaseEnv):
     name_to_enum: ClassVar[Dict[str, int]] = OBJECT_TO_IDX
 
     object_type = Type("obj", ["row", "column", "type", "state", "color"])
+    location_type = Type("loc", ["row", "column", "type", "state", "color"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Predicates
-        self._IsLoc = Predicate("IsLoc", [self.object_type], self._IsLoc_holds)
-        self._Above = Predicate("Above", [self.object_type, self.object_type],
+        self._Above = Predicate("Above", [self.location_type, self.location_type],
                                 self._Above_holds)
-        self._Below = Predicate("Below", [self.object_type, self.object_type],
+        self._Below = Predicate("Below", [self.location_type, self.location_type],
                                 self._Below_holds)
         self._RightOf = Predicate("RightOf",
-                                  [self.object_type, self.object_type],
+                                  [self.location_type, self.location_type],
                                   self._RightOf_holds)
         self._LeftOf = Predicate("LeftOf",
-                                 [self.object_type, self.object_type],
+                                 [self.location_type, self.location_type],
                                  self._LeftOf_holds)
-        self._IsFacingUp = Predicate("IsFacingUp", [self.object_type],
+        self._ObjAbove = Predicate("ObjAbove", [self.object_type, self.location_type],
+                                   self._Above_holds)
+        self._ObjBelow = Predicate("ObjBelow", [self.object_type, self.location_type],
+                                      self._Below_holds)
+        self._ObjRightOf = Predicate("ObjRightOf",
+                                        [self.object_type, self.location_type],
+                                        self._RightOf_holds)
+        self._ObjLeftOf = Predicate("ObjLeftOf",
+                                        [self.object_type, self.location_type],
+                                        self._LeftOf_holds)
+        self._IsFacingUp = Predicate("IsFacingUp", [],
                                      self._IsFacingUp_holds)
-        self._IsFacingDown = Predicate("IsFacingDown", [self.object_type],
+        self._IsFacingDown = Predicate("IsFacingDown", [],
                                        self._IsFacingDown_holds)
-        self._IsFacingLeft = Predicate("IsFacingLeft", [self.object_type],
+        self._IsFacingLeft = Predicate("IsFacingLeft", [],
                                         self._IsFacingLeft_holds)
-        self._IsFacingRight = Predicate("IsFacingRight", [self.object_type],
+        self._IsFacingRight = Predicate("IsFacingRight", [],
                                         self._IsFacingRight_holds)
-        self._IsNonGoalLoc = Predicate("IsNonGoalLoc", [self.object_type],
+        self._IsNonGoalLoc = Predicate("IsNonGoalLoc", [self.location_type],
                                        self._IsNonGoalLoc_holds)
-        self._Unknown = Predicate("Unknown", [self.object_type],
+        self._Unknown = Predicate("Unknown", [self.location_type],
                                         self._Unknown_holds)
-        self._Found = Predicate("Found", [self.object_type],
+        self._Found = Predicate("Found", [self.location_type],
                                         self._Found_holds)
-        self._IsAgent, self._At, self._IsGoal, self._IsBall, \
+        self._ObjUnknown = Predicate("ObjUnknown", [self.object_type],
+                                        self._Unknown_holds)
+        self._ObjFound = Predicate("ObjFound", [self.object_type],
+                                        self._Found_holds)
+        self._AgentAt, self._At, self._IsGoal, self._IsBall, \
         self._IsKey, self._IsBox, self._IsRed, self._IsGreen, \
         self._IsBlue, self._IsPurple, self._IsYellow, self._IsGrey, \
         self._Holding, self._Near = self.get_goal_predicates()
@@ -73,9 +87,9 @@ class MiniGridEnv(BaseEnv):
     @classmethod
     def get_goal_predicates(cls) -> list[Predicate]:
         """Defined public so that the perceiver can use it."""
-        return [Predicate("IsAgent", [cls.object_type], cls._IsAgent_holds),
-                Predicate("At", [cls.object_type, cls.object_type], cls._At_holds),
-                Predicate("IsGoal", [cls.object_type], cls._IsGoal_holds),
+        return [Predicate("AgentAt", [cls.location_type], cls._AgentAt_holds),
+                Predicate("At", [cls.object_type, cls.location_type], cls._At_holds),
+                Predicate("IsGoal", [cls.location_type], cls._IsGoal_holds),
                 Predicate("IsBall", [cls.object_type], cls._IsBall_holds),
                 Predicate("IsKey", [cls.object_type], cls._IsKey_holds),
                 Predicate("IsBox", [cls.object_type], cls._IsBox_holds),
@@ -130,21 +144,22 @@ class MiniGridEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._At, self._IsLoc, self._Above, self._Below,
-            self._RightOf, self._LeftOf, self._IsAgent, self._IsGoal, self._IsNonGoalLoc,
+            self._AgentAt, self._At, self._Above, self._Below,
+            self._RightOf, self._LeftOf, self._ObjAbove, self._ObjBelow,
+            self._ObjRightOf, self._ObjLeftOf, self._IsGoal, self._IsNonGoalLoc,
             self._IsFacingUp, self._IsFacingDown, self._IsFacingLeft, self._IsFacingRight,
             self._Unknown, self._Found, self._IsBall, self._IsKey, self._IsBox, self._IsRed,
             self._IsGreen, self._IsBlue, self._IsPurple, self._IsYellow, self._IsGrey,
-            self._Holding, self._Near
+            self._Holding, self._Near, self._ObjUnknown, self._ObjFound
         }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._IsAgent, self._At, self._IsGoal}
+        return {self._AgentAt, self._IsGoal}
 
     @property
     def types(self) -> Set[Type]:
-        return {self.object_type}
+        return {self.object_type, self.location_type}
 
     @property
     def action_space(self) -> Box:
@@ -210,19 +225,8 @@ class MiniGridEnv(BaseEnv):
         return self._gym_env.reset(seed=seed)
 
     @classmethod
-    def _IsLoc_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        # Free spaces and goals are locations.
-        loc, = objects
-        obj_type = int(state.get(loc, "type"))
-        return obj_type in {cls.name_to_enum["empty"], cls.name_to_enum["goal"]}
-
-    @classmethod
     def _IsGoal_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         return cls._check_enum(state, objects, "goal")
-
-    @classmethod
-    def _IsAgent_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        return cls._check_enum(state, objects, "agent")
 
     @classmethod
     def _IsBall_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -275,51 +279,71 @@ class MiniGridEnv(BaseEnv):
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         obj1, _ = objects
         if cls._check_enum(state, [obj1], "agent"):
-            return cls._check_spatial_relation(state, objects, 0, 0)
+            return False
+        return cls._check_spatial_relation(state, objects, 0, 0)
+
+    @classmethod
+    def _AgentAt_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        loc_obj, = objects
+        obj = list(cls.get_objects_of_enum(state, "agent"))[0]
+        if cls._check_enum(state, [obj], "agent"):
+            return cls._check_spatial_relation(state, [obj, loc_obj], 0, 0)
         return False
     
     @classmethod
     def _Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, _ = objects
+        if cls._check_enum(state, [obj1], "agent"):
+            return False
         return cls._check_spatial_relation(state, objects, 1, 0)
 
     @classmethod
     def _Below_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, _ = objects
+        if cls._check_enum(state, [obj1], "agent"):
+            return False
         return cls._check_spatial_relation(state, objects, -1, 0)
 
     @classmethod
     def _RightOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, _ = objects
+        if cls._check_enum(state, [obj1], "agent"):
+            return False
         return cls._check_spatial_relation(state, objects, 0, -1)
 
     @classmethod
     def _LeftOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, _ = objects
+        if cls._check_enum(state, [obj1], "agent"):
+            return False
         return cls._check_spatial_relation(state, objects, 0, 1)
 
     @classmethod
     def _IsFacingRight_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
+        obj = list(cls.get_objects_of_enum(state, "agent"))[0]
         if cls._check_enum(state, [obj], "agent"):
-            return state.get(obj, "state") == 0
+            return int(state.get(obj, "state")) == 0
         return False
     
     @classmethod
     def _IsFacingDown_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
+        obj = list(cls.get_objects_of_enum(state, "agent"))[0]
         if cls._check_enum(state, [obj], "agent"):
-            return state.get(obj, "state") == 1
+            return int(state.get(obj, "state")) == 1
         return False
     
     @classmethod
     def _IsFacingLeft_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
+        obj = list(cls.get_objects_of_enum(state, "agent"))[0]
         if cls._check_enum(state, [obj], "agent"):
-            return state.get(obj, "state") == 2
+            return int(state.get(obj, "state")) == 2
         return False
 
     @classmethod
     def _IsFacingUp_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
+        obj = list(cls.get_objects_of_enum(state, "agent"))[0]
         if cls._check_enum(state, [obj], "agent"):
-            return state.get(obj, "state") == 3
+            return int(state.get(obj, "state")) == 3
         return False
 
     @classmethod
@@ -384,3 +408,26 @@ class MiniGridEnv(BaseEnv):
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return tuple(m.copy() if type(m) not in [bool, int, float] else m for m in obs)
+
+    def get_event_to_action_fn(
+            self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+
+        def _event_to_action(state: State,
+                             event: matplotlib.backend_bases.Event) -> Action:
+            del state  # unused
+            #
+            
+            logging.info(
+                "Controls: 0: left, 1: right, 2: forward, 3: pickup, 4: drop, 5: toggle, 6: done"
+            )
+            if event.key == "q":
+                raise utils.HumanDemonstrationFailure("Human quit.")
+            try:
+                action_int = int(event.key)
+            except ValueError:
+                action_int = 0
+            action_vec = self._action_space.low.copy()
+            action_vec[action_int] = 1.0
+            return Action(action_vec)
+
+        return _event_to_action

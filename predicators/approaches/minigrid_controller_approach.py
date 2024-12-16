@@ -23,7 +23,8 @@ class MinigridControllerApproach(BaseApproach):
         def _policy(_: State) -> Action:
             action_vec = zero_vec.copy()
             print(task.goal)
-            action_vec[int(input("Action: "))] = 1.0
+            action_int = int(input("Action: "))
+            action_vec[action_int] = 1.0
             print(action_vec)
             return Action(action_vec)
 
