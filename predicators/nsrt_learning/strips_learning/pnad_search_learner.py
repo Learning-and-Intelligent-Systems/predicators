@@ -5,13 +5,15 @@ from __future__ import annotations
 import abc
 import time
 from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
+import functools
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import PNAD, GroundAtom, LowLevelTrajectory, \
+from predicators.structs import NSRT, PNAD, GroundAtom, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator
+from predicators.ground_truth_models import get_gt_options, get_gt_nsrts
 
 
 class _PNADSearchOperator(abc.ABC):
@@ -151,6 +153,9 @@ class _PruningPNADSearchOperator(_PNADSearchOperator):
                        pnads: FrozenSet[PNAD]) -> Iterator[FrozenSet[PNAD]]:
         sorted_pnad_list = sorted(pnads)
         for pnad_to_remove in sorted_pnad_list:
+            if pnad_to_remove.op.name.startswith("INIT_"):
+                yield frozenset(pnads)
+                continue
             pnads_after_removal = [
                 pnad.copy() for pnad in sorted_pnad_list
                 if pnad != pnad_to_remove
@@ -277,6 +282,24 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Initialize the search.
         initial_state: FrozenSet[PNAD] = frozenset()
 
+        # TODO load base nsrts and use them to initialize the search.
+        initial_pnads = []
+        initial_options = get_gt_options(CFG.env)
+        nsrts = get_gt_nsrts(CFG.env, self._predicates,
+                                 initial_options)
+        for nsrt in nsrts:
+            if "Move" not in nsrt.op.name and "Turn" not in nsrt.op.name:
+                continue
+            op = nsrt.op.copy_with(name="INIT_" + nsrt.op.name)
+            parameterized_option = nsrt.option
+            parameters = utils.create_new_variables(parameterized_option.types)
+            option_spec = (parameterized_option, parameters)
+            pnad = PNAD(op, [], option_spec)
+            initial_pnads.append(pnad)
+        self._recompute_datastores_from_segments(initial_pnads)
+
+        initial_state = frozenset([pnad for pnad in initial_pnads if pnad.datastore])
+        
         def get_successors(
             pnads: FrozenSet[PNAD]
         ) -> Iterator[Tuple[Tuple[_PNADSearchOperator, int], FrozenSet[PNAD],
