@@ -265,7 +265,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot_pos = (x, y, z)
             jug_x = state.get(jug, "x")
             jug_y = state.get(jug, "y")
-            jug_z = cls.env_cls.jug_height
+            jug_z = cls.env_cls.jug_height()
             # jug_top = (jug_x, jug_y, jug_z + cls.env_cls.jug_height)
             jug_top = (jug_x, jug_y, jug_z)
             xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
@@ -378,7 +378,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Use the jug position as the origin.
             x = state.get(jug, "x")
             y = state.get(jug, "y")
-            z = state.get(robot, "z") - cls.env_cls.jug_handle_height
+            z = state.get(robot, "z") - cls.env_cls.jug_handle_height()
             jug_pos = (x, y, z)
             place_pos = (cls.env_cls.dispense_area_x,
                          cls.env_cls.dispense_area_y, cls.env_cls.z_lb)
@@ -559,14 +559,14 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _get_jug_z(cls, state: State, robot: Object, jug: Object) -> float:
         assert state.get(jug, "is_held") > 0.5
         # Offset to account for handle.
-        return state.get(robot, "z") - cls.env_cls.jug_handle_height
+        return state.get(robot, "z") - cls.env_cls.jug_handle_height()
 
     @classmethod
     def _get_pour_position(cls, state: State,
                            cup: Object) -> Tuple[float, float, float]:
         target_x = state.get(cup, "x") + cls.env_cls.pour_x_offset
         target_y = state.get(cup, "y") + cls.env_cls.pour_y_offset
-        target_z = cls.env_cls.z_lb + cls.env_cls.pour_z_offset
+        target_z = cls.env_cls.z_lb + cls.env_cls.pour_z_offset()
         return (target_x, target_y, target_z)
 
 
@@ -838,7 +838,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             robot_pos = (x, y, z)
             jug_x = state.get(jug, "x")
             jug_y = state.get(jug, "y")
-            jug_top = (jug_x, jug_y, cls.env_cls.jug_height)
+            jug_top = (jug_x, jug_y, cls.env_cls.jug_height())
             # print("[Taking a new twist action]")
             # print(f"[policy] desired jug rot {desired_rot:.3f}")
             # print(f"[policy] current jug rot {current_rot:.3f}")
@@ -870,6 +870,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             new_joint_pos = cls._get_twist_action(state, robot_pos, dtwist)
             # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
             #     new_joint_pos.arr.tolist()).rpy
+            # new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
+            # new_formated_jp = np.array(
+            #     [round(jp, 3) for jp in new_joint_pos.arr])
             # print(f"[policy] new ee rpy {new_ee_rpy}")
             # print(f"[policy] d_roll {-(new_ee_rpy[0] - current_ee_rpy[0]):.3f}")
             # breakpoint()
@@ -896,11 +899,11 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # Use the jug position as the origin.
             jx = state.get(jug, "x")
             jy = state.get(jug, "y")
-            jz = cls.env_cls.z_lb + cls.env_cls.jug_height
+            jz = cls.env_cls.z_lb + cls.env_cls.jug_height()
             current_jug_pos = (jx, jy, jz)
             target_jug_pos = (cls.env_cls.dispense_area_x,
                               cls.env_cls.dispense_area_y,
-                              cls.env_cls.z_lb + cls.env_cls.jug_height)
+                              cls.env_cls.z_lb + cls.env_cls.jug_height())
             dx, dy, dz = np.subtract(target_jug_pos, current_jug_pos)
 
             # Get the target robot position.

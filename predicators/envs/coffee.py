@@ -61,7 +61,10 @@ class CoffeeEnv(BaseEnv):
     button_press_threshold: ClassVar[float] = button_radius
     # Jug settings.
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0  # 0.4
-    jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
+    # jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
+    @classmethod
+    def jug_height(cls) -> float:
+        return 0.15 * (cls.z_ub - cls.z_lb)
     jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
     jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
     jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + pick_jug_y_padding + \
@@ -71,7 +74,10 @@ class CoffeeEnv(BaseEnv):
     jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
-    jug_handle_height: ClassVar[float] = 3 * jug_height / 4
+    # jug_handle_height: ClassVar[float] = 3 * jug_height / 4
+    @classmethod
+    def jug_handle_height(cls) -> float:
+        return 3 * cls.jug_height() / 4
     jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
@@ -89,8 +95,12 @@ class CoffeeEnv(BaseEnv):
     # Simulation settings.
     pour_x_offset: ClassVar[float] = 1.5 * (cup_radius + jug_radius)
     pour_y_offset: ClassVar[float] = cup_radius
-    pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
-                                            jug_handle_height)
+    # pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
+    #                                         jug_handle_height)
+    @classmethod
+    def pour_z_offset(cls) -> float:
+        return 1.1 * (cls.cup_capacity_ub + cls.jug_height() -\
+                      cls.jug_handle_height())
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     max_position_vel: ClassVar[float] = 2.5
     max_angular_vel: ClassVar[float] = tilt_ub
@@ -398,7 +408,7 @@ class CoffeeEnv(BaseEnv):
         rect = utils.Rectangle(x=(x - self.jug_radius),
                                y=z,
                                width=(2 * self.jug_radius),
-                               height=self.jug_height,
+                               height=self.jug_height(),
                                theta=0.0)
         # Rotate if held.
         if jug_held:
@@ -487,9 +497,9 @@ class CoffeeEnv(BaseEnv):
                 # goal = {
                 # }
                 goal = {
-                    GroundAtom(self._JugFilled, [self._jug]),
+                    # GroundAtom(self._JugFilled, [self._jug]),
                     # GroundAtom(self._PluggedIn, [self._plug]),
-                    # GroundAtom(self._JugInMachine, [self._jug, self._machine]),
+                    GroundAtom(self._JugInMachine, [self._jug, self._machine]),
                     }
             else:
                 goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
@@ -557,7 +567,7 @@ class CoffeeEnv(BaseEnv):
             state_dict[self._jug] = {
                 "x": x,
                 "y": y,
-                "z": self.z_lb + self.jug_height / 2,
+                "z": self.z_lb + self.jug_height() / 2,
                 "rot": rot,
                 "is_held": 0.0,  # jug starts off not held
                 "is_filled": 0.0  # jug starts off empty
@@ -629,7 +639,7 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_top = (jug_x, jug_y, self.jug_height)
+        jug_top = (jug_x, jug_y, self.jug_height())
         # To prevent false positives, if the distance to the handle is less
         # than the distance to the jug top, we are not twisting.
         handle_pos = self._get_jug_handle_grasp(state, jug)
@@ -710,7 +720,7 @@ class CoffeeEnv(BaseEnv):
             return False
         jug_x = state.get(self._jug, "x")
         jug_y = state.get(self._jug, "y")
-        jug_z = state.get(self._robot, "z") - self.jug_handle_height
+        jug_z = state.get(self._robot, "z") - self.jug_handle_height()
         jug_pos = (jug_x, jug_y, jug_z)
         pour_pos = self._get_pour_position(state, cup)
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
@@ -725,14 +735,14 @@ class CoffeeEnv(BaseEnv):
         target_y = state.get(jug, "y") + np.sin(rot) * cls.jug_handle_offset 
         if CFG.coffee_use_pixelated_jug:
             target_y -= 0.02
-        target_z = cls.z_lb + cls.jug_handle_height
+        target_z = cls.z_lb + cls.jug_handle_height()
         return (target_x, target_y, target_z)
 
     def _get_pour_position(self, state: State,
                            cup: Object) -> Tuple[float, float, float]:
         target_x = state.get(cup, "x") + self.pour_x_offset
         target_y = state.get(cup, "y") + self.pour_y_offset
-        target_z = self.pour_z_offset
+        target_z = self.pour_z_offset()
         return (target_x, target_y, target_z)
 
     def _get_cup_to_pour(self, state: State) -> Optional[Object]:
@@ -753,6 +763,6 @@ class CoffeeEnv(BaseEnv):
     def _get_jug_z(self, state: State, jug: Object) -> float:
         if state.get(jug, "is_held") > 0.5:
             # Offset to account for handle.
-            return state.get(self._robot, "z") - self.jug_handle_height
+            return state.get(self._robot, "z") - self.jug_handle_height()
         # On the table.
         return self.z_lb

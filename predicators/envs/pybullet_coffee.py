@@ -37,6 +37,9 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_machine_has_plug True --sesame_max_skeletons_optimized 1 \
 --make_failure_videos \
 --debug --option_model_terminate_on_repeat False
+
+With the simplified tasks, both pixelated jug and old jug should work.
+With the full tasks, the old jug should work.
 """
 import math
 import logging
@@ -121,8 +124,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                     float]] = machine_color
     # Jug setting
     jug_radius: ClassVar[float] = 0.3 * machine_y_len
-    # jug_height: ClassVar[float] = 0.19 * (z_ub - z_lb)  # kettle urdf
-    jug_height: ClassVar[float] = 0.12#0.1 * (z_ub - z_lb)  # new cup 
+    jug_old_height: ClassVar[float] = 0.19 * (z_ub - z_lb)  # kettle urdf
+    jug_new_height: ClassVar[float] = 0.12#0.1 * (z_ub - z_lb)  # new cup 
+    @classmethod
+    def jug_height(cls) -> float:
+        '''use class method to allow for dynamic changes'''
+        if CFG.coffee_use_pixelated_jug:
+            return  cls.jug_new_height
+        return  cls.jug_old_height
     jug_init_x_lb: ClassVar[
         float] = machine_x - machine_x_len / 2 + init_padding
     jug_init_x_ub: ClassVar[
@@ -133,8 +142,14 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     jug_init_y_ub_og: ClassVar[
         float] = machine_y - machine_y_len - 3 * jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 3 * jug_radius  # kettle urdf
-    # jug_handle_height: ClassVar[float] = jug_height # old kettle
-    jug_handle_height: ClassVar[float] =  0.1 # new jug
+    jug_old_handle_height: ClassVar[float] = jug_old_height # old kettle
+    jug_new_handle_height: ClassVar[float] =  0.1 # new jug
+    @classmethod
+    def jug_handle_height(cls) -> float:
+        '''use class method to allow for dynamic changes'''
+        if CFG.coffee_use_pixelated_jug:
+            return  cls.jug_new_handle_height
+        return  cls.jug_old_handle_height
     jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     # jug_color: ClassVar[Tuple[float, float, float, float]] =\
@@ -185,8 +200,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # Pour settings.
     pour_x_offset: ClassVar[float] = cup_radius
     pour_y_offset: ClassVar[float] = -3 * (cup_radius + jug_radius)
-    pour_z_offset: ClassVar[float] = 2.5 * (cup_capacity_ub + jug_height - \
-                                            jug_handle_height)
+    # pour_z_offset: ClassVar[float] = 2.5 * (cup_capacity_ub + jug_old_height - \
+    #                                         jug_old_handle_height)
+    @classmethod
+    def pour_z_offset(cls) -> float:
+        return 2.5 * (cls.cup_capacity_ub + cls.jug_height() -\
+                      cls.jug_handle_height())
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     # Table settings.
     table_pose: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
@@ -396,7 +415,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             assert self._held_obj_to_base_link is None
             jx = state.get(self._jug, "x")
             jy = state.get(self._jug, "y")
-            jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
+            jz = self._get_jug_z(state, self._jug) + self.jug_height() / 2
             rot = state.get(self._jug, "rot")
             jug_orientation = p.getQuaternionFromEuler(
                 [0.0, 0.0, rot - np.pi / 2])
@@ -665,7 +684,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             new_jug_yaw = utils.wrap_angle(new_jug_yaw)
             jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, new_jug_yaw])
             p.resetBasePositionAndOrientation(
-                self._jug_id, [jx, jy, self.z_lb + self.jug_height / 2],
+                self._jug_id, [jx, jy, self.z_lb + self.jug_height() / 2],
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
 
@@ -793,7 +812,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                  physicsClientId=self._physics_client_id)
 
     def _create_pybullet_liquid_for_jug(self) -> Optional[int]:
-        liquid_height = self.jug_height * 0.8
+        liquid_height = self.jug_height() * 0.8
         liquid_radius = self.jug_radius * 1.3
         
         collision_id = p.createCollisionShape(
@@ -1029,21 +1048,28 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
 
         # Old jug
-        jug_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/jug-pixel.urdf"),
-            globalScaling=0.2,  # enlarged jug
-            useFixedBase=False,
-            physicsClientId=physics_client_id)
+        if CFG.coffee_use_pixelated_jug:
+            jug_id = p.loadURDF(
+                utils.get_env_asset_path("urdf/jug-pixel.urdf"),
+                globalScaling=0.2,  # enlarged jug
+                useFixedBase=False,
+                physicsClientId=physics_client_id)
 
-        # p.changeVisualShape(jug_id,
-        #                     0,
-        #                     rgbaColor=cls.jug_color,
-        #                     physicsClientId=physics_client_id)
-        # # remove the lid
-        # p.changeVisualShape(jug_id,
-        #                     1,
-        #                     rgbaColor=[1, 1, 1, 0],
-        #                     physicsClientId=physics_client_id)
+        else:
+            jug_id = p.loadURDF(
+                utils.get_env_asset_path("urdf/kettle.urdf"),
+                globalScaling=0.09,  # enlarged jug
+                useFixedBase=False,
+                physicsClientId=physics_client_id)
+            p.changeVisualShape(jug_id,
+                                0,
+                                rgbaColor=cls.jug_color,
+                                physicsClientId=physics_client_id)
+            # remove the lid
+            p.changeVisualShape(jug_id,
+                                1,
+                                rgbaColor=[1, 1, 1, 0],
+                                physicsClientId=physics_client_id)
         p.changeDynamics(
             bodyUniqueId=jug_id,
             linkIndex=-1,  # -1 for the base link
@@ -1058,96 +1084,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         return jug_id
 
-    @classmethod
-    def create_cup(cls, physics_client_id, scale=0.16):
-        # Parameters
-        cup_thickness = 0.1 * scale # Wall thickness
-        cup_width = 5 * cup_thickness  # Width of the cup
-        # cup_height = 4 * cup_thickness  # Height of the cup
-        cup_height = 6 * cup_thickness  # Height of the cup
-        handle_x_len = 3 * cup_thickness
-        handle_y_len = 2*cup_thickness
-        handle_z_len = 3 * cup_thickness
-        handle_x = cup_width / 2 + handle_x_len / 2  # Offset for the handle
-        handle_z = cup_height / 2 # Offset for the handle
-
-        # Base position
-        base_position = [0, 0, 0]
-
-        # Shape IDs for different parts
-        visual_shapes = []
-        collision_shapes = []
-        base_positions = []
-
-        # Base of the cup
-        visual_shapes.append(
-            p.createVisualShape(
-                p.GEOM_BOX,
-                halfExtents=[cup_width / 2, cup_width / 2, cup_thickness / 2]))
-        collision_shapes.append(
-            p.createCollisionShape(
-                p.GEOM_BOX,
-                halfExtents=[cup_width / 2, cup_width / 2, cup_thickness / 2]))
-        base_positions.append(base_position)
-
-        # Walls
-        wall_half_extents = [cup_width / 2, cup_thickness / 2, cup_height / 2]
-        visual_shapes.extend([
-            p.createVisualShape(p.GEOM_BOX, halfExtents=wall_half_extents),
-            p.createVisualShape(p.GEOM_BOX, halfExtents=wall_half_extents),
-            p.createVisualShape(
-                p.GEOM_BOX,
-                halfExtents=[cup_thickness / 2, cup_width / 2, cup_height / 2]),
-            p.createVisualShape(
-                p.GEOM_BOX,
-                halfExtents=[cup_thickness / 2, cup_width / 2, cup_height / 2]),
-        ])
-        collision_shapes.extend([
-            p.createCollisionShape(p.GEOM_BOX, halfExtents=wall_half_extents),
-            p.createCollisionShape(p.GEOM_BOX, halfExtents=wall_half_extents),
-            p.createCollisionShape(
-                p.GEOM_BOX,
-                halfExtents=[cup_thickness / 2, cup_width / 2, cup_height / 2]),
-            p.createCollisionShape(
-                p.GEOM_BOX,
-                halfExtents=[cup_thickness / 2, cup_width / 2, cup_height / 2]),
-        ])
-        base_positions.extend([
-            [0, -cup_width / 2 + cup_thickness / 2, cup_height / 2],
-            [0, cup_width / 2 - cup_thickness / 2, cup_height / 2],
-            [-cup_width / 2 + cup_thickness / 2, 0, cup_height / 2],
-            [cup_width / 2 - cup_thickness / 2, 0, cup_height / 2],
-        ])
-
-        # Handle
-        handle_extents = [handle_x_len / 2, handle_y_len / 2, handle_z_len / 2]
-        visual_shapes.append(
-            p.createVisualShape(p.GEOM_BOX, halfExtents=handle_extents))
-        collision_shapes.append(
-            p.createCollisionShape(p.GEOM_BOX, halfExtents=handle_extents))
-        base_positions.append([handle_x, 0, handle_z])
-
-        # Combine all into a single multi-body object
-        cup_id = p.createMultiBody(
-            baseMass=0.1,
-            baseCollisionShapeIndex=-1,  # No collision for the base
-            baseVisualShapeIndex=-1,  # No visual for the base
-            # basePosition=[0, 0, -cup_height/2],
-            # basePosition=[-cup_width/2 - 2*handle_x_len/3, 0, cup_height],
-            basePosition=[-cup_width/2 - 2*handle_x_len/3, 0, -7*cup_height/8],
-            linkMasses=[0.1] * len(collision_shapes),  # Static links
-            linkCollisionShapeIndices=collision_shapes,
-            linkVisualShapeIndices=visual_shapes,
-            linkPositions=base_positions,
-            linkOrientations=[[0, 0, 0, 1]] * len(collision_shapes),
-            linkInertialFramePositions=[[0, 0, 0]] * len(collision_shapes),
-            linkInertialFrameOrientations=[[0, 0, 0, 1]] * len(collision_shapes),
-            linkParentIndices=[0] * len(collision_shapes),
-            linkJointTypes=[p.JOINT_FIXED] * len(collision_shapes),
-            linkJointAxis=[[0, 0, 0]] * len(collision_shapes),
-            physicsClientId=physics_client_id
-        )
-        return cup_id
     @classmethod
     def _add_pybullet_table(cls, physics_client_id) -> int:
         table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
