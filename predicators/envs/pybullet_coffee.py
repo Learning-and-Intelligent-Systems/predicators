@@ -12,18 +12,6 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --make_test_videos --num_test_tasks 1 --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900
 
-For simple task:
-To generate grid-world videos:
-python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
---coffee_rotated_jug_ratio 0 \
---sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
---pybullet_control_mode "reset" --coffee_twist_sampler False \
---make_test_videos --num_test_tasks 1 --video_fps 20 \
---pybullet_camera_height 300 --pybullet_camera_width 300 \
---coffee_render_grid_world True --coffee_simple_tasks True \
---coffee_machine_have_light_bar False \
---coffee_move_back_after_place_and_push True
-
 Needs pluged in:
 python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_rotated_jug_ratio 0.5 \
@@ -36,7 +24,8 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_move_back_after_place_and_push True \
 --coffee_machine_has_plug True --sesame_max_skeletons_optimized 1 \
 --make_failure_videos \
---debug --option_model_terminate_on_repeat False
+--debug --option_model_terminate_on_repeat False \
+--coffee_use_pixelated_jug True
 
 With the simplified tasks, both pixelated jug and old jug should work.
 With the full tasks, the old jug should work.
@@ -812,8 +801,12 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                  physicsClientId=self._physics_client_id)
 
     def _create_pybullet_liquid_for_jug(self) -> Optional[int]:
-        liquid_height = self.jug_height() * 0.8
-        liquid_radius = self.jug_radius * 1.3
+        if CFG.coffee_use_pixelated_jug:
+            liquid_height = self.jug_height() * 0.8
+            liquid_radius = self.jug_radius * 1.3
+        else:
+            liquid_height = self.jug_height() * 0.6
+            liquid_radius = self.jug_radius
         
         collision_id = p.createCollisionShape(
             p.GEOM_BOX,
