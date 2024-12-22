@@ -399,7 +399,6 @@ class PyBulletEnv(BaseEnv):
         if self._held_constraint_id is None and self._fingers_closing(action):
             # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
-            logging.debug(f"Detected held object: {self._held_obj_id}")
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
 
@@ -439,30 +438,12 @@ class PyBulletEnv(BaseEnv):
                 # getContactPoints because we still want to consider the object
                 # held even if there is a tiny distance between the fingers and
                 # the object.
-                # # New: Get all link indices of obj_id
-                # num_joints = p.getNumJoints(obj_id)
-                # link_indices = [-1] + list(range(num_joints))  # Include base link (-1)
-
-                # closest_points = []
-                # for linkIndexB in link_indices:
-                #     points = p.getClosestPoints(
-                #         bodyA=self._pybullet_robot.robot_id,
-                #         bodyB=obj_id,
-                #         distance=self.grasp_tol,
-                #         linkIndexA=finger_id,
-                #         linkIndexB=linkIndexB,
-                #         physicsClientId=self._physics_client_id
-                #     )
-                #     closest_points.extend(points)
-                # Old: Get closest points only for the base link
                 closest_points = p.getClosestPoints(
                     bodyA=self._pybullet_robot.robot_id,
                     bodyB=obj_id,
                     distance=self.grasp_tol,
                     linkIndexA=finger_id,
                     physicsClientId=self._physics_client_id)
-                # logging.debug(f"Checking object {obj_id} with finger {finger_id}")
-                # logging.debug(f"Num closest points: {len(closest_points)}")
                 for point in closest_points:
                     # If the contact normal is substantially different from
                     # the expected contact normal, this is probably an object
