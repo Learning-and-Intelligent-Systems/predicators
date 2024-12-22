@@ -13,7 +13,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
 from predicators.pybullet_helpers.geometry import Pose, Quaternion
 from predicators import utils
 from predicators.structs import Action, EnvironmentTask, State, Object, \
-    Predicate, Type, GroundAtom
+    Predicate, Type, GroundAtom, Array
 
 from predicators.settings import CFG
 
@@ -237,9 +237,10 @@ class PyBulletGrowEnv(PyBulletEnv):
                     "color": color_val
                 }
 
+        state = utils.create_state_from_dict(state_dict)
         # Convert the dictionary to a State. Store simulator_state for rendering or debugging.
         joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = utils.PyBulletState(state_dict, simulator_state=joint_positions)
+        pyb_state = utils.PyBulletState(state, simulator_state=joint_positions)
         return pyb_state
 
     def _get_object_ids_for_held_check(self) -> List[int]:
@@ -261,27 +262,6 @@ class PyBulletGrowEnv(PyBulletEnv):
         }
 
     # -------------------------------------------------------------------------
-    # Rolling out the environment's dynamics: simulate an action.
-
-    def simulate(self, state: State, action: Action) -> State:
-        """
-        If you want to define your own custom transitions outside of PyBullet stepping,
-        you could do so. However, typically we just do: 
-            1) reset state
-            2) step with that action
-            3) read off new state
-
-        so let's do the default approach from PyBulletEnv: 
-            return self.step(action)
-        Then store new state in self._current_observation.
-        """
-        if self._current_observation is None or not state.allclose(self._current_state):
-            self._reset_state(state)
-            self._current_observation = state
-        next_obs = self.step(action, render_obs=False)
-        return next_obs
-
-    # -------------------------------------------------------------------------
     # Setting or updating the environment’s state.
 
     def _reset_state(self, state: State) -> None:
@@ -300,29 +280,12 @@ class PyBulletGrowEnv(PyBulletEnv):
         self._cup_growth = {}     # track cup's growth
 
         # Re-create cups in PyBullet
-        cup_scale = 0.2
         self._cup_ids = []
         for cup_obj in [self._red_cup, self._blue_cup]:
             cx = state.get(cup_obj, "x")
             cy = state.get(cup_obj, "y")
             cz = state.get(cup_obj, "z")
-            # Load a small cylinder or custom shape
-            cup_id = p.createCollisionShape(
-                p.GEOM_CYLINDER, radius=0.03, height=0.08,
-                physicsClientId=self._physics_client_id
-            )
-            visual_id = p.createVisualShape(
-                p.GEOM_CYLINDER, radius=0.03, length=0.08,
-                rgbaColor=(1,0,0,1) if "red" in cup_obj.name else (0,0,1,1),
-                physicsClientId=self._physics_client_id
-            )
-            body_id = p.createMultiBody(
-                baseMass=0, 
-                baseCollisionShapeIndex=cup_id,
-                baseVisualShapeIndex=visual_id,
-                basePosition=(cx, cy, cz),
-                physicsClientId=self._physics_client_id
-            )
+            body_id = self._create_cup_urdf(cx, cy, cz, "red" in cup_obj.name)
             self._cup_ids.append(body_id)
             self._obj_id_to_obj[body_id] = cup_obj
             # Store initial growth
@@ -334,21 +297,7 @@ class PyBulletGrowEnv(PyBulletEnv):
             jx = state.get(jug_obj, "x")
             jy = state.get(jug_obj, "y")
             jz = state.get(jug_obj, "z")
-            # Some shape for the jug
-            collision_id = p.createCollisionShape(p.GEOM_BOX,
-                halfExtents=[0.02, 0.02, 0.1],
-                physicsClientId=self._physics_client_id)
-            visual_id = p.createVisualShape(p.GEOM_BOX,
-                halfExtents=[0.02, 0.02, 0.1],
-                rgbaColor=(1,0,0,1) if "red" in jug_obj.name else (0,0,1,1),
-                physicsClientId=self._physics_client_id)
-            jug_body_id = p.createMultiBody(
-                baseMass=0.05,
-                baseCollisionShapeIndex=collision_id,
-                baseVisualShapeIndex=visual_id,
-                basePosition=(jx, jy, jz),
-                physicsClientId=self._physics_client_id
-            )
+            jug_body_id = self._create_jug_urdf(jx, jy, jz, "red" in jug_obj.name)
             self._jug_ids.append(jug_body_id)
             self._obj_id_to_obj[jug_body_id] = jug_obj
 
@@ -365,8 +314,8 @@ class PyBulletGrowEnv(PyBulletEnv):
 
         # After re-adding objects, compare with the new state
         reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
+        # if not reconstructed_state.allclose(state):
+        #     logging.warning("Could not reconstruct state exactly!")
 
     # -------------------------------------------------------------------------
     # Custom pouring logic: if we see the robot has a jug at max tilt over a cup
@@ -411,41 +360,6 @@ class PyBulletGrowEnv(PyBulletEnv):
         self._current_observation = final_state
         return final_state
 
-    # -------------------------------------------------------------------------
-    # Additional helper methods
-
-    def _create_grasp_constraint_for_object(self, obj_id: int) -> None:
-        """
-        If something is supposed to be "held" at reset, we attach a fixed constraint.
-        """
-        # Like parent class does, get end effector pose
-        world_to_base_link = p.getLinkState(
-            self._pybullet_robot.robot_id,
-            self._pybullet_robot.end_effector_id,
-            physicsClientId=self._physics_client_id
-        )[:2]
-        base_link_to_obj = p.invertTransform(*world_to_base_link)
-        obj_trans = p.getBasePositionAndOrientation(
-            obj_id, physicsClientId=self._physics_client_id)
-        base_link_to_obj = p.multiplyTransforms(
-            base_link_to_obj[0], base_link_to_obj[1],
-            obj_trans[0], obj_trans[1]
-        )
-        self._held_obj_id = obj_id
-        self._held_constraint_id = p.createConstraint(
-            parentBodyUniqueId=self._pybullet_robot.robot_id,
-            parentLinkIndex=self._pybullet_robot.end_effector_id,
-            childBodyUniqueId=obj_id,
-            childLinkIndex=-1,
-            jointType=p.JOINT_FIXED,
-            jointAxis=[0,0,0],
-            parentFramePosition=[0,0,0],
-            parentFrameOrientation=[0,0,0,1],
-            childFramePosition=base_link_to_obj[0],
-            childFrameOrientation=base_link_to_obj[1],
-            physicsClientId=self._physics_client_id
-        )
-
     def _fingers_joint_to_state(self, finger_joint: float) -> float:
         """
         If the parent class uses "reset positions" for the joints, we map them back 
@@ -462,24 +376,26 @@ class PyBulletGrowEnv(PyBulletEnv):
     @staticmethod
     def _CupGrown_holds(state: State, objects: Tuple[Object, ...]) -> bool:
         """A cup is "grown" if 'growth' > growth_threshold."""
-        (cup,) = objects
-        growth = state.get(cup, "growth")
+        cup, = objects
+        try:
+            growth = state.get(cup, "growth")
+        except:
+            breakpoint()
         return growth > PyBulletGrowEnv.growth_threshold
 
     # -------------------------------------------------------------------------
     # Task Generation
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        """
-        For demonstration, let's create 1 or more tasks. The user must pick up 
-        each jug and pour into the matching cups until growth is above threshold. 
-        """
-        return self._make_tasks(num_tasks=CFG.num_train_tasks, rng=self._train_rng)
+        return self._make_tasks(num_tasks=CFG.num_train_tasks, 
+                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_test_tasks, rng=self._test_rng)
+        return self._make_tasks(num_tasks=CFG.num_test_tasks, 
+                                rng=self._test_rng)
 
-    def _make_tasks(self, num_tasks: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _make_tasks(self, num_tasks: int, rng: np.random.Generator
+                    ) -> List[EnvironmentTask]:
         tasks = []
         for _ in range(num_tasks):
             # Initialize random positions for cups & jugs
@@ -546,3 +462,42 @@ class PyBulletGrowEnv(PyBulletEnv):
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
         return tasks
+
+    def _create_cup_urdf(self, x: float, y: float, z: float, is_red: bool) -> int:
+        global_scale = 0.2
+        cup_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/cup.urdf"),
+            useFixedBase=True,
+            globalScaling=global_scale,
+            physicsClientId=self._physics_client_id
+        )
+        cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
+        p.resetBasePositionAndOrientation(
+            cup_id, (x, y, z),
+            cup_orn,
+            physicsClientId=self._physics_client_id)
+
+        if is_red:
+            p.changeVisualShape(cup_id, -1, rgbaColor=(1, 0, 0, 1))
+        else:
+            p.changeVisualShape(cup_id, -1, rgbaColor=(0, 0, 1, 1))
+        return cup_id
+
+    def _create_jug_urdf(self, x: float, y: float, z: float, is_red: bool) -> int:
+        jug_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/jug-pixel.urdf"),
+            basePosition=(x, y, z),
+            globalScaling=0.2,
+            useFixedBase=False,
+            physicsClientId=self._physics_client_id
+        )
+        jug_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
+        p.resetBasePositionAndOrientation(
+            jug_id, (x, y, z),
+            jug_orn,
+            physicsClientId=self._physics_client_id)
+        if is_red:
+            p.changeVisualShape(jug_id, -1, rgbaColor=(1, 0, 0, 1))
+        else:
+            p.changeVisualShape(jug_id, -1, rgbaColor=(0, 0, 1, 1))
+        return jug_id

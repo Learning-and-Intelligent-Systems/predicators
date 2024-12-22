@@ -101,12 +101,6 @@ class PyBulletEnv(BaseEnv):
                    useFixedBase=True,
                    physicsClientId=physics_client_id)
 
-        # Change the visual appearance to white
-        # plane_id = p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), 
-        #             basePosition=[-2, 0, 0],
-        #             baseOrientation=p.getQuaternionFromEuler([0, 1.57, 0])
-        #             )  # Rotate 90 degrees around Z-axis
-        # p.changeVisualShape(plane_id, -1, rgbaColor=[1, 1, 1, 1])
         # Load robot.
         pybullet_robot = cls._create_pybullet_robot(physics_client_id)
 
@@ -220,34 +214,6 @@ class PyBulletEnv(BaseEnv):
 
         # Reset robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
-
-    def render_grid(self,
-                    action: Optional[Action] = None,
-                    caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        """Render the current state in a ARC problem like grid
-        """
-        # Step 1: Convert the existing state into a numpy integer array grid.
-        state = self._current_observation.copy()
-
-        # Project the position of each object to a position in the grid.
-        grid_size = 16
-        camera_distance = 0.8
-        camera_yaw = 90
-        camera_pitch = 0
-        grid = np.zeros((grid_size, grid_size), dtype=np.int32)
-        # can we get object positions from the object state? -> seem no
-        # -> but will try to get a minimal version working
-        # --> next: can we get object positions from pybullet?
-        objs = list(state.data)
-        grid_pos_dict = {}
-        for o in objs:
-            obj_pos = state.get(o, "x"), state.get(o, "y"), state.get(o, "z")
-            
-
-        
-
-        # Step 2: Render the grid into a figure with matplotlib.
-        pass
 
     def render(self,
                action: Optional[Action] = None,
