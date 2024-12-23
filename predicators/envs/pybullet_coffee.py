@@ -462,7 +462,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             raise ValueError("Could not reconstruct state.")
 
     def _get_state(self, render_obs:bool=False) -> State:
-        """Create a State instance based on the current PyBullet state."""
+        """Create a State instance based on the current PyBullet state.
+        Called in step() and reset()."""
         state_dict = {}
 
         # Get robot state.

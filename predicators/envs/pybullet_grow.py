@@ -68,7 +68,7 @@ class PyBulletGrowEnv(PyBulletEnv):
     # We might also define "Holding", "JugPickedUp", etc.
 
     # Growth threshold for the cups to meet the goal
-    growth_threshold: ClassVar[float] = 0.5
+    growth_height: ClassVar[float] = 0.3
 
     # Hard-coded finger states for open/close
     open_fingers: ClassVar[float] = 0.4
@@ -248,13 +248,25 @@ class PyBulletGrowEnv(PyBulletEnv):
                 (cx, cy, cz), _ = p.getBasePositionAndOrientation(
                     body_id, physicsClientId=self._physics_client_id)
                 # "growth" from custom dictionary, or we can keep track in a side-dict
-                growth = self._cup_growth[obj]
+
+                # No liquid object is created if the current liquid is 0.
+                if self._cup_to_liquid_id.get(obj, None) is not None:
+                    liquid_id = self._cup_to_liquid_id[obj]
+                    liquid_height = p.getVisualShapeData(
+                        liquid_id,
+                        physicsClientId=self._physics_client_id,
+                    )[0][3][0]
+                    current_growth = liquid_height
+                else:
+                    current_growth = 0.0
+
                 color_val = 1.0 if "red" in obj.name else 2.0  # arbitrary code
                 state_dict[obj] = {
                     "x": cx, "y": cy, "z": cz,
-                    "growth": growth,
+                    "growth": current_growth,
                     "color": color_val
                 }
+
             elif obj.type == self._jug_type:
                 (jx, jy, jz), orn = p.getBasePositionAndOrientation(
                     body_id, physicsClientId=self._physics_client_id)
@@ -324,16 +336,16 @@ class PyBulletGrowEnv(PyBulletEnv):
             # Store initial growth
             self._cup_growth[cup_obj] = state.get(cup_obj, "growth")
 
-        # # Create liquid in cups.
-        # for liquid_id in self._cup_to_liquid_id.values():
-        #     if liquid_id is not None:
-        #         p.removeBody(liquid_id,
-        #                      physicsClientId=self._physics_client_id)
-        # self._cup_to_liquid_id.clear()
+        # Create liquid in cups.
+        for liquid_id in self._cup_to_liquid_id.values():
+            if liquid_id is not None:
+                p.removeBody(liquid_id,
+                             physicsClientId=self._physics_client_id)
+        self._cup_to_liquid_id.clear()
 
-        # for cup in state.get_objects(self._cup_type):
-        #     liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
-        #     self._cup_to_liquid_id[cup] = liquid_id
+        for cup in state.get_objects(self._cup_type):
+            liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
+            self._cup_to_liquid_id[cup] = liquid_id
 
         # Re-create jugs in PyBullet
         self._jug_ids = []
@@ -396,11 +408,20 @@ class PyBulletGrowEnv(PyBulletEnv):
                     dist = np.hypot(jug_x - cx, jug_y - cy)
                     logging.debug(f"Dist to cup {cup_obj.name}: {dist}")
                     if dist < 0.13:  # "over" the cup
-                        cup_color = next_state.get(cup_obj, "color")
+                        # cup_color = next_state.get(cup_obj, "color")
                         # if abs(cup_color - jug_color) < 0.1:
                             # Color match => increase growth
-                        new_growth = min(1.0, self._cup_growth[cup_obj] + self.pour_rate)
+                        new_growth = min(1.0, self._cup_growth[cup_obj] + 
+                                         self.pour_rate)
                         self._cup_growth[cup_obj] = new_growth
+                        old_liquid_id = self._cup_to_liquid_id[cup_obj]
+                        if old_liquid_id is not None:
+                            p.removeBody(old_liquid_id,
+                                        physicsClientId=self._physics_client_id)
+                        next_state.set(cup_obj, "growth", new_growth)
+                        self._cup_to_liquid_id[cup_obj] =\
+                            self._create_pybullet_liquid_for_cup(cup_obj, 
+                                                                 next_state)
 
         # Because self._cup_growth changed, we replicate that into self._get_state() next time.
         # So let's do one more read => next_state
@@ -423,10 +444,10 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     @staticmethod
     def _Grown_holds(state: State, objects: Sequence[Object]) -> bool:
-        """A cup is "grown" if 'growth' > growth_threshold."""
+        """A cup is "grown" if 'growth' > growth_height."""
         cup, = objects
         growth = state.get(cup, "growth")
-        return growth > PyBulletGrowEnv.growth_threshold
+        return growth > PyBulletGrowEnv.growth_height
 
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -524,7 +545,7 @@ class PyBulletGrowEnv(PyBulletEnv):
             init_state = utils.create_state_from_dict(init_dict)
 
             # The goal is for both cups to be "Grown"
-            # i.e. growth > growth_threshold
+            # i.e. growth > growth_height
             goal_atoms = {
                 GroundAtom(self._Grown, [self._red_cup]),
                 GroundAtom(self._Grown, [self._blue_cup]),
@@ -575,15 +596,14 @@ class PyBulletGrowEnv(PyBulletEnv):
     def _create_pybullet_liquid_for_cup(self, cup: Object,
                                         state: State) -> Optional[int]:
         current_liquid = state.get(cup, "growth")
-        cup_cap = self.growth_threshold
-        liquid_height = self._cup_liquid_to_liquid_height(
-            current_liquid, cup_cap)
-        liquid_radius = self._cup_to_liquid_radius(cup_cap)
+        # cup_cap = self.growth_height
+        liquid_height = current_liquid
+        liquid_radius = 0.03
         if current_liquid == 0:
             return None
         cx = state.get(cup, "x")
         cy = state.get(cup, "y")
-        cz = self.z_lb + current_liquid / 2 + 0.025
+        cz = self.z_lb + current_liquid / 2
 
         collision_id = p.createCollisionShape(
             p.GEOM_CYLINDER,
