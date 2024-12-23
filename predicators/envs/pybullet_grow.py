@@ -60,6 +60,10 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     # jug configs
     jug_height: ClassVar[float] = 0.12
+    red_jug_x = 0.66
+    red_jug_y = 1.32
+    blue_jug_x = 1
+    blue_jug_y = 1.38
 
     # We define two cups and two jugs at fixed color-coded positions
     # or randomly sampled. They have some "growth" or "liquid" features.
@@ -75,6 +79,7 @@ class PyBulletGrowEnv(PyBulletEnv):
     closed_fingers: ClassVar[float] = 0.1
     # Tolerance for "close enough" to pick up or hold
     grasp_tol: ClassVar[float] = 1e-2
+    place_jug_tol: ClassVar[float] = 1e-3
     # How much we pour if we tilt near the max angle
     pour_rate: ClassVar[float] = 0.1
 
@@ -109,6 +114,8 @@ class PyBulletGrowEnv(PyBulletEnv):
                                   self._Holding_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
+        self._OnTable = Predicate("OnTable", [self._jug_type],
+                                  self._OnTable_holds)
 
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
 
@@ -123,7 +130,9 @@ class PyBulletGrowEnv(PyBulletEnv):
     def predicates(self) -> Set[Predicate]:
         # We only define Grown in this simple example, but you could
         # define Holding, JugPickedUp, etc.
-        return {self._Grown, self._Holding, self._HandEmpty}
+        return {
+            self._Grown, self._Holding, self._HandEmpty, self._OnTable,
+            }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -255,7 +264,7 @@ class PyBulletGrowEnv(PyBulletEnv):
                     liquid_height = p.getVisualShapeData(
                         liquid_id,
                         physicsClientId=self._physics_client_id,
-                    )[0][3][0]
+                    )[0][3][2] # Get the height of the cuboidal plant
                     current_growth = liquid_height
                 else:
                     current_growth = 0.0
@@ -460,6 +469,12 @@ class PyBulletGrowEnv(PyBulletEnv):
         robot, = objects
         return state.get(robot, "fingers") > 0.2
 
+    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        jug, = objects
+        if self._Holding_holds(state, [self._robot, jug]):
+            return False
+        return True
+
     # -------------------------------------------------------------------------
     # Task Generation
 
@@ -488,10 +503,6 @@ class PyBulletGrowEnv(PyBulletEnv):
             red_cup_y = 1.44
             blue_cup_x = 0.5
             blue_cup_y = 1.3
-            red_jug_x = 0.66
-            red_jug_y = 1.32
-            blue_jug_x = 1
-            blue_jug_y = 1.38
             
 
             # Robot at center
@@ -520,14 +531,14 @@ class PyBulletGrowEnv(PyBulletEnv):
 
             # Jug initial
             red_jug_dict = {
-                "x": red_jug_x, "y": red_jug_y, 
+                "x": self.red_jug_x, "y": self.red_jug_y, 
                 "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,  # not in hand
                 "rot": 0.0,
                 "color": 1.0
             }
             blue_jug_dict = {
-                "x": blue_jug_x, "y": blue_jug_y, 
+                "x": self.blue_jug_x, "y": self.blue_jug_y, 
                 "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,
                 "rot": 0.0,
@@ -549,6 +560,8 @@ class PyBulletGrowEnv(PyBulletEnv):
             goal_atoms = {
                 GroundAtom(self._Grown, [self._red_cup]),
                 GroundAtom(self._Grown, [self._blue_cup]),
+                GroundAtom(self._OnTable, [self._red_jug]),
+                GroundAtom(self._OnTable, [self._blue_jug]),
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
         return self._add_pybullet_state_to_tasks(tasks)
@@ -596,9 +609,8 @@ class PyBulletGrowEnv(PyBulletEnv):
     def _create_pybullet_liquid_for_cup(self, cup: Object,
                                         state: State) -> Optional[int]:
         current_liquid = state.get(cup, "growth")
-        # cup_cap = self.growth_height
         liquid_height = current_liquid
-        liquid_radius = 0.03
+        liquid_half_extents = [0.03, 0.03, liquid_height / 2]
         if current_liquid == 0:
             return None
         cx = state.get(cup, "x")
@@ -606,15 +618,13 @@ class PyBulletGrowEnv(PyBulletEnv):
         cz = self.z_lb + current_liquid / 2
 
         collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=liquid_radius,
-            height=liquid_height,
+            p.GEOM_BOX,
+            halfExtents=liquid_half_extents,
             physicsClientId=self._physics_client_id)
 
         visual_id = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=liquid_radius,
-            length=liquid_height,
+            p.GEOM_BOX,
+            halfExtents=liquid_half_extents,
             rgbaColor=(0.35, 1, 0.3, 1.0),
             physicsClientId=self._physics_client_id)
 

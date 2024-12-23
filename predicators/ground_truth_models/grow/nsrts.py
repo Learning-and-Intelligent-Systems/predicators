@@ -30,9 +30,11 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
         Grown = predicates["Grown"]
+        OnTable = predicates["OnTable"]
         # Options
         PickJug = options["PickJug"]
         Pour = options["Pour"]
+        Place = options["Place"]
 
         nsrts = set()
 
@@ -49,7 +51,8 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Holding, [robot, jug]),
         }
         delete_effects = {
-            LiftedAtom(HandEmpty, [robot])
+            LiftedAtom(HandEmpty, [robot]),
+            LiftedAtom(OnTable, [jug])
         }
         ignore_effects = set()
         pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
@@ -78,5 +81,29 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                       delete_effects, ignore_effects, option,
                                       option_vars, null_sampler)
         nsrts.add(pour)
+
+        # Place
+        robot = Variable("?robot", robot_type)
+        jug = Variable("?jug", jug_type)
+        parameters = [robot, jug]
+        option_vars = [robot, jug]
+        option = Place
+        preconditions = {
+            LiftedAtom(Holding, [robot, jug]),
+        }
+        add_effects = {
+            LiftedAtom(OnTable, [jug]),
+            LiftedAtom(HandEmpty, [robot]),
+        }
+        delete_effects = {
+            LiftedAtom(Holding, [robot, jug]),
+        }
+        ignore_effects = set()
+        place = NSRT("PlaceJug", parameters,
+                              preconditions, add_effects,
+                              delete_effects, ignore_effects, option,
+                              option_vars, null_sampler)
+        nsrts.add(place)
+
 
         return nsrts

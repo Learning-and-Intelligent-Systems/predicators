@@ -11,6 +11,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
+from predicators.envs.pybullet_grow import PyBulletGrowEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.controllers import \
     get_change_fingers_action, get_move_end_effector_to_pose_action
@@ -29,7 +30,7 @@ def _get_pybullet_robot() -> SingleArmPyBulletRobot:
 
 class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
 
-    env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletCoffeeEnv
+    env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletGrowEnv
     pick_policy_tol: ClassVar[float] = 1e-3
     pour_policy_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
@@ -83,8 +84,72 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=PyBulletCoffeeGroundTruthOptionFactory._create_pour_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_Pour_terminal)
+        
+        # Place
+        def _Place_terminal(state: State, memory: Dict,
+                            objects: Sequence[Object],
+                            params: Array) -> bool:
+            del memory, params
+            robot, jug = objects
+            return not Holding.holds(state, [robot, jug])
 
-        return {PickJug, Pour}
+        Place = ParameterizedOption(
+            "Place",
+            [robot_type, jug_type],
+            params_space=Box(0, 1, (0,)),
+            policy=cls._crete_place_policy(),
+            initiable=lambda s, m, o, p: True,
+            terminal=_Place_terminal)
+
+
+        return {PickJug, Pour, Place}
+    
+    @classmethod
+    def _crete_place_policy(cls) -> ParameterizedPolicy:
+        def policy(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> Action:
+            del memory, params
+            robot, jug = objects
+
+            # Get the current robot position.
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            tilt = state.get(robot, "tilt")
+            robot_pos = (x, y, z)
+
+            # Get the difference between the jug location and the target.
+            # Use the jug position as the origin.
+            jx = state.get(jug, "x")
+            jy = state.get(jug, "y")
+            jz = state.get(jug, "z")
+            # jz = cls.env_cls.z_lb + cls.env_cls.jug_height()
+            current_jug_pos = (jx, jy, jz)
+            jug_init_x = cls.env_cls.red_jug_x if "red" in jug.name else \
+                cls.env_cls.blue_jug_x
+            jug_init_y = cls.env_cls.red_jug_y if "red" in jug.name else \
+                cls.env_cls.blue_jug_y
+            target_jug_pos = (jug_init_x, jug_init_y,
+                              cls.env_cls.z_lb + cls.env_cls.jug_height/2)
+
+            dtilt = cls.env_cls.robot_init_tilt - tilt
+            dx, dy, dz = np.subtract(target_jug_pos, current_jug_pos)
+
+            # Get the target robot position.
+            target_robot_pos = (x + dx, y + dy, z + dz)
+            # If close enough, place.
+            sq_dist_to_place = np.sum(
+                np.subtract(robot_pos, target_robot_pos)**2)
+            if sq_dist_to_place < cls.env_cls.place_jug_tol:
+                return PyBulletCoffeeGroundTruthOptionFactory._get_place_action(state)
+            # If already above the table, move directly toward the place pos.
+            return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(state,
+                                        target_robot_pos,
+                                        robot_pos,
+                                        finger_status="closed",
+                                        dtilt=dtilt)
+
+        return policy
     
     # @classmethod
     # def _create_pick_jug_policy(cls) -> ParameterizedPolicy:
