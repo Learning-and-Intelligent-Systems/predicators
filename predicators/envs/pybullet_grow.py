@@ -10,7 +10,7 @@ from gym.spaces import Box
 from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
-from predicators.pybullet_helpers.geometry import Pose, Quaternion
+from predicators.pybullet_helpers.geometry import Pose, Quaternion, Pose3D
 from predicators import utils
 from predicators.structs import Action, EnvironmentTask, State, Object, \
     Predicate, Type, GroundAtom, Array
@@ -36,10 +36,19 @@ class PyBulletGrowEnv(PyBulletEnv):
     z_lb: ClassVar[float] = 0.2
     z_ub: ClassVar[float] = 0.75
 
-    # Robot default pose and orientation
-    robot_base_pos: ClassVar[Tuple[float, float, float]] = (0.75, 0.72, 0.0)
+    robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
+    robot_init_y: ClassVar[float] = (y_lb + y_ub) * 0.5
+    robot_init_z: ClassVar[float] = z_ub - 0.1
+    robot_base_pos: ClassVar[Pose3D] = (0.75, 0.72, 0.0)
     robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0.0, 0.0, np.pi / 2])  # pointing in +y
+        [0.0, 0.0, np.pi / 2])
+    robot_init_tilt: ClassVar[float] = np.pi / 2
+    robot_init_wrist: ClassVar[float] = -np.pi / 2
+    tilt_lb: ClassVar[float] = robot_init_tilt
+    tilt_ub: ClassVar[float] = tilt_lb - np.pi / 4
+
+    # jug configs
+    jug_height: ClassVar[float] = 0.12
 
     # We define two cups and two jugs at fixed color-coded positions
     # or randomly sampled. They have some "growth" or "liquid" features.
@@ -58,6 +67,11 @@ class PyBulletGrowEnv(PyBulletEnv):
     # How much we pour if we tilt near the max angle
     pour_rate: ClassVar[float] = 0.1
 
+    _camera_distance: ClassVar[float] = 1.3
+    _camera_yaw: ClassVar[float] = 70
+    _camera_pitch: ClassVar[float] = -38  # lower
+    _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -67,7 +81,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         self._cup_type = Type(
             "cup", ["x", "y", "z", "growth", "color"])
         self._jug_type = Type(
-            "jug", ["x", "y", "z", "is_held", "tilt", "color"])
+            "jug", ["x", "y", "z", "is_held", "rot", "color"])
 
         # Define Objects (we will create them in tasks, but the "concept" is here).
         self._robot = Object("robot", self._robot_type)
@@ -162,6 +176,16 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     # -------------------------------------------------------------------------
     # Key Abstract Methods from PyBulletEnv
+    @classmethod
+    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
+                            finger_state: float) -> float:
+        """Map the fingers in the given State to joint values for PyBullet."""
+        subs = {
+            cls.open_fingers: pybullet_robot.open_fingers,
+            cls.closed_fingers: pybullet_robot.closed_fingers,
+        }
+        match = min(subs, key=lambda k: abs(k - finger_state))
+        return subs[match]
 
     def _extract_robot_state(self, state: State) -> np.ndarray:
         """
@@ -175,7 +199,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         z = state.get(self._robot, "z")
-        fingers = state.get(self._robot, "fingers")
+        f = state.get(self._robot, "fingers")
+        f = self.fingers_state_to_joint(self._pybullet_robot, f)
         tilt = state.get(self._robot, "tilt")
         wrist = state.get(self._robot, "wrist")
         # Convert Euler => quaternion
@@ -183,7 +208,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         qx, qy, qz, qw = orn
 
         # Return as [x, y, z, qx, qy, qz, qw, fingers]
-        return np.array([x, y, z, qx, qy, qz, qw, fingers], dtype=np.float32)
+        return np.array([x, y, z, qx, qy, qz, qw, f], dtype=np.float32)
 
     def _get_state(self) -> State:
         """
@@ -226,14 +251,13 @@ class PyBulletGrowEnv(PyBulletEnv):
                     body_id, physicsClientId=self._physics_client_id)
                 # is_held we track from constraints
                 is_held = 1.0 if (body_id == self._held_obj_id) else 0.0
-                # tilt = ...
-                # but for simplicity let's store 0.0 for tilt
-                tilt = 0.0
+                rot = utils.wrap_angle(
+                    p.getEulerFromQuaternion(orn)[2] + np.pi / 2)
                 color_val = 1.0 if "red" in obj.name else 2.0
                 state_dict[obj] = {
                     "x": jx, "y": jy, "z": jz,
                     "is_held": is_held,
-                    "tilt": tilt,
+                    "rot": rot,
                     "color": color_val
                 }
 
@@ -297,7 +321,9 @@ class PyBulletGrowEnv(PyBulletEnv):
             jx = state.get(jug_obj, "x")
             jy = state.get(jug_obj, "y")
             jz = state.get(jug_obj, "z")
-            jug_body_id = self._create_jug_urdf(jx, jy, jz, "red" in jug_obj.name)
+            rot = state.get(jug_obj, "rot")
+            jug_body_id = self._create_jug_urdf(jx, jy, jz, rot, 
+                                                "red" in jug_obj.name)
             self._jug_ids.append(jug_body_id)
             self._obj_id_to_obj[jug_body_id] = jug_obj
 
@@ -377,10 +403,7 @@ class PyBulletGrowEnv(PyBulletEnv):
     def _CupGrown_holds(state: State, objects: Tuple[Object, ...]) -> bool:
         """A cup is "grown" if 'growth' > growth_threshold."""
         cup, = objects
-        try:
-            growth = state.get(cup, "growth")
-        except:
-            breakpoint()
+        growth = state.get(cup, "growth")
         return growth > PyBulletGrowEnv.growth_threshold
 
     # -------------------------------------------------------------------------
@@ -410,12 +433,12 @@ class PyBulletGrowEnv(PyBulletEnv):
 
             # Robot at center
             robot_dict = {
-                "x": (self.x_lb + self.x_ub)*0.5,
-                "y": (self.y_lb + self.y_ub)*0.5,
-                "z": self.z_ub - 0.05,
+                "x": self.robot_init_x,
+                "y": self.robot_init_y,
+                "z": self.robot_init_z,
                 "fingers": self.open_fingers,
-                "tilt": 0.0,
-                "wrist": 0.0
+                "tilt": self.robot_init_tilt,
+                "wrist": self.robot_init_wrist
             }
 
             # Cup initial
@@ -432,15 +455,17 @@ class PyBulletGrowEnv(PyBulletEnv):
 
             # Jug initial
             red_jug_dict = {
-                "x": red_jug_x, "y": red_jug_y, "z": self.z_lb + 0.02,
+                "x": red_jug_x, "y": red_jug_y, 
+                "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,  # not in hand
-                "tilt": 0.0,
+                "rot": 0.0,
                 "color": 1.0
             }
             blue_jug_dict = {
-                "x": blue_jug_x, "y": blue_jug_y, "z": self.z_lb + 0.02,
+                "x": blue_jug_x, "y": blue_jug_y, 
+                "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,
-                "tilt": 0.0,
+                "rot": 0.0,
                 "color": 2.0
             }
 
@@ -464,14 +489,14 @@ class PyBulletGrowEnv(PyBulletEnv):
         return tasks
 
     def _create_cup_urdf(self, x: float, y: float, z: float, is_red: bool) -> int:
-        global_scale = 0.2
+        global_scale = 0.5
         cup_id = p.loadURDF(
             utils.get_env_asset_path("urdf/cup.urdf"),
             useFixedBase=True,
             globalScaling=global_scale,
             physicsClientId=self._physics_client_id
         )
-        cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
+        cup_orn = p.getQuaternionFromEuler([0.0, 0.0, - np.pi / 2])
         p.resetBasePositionAndOrientation(
             cup_id, (x, y, z),
             cup_orn,
@@ -483,7 +508,8 @@ class PyBulletGrowEnv(PyBulletEnv):
             p.changeVisualShape(cup_id, -1, rgbaColor=(0, 0, 1, 1))
         return cup_id
 
-    def _create_jug_urdf(self, x: float, y: float, z: float, is_red: bool) -> int:
+    def _create_jug_urdf(self, x: float, y: float, z: float, rot: float,
+                         is_red: bool) -> int:
         jug_id = p.loadURDF(
             utils.get_env_asset_path("urdf/jug-pixel.urdf"),
             basePosition=(x, y, z),
@@ -491,7 +517,7 @@ class PyBulletGrowEnv(PyBulletEnv):
             useFixedBase=False,
             physicsClientId=self._physics_client_id
         )
-        jug_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
+        jug_orn = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
         p.resetBasePositionAndOrientation(
             jug_id, (x, y, z),
             jug_orn,
