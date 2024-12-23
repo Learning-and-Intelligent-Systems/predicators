@@ -17,3 +17,66 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {"pybullet_grow"}
+    
+    @staticmethod
+    def get_nsrts(env_name: str, types: Dict[str, Type],
+                  predicates: Dict[str, Predicate],
+                  options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
+        # Types
+        robot_type = types["robot"]
+        jug_type = types["jug"]
+        cup_type = types["cup"]
+        # Predicates
+        HandEmpty = predicates["HandEmpty"]
+        Holding = predicates["Holding"]
+        Grown = predicates["Grown"]
+        # Options
+        PickJug = options["PickJug"]
+        Pour = options["Pour"]
+
+        nsrts = set()
+
+        # PickJug
+        robot = Variable("?robot", robot_type)
+        jug = Variable("?jug", jug_type)
+        parameters = [robot, jug]
+        option_vars = [robot, jug]
+        option = PickJug
+        preconditions = {
+            LiftedAtom(HandEmpty, [robot]),
+        }
+        add_effects = {
+            LiftedAtom(Holding, [robot, jug]),
+        }
+        delete_effects = {
+            LiftedAtom(HandEmpty, [robot])
+        }
+        ignore_effects = set()
+        pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
+                                        preconditions, add_effects,
+                                        delete_effects, ignore_effects, option,
+                                        option_vars, null_sampler)
+        nsrts.add(pick_jug_from_table_nsrt)
+
+        # Pour
+        robot = Variable("?robot", robot_type)
+        jug = Variable("?jug", jug_type)
+        cup = Variable("?cup", cup_type)
+        parameters = [robot, jug, cup]
+        option_vars = [robot, jug, cup]
+        option = Pour
+        preconditions = {
+            LiftedAtom(Holding, [robot, jug]),
+        }
+        add_effects = {
+            LiftedAtom(Grown, [cup]),
+        }
+        delete_effects = set()
+        ignore_effects = set()
+        pour = NSRT("Pour", parameters,
+                                      preconditions, add_effects,
+                                      delete_effects, ignore_effects, option,
+                                      option_vars, null_sampler)
+        nsrts.add(pour)
+
+        return nsrts

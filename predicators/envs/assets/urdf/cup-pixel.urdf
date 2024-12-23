@@ -1,0 +1,88 @@
+<!-- the origin is at the center of cup (ignoring the handle) -->
+<robot name="cup">
+    <link name="cup_body">
+        <!-- Base -->
+        <visual>
+            <geometry>
+                <box size="0.5 0.5 0.1"/>
+            </geometry>
+            <origin xyz="0 0 -0.25"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.5 0.5 0.1"/>
+            </geometry>
+            <origin xyz="0 0 -0.25"/>
+        </collision>
+
+        <!-- Wall1 -->
+        <visual>
+            <geometry>
+                <box size="0.5 0.1 0.6"/>
+            </geometry>
+            <origin xyz="0 -0.2 0"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.5 0.1 0.6"/>
+            </geometry>
+            <origin xyz="0 -0.2 -0"/>
+        </collision>
+
+        <!-- Wall2 -->
+        <visual>
+            <geometry>
+                <box size="0.5 0.1 0.6"/>
+            </geometry>
+            <origin xyz="0 0.2 -0"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.5 0.1 0.6"/>
+            </geometry>
+            <origin xyz="0 0.2 -0"/>
+        </collision>
+
+        <!-- Wall3 -->
+        <visual>
+            <geometry>
+                <box size="0.1 0.5 0.6"/>
+            </geometry>
+            <origin xyz="-0.2 0 -0"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.1 0.5 0.6"/>
+            </geometry>
+            <origin xyz="-0.2 0 -0"/>
+        </collision>
+
+        <!-- Wall4 -->
+        <visual>
+            <geometry>
+                <box size="0.1 0.5 0.6"/>
+            </geometry>
+            <origin xyz="0.2 0 -0"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.1 0.5 0.6"/>
+            </geometry>
+            <origin xyz="0.2 0 -0"/>
+        </collision>
+
+        <!-- Deleting the Handle -->
+        <!-- <visual>
+            <geometry>
+                <box size="0.3 0.1 0.3"/>
+            </geometry>
+            <origin xyz="0.4 0 0"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.3 0.1 0.3"/>
+            </geometry>
+            <origin xyz="0.4 0 0"/>
+        </collision> -->
+    </link>
+</robot>
