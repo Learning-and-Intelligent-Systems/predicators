@@ -178,7 +178,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         """
         Store references to PyBullet IDs for environment assets.
         """
-        self._table_id = pybullet_bodies["table_id"]
+        pass
 
     @classmethod
     def _create_pybullet_robot(
@@ -188,8 +188,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         """
         # The EE orientation is usually set so that the gripper is down.
         ee_home_orn = p.getQuaternionFromEuler([0, np.pi / 2, 0])
-        ee_home = Pose(position=(0.75, 1.25, cls.z_ub - 0.1),
-                       orientation=ee_home_orn)
+        ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
+                       ee_home_orn)
         base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                 physics_client_id,
@@ -209,7 +209,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         match = min(subs, key=lambda k: abs(k - finger_state))
         return subs[match]
 
-    def _extract_robot_state(self, state: State) -> np.ndarray:
+    def _extract_robot_state(self, state: State) -> Array:
         """
         Convert the State's stored robot features into the 8D (x, y, z, qx, qy, qz, qw, fingers)
         that the PyBullet robot expects in fetch.py. Or a 7D if ignoring orientation.
@@ -307,7 +307,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         """
         return [self._red_jug_id, self._blue_jug_id]
 
-    def _get_expected_finger_normals(self) -> Dict[int, np.ndarray]:
+    def _get_expected_finger_normals(self) -> Dict[int, Array]:
         """
         For the default fetch robot in predicators. We assume a certain orientation
         where the left_finger_id is in +y direction, the right_finger_id is in -y.
