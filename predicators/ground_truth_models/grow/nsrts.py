@@ -31,6 +31,7 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Holding = predicates["Holding"]
         Grown = predicates["Grown"]
         OnTable = predicates["OnTable"]
+        SameColor = predicates["SameColor"]
         # Options
         PickJug = options["PickJug"]
         Pour = options["Pour"]
@@ -70,6 +71,7 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = Pour
         preconditions = {
             LiftedAtom(Holding, [robot, jug]),
+            LiftedAtom(SameColor, [cup, jug]),
         }
         add_effects = {
             LiftedAtom(Grown, [cup]),

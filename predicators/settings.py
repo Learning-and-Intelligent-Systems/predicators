@@ -749,6 +749,7 @@ class GlobalSettings:
                     "pybullet_blocks": 1000,
                     "pybullet_coffee": 2000,
                     "pybullet_coffee_pixel": 2000,
+                    "pybullet_grow": 2000,
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,

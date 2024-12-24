@@ -116,6 +116,9 @@ class PyBulletGrowEnv(PyBulletEnv):
                                     self._HandEmpty_holds)
         self._OnTable = Predicate("OnTable", [self._jug_type],
                                   self._OnTable_holds)
+        self._SameColor = Predicate("SameColor", [self._cup_type, 
+                                                  self._jug_type],
+                                    self._SameColor_holds)
 
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
 
@@ -132,6 +135,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         # define Holding, JugPickedUp, etc.
         return {
             self._Grown, self._Holding, self._HandEmpty, self._OnTable,
+            self._SameColor
             }
 
     @property
@@ -474,6 +478,10 @@ class PyBulletGrowEnv(PyBulletEnv):
         if self._Holding_holds(state, [self._robot, jug]):
             return False
         return True
+
+    def _SameColor_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        cup, jug = objects
+        return state.get(cup, "color") == state.get(jug, "color")
 
     # -------------------------------------------------------------------------
     # Task Generation

@@ -142,12 +142,20 @@ class PyBulletGrowGroundTruthOptionFactory(GroundTruthOptionFactory):
                 np.subtract(robot_pos, target_robot_pos)**2)
             if sq_dist_to_place < cls.env_cls.place_jug_tol:
                 return PyBulletCoffeeGroundTruthOptionFactory._get_place_action(state)
-            # If already above the table, move directly toward the place pos.
-            return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(state,
+
+            # only move down if it has arrived at target x, y
+            if abs(dx) < 0.01 and abs(dy) < 0.01:
+                return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(
+                                        state,
                                         target_robot_pos,
                                         robot_pos,
                                         finger_status="closed",
                                         dtilt=dtilt)
+
+            target_robot_pos = (x + dx, y + dy, z)
+            return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(
+                    state, target_robot_pos, robot_pos, finger_status="closed",
+                    dtilt=dtilt)
 
         return policy
     
