@@ -47,6 +47,7 @@ class PyBulletGrowEnv(PyBulletEnv):
     z_ub: ClassVar[float] = 0.75
     init_padding = 0.05
 
+    # robot config
     robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
     robot_init_y: ClassVar[float] = (y_lb + y_ub) * 0.5
     robot_init_z: ClassVar[float] = z_ub - 0.1
@@ -65,13 +66,7 @@ class PyBulletGrowEnv(PyBulletEnv):
     blue_jug_x = 1
     blue_jug_y = 1.38
 
-    # We define two cups and two jugs at fixed color-coded positions
-    # or randomly sampled. They have some "growth" or "liquid" features.
-
-    # For simplicity, we define just one predicate: Grown(cup).
-    # We might also define "Holding", "JugPickedUp", etc.
-
-    # Growth threshold for the cups to meet the goal
+    # Target height for the plants
     growth_height: ClassVar[float] = 0.3
 
     # Hard-coded finger states for open/close
