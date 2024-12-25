@@ -206,10 +206,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     _camera_yaw: ClassVar[float]
     _camera_pitch: ClassVar[float]
     _camera_target: ClassVar[Pose3D]
-    _camera_distance_front: ClassVar[float] = 1
-    _camera_yaw_front: ClassVar[float] = 180
-    _camera_pitch_front: ClassVar[float] = -24
-
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)

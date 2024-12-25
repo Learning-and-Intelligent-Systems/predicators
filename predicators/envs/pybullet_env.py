@@ -291,7 +291,6 @@ class PyBulletEnv(BaseEnv):
         self,
         action: Optional[Action] = None,
         caption: Optional[str] = None,
-        render_front_view: bool = False,
     ) -> Tuple[Image.Image, Dict[Object, Mask]]:
         """Render the scene and the segmented objects in the scene."""
         # if not self.using_gui:
@@ -301,12 +300,9 @@ class PyBulletEnv(BaseEnv):
 
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=self._camera_target,
-            distance=self._camera_distance_front
-            if render_front_view else self._camera_distance,
-            yaw=self._camera_yaw_front
-            if render_front_view else self._camera_yaw,
-            pitch=self._camera_pitch_front
-            if render_front_view else self._camera_pitch,
+            distance=self._camera_distance,
+            yaw=self._camera_yaw,
+            pitch=self._camera_pitch,
             roll=0,
             upAxisIndex=2,
             physicsClientId=self._physics_client_id)
@@ -322,7 +318,7 @@ class PyBulletEnv(BaseEnv):
             physicsClientId=self._physics_client_id)
 
         # Initialize an empty dictionary
-        mask_dict: Dict[str, Mask] = {}
+        mask_dict: Dict[Object, Mask] = {}
 
         # Get the original image and segmentation mask
         (_, _, rgbImg, _,
