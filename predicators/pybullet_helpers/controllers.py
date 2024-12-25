@@ -12,7 +12,7 @@ from predicators.pybullet_helpers.joint import JointPositions
 from predicators.pybullet_helpers.robots.single_arm import \
     SingleArmPyBulletRobot
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State, Type
+    State, Type, ParameterizedInitiable
 
 _SUPPORTED_ROBOTS: Set[str] = {"fetch", "panda"}
 
@@ -92,8 +92,7 @@ def create_move_end_effector_to_pose_option(
     move_to_pose_tol: float,
     max_vel_norm: float,
     finger_action_nudge_magnitude: float,
-    initiable: Callable[[State, Sequence[Object], Array], bool] =\
-        lambda _1, _2, _3, _4: True
+    initiable: ParameterizedInitiable = lambda _1, _2, _3, _4: True
     ) -> ParameterizedOption:
     """A generic utility that creates a ParameterizedOption for moving the end
     effector to a target pose, given a function that takes in the current
