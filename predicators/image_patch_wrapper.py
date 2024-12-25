@@ -1,18 +1,16 @@
 import logging
 import os
-import random
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import cv2
-import matplotlib.colors as mcolors
 import matplotlib.figure as mplfigure
 import numpy as np
 import torch as th
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from numpy.typing import NDArray
 from PIL import Image
-from torchvision import transforms
-from torchvision.transforms import ToPILImage
+from torchvision import transforms  # type: ignore
+from torchvision.transforms import ToPILImage # type: ignore
 
 from predicators import utils
 # from predicators.utils import BoundingBox
@@ -23,7 +21,7 @@ from predicators.structs import Mask, Object, State
 
 class VisImage:
 
-    def __init__(self, img, scale=1.0):
+    def __init__(self, img: np.ndarray, scale: float = 1.0) -> None:
         """
         Args:
             img (ndarray): an RGB image of shape (H, W, 3) in range [0, 255].
@@ -34,7 +32,7 @@ class VisImage:
         self.width, self.height = img.shape[1], img.shape[0]
         self._setup_figure(img)
 
-    def _setup_figure(self, img):
+    def _setup_figure(self, img: np.ndarray) -> None:
         """
         Args:
             Same as in :meth:`__init__()`.
@@ -47,31 +45,17 @@ class VisImage:
         """
         fig = mplfigure.Figure(frameon=False)
         self.dpi = fig.get_dpi()
-        # add a small 1e-2 to avoid precision lost due to matplotlib's
-        # truncation (https://github.com/matplotlib/matplotlib/issues/15363)
-        # fig.set_size_inches(
-        #     (self.width * self.scale + 1e-2) / self.dpi,
-        #     (self.height * self.scale + 1e-2) / self.dpi,
-        # )
         fig.set_size_inches(self.width / self.dpi, self.height / self.dpi)
 
         self.canvas = FigureCanvasAgg(fig)
-        # self.canvas = mpl.backends.backend_cairo.FigureCanvasCairo(fig)
         ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])
         ax.axis("off")
         self.fig = fig
         self.ax = ax
-        # self.reset_image(img)
         self.ax.imshow(
             img,  #extent=(0, self.width-1, self.height-1, 0), 
             interpolation="nearest")
 
-    # def reset_image(self, img):
-    #     """
-    #     Args:
-    #         img: same as in __init__
-    #     """
-    #     # img = img.astype("uint8")
 
     def save(self, filepath):
         """

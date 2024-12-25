@@ -19,6 +19,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type, _TypedEntity
+from predicators.utils import PyBulletState
 
 
 class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -44,7 +45,6 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         jug_type = types["jug"]
         machine_type = types["coffee_machine"]
         cup_type = types["cup"]
-        plug_type = types["plug"]
 
         # Predicates
         Twisting = predicates["Twisting"]
@@ -82,7 +82,6 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # initiable=lambda s, m, o, p: True,
             terminal=_MoveToTwistJug_terminal,
         )
-        cls.MoveToTwistParamOption = MoveToTwistJug
 
         # TwistJug
         def _TwistJug_terminal(state: State, memory: Dict,
@@ -141,7 +140,6 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=cls._create_place_jug_in_machine_policy(),
             initiable=lambda s, m, o, p: True,
             terminal=_PlaceJugInMachine_terminal)
-        cls.PlaceJugInMachine = PlaceJugInMachine
 
         # TurnMachineOn
         def _TurnMachineOn_initiable(state: State, memory: Dict,
@@ -165,49 +163,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
             terminal=_TurnMachineOn_terminal)
-        cls.TurnMachineOn = TurnMachineOn
-
-
-        if CFG.coffee_machine_has_plug:
-
-            RestoreForPlugIn = ParameterizedOption(
-                "RestoreForPlugIn",
-                types=[robot_type, plug_type],
-                params_space=Box(0, 1, (0, )),
-                policy=cls._create_move_to_initial_position_policy(),
-                initiable=lambda s, m, o, p: True,
-                terminal=cls._Restore_terminal)
-
-            # Plug in the plug to the socket
-            def _PlugIn_initiable(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-                    del memory, params
-                    robot, plug = objects
-                    finger_open = state.get(robot, "fingers") > 0.3
-                    return finger_open
-            
-            def _PlugIn_terminal(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-                    del memory, params
-                    robot, plug = objects
-                    finger_open = state.get(robot, "fingers") > 0.3
-                    return PluggedIn.holds(state, [plug]) and finger_open
-
-            _PlugIn = ParameterizedOption(
-                "PlugIn",
-                types=[robot_type, plug_type],
-                params_space=Box(0, 1, (0, )),
-                policy=cls._create_plug_in_policy(),
-                initiable=_PlugIn_initiable,
-                terminal=_PlugIn_terminal)
-
-            PlugIn = utils.LinearChainParameterizedOption(
-                "PlugIn", [RestoreForPlugIn, _PlugIn, RestoreForPlugIn])
-            
-            
-
-
-
+ 
         # Pour
         def _Pour_initiable(state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
@@ -233,23 +189,8 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             PickJug, PlaceJugInMachine, TurnMachineOn, Pour, MoveToTwistJug,
             TwistJug
         }
-        if CFG.coffee_machine_has_plug:
-            options.add(PlugIn)
         return options
 
-    @classmethod
-    def _Restore_terminal(cls, state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> bool:
-        del memory, params
-        robot = objects[0]
-        robot_pos = (state.get(robot, "x"),
-                        state.get(robot, "y"),
-                        state.get(robot, "z"))
-        robot_init_pos = (cls.env_cls.robot_init_x,
-                            cls.env_cls.robot_init_y,
-                            cls.env_cls.robot_init_z)
-        return np.allclose(robot_pos, robot_init_pos, atol=1e-2)
 
     @classmethod
     def _create_move_to_twist_policy(cls) -> ParameterizedPolicy:
@@ -580,7 +521,7 @@ def _get_pybullet_robot() -> SingleArmPyBulletRobot:
 class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_coffee environment."""
 
-    env_cls: ClassVar[TypingType[CoffeeEnv]] = PyBulletCoffeeEnv
+    env_cls: ClassVar[TypingType[PyBulletCoffeeEnv]] = PyBulletCoffeeEnv
     # twist_policy_tol: ClassVar[float] = 1e-2
     pick_policy_tol: ClassVar[float] = 1e-3
     pour_policy_tol: ClassVar[float] = 1e-3
@@ -600,7 +541,9 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         robot_type = types["robot"]
         jug_type = types["jug"]
         machine_type = types["coffee_machine"]
-        JugInMachine = predicates["JugInMachine"]
+        plug_type = types["plug"]
+
+        PluggedIn = predicates["PluggedIn"]
 
         # TwistJug
         def _TwistJug_terminal(state: State, memory: Dict,
@@ -638,15 +581,21 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             initiable=lambda s, m, o, p: True,
             terminal=_TwistJug_terminal,
         )
+        # Rewrite by removing and adding
         options.remove(TwistJug)
         options.add(TwistJug)
 
         if CFG.coffee_combined_move_and_twist_policy:
-            Twist = utils.LinearChainParameterizedOption(
-                "Twist", [cls.MoveToTwistParamOption, TwistJug])
-            options.add(Twist)
-            options.remove(cls.MoveToTwistParamOption)
+            # Get from the options MoveToTwistJug
+            _MoveToTwistJug = utils.get_parameterized_option_by_name(
+                                    options, "MoveToTwistJug")
+            assert _MoveToTwistJug is not None
+            options.remove(_MoveToTwistJug)
             options.remove(TwistJug)
+
+            Twist = utils.LinearChainParameterizedOption(
+                "Twist", [_MoveToTwistJug, TwistJug])
+            options.add(Twist)
 
         if CFG.coffee_move_back_after_place_and_push:
 
@@ -686,16 +635,73 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 terminal=_MoveBackAfterPlaceOrPush_terminal,
             )
 
+            _TurnMachineOn = utils.get_parameterized_option_by_name(
+                options, "TurnMachineOn")
+            _PlaceJugInMachine = utils.get_parameterized_option_by_name(
+                options, "PlaceJugInMachine")
+            assert _TurnMachineOn is not None
+            assert _PlaceJugInMachine is not None
+            options.remove(_PlaceJugInMachine)
+            options.remove(_TurnMachineOn)
+
             PlaceJugInMachine = utils.LinearChainParameterizedOption(
                 "PlaceJugInMachine",
-                [cls.PlaceJugInMachine, MoveBackAfterPlace])
+                [_PlaceJugInMachine, MoveBackAfterPlace])
 
             TurnMachineOn = utils.LinearChainParameterizedOption(
-                "TurnMachineOn", [cls.TurnMachineOn, MoveBackAfterPush])
-            options.remove(cls.PlaceJugInMachine)
-            options.remove(cls.TurnMachineOn)
+                "TurnMachineOn", [_TurnMachineOn, MoveBackAfterPush])
             options.add(PlaceJugInMachine)
             options.add(TurnMachineOn)
+
+        if CFG.coffee_machine_has_plug:
+            def _Restore_terminal(state: State, memory: Dict,
+                                        objects: Sequence[Object],
+                                        params: Array) -> bool:
+                del memory, params
+                robot = objects[0]
+                robot_pos = (state.get(robot, "x"),
+                                state.get(robot, "y"),
+                                state.get(robot, "z"))
+                robot_init_pos = (cls.env_cls.robot_init_x,
+                                    cls.env_cls.robot_init_y,
+                                    cls.env_cls.robot_init_z)
+                return bool(np.allclose(robot_pos, robot_init_pos, atol=1e-2))
+
+            RestoreForPlugIn = ParameterizedOption(
+                "RestoreForPlugIn",
+                types=[robot_type, plug_type],
+                params_space=Box(0, 1, (0, )),
+                policy=cls._create_move_to_initial_position_policy(),
+                initiable=lambda s, m, o, p: True,
+                terminal=_Restore_terminal)
+
+            # Plug in the plug to the socket
+            def _PlugIn_initiable(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+                    del memory, params
+                    robot, plug = objects
+                    finger_open = state.get(robot, "fingers") > 0.3
+                    return finger_open
+            
+            def _PlugIn_terminal(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+                    del memory, params
+                    robot, plug = objects
+                    finger_open = state.get(robot, "fingers") > 0.3
+                    return PluggedIn.holds(state, [plug]) and finger_open
+
+            _PlugIn = ParameterizedOption(
+                "PlugIn",
+                types=[robot_type, plug_type],
+                params_space=Box(0, 1, (0, )),
+                policy=cls._create_plug_in_policy(),
+                initiable=_PlugIn_initiable,
+                terminal=_PlugIn_terminal)
+
+            PlugIn = utils.LinearChainParameterizedOption(
+                "PlugIn", [RestoreForPlugIn, _PlugIn, RestoreForPlugIn])
+            options.add(PlugIn)
+
         return options
 
     @classmethod
@@ -1036,6 +1042,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                          dtilt: float = 0.0,
                          dwrist: float = 0.0,
                          finger_status: str = "open") -> Action:
+        assert isinstance(state, utils.PyBulletState)
         # Determine orientations.
         robots = [r for r in state if r.type.name == "robot"]
         assert len(robots) == 1

@@ -4113,3 +4113,9 @@ def label_all_objects(img, obj_mask_dict):
     state_ip.label_all_objects(obj_mask_dict)
     labeled_image = state_ip.cropped_image_in_PIL
     return labeled_image
+
+def get_parameterized_option_by_name(options: Set[ParameterizedOption], 
+                            option_name: str) -> Optional[ParameterizedOption]:
+    """Retrieve an option by its name from a set of options."""
+    return next((option for option in options if option.name == option_name), 
+                None)

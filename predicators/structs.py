@@ -102,10 +102,8 @@ class Object(_TypedEntity):
         # frozen=True and eq=True, so we need to override it.
         return self._hash
 
-    def __eq__(self, other) -> bool:
-        if isinstance(other, Object):
-            return self.name == other.name and self.type == other.type
-        return False
+    def __eq__(self, other: Object) -> bool:
+        return self.name == other.name and self.type == other.type
 
 @dataclass(frozen=False, order=True, repr=False)
 class Variable(_TypedEntity):
@@ -2039,4 +2037,4 @@ AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
 RGBA = Tuple[float, float, float, float]
 BridgePolicy = Callable[[State, Set[GroundAtom], List[_Option]], _Option]
 BridgeDataset = List[Tuple[Set[_Option], _GroundNSRT, Set[GroundAtom], State]]
-Mask = NDArray[np.bool]
+Mask = NDArray[np.bool_]
