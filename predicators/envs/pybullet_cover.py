@@ -212,7 +212,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                     lineWidth=5.0,
                     physicsClientId=self._physics_client_id)
 
-    def step(self, action: Action) -> State:
+    def step(self, action: Action, render_obs: bool = False) -> State:
         # In the cover environment, we need to first check the hand region
         # constraint before we can call PyBullet.
         # Use self._pybullet_robot_fk to run forward kinematics, since that

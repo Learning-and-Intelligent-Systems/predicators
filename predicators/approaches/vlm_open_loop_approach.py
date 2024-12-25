@@ -87,7 +87,8 @@ class VLMOpenLoopApproach(BilevelPlanningApproach):  # pragma: no cover
                                                         font=font)[2:]
                 # Create a new image with additional space for text!
                 new_image = PIL.Image.new("RGB",
-                                          (width, height + text_height + 10),
+                                          (width, height + int(text_height) + 
+                                           10),
                                           "white")
                 new_image.paste(pil_img, (0, 0))
                 draw = ImageDraw.Draw(new_image)

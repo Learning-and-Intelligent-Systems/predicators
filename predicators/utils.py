@@ -56,7 +56,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 from predicators.image_patch_wrapper import ImagePatch
@@ -4108,7 +4108,8 @@ def wrap_angle(angle: float) -> float:
     """Wrap an angle in radians to [-pi, pi]."""
     return np.arctan2(np.sin(angle), np.cos(angle))
 
-def label_all_objects(img, obj_mask_dict):
+def label_all_objects(img: Image.Image, obj_mask_dict: Dict[Object, Mask]
+                      ) -> Image.Image:
     state_ip = ImagePatch(img)
     state_ip.label_all_objects(obj_mask_dict)
     labeled_image = state_ip.cropped_image_in_PIL
