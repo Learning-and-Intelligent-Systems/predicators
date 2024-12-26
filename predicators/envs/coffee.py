@@ -62,6 +62,26 @@ class CoffeeEnv(BaseEnv):
     # Jug settings.
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0  # 0.4
     # jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
+
+    # Powercord / Plug settings.
+    num_cord_links = 10
+    cord_link_length = 0.02
+    cord_segment_gap = 0.00
+    cord_start_x = machine_x - machine_x_len / 2 - 4 * cord_link_length
+    cord_start_y = machine_y - machine_y_len 
+    cord_start_z = z_lb + cord_link_length / 2
+    plug_x = cord_start_x - (num_cord_links - 1) * cord_link_length -\
+             cord_segment_gap * (num_cord_links - 1)
+    plug_y = cord_start_y
+    plug_z = cord_start_z
+    # Socket settings.
+    socket_height: ClassVar[float] = 0.1
+    socket_width: ClassVar[float] = 0.05
+    socket_depth: ClassVar[float] = 0.01
+    socket_x: ClassVar[float] = (x_lb + x_ub) / 2
+    socket_y: ClassVar[float] = machine_y
+    socket_z: ClassVar[float] = z_lb + socket_height * 2
+
     @classmethod
     def jug_height(cls) -> float:
         return 0.15 * (cls.z_ub - cls.z_lb)
@@ -704,16 +724,7 @@ class CoffeeEnv(BaseEnv):
                            objects: Sequence[Object]) -> bool:
         jug, = objects
         jug_rot = state.get(jug, "rot")
-
-        if self.get_name == "coffee":
-            pick_jug_rot_tol = self.pick_jug_rot_tol
-        else:
-            # in pb-coffee determine by grasp check
-            # pick_jug_rot_tol = 1/5 * np.pi
-            pick_jug_rot_tol = 0.1
-            # pick_jug_rot_tol = - np.pi / 4
-
-        return abs(jug_rot) <= pick_jug_rot_tol
+        return abs(jug_rot) <= self.pick_jug_rot_tol
 
     def _robot_jug_above_cup(self, state: State, cup: Object) -> bool:
         if not self._Holding_holds(state, [self._robot, self._jug]):

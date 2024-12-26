@@ -102,7 +102,9 @@ class Object(_TypedEntity):
         # frozen=True and eq=True, so we need to override it.
         return self._hash
 
-    def __eq__(self, other: Object) -> bool:
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Object):
+            return False
         return self.name == other.name and self.type == other.type
 
 @dataclass(frozen=False, order=True, repr=False)

@@ -22,6 +22,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
     Observation, State, Video
+from predicators.utils import PyBulletState
 
 
 class PyBulletEnv(BaseEnv):
@@ -322,13 +323,10 @@ class PyBulletEnv(BaseEnv):
 
     def get_observation(self, render: bool = False) -> Observation:
         """Get the current observation of this environment."""
-        assert isinstance(self._current_observation, State)
+        assert isinstance(self._current_observation, PyBulletState)
         state_copy = self._current_observation.copy()
         if render:
-            image = utils.label_all_objects(*self.render_segmented_obj())
-            sim_state = {"joint_positions": state_copy.simulator_state,
-                         "images": [image]}
-            state_copy.simulator_state = sim_state
+            state_copy.add_images_and_masks(*self.render_segmented_obj())
         return state_copy
 
     def step(self, action: Action, render_obs: bool = False) -> Observation:

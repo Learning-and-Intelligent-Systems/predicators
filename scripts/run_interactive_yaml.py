@@ -11,7 +11,7 @@ import sys
 from scripts.cluster_utils import config_to_cmd_flags, generate_run_configs
 
 
-def _main():
+def _main() -> None:
     # Set up argparse.
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", required=True, type=str)

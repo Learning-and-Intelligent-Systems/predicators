@@ -65,7 +65,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     pour_pos_tol: ClassVar[float] = 1.0
     init_padding: ClassVar[float] = 0.05
     pick_jug_y_padding: ClassVar[float] = 0.05
-    pick_jug_rot_tol: ClassVar[float] = np.pi / 3
+    pick_jug_rot_tol: ClassVar[float] = 0.1
     safe_z_tol: ClassVar[float] = 1e-2
     place_jug_in_machine_tol: ClassVar[float] = 1e-3 / 2
     jug_twist_offset: ClassVar[float] = 0.025
@@ -169,10 +169,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     num_cord_links = 10
     cord_link_length = 0.02
     cord_segment_gap = 0.00
-    # num_cord_links = 5
-    # cord_link_length = 0.04
     cord_start_x = machine_x - machine_x_len / 2 - 4 * cord_link_length
-    # cord_start_y = machine_y - machine_y_len / 2
     cord_start_y = machine_y - machine_y_len 
     cord_start_z = z_lb + cord_link_length / 2
     plug_x = cord_start_x - (num_cord_links - 1) * cord_link_length -\
@@ -550,14 +547,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         }
 
         state = utils.create_state_from_dict(state_dict)
-        if render_obs:
-            image = utils.label_all_objects(*self.render_segmented_obj())
-            sim_state = {"joint_positions": joint_positions,
-                         "images": [image]}
-        else:
-            sim_state = {"joint_positions": joint_positions}
+        sim_state = {"joint_positions": joint_positions}
         state = utils.PyBulletState(state.data,
                                     simulator_state=sim_state)
+        if render_obs:
+            # add unlabeled image, masks and labelled image
+            state.add_images_and_masks(*self.render_segmented_obj())
+
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")

@@ -17,6 +17,7 @@ from typing import Type as TypingType
 from predicators import utils
 from predicators.approaches import BaseApproach
 from predicators.envs import BaseEnv
+from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.execution_monitoring import BaseExecutionMonitor
 from predicators.perception import BasePerceiver
 from predicators.settings import CFG
@@ -208,7 +209,7 @@ def run_episode_and_get_observations(
             monitor.reset(train_or_test, task_idx)
     render_obs = cogman._approach.get_name() == "oracle" and\
                  CFG.offline_data_method == "geo_and_demo_with_vlm_imgs"
-    if CFG.env == "pybullet_coffee":
+    if isinstance(env, PyBulletEnv):
         obs = env.get_observation(render=render_obs)
     else:
         obs = env.get_observation()
@@ -241,7 +242,7 @@ def run_episode_and_get_observations(
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True
-                if CFG.env == "pybullet_coffee":
+                if isinstance(env, PyBulletEnv):
                     obs = env.step(act, render_obs=render_obs)
                 else:
                     obs = env.step(act)

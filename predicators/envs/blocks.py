@@ -423,7 +423,10 @@ class BlocksEnv(BaseEnv):
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
-        return self._get_held_block(state) == block
+        held_block = self._get_held_block(state)
+        if held_block is None:
+            return False
+        return held_block == block
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         if self._Holding_holds(state, objects):

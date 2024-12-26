@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 from argparse import ArgumentParser
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
@@ -1042,17 +1042,89 @@ class PyBulletState(State):
         else:
             jp = self.simulator_state
         return cast(JointPositions, jp)
+    
+    @property
+    def state_image(self) -> Image:
+        """Expose the current image state in the simulator_state."""
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state["unlabeled_image"]
+    
+    @property
+    def labeled_image(self) -> Optional[Image]:
+        """Expose the current image state in the simulator_state."""
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state.get("images")
+    
+    @property
+    def obj_mask_dict(self) -> Optional[Dict[Object, Mask]]:
+        """Expose the current object masks in the simulator_state."""
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state.get("obj_mask_dict")
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.
         return State(self.data).allclose(State(other.data))
 
-    def copy(self) -> State:
+    def copy(self) -> PyBulletState:
         copy = super().copy()
         state_dict_copy = copy.data
         # simulator_state_copy = list(self.joint_positions)
         simulator_state_copy = copy.simulator_state
         return PyBulletState(state_dict_copy, simulator_state_copy)
+    
+    def get_obj_mask(self, object: Object) -> Mask:
+        """Return the mask for the object."""
+        assert self.obj_mask_dict is not None
+        mask = self.obj_mask_dict.get(object)
+        assert mask is not None
+        return mask
+
+    def label_all_objects(self) -> None:
+        state_ip = ImagePatch(self)
+        obj_mask_dict = self.obj_mask_dict
+        assert obj_mask_dict is not None
+        state_ip.label_all_objects(obj_mask_dict)
+        assert isinstance(self.simulator_state, Dict)
+        self.simulator_state["images"] = state_ip.cropped_image_in_PIL
+    
+    def add_images_and_masks(self, unlabeled_image: PIL.Image.Image, 
+                             masks: Dict[Object, Mask]) -> None:
+        assert isinstance(self.simulator_state, Dict)
+        self.simulator_state["unlabeled_image"] = unlabeled_image
+        self.simulator_state["obj_mask_dict"] = masks
+        self.label_all_objects()
+
+BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
+
+def mask_to_bbox(mask: Mask) -> BoundingBox:
+    y_indices, x_indices = np.where(mask)
+    height = mask.shape[0]
+
+    # Get the bounding box
+    try:
+        left = x_indices.min()
+        right = x_indices.max()
+        lower = height - (y_indices.max() + 1)
+        upper = height - (y_indices.min() + 1)
+    except ValueError:
+        left, lower, right, upper = 0, 0, 0, 0
+        # If the mask is empty, return a bounding box with all zeros
+
+    return BoundingBox(left, lower, right, upper)
+
+
+def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
+
+    # Initialize the bounding box coordinates
+    left, lower, right, upper = np.inf, np.inf, -np.inf, -np.inf
+    # Iterate over all masks
+    for bbox in bboxes:
+        # Update the bounding box
+        left = min(left, bbox.left)
+        lower = min(lower, bbox.lower)
+        right = max(right, bbox.right)
+        upper = max(upper, bbox.upper)
+    return BoundingBox(left, lower, right, upper)
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for
@@ -4108,12 +4180,12 @@ def wrap_angle(angle: float) -> float:
     """Wrap an angle in radians to [-pi, pi]."""
     return np.arctan2(np.sin(angle), np.cos(angle))
 
-def label_all_objects(img: Image.Image, obj_mask_dict: Dict[Object, Mask]
-                      ) -> Image.Image:
-    state_ip = ImagePatch(img)
-    state_ip.label_all_objects(obj_mask_dict)
-    labeled_image = state_ip.cropped_image_in_PIL
-    return labeled_image
+# def label_all_objects(img: PIL.Image.Image, obj_mask_dict: Dict[Object, Mask]
+#                       ) -> PIL.Image.Image:
+#     state_ip = ImagePatch(img)
+#     state_ip.label_all_objects(obj_mask_dict)
+#     labeled_image = state_ip.cropped_image_in_PIL
+#     return labeled_image
 
 def get_parameterized_option_by_name(options: Set[ParameterizedOption], 
                             option_name: str) -> Optional[ParameterizedOption]:

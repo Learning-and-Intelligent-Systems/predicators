@@ -75,9 +75,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             add_effects = {
                 LiftedAtom(PluggedIn, [plug]),
             }
-            delete_effects = set()
             plug_in_nsrt = NSRT("PlugIn", parameters, preconditions, 
-                                add_effects, delete_effects, set(), 
+                                add_effects, set(), set(), 
                                 option, option_vars, null_sampler)
             nsrts.add(plug_in_nsrt)
 
