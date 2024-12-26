@@ -1,17 +1,12 @@
 """Run the code by taking in a YAML config file, in an interactive mode, as
 opposed to submitting a slurm job."""
 import argparse
-import os
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),
-#                                                 '..')))
-import shlex
 import subprocess
-import sys
 
 from scripts.cluster_utils import config_to_cmd_flags, generate_run_configs
 
 
-def _main():
+def _main() -> None:
     # Set up argparse.
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", required=True, type=str)

@@ -11,7 +11,6 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 from PIL import Image
-import logging
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -22,6 +21,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
     Observation, State, Video
+from predicators.utils import PyBulletState
 
 
 class PyBulletEnv(BaseEnv):
@@ -69,6 +69,8 @@ class PyBulletEnv(BaseEnv):
         self._physics_client_id, self._pybullet_robot, pybullet_bodies = \
             self.initialize_pybullet(self.using_gui)
         self._store_pybullet_bodies(pybullet_bodies)
+        # track for rendering
+        self._obj_id_to_obj: Dict[int, Object] = {}
 
     @classmethod
     def initialize_pybullet(
@@ -257,9 +259,9 @@ class PyBulletEnv(BaseEnv):
         self,
         action: Optional[Action] = None,
         caption: Optional[str] = None,
-        render_front_view: bool = False,
     ) -> Tuple[Image.Image, Dict[Object, Mask]]:
         """Render the scene and the segmented objects in the scene."""
+        del action, caption  # unused
         # if not self.using_gui:
         #     raise Exception(
         #         "Rendering only works with GUI on. See "
@@ -267,12 +269,9 @@ class PyBulletEnv(BaseEnv):
 
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=self._camera_target,
-            distance=self._camera_distance_front
-            if render_front_view else self._camera_distance,
-            yaw=self._camera_yaw_front
-            if render_front_view else self._camera_yaw,
-            pitch=self._camera_pitch_front
-            if render_front_view else self._camera_pitch,
+            distance=self._camera_distance,
+            yaw=self._camera_yaw,
+            pitch=self._camera_pitch,
             roll=0,
             upAxisIndex=2,
             physicsClientId=self._physics_client_id)
@@ -288,7 +287,7 @@ class PyBulletEnv(BaseEnv):
             physicsClientId=self._physics_client_id)
 
         # Initialize an empty dictionary
-        mask_dict: Dict[str, Mask] = {}
+        mask_dict: Dict[Object, Mask] = {}
 
         # Get the original image and segmentation mask
         (_, _, rgbImg, _,
@@ -300,11 +299,12 @@ class PyBulletEnv(BaseEnv):
                                     physicsClientId=self._physics_client_id)
 
         # Convert to numpy arrays
-        original_image = np.array(rgbImg, dtype=np.uint8).reshape(
+        original_image: np.ndarray = np.array(rgbImg, dtype=np.uint8).reshape(
             (height, width, 4))
         seg_image = np.array(segImg).reshape((height, width))
 
-        state_img = Image.fromarray(original_image[:, :, :3])
+        state_img = Image.fromarray(  # type: ignore[no-untyped-call]
+            original_image[:, :, :3])
 
         # Iterate over all bodies
         for bodyId, obj in self._obj_id_to_obj.items():
@@ -318,13 +318,10 @@ class PyBulletEnv(BaseEnv):
 
     def get_observation(self, render: bool = False) -> Observation:
         """Get the current observation of this environment."""
-        assert isinstance(self._current_observation, State)
+        assert isinstance(self._current_observation, PyBulletState)
         state_copy = self._current_observation.copy()
         if render:
-            image = utils.label_all_objects(*self.render_segmented_obj())
-            sim_state = {"joint_positions": state_copy.simulator_state,
-                         "images": [image]}
-            state_copy.simulator_state = sim_state
+            state_copy.add_images_and_masks(*self.render_segmented_obj())
         return state_copy
 
     def step(self, action: Action, render_obs: bool = False) -> Observation:
@@ -381,7 +378,7 @@ class PyBulletEnv(BaseEnv):
         # Depending on the observation mode, either return object-centric state
         # or object_centric + rgb observation
         observation_copy = self.get_observation(
-                    render=CFG.rgb_observation or render_obs)
+            render=CFG.rgb_observation or render_obs)
 
         return observation_copy
         # state_copy = self._current_observation.copy()

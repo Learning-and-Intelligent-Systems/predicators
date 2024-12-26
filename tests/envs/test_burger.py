@@ -302,7 +302,9 @@ def test_burger_no_move():
         "num_train_tasks": 4,
     })
     env = BurgerNoMoveEnv()
-    task = env.get_test_tasks()[0]
+    # Get a test task where we start out holding
+    # something.
+    task = env.get_test_tasks()[6]
     assert len(env.predicates) == 13
     assert len(env.goal_predicates) == 7
     assert len(env.agent_goal_predicates) == 7
@@ -361,10 +363,12 @@ def test_burger_no_move():
 
     option_plan = [n.option.ground(n.option_objs, []) for n in plan]
     policy = utils.option_plan_to_policy(option_plan)
+    # Get a test task where we don't start out
+    # holding something.
     traj, _ = utils.run_policy(policy,
                                env,
                                "test",
-                               0,
+                               5,
                                termination_function=lambda s: False,
                                max_num_steps=CFG.horizon,
                                exceptions_to_break_on={
@@ -377,8 +381,8 @@ def test_burger_no_move():
     # Coverage for move part of slice policy.
     # Put the lettuce on the cutting board and have the robot move to it when
     # slicing.
-    s.set(lettuce, "row", 0)
-    s.set(lettuce, "col", 3)
+    s.set(lettuce, "row", 1)
+    s.set(lettuce, "col", 0)
     s.set(lettuce, "z", 1)
     plan = [Slice.ground((robot, lettuce, cutting_board))]
     option_plan = [n.option.ground(n.option_objs, []) for n in plan]
@@ -386,7 +390,7 @@ def test_burger_no_move():
     traj, _ = utils.run_policy(policy,
                                env,
                                "test",
-                               0,
+                               5,
                                termination_function=lambda s: False,
                                max_num_steps=CFG.horizon,
                                exceptions_to_break_on={
@@ -399,8 +403,8 @@ def test_burger_no_move():
 
     # Coverage for move part of cook policy.
     # Put the patty on the grill and have the robot move to it when cooking.
-    s.set(patty, "row", 0)
-    s.set(patty, "col", 2)
+    s.set(patty, "row", 3)
+    s.set(patty, "col", 0)
     s.set(patty, "z", 1)
     plan = [Cook.ground((robot, patty, grill))]
     option_plan = [n.option.ground(n.option_objs, []) for n in plan]
@@ -408,7 +412,7 @@ def test_burger_no_move():
     traj, _ = utils.run_policy(policy,
                                env,
                                "test",
-                               0,
+                               5,
                                termination_function=lambda s: False,
                                max_num_steps=CFG.horizon,
                                exceptions_to_break_on={
@@ -416,8 +420,8 @@ def test_burger_no_move():
                                    utils.HumanDemonstrationFailure,
                                },
                                monitor=None)
-    assert traj.states[-1].get(robot, "row") == 1
-    assert traj.states[-1].get(robot, "col") == 2
+    assert traj.states[-1].get(robot, "row") == 2
+    assert traj.states[-1].get(robot, "col") == 0
 
     utils.reset_config({
         "env": "burger_no_move",

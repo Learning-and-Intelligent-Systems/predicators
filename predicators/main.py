@@ -34,6 +34,7 @@ To run grammar search predicate invention (example):
         --seed 0 --excluded_predicates all
 """
 
+import datetime
 import logging
 import os
 import sys
@@ -42,8 +43,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
-import dill as pkl
 import colorlog
+import dill as pkl
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
@@ -113,7 +114,7 @@ def main() -> None:
                         force=True)
     logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
     logging.getLogger('libpng').setLevel(logging.ERROR)
-    logging.getLogger('PIL').setLevel(logging.ERROR)    
+    logging.getLogger('PIL').setLevel(logging.ERROR)
     if CFG.log_file:
         logging.info(f"Logging to {CFG.log_file}")
     logging.info(f"Running command: python {str_args}")

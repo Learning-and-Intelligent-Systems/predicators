@@ -382,7 +382,7 @@ class PaintingEnv(BaseEnv):
             obj_color = state.get(obj, "color")
             if obj_color > 0:
                 facecolor = [obj_color, 0, 0]
-            if held_obj == obj:
+            if held_obj is not None and held_obj == obj:
                 assert state.get(self._robot, "fingers") < self.open_fingers
                 grasp = state.get(held_obj, "grasp")
                 assert grasp < self.side_grasp_thresh or \

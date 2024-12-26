@@ -356,7 +356,7 @@ class CoverEnv(BaseEnv):
         for other in data:
             if block_only and other.type != self._block_type:
                 continue
-            if other == excluded_object:
+            if excluded_object is not None and other == excluded_object:
                 continue
             other_feats = data[other]
             distance = abs(other_feats[3] - pose)

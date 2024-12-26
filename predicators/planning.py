@@ -196,7 +196,8 @@ def _sesame_plan_with_astar(
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
                     logging.debug("Exiting search due to timeout.")
-                    logging.debug(f"Partial refinements: {partial_refinements}")
+                    logging.debug(
+                        f"Partial refinements: {partial_refinements}")
                     raise PlanningTimeout(
                         "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})

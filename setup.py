@@ -15,6 +15,7 @@ setup(
         "imageio-ffmpeg",
         "pandas==1.5.1",
         "torch==2.0.1",
+        "torchvision==0.15.2",
         "scipy==1.9.3",
         "tabulate==0.9.0",
         "dill==0.3.5.1",
@@ -38,6 +39,9 @@ setup(
         "ImageHash",
         "google-generativeai",
         "tenacity",
+        "httpx==0.27.0",
+        "opencv-python>=4.5.0",
+        "colorlog",
     ],
     include_package_data=True,
     extras_require={
