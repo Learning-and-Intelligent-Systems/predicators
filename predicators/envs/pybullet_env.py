@@ -305,11 +305,11 @@ class PyBulletEnv(BaseEnv):
                                     physicsClientId=self._physics_client_id)
 
         # Convert to numpy arrays
-        original_image = np.array(rgbImg, dtype=np.uint8).reshape(
+        original_image: np.ndarray = np.array(rgbImg, dtype=np.uint8).reshape(
             (height, width, 4))
         seg_image = np.array(segImg).reshape((height, width))
 
-        state_img = Image.fromarray(original_image[:, :, :3])
+        state_img = Image.fromarray(original_image[:, :, :3]) # type: ignore[no-untyped-call]
 
         # Iterate over all bodies
         for bodyId, obj in self._obj_id_to_obj.items():
