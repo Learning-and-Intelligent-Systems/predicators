@@ -128,7 +128,10 @@ class ImagePatch:
                 # (H, W, C)
                 # Convert to shape (C, H, W)
                 img = np.transpose(img, (2, 0, 1))
-            image_tensor = th.tensor(img, dtype=th.float32) / 255.0
+            image_tensor = th.tensor(
+                img,
+                dtype=th.float32  # pylint: disable=no-member
+            ) / 255.0
         # elif isinstance(img, th.Tensor):
         #     # If dtype == uint8, convert to float
         #     if img.dtype == th.uint8:
@@ -248,8 +251,8 @@ class ImagePatch:
                 rotation=0,
             )
 
-        self.cropped_image = th.tensor(vis_image.get_image()).permute(
-            2, 0, 1) / 255.0
+        self.cropped_image = th.tensor(  # pylint: disable=no-member
+            vis_image.get_image()).permute(2, 0, 1) / 255.0
 
     def crop_to_objects(self,
                         objects: Sequence[Object],

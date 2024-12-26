@@ -309,7 +309,8 @@ class PyBulletEnv(BaseEnv):
             (height, width, 4))
         seg_image = np.array(segImg).reshape((height, width))
 
-        state_img = Image.fromarray(original_image[:, :, :3]) # type: ignore[no-untyped-call]
+        state_img = Image.fromarray(  # type: ignore[no-untyped-call]
+            original_image[:, :, :3])
 
         # Iterate over all bodies
         for bodyId, obj in self._obj_id_to_obj.items():
