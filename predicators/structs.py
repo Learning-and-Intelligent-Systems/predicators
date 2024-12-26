@@ -107,6 +107,7 @@ class Object(_TypedEntity):
             return False
         return self.name == other.name and self.type == other.type
 
+
 @dataclass(frozen=False, order=True, repr=False)
 class Variable(_TypedEntity):
     """Struct defining a Variable, which is just a _TypedEntity whose name

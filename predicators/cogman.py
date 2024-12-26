@@ -120,6 +120,11 @@ class CogMan:
         """See BaseApproach docstring."""
         return self._approach.is_learning_based
 
+    @property
+    def get_approach_name(self) -> str:
+        """See BaseApproach docstring."""
+        return self._approach.get_name()
+
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """See BaseApproach docstring."""
         return self._approach.learn_from_offline_dataset(dataset)
@@ -207,7 +212,7 @@ def run_episode_and_get_observations(
         env.reset(train_or_test, task_idx)
         if monitor is not None:
             monitor.reset(train_or_test, task_idx)
-    render_obs = cogman._approach.get_name() == "oracle" and\
+    render_obs = cogman.get_approach_name == "oracle" and\
                  CFG.offline_data_method == "geo_and_demo_with_vlm_imgs"
     if isinstance(env, PyBulletEnv):
         obs = env.get_observation(render=render_obs)

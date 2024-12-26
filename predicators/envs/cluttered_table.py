@@ -246,7 +246,9 @@ class ClutteredTableEnv(BaseEnv):
         colliding_can = None
         colliding_can_max_dist = float("-inf")
         for can in state:
-            if ignored_can is not None and can == ignored_can or not cls._Untrashed_holds(state, [can]):
+            if ignored_can is not None and can == ignored_can or \
+                not cls._Untrashed_holds(
+                    state, [can]):
                 continue
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")

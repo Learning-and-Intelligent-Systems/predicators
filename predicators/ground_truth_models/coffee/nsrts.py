@@ -69,15 +69,15 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             option = options["PlugIn"]
             preconditions = {
                 LiftedAtom(HandEmpty, [robot]),
-                LiftedAtom(OnTable, [jug]), 
+                LiftedAtom(OnTable, [jug]),
                 # just a limitation of the current controller
             }
             add_effects = {
                 LiftedAtom(PluggedIn, [plug]),
             }
-            plug_in_nsrt = NSRT("PlugIn", parameters, preconditions, 
-                                add_effects, set(), set(), 
-                                option, option_vars, null_sampler)
+            plug_in_nsrt = NSRT("PlugIn",
+                                parameters, preconditions, add_effects, set(),
+                                set(), option, option_vars, null_sampler)
             nsrts.add(plug_in_nsrt)
 
         if not CFG.coffee_combined_move_and_twist_policy:
@@ -99,8 +99,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             }
             move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters,
                                           preconditions, add_effects,
-                                          delete_effects, set(),
-                                          option, option_vars, null_sampler)
+                                          delete_effects, set(), option,
+                                          option_vars, null_sampler)
             nsrts.add(move_to_twist_jug_nsrt)
 
             # TwistJug
@@ -151,8 +151,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 add_effects.add(LiftedAtom(JugPickable, [jug]))
             delete_effects = set()
             twist_nsrt = NSRT("Twist", parameters, preconditions, add_effects,
-                              delete_effects, set(), option,
-                              option_vars, null_sampler)
+                              delete_effects, set(), option, option_vars,
+                              null_sampler)
             nsrts.add(twist_nsrt)
 
         # PickJugFromTable
@@ -199,8 +199,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         place_jug_in_machine_nsrt = NSRT("PlaceJugInMachine", parameters,
                                          preconditions, add_effects,
-                                         delete_effects, set(),
-                                         option, option_vars, null_sampler)
+                                         delete_effects, set(), option,
+                                         option_vars, null_sampler)
         nsrts.add(place_jug_in_machine_nsrt)
 
         # TurnMachineOn
@@ -224,10 +224,9 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(PressingButton, [robot, machine]),
         }
         delete_effects = set()
-        turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters, preconditions,
-                                    add_effects, delete_effects,
-                                    set(), option, option_vars,
-                                    null_sampler)
+        turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    set(), option, option_vars, null_sampler)
         nsrts.add(turn_machine_on_nsrt)
 
         # PickJugFromMachine
@@ -252,8 +251,8 @@ class CoffeeGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         pick_jug_from_machine_nsrt = NSRT("PickJugFromMachine", parameters,
                                           preconditions, add_effects,
-                                          delete_effects, set(),
-                                          option, option_vars, null_sampler)
+                                          delete_effects, set(), option,
+                                          option_vars, null_sampler)
         nsrts.add(pick_jug_from_machine_nsrt)
 
         # PourFromNowhere

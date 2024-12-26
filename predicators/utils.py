@@ -44,6 +44,7 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
+from predicators.image_patch_wrapper import ImagePatch
 from predicators.pretrained_model_interface import GoogleGeminiLLM, \
     GoogleGeminiVLM, LargeLanguageModel, OpenAILLM, OpenAIVLM, \
     VisionLanguageModel
@@ -52,14 +53,14 @@ from predicators.settings import CFG, GlobalSettings
 from predicators.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
-    LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, VLMPredicate, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity, Mask
+    LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Mask, \
+    Metrics, NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, \
+    OptionSpec, ParameterizedOption, Predicate, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, VLMPredicate, \
+    _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
+    _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
-from predicators.image_patch_wrapper import ImagePatch
 
 if TYPE_CHECKING:
     from predicators.envs import BaseEnv
@@ -1042,19 +1043,19 @@ class PyBulletState(State):
         else:
             jp = self.simulator_state
         return cast(JointPositions, jp)
-    
+
     @property
     def state_image(self) -> Image:
         """Expose the current image state in the simulator_state."""
         assert isinstance(self.simulator_state, Dict)
         return self.simulator_state["unlabeled_image"]
-    
+
     @property
     def labeled_image(self) -> Optional[Image]:
         """Expose the current image state in the simulator_state."""
         assert isinstance(self.simulator_state, Dict)
         return self.simulator_state.get("images")
-    
+
     @property
     def obj_mask_dict(self) -> Optional[Dict[Object, Mask]]:
         """Expose the current object masks in the simulator_state."""
@@ -1071,32 +1072,37 @@ class PyBulletState(State):
         # simulator_state_copy = list(self.joint_positions)
         simulator_state_copy = copy.simulator_state
         return PyBulletState(state_dict_copy, simulator_state_copy)
-    
-    def get_obj_mask(self, object: Object) -> Mask:
+
+    def get_obj_mask(self, obj: Object) -> Mask:
         """Return the mask for the object."""
         assert self.obj_mask_dict is not None
-        mask = self.obj_mask_dict.get(object)
+        mask = self.obj_mask_dict.get(obj)
         assert mask is not None
         return mask
 
     def label_all_objects(self) -> None:
+        """Label all objects in the simulator state."""
         state_ip = ImagePatch(self)
         obj_mask_dict = self.obj_mask_dict
         assert obj_mask_dict is not None
         state_ip.label_all_objects(obj_mask_dict)
         assert isinstance(self.simulator_state, Dict)
         self.simulator_state["images"] = state_ip.cropped_image_in_PIL
-    
-    def add_images_and_masks(self, unlabeled_image: PIL.Image.Image, 
+
+    def add_images_and_masks(self, unlabeled_image: PIL.Image.Image,
                              masks: Dict[Object, Mask]) -> None:
+        """Add the unlabeled image and object masks to the simulator state."""
         assert isinstance(self.simulator_state, Dict)
         self.simulator_state["unlabeled_image"] = unlabeled_image
         self.simulator_state["obj_mask_dict"] = masks
         self.label_all_objects()
 
+
 BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
 
+
 def mask_to_bbox(mask: Mask) -> BoundingBox:
+    """Return the bounding box of the mask."""
     y_indices, x_indices = np.where(mask)
     height = mask.shape[0]
 
@@ -1114,6 +1120,8 @@ def mask_to_bbox(mask: Mask) -> BoundingBox:
 
 
 def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
+    """Return the smallest bounding box that contains all the given
+    bounding."""
 
     # Initialize the bounding box coordinates
     left, lower, right, upper = np.inf, np.inf, -np.inf, -np.inf
@@ -1125,6 +1133,7 @@ def smallest_bbox_from_bboxes(bboxes: Sequence[BoundingBox]) -> BoundingBox:
         right = max(right, bbox.right)
         upper = max(upper, bbox.upper)
     return BoundingBox(left, lower, right, upper)
+
 
 class StateWithCache(State):
     """A state with a cache stored in the simulator state that is ignored for
@@ -2557,7 +2566,7 @@ def query_vlm_for_atom_vals(
     if vlm is None:
         vlm = create_vlm_by_name(CFG.vlm_model_name)  # pragma: no cover.
     if CFG.env in ["pybullet_coffee"]:
-        vlm_input_imgs = [img_arr for img_arr in imgs] # type: ignore
+        vlm_input_imgs = list(imgs)  # type: ignore
     else:
         vlm_input_imgs = \
             [PIL.Image.fromarray(img_arr) for img_arr in imgs] # type: ignore
@@ -4176,19 +4185,15 @@ def add_text_to_draw_img(
     draw.text(position, text, fill="red", font=font)
     return draw
 
+
 def wrap_angle(angle: float) -> float:
     """Wrap an angle in radians to [-pi, pi]."""
     return np.arctan2(np.sin(angle), np.cos(angle))
 
-# def label_all_objects(img: PIL.Image.Image, obj_mask_dict: Dict[Object, Mask]
-#                       ) -> PIL.Image.Image:
-#     state_ip = ImagePatch(img)
-#     state_ip.label_all_objects(obj_mask_dict)
-#     labeled_image = state_ip.cropped_image_in_PIL
-#     return labeled_image
 
-def get_parameterized_option_by_name(options: Set[ParameterizedOption], 
-                            option_name: str) -> Optional[ParameterizedOption]:
+def get_parameterized_option_by_name(
+        options: Set[ParameterizedOption],
+        option_name: str) -> Optional[ParameterizedOption]:
     """Retrieve an option by its name from a set of options."""
-    return next((option for option in options if option.name == option_name), 
+    return next((option for option in options if option.name == option_name),
                 None)

@@ -7,10 +7,10 @@ option in the environment.
 from __future__ import annotations
 
 import abc
+import logging
 from typing import Callable, Set, Tuple
 
 import numpy as np
-import logging
 
 from predicators import utils
 from predicators.envs import create_new_env

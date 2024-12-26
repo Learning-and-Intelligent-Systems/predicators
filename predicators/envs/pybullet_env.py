@@ -11,7 +11,6 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 from PIL import Image
-import logging
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -105,7 +104,7 @@ class PyBulletEnv(BaseEnv):
                    physicsClientId=physics_client_id)
 
         # Change the visual appearance to white
-        # plane_id = p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), 
+        # plane_id = p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"),
         #             basePosition=[-2, 0, 0],
         #             baseOrientation=p.getQuaternionFromEuler([0, 1.57, 0])
         #             )  # Rotate 90 degrees around Z-axis
@@ -268,6 +267,7 @@ class PyBulletEnv(BaseEnv):
         caption: Optional[str] = None,
     ) -> Tuple[Image.Image, Dict[Object, Mask]]:
         """Render the scene and the segmented objects in the scene."""
+        del action, caption  # unused
         # if not self.using_gui:
         #     raise Exception(
         #         "Rendering only works with GUI on. See "
@@ -383,7 +383,7 @@ class PyBulletEnv(BaseEnv):
         # Depending on the observation mode, either return object-centric state
         # or object_centric + rgb observation
         observation_copy = self.get_observation(
-                    render=CFG.rgb_observation or render_obs)
+            render=CFG.rgb_observation or render_obs)
 
         return observation_copy
         # state_copy = self._current_observation.copy()
