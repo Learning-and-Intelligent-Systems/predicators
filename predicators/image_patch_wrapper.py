@@ -128,7 +128,7 @@ class ImagePatch:
                 # (H, W, C)
                 # Convert to shape (C, H, W)
                 img = np.transpose(img, (2, 0, 1))
-            image_tensor = th.tensor(
+            image_tensor = th.tensor(  # pylint: disable=no-member
                 img,
                 dtype=th.float32  # pylint: disable=no-member
             ) / 255.0
