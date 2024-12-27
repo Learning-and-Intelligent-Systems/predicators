@@ -169,17 +169,6 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     # -------------------------------------------------------------------------
     # Key Abstract Methods from PyBulletEnv
-    @classmethod
-    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
-                               finger_state: float) -> float:
-        """Map the fingers in the given State to joint values for PyBullet."""
-        subs = {
-            cls.open_fingers: pybullet_robot.open_fingers,
-            cls.closed_fingers: pybullet_robot.closed_fingers,
-        }
-        match = min(subs, key=lambda k: abs(k - finger_state))
-        return subs[match]
-
     def _extract_robot_state(self, state: State) -> Array:
         """Convert the State's stored robot features into the 8D (x, y, z, qx,
         qy, qz, qw, fingers) that the PyBullet robot expects in fetch.py. Or a

@@ -34,8 +34,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     robot_init_x: ClassVar[float] = CoverEnv.workspace_x
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = CoverEnv.workspace_z
-    robot_base_pos: Optional[ClassVar[Tuple[float, float, float]]] = None
-    robot_base_orn: Optional[ClassVar[Tuple[float, float, float, float]]] = None
     _offset: ClassVar[float] = 0.01
     pickplace_z: ClassVar[float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001

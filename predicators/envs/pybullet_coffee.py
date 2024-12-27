@@ -728,16 +728,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         _, tilt, wrist = p.getEulerFromQuaternion(orn)
         return (tilt, wrist)
 
-    @classmethod
-    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
-                               finger_state: float) -> float:
-        """Map the fingers in the given State to joint values for PyBullet."""
-        subs = {
-            cls.open_fingers: pybullet_robot.open_fingers,
-            cls.closed_fingers: pybullet_robot.closed_fingers,
-        }
-        match = min(subs, key=lambda k: abs(k - finger_state))
-        return subs[match]
 
     @classmethod
     def _fingers_joint_to_state(cls, pybullet_robot: SingleArmPyBulletRobot,

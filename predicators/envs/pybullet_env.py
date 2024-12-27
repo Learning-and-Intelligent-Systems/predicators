@@ -32,6 +32,10 @@ class PyBulletEnv(BaseEnv):
     # General robot parameters.
     grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
+    open_fingers: ClassVar[float] = 1.0
+    close_fingers: ClassVar[float] = 0.0
+    robot_base_pos: Optional[Tuple[float, float, float]] = None
+    robot_base_orn: Optional[Tuple[float, float, float, float]] = None
 
     # Object parameters.
     _obj_mass: ClassVar[float] = 0.5
@@ -169,6 +173,18 @@ class PyBulletEnv(BaseEnv):
         effector's orientation when grasping.
         """
         raise NotImplementedError("Override me!")
+
+    @classmethod
+    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
+                               finger_state: float) -> float:
+        """Map the fingers in the given State to joint values for PyBullet."""
+        # If open_fingers is undefined, use 1.0 as the default.
+        subs = {
+            cls.open_fingers: pybullet_robot.open_fingers,
+            cls.closed_fingers: pybullet_robot.closed_fingers,
+        }
+        match = min(subs, key=lambda k: abs(k - finger_state))
+        return subs[match]
 
     @property
     def action_space(self) -> Box:

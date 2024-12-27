@@ -32,12 +32,6 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
     # button_press_threshold = 1e-3
 
-    # Robot parameters.
-    robot_base_pos: Optional[Tuple[float, float, float]] = None
-    robot_base_orn: Optional[Tuple[float, float, float, float]] = None
-
-    # Repeat for LLM predicates parsing
-
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -559,20 +553,6 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         # Create the grasp constraint.
         self._held_obj_id = block_id
         self._create_grasp_constraint()
-
-    @classmethod
-    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
-                               fingers_state: float) -> float:
-        """Convert the fingers in the given State to joint values for PyBullet.
-
-        The fingers in the State are either 0 or 1. Transform them to be
-        either pybullet_robot.closed_fingers or
-        pybullet_robot.open_fingers.
-        """
-        assert fingers_state in (0.0, 1.0)
-        open_f = pybullet_robot.open_fingers
-        closed_f = pybullet_robot.closed_fingers
-        return closed_f if fingers_state == 0.0 else open_f
 
     def _fingers_joint_to_state(self, fingers_joint: float) -> float:
         """Convert the finger joint values in PyBullet to values for the State.
