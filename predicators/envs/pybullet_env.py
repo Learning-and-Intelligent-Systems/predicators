@@ -175,7 +175,7 @@ class PyBulletEnv(BaseEnv):
         raise NotImplementedError("Override me!")
 
     @classmethod
-    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
+    def _fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
                                finger_state: float) -> float:
         """Map the fingers in the given State to joint values for PyBullet."""
         # If open_fingers is undefined, use 1.0 as the default.
@@ -184,6 +184,17 @@ class PyBulletEnv(BaseEnv):
             cls.closed_fingers: pybullet_robot.closed_fingers,
         }
         match = min(subs, key=lambda k: abs(k - finger_state))
+        return subs[match]
+
+    @classmethod
+    def _fingers_joint_to_state(cls, pybullet_robot: SingleArmPyBulletRobot,
+                                finger_joint: float) -> float:
+        """Inverse of _fingers_state_to_joint()."""
+        subs = {
+            pybullet_robot.open_fingers: cls.open_fingers,
+            pybullet_robot.closed_fingers: cls.closed_fingers,
+        }
+        match = min(subs, key=lambda k: abs(k - finger_joint))
         return subs[match]
 
     @property

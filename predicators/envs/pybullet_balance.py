@@ -360,7 +360,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     def _extract_robot_state(self, state: State) -> Array:
         # The orientation is fixed in this environment.
         qx, qy, qz, qw = self.get_robot_ee_home_orn()
-        f = self.fingers_state_to_joint(self._pybullet_robot,
+        f = self._fingers_state_to_joint(self._pybullet_robot,
                                         state.get(self._robot, "fingers"))
         return np.array([
             state.get(self._robot, "pose_x"),
@@ -553,14 +553,3 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         # Create the grasp constraint.
         self._held_obj_id = block_id
         self._create_grasp_constraint()
-
-    def _fingers_joint_to_state(self, fingers_joint: float) -> float:
-        """Convert the finger joint values in PyBullet to values for the State.
-
-        The joint values given as input are the ones coming out of
-        self._pybullet_robot.get_state().
-        """
-        open_f = self._pybullet_robot.open_fingers
-        closed_f = self._pybullet_robot.closed_fingers
-        # Fingers in the State should be either 0 or 1.
-        return int(fingers_joint > (open_f + closed_f) / 2)

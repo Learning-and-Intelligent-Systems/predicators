@@ -313,7 +313,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _extract_robot_state(self, state: State) -> Array:
         qx, qy, qz, qw = self._state_to_gripper_orn(state)
         f = state.get(self._robot, "fingers")
-        f = self.fingers_state_to_joint(self._pybullet_robot, f)
+        f = self._fingers_state_to_joint(self._pybullet_robot, f)
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         z = state.get(self._robot, "z")
@@ -729,16 +729,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return (tilt, wrist)
 
 
-    @classmethod
-    def _fingers_joint_to_state(cls, pybullet_robot: SingleArmPyBulletRobot,
-                                finger_joint: float) -> float:
-        """Inverse of _fingers_state_to_joint()."""
-        subs = {
-            pybullet_robot.open_fingers: cls.open_fingers,
-            pybullet_robot.closed_fingers: cls.closed_fingers,
-        }
-        match = min(subs, key=lambda k: abs(k - finger_joint))
-        return subs[match]
 
     def _cup_liquid_to_liquid_height(self, liquid: float,
                                      capacity: float) -> float:

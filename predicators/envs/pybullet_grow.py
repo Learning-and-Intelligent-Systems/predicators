@@ -182,7 +182,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         y = state.get(self._robot, "y")
         z = state.get(self._robot, "z")
         f = state.get(self._robot, "fingers")
-        f = self.fingers_state_to_joint(self._pybullet_robot, f)
+        f = self._fingers_state_to_joint(self._pybullet_robot, f)
         tilt = state.get(self._robot, "tilt")
         wrist = state.get(self._robot, "wrist")
         # Convert Euler => quaternion
@@ -408,15 +408,6 @@ class PyBulletGrowEnv(PyBulletEnv):
         final_state = self._get_state()
         self._current_observation = final_state
         return final_state
-
-    def _fingers_joint_to_state(self, finger_joint: float) -> float:
-        """If the parent class uses "reset positions" for the joints, we map
-        them back to [closed_fingers, open_fingers]."""
-        # For a simple approach, pick whichever is closer.
-        if abs(finger_joint - self._pybullet_robot.open_fingers) < abs(
-                finger_joint - self._pybullet_robot.closed_fingers):
-            return self.open_fingers
-        return self.closed_fingers
 
     # -------------------------------------------------------------------------
     # Predicates

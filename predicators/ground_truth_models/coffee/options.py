@@ -1081,7 +1081,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         assert len(robots) == 1
         robot = robots[0]
         current_finger_state = state.get(robot, "fingers")
-        current_finger_joint = PyBulletCoffeeEnv.fingers_state_to_joint(
+        current_finger_joint = PyBulletCoffeeEnv._fingers_state_to_joint(
             pybullet_robot, current_finger_state)
         assert isinstance(state, utils.PyBulletState)
         current_joint_positions = state.joint_positions
