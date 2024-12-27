@@ -1,13 +1,10 @@
 """Ground-truth NSRTs for the coffee environment."""
 
-from typing import Dict, Sequence, Set
-
-import numpy as np
+from typing import Dict, Set
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.settings import CFG
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, Type, Variable
+from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
+    Predicate, Type, Variable
 from predicators.utils import null_sampler
 
 
@@ -17,7 +14,7 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {"pybullet_grow"}
-    
+
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],
                   predicates: Dict[str, Predicate],
@@ -55,10 +52,9 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(OnTable, [jug])
         }
-        ignore_effects = set()
         pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
                                         preconditions, add_effects,
-                                        delete_effects, ignore_effects, option,
+                                        delete_effects, set(), option,
                                         option_vars, null_sampler)
         nsrts.add(pick_jug_from_table_nsrt)
 
@@ -76,12 +72,8 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(Grown, [cup]),
         }
-        delete_effects = set()
-        ignore_effects = set()
-        pour = NSRT("Pour", parameters,
-                                      preconditions, add_effects,
-                                      delete_effects, ignore_effects, option,
-                                      option_vars, null_sampler)
+        pour = NSRT("Pour", parameters, preconditions, add_effects, set(),
+                    set(), option, option_vars, null_sampler)
         nsrts.add(pour)
 
         # Place
@@ -100,12 +92,8 @@ class PyBulletGrowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {
             LiftedAtom(Holding, [robot, jug]),
         }
-        ignore_effects = set()
-        place = NSRT("PlaceJug", parameters,
-                              preconditions, add_effects,
-                              delete_effects, ignore_effects, option,
-                              option_vars, null_sampler)
+        place = NSRT("PlaceJug", parameters, preconditions, add_effects,
+                     delete_effects, set(), option, option_vars, null_sampler)
         nsrts.add(place)
-
 
         return nsrts

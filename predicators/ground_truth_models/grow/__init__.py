@@ -4,5 +4,6 @@ from .nsrts import PyBulletGrowGroundTruthNSRTFactory
 from .options import PyBulletGrowGroundTruthOptionFactory
 
 __all__ = [
-    "PyBulletGrowGroundTruthNSRTFactory", "PyBulletGrowGroundTruthOptionFactory"
+    "PyBulletGrowGroundTruthNSRTFactory",
+    "PyBulletGrowGroundTruthOptionFactory"
 ]

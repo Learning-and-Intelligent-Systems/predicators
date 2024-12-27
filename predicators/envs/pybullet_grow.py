@@ -1,39 +1,34 @@
-"""
-python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
+"""python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
+
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900
 """
 
-
 import logging
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+
 import numpy as np
 import pybullet as p
-from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Sequence
-from gym.spaces import Box
 
+from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
+from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
-from predicators.pybullet_helpers.geometry import Pose, Quaternion, Pose3D
-from predicators import utils
-from predicators.structs import Action, EnvironmentTask, State, Object, \
-    Predicate, Type, GroundAtom, Array
-
 from predicators.settings import CFG
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class PyBulletGrowEnv(PyBulletEnv):
-    """
-    A simple PyBullet environment involving two cups (red and blue) and
-    two jugs (red and blue). Each jug contains infinite liquid. Pouring
-    from a jug of matching color into a cup increases the 'growth' in 
-    that cup.
+    """A simple PyBullet environment involving two cups (red and blue) and two
+    jugs (red and blue). Each jug contains infinite liquid. Pouring from a jug
+    of matching color into a cup increases the 'growth' in that cup.
 
     We want the 'growth' of both cups to exceed some threshold as a goal.
     from PyBullet Coffee domain.
-    x: cup <-> jug, 
+    x: cup <-> jug,
     y: robot <-> machine
     z: up <-> down
     """
@@ -87,14 +82,13 @@ class PyBulletGrowEnv(PyBulletEnv):
         super().__init__(use_gui)
 
         # Define Types:
-        self._robot_type = Type(
-            "robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
-        self._cup_type = Type(
-            "cup", ["x", "y", "z", "growth", "color"])
-        self._jug_type = Type(
-            "jug", ["x", "y", "z", "is_held", "rot", "color"])
+        self._robot_type = Type("robot",
+                                ["x", "y", "z", "fingers", "tilt", "wrist"])
+        self._cup_type = Type("cup", ["x", "y", "z", "growth", "color"])
+        self._jug_type = Type("jug",
+                              ["x", "y", "z", "is_held", "rot", "color"])
 
-        # Define Objects (we will create them in tasks, but the "concept" is here).
+        # Define Objects; temp (we will create them in tasks).
         self._robot = Object("robot", self._robot_type)
         self._red_cup = Object("red_cup", self._cup_type)
         self._blue_cup = Object("blue_cup", self._cup_type)
@@ -102,8 +96,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         self._blue_jug = Object("blue_jug", self._jug_type)
 
         # Define Predicates
-        self._Grown = Predicate(
-            "Grown", [self._cup_type], self._Grown_holds)
+        self._Grown = Predicate("Grown", [self._cup_type], self._Grown_holds)
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._jug_type],
                                   self._Holding_holds)
@@ -111,14 +104,16 @@ class PyBulletGrowEnv(PyBulletEnv):
                                     self._HandEmpty_holds)
         self._OnTable = Predicate("OnTable", [self._jug_type],
                                   self._OnTable_holds)
-        self._SameColor = Predicate("SameColor", [self._cup_type, 
-                                                  self._jug_type],
+        self._SameColor = Predicate("SameColor",
+                                    [self._cup_type, self._jug_type],
                                     self._SameColor_holds)
 
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
-
-        # For a simpler environment, we only define one 'goal' predicate in tasks:
-        # "Grown" for each cup. Alternatively, you can define more.
+        self._cup_growth: Dict[Object, float] = {}
+        self._cup_ids: List[int] = []
+        self._jug_ids: List[int] = []
+        self._red_jug_id: Optional[int] = None
+        self._blue_jug_id: Optional[int] = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -131,7 +126,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         return {
             self._Grown, self._Holding, self._HandEmpty, self._OnTable,
             self._SameColor
-            }
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -148,11 +143,12 @@ class PyBulletGrowEnv(PyBulletEnv):
     def initialize_pybullet(
             cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
-        """
-        Create the PyBullet environment and the robot.
+        """Create the PyBullet environment and the robot.
+
         Subclasses typically add additional environment assets here.
         """
-        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(using_gui)
+        physics_client_id, pybullet_robot, bodies = super(
+        ).initialize_pybullet(using_gui)
 
         # You can add a table or floor plane, etc.
         # For example, let's add a table below the workspace:
@@ -160,42 +156,35 @@ class PyBulletGrowEnv(PyBulletEnv):
                               useFixedBase=True,
                               physicsClientId=physics_client_id)
         # Position the table so the top is at z=cls.z_lb
-        p.resetBasePositionAndOrientation(
-            table_id, (0.75, 1.35, 0.0),
-            p.getQuaternionFromEuler([0., 0., np.pi / 2]),
-            physicsClientId=physics_client_id
-        )
+        p.resetBasePositionAndOrientation(table_id, (0.75, 1.35, 0.0),
+                                          p.getQuaternionFromEuler(
+                                              [0., 0., np.pi / 2]),
+                                          physicsClientId=physics_client_id)
         bodies["table_id"] = table_id
 
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
-        """
-        Store references to PyBullet IDs for environment assets.
-        """
-        pass
+        """Store references to PyBullet IDs for environment assets."""
 
     @classmethod
     def _create_pybullet_robot(
             cls, physics_client_id: int) -> SingleArmPyBulletRobot:
-        """
-        Create a single-arm PyBullet robot.
-        """
+        """Create a single-arm PyBullet robot."""
         # The EE orientation is usually set so that the gripper is down.
         ee_home_orn = p.getQuaternionFromEuler([0, np.pi / 2, 0])
         ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
                        ee_home_orn)
         base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id,
-                                                ee_home,
+                                                physics_client_id, ee_home,
                                                 base_pose)
 
     # -------------------------------------------------------------------------
     # Key Abstract Methods from PyBulletEnv
     @classmethod
     def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
-                            finger_state: float) -> float:
+                               finger_state: float) -> float:
         """Map the fingers in the given State to joint values for PyBullet."""
         subs = {
             cls.open_fingers: pybullet_robot.open_fingers,
@@ -205,12 +194,12 @@ class PyBulletGrowEnv(PyBulletEnv):
         return subs[match]
 
     def _extract_robot_state(self, state: State) -> Array:
-        """
-        Convert the State's stored robot features into the 8D (x, y, z, qx, qy, qz, qw, fingers)
-        that the PyBullet robot expects in fetch.py. Or a 7D if ignoring orientation.
-        
-        For simplicity, let's store tilt/wrist as Euler angles in the State, 
-        then convert to quaternion here.
+        """Convert the State's stored robot features into the 8D (x, y, z, qx,
+        qy, qz, qw, fingers) that the PyBullet robot expects in fetch.py. Or a
+        7D if ignoring orientation.
+
+        For simplicity, let's store tilt/wrist as Euler angles in the
+        State, then convert to quaternion here.
         """
         # We'll just store a fixed orientation for the demonstration
         x = state.get(self._robot, "x")
@@ -228,8 +217,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         return np.array([x, y, z, qx, qy, qz, qw, f], dtype=np.float32)
 
     def _get_state(self) -> State:
-        """
-        Create a State object from the current PyBullet simulation. 
+        """Create a State object from the current PyBullet simulation.
+
         We read off robot state, plus the cups/jugs positions, plus any
         relevant features (like 'growth').
         """
@@ -238,7 +227,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         # 1) Robot
         rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
         # Convert orientation back into tilt/wrist
-        roll, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
+        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
         # We store the robot's features
         state_dict[self._robot] = {
             "x": rx,
@@ -250,12 +239,10 @@ class PyBulletGrowEnv(PyBulletEnv):
         }
 
         # 2) For each cup and jug, we would have loaded them in _reset_state.
-        #    The environment keeps track of their PyBullet IDs => we read their positions now.
         for body_id, obj in self._obj_id_to_obj.items():
             if obj.type == self._cup_type:
                 (cx, cy, cz), _ = p.getBasePositionAndOrientation(
                     body_id, physicsClientId=self._physics_client_id)
-                # "growth" from custom dictionary, or we can keep track in a side-dict
 
                 # No liquid object is created if the current liquid is 0.
                 if self._cup_to_liquid_id.get(obj, None) is not None:
@@ -263,14 +250,16 @@ class PyBulletGrowEnv(PyBulletEnv):
                     liquid_height = p.getVisualShapeData(
                         liquid_id,
                         physicsClientId=self._physics_client_id,
-                    )[0][3][2] # Get the height of the cuboidal plant
+                    )[0][3][2]  # Get the height of the cuboidal plant
                     current_growth = liquid_height
                 else:
                     current_growth = 0.0
 
                 color_val = 1.0 if "red" in obj.name else 2.0  # arbitrary code
                 state_dict[obj] = {
-                    "x": cx, "y": cy, "z": cz,
+                    "x": cx,
+                    "y": cy,
+                    "z": cz,
                     "growth": current_growth,
                     "color": color_val
                 }
@@ -284,28 +273,31 @@ class PyBulletGrowEnv(PyBulletEnv):
                     p.getEulerFromQuaternion(orn)[2] + np.pi / 2)
                 color_val = 1.0 if "red" in obj.name else 2.0
                 state_dict[obj] = {
-                    "x": jx, "y": jy, "z": jz,
+                    "x": jx,
+                    "y": jy,
+                    "z": jz,
                     "is_held": is_held,
                     "rot": rot,
                     "color": color_val
                 }
 
+        # Convert the dictionary to a State.
         state = utils.create_state_from_dict(state_dict)
-        # Convert the dictionary to a State. Store simulator_state for rendering or debugging.
         joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = utils.PyBulletState(state, simulator_state=joint_positions)
+        pyb_state = utils.PyBulletState(
+            state.data, simulator_state={"joint_positions": joint_positions})
         return pyb_state
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        """
-        Return IDs of jugs (since we can only hold jugs).
-        """
+        """Return IDs of jugs (since we can only hold jugs)."""
+        assert self._red_jug_id is not None and self._blue_jug_id is not None
         return [self._red_jug_id, self._blue_jug_id]
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        """
-        For the default fetch robot in predicators. We assume a certain orientation
-        where the left_finger_id is in +y direction, the right_finger_id is in -y.
+        """For the default fetch robot in predicators.
+
+        We assume a certain orientation where the left_finger_id is in
+        +y direction, the right_finger_id is in -y.
         """
         normal_left = np.array([0., 1., 0.], dtype=np.float32)
         normal_right = np.array([0., -1., 0.], dtype=np.float32)
@@ -318,9 +310,10 @@ class PyBulletGrowEnv(PyBulletEnv):
     # Setting or updating the environment’s state.
 
     def _reset_state(self, state: State) -> None:
-        """
-        Called whenever we do reset() or simulate() on a new state that differs from
-        the environment's current state. We must reflect that state in PyBullet.
+        """Called whenever we do reset() or simulate() on a new state that
+        differs from the environment's current state.
+
+        We must reflect that state in PyBullet.
         """
         super()._reset_state(state)  # Clears constraints, resets robot
         # Remove old bodies if we had them
@@ -330,7 +323,7 @@ class PyBulletGrowEnv(PyBulletEnv):
             p.removeBody(body_id, physicsClientId=self._physics_client_id)
 
         self._obj_id_to_obj = {}  # track body -> object
-        self._cup_growth = {}     # track cup's growth
+        self._cup_growth = {}  # track cup's growth
 
         # Re-create cups in PyBullet
         self._cup_ids = []
@@ -362,21 +355,21 @@ class PyBulletGrowEnv(PyBulletEnv):
             jy = state.get(jug_obj, "y")
             jz = state.get(jug_obj, "z")
             rot = state.get(jug_obj, "rot")
-            jug_body_id = self._create_jug_urdf(jx, jy, jz, rot, 
-                                                "red" in jug_obj.name)
+            jug_body_id = self._create_jug_urdf(jx, jy, jz, rot, "red"
+                                                in jug_obj.name)
             self._jug_ids.append(jug_body_id)
             self._obj_id_to_obj[jug_body_id] = jug_obj
 
-        # For convenience, store IDs for usage in _get_object_ids_for_held_check()
         self._red_jug_id = self._jug_ids[0]
         self._blue_jug_id = self._jug_ids[1]
 
-        # Check if either jug is held => forcibly attach constraints. 
+        # Check if either jug is held => forcibly attach constraints.
         # (Though in our tasks we often start is_held=0.)
-        for jug_body_id, jug_obj in zip(self._jug_ids, [self._red_jug, self._blue_jug]):
-            if state.get(jug_obj, "is_held") > 0.5:
-                # Create a constraint with the robot's gripper
-                self._create_grasp_constraint_for_object(jug_body_id)
+        # for jug_body_id, jug_obj in zip(self._jug_ids,
+        #                                 [self._red_jug, self._blue_jug]):
+        #     if state.get(jug_obj, "is_held") > 0.5:
+        #         # Create a constraint with the robot's gripper
+        #         self._create_grasp_constraint_for_object(jug_body_id)
 
         # After re-adding objects, compare with the new state
         reconstructed_state = self._get_state()
@@ -388,29 +381,33 @@ class PyBulletGrowEnv(PyBulletEnv):
     # of matching color, we increase cup growth.
 
     def step(self, action: Action, render_obs: bool = False) -> State:
-        """
-        We let the parent class handle the robot stepping & constraints. Then,
-        we post-process: if the robot is tilting a jug over a matching-color cup,
-        we increase the cup's growth in self._cup_growth, and update the environment
-        accordingly.
+        """We let the parent class handle the robot stepping & constraints.
+
+        Then, we post-process: if the robot is tilting a jug over a
+        matching-color cup, we increase the cup's growth in
+        self._cup_growth, and update the environment accordingly.
         """
         # breakpoint()
         next_state = super().step(action, render_obs=render_obs)
 
-        # If a jug is in the robot's hand, and tilt is large, check if over a cup
+        # If a jug is in the robot's hand, and tilt is large,
+        # check if over a cup
         if self._held_obj_id is not None:
             # Which jug is being held?
             jug_obj = self._obj_id_to_obj[self._held_obj_id]
             # Check tilt
             tilt = next_state.get(self._robot, "tilt")
-            if abs(tilt - np.pi/4) < 0.1:
+            if abs(tilt - np.pi / 4) < 0.1:
                 # We assume that means "pouring"
                 # Find if there's a cup below that is color-matched
-                jug_color = next_state.get(jug_obj, "color")  # 1.0 for red, 2.0 for blue
+                _ = next_state.get(jug_obj,
+                                   "color")  # 1.0 for red, 2.0 for blue
                 # We can do a simple proximity check in XY
                 jug_x = next_state.get(jug_obj, "x")
                 jug_y = next_state.get(jug_obj, "y")
-                for cup_id, cup_obj in [(cid, obj) for cid, obj in self._obj_id_to_obj.items() if obj.type == self._cup_type]:
+                for _, cup_obj in [(cid, obj)
+                                   for cid, obj in self._obj_id_to_obj.items()
+                                   if obj.type == self._cup_type]:
                     cx = next_state.get(cup_obj, "x")
                     cy = next_state.get(cup_obj, "y")
                     dist = np.hypot(jug_x - cx, jug_y - cy)
@@ -418,32 +415,30 @@ class PyBulletGrowEnv(PyBulletEnv):
                     if dist < 0.13:  # "over" the cup
                         # cup_color = next_state.get(cup_obj, "color")
                         # if abs(cup_color - jug_color) < 0.1:
-                            # Color match => increase growth
-                        new_growth = min(1.0, self._cup_growth[cup_obj] + 
-                                         self.pour_rate)
+                        # Color match => increase growth
+                        new_growth = min(
+                            1.0, self._cup_growth[cup_obj] + self.pour_rate)
                         self._cup_growth[cup_obj] = new_growth
                         old_liquid_id = self._cup_to_liquid_id[cup_obj]
                         if old_liquid_id is not None:
-                            p.removeBody(old_liquid_id,
-                                        physicsClientId=self._physics_client_id)
+                            p.removeBody(
+                                old_liquid_id,
+                                physicsClientId=self._physics_client_id)
                         next_state.set(cup_obj, "growth", new_growth)
                         self._cup_to_liquid_id[cup_obj] =\
-                            self._create_pybullet_liquid_for_cup(cup_obj, 
+                            self._create_pybullet_liquid_for_cup(cup_obj,
                                                                  next_state)
 
-        # Because self._cup_growth changed, we replicate that into self._get_state() next time.
-        # So let's do one more read => next_state
         final_state = self._get_state()
         self._current_observation = final_state
         return final_state
 
     def _fingers_joint_to_state(self, finger_joint: float) -> float:
-        """
-        If the parent class uses "reset positions" for the joints, we map them back 
-        to [closed_fingers, open_fingers].
-        """
+        """If the parent class uses "reset positions" for the joints, we map
+        them back to [closed_fingers, open_fingers]."""
         # For a simple approach, pick whichever is closer.
-        if abs(finger_joint - self._pybullet_robot.open_fingers) < abs(finger_joint - self._pybullet_robot.closed_fingers):
+        if abs(finger_joint - self._pybullet_robot.open_fingers) < abs(
+                finger_joint - self._pybullet_robot.closed_fingers):
             return self.open_fingers
         return self.closed_fingers
 
@@ -463,8 +458,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         return state.get(jug, "is_held") > 0.5
 
     @staticmethod
-    def _HandEmpty_holds(state: State,
-                         objects: Sequence[Object]) -> bool:
+    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         return state.get(robot, "fingers") > 0.2
 
@@ -474,7 +468,8 @@ class PyBulletGrowEnv(PyBulletEnv):
             return False
         return True
 
-    def _SameColor_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _SameColor_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         cup, jug = objects
         return state.get(cup, "color") == state.get(jug, "color")
 
@@ -482,15 +477,16 @@ class PyBulletGrowEnv(PyBulletEnv):
     # Task Generation
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_train_tasks, 
+        return self._make_tasks(num_tasks=CFG.num_train_tasks,
                                 rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_test_tasks, 
+        return self._make_tasks(num_tasks=CFG.num_test_tasks,
                                 rng=self._test_rng)
 
-    def _make_tasks(self, num_tasks: int, rng: np.random.Generator
-                    ) -> List[EnvironmentTask]:
+    def _make_tasks(self, num_tasks: int,
+                    rng: np.random.Generator) -> List[EnvironmentTask]:
+        del rng
         tasks = []
         for _ in range(num_tasks):
             # Initialize random positions for cups & jugs
@@ -506,7 +502,6 @@ class PyBulletGrowEnv(PyBulletEnv):
             red_cup_y = 1.44
             blue_cup_x = 0.5
             blue_cup_y = 1.3
-            
 
             # Robot at center
             robot_dict = {
@@ -520,28 +515,32 @@ class PyBulletGrowEnv(PyBulletEnv):
 
             # Cup initial
             red_cup_dict = {
-                "x": red_cup_x, "y": red_cup_y, 
+                "x": red_cup_x,
+                "y": red_cup_y,
                 "z": self.z_lb + self.jug_height / 2,
                 "growth": 0.0,  # empty plant
-                "color": 1.0    # red
+                "color": 1.0  # red
             }
             blue_cup_dict = {
-                "x": blue_cup_x, "y": blue_cup_y, 
+                "x": blue_cup_x,
+                "y": blue_cup_y,
                 "z": self.z_lb + self.jug_height / 2,
                 "growth": 0.0,
-                "color": 2.0    # blue
+                "color": 2.0  # blue
             }
 
             # Jug initial
             red_jug_dict = {
-                "x": self.red_jug_x, "y": self.red_jug_y, 
+                "x": self.red_jug_x,
+                "y": self.red_jug_y,
                 "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,  # not in hand
                 "rot": 0.0,
                 "color": 1.0
             }
             blue_jug_dict = {
-                "x": self.blue_jug_x, "y": self.blue_jug_y, 
+                "x": self.blue_jug_x,
+                "y": self.blue_jug_y,
                 "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,
                 "rot": 0.0,
@@ -569,15 +568,14 @@ class PyBulletGrowEnv(PyBulletEnv):
             tasks.append(EnvironmentTask(init_state, goal_atoms))
         return self._add_pybullet_state_to_tasks(tasks)
 
-    def _create_cup_urdf(self, x: float, y: float, z: float, is_red: bool) -> int:
+    def _create_cup_urdf(self, x: float, y: float, z: float,
+                         is_red: bool) -> int:
         global_scale = 0.2
-        cup_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/cup-pixel.urdf"),
-            useFixedBase=True,
-            globalScaling=global_scale,
-            physicsClientId=self._physics_client_id
-        )
-        cup_orn = p.getQuaternionFromEuler([0.0, 0.0, - np.pi / 2])
+        cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup-pixel.urdf"),
+                            useFixedBase=True,
+                            globalScaling=global_scale,
+                            physicsClientId=self._physics_client_id)
+        cup_orn = p.getQuaternionFromEuler([0.0, 0.0, -np.pi / 2])
         p.resetBasePositionAndOrientation(
             cup_id, (x, y, z),
             cup_orn,
@@ -591,13 +589,11 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     def _create_jug_urdf(self, x: float, y: float, z: float, rot: float,
                          is_red: bool) -> int:
-        jug_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/jug-pixel.urdf"),
-            basePosition=(x, y, z),
-            globalScaling=0.2,
-            useFixedBase=False,
-            physicsClientId=self._physics_client_id
-        )
+        jug_id = p.loadURDF(utils.get_env_asset_path("urdf/jug-pixel.urdf"),
+                            basePosition=(x, y, z),
+                            globalScaling=0.2,
+                            useFixedBase=False,
+                            physicsClientId=self._physics_client_id)
         jug_orn = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
         p.resetBasePositionAndOrientation(
             jug_id, (x, y, z),

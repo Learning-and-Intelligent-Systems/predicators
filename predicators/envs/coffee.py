@@ -761,7 +761,8 @@ class CoffeeEnv(BaseEnv):
         # Orient pointing down.
         rot = state.get(jug, "rot") - np.pi / 2
         target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
-        target_y = state.get(jug, "y") + np.sin(rot) * cls.jug_handle_offset - 0.02
+        target_y = state.get(jug,
+                             "y") + np.sin(rot) * cls.jug_handle_offset - 0.02
         if not CFG.coffee_use_pixelated_jug:
             target_y += 0.02
         target_z = cls.z_lb + cls.jug_handle_height()
