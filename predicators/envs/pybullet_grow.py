@@ -167,19 +167,6 @@ class PyBulletGrowEnv(PyBulletEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to PyBullet IDs for environment assets."""
 
-    @classmethod
-    def _create_pybullet_robot(
-            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
-        """Create a single-arm PyBullet robot."""
-        # The EE orientation is usually set so that the gripper is down.
-        ee_home_orn = p.getQuaternionFromEuler([0, np.pi / 2, 0])
-        ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
-                       ee_home_orn)
-        base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, ee_home,
-                                                base_pose)
-
     # -------------------------------------------------------------------------
     # Key Abstract Methods from PyBulletEnv
     @classmethod

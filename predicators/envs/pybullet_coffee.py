@@ -310,17 +310,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._plug_id = pybullet_bodies["plug_id"]
             self._socket_id = pybullet_bodies["socket_id"]
 
-    @classmethod
-    def _create_pybullet_robot(
-            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
-        robot_ee_orn = cls.get_robot_ee_home_orn()
-        ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
-                       robot_ee_orn)
-        base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, ee_home,
-                                                base_pose)
-
     def _extract_robot_state(self, state: State) -> Array:
         qx, qy, qz, qw = self._state_to_gripper_orn(state)
         f = state.get(self._robot, "fingers")

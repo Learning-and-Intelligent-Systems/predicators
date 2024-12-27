@@ -25,6 +25,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
+    # Robot parameters.
+    robot_base_pos: Optional[Tuple[float, float, float]] = None
+    robot_base_orn: Optional[Tuple[float, float, float, float]] = None
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -111,15 +115,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         self._table_id = pybullet_bodies["table_id"]
         self._block_ids = pybullet_bodies["block_ids"]
-
-    @classmethod
-    def _create_pybullet_robot(
-            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
-        robot_ee_orn = cls.get_robot_ee_home_orn()
-        ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
-                       robot_ee_orn)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
         # The orientation is fixed in this environment.

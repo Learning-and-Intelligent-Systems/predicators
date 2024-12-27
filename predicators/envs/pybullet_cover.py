@@ -1,6 +1,6 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Tuple
+from typing import Any, ClassVar, Dict, List, Tuple, Optional
 
 import numpy as np
 import pybullet as p
@@ -31,7 +31,11 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _table_height: ClassVar[float] = 0.2
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
+    robot_init_x: ClassVar[float] = CoverEnv.workspace_x
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
+    robot_init_z: ClassVar[float] = CoverEnv.workspace_z
+    robot_base_pos: Optional[ClassVar[Tuple[float, float, float]]] = None
+    robot_base_orn: Optional[ClassVar[Tuple[float, float, float, float]]] = None
     _offset: ClassVar[float] = 0.01
     pickplace_z: ClassVar[float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001
@@ -103,15 +107,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         self._table_id = pybullet_bodies["table_id"]
         self._block_ids = pybullet_bodies["block_ids"]
         self._target_ids = pybullet_bodies["target_ids"]
-
-    @classmethod
-    def _create_pybullet_robot(
-            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
-        robot_ee_orn = cls.get_robot_ee_home_orn()
-        ee_home = Pose((cls.workspace_x, cls.robot_init_y, cls.workspace_z),
-                       robot_ee_orn)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):

@@ -2,7 +2,8 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Sequence, Set, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Sequence, Set, Tuple, Union, \
+    Optional
 
 import numpy as np
 import pybullet as p
@@ -30,6 +31,10 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     # _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
     # button_press_threshold = 1e-3
+
+    # Robot parameters.
+    robot_base_pos: Optional[Tuple[float, float, float]] = None
+    robot_base_orn: Optional[Tuple[float, float, float, float]] = None
 
     # Repeat for LLM predicates parsing
 
@@ -357,15 +362,6 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         self._table_ids = pybullet_bodies["table_ids"]
         self._block_ids = pybullet_bodies["block_ids"]
         self._button_id = pybullet_bodies["button_id"]
-
-    @classmethod
-    def _create_pybullet_robot(
-            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
-        robot_ee_orn = cls.get_robot_ee_home_orn()
-        ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
-                       robot_ee_orn)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
         # The orientation is fixed in this environment.

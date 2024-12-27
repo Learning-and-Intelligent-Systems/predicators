@@ -17,10 +17,11 @@ from predicators.envs import BaseEnv
 from predicators.pybullet_helpers.camera import create_gui_connection
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
+    create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
-    Observation, State, Video
+    Observation, State, Video, Pose
 from predicators.utils import PyBulletState
 
 
@@ -122,12 +123,20 @@ class PyBulletEnv(BaseEnv):
         raise NotImplementedError("Override me!")
 
     @classmethod
-    @abc.abstractmethod
     def _create_pybullet_robot(
             cls, physics_client_id: int) -> SingleArmPyBulletRobot:
-        """Make and return a PyBullet robot object in the given
-        physics_client_id."""
-        raise NotImplementedError("Override me!")
+        robot_ee_orn = cls.get_robot_ee_home_orn()
+        ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
+                       robot_ee_orn)
+
+        if cls.robot_base_pos is None or cls.robot_base_orn is None:
+            base_pose = None
+        else:
+            base_pose = Pose(cls.robot_base_pos, cls.robot_base_orn)
+
+        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
+                                                physics_client_id, ee_home,
+                                                base_pose)
 
     @abc.abstractmethod
     def _extract_robot_state(self, state: State) -> Array:
