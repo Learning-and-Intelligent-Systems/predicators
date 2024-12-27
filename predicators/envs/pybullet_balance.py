@@ -527,21 +527,6 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         return sorted(self._block_id_to_block)
 
-    def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        if CFG.pybullet_robot == "panda":
-            # gripper rotated 90deg so parallel to x-axis
-            normal = np.array([1., 0., 0.], dtype=np.float32)
-        elif CFG.pybullet_robot == "fetch":
-            # gripper parallel to y-axis
-            normal = np.array([0., 1., 0.], dtype=np.float32)
-        else:  # pragma: no cover
-            # Shouldn't happen unless we introduce a new robot.
-            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
-
-        return {
-            self._pybullet_robot.left_finger_id: normal,
-            self._pybullet_robot.right_finger_id: -1 * normal,
-        }
 
     def _force_grasp_object(self, block: Object) -> None:
         block_to_block_id = {b: i for i, b in self._block_id_to_block.items()}

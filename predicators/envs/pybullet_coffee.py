@@ -699,19 +699,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             return [self._jug_id, self._plug_id]
         return [self._jug_id]
 
-    def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        if CFG.pybullet_robot == "fetch":
-            # gripper parallel to y-axis
-            normal = np.array([0., 1., 0.], dtype=np.float32)
-        else:  # pragma: no cover
-            # Shouldn't happen unless we introduce a new robot.
-            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
-
-        return {
-            self._pybullet_robot.left_finger_id: normal,
-            self._pybullet_robot.right_finger_id: -1 * normal,
-        }
-
     def _state_to_gripper_orn(self, state: State) -> Quaternion:
         wrist = state.get(self._robot, "wrist")
         tilt = state.get(self._robot, "tilt")

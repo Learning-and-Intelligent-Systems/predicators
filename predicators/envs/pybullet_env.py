@@ -164,15 +164,21 @@ class PyBulletEnv(BaseEnv):
         held."""
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        """Get the expected finger normals, used in detect_held_object(), as a
-        mapping from finger link index to a unit-length normal vector.
+        if CFG.pybullet_robot == "panda":
+            # gripper rotated 90deg so parallel to x-axis
+            normal = np.array([1., 0., 0.], dtype=np.float32)
+        elif CFG.pybullet_robot == "fetch":
+            # gripper parallel to y-axis
+            normal = np.array([0., 1., 0.], dtype=np.float32)
+        else:  # pragma: no cover
+            # Shouldn't happen unless we introduce a new robot.
+            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
 
-        This is environment-specific because it depends on the end
-        effector's orientation when grasping.
-        """
-        raise NotImplementedError("Override me!")
+        return {
+            self._pybullet_robot.left_finger_id: normal,
+            self._pybullet_robot.right_finger_id: -1 * normal,
+        }
 
     @classmethod
     def _fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,

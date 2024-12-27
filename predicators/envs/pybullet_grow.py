@@ -269,19 +269,6 @@ class PyBulletGrowEnv(PyBulletEnv):
         assert self._red_jug_id is not None and self._blue_jug_id is not None
         return [self._red_jug_id, self._blue_jug_id]
 
-    def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        """For the default fetch robot in predicators.
-
-        We assume a certain orientation where the left_finger_id is in
-        +y direction, the right_finger_id is in -y.
-        """
-        normal_left = np.array([0., 1., 0.], dtype=np.float32)
-        normal_right = np.array([0., -1., 0.], dtype=np.float32)
-        return {
-            self._pybullet_robot.left_finger_id: normal_left,
-            self._pybullet_robot.right_finger_id: normal_right,
-        }
-
     # -------------------------------------------------------------------------
     # Setting or updating the environment’s state.
 

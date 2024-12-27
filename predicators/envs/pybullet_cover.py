@@ -279,13 +279,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         return sorted(self._block_id_to_block)
 
-    def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        # Both fetch and panda have grippers parallel to x-axis
-        return {
-            self._pybullet_robot.left_finger_id: np.array([1., 0., 0.]),
-            self._pybullet_robot.right_finger_id: np.array([-1., 0., 0.]),
-        }
-
     @classmethod
     def get_name(cls) -> str:
         return "pybullet_cover"
