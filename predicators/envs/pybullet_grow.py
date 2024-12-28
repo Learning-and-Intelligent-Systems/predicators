@@ -14,8 +14,8 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
-    create_single_arm_pybullet_robot
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
+from predicators.pybullet_helpers.objects import create_object
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Object, Predicate, State, Type
@@ -152,14 +152,14 @@ class PyBulletGrowEnv(PyBulletEnv):
 
         # You can add a table or floor plane, etc.
         # For example, let's add a table below the workspace:
-        table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
-                              useFixedBase=True,
-                              physicsClientId=physics_client_id)
-        # Position the table so the top is at z=cls.z_lb
-        p.resetBasePositionAndOrientation(table_id, (0.75, 1.35, 0.0),
-                                          p.getQuaternionFromEuler(
-                                              [0., 0., np.pi / 2]),
-                                          physicsClientId=physics_client_id)
+        table_id = create_object(asset_path="urdf/table.urdf",
+                                    position=(0.75, 1.35, 0.0),
+                                    orientation=p.getQuaternionFromEuler(
+                                        [0., 0., np.pi / 2]),
+                                    scale=1.0
+                                    use_fixed_base=True,
+                                    physics_client_id=physics_client_id,
+                                )
         bodies["table_id"] = table_id
 
         return physics_client_id, pybullet_robot, bodies
@@ -168,7 +168,12 @@ class PyBulletGrowEnv(PyBulletEnv):
         """Store references to PyBullet IDs for environment assets."""
 
     # -------------------------------------------------------------------------
-    # Key Abstract Methods from PyBulletEnv
+    # State Management: Get, (Re)Set, Update
+    def _get_object_ids_for_held_check(self) -> List[int]:
+        """Return IDs of jugs (since we can only hold jugs)."""
+        assert self._red_jug_id is not None and self._blue_jug_id is not None
+        return [self._red_jug_id, self._blue_jug_id]
+
     def _get_state(self) -> State:
         """Create a State object from the current PyBullet simulation.
 
@@ -241,14 +246,6 @@ class PyBulletGrowEnv(PyBulletEnv):
             state.data, simulator_state={"joint_positions": joint_positions})
         return pyb_state
 
-    def _get_object_ids_for_held_check(self) -> List[int]:
-        """Return IDs of jugs (since we can only hold jugs)."""
-        assert self._red_jug_id is not None and self._blue_jug_id is not None
-        return [self._red_jug_id, self._blue_jug_id]
-
-    # -------------------------------------------------------------------------
-    # Setting or updating the environment’s state.
-
     def _reset_state(self, state: State) -> None:
         """Called whenever we do reset() or simulate() on a new state that
         differs from the environment's current state.
@@ -271,7 +268,11 @@ class PyBulletGrowEnv(PyBulletEnv):
             cx = state.get(cup_obj, "x")
             cy = state.get(cup_obj, "y")
             cz = state.get(cup_obj, "z")
-            body_id = self._create_cup_urdf(cx, cy, cz, "red" in cup_obj.name)
+            body_id = create_object(asset_path="urdf/pot-pixel.urdf",
+                            position=(cx, cy, cz),
+                            color=(1, 0.3, 0.3, 1) if "red" in cup_obj.name \
+                                else (0.3, 0.3, 1, 1),
+                            physics_client_id=self._physics_client_id)
             self._cup_ids.append(body_id)
             self._obj_id_to_obj[body_id] = cup_obj
             # Store initial growth
@@ -294,9 +295,14 @@ class PyBulletGrowEnv(PyBulletEnv):
             jx = state.get(jug_obj, "x")
             jy = state.get(jug_obj, "y")
             jz = state.get(jug_obj, "z")
-            rot = state.get(jug_obj, "rot")
-            jug_body_id = self._create_jug_urdf(jx, jy, jz, rot, "red"
-                                                in jug_obj.name)
+            jug_body_id = create_object(
+                                    asset_path="urdf/jug-pixel.urdf",
+                                    position=(jx, jy, jz),
+                                    orientation=p.getQuaternionFromEuler(
+                                        [0.0, 0.0, -np.pi / 2]),
+                                    color=(1, 0, 0, 1) if "red" in 
+                                        jug_obj.name else (0, 0, 1, 1),
+                                    physics_client_id=self._physics_client_id)
             self._jug_ids.append(jug_body_id)
             self._obj_id_to_obj[jug_body_id] = jug_obj
 
@@ -406,7 +412,6 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     # -------------------------------------------------------------------------
     # Task Generation
-
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._make_tasks(num_tasks=CFG.num_train_tasks,
                                 rng=self._train_rng)
@@ -498,44 +503,9 @@ class PyBulletGrowEnv(PyBulletEnv):
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
         return self._add_pybullet_state_to_tasks(tasks)
-
-    def _create_cup_urdf(self, x: float, y: float, z: float,
-                         is_red: bool) -> int:
-        global_scale = 0.2
-        cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup-pixel.urdf"),
-                            useFixedBase=True,
-                            globalScaling=global_scale,
-                            physicsClientId=self._physics_client_id)
-        cup_orn = p.getQuaternionFromEuler([0.0, 0.0, -np.pi / 2])
-        p.resetBasePositionAndOrientation(
-            cup_id, (x, y, z),
-            cup_orn,
-            physicsClientId=self._physics_client_id)
-
-        if is_red:
-            p.changeVisualShape(cup_id, -1, rgbaColor=(1, 0.3, 0.3, 1))
-        else:
-            p.changeVisualShape(cup_id, -1, rgbaColor=(0.3, 0.3, 1, 1))
-        return cup_id
-
-    def _create_jug_urdf(self, x: float, y: float, z: float, rot: float,
-                         is_red: bool) -> int:
-        jug_id = p.loadURDF(utils.get_env_asset_path("urdf/jug-pixel.urdf"),
-                            basePosition=(x, y, z),
-                            globalScaling=0.2,
-                            useFixedBase=False,
-                            physicsClientId=self._physics_client_id)
-        jug_orn = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
-        p.resetBasePositionAndOrientation(
-            jug_id, (x, y, z),
-            jug_orn,
-            physicsClientId=self._physics_client_id)
-        if is_red:
-            p.changeVisualShape(jug_id, -1, rgbaColor=(1, 0, 0, 1))
-        else:
-            p.changeVisualShape(jug_id, -1, rgbaColor=(0, 0, 1, 1))
-        return jug_id
-
+    
+    # -------------------------------------------------------------------------
+    # Helpers
     def _create_pybullet_liquid_for_cup(self, cup: Object,
                                         state: State) -> Optional[int]:
         current_liquid = state.get(cup, "growth")
