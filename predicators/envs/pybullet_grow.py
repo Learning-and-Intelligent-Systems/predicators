@@ -152,7 +152,7 @@ class PyBulletGrowEnv(PyBulletEnv):
                                     position=(0.75, 1.35, 0.0),
                                     orientation=p.getQuaternionFromEuler(
                                         [0., 0., np.pi / 2]),
-                                    scale=1.0
+                                    scale=1.0,
                                     use_fixed_base=True,
                                     physics_client_id=physics_client_id,
                                 )
