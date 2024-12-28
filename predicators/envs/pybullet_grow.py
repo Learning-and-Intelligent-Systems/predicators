@@ -15,7 +15,7 @@ from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
-from predicators.pybullet_helpers.objects import create_object
+from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Object, Predicate, State, Type
@@ -108,12 +108,9 @@ class PyBulletGrowEnv(PyBulletEnv):
                                     [self._cup_type, self._jug_type],
                                     self._SameColor_holds)
 
+        # TODO: These two can also be simplified
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
         self._cup_growth: Dict[Object, float] = {}
-        self._cup_ids: List[int] = []
-        self._jug_ids: List[int] = []
-        self._red_jug_id: Optional[int] = None
-        self._blue_jug_id: Optional[int] = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -162,17 +159,46 @@ class PyBulletGrowEnv(PyBulletEnv):
                                 )
         bodies["table_id"] = table_id
 
+        # TODO: Create the pots and jugs here
+        num_cups = 2
+        num_jugs = 2
+        cup_ids = []
+        for i in range(num_cups):
+            cup_id = create_object(asset_path="urdf/pot-pixel.urdf",
+                                    color=(1, 0.3, 0.3, 1) if i == 0 else \
+                                        (0.3, 0.3, 1, 1),
+                                    physics_client_id=physics_client_id)
+            cup_ids.append(cup_id)
+        bodies["cup_ids"] = cup_ids
+
+        jug_ids = []
+        for i in range(num_jugs):
+            jug_id = create_object(asset_path="urdf/jug-pixel.urdf",
+                                    orientation=p.getQuaternionFromEuler(
+                                        [0.0, 0.0, -np.pi / 2]),
+                                    color=(1, 0, 0, 1) if i == 0 else (0, 0, 1, 1),
+                                    physics_client_id=physics_client_id)
+            jug_ids.append(jug_id)
+        bodies["jug_ids"] = jug_ids
+
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to PyBullet IDs for environment assets."""
+        # Update self._obj_id_to_obj here; these are used for labeling objects
+        # in rendering. Alternatively, we could just keep a set of objects,
+        # and store IDs in object instances themselves.
+        self._red_cup.id = pybullet_bodies["cup_ids"][0]
+        self._blue_cup.id = pybullet_bodies["cup_ids"][1]
+        self._red_jug.id = pybullet_bodies["jug_ids"][0]
+        self._blue_jug.id = pybullet_bodies["jug_ids"][1]
 
     # -------------------------------------------------------------------------
     # State Management: Get, (Re)Set, Update
     def _get_object_ids_for_held_check(self) -> List[int]:
         """Return IDs of jugs (since we can only hold jugs)."""
-        assert self._red_jug_id is not None and self._blue_jug_id is not None
-        return [self._red_jug_id, self._blue_jug_id]
+        assert self._red_jug.id is not None and self._blue_jug.id is not None
+        return [self._red_jug.id, self._blue_jug.id]
 
     def _get_state(self) -> State:
         """Create a State object from the current PyBullet simulation.
@@ -253,29 +279,17 @@ class PyBulletGrowEnv(PyBulletEnv):
         We must reflect that state in PyBullet.
         """
         super()._reset_state(state)  # Clears constraints, resets robot
-        # Remove old bodies if we had them
-        for body_id in getattr(self, "_cup_ids", []):
-            p.removeBody(body_id, physicsClientId=self._physics_client_id)
-        for body_id in getattr(self, "_jug_ids", []):
-            p.removeBody(body_id, physicsClientId=self._physics_client_id)
 
-        self._obj_id_to_obj = {}  # track body -> object
         self._cup_growth = {}  # track cup's growth
 
-        # Re-create cups in PyBullet
-        self._cup_ids = []
+        # new reset cups and jugs
         for cup_obj in [self._red_cup, self._blue_cup]:
             cx = state.get(cup_obj, "x")
             cy = state.get(cup_obj, "y")
             cz = state.get(cup_obj, "z")
-            body_id = create_object(asset_path="urdf/pot-pixel.urdf",
-                            position=(cx, cy, cz),
-                            color=(1, 0.3, 0.3, 1) if "red" in cup_obj.name \
-                                else (0.3, 0.3, 1, 1),
-                            physics_client_id=self._physics_client_id)
-            self._cup_ids.append(body_id)
-            self._obj_id_to_obj[body_id] = cup_obj
-            # Store initial growth
+            update_object(cup_obj.id,
+                          position=(cx, cy, cz),
+                          physics_client_id=self._physics_client_id)
             self._cup_growth[cup_obj] = state.get(cup_obj, "growth")
 
         # Create liquid in cups.
@@ -290,24 +304,15 @@ class PyBulletGrowEnv(PyBulletEnv):
             self._cup_to_liquid_id[cup] = liquid_id
 
         # Re-create jugs in PyBullet
-        self._jug_ids = []
         for jug_obj in [self._red_jug, self._blue_jug]:
             jx = state.get(jug_obj, "x")
             jy = state.get(jug_obj, "y")
             jz = state.get(jug_obj, "z")
-            jug_body_id = create_object(
-                                    asset_path="urdf/jug-pixel.urdf",
-                                    position=(jx, jy, jz),
-                                    orientation=p.getQuaternionFromEuler(
-                                        [0.0, 0.0, -np.pi / 2]),
-                                    color=(1, 0, 0, 1) if "red" in 
-                                        jug_obj.name else (0, 0, 1, 1),
-                                    physics_client_id=self._physics_client_id)
-            self._jug_ids.append(jug_body_id)
-            self._obj_id_to_obj[jug_body_id] = jug_obj
-
-        self._red_jug_id = self._jug_ids[0]
-        self._blue_jug_id = self._jug_ids[1]
+            update_object(jug_obj.id,
+                          position=(jx, jy, jz),
+                          orientation=p.getQuaternionFromEuler(
+                              [0.0, 0.0, -np.pi / 2]),
+                          physics_client_id=self._physics_client_id)
 
         # Check if either jug is held => forcibly attach constraints.
         # (Though in our tasks we often start is_held=0.)

@@ -74,8 +74,12 @@ class PyBulletEnv(BaseEnv):
         self._physics_client_id, self._pybullet_robot, pybullet_bodies = \
             self.initialize_pybullet(self.using_gui)
         self._store_pybullet_bodies(pybullet_bodies)
-        # track for rendering
+
+        # TODO: track for rendering; a mapping from pybullet ID to Env's Object
+        # Try to just use this or even just a set of
+        # objects for every env, instead of cup_id_to_cup, block_id_to_block...
         self._obj_id_to_obj: Dict[int, Object] = {}
+        self._objects: List[Object] = []
 
     @classmethod
     def initialize_pybullet(
