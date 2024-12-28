@@ -242,7 +242,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # The status of the jug is not modeled inside PyBullet.
         self._jug_filled = False
         self._jug_liquid_id: Optional[int] = None
-        self._obj_id_to_obj: Dict[int, Object] = {}
 
         self._cord_ids: Optional[List[int]] = None
         self._plug_id: Optional[int] = None
@@ -300,9 +299,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
-        self._table_id = pybullet_bodies["table_id"]
-        self._jug_id = pybullet_bodies["jug_id"]
-        self._machine_id = pybullet_bodies["machine_id"]
+        self._table.id = pybullet_bodies["table_id"]
+        self._jug.id = pybullet_bodies["jug_id"]
+        self._machine.id = pybullet_bodies["machine_id"]
+        self._robot.id = self._pybullet_robot.robot_id
         self._dispense_area_id = pybullet_bodies["dispense_area_id"]
         self._button_id = pybullet_bodies["button_id"]
         if CFG.coffee_machine_has_plug:
@@ -318,14 +318,10 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         """Run super(), then handle coffee-specific resetting."""
         super()._reset_state(state)
 
+        self._objects = [self._robot, self._table, self._jug, self._machine]
         # Remove the old cups.
         for old_cup_id in self._cup_id_to_cup:
             p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
-        self._obj_id_to_obj = {}
-        self._obj_id_to_obj[self._pybullet_robot.robot_id] = self._robot
-        self._obj_id_to_obj[self._table_id] = self._table
-        self._obj_id_to_obj[self._jug_id] = self._jug
-        self._obj_id_to_obj[self._machine_id] = self._machine
 
         # Reset cups based on the state.
         cup_objs = state.get_objects(self._cup_type)
@@ -361,7 +357,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                 physicsClientId=self._physics_client_id)
 
             self._cup_id_to_cup[cup_id] = cup_obj
-            self._obj_id_to_obj[cup_id] = cup_obj
+            cup_obj.id = cup_id
+            self._objects.append(cup_obj)
 
         # Create liquid in cups.
         for liquid_id in self._cup_to_liquid_id.values():

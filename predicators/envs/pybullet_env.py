@@ -75,11 +75,16 @@ class PyBulletEnv(BaseEnv):
             self.initialize_pybullet(self.using_gui)
         self._store_pybullet_bodies(pybullet_bodies)
 
-        # TODO: track for rendering; a mapping from pybullet ID to Env's Object
-        # Try to just use this or even just a set of
-        # objects for every env, instead of cup_id_to_cup, block_id_to_block...
-        self._obj_id_to_obj: Dict[int, Object] = {}
+        # Either populate at reset state (if the objects across tasks are 
+        # different) or populate at store_pybullet_bodies (if the objects are
+        # the same across tasks)
         self._objects: List[Object] = []
+    
+    def get_object_by_id(self, obj_id: int) -> Object:
+        for obj in self._objects:
+            if obj.id == obj_id:
+                return obj
+        raise ValueError(f"Object with ID {obj_id} not found")
 
     @classmethod
     def initialize_pybullet(
@@ -381,12 +386,10 @@ class PyBulletEnv(BaseEnv):
         state_img = Image.fromarray(  # type: ignore[no-untyped-call]
             original_image[:, :, :3])
 
-        # Iterate over all bodies
-        for bodyId, obj in self._obj_id_to_obj.items():
-            # Can I change the object name here to obj_id?
-            # original_obj = obj
-            obj.id = bodyId
-            mask = seg_image == bodyId
+        # Iterate over all bodies to be labeled
+        for obj in self._objects:
+            body_id = obj.id
+            mask = seg_image == body_id
             mask_dict[obj] = mask
 
         return state_img, mask_dict

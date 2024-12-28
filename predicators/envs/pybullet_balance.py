@@ -62,9 +62,6 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
         self._block_id_to_block: Dict[int, Object] = {}
-        # Mapping from pybullet object id to Object instances
-        # which can be used to get the segmented image for the object
-        self._obj_id_to_obj: Dict[int, Object] = {}
 
         self.ns_to_sym_predicates: Dict[Tuple[str], Predicate] = {
             ("GripperOpen"): self._GripperOpen,
@@ -350,12 +347,10 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
-        # self._plate1_id = pybullet_bodies["table_id"]
-        # self._table2_id = pybullet_bodies["table2_id"]
-        # self._plate3_id = pybullet_bodies["plate3_id"]
-        self._table_ids = pybullet_bodies["table_ids"]
-        self._block_ids = pybullet_bodies["block_ids"]
-        self._button_id = pybullet_bodies["button_id"]
+        self._plate1.id = pybullet_bodies["table_ids"][0]
+        self._plate3.id = pybullet_bodies["table_ids"][1]
+        self._machine.id = pybullet_bodies["button_id"]
+        self._robot = self._pybullet_robot.robot_id
 
     @classmethod
     def get_name(cls) -> str:
@@ -368,16 +363,12 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         # Reset blocks based on the state.
         block_objs = state.get_objects(self._block_type)
         self._block_id_to_block = {}
-        self._obj_id_to_obj = {}
-        self._obj_id_to_obj[self._pybullet_robot.robot_id] = self._robot
-        self._obj_id_to_obj[self._table_ids[0]] = self._plate1
-        # self._obj_id_to_obj[self._table_ids[1]] = self._table2
-        self._obj_id_to_obj[self._table_ids[1]] = self._plate3
-        self._obj_id_to_obj[self._button_id] = self._machine
+        self._objects = [self._robot, self._plate1, self._plate3, self._machine]
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
             self._block_id_to_block[block_id] = block_obj
-            self._obj_id_to_obj[block_id] = block_obj
+            block_obj.id = block_id
+            self._objects.append(block_obj)
             bx = state.get(block_obj, "pose_x")
             by = state.get(block_obj, "pose_y")
             bz = state.get(block_obj, "pose_z")

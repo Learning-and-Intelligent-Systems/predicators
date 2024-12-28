@@ -222,10 +222,10 @@ class PyBulletGrowEnv(PyBulletEnv):
         }
 
         # 2) For each cup and jug, we would have loaded them in _reset_state.
-        for body_id, obj in self._obj_id_to_obj.items():
+        for obj in self._objects:
             if obj.type == self._cup_type:
                 (cx, cy, cz), _ = p.getBasePositionAndOrientation(
-                    body_id, physicsClientId=self._physics_client_id)
+                    obj.id, physicsClientId=self._physics_client_id)
 
                 # No liquid object is created if the current liquid is 0.
                 if self._cup_to_liquid_id.get(obj, None) is not None:
@@ -249,9 +249,9 @@ class PyBulletGrowEnv(PyBulletEnv):
 
             elif obj.type == self._jug_type:
                 (jx, jy, jz), orn = p.getBasePositionAndOrientation(
-                    body_id, physicsClientId=self._physics_client_id)
+                    obj.id, physicsClientId=self._physics_client_id)
                 # is_held we track from constraints
-                is_held = 1.0 if (body_id == self._held_obj_id) else 0.0
+                is_held = 1.0 if (obj.id == self._held_obj_id) else 0.0
                 rot = utils.wrap_angle(
                     p.getEulerFromQuaternion(orn)[2] + np.pi / 2)
                 color_val = 1.0 if "red" in obj.name else 2.0
@@ -279,6 +279,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         """
         super()._reset_state(state)  # Clears constraints, resets robot
 
+        self._objects = [self._red_cup, self._blue_cup, self._red_jug,
+                            self._blue_jug, self._robot]
         # new reset cups and jugs
         for cup_obj in [self._red_cup, self._blue_cup]:
             cx = state.get(cup_obj, "x")
@@ -341,7 +343,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         # check if over a cup
         if self._held_obj_id is not None:
             # Which jug is being held?
-            jug_obj = self._obj_id_to_obj[self._held_obj_id]
+            jug_obj = self.get_object_by_id(self._held_obj_id)
             # Check tilt
             tilt = next_state.get(self._robot, "tilt")
             if abs(tilt - np.pi / 4) < 0.1:
@@ -352,9 +354,7 @@ class PyBulletGrowEnv(PyBulletEnv):
                 # We can do a simple proximity check in XY
                 jug_x = next_state.get(jug_obj, "x")
                 jug_y = next_state.get(jug_obj, "y")
-                for _, cup_obj in [(cid, obj)
-                                   for cid, obj in self._obj_id_to_obj.items()
-                                   if obj.type == self._cup_type]:
+                for cup_obj in next_state.get_objects(self._cup_type):
                     cx = next_state.get(cup_obj, "x")
                     cy = next_state.get(cup_obj, "y")
                     dist = np.hypot(jug_x - cx, jug_y - cy)
