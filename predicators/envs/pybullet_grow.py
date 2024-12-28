@@ -110,7 +110,6 @@ class PyBulletGrowEnv(PyBulletEnv):
 
         # TODO: These two can also be simplified
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
-        self._cup_growth: Dict[Object, float] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -280,8 +279,6 @@ class PyBulletGrowEnv(PyBulletEnv):
         """
         super()._reset_state(state)  # Clears constraints, resets robot
 
-        self._cup_growth = {}  # track cup's growth
-
         # new reset cups and jugs
         for cup_obj in [self._red_cup, self._blue_cup]:
             cx = state.get(cup_obj, "x")
@@ -290,7 +287,6 @@ class PyBulletGrowEnv(PyBulletEnv):
             update_object(cup_obj.id,
                           position=(cx, cy, cz),
                           physics_client_id=self._physics_client_id)
-            self._cup_growth[cup_obj] = state.get(cup_obj, "growth")
 
         # Create liquid in cups.
         for liquid_id in self._cup_to_liquid_id.values():
@@ -335,8 +331,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         """We let the parent class handle the robot stepping & constraints.
 
         Then, we post-process: if the robot is tilting a jug over a
-        matching-color cup, we increase the cup's growth in
-        self._cup_growth, and update the environment accordingly.
+        matching-color cup, we increase the cup's growth in, 
+        and update the environment accordingly.
         """
         # breakpoint()
         next_state = super().step(action, render_obs=render_obs)
@@ -367,9 +363,8 @@ class PyBulletGrowEnv(PyBulletEnv):
                         # cup_color = next_state.get(cup_obj, "color")
                         # if abs(cup_color - jug_color) < 0.1:
                         # Color match => increase growth
-                        new_growth = min(
-                            1.0, self._cup_growth[cup_obj] + self.pour_rate)
-                        self._cup_growth[cup_obj] = new_growth
+                        current_growth = next_state.get(cup_obj, "growth")
+                        new_growth = min(1.0, current_growth + self.pour_rate)
                         old_liquid_id = self._cup_to_liquid_id[cup_obj]
                         if old_liquid_id is not None:
                             p.removeBody(
