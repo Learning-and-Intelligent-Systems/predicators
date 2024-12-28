@@ -142,7 +142,6 @@ class PyBulletEnv(BaseEnv):
                                                 physics_client_id, ee_home,
                                                 base_pose)
 
-    @abc.abstractmethod
     def _extract_robot_state(self, state: State) -> Array:
         """Given a State, extract the robot state, to be passed into
         self._pybullet_robot.reset_state().
@@ -150,7 +149,37 @@ class PyBulletEnv(BaseEnv):
         This should be the same type as the return value of
         self._pybullet_robot.get_state().
         """
-        raise NotImplementedError("Override me!")
+        # EE Position
+        def get_pos_feature(state, feature_name):
+            if feature_name in self._robot.type.feature_names:
+                return state.get(self._robot, feature_name)
+            elif f"pose_{feature_name}" in self._robot.type.feature_names:
+                return state.get(self._robot, f"pose_{feature_name}")
+            else:
+                raise ValueError(f"Cannot find robot pos '{feature_name}'")
+
+        rx = get_pos_feature(state, "x")
+        ry = get_pos_feature(state, "y")
+        rz = get_pos_feature(state, "z")
+        
+        # EE Orientation
+        _, default_tilt, default_wrist = p.getQuaternionFromEuler(
+            self.get_robot_ee_home_orn())
+        if "tilt" in self._robot.type.feature_names:
+            tilt = state.get(self._robot, "tilt")
+        else:
+            tilt = default_tilt
+        if "wrist" in self._robot.type.feature_names:
+            wrist = state.get(self._robot, "wrist")
+        else:
+            wrist = default_wrist
+        qx, qy, qz, qw = p.getQuaternionFromEuler([0.0, tilt, wrist])
+
+        # Fingers
+        f = state.get(self._robot, "fingers")
+        f = self._fingers_state_to_joint(self._pybullet_robot, f)
+
+        return np.array([rx, ry, rz, qx, qy, qz, qw, f], dtype=np.float32)
 
     @abc.abstractmethod
     def _get_state(self) -> State:

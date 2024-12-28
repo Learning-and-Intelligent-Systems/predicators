@@ -310,15 +310,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._plug_id = pybullet_bodies["plug_id"]
             self._socket_id = pybullet_bodies["socket_id"]
 
-    def _extract_robot_state(self, state: State) -> Array:
-        qx, qy, qz, qw = self._state_to_gripper_orn(state)
-        f = state.get(self._robot, "fingers")
-        f = self._fingers_state_to_joint(self._pybullet_robot, f)
-        x = state.get(self._robot, "x")
-        y = state.get(self._robot, "y")
-        z = state.get(self._robot, "z")
-        return np.array([x, y, z, qx, qy, qz, qw, f], dtype=np.float32)
-
     @classmethod
     def get_name(cls) -> str:
         return "pybullet_coffee"

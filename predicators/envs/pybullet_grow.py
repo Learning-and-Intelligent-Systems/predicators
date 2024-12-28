@@ -169,29 +169,6 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     # -------------------------------------------------------------------------
     # Key Abstract Methods from PyBulletEnv
-    def _extract_robot_state(self, state: State) -> Array:
-        """Convert the State's stored robot features into the 8D (x, y, z, qx,
-        qy, qz, qw, fingers) that the PyBullet robot expects in fetch.py. Or a
-        7D if ignoring orientation.
-
-        For simplicity, let's store tilt/wrist as Euler angles in the
-        State, then convert to quaternion here.
-        """
-        # We'll just store a fixed orientation for the demonstration
-        x = state.get(self._robot, "x")
-        y = state.get(self._robot, "y")
-        z = state.get(self._robot, "z")
-        f = state.get(self._robot, "fingers")
-        f = self._fingers_state_to_joint(self._pybullet_robot, f)
-        tilt = state.get(self._robot, "tilt")
-        wrist = state.get(self._robot, "wrist")
-        # Convert Euler => quaternion
-        orn = p.getQuaternionFromEuler([0.0, tilt, wrist])
-        qx, qy, qz, qw = orn
-
-        # Return as [x, y, z, qx, qy, qz, qw, fingers]
-        return np.array([x, y, z, qx, qy, qz, qw, f], dtype=np.float32)
-
     def _get_state(self) -> State:
         """Create a State object from the current PyBullet simulation.
 

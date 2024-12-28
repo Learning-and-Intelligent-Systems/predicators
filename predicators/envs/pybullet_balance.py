@@ -357,18 +357,6 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         self._block_ids = pybullet_bodies["block_ids"]
         self._button_id = pybullet_bodies["button_id"]
 
-    def _extract_robot_state(self, state: State) -> Array:
-        # The orientation is fixed in this environment.
-        qx, qy, qz, qw = self.get_robot_ee_home_orn()
-        f = self._fingers_state_to_joint(self._pybullet_robot,
-                                        state.get(self._robot, "fingers"))
-        return np.array([
-            state.get(self._robot, "pose_x"),
-            state.get(self._robot, "pose_y"),
-            state.get(self._robot, "pose_z"), qx, qy, qz, qw, f
-        ],
-                        dtype=np.float32)
-
     @classmethod
     def get_name(cls) -> str:
         return "pybullet_balance"
