@@ -41,10 +41,10 @@ from matplotlib import patches
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
-    Object, Predicate, State, Type, ConceptPredicate
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.settings import CFG
+from predicators.structs import Action, Array, ConceptPredicate, \
+    EnvironmentTask, GroundAtom, Object, Predicate, State, Type
 
 
 class BalanceEnv(BaseEnv):
@@ -58,20 +58,17 @@ class BalanceEnv(BaseEnv):
     _table_x, _table2_y, _table_z = 1.35, 0.75, 0.0
     _plate_z = table_height - plate_height
     _table2_pose: ClassVar[Pose3D] = (_table_x, _table2_y, _table_z)
-    _plate3_pose: ClassVar[Pose3D] = (_table_x, 
-                                      _table2_y + _table_mid_w/2 + 
-                                            _table_side_w/2 + _table_gap, 
-                                      _plate_z)
-    _plate1_pose: ClassVar[Pose3D] = (_table_x, 
-                                      _table2_y - _table_mid_w/2 - 
-                                            _table_side_w/2 - _table_gap, 
-                                      _plate_z)
-    _beam_pose: ClassVar[Pose3D] = (_table_x, _table2_y, 
-                                _plate_z - 2 * plate_height-2*plate_height)
+    _plate3_pose: ClassVar[Pose3D] = (_table_x, _table2_y + _table_mid_w / 2 +
+                                      _table_side_w / 2 + _table_gap, _plate_z)
+    _plate1_pose: ClassVar[Pose3D] = (_table_x, _table2_y - _table_mid_w / 2 -
+                                      _table_side_w / 2 - _table_gap, _plate_z)
+    _beam_pose: ClassVar[Pose3D] = (_table_x, _table2_y, _plate_z -
+                                    2 * plate_height - 2 * plate_height)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
-    _table_mid_half_extents = [0.1, _table_mid_w/2, table_height] # depth, w, h
-    _table_side_half_extents = [0.25, _table_side_w/2, table_height] 
-    _plate_half_extents = [0.25, _table_side_w/2, plate_height]
+    _table_mid_half_extents = [0.1, _table_mid_w / 2,
+                               table_height]  # depth, w, h
+    _table_side_half_extents = [0.25, _table_side_w / 2, table_height]
+    _plate_half_extents = [0.25, _table_side_w / 2, plate_height]
     _beam_half_extents = [0.01, 0.3, plate_height]
     _button_radius = 0.04
     _button_color_off = [1, 0, 0, 1]
@@ -114,46 +111,49 @@ class BalanceEnv(BaseEnv):
             "color_b"
         ] + (bbox_features if CFG.env_include_bbox_features else []))
         self._robot_type = Type(
-            "robot", ["pose_x", "pose_y", "pose_z", "fingers"] + 
+            "robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
             (bbox_features if CFG.env_include_bbox_features else []))
-        self._plate_type = Type("plate", 
+        self._plate_type = Type(
+            "plate", (bbox_features if CFG.env_include_bbox_features else []))
+        self._machine_type = Type(
+            "machine", ["is_on"] +
             (bbox_features if CFG.env_include_bbox_features else []))
-        self._machine_type = Type("machine", ["is_on"] + (bbox_features if 
-                                CFG.env_include_bbox_features else []))
 
         # Predicates
         self._DirectlyOn = Predicate(
-            "DirectlyOn", [self._block_type, self._block_type], self._DirectlyOn_holds,
-            lambda objs:
+            "DirectlyOn", [self._block_type, self._block_type],
+            self._DirectlyOn_holds, lambda objs:
             f"{objs[0]} is directly on top of {objs[1]} with no blocks in between."
         )
-        self._DirectlyOnPlate = Predicate("DirectlyOnPlate", 
-                                [self._block_type, self._plate_type], 
-                                self._DirectlyOnPlate_holds,
-            lambda objs:
+        self._DirectlyOnPlate = Predicate(
+            "DirectlyOnPlate", [self._block_type, self._plate_type],
+            self._DirectlyOnPlate_holds, lambda objs:
             f"{objs[0]} is directly resting on the {objs[1]}'s surface.")
         self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
                                       self._GripperOpen_holds)
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
-        self._MachineOn = Predicate("MachineOn", [self._machine_type, 
-                                                    self._robot_type],
-                                          self._MachineOn_holds)
-        self._Balanced = Predicate("Balanced", 
-                                    [self._plate_type, self._plate_type], 
-                                    self._Balanced_holds)
+        self._MachineOn = Predicate("MachineOn",
+                                    [self._machine_type, self._robot_type],
+                                    self._MachineOn_holds)
+        self._Balanced = Predicate("Balanced",
+                                   [self._plate_type, self._plate_type],
+                                   self._Balanced_holds)
         self._ClearPlate = Predicate("ClearPlate", [self._plate_type],
                                      self._ClearPlate_holds)
 
-        self._OnPlate_abs = ConceptPredicate("OnPlate", 
-                                [self._block_type, self._plate_type],
-                                self._OnPlate_CP_holds,)
-        self._Balanced_abs = ConceptPredicate("Balanced", 
-                                [self._plate_type, self._plate_type],
-                                # self._EqualBlocksOnPlates_CP_holds, 
-                                self._Balanced_CP_holds, 
-                                untransformed_predicate=self._Balanced)
+        self._OnPlate_abs = ConceptPredicate(
+            "OnPlate",
+            [self._block_type, self._plate_type],
+            self._OnPlate_CP_holds,
+        )
+        self._Balanced_abs = ConceptPredicate(
+            "Balanced",
+            [self._plate_type, self._plate_type],
+            # self._EqualBlocksOnPlates_CP_holds,
+            self._Balanced_CP_holds,
+            untransformed_predicate=self._Balanced)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -165,16 +165,19 @@ class BalanceEnv(BaseEnv):
         self._block_size = CFG.balance_block_size
         self._num_blocks_train = CFG.balance_num_blocks_train
         self._num_blocks_test = CFG.balance_num_blocks_test
-    
-    def _OnPlate_CP_holds(self, atoms: Set[GroundAtom], 
+
+    def _OnPlate_CP_holds(self, atoms: Set[GroundAtom],
                           objects: Sequence[Object]) -> bool:
         x, y = objects
         for atom in atoms:
             if atom.predicate == self._DirectlyOnPlate and\
                atom.objects == [x, y]:
                 return True
-        other_blocks = {a.objects[0] for a in atoms if 
-            a.predicate == self._DirectlyOn or a.predicate == self._OnPlate_abs}
+        other_blocks = {
+            a.objects[0]
+            for a in atoms if a.predicate == self._DirectlyOn
+            or a.predicate == self._OnPlate_abs
+        }
 
         for other_block in other_blocks:
             holds1 = False
@@ -187,15 +190,16 @@ class BalanceEnv(BaseEnv):
                 return True
         return False
 
-    def _ClearPlate_holds(self, state: State, objects: Sequence[Object]
-                            ) -> bool:
+    def _ClearPlate_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
         plate, = objects
         for block in state.get_objects(self._block_type):
             if self._DirectlyOnPlate_holds(state, [block, plate]):
                 return False
         return True
 
-    def _MachineOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _MachineOn_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         machine, _ = objects
         return state.get(machine, "is_on") > 0.5
 
@@ -208,23 +212,23 @@ class BalanceEnv(BaseEnv):
         z = state.get(robot, "pose_z")
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
         return bool(sq_dist_to_button < self.button_press_threshold)
-    
+
     def _Balanced_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        """Check if the blocks are balanced on the table.
-        """
+        """Check if the blocks are balanced on the table."""
         plate1, table2 = objects
         if plate1 == table2:
             return False
 
         # Function to count the number of blocks in the tower
         def count_num_blocks(table):
+
             def count_recursive(base_obj, count):
                 for block in state.get_objects(self._block_type):
                     if base_obj.type == self._block_type and\
                             self._DirectlyOn_holds(state, [block, base_obj]):
                         count = count_recursive(block, count + 1)
                     elif base_obj.type == self._plate_type and\
-                            self._DirectlyOnPlate_holds(state, [block, 
+                            self._DirectlyOnPlate_holds(state, [block,
                                                                 base_obj]):
                         count = count_recursive(block, count + 1)
                 return count
@@ -233,7 +237,7 @@ class BalanceEnv(BaseEnv):
 
         # Get the height of the blocks using recursion
         height1 = count_num_blocks(plate1)
-        height2 = count_num_blocks(table2)        
+        height2 = count_num_blocks(table2)
 
         return height1 == height2
 
@@ -268,7 +272,7 @@ class BalanceEnv(BaseEnv):
 
     #     return height1 == height2
 
-    def _EqualBlocksOnPlates_CP_holds(self, atoms: Set[GroundAtom], 
+    def _EqualBlocksOnPlates_CP_holds(self, atoms: Set[GroundAtom],
                                       objects: Sequence[Object]) -> bool:
         left_plate, right_plate = objects
         if left_plate == right_plate:
@@ -284,16 +288,16 @@ class BalanceEnv(BaseEnv):
                 right_count += 1
         # logging.debug(f"left: {left_count}, right: {right_count}")
         return left_count == right_count
- 
-    def _Balanced_CP_holds(self, atoms: Set[GroundAtom], 
-                            objects: Sequence[Object]) -> bool:
-        """Check if the blocks are balanced on the table.
-        """
+
+    def _Balanced_CP_holds(self, atoms: Set[GroundAtom],
+                           objects: Sequence[Object]) -> bool:
+        """Check if the blocks are balanced on the table."""
         plate1, table2 = objects
         if plate1 == table2:
             return False
         # Function to count the number of blocks in the tower
         def count_num_blocks(table):
+
             def count_recursive(base_obj, count):
                 for atom in atoms:
                     if atom.predicate == self._DirectlyOn and\
@@ -308,11 +312,11 @@ class BalanceEnv(BaseEnv):
 
         # Get the height of the blocks using recursion
         height1 = count_num_blocks(plate1)
-        height2 = count_num_blocks(table2)        
+        height2 = count_num_blocks(table2)
 
         return height1 == height2
-    
-    # def _Balanced_CP_holds(self, atoms: Set[GroundAtom], 
+
+    # def _Balanced_CP_holds(self, atoms: Set[GroundAtom],
     #                         objects: Sequence[Object]) -> bool:
     #     """Check if the blocks are balanced on the table.
     #     """
@@ -355,8 +359,8 @@ class BalanceEnv(BaseEnv):
         next_state.set(self._robot, "pose_y", y)
         next_state.set(self._robot, "pose_z", z)
         next_state.set(self._robot, "fingers", fingers)
-        pressing_button = self._PressingButton_holds(next_state, 
-                                                [self._robot, self._machine])
+        pressing_button = self._PressingButton_holds(
+            next_state, [self._robot, self._machine])
         # logging.debug(f"[simulate] pressing_button {pressing_button}")
         if pressing_button:
             return self._transition_pressbutton(state, x, y, z)
@@ -368,12 +372,12 @@ class BalanceEnv(BaseEnv):
         if putOnPlate:
             return self._transition_putOnPlate(state, x, y, z)
         return self._transition_stack(state, x, y, z)
-    
+
     def _transition_pressbutton(self, state: State, x: float, y: float,
                                 z: float) -> State:
         next_state = state.copy()
-        machine_was_on = self._MachineOn_holds(state, [self._machine, 
-                                                        self._robot])
+        machine_was_on = self._MachineOn_holds(state,
+                                               [self._machine, self._robot])
         balanced = self._Balanced_holds(state, [self._plate1, self._plate3])
         if not machine_was_on and balanced:
             next_state.set(self._machine, "is_on", 1.0)
@@ -485,16 +489,14 @@ class BalanceEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._DirectlyOn, self._DirectlyOnPlate, self._GripperOpen, self._Holding,
-            self._Clear, self._MachineOn, self._ClearPlate, self._Balanced_abs,
-            self._OnPlate_abs
+            self._DirectlyOn, self._DirectlyOnPlate, self._GripperOpen,
+            self._Holding, self._Clear, self._MachineOn, self._ClearPlate,
+            self._Balanced_abs, self._OnPlate_abs
         }
 
     @property
     def concept_predicates(self) -> Set[ConceptPredicate]:
-        return {
-            self._Balanced_abs
-        }
+        return {self._Balanced_abs}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -504,8 +506,10 @@ class BalanceEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._block_type, self._robot_type, self._plate_type, 
-                self._machine_type}
+        return {
+            self._block_type, self._robot_type, self._plate_type,
+            self._machine_type
+        }
 
     @property
     def action_space(self) -> Box:
@@ -590,8 +594,8 @@ class BalanceEnv(BaseEnv):
             num_blocks = rng.choice(possible_num_blocks, p=[0.3, 0.7])
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
-            goal = set([GroundAtom(self._MachineOn, [self._machine, 
-                                                    self._robot])])
+            goal = set(
+                [GroundAtom(self._MachineOn, [self._machine, self._robot])])
             # while True:  # repeat until goal is not satisfied
             #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
             #     if not all(goal_atom.holds(init_state) for goal_atom in goal):
@@ -713,7 +717,8 @@ class BalanceEnv(BaseEnv):
     def _block_is_clear(self, block: Object, state: State) -> bool:
         return self._Clear_holds(state, [block])
 
-    def _DirectlyOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _DirectlyOn_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
         block1, block2 = objects
         if state.get(block1, "held") >= self.held_tol or \
            state.get(block2, "held") >= self.held_tol:
@@ -727,12 +732,13 @@ class BalanceEnv(BaseEnv):
         return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
-    def _DirectlyOnPlate_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _DirectlyOnPlate_holds(self, state: State,
+                               objects: Sequence[Object]) -> bool:
         block, table = objects
         y = state.get(block, "pose_y")
         z = state.get(block, "pose_z")
         desired_z = self.table_height + self._block_size * 0.5
-        
+
         if (state.get(block, "held") < self.held_tol) and \
                 (desired_z-self.on_tol < z < desired_z+self.on_tol):
             if table.name == "plate1":
@@ -869,5 +875,3 @@ class BalanceEnv(BaseEnv):
 # Put block 4 on block 3 and block 2 on block 1 and block 1 on table
 {"DirectlyOn": [["block4", "block3"], ["block2", "block1"]], "DirectlyOnPlate": [["block1"]]}
 """
-
-

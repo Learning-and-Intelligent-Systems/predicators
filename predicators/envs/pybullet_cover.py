@@ -1,6 +1,6 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Tuple, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 import numpy as np
 import pybullet as p

@@ -25,7 +25,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
-
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -217,7 +216,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     def _get_object_ids_for_held_check(self) -> List[int]:
         return sorted(self._block_id_to_block)
-
 
     def _force_grasp_object(self, block: Object) -> None:
         block_to_block_id = {b: i for i, b in self._block_id_to_block.items()}

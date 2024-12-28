@@ -14,8 +14,8 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.pybullet_helpers.objects import create_object, update_object
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Object, Predicate, State, Type
@@ -184,9 +184,6 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to PyBullet IDs for environment assets."""
-        # TODO: save all the IDs for the objects that one want to label during
-        # rendering here.
-        # self._objects = ...
         self._red_cup.id = pybullet_bodies["cup_ids"][0]
         self._blue_cup.id = pybullet_bodies["cup_ids"][1]
         self._red_jug.id = pybullet_bodies["jug_ids"][0]
@@ -333,8 +330,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         """We let the parent class handle the robot stepping & constraints.
 
         Then, we post-process: if the robot is tilting a jug over a
-        matching-color cup, we increase the cup's growth in, 
-        and update the environment accordingly.
+        matching-color cup, we increase the cup's growth in, and update
+        the environment accordingly.
         """
         # breakpoint()
         next_state = super().step(action, render_obs=render_obs)

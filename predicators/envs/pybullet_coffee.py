@@ -703,8 +703,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         _, tilt, wrist = p.getEulerFromQuaternion(orn)
         return (tilt, wrist)
 
-
-
     def _cup_liquid_to_liquid_height(self, liquid: float,
                                      capacity: float) -> float:
         scale = 0.5 * np.sqrt(capacity / self.cup_capacity_ub)

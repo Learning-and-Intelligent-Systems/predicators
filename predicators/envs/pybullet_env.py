@@ -21,7 +21,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
-    Observation, State, Video, Pose
+    Observation, Pose, State, Video
 from predicators.utils import PyBulletState
 
 
@@ -75,11 +75,11 @@ class PyBulletEnv(BaseEnv):
             self.initialize_pybullet(self.using_gui)
         self._store_pybullet_bodies(pybullet_bodies)
 
-        # Either populate at reset state (if the objects across tasks are 
+        # Either populate at reset state (if the objects across tasks are
         # different) or populate at store_pybullet_bodies (if the objects are
         # the same across tasks)
         self._objects: List[Object] = []
-    
+
     def get_object_by_id(self, obj_id: int) -> Object:
         for obj in self._objects:
             if obj.id == obj_id:
@@ -158,6 +158,7 @@ class PyBulletEnv(BaseEnv):
         This should be the same type as the return value of
         self._pybullet_robot.get_state().
         """
+
         # EE Position
         def get_pos_feature(state, feature_name):
             if feature_name in self._robot.type.feature_names:
@@ -170,7 +171,7 @@ class PyBulletEnv(BaseEnv):
         rx = get_pos_feature(state, "x")
         ry = get_pos_feature(state, "y")
         rz = get_pos_feature(state, "z")
-        
+
         # EE Orientation
         _, default_tilt, default_wrist = p.getQuaternionFromEuler(
             self.get_robot_ee_home_orn())
@@ -220,7 +221,7 @@ class PyBulletEnv(BaseEnv):
 
     @classmethod
     def _fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
-                               finger_state: float) -> float:
+                                finger_state: float) -> float:
         """Map the fingers in the given State to joint values for PyBullet."""
         # If open_fingers is undefined, use 1.0 as the default.
         subs = {
