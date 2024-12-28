@@ -173,10 +173,10 @@ class PyBulletGrowEnv(PyBulletEnv):
         jug_ids = []
         for i in range(num_jugs):
             jug_id = create_object(asset_path="urdf/jug-pixel.urdf",
-                                    orientation=p.getQuaternionFromEuler(
-                                        [0.0, 0.0, -np.pi / 2]),
-                                    color=(1, 0, 0, 1) if i == 0 else (0, 0, 1, 1),
-                                    physics_client_id=physics_client_id)
+                                orientation=p.getQuaternionFromEuler(
+                                    [0.0, 0.0, -np.pi / 2]),
+                                color=(1, 0, 0, 1) if i == 0 else (0, 0, 1, 1),
+                                physics_client_id=physics_client_id)
             jug_ids.append(jug_id)
         bodies["jug_ids"] = jug_ids
 
@@ -184,9 +184,9 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to PyBullet IDs for environment assets."""
-        # Update self._obj_id_to_obj here; these are used for labeling objects
-        # in rendering. Alternatively, we could just keep a set of objects,
-        # and store IDs in object instances themselves.
+        # TODO: save all the IDs for the objects that one want to label during
+        # rendering here.
+        # self._objects = ...
         self._red_cup.id = pybullet_bodies["cup_ids"][0]
         self._blue_cup.id = pybullet_bodies["cup_ids"][1]
         self._red_jug.id = pybullet_bodies["jug_ids"][0]
