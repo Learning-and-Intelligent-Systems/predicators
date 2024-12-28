@@ -13,11 +13,11 @@ import pybullet as p
 
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
-from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+from predicators.structs import Action, EnvironmentTask, GroundAtom, \
     Object, Predicate, State, Type
 
 
