@@ -15,13 +15,13 @@ from PIL import Image
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.pybullet_helpers.camera import create_gui_connection
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Mask, Object, \
-    Observation, Pose, State, Video
+    Observation, State, Video
 from predicators.utils import PyBulletState
 
 
@@ -173,7 +173,7 @@ class PyBulletEnv(BaseEnv):
         rz = get_pos_feature(state, "z")
 
         # EE Orientation
-        _, default_tilt, default_wrist = p.getQuaternionFromEuler(
+        _, default_tilt, default_wrist = p.getEulerFromQuaternion(
             self.get_robot_ee_home_orn())
         if "tilt" in self._robot.type.feature_names:
             tilt = state.get(self._robot, "tilt")

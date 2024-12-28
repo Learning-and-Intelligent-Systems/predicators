@@ -1,5 +1,5 @@
-"""python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
-
+"""
+python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900
@@ -79,8 +79,6 @@ class PyBulletGrowEnv(PyBulletEnv):
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
     def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
         # Define Types:
         self._robot_type = Type("robot",
                                 ["x", "y", "z", "fingers", "tilt", "wrist"])
@@ -94,6 +92,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         self._blue_cup = Object("blue_cup", self._cup_type)
         self._red_jug = Object("red_jug", self._jug_type)
         self._blue_jug = Object("blue_jug", self._jug_type)
+
+        super().__init__(use_gui)
 
         # Define Predicates
         self._Grown = Predicate("Grown", [self._cup_type], self._Grown_holds)
@@ -213,7 +213,7 @@ class PyBulletGrowEnv(PyBulletEnv):
             "x": rx,
             "y": ry,
             "z": rz,
-            "fingers": self._fingers_joint_to_state(rf),
+            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
             "tilt": tilt,
             "wrist": wrist
         }
@@ -355,7 +355,6 @@ class PyBulletGrowEnv(PyBulletEnv):
                     cx = next_state.get(cup_obj, "x")
                     cy = next_state.get(cup_obj, "y")
                     dist = np.hypot(jug_x - cx, jug_y - cy)
-                    logging.debug(f"Dist to cup {cup_obj.name}: {dist}")
                     if dist < 0.13:  # "over" the cup
                         # cup_color = next_state.get(cup_obj, "color")
                         # if abs(cup_color - jug_color) < 0.1:

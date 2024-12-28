@@ -360,6 +360,72 @@ class VLMPredicate(Predicate):
     """
     get_vlm_query_str: Callable[[Sequence[Object]], str]
 
+# @dataclass(frozen=True, repr=False)
+class NSPredicate(Predicate):
+    """Neuro-Symbolic Predicate."""
+
+    def __init__(
+            self, name: str, types: Sequence[Type],
+            _classifier: Callable[[RawState, Sequence[Object]], bool]) -> None:
+        self._original_classifier = _classifier
+        super().__init__(name, types, _MemoizedClassifier(_classifier))
+
+    @cached_property
+    def _hash(self) -> int:
+        # return hash(str(self))
+        return hash(self.name + str(self.types))
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def classifier_str(self) -> str:
+        """Get a string representation of the classifier."""
+        clf_str = getsource(self._original_classifier)
+        clf_str = textwrap.dedent(clf_str)
+        clf_str = clf_str.replace("@staticmethod\n", "")
+        return clf_str
+
+@dataclass(frozen=True, order=False, repr=False)
+class ConceptPredicate(Predicate):
+    """Struct defining a concept predicate"""
+    name: str
+    types: Sequence[Type]
+    # The classifier takes in a complete state and a sequence of objects
+    # representing the arguments. These objects should be the only ones
+    # treated "specially" by the classifier.
+    _classifier: Callable[[Set[GroundAtom], Sequence[Object]],
+                          bool] = field(compare=False)
+    untransformed_predicate: Optional[Predicate] = field(default=None, 
+                                                         compare=False)
+    auxiliary_concepts: Optional[Set[ConceptPredicate]] = field(default=None,
+                                                                compare=False)
+
+    def update_auxiliary_concepts(self, 
+            auxiliary_concepts: Set[ConceptPredicate]) -> ConceptPredicate:
+        """Create a new ConceptPredicate with updated auxiliary_concepts."""
+        return replace(self, auxiliary_concepts=auxiliary_concepts)
+
+
+    @cached_property
+    def _hash(self) -> int:
+        # return hash(str(self))
+        return hash(self.name + str(self.types))
+
+    def holds(self, state: Set[GroundAtom], objects: Sequence[Object]) -> bool:
+        """Public method for calling the classifier.
+
+        Performs type checking first.
+        """
+        assert len(objects) == self.arity
+        for obj, pred_type in zip(objects, self.types):
+            assert isinstance(obj, Object)
+            assert obj.is_instance(pred_type)
+        return self._classifier(state, objects)
+
+    def _negated_classifier(self, state: Set[GroundAtom],
+                            objects: Sequence[Object]) -> bool:
+        # Separate this into a named function for pickling reasons.
+        return not self._classifier(state, objects)
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _Atom:

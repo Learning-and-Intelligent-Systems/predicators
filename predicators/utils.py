@@ -1100,6 +1100,264 @@ class PyBulletState(State):
 
 BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
 
+@dataclass
+class RawState(PyBulletState):
+    state_image: PIL.Image.Image = None
+    obj_mask_dict: Dict[Object, Mask] = field(default_factory=dict)
+    labeled_image: Optional[PIL.Image.Image] = None
+    option_history: Optional[List[str]] = None
+    bbox_features: Dict[Object, np.ndarray] = field(
+        default_factory=lambda: defaultdict(lambda: np.zeros(4)))
+    prev_state: Optional[RawState] = None
+    next_state: Optional[RawState] = None
+
+    def __hash__(self):
+        # Convert the dictionary to a tuple of key-value pairs and hash it
+        # data_hash = hash(tuple(sorted(self.data.items())))
+        data_tuple = tuple((k, tuple(v)) for k, v in sorted(self.data.items()))
+        if self.simulator_state is not None:
+            data_tuple += tuple(self.simulator_state)
+        data_hash = hash(data_tuple)
+        # # Hash the simulator_state
+        # simulator_state_hash = hash(self.simulator_state)
+        # Combine the two hashes
+        # return hash((data_hash, simulator_state_hash))
+        return data_hash
+
+    def evaluate_simple_assertion(
+            self, assertion: str, image: Tuple[BoundingBox,
+                                               Sequence[Object]]) -> VLMQuery:
+        """Given an assertion and an image, queries a VLM and returns whether
+        the assertion is true or false."""
+        bbox, objs = image
+        return VLMQuery(assertion, bbox, objs)
+
+    def generate_previous_option_message(self) -> str:
+        """Generate the message for the previous option."""
+        assert self.option_history is not None
+        msg = "Evaluate the truth value of the following assertions in the "\
+                "current state as depicted by the image"
+        if CFG.nsp_pred_include_prev_image_in_prompt and \
+            self.prev_state is not None:
+            msg += " labeled with 'curr. state'"
+        if CFG.nsp_pred_include_state_str_in_prompt:
+            msg += " and the information below"
+
+        msg += ".\n"
+
+        if CFG.nsp_pred_include_state_str_in_prompt:
+            msg += f"We have the object positions and the robot's "\
+                    "proprioception:\n"
+            msg += self.dict_str(indent=2,
+                                 object_features=False,
+                                 use_object_id=True,
+                                 position_proprio_features=True)
+            msg += "\n"
+
+        if len(self.option_history) == 0:
+            msg += "For context, this is at the beginning of a task, before "\
+                "the robot has done anything.\n"
+        else:
+            # return f"For context, this is right after the robot has "\
+            # f"successfully executed its [{', '.join(self.option_history[-2:])}]"\
+            # f" option sequence."
+            # msg = f"For context, this state is right after the robot has "\
+            # f"successfully executed its {self.option_history[-1]} action."
+            msg += "For context, the state is right after the robot has"\
+                " successfully executed the action "\
+                f"{self.option_history[-1]}."
+            if CFG.nsp_pred_include_state_str_in_prompt:
+                if self.prev_state is not None:
+                    msg += " The object position and robot proprioception "\
+                        "before executing the action is:\n"
+                    msg += self.prev_state.dict_str(
+                        indent=2,
+                        object_features=False,
+                        use_object_id=True,
+                        position_proprio_features=True)
+                    msg += "\n"
+            if CFG.nsp_pred_include_prev_image_in_prompt:
+                msg += " The state before executing the action is depicted"\
+                    " by the image labeled with 'prev. state'."
+                msg += " Please carefully examine the images depicting the "\
+                    "'prev. state' and 'curr. state' before making a judgment."
+                msg += "\n"
+        msg += "The assertions to evaluate are:"
+        return msg
+
+    def add_bbox_features(self) -> None:
+        """Add the features about the bounding box to the objects."""
+        for obj, mask in self.obj_mask_dict.items():
+            bbox = mask_to_bbox(mask)
+            for name, value in bbox._asdict().items():
+                self.set(obj, f"bbox_{name}", value)
+
+    def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
+        """Set the value of an object feature by name."""
+        try:
+            idx = obj.type.feature_names.index(feature_name)
+        except:
+            breakpoint()
+        standard_feature_len = len(self.data[obj])
+        if idx >= standard_feature_len:
+            # When setting the bounding box features for the first time
+            # So we'd first append 4 dimension and try to set again
+            self.bbox_features[obj][idx - standard_feature_len] = feature_val
+        else:
+            self.data[obj][idx] = feature_val
+
+    def get(self, obj: Object, feature_name: str) -> Any:
+        idx = obj.type.feature_names.index(feature_name)
+        standard_feature_len = len(self.data[obj])
+        if idx >= standard_feature_len:
+            return self.bbox_features[obj][idx - standard_feature_len]
+        else:
+            return self.data[obj][idx]
+
+    def dict_str(self,
+                 indent: int = 0,
+                 object_features: bool = True,
+                 use_object_id: bool = False,
+                 position_proprio_features: bool = False) -> str:
+        """Return a dictionary representation of the state."""
+        state_dict = {}
+        for obj in self:
+            obj_dict = {}
+            for attribute, value in zip(
+                    obj.type.feature_names,
+                    np.concatenate([self[obj], self.bbox_features[obj]])
+                    if self.bbox_features else self[obj]):
+                # include if it's proprioception feature, or position/bbox
+                # feature, or object_features is True
+                # if (obj.type.name == "robot" and \
+                #     attribute not in ["bbox_left", "bbox_right", "bbox_upper",
+                #         "pose_x", "pose_y", "pose_z", "pose_y_norm",
+                #                       "bbox_lower"]) or object_features:
+                #     #    attribute in ["pose_x", "pose_y", "pose_z", "bbox_left",
+                #     # "bbox_right", "bbox_upper", "bbox_lower"] or\
+                #     if isinstance(value, (float, int, np.float32)):
+                #         value = round(float(value), 1)
+                #     obj_dict[attribute] = value
+                if (position_proprio_features and attribute in [
+                        # "pose_x", "pose_y", "pose_z", "x", "y", "z",
+                        "rot",
+                        "fingers"
+                ]) or (object_features and attribute not in [
+                    "is_heavy",
+                    # "grasp",
+                    # "held",
+                    # "is_held",
+                ]):
+                    if isinstance(value, (float, int, np.float32)):
+                        value = round(float(value), 1)
+                    obj_dict[attribute] = value
+
+            if use_object_id: obj_name = obj.id_name
+            else: obj_name = obj.name
+            state_dict[f"{obj_name}:{obj.type.name}"] = obj_dict
+
+        # Create a string of n_space spaces
+        spaces = " " * indent
+
+        # Create a PrettyPrinter with a large width
+        dict_str = spaces + "{"
+        n_keys = len(state_dict.keys())
+        for i, (key, value) in enumerate(state_dict.items()):
+            value_str = ', '.join(f"'{k}': {v}" for k, v in value.items())
+            if value_str == "":
+                content_str = f"'{key}'"
+            else:
+                content_str = f"'{key}': {{{value_str}}}"
+            if i == 0:
+                dict_str += f"{content_str},\n"
+            elif i == n_keys - 1:
+                dict_str += spaces + f" {content_str}"
+            else:
+                dict_str += spaces + f" {content_str},\n"
+        dict_str += "}"
+        return dict_str
+
+    def __eq__(self, other):
+        # Compare the data and simulator_state
+        assert isinstance(other, RawState)
+
+        if len(self.data) != len(other.data):
+            return False
+
+        for key, value in self.data.items():
+            if key not in other.data or not np.array_equal(
+                    value, other.data[key]):
+                return False
+
+        return self.simulator_state == other.simulator_state
+
+    def label_all_objects(self):
+        state_ip = ImagePatch(self)
+        # state_ip.cropped_image_in_PIL.save(f"images/obs_before_label_all.png")
+        # labels = [obj.id for obj in self.obj_mask_dict.keys()]
+        # masks = self.obj_mask_dict.values()
+        # state_ip.label_all_objects(masks, labels)
+        state_ip.label_all_objects(self.obj_mask_dict)
+        # state_ip.label_object(mask, obj.id)
+        # state_ip.cropped_image_in_PIL.save(f"images/obs_after_label_all.png")
+        self.labeled_image = state_ip.cropped_image_in_PIL
+
+    def copy(self) -> RawState:
+        pybullet_state_copy = super().copy()
+        # simulator_state_copy = list(self.joint_positions)
+        state_image_copy = copy.copy(self.state_image)
+        obj_mask_copy = copy.deepcopy(self.obj_mask_dict)
+        labeled_image_copy = copy.copy(self.labeled_image)
+        option_history_copy = copy.copy(self.option_history)
+        bbox_features_copy = copy.deepcopy(self.bbox_features)
+        prev_state_copy = self.prev_state.copy() if self.prev_state else None
+        return RawState(pybullet_state_copy.data,
+                        pybullet_state_copy.simulator_state, state_image_copy,
+                        obj_mask_copy, labeled_image_copy, option_history_copy,
+                        bbox_features_copy, prev_state_copy)
+
+    def get_obj_mask(self, object: Object) -> Mask:
+        """Return the mask for the object."""
+        return self.obj_mask_dict[object]
+
+    def get_obj_bbox(self, object: Object) -> BoundingBox:
+        """Get the bounding box of the object in the state image The origin is
+        bottom left corner--(0, 0)"""
+        mask = self.get_obj_mask(object)
+        return mask_to_bbox(mask)
+
+    def crop_to_objects(
+            self,
+            objects: Sequence[Object],
+            # left_margin: int = 15,
+            # lower_margin: int = 15,
+            # right_margin: int = 15,
+            # top_margin: int = 20
+            left_margin: int = 30,
+            lower_margin: int = 30,
+            right_margin: int = 30,
+            top_margin: int = 30) -> Tuple[BoundingBox, Sequence[Object]]:
+
+        bboxes = [self.get_obj_bbox(obj) for obj in objects]
+        bbox = smallest_bbox_from_bboxes(bboxes)
+        return (BoundingBox(
+            max(bbox.left - left_margin, 0), max(bbox.lower - lower_margin, 0),
+            min(bbox.right + right_margin, self.state_image.width),
+            min(bbox.upper + top_margin, self.state_image.height)), objects)
+
+        # state_ip = ImagePatch(self, attn_objects=objects)
+        # return state_ip.crop_to_objects(objects, left_margin, lower_margin,
+        #                                 right_margin, top_margin)
+
+
+@dataclass
+class VLMQuery:
+    """A class to represent a query to a VLM."""
+    query_str: str
+    attention_box: BoundingBox
+    attn_objects: Optional[List[Object]] = None
+    ground_atom: Optional[GroundAtom] = None
+
 
 def mask_to_bbox(mask: Mask) -> BoundingBox:
     """Return the bounding box of the mask."""

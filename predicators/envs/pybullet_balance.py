@@ -17,8 +17,8 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, Object, \
-    Predicate, State, Type
-from predicators.utils import NSPredicate, RawState, VLMQuery
+    Predicate, State, Type, NSPredicate
+from predicators.utils import RawState, VLMQuery
 
 
 class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
