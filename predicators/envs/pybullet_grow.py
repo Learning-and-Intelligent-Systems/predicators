@@ -278,7 +278,8 @@ class PyBulletGrowEnv(PyBulletEnv):
 
         self._objects = [self._red_cup, self._blue_cup, self._red_jug,
                             self._blue_jug, self._robot]
-        # new reset cups and jugs
+
+        # update cups in PyBullet
         for cup_obj in [self._red_cup, self._blue_cup]:
             cx = state.get(cup_obj, "x")
             cy = state.get(cup_obj, "y")
@@ -298,7 +299,7 @@ class PyBulletGrowEnv(PyBulletEnv):
             liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
             self._cup_to_liquid_id[cup] = liquid_id
 
-        # Re-create jugs in PyBullet
+        # Update jugs in PyBullet
         for jug_obj in [self._red_jug, self._blue_jug]:
             jx = state.get(jug_obj, "x")
             jy = state.get(jug_obj, "y")
@@ -312,11 +313,10 @@ class PyBulletGrowEnv(PyBulletEnv):
 
         # Check if either jug is held => forcibly attach constraints.
         # (Though in our tasks we often start is_held=0.)
-        # for jug_body_id, jug_obj in zip(self._jug_ids,
-        #                                 [self._red_jug, self._blue_jug]):
-        #     if state.get(jug_obj, "is_held") > 0.5:
-        #         # Create a constraint with the robot's gripper
-        #         self._create_grasp_constraint_for_object(jug_body_id)
+        for jug_obj in [self._red_jug, self._blue_jug]:
+            if state.get(jug_obj, "is_held") > 0.5:
+                # Create a constraint with the robot's gripper
+                self._create_grasp_constraint_for_object(jug_obj.id)
 
         # After re-adding objects, compare with the new state
         reconstructed_state = self._get_state()
