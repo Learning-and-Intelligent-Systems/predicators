@@ -190,7 +190,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         self._blue_jug.id = pybullet_bodies["jug_ids"][1]
 
     # -------------------------------------------------------------------------
-    # State Management: Get, (Re)Set, Update
+    # State Management: Get, (Re)Set, Step
     def _get_object_ids_for_held_check(self) -> List[int]:
         """Return IDs of jugs (since we can only hold jugs)."""
         assert self._red_jug.id is not None and self._blue_jug.id is not None
