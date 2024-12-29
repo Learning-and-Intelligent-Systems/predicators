@@ -96,6 +96,7 @@ class CoffeeEnv(BaseEnv):
     jug_init_rot_lb: ClassVar[float] = -2 * np.pi / 3
     jug_init_rot_ub: ClassVar[float] = 2 * np.pi / 3
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
+    jug_pickable_rot: ClassVar[float] = -np.pi / 2
     # jug_handle_height: ClassVar[float] = 3 * jug_height / 4
     @classmethod
     def jug_handle_height(cls) -> float:
@@ -599,6 +600,7 @@ class CoffeeEnv(BaseEnv):
             else:
                 epsilon = 1e-10
                 rot = rng.uniform(-0.1 + epsilon, 0.1 - epsilon)
+            rot -= np.pi / 2
 
             state_dict[self._jug] = {
                 "x": x,
@@ -742,7 +744,7 @@ class CoffeeEnv(BaseEnv):
                            objects: Sequence[Object]) -> bool:
         jug, = objects
         jug_rot = state.get(jug, "rot")
-        return abs(jug_rot) <= self.pick_jug_rot_tol
+        return abs(jug_rot - self.jug_pickable_rot) <= self.pick_jug_rot_tol
 
     def _robot_jug_above_cup(self, state: State, cup: Object) -> bool:
         if not self._Holding_holds(state, [self._robot, self._jug]):

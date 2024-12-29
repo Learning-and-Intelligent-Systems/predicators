@@ -392,7 +392,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             jz = self._get_jug_z(state, self._jug) + self.jug_height() / 2
             rot = state.get(self._jug, "rot")
             jug_orientation = p.getQuaternionFromEuler(
-                [0.0, 0.0, rot - np.pi / 2])
+                [0.0, 0.0, rot])
             p.resetBasePositionAndOrientation(
                 self._jug.id, [jx, jy, jz],
                 jug_orientation,
@@ -500,7 +500,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Get jug state.
         (x, y, z), quat = p.getBasePositionAndOrientation(
             self._jug.id, physicsClientId=self._physics_client_id)
-        rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
+        rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2])
         held = (self._jug.id == self._held_obj_id)
         filled = float(self._jug_filled)
         state_dict[self._jug] = {
@@ -996,7 +996,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # This pose doesn't matter because it gets overwritten in reset.
         jug_loc = ((0, 0, 0))
         rot = 0
-        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
+        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot])
 
         # Old jug
         if CFG.coffee_use_pixelated_jug:
@@ -1242,7 +1242,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _get_jug_handle_grasp(cls, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Orient pointing down.
-        rot = state.get(jug, "rot") - np.pi / 2
+        rot = state.get(jug, "rot")
         target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
         target_y = state.get(jug,
                              "y") + np.sin(rot) * cls.jug_handle_offset - 0.02
