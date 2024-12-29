@@ -42,6 +42,11 @@ class PyBulletGrowEnv(PyBulletEnv):
     z_ub: ClassVar[float] = 0.75
     init_padding = 0.05
 
+    # table config
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
+    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0., 0., np.pi / 2])
+
     # robot config
     robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
     robot_init_y: ClassVar[float] = (y_lb + y_ub) * 0.5
@@ -60,9 +65,20 @@ class PyBulletGrowEnv(PyBulletEnv):
     red_jug_y = 1.32
     blue_jug_x = 1
     blue_jug_y = 1.38
+    jug_init_z: ClassVar[float] = z_lb + jug_height / 2
+    jug_init_rot: ClassVar[float] = -np.pi / 2
+    jug_colors: ClassVar[List[Tuple[float, float, float, float]]] = [
+            (1, 0, 0, 1),
+            (0, 0, 1, 1)]
+
+    # cup configs
+    cup_colors: ClassVar[List[Tuple[float, float, float, float]]] = [
+            (1, 0.3, 0.3, 1),
+            (0.3, 0.3, 1, 1)]
 
     # Target height for the plants
     growth_height: ClassVar[float] = 0.3
+    growth_color: ClassVar[Tuple[float]] = (0.35, 1, 0.3, 1.0)
 
     # Hard-coded finger states for open/close
     open_fingers: ClassVar[float] = 0.4
@@ -149,9 +165,8 @@ class PyBulletGrowEnv(PyBulletEnv):
         # You can add a table or floor plane, etc.
         # For example, let's add a table below the workspace:
         table_id = create_object(asset_path="urdf/table.urdf",
-                                    position=(0.75, 1.35, 0.0),
-                                    orientation=p.getQuaternionFromEuler(
-                                        [0., 0., np.pi / 2]),
+                                    position=cls.table_pos,
+                                    orientation=cls.table_orn,
                                     scale=1.0,
                                     use_fixed_base=True,
                                     physics_client_id=physics_client_id,
@@ -163,8 +178,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         cup_ids = []
         for i in range(num_cups):
             cup_id = create_object(asset_path="urdf/pot-pixel.urdf",
-                                    color=(1, 0.3, 0.3, 1) if i == 0 else \
-                                        (0.3, 0.3, 1, 1),
+                                    color=cls.cup_colors[i],
                                     physics_client_id=physics_client_id)
             cup_ids.append(cup_id)
         bodies["cup_ids"] = cup_ids
@@ -172,9 +186,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         jug_ids = []
         for i in range(num_jugs):
             jug_id = create_object(asset_path="urdf/jug-pixel.urdf",
-                                orientation=p.getQuaternionFromEuler(
-                                    [0.0, 0.0, -np.pi / 2]),
-                                color=(1, 0, 0, 1) if i == 0 else (0, 0, 1, 1),
+                                color=cls.jug_colors[i],
                                 physics_client_id=physics_client_id)
             jug_ids.append(jug_id)
         bodies["jug_ids"] = jug_ids
@@ -467,15 +479,15 @@ class PyBulletGrowEnv(PyBulletEnv):
                 "y": self.red_jug_y,
                 "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,  # not in hand
-                "rot": -np.pi / 2,
+                "rot": PyBulletGrowEnv.jug_init_rot,
                 "color": 1.0
             }
             blue_jug_dict = {
                 "x": self.blue_jug_x,
                 "y": self.blue_jug_y,
-                "z": self.z_lb + self.jug_height / 2,
+                "z": PyBulletGrowEnv.jug_init_z,
                 "is_held": 0.0,
-                "rot": -np.pi / 2,
+                "rot": PyBulletGrowEnv.jug_init_rot,
                 "color": 2.0
             }
 
@@ -521,7 +533,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         visual_id = p.createVisualShape(
             p.GEOM_BOX,
             halfExtents=liquid_half_extents,
-            rgbaColor=(0.35, 1, 0.3, 1.0),
+            rgbaColor=PyBulletGrowEnv.growth_color,
             physicsClientId=self._physics_client_id)
 
         pose = (cx, cy, cz)
