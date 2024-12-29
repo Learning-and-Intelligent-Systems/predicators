@@ -151,7 +151,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # jug_color: ClassVar[Tuple[float, float, float, float]] =\
     #     (0.5,1,0,0.5) # Green
     jug_color: ClassVar[Tuple[float, float, float, float]] =\
-                (1,1,1,0.5) # White
+                (1,1,1,1) # White
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x
     dispense_area_y: ClassVar[float] = machine_y - 5 * jug_radius
@@ -372,7 +372,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._cup_to_liquid_id[cup] = liquid_id
 
         # reset the empty jug
-        p.changeVisualShape(self._jug_id,
+        p.changeVisualShape(self._jug.id,
                             0,
                             rgbaColor=self.jug_color,
                             physicsClientId=self._physics_client_id)
@@ -394,7 +394,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             jug_orientation = p.getQuaternionFromEuler(
                 [0.0, 0.0, rot - np.pi / 2])
             p.resetBasePositionAndOrientation(
-                self._jug_id, [jx, jy, jz],
+                self._jug.id, [jx, jy, jz],
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
 
@@ -499,10 +499,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         # Get jug state.
         (x, y, z), quat = p.getBasePositionAndOrientation(
-            self._jug_id, physicsClientId=self._physics_client_id)
+            self._jug.id, physicsClientId=self._physics_client_id)
         rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2] + np.pi / 2)
-        # rot = p.getEulerFromQuaternion(quat)[2] + np.pi/2
-        held = (self._jug_id == self._held_obj_id)
+        held = (self._jug.id == self._held_obj_id)
         filled = float(self._jug_filled)
         state_dict[self._jug] = {
             "x": x,
@@ -561,7 +560,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Move the liquid inside
         if self._jug_filled:
             pos, quat = p.getBasePositionAndOrientation(
-                self._jug_id, physicsClientId=self._physics_client_id)
+                self._jug.id, physicsClientId=self._physics_client_id)
             p.resetBasePositionAndOrientation(
                 self._jug_liquid_id,
                 pos,
@@ -654,13 +653,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                     d_roll += np.pi
 
             (jx, jy, _), orn = p.getBasePositionAndOrientation(
-                self._jug_id, physicsClientId=self._physics_client_id)
+                self._jug.id, physicsClientId=self._physics_client_id)
             jug_yaw = p.getEulerFromQuaternion(orn)[2]
             new_jug_yaw = jug_yaw - d_roll
             new_jug_yaw = utils.wrap_angle(new_jug_yaw)
             jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, new_jug_yaw])
             p.resetBasePositionAndOrientation(
-                self._jug_id, [jx, jy, self.z_lb + self.jug_height() / 2],
+                self._jug.id, [jx, jy, self.z_lb + self.jug_height() / 2],
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
 
@@ -684,8 +683,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         if CFG.coffee_machine_has_plug:
             assert self._plug_id is not None
-            return [self._jug_id, self._plug_id]
-        return [self._jug_id]
+            return [self._jug.id, self._plug_id]
+        return [self._jug.id]
 
     def _state_to_gripper_orn(self, state: State) -> Quaternion:
         wrist = state.get(self._robot, "wrist")
@@ -772,7 +771,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             physicsClientId=self._physics_client_id)
 
         pose, orientation = p.getBasePositionAndOrientation(
-            self._jug_id, physicsClientId=self._physics_client_id)
+            self._jug.id, physicsClientId=self._physics_client_id)
         return p.createMultiBody(baseMass=0,
                                  baseCollisionShapeIndex=collision_id,
                                  baseVisualShapeIndex=visual_id,
@@ -1238,3 +1237,16 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                            physicsClientId=physics_client_id)
         p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
                            physicsClientId=physics_client_id)
+
+    @classmethod
+    def _get_jug_handle_grasp(cls, state: State,
+                              jug: Object) -> Tuple[float, float, float]:
+        # Orient pointing down.
+        rot = state.get(jug, "rot") - np.pi / 2
+        target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
+        target_y = state.get(jug,
+                             "y") + np.sin(rot) * cls.jug_handle_offset - 0.02
+        if not CFG.coffee_use_pixelated_jug:
+            target_y += 0.02
+        target_z = cls.z_lb + cls.jug_handle_height()
+        return (target_x, target_y, target_z)
