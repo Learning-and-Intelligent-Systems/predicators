@@ -158,7 +158,6 @@ class PyBulletGrowEnv(PyBulletEnv):
                                 )
         bodies["table_id"] = table_id
 
-        # TODO: Create the pots and jugs here
         num_cups = 2
         num_jugs = 2
         cup_ids = []
