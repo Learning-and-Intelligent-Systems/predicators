@@ -250,7 +250,7 @@ class PyBulletGrowEnv(PyBulletEnv):
                 # is_held we track from constraints
                 is_held = 1.0 if (obj.id == self._held_obj_id) else 0.0
                 rot = utils.wrap_angle(
-                    p.getEulerFromQuaternion(orn)[2] + np.pi / 2)
+                    p.getEulerFromQuaternion(orn)[2])
                 color_val = 1.0 if "red" in obj.name else 2.0
                 state_dict[obj] = {
                     "x": jx,
@@ -303,10 +303,11 @@ class PyBulletGrowEnv(PyBulletEnv):
             jx = state.get(jug_obj, "x")
             jy = state.get(jug_obj, "y")
             jz = state.get(jug_obj, "z")
+            jrot = state.get(jug_obj, "rot")
             update_object(jug_obj.id,
                           position=(jx, jy, jz),
                           orientation=p.getQuaternionFromEuler(
-                              [0.0, 0.0, -np.pi / 2]),
+                              [0.0, 0.0, jrot]),
                           physics_client_id=self._physics_client_id)
 
         # Check if either jug is held => forcibly attach constraints.
@@ -467,7 +468,7 @@ class PyBulletGrowEnv(PyBulletEnv):
                 "y": self.red_jug_y,
                 "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,  # not in hand
-                "rot": 0.0,
+                "rot": -np.pi / 2,
                 "color": 1.0
             }
             blue_jug_dict = {
@@ -475,7 +476,7 @@ class PyBulletGrowEnv(PyBulletEnv):
                 "y": self.blue_jug_y,
                 "z": self.z_lb + self.jug_height / 2,
                 "is_held": 0.0,
-                "rot": 0.0,
+                "rot": -np.pi / 2,
                 "color": 2.0
             }
 
