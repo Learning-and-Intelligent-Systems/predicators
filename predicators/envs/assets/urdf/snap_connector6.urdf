@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<robot name="snap_connector_6">
+    <!-- Middle plastic link is listed first as the 'base' reference link -->
+
+        <link name="middle_plastic">
+          <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.5000000000000001 0.05 0.05" />
+            </geometry>
+            <material name="middle_plastic_material">
+              <color rgba="0.0 0.5 1.0 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.5000000000000001 0.05 0.05" />
+            </geometry>
+          </collision>
+        </link>
+
+
+
+        <link name="start_metal">
+          <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.05 0.05 0.05" />
+            </geometry>
+            <material name="start_metal_material">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.05 0.05 0.05" />
+            </geometry>
+          </collision>
+        </link>
+
+
+        <link name="end_metal">
+          <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.05 0.05 0.05" />
+            </geometry>
+            <material name="end_metal_material">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.05 0.05 0.05" />
+            </geometry>
+          </collision>
+        </link>
+
+
+        <link name="line">
+          <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.5000000000000001 0.01 0.0001" />
+            </geometry>
+            <material name="line_material">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+              <box size="0.5000000000000001 0.01 0.0001" />
+            </geometry>
+          </collision>
+        </link>
+
+
+    <!-- Fixed joints -->
+
+        <joint name="start_metal_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="start_metal"/>
+          <origin xyz="-0.2750000000000001 0 0" rpy="0 0 0"/>
+        </joint>
+
+
+        <joint name="end_metal_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="end_metal"/>
+          <origin xyz="0.2750000000000001 0 0" rpy="0 0 0"/>
+        </joint>
+
+
+        <joint name="line_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="line"/>
+          <origin xyz="0 0 0.025050000000000003" rpy="0 0 0"/>
+        </joint>
+
+</robot>

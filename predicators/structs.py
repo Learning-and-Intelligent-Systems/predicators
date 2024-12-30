@@ -756,6 +756,10 @@ class _Option:
         action.set_option(self)
         return action
 
+DummyParameterizedOption: ParameterizedOption = ParameterizedOption(
+    "DummyParameterizedOption", [], Box(0, 1,
+                           (0, )), lambda s, m, o, p: Action(np.array([0.0])),
+    lambda s, m, o, p: False, lambda s, m, o, p: True)
 
 DummyOption: _Option = ParameterizedOption(
     "DummyOption", [], Box(0, 1,

@@ -1,0 +1,1347 @@
+<?xml version="1.0"?>
+<robot name="battery_box_snap_2unit">
+
+  <!-- Battery link -->
+
+    <link name="battery">
+
+        <!-- Battery pixel #0 -->
+        <visual>
+          <origin xyz="-0.05 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_0">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.05 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #1 -->
+        <visual>
+          <origin xyz="-0.025 -0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_1">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 -0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #2 -->
+        <visual>
+          <origin xyz="-0.025 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_2">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #3 -->
+        <visual>
+          <origin xyz="-0.025 0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_3">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #4 -->
+        <visual>
+          <origin xyz="0.0 -0.05 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_4">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.05 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #5 -->
+        <visual>
+          <origin xyz="0.0 -0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_5">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #6 -->
+        <visual>
+          <origin xyz="0.0 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_6">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #7 -->
+        <visual>
+          <origin xyz="0.0 0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_7">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #8 -->
+        <visual>
+          <origin xyz="0.0 0.05 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_8">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.05 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #9 -->
+        <visual>
+          <origin xyz="0.025 -0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_9">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 -0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #10 -->
+        <visual>
+          <origin xyz="0.025 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_10">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #11 -->
+        <visual>
+          <origin xyz="0.025 0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_11">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.025 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #12 -->
+        <visual>
+          <origin xyz="0.05 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_12">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.05 0.0 -0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #13 -->
+        <visual>
+          <origin xyz="-0.05 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_13">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.05 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #14 -->
+        <visual>
+          <origin xyz="-0.025 -0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_14">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 -0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #15 -->
+        <visual>
+          <origin xyz="-0.025 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_15">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #16 -->
+        <visual>
+          <origin xyz="-0.025 0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_16">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #17 -->
+        <visual>
+          <origin xyz="0.0 -0.05 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_17">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.05 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #18 -->
+        <visual>
+          <origin xyz="0.0 -0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_18">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #19 -->
+        <visual>
+          <origin xyz="0.0 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_19">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #20 -->
+        <visual>
+          <origin xyz="0.0 0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_20">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #21 -->
+        <visual>
+          <origin xyz="0.0 0.05 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_21">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.05 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #22 -->
+        <visual>
+          <origin xyz="0.025 -0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_22">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 -0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #23 -->
+        <visual>
+          <origin xyz="0.025 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_23">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #24 -->
+        <visual>
+          <origin xyz="0.025 0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_24">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.025 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #25 -->
+        <visual>
+          <origin xyz="0.05 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_25">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.05 0.0 -0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #26 -->
+        <visual>
+          <origin xyz="-0.05 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_26">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.05 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #27 -->
+        <visual>
+          <origin xyz="-0.025 -0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_27">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 -0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #28 -->
+        <visual>
+          <origin xyz="-0.025 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_28">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #29 -->
+        <visual>
+          <origin xyz="-0.025 0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_29">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #30 -->
+        <visual>
+          <origin xyz="0.0 -0.05 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_30">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.05 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #31 -->
+        <visual>
+          <origin xyz="0.0 -0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_31">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #32 -->
+        <visual>
+          <origin xyz="0.0 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_32">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #33 -->
+        <visual>
+          <origin xyz="0.0 0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_33">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #34 -->
+        <visual>
+          <origin xyz="0.0 0.05 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_34">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.05 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #35 -->
+        <visual>
+          <origin xyz="0.025 -0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_35">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 -0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #36 -->
+        <visual>
+          <origin xyz="0.025 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_36">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #37 -->
+        <visual>
+          <origin xyz="0.025 0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_37">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.025 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #38 -->
+        <visual>
+          <origin xyz="0.05 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_38">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.05 0.0 -0.012499999999999997" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #39 -->
+        <visual>
+          <origin xyz="-0.05 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_39">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.05 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #40 -->
+        <visual>
+          <origin xyz="-0.025 -0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_40">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 -0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #41 -->
+        <visual>
+          <origin xyz="-0.025 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_41">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #42 -->
+        <visual>
+          <origin xyz="-0.025 0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_42">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #43 -->
+        <visual>
+          <origin xyz="0.0 -0.05 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_43">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.05 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #44 -->
+        <visual>
+          <origin xyz="0.0 -0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_44">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #45 -->
+        <visual>
+          <origin xyz="0.0 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_45">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #46 -->
+        <visual>
+          <origin xyz="0.0 0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_46">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #47 -->
+        <visual>
+          <origin xyz="0.0 0.05 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_47">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.05 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #48 -->
+        <visual>
+          <origin xyz="0.025 -0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_48">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 -0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #49 -->
+        <visual>
+          <origin xyz="0.025 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_49">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #50 -->
+        <visual>
+          <origin xyz="0.025 0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_50">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.025 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #51 -->
+        <visual>
+          <origin xyz="0.05 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_51">
+            <color rgba="0 0 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.05 0.0 0.012500000000000004" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #52 -->
+        <visual>
+          <origin xyz="-0.05 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_52">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.05 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #53 -->
+        <visual>
+          <origin xyz="-0.025 -0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_53">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 -0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #54 -->
+        <visual>
+          <origin xyz="-0.025 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_54">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #55 -->
+        <visual>
+          <origin xyz="-0.025 0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_55">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.025 0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #56 -->
+        <visual>
+          <origin xyz="0.0 -0.05 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_56">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.05 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #57 -->
+        <visual>
+          <origin xyz="0.0 -0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_57">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 -0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #58 -->
+        <visual>
+          <origin xyz="0.0 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_58">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #59 -->
+        <visual>
+          <origin xyz="0.0 0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_59">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #60 -->
+        <visual>
+          <origin xyz="0.0 0.05 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_60">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.05 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #61 -->
+        <visual>
+          <origin xyz="0.025 -0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_61">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 -0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #62 -->
+        <visual>
+          <origin xyz="0.025 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_62">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #63 -->
+        <visual>
+          <origin xyz="0.025 0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_63">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.025 0.025 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #64 -->
+        <visual>
+          <origin xyz="0.05 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_64">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.05 0.0 0.0375" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+        <!-- Battery pixel #65 -->
+        <visual>
+          <origin xyz="0.0 0.0 0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+          <material name="battery_mat_65">
+            <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="0.0 0.0 0.0625" rpy="0 0 0" />
+          <geometry>
+            <box size="0.025 0.025 0.025" />
+          </geometry>
+        </collision>
+
+    </link>
+
+
+  <!-- Box link -->
+
+    <link name="box">
+
+        <!-- Box wall #0 -->
+        <visual>
+          <origin xyz="-0.0125 0.0 -0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.12000000000000001 0.01" />
+          </geometry>
+          <material name="box_wall_mat_0">
+            <color rgba="0 0.5 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.0125 0.0 -0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.12000000000000001 0.01" />
+          </geometry>
+        </collision>
+
+        <!-- Box wall #1 -->
+        <visual>
+          <origin xyz="-0.0125 0.0 0.12" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.12000000000000001 0.01" />
+          </geometry>
+          <material name="box_wall_mat_1">
+            <color rgba="0 0.5 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.0125 0.0 0.12" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.12000000000000001 0.01" />
+          </geometry>
+        </collision>
+
+        <!-- Box wall #2 -->
+        <visual>
+          <origin xyz="-0.0125 -0.065 0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.01 0.16" />
+          </geometry>
+          <material name="box_wall_mat_2">
+            <color rgba="0 0.5 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.0125 -0.065 0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.01 0.16" />
+          </geometry>
+        </collision>
+
+        <!-- Box wall #3 -->
+        <visual>
+          <origin xyz="-0.0125 0.065 0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.01 0.16" />
+          </geometry>
+          <material name="box_wall_mat_3">
+            <color rgba="0 0.5 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.0125 0.065 0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.08 0.01 0.16" />
+          </geometry>
+        </collision>
+
+        <!-- Box wall #4 -->
+        <visual>
+          <origin xyz="-0.0575 0.0 0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.01 0.12000000000000001 0.16" />
+          </geometry>
+          <material name="box_wall_mat_4">
+            <color rgba="0 0.5 1 1"/>
+          </material>
+        </visual>
+        <collision>
+          <origin xyz="-0.0575 0.0 0.04" rpy="0 0 0" />
+          <geometry>
+            <box size="0.01 0.12000000000000001 0.16" />
+          </geometry>
+        </collision>
+
+    </link>
+
+
+  <!-- Battery->Box fixed joint -->
+
+    <joint name="battery_box_joint" type="fixed">
+      <parent link="battery"/>
+      <child link="box"/>
+      <origin xyz="-0.0125 0.0 -0.04" rpy="0 0 0"/>
+    </joint>
+
+
+  <!-- Snap connector (2-unit) -->
+
+    <!-- Snap connector (2-unit) -->
+
+    <link name="middle_plastic">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.05 0.05" />
+        </geometry>
+        <material name="middle_plastic_mat">
+          <color rgba="0.0 0.5 1.0 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.05 0.05" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <link name="start_metal">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+        <material name="start_metal_mat">
+          <color rgba="0.8 0.8 0.8 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <link name="end_metal">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+        <material name="end_metal_mat">
+          <color rgba="0.8 0.8 0.8 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <link name="line">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.01 0.0001" />
+        </geometry>
+        <material name="line_mat">
+          <color rgba="0.8 0.8 0.8 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.01 0.0001" />
+        </geometry>
+      </collision>
+    </link>
+
+
+
+        <joint name="start_metal_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="start_metal"/>
+          <origin xyz="-0.07500000000000001 0 0" rpy="0 0 0"/>
+        </joint>
+
+
+        <joint name="end_metal_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="end_metal"/>
+          <origin xyz="0.07500000000000001 0 0" rpy="0 0 0"/>
+        </joint>
+
+
+        <joint name="line_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="line"/>
+          <origin xyz="0 0 0.025050000000000003" rpy="0 0 0"/>
+        </joint>
+
+
+
+  <!-- Attach snap to battery -->
+
+    <!-- Attach the snap connector to the battery link -->
+    <joint name="attach_snap_to_battery" type="fixed">
+      <parent link="middle_plastic"/>
+      <child link="battery"/>
+      <origin xyz="0.0 0.095 0.05" rpy="0 -1.5707963267948966 0"/>
+    </joint>
+
+
+</robot>

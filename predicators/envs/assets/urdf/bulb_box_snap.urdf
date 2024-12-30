@@ -1,0 +1,1566 @@
+<?xml version="1.0"?>
+<robot name="combined_bulb_box_snap_2unit">
+
+  <!-- Bulb link -->
+
+    <link name="bulb">
+
+          <!-- Bulb sphere #0 -->
+          <visual>
+            <origin xyz="-0.04 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_0">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.04 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #1 -->
+          <visual>
+            <origin xyz="-0.02 -0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_1">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 -0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #2 -->
+          <visual>
+            <origin xyz="-0.02 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_2">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #3 -->
+          <visual>
+            <origin xyz="-0.02 0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_3">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #4 -->
+          <visual>
+            <origin xyz="0.0 -0.04 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_4">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.04 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #5 -->
+          <visual>
+            <origin xyz="0.0 -0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_5">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #6 -->
+          <visual>
+            <origin xyz="0.0 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_6">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #7 -->
+          <visual>
+            <origin xyz="0.0 0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_7">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #8 -->
+          <visual>
+            <origin xyz="0.0 0.04 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_8">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.04 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #9 -->
+          <visual>
+            <origin xyz="0.02 -0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_9">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 -0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #10 -->
+          <visual>
+            <origin xyz="0.02 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_10">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #11 -->
+          <visual>
+            <origin xyz="0.02 0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_11">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.02 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #12 -->
+          <visual>
+            <origin xyz="0.04 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_12">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.04 0.0 -0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #13 -->
+          <visual>
+            <origin xyz="-0.04 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_13">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.04 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #14 -->
+          <visual>
+            <origin xyz="-0.02 -0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_14">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 -0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #15 -->
+          <visual>
+            <origin xyz="-0.02 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_15">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #16 -->
+          <visual>
+            <origin xyz="-0.02 0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_16">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #17 -->
+          <visual>
+            <origin xyz="0.0 -0.04 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_17">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.04 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #18 -->
+          <visual>
+            <origin xyz="0.0 -0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_18">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #19 -->
+          <visual>
+            <origin xyz="0.0 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_19">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #20 -->
+          <visual>
+            <origin xyz="0.0 0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_20">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #21 -->
+          <visual>
+            <origin xyz="0.0 0.04 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_21">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.04 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #22 -->
+          <visual>
+            <origin xyz="0.02 -0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_22">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 -0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #23 -->
+          <visual>
+            <origin xyz="0.02 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_23">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #24 -->
+          <visual>
+            <origin xyz="0.02 0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_24">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.02 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #25 -->
+          <visual>
+            <origin xyz="0.04 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_25">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.04 0.0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #26 -->
+          <visual>
+            <origin xyz="-0.04 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_26">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.04 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #27 -->
+          <visual>
+            <origin xyz="-0.02 -0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_27">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 -0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #28 -->
+          <visual>
+            <origin xyz="-0.02 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_28">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #29 -->
+          <visual>
+            <origin xyz="-0.02 0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_29">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #30 -->
+          <visual>
+            <origin xyz="0.0 -0.04 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_30">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.04 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #31 -->
+          <visual>
+            <origin xyz="0.0 -0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_31">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #32 -->
+          <visual>
+            <origin xyz="0.0 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_32">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #33 -->
+          <visual>
+            <origin xyz="0.0 0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_33">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #34 -->
+          <visual>
+            <origin xyz="0.0 0.04 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_34">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.04 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #35 -->
+          <visual>
+            <origin xyz="0.02 -0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_35">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 -0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #36 -->
+          <visual>
+            <origin xyz="0.02 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_36">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #37 -->
+          <visual>
+            <origin xyz="0.02 0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_37">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.02 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #38 -->
+          <visual>
+            <origin xyz="0.04 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_38">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.04 0.0 -0.019999999999999993" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #39 -->
+          <visual>
+            <origin xyz="-0.04 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_39">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.04 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #40 -->
+          <visual>
+            <origin xyz="-0.02 -0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_40">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 -0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #41 -->
+          <visual>
+            <origin xyz="-0.02 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_41">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #42 -->
+          <visual>
+            <origin xyz="-0.02 0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_42">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #43 -->
+          <visual>
+            <origin xyz="0.0 -0.04 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_43">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.04 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #44 -->
+          <visual>
+            <origin xyz="0.0 -0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_44">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #45 -->
+          <visual>
+            <origin xyz="0.0 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_45">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #46 -->
+          <visual>
+            <origin xyz="0.0 0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_46">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #47 -->
+          <visual>
+            <origin xyz="0.0 0.04 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_47">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.04 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #48 -->
+          <visual>
+            <origin xyz="0.02 -0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_48">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 -0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #49 -->
+          <visual>
+            <origin xyz="0.02 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_49">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #50 -->
+          <visual>
+            <origin xyz="0.02 0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_50">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.02 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #51 -->
+          <visual>
+            <origin xyz="0.04 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_51">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.04 0.0 6.938893903907228e-18" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #52 -->
+          <visual>
+            <origin xyz="-0.04 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_52">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.04 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #53 -->
+          <visual>
+            <origin xyz="-0.02 -0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_53">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 -0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #54 -->
+          <visual>
+            <origin xyz="-0.02 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_54">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #55 -->
+          <visual>
+            <origin xyz="-0.02 0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_55">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #56 -->
+          <visual>
+            <origin xyz="0.0 -0.04 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_56">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.04 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #57 -->
+          <visual>
+            <origin xyz="0.0 -0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_57">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #58 -->
+          <visual>
+            <origin xyz="0.0 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_58">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #59 -->
+          <visual>
+            <origin xyz="0.0 0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_59">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #60 -->
+          <visual>
+            <origin xyz="0.0 0.04 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_60">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.04 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #61 -->
+          <visual>
+            <origin xyz="0.02 -0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_61">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 -0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #62 -->
+          <visual>
+            <origin xyz="0.02 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_62">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #63 -->
+          <visual>
+            <origin xyz="0.02 0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_63">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.02 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #64 -->
+          <visual>
+            <origin xyz="0.04 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_64">
+              <color rgba="0.2 0.2 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.04 0.0 0.020000000000000004" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #65 -->
+          <visual>
+            <origin xyz="-0.04 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_65">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.04 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #66 -->
+          <visual>
+            <origin xyz="-0.02 -0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_66">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 -0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #67 -->
+          <visual>
+            <origin xyz="-0.02 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_67">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #68 -->
+          <visual>
+            <origin xyz="-0.02 0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_68">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.02 0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #69 -->
+          <visual>
+            <origin xyz="0.0 -0.04 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_69">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.04 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #70 -->
+          <visual>
+            <origin xyz="0.0 -0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_70">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #71 -->
+          <visual>
+            <origin xyz="0.0 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_71">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #72 -->
+          <visual>
+            <origin xyz="0.0 0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_72">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #73 -->
+          <visual>
+            <origin xyz="0.0 0.04 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_73">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.04 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #74 -->
+          <visual>
+            <origin xyz="0.02 -0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_74">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 -0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #75 -->
+          <visual>
+            <origin xyz="0.02 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_75">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #76 -->
+          <visual>
+            <origin xyz="0.02 0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_76">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.02 0.02 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #77 -->
+          <visual>
+            <origin xyz="0.04 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_77">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.04 0.0 0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+          <!-- Bulb sphere #78 -->
+          <visual>
+            <origin xyz="0.0 0 0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+            <material name="bulb_mat_78">
+              <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0 0.06" rpy="0 0 0" />
+            <geometry>
+              <box size="0.02 0.02 0.02" />
+            </geometry>
+          </collision>
+
+    </link>
+
+
+  <!-- Box link -->
+
+    <link name="box">
+
+          <!-- Box wall #0 -->
+          <visual>
+            <origin xyz="0.0 0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.1 0.1 0.01" />
+            </geometry>
+            <material name="box_wall_mat_0">
+              <color rgba="0.0 0.5 1.0 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0 -0.039999999999999994" rpy="0 0 0" />
+            <geometry>
+              <box size="0.1 0.1 0.01" />
+            </geometry>
+          </collision>
+
+          <!-- Box wall #1 -->
+          <visual>
+            <origin xyz="0.0 -0.055 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.1 0.01 0.07" />
+            </geometry>
+            <material name="box_wall_mat_1">
+              <color rgba="0.0 0.5 1.0 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 -0.055 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.1 0.01 0.07" />
+            </geometry>
+          </collision>
+
+          <!-- Box wall #2 -->
+          <visual>
+            <origin xyz="0.0 0.055 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.1 0.01 0.07" />
+            </geometry>
+            <material name="box_wall_mat_2">
+              <color rgba="0.0 0.5 1.0 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.0 0.055 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.1 0.01 0.07" />
+            </geometry>
+          </collision>
+
+          <!-- Box wall #3 -->
+          <visual>
+            <origin xyz="-0.055 0 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.01 0.1 0.07" />
+            </geometry>
+            <material name="box_wall_mat_3">
+              <color rgba="0.0 0.5 1.0 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="-0.055 0 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.01 0.1 0.07" />
+            </geometry>
+          </collision>
+
+          <!-- Box wall #4 -->
+          <visual>
+            <origin xyz="0.055 0 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.01 0.1 0.07" />
+            </geometry>
+            <material name="box_wall_mat_4">
+              <color rgba="0.0 0.5 1.0 1.0"/>
+            </material>
+          </visual>
+          <collision>
+            <origin xyz="0.055 0 -0.0049999999999999906" rpy="0 0 0" />
+            <geometry>
+              <box size="0.01 0.1 0.07" />
+            </geometry>
+          </collision>
+
+    </link>
+
+
+  <!-- Joint: bulb to box -->
+
+    <joint name="bulb_box_joint" type="fixed">
+      <parent link="bulb"/>
+      <child link="box"/>
+      <origin xyz="0.0 0 -0.039999999999999994" rpy="0 0 0"/>
+    </joint>
+
+
+  <!-- Snap connector links + joints -->
+
+    <!-- Snap connector sub-block (length_units=2) -->
+
+    <link name="middle_plastic">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.05 0.05" />
+        </geometry>
+        <material name="middle_plastic_mat">
+          <color rgba="0.0 0.5 1.0 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.05 0.05" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <link name="start_metal">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+        <material name="start_metal_mat">
+          <color rgba="0.8 0.8 0.8 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <link name="end_metal">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+        <material name="end_metal_mat">
+          <color rgba="0.8 0.8 0.8 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <link name="line">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.01 0.0001" />
+        </geometry>
+        <material name="line_mat">
+          <color rgba="0.8 0.8 0.8 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.01 0.0001" />
+        </geometry>
+      </collision>
+    </link>
+
+
+        <joint name="start_metal_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="start_metal"/>
+          <origin xyz="-0.07500000000000001 0 0" rpy="0 0 0"/>
+        </joint>
+
+
+        <joint name="end_metal_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="end_metal"/>
+          <origin xyz="0.07500000000000001 0 0" rpy="0 0 0"/>
+        </joint>
+
+
+        <joint name="line_joint" type="fixed">
+          <parent link="middle_plastic"/>
+          <child link="line"/>
+          <origin xyz="0 0 0.025050000000000003" rpy="0 0 0"/>
+        </joint>
+
+
+
+  <!-- Attach connector to the bulb -->
+
+    <joint name="attach_snap_to_bulb" type="fixed">
+      <parent link="middle_plastic"/>
+      <child link="bulb"/>
+      <origin xyz="0 0.085 0.06" rpy="0 0 0"/>
+    </joint>
+
+
+</robot>
