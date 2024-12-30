@@ -14,8 +14,7 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
-from predicators.pybullet_helpers.objects import (create_object, update_object,
-                                                    create_connector_with_bulb)
+from predicators.pybullet_helpers.objects import (create_object, update_object)
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, \
@@ -61,28 +60,27 @@ class PyBulletCircuitEnv(PyBulletEnv):
     _bulb_on_color: ClassVar[Tuple[float, float, float, float]] = (1.0, 1.0, 0.0, 1.0)  # yellow
     _bulb_off_color: ClassVar[Tuple[float, float, float, float]] = (1.0, 1.0, 1.0, 1.0)  # white
 
-    connector_width: ClassVar[float] = 0.05
-    connector_height: ClassVar[float] = 0.05
-    connector4_length: ClassVar[float] = 0.4
-    battery_radius: ClassVar[float] = 0.05
-    bulb_height: ClassVar[float] = 0.12
-    bulb_radius: ClassVar[float] = 0.05
-    box_wall_thickness: ClassVar[float] = 0.01
+    # Connector dimensions
+    snap_width: ClassVar[float] = 0.05
+    snap_height: ClassVar[float] = 0.05
+    wire_snap_length: ClassVar[float] = 0.4
+    battery_snap_length: ClassVar[float] = 0.2
+    bulb_snap_length: ClassVar[float] = 0.2
+
     # Camera parameters
     _camera_distance: ClassVar[float] = 1.3
     _camera_yaw: ClassVar[float] = 70
     _camera_pitch: ClassVar[float] = -38
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
+    # You can store as many features as you want. For brevity, we store
+    # just x, y, z, color, and an is_on for the bulb.
+    _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
+    _wire_type = Type("wire", ["x", "y", "z", "rot"])
+    _battery_type = Type("battery", ["x", "y", "z"])
+    _light_type = Type("light_socket", ["x", "y", "z", "is_on"])
+
     def __init__(self, use_gui: bool = True) -> None:
-        # 1) Define Types
-        # You can store as many features as you want. For brevity, we store
-        # just x, y, z, color, and an is_on for the bulb.
-        self._robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
-        self._wire_type = Type("wire", ["x", "y", "z", "rot"])
-        self._battery_type = Type("battery", ["x", "y", "z"])
-        # Light has an 'on' feature to track whether it’s lit, plus color as needed.
-        self._light_type = Type("light_socket", ["x", "y", "z", "is_on"])
 
         # 2) Create placeholder objects. We'll fill them in tasks.
         self._robot = Object("robot", self._robot_type)
@@ -97,9 +95,17 @@ class PyBulletCircuitEnv(PyBulletEnv):
         # We'll define a placeholder Connected predicate, and a LightOn predicate.
         # The "connected" logic can be domain-specific; here we just
         # say we don't implement it. If it returns True, we set color to yellow.
-        self._Connected = Predicate("Connected", 
-                                    [self._light_type, self._battery_type],
-                                    self._Connected_holds)
+        # self._Connected = Predicate("Connected", 
+        #                             [self._light_type, self._battery_type],
+        #                             self._Connected_holds)
+        self._ConnectedToLight = Predicate("ConnectedToLight",
+                                    [self._wire_type, self._light_type],
+                                    self._ConnectedToLight_holds)
+        self._ConnectedToBattery = Predicate("ConnectedToBattery",
+                                    [self._wire_type, self._battery_type],
+                                    self._ConnectedToBattery_holds)
+        self._CircuitClosed = Predicate("CircuitClosed",
+                                    [], self._CircuitClosed_holds)
         self._LightOn = Predicate("LightOn", [self._light_type],
                                   self._LightOn_holds)
 
@@ -254,7 +260,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
     def _reset_state(self, state: State) -> None:
         """Reset from a given state."""
         super()._reset_state(state)  # Clears constraints, resets robot
-        self._objects = [self._robot, self._wire1, self._wire2, self._battery, self._light]
+        self._objects = [self._robot, self._wire1, self._wire2, self._battery, 
+                         self._light]
 
         # Update battery
         bx = state.get(self._battery, "x")
@@ -306,7 +313,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         # Check if the Connected predicate is satisfied => turn the light on
         # (Here we don't implement the actual connection logic. We just do
         # a placeholder check for demonstration.)
-        if self._Connected_holds(next_state, [self._light, self._battery]):
+        if self._CircuitClosed_holds(next_state, [self._light, self._battery]):
             self._turn_bulb_on()
         else:
             self._turn_bulb_off()
@@ -316,20 +323,38 @@ class PyBulletCircuitEnv(PyBulletEnv):
         return final_state
 
     # -------------------------------------------------------------------------
-    # Predicates
+    # Predicates 
     @staticmethod
-    def _Connected_holds(state: State, objects: Sequence[Object]) -> bool:
-        """Placeholder. True if the light is connected to the battery
-        (via wires). Actual logic not shown."""
-        # Could do a real geometric check, or a symbolic approach.
-        # For now, just return False unconditionally.
+    def _ConnectedToLight_holds(state: State, objects: Sequence[Object]) -> bool:
+        (wire, light) = objects
+        return False
+    
+    @staticmethod
+    def _ConnectedToBattery_holds(state: State, objects: Sequence[Object]) -> bool:
+        (wire, battery) = objects
         return False
 
     @staticmethod
     def _LightOn_holds(state: State, objects: Sequence[Object]) -> bool:
         (light,) = objects
         return state.get(light, "is_on") > 0.5
+    
+    @staticmethod
+    def _CircuitClosed_holds(state: State, objects: Sequence[Object]) -> bool:
+        wires = state.get_objects(PyBulletCircuitEnv._wire_type)
+        light = state.get_objects(PyBulletCircuitEnv._light_type)
+        battery = state.get_objects(PyBulletCircuitEnv._battery_type)
 
+        for wire in wires:
+            if not PyBulletCircuitEnv._ConnectedToLight_holds(state, 
+                                                            [wire, light]):
+                return False
+
+            if not PyBulletCircuitEnv._ConnectedToBattery_holds(state, 
+                                                            [wire, battery]):
+                return False
+
+        return True
     # -------------------------------------------------------------------------
     # Turning the bulb on/off visually
     def _turn_bulb_on(self) -> None:
@@ -353,10 +378,12 @@ class PyBulletCircuitEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     # Task Generation
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_train_tasks, rng=self._train_rng)
+        return self._make_tasks(num_tasks=CFG.num_train_tasks, 
+                    rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_test_tasks, rng=self._test_rng)
+        return self._make_tasks(num_tasks=CFG.num_test_tasks, 
+                    rng=self._test_rng)
 
     def _make_tasks(
         self, num_tasks: int, rng: np.random.Generator
@@ -397,7 +424,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             }
 
             # Light near upper region
-            bulb_x = battery_x + self.connector4_length - self.connector_width
+            bulb_x = battery_x + self.wire_snap_length - self.connector_width
             light_dict = {
                 "x": bulb_x,
                 "y": 1.35,
