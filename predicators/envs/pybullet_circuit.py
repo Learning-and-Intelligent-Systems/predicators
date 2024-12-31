@@ -110,8 +110,10 @@ class PyBulletCircuitEnv(PyBulletEnv):
         self._ConnectedToBattery = Predicate(
             "ConnectedToBattery", [self._wire_type, self._battery_type],
             self._ConnectedToBattery_holds)
-        self._CircuitClosed = Predicate("CircuitClosed", [],
-                                        self._CircuitClosed_holds)
+        # Normal version used in the simulator
+        # self._CircuitClosed = Predicate("CircuitClosed", [],
+        #                                 self._CircuitClosed_holds)
+        self._CircuitClosed_abs = Conc
         self._LightOn = Predicate("LightOn", [self._light_type],
                                   self._LightOn_holds)
 
