@@ -21,24 +21,27 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
         # Types
         robot_type = types["robot"]
-        connector_type = types["connector"]
+        wire_type = types["wire"]
         light_type = types["light"]
+        battery_type = types["battery"]
 
         # Predicates
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
-        Connected = predicates["Connected"]
+        ConnectedToLight = predicates["ConnectedToLight"]
+        ConnectedToBattery = predicates["ConnectedToBattery"]
         LightOn = predicates["LightOn"]
         CircuitClosed = predicates["CircuitClosed"]
 
         # Options
         PickConnector = options["PickConnector"]
-        ConnectConnector = options["ConnectConnector"]
+        Connect = options["Connect"]
 
         nsrts = set()
+
         # PickConnector
         robot = Variable("?robot", robot_type)
-        connector = Variable("?connector", connector_type)
+        connector = Variable("?connector", wire_type)
         parameters = [robot, connector]
         option_vars = [robot, connector]
         option = PickConnector
@@ -56,35 +59,61 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    set(), option, option_vars, null_sampler)
         nsrts.add(pick_connector_nsrt)
 
-        # ConnectConnector. Connect connector 1 with connector 2 and 3.
-        connector1 = Variable("?connector1", connector_type)
-        connector2 = Variable("?connector2", connector_type)
-        connector3 = Variable("?connector3", connector_type)
-        option = ConnectConnector
+        # ConnectFirstWire. Connect first wire to light and battery.
+        wire = Variable("?wire", wire_type)
+        light = Variable("?light", light_type)
+        battery = Variable("?battery", battery_type)
+        parameters = [wire, light, battery]
+        option_vars = [wire, light, battery]
+        option = Connect
         preconditions = {
-            LiftedAtom(Holding, [robot, connector1]),
+            LiftedAtom(Holding, [robot, wire]),
             # Should add one that says the distance between the terminals are
             # close enough
         }
         add_effects = {
-            LiftedAtom(Connected, [connector1, connector2, connector3]),
+            LiftedAtom(ConnectedToLight, [wire, light]),
+            LiftedAtom(ConnectedToBattery, [wire, battery]),
         }
         delete_effects = {
-            LiftedAtom(Holding, [robot, connector]),
+            LiftedAtom(Holding, [robot, wire]),
         }
-        connect_wire_with_wires_nsrt = NSRT("ConnectWireWithWires", parameters,
+        connect_first_wire_nsrt = NSRT("ConnectFirstWire", parameters,
                                             preconditions, add_effects,
                                             delete_effects, set(), option,
                                             option_vars, null_sampler)
-        nsrts.add(connect_wire_with_wires_nsrt)
+        nsrts.add(connect_first_wire_nsrt)
 
-        # Done.
-        parameters = [Variable("?light", light_type)]
+        # hacky: connect second wire to light and power
+        wire = Variable("?wire", wire_type)
         light = Variable("?light", light_type)
-        preconditions = {LiftedAtom(CircuitClosed, [])}
-        add_effects = {LiftedAtom(LightOn, [light])}
-        done_nsrt = NSRT("Done", [light], preconditions, add_effects, set(),
-                         set(), DummyParameterizedOption, [], null_sampler)
-        nsrts.add(done_nsrt)
+        battery = Variable("?battery", battery_type)
+        parameters = [wire, light, battery]
+        option_vars = [wire, light, battery]
+        option = Connect
+        preconditions = {
+            LiftedAtom(Holding, [robot, wire]),
+        }
+        add_effects = {
+            LiftedAtom(CircuitClosed, []),
+            LiftedAtom(LightOn, [light]),
+        }
+        delete_effects = {
+            LiftedAtom(Holding, [robot, wire]),
+        }
+        connect_second_wire_nsrt = NSRT("ConnectSecondWire", parameters,
+                                            preconditions, add_effects,
+                                            delete_effects, set(), option,
+                                            option_vars, null_sampler)
+        nsrts.add(connect_second_wire_nsrt)
+
+        # # Done.
+        # parameters = [Variable("?light", light_type)]
+        # light = Variable("?light", light_type)
+        # preconditions = {LiftedAtom(CircuitClosed, [])}
+        # add_effects = {LiftedAtom(LightOn, [light])}
+        # done_nsrt = NSRT("Done", [light], preconditions, add_effects, set(),
+        #                  set(), DummyParameterizedOption, [], null_sampler)
+        # nsrts.add(done_nsrt)
 
         return nsrts

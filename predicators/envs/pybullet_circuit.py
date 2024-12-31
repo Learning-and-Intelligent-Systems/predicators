@@ -84,7 +84,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _wire_type = Type("wire", ["x", "y", "z", "rot"])
     _battery_type = Type("battery", ["x", "y", "z", "rot"])
-    _light_type = Type("light_socket", ["x", "y", "z", "rot", "is_on"])
+    _light_type = Type("light", ["x", "y", "z", "rot", "is_on"])
 
     def __init__(self, use_gui: bool = True) -> None:
 
@@ -117,11 +117,11 @@ class PyBulletCircuitEnv(PyBulletEnv):
         # connected to the battery.
 
         # Normal version used in the simulator
-        # self._CircuitClosed = Predicate("CircuitClosed", [],
-        #                                 self._CircuitClosed_holds)
-        self._CircuitClosed_abs = ConceptPredicate("CircuitClosed",
-                                    [self._wire_type, self._wire_type], 
-                                    self._CircuitClosed_CP_holds)
+        self._CircuitClosed = Predicate("CircuitClosed", [],
+                                        self._CircuitClosed_holds)
+        # self._CircuitClosed_abs = ConceptPredicate("CircuitClosed",
+        #                             [self._wire_type, self._wire_type], 
+        #                             self._CircuitClosed_CP_holds)
         self._LightOn = Predicate("LightOn", [self._light_type],
                                   self._LightOn_holds)
 
@@ -137,7 +137,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
             self._LightOn,
             self._ConnectedToLight,
             self._ConnectedToBattery,
-            self._CircuitClosed_abs,
+            self._CircuitClosed,
+            # self._CircuitClosed_abs,
         }
 
     @property
