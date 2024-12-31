@@ -360,6 +360,7 @@ class VLMPredicate(Predicate):
     """
     get_vlm_query_str: Callable[[Sequence[Object]], str]
 
+
 # @dataclass(frozen=True, repr=False)
 class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
@@ -385,9 +386,10 @@ class NSPredicate(Predicate):
         clf_str = clf_str.replace("@staticmethod\n", "")
         return clf_str
 
+
 @dataclass(frozen=True, order=False, repr=False)
 class ConceptPredicate(Predicate):
-    """Struct defining a concept predicate"""
+    """Struct defining a concept predicate."""
     name: str
     types: Sequence[Type]
     # The classifier takes in a complete state and a sequence of objects
@@ -395,16 +397,16 @@ class ConceptPredicate(Predicate):
     # treated "specially" by the classifier.
     _classifier: Callable[[Set[GroundAtom], Sequence[Object]],
                           bool] = field(compare=False)
-    untransformed_predicate: Optional[Predicate] = field(default=None, 
+    untransformed_predicate: Optional[Predicate] = field(default=None,
                                                          compare=False)
     auxiliary_concepts: Optional[Set[ConceptPredicate]] = field(default=None,
                                                                 compare=False)
 
-    def update_auxiliary_concepts(self, 
+    def update_auxiliary_concepts(
+            self,
             auxiliary_concepts: Set[ConceptPredicate]) -> ConceptPredicate:
         """Create a new ConceptPredicate with updated auxiliary_concepts."""
         return replace(self, auxiliary_concepts=auxiliary_concepts)
-
 
     @cached_property
     def _hash(self) -> int:
@@ -426,6 +428,7 @@ class ConceptPredicate(Predicate):
                             objects: Sequence[Object]) -> bool:
         # Separate this into a named function for pickling reasons.
         return not self._classifier(state, objects)
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _Atom:
@@ -756,10 +759,11 @@ class _Option:
         action.set_option(self)
         return action
 
+
 DummyParameterizedOption: ParameterizedOption = ParameterizedOption(
-    "DummyParameterizedOption", [], Box(0, 1,
-                           (0, )), lambda s, m, o, p: Action(np.array([0.0])),
-    lambda s, m, o, p: False, lambda s, m, o, p: True)
+    "DummyParameterizedOption", [], Box(0, 1, (0, )),
+    lambda s, m, o, p: Action(np.array([0.0])), lambda s, m, o, p: False,
+    lambda s, m, o, p: True)
 
 DummyOption: _Option = ParameterizedOption(
     "DummyOption", [], Box(0, 1,

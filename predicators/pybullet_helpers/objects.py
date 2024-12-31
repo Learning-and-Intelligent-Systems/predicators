@@ -9,7 +9,6 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 # import numpy as np
 
 
-
 def create_object(asset_path: str,
                   position: Pose3D = (0, 0, 0),
                   orientation: Quaternion = PyBulletEnv._default_orn,

@@ -241,37 +241,6 @@ class BalanceEnv(BaseEnv):
 
         return height1 == height2
 
-    # def _Balanced_holds(self, state: State, objects: Sequence[Object]) -> bool:
-    #     """Check if the blocks are balanced on the table.
-    #     """
-    #     plate1, table2 = objects
-    #     if plate1 == table2:
-    #         return False
-
-    #     # Function to count the number of blocks in the tower iteratively
-    #     def count_num_blocks(table):
-    #         stack = [(table, 0)]
-    #         count = 0
-
-    #         while stack:
-    #             base_obj, current_count = stack.pop()
-    #             for block in state.get_objects(self._block_type):
-    #                 if base_obj.type == self._block_type and\
-    #                     self._DirectlyOn_holds(state, [block, base_obj]):
-    #                     stack.append((block, current_count + 1))
-    #                 elif base_obj.type == self._plate_type and\
-    #                     self._DirectlyOnPlate_holds(state, [block, base_obj]):
-    #                     stack.append((block, current_count + 1))
-    #             count = max(count, current_count)
-
-    #         return count
-
-    #     # Get the height of the blocks using iteration
-    #     height1 = count_num_blocks(plate1)
-    #     height2 = count_num_blocks(table2)
-
-    #     return height1 == height2
-
     def _EqualBlocksOnPlates_CP_holds(self, atoms: Set[GroundAtom],
                                       objects: Sequence[Object]) -> bool:
         left_plate, right_plate = objects
@@ -315,36 +284,6 @@ class BalanceEnv(BaseEnv):
         height2 = count_num_blocks(table2)
 
         return height1 == height2
-
-    # def _Balanced_CP_holds(self, atoms: Set[GroundAtom],
-    #                         objects: Sequence[Object]) -> bool:
-    #     """Check if the blocks are balanced on the table.
-    #     """
-    #     plate1, table2 = objects
-    #     if plate1 == table2:
-    #         return False
-
-    #     # Function to count the number of blocks in the tower iteratively
-    #     def count_num_blocks(table):
-    #         stack = [(table, 0)]
-    #         count = 0
-
-    #         while stack:
-    #             base_obj, current_count = stack.pop()
-    #             for atom in atoms:
-    #                 if atom.predicate == self._DirectlyOn and atom.objects[1] == base_obj:
-    #                     stack.append((atom.objects[0], current_count + 1))
-    #                 elif atom.predicate == self._DirectlyOnPlate and atom.objects[1] == base_obj:
-    #                     stack.append((atom.objects[0], current_count + 1))
-    #             count = max(count, current_count)
-
-    #         return count
-
-    #     # Get the height of the blocks using iteration
-    #     height1 = count_num_blocks(plate1)
-    #     height2 = count_num_blocks(table2)
-
-    #     return height1 == height2
 
     @classmethod
     def get_name(cls) -> str:

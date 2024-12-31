@@ -833,7 +833,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             # norm_desired_rot, = params
             norm_desired_rot = params[0] if params.shape[0] == 1 else \
                 cls.env_cls.jug_pickable_rot
-            desired_rot = norm_desired_rot # * CFG.coffee_jug_init_rot_amt
+            desired_rot = norm_desired_rot  # * CFG.coffee_jug_init_rot_amt
             delta_rot = np.clip(desired_rot - current_rot,
                                 -cls.env_cls.max_angular_vel,
                                 cls.env_cls.max_angular_vel)

@@ -391,8 +391,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             jy = state.get(self._jug, "y")
             jz = self._get_jug_z(state, self._jug) + self.jug_height() / 2
             rot = state.get(self._jug, "rot")
-            jug_orientation = p.getQuaternionFromEuler(
-                [0.0, 0.0, rot])
+            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot])
             p.resetBasePositionAndOrientation(
                 self._jug.id, [jx, jy, jz],
                 jug_orientation,

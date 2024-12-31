@@ -1,5 +1,5 @@
-"""
-python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
+"""python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
+
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900
@@ -17,8 +17,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, \
-    Object, Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class PyBulletGrowEnv(PyBulletEnv):
@@ -67,14 +67,13 @@ class PyBulletGrowEnv(PyBulletEnv):
     blue_jug_y = 1.38
     jug_init_z: ClassVar[float] = z_lb + jug_height / 2
     jug_init_rot: ClassVar[float] = -np.pi / 2
-    jug_colors: ClassVar[List[Tuple[float, float, float, float]]] = [
-            (1, 0, 0, 1),
-            (0, 0, 1, 1)]
+    jug_colors: ClassVar[List[Tuple[float, float, float,
+                                    float]]] = [(1, 0, 0, 1), (0, 0, 1, 1)]
 
     # cup configs
-    cup_colors: ClassVar[List[Tuple[float, float, float, float]]] = [
-            (1, 0.3, 0.3, 1),
-            (0.3, 0.3, 1, 1)]
+    cup_colors: ClassVar[List[Tuple[float, float, float,
+                                    float]]] = [(1, 0.3, 0.3, 1),
+                                                (0.3, 0.3, 1, 1)]
 
     # Target height for the plants
     growth_height: ClassVar[float] = 0.3
@@ -164,13 +163,14 @@ class PyBulletGrowEnv(PyBulletEnv):
 
         # You can add a table or floor plane, etc.
         # For example, let's add a table below the workspace:
-        table_id = create_object(asset_path="urdf/table.urdf",
-                                    position=cls.table_pos,
-                                    orientation=cls.table_orn,
-                                    scale=1.0,
-                                    use_fixed_base=True,
-                                    physics_client_id=physics_client_id,
-                                )
+        table_id = create_object(
+            asset_path="urdf/table.urdf",
+            position=cls.table_pos,
+            orientation=cls.table_orn,
+            scale=1.0,
+            use_fixed_base=True,
+            physics_client_id=physics_client_id,
+        )
         bodies["table_id"] = table_id
 
         num_cups = 2
@@ -178,16 +178,16 @@ class PyBulletGrowEnv(PyBulletEnv):
         cup_ids = []
         for i in range(num_cups):
             cup_id = create_object(asset_path="urdf/pot-pixel.urdf",
-                                    color=cls.cup_colors[i],
-                                    physics_client_id=physics_client_id)
+                                   color=cls.cup_colors[i],
+                                   physics_client_id=physics_client_id)
             cup_ids.append(cup_id)
         bodies["cup_ids"] = cup_ids
 
         jug_ids = []
         for i in range(num_jugs):
             jug_id = create_object(asset_path="urdf/jug-pixel.urdf",
-                                color=cls.jug_colors[i],
-                                physics_client_id=physics_client_id)
+                                   color=cls.jug_colors[i],
+                                   physics_client_id=physics_client_id)
             jug_ids.append(jug_id)
         bodies["jug_ids"] = jug_ids
 
@@ -260,8 +260,7 @@ class PyBulletGrowEnv(PyBulletEnv):
                     obj.id, physicsClientId=self._physics_client_id)
                 # is_held we track from constraints
                 is_held = 1.0 if (obj.id == self._held_obj_id) else 0.0
-                rot = utils.wrap_angle(
-                    p.getEulerFromQuaternion(orn)[2])
+                rot = utils.wrap_angle(p.getEulerFromQuaternion(orn)[2])
                 color_val = 1.0 if "red" in obj.name else 2.0
                 state_dict[obj] = {
                     "x": jx,
@@ -287,8 +286,10 @@ class PyBulletGrowEnv(PyBulletEnv):
         """
         super()._reset_state(state)  # Clears constraints, resets robot
 
-        self._objects = [self._red_cup, self._blue_cup, self._red_jug,
-                            self._blue_jug, self._robot]
+        self._objects = [
+            self._red_cup, self._blue_cup, self._red_jug, self._blue_jug,
+            self._robot
+        ]
 
         # update cups in PyBullet
         for cup_obj in [self._red_cup, self._blue_cup]:
@@ -511,7 +512,7 @@ class PyBulletGrowEnv(PyBulletEnv):
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
         return self._add_pybullet_state_to_tasks(tasks)
-    
+
     # -------------------------------------------------------------------------
     # Helpers
     def _create_pybullet_liquid_for_cup(self, cup: Object,

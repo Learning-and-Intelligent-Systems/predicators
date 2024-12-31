@@ -1100,6 +1100,7 @@ class PyBulletState(State):
 
 BoundingBox = namedtuple('BoundingBox', 'left lower right upper')
 
+
 @dataclass
 class RawState(PyBulletState):
     state_image: PIL.Image.Image = None
@@ -1243,10 +1244,10 @@ class RawState(PyBulletState):
                         "rot",
                         "fingers"
                 ]) or (object_features and attribute not in [
-                    "is_heavy",
-                    # "grasp",
-                    # "held",
-                    # "is_held",
+                        "is_heavy",
+                        # "grasp",
+                        # "held",
+                        # "is_held",
                 ]):
                     if isinstance(value, (float, int, np.float32)):
                         value = round(float(value), 1)

@@ -3,8 +3,8 @@
 from typing import Dict, Set
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
-    Predicate, Type, Variable, DummyParameterizedOption
+from predicators.structs import NSRT, DummyParameterizedOption, LiftedAtom, \
+    ParameterizedOption, Predicate, Type, Variable
 from predicators.utils import null_sampler
 
 
@@ -52,9 +52,8 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
         }
         pick_connector_nsrt = NSRT("PickConnector", parameters,
-                                      preconditions, add_effects,
-                                      delete_effects, set(), option,
-                                      option_vars, null_sampler)
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars, null_sampler)
         nsrts.add(pick_connector_nsrt)
 
         # ConnectConnector. Connect connector 1 with connector 2 and 3.
@@ -82,12 +81,8 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Done.
         parameters = [Variable("?light", light_type)]
         light = Variable("?light", light_type)
-        preconditions = {
-            LiftedAtom(CircuitClosed, [])
-        }
-        add_effects = {
-            LiftedAtom(LightOn, [light])
-        }
+        preconditions = {LiftedAtom(CircuitClosed, [])}
+        add_effects = {LiftedAtom(LightOn, [light])}
         done_nsrt = NSRT("Done", [light], preconditions, add_effects, set(),
                          set(), DummyParameterizedOption, [], null_sampler)
         nsrts.add(done_nsrt)
