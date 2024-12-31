@@ -276,8 +276,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
         bx = state.get(self._battery, "x")
         by = state.get(self._battery, "y")
         bz = state.get(self._battery, "z")
-        # --- CHANGED / ADDED ---
-        # Retrieve battery rot
         brot = state.get(self._battery, "rot")
         update_object(self._battery.id,
                       position=(bx, by, bz),
