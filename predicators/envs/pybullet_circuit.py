@@ -18,7 +18,7 @@ from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type
+    Predicate, State, Type, ConceptPredicate
 
 
 class PyBulletCircuitEnv(PyBulletEnv):
@@ -110,10 +110,18 @@ class PyBulletCircuitEnv(PyBulletEnv):
         self._ConnectedToBattery = Predicate(
             "ConnectedToBattery", [self._wire_type, self._battery_type],
             self._ConnectedToBattery_holds)
+        # Ultimatly, we probably want a predicate for Connected(Light, 
+        # BatteryPositiveTerminal) and Connected(Light, BatteryNegativeTerminal)
+        # which will be evaluated recursively by checking if light is directly
+        # connected to the battery or if it is connected to a wire that is 
+        # connected to the battery.
+
         # Normal version used in the simulator
         # self._CircuitClosed = Predicate("CircuitClosed", [],
         #                                 self._CircuitClosed_holds)
-        self._CircuitClosed_abs = Conc
+        self._CircuitClosed_abs = ConceptPredicate("CircuitClosed",
+                                    [self._wire_type, self._wire_type], 
+                                    self._CircuitClosed_CP_holds)
         self._LightOn = Predicate("LightOn", [self._light_type],
                                   self._LightOn_holds)
 
@@ -127,6 +135,9 @@ class PyBulletCircuitEnv(PyBulletEnv):
             # If you want to define self._Connected, re-add it here
             # self._Connected,
             self._LightOn,
+            self._ConnectedToLight,
+            self._ConnectedToBattery,
+            self._CircuitClosed_abs,
         }
 
     @property
@@ -388,9 +399,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
     @staticmethod
     def _CircuitClosed_holds(state: State, objects: Sequence[Object]) -> bool:
         """Placeholder logic for checking if circuit is closed."""
+        light, battery = objects
         wires = state.get_objects(PyBulletCircuitEnv._wire_type)
-        light = state.get_objects(PyBulletCircuitEnv._light_type)
-        battery = state.get_objects(PyBulletCircuitEnv._battery_type)
 
         for wire in wires:
             if not PyBulletCircuitEnv._ConnectedToLight_holds(
@@ -399,8 +409,32 @@ class PyBulletCircuitEnv(PyBulletEnv):
             if not PyBulletCircuitEnv._ConnectedToBattery_holds(
                     state, [wire, battery]):
                 return False
-
         return True
+    
+    @staticmethod
+    def _CircuitClosed_CP_holds(atoms: Set[GroundAtom], 
+                                objects: Sequence[Object]) -> bool:
+        wire1, wire2 = objects
+        if wire1 == wire2:
+            return False
+        # Check both wires are connected to the light and battery
+        w1_connected_to_light = False
+        w1_connected_to_battery = False
+        w2_connected_to_light = False
+        w2_connected_to_battery = False
+        for atom in atoms:
+            if atom.predicate == "ConnectedToLight":
+                if atom.args[0] == wire1 and atom.args[1] == objects[1]:
+                    w1_connected_to_light = True
+                elif atom.args[0] == wire2 and atom.args[1] == objects[1]:
+                    w2_connected_to_light = True
+            elif atom.predicate == "ConnectedToBattery":
+                if atom.args[0] == wire1 and atom.args[1] == objects[0]:
+                    w1_connected_to_battery = True
+                elif atom.args[0] == wire2 and atom.args[1] == objects[0]:
+                    w2_connected_to_battery = True
+        return w1_connected_to_light and w1_connected_to_battery and \
+                w2_connected_to_light and w2_connected_to_battery 
 
     # -------------------------------------------------------------------------
     # Turning the bulb on/off visually
