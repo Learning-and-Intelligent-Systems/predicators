@@ -1535,21 +1535,21 @@
         <joint name="start_metal_joint" type="fixed">
           <parent link="middle_plastic"/>
           <child link="start_metal"/>
-          <origin xyz="-0.07500000000000001 0 0" rpy="0 0 0"/>
+          <origin xyz="-0.075 0 0" rpy="0 0 0"/>
         </joint>
 
 
         <joint name="end_metal_joint" type="fixed">
           <parent link="middle_plastic"/>
           <child link="end_metal"/>
-          <origin xyz="0.07500000000000001 0 0" rpy="0 0 0"/>
+          <origin xyz="0.075 0 0" rpy="0 0 0"/>
         </joint>
 
 
         <joint name="line_joint" type="fixed">
           <parent link="middle_plastic"/>
           <child link="line"/>
-          <origin xyz="0 0 0.025050000000000003" rpy="0 0 0"/>
+          <origin xyz="0 0 0.025" rpy="0 0 0"/>
         </joint>
 
 

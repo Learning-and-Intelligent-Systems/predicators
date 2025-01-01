@@ -6,7 +6,7 @@
           <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-              <box size="0.30000000000000004 0.05 0.05" />
+              <box size="0.30 0.05 0.05" />
             </geometry>
             <material name="middle_plastic_material">
               <color rgba="0.0 0.5 1.0 1.0"/>
@@ -15,7 +15,7 @@
           <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-              <box size="0.30000000000000004 0.05 0.05" />
+              <box size="0.3 0.05 0.05" />
             </geometry>
           </collision>
         </link>
@@ -64,7 +64,7 @@
           <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-              <box size="0.30000000000000004 0.01 0.0001" />
+              <box size="0.3 0.01 0.0001" />
             </geometry>
             <material name="line_material">
               <color rgba="0.8 0.8 0.8 1.0"/>
@@ -73,7 +73,7 @@
           <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-              <box size="0.30000000000000004 0.01 0.0001" />
+              <box size="0.3 0.01 0.0001" />
             </geometry>
           </collision>
         </link>
@@ -84,21 +84,21 @@
         <joint name="start_metal_joint" type="fixed">
           <parent link="middle_plastic"/>
           <child link="start_metal"/>
-          <origin xyz="-0.17500000000000002 0 0" rpy="0 0 0"/>
+          <origin xyz="-0.1750 0 0" rpy="0 0 0"/>
         </joint>
 
 
         <joint name="end_metal_joint" type="fixed">
           <parent link="middle_plastic"/>
           <child link="end_metal"/>
-          <origin xyz="0.17500000000000002 0 0" rpy="0 0 0"/>
+          <origin xyz="0.175 0 0" rpy="0 0 0"/>
         </joint>
 
 
         <joint name="line_joint" type="fixed">
           <parent link="middle_plastic"/>
           <child link="line"/>
-          <origin xyz="0 0 0.025050000000000003" rpy="0 0 0"/>
+          <origin xyz="0 0 0.025" rpy="0 0 0"/>
         </joint>
 
 </robot>

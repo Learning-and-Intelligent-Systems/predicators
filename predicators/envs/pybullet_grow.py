@@ -1,5 +1,5 @@
-"""python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
-
+"""
+python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900
@@ -17,8 +17,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class PyBulletGrowEnv(PyBulletEnv):

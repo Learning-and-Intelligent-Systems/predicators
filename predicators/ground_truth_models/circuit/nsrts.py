@@ -34,37 +34,38 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         CircuitClosed = predicates["CircuitClosed"]
 
         # Options
-        PickConnector = options["PickConnector"]
+        Pick = options["PickWire"]
         Connect = options["Connect"]
 
         nsrts = set()
 
-        # PickConnector
+        # PickWire
         robot = Variable("?robot", robot_type)
-        connector = Variable("?connector", wire_type)
-        parameters = [robot, connector]
-        option_vars = [robot, connector]
-        option = PickConnector
+        wire = Variable("?wire", wire_type)
+        parameters = [robot, wire]
+        option_vars = [robot, wire]
+        option = Pick
         preconditions = {
             LiftedAtom(HandEmpty, [robot]),
         }
         add_effects = {
-            LiftedAtom(Holding, [robot, connector]),
+            LiftedAtom(Holding, [robot, wire]),
         }
         delete_effects = {
             LiftedAtom(HandEmpty, [robot]),
         }
-        pick_connector_nsrt = NSRT("PickConnector", parameters,
+        pick_wire_nsrt = NSRT("PickWire", parameters,
                                    preconditions, add_effects, delete_effects,
                                    set(), option, option_vars, null_sampler)
-        nsrts.add(pick_connector_nsrt)
+        nsrts.add(pick_wire_nsrt)
 
         # ConnectFirstWire. Connect first wire to light and battery.
+        robot = Variable("?robot", robot_type)
         wire = Variable("?wire", wire_type)
         light = Variable("?light", light_type)
         battery = Variable("?battery", battery_type)
-        parameters = [wire, light, battery]
-        option_vars = [wire, light, battery]
+        parameters = [robot, wire, light, battery]
+        option_vars = [robot, wire, light, battery]
         option = Connect
         preconditions = {
             LiftedAtom(Holding, [robot, wire]),
@@ -72,6 +73,7 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # close enough
         }
         add_effects = {
+            LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(ConnectedToLight, [wire, light]),
             LiftedAtom(ConnectedToBattery, [wire, battery]),
         }
@@ -85,18 +87,20 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(connect_first_wire_nsrt)
 
         # hacky: connect second wire to light and power
+        robot = Variable("?robot", robot_type)
         wire = Variable("?wire", wire_type)
         light = Variable("?light", light_type)
         battery = Variable("?battery", battery_type)
-        parameters = [wire, light, battery]
-        option_vars = [wire, light, battery]
+        parameters = [robot, wire, light, battery]
+        option_vars = [robot, wire, light, battery]
         option = Connect
         preconditions = {
             LiftedAtom(Holding, [robot, wire]),
         }
         add_effects = {
-            LiftedAtom(CircuitClosed, []),
-            LiftedAtom(LightOn, [light]),
+            LiftedAtom(HandEmpty, [robot]),
+            LiftedAtom(CircuitClosed, [light, battery]),
+            # LiftedAtom(LightOn, [light]),
         }
         delete_effects = {
             LiftedAtom(Holding, [robot, wire]),
