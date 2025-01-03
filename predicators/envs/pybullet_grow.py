@@ -90,7 +90,7 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     _camera_distance: ClassVar[float] = 1.3
     _camera_yaw: ClassVar[float] = 70
-    _camera_pitch: ClassVar[float] = -38  # lower
+    _camera_pitch: ClassVar[float] = -38  # 0: low <-> -90: high
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
     def __init__(self, use_gui: bool = True) -> None:

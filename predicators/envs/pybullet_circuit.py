@@ -81,8 +81,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
     _camera_pitch: ClassVar[float] = -50
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
-    # --- CHANGED / ADDED ---
-    #  Added "rot" to both the battery and light types.
+    # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _wire_type = Type("wire", ["x", "y", "z", "rot", "is_held"])
     _battery_type = Type("battery", ["x", "y", "z", "rot"])
@@ -90,7 +89,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
 
-        # 2) Create placeholder objects. We'll fill them in tasks.
+        # Objects
         self._robot = Object("robot", self._robot_type)
         self._wire1 = Object("wire1", self._wire_type)
         self._wire2 = Object("wire2", self._wire_type)
@@ -99,13 +98,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
         super().__init__(use_gui)
 
-        # 3) Define Predicates
-        # We'll define a placeholder Connected predicate, and a LightOn predicate.
-        # The "connected" logic can be domain-specific; here we just
-        # say we don't implement it. If it returns True, we set color to yellow.
-        # self._Connected = Predicate("Connected",
-        #                             [self._light_type, self._battery_type],
-        #                             self._Connected_holds)
+        # Predicates
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._wire_type],
                                   self._Holding_holds)
@@ -141,7 +134,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             # If you want to define self._Connected, re-add it here
-            # self._Connected,
             self._Holding,
             self._HandEmpty,
             self._LightOn,
@@ -268,7 +260,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             "y": ly,
             "z": lz,
             "rot": l_euler[2],  # light yaw
-            "is_on": 0.0,
+            "is_on": int(self._is_bulb_on(self._light.id)),
         }
 
         # Wires
@@ -479,6 +471,14 @@ class PyBulletCircuitEnv(PyBulletEnv):
                 3,  # all link indices
                 rgbaColor=self._bulb_off_color,
                 physicsClientId=self._physics_client_id)
+    
+    def _is_bulb_on(self, light_id) -> bool:
+        """Check if the bulb is on."""
+        color = p.getVisualShapeData(light_id, 
+                        physicsClientId=self._physics_client_id)[3][-1]
+        bulb_color_on_dist = sum(np.subtract(color, self._bulb_on_color)**2)
+        bulb_color_off_dist = sum(np.subtract(color, self._bulb_off_color)**2)
+        return bulb_color_on_dist < bulb_color_off_dist
 
     # -------------------------------------------------------------------------
     # Task Generation

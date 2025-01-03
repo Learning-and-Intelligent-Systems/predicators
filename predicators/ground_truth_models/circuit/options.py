@@ -37,7 +37,6 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
     env_cls: ClassVar[TypingType[PyBulletCircuitEnv]] = PyBulletCircuitEnv
     _move_to_pose_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
-    _offset_z: ClassVar[float] = 0.01
     _transport_z: ClassVar[float] = env_cls.z_ub - 0.5
 
     @classmethod
