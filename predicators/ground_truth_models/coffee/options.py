@@ -1050,17 +1050,6 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         target_pose = Pose(target_pos, target_quat)
         assert isinstance(state, utils.PyBulletState)
 
-        # import pybullet as p
-        # p.addUserDebugText("+", robot_pos,
-        #                        [0.0, 1.0, 0.0],
-        #                      physicsClientId=pybullet_robot.physics_client_id)
-        # p.addUserDebugText("*", target_pos,
-        #                        [1.0, 0.0, 0.0],
-        #                      physicsClientId=pybullet_robot.physics_client_id)
-
-        # import time
-        # time.sleep(1.0)
-
         return get_move_end_effector_to_pose_action(
             pybullet_robot, current_joint_positions, current_pose, target_pose,
             finger_status, CFG.pybullet_max_vel_norm,
