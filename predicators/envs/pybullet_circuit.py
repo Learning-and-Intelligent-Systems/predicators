@@ -62,10 +62,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
     robot_init_wrist: ClassVar[float] = -np.pi / 2
     max_angular_vel: ClassVar[float] = np.pi / 4
 
-    # Hard-coded finger states for open/close
-    open_fingers: ClassVar[float] = 0.4
-    closed_fingers: ClassVar[float] = 0.1
-
     # Some helpful color specs
     _bulb_on_color: ClassVar[Tuple[float, float, float,
                                    float]] = (1.0, 1.0, 0.0, 1.0)  # yellow
@@ -558,6 +554,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             goal_atoms = {
                 # GroundAtom(self._LightOn, [self._light]),
                 GroundAtom(self._CircuitClosed, [self._light, self._battery]),
+                # GroundAtom(self._ConnectedToBattery, [self._wire1, self._battery]),
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 

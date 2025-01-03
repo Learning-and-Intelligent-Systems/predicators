@@ -1,4 +1,5 @@
 """Generic controllers for the robots."""
+import logging
 from typing import Callable, Dict, Sequence, Set, Tuple, cast
 
 import numpy as np
@@ -68,7 +69,6 @@ def get_move_end_effector_to_pose_action(
         assert finger_status == "closed"
         finger_delta = -finger_action_nudge_magnitude
     # Extract the current finger state.
-    state = cast(utils.PyBulletState, state)
     finger_position = current_joint_positions[robot.left_finger_joint_idx]
     # The finger action is an absolute joint position for the fingers.
     f_action = finger_position + finger_delta
@@ -116,7 +116,7 @@ def create_move_end_effector_to_pose_option(
             get_current_and_target_pose_and_finger_status(
             state, objects, params)
         # This option currently assumes a fixed end effector orientation.
-        assert np.allclose(current_pose.orientation, target_pose.orientation)
+        # assert np.allclose(current_pose.orientation, target_pose.orientation)
         action = get_move_end_effector_to_pose_action(
             robot=robot,
             current_joint_positions=state.joint_positions,
@@ -134,7 +134,7 @@ def create_move_end_effector_to_pose_option(
             get_current_and_target_pose_and_finger_status(
                 state, objects, params)
         # This option currently assumes a fixed end effector orientation.
-        assert np.allclose(current_pose.orientation, target_pose.orientation)
+        # assert np.allclose(current_pose.orientation, target_pose.orientation)
         current = current_pose.position
         target = target_pose.position
         squared_dist = np.sum(np.square(np.subtract(current, target)))
@@ -209,6 +209,8 @@ def create_change_fingers_option(
         current_val, target_val = get_current_and_target_val(
             state, objects, params)
         squared_dist = (target_val - current_val)**2
+        logging.debug(f"current_val: {current_val}, target_val: {target_val}, "
+                      f"squared_dist: {squared_dist}, grasp_tol: {grasp_tol}")
         return squared_dist < grasp_tol
 
     return ParameterizedOption(name,

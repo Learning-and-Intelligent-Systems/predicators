@@ -517,7 +517,10 @@ def _get_pybullet_robot() -> SingleArmPyBulletRobot:
 
 
 class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
-    """Ground-truth options for the pybullet_coffee environment."""
+    """Ground-truth options for the pybullet_coffee environment.
+    
+    Redefining twist, place, plug in and pour.
+    """
 
     env_cls: ClassVar[TypingType[PyBulletCoffeeEnv]] = PyBulletCoffeeEnv
     # twist_policy_tol: ClassVar[float] = 1e-2
@@ -955,33 +958,16 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                 if abs(dtilt) < cls.env_cls.pour_angle_tol * 0.1:
                     # make pouring more stable
                     dtilt = 0
-                # logging.debug(f"Pour: dtils {dtilt}")
-                # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                #     state.joint_positions).rpy
-                # cur_formated_jp = np.array(
-                #     [round(jp, 3) for jp in state.joint_positions])
-                # current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
                 new_joint_pos = cls._get_move_action(state,
                                                      robot_pos,
                                                      robot_pos,
                                                      dtilt=dtilt,
                                                      finger_status="closed")
-                # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                #     new_joint_pos.arr.tolist()).rpy
-                # new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
-                # new_formated_jp = np.array(
-                #     [round(jp, 3) for jp in new_joint_pos.arr])
                 return new_joint_pos
             dtilt = move_tilt - tilt
             # If we're above the pour position, move down to pour.
             xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
             if xy_pour_sq_dist < cls.env_cls.safe_z_tol * 1e-2:
-                # logging.debug("Move down to pour")
-                # current_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                #     state.joint_positions).rpy
-                # current_ee_rpy = tuple(round(v, 3) for v in current_ee_rpy)
-                # cur_formated_jp = np.array(
-                #     [round(jp, 3) for jp in state.joint_positions])
                 new_joint_pos = cls._get_move_action(
                     state,
                     # robot_pour_pos,
@@ -989,11 +975,6 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     robot_pos,
                     dtilt=0.0,
                     finger_status="closed")
-                # new_ee_rpy = _get_pybullet_robot().forward_kinematics(
-                #     new_joint_pos.arr.tolist()).rpy
-                # new_ee_rpy = tuple(round(v, 3) for v in new_ee_rpy)
-                # new_formated_jp = np.array(
-                #     [round(jp, 3) for jp in new_joint_pos.arr])
                 return new_joint_pos
             # If we're at a safe height, move toward above the pour position.
             if (robot_z -
@@ -1005,7 +986,6 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                     finger_status="closed")
 
             # Move backward and to a safe moving height.
-            # logging.debug("Move backward and to a safe moving height")
             return cls._get_move_action(
                 state, (robot_x, robot_y - 1e-1, cls.env_cls.robot_init_z),
                 robot_pos,

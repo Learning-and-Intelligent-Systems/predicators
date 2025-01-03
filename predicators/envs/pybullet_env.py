@@ -33,7 +33,7 @@ class PyBulletEnv(BaseEnv):
     grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
     open_fingers: ClassVar[float] = 1.0
-    close_fingers: ClassVar[float] = 0.0
+    closed_fingers: ClassVar[float] = 0.0
     robot_base_pos: Optional[Tuple[float, float, float]] = None
     robot_base_orn: Optional[Tuple[float, float, float, float]] = None
 

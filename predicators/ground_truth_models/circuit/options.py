@@ -2,18 +2,23 @@
 
 import logging
 from functools import lru_cache
-from typing import ClassVar, Dict, Sequence, Set
+from typing import ClassVar, Dict, Sequence, Set, Callable, List, Tuple
 from typing import Type as TypingType
 
 import numpy as np
 from gym.spaces import Box
+import pybullet as p
 
-from predicators.envs.pybullet_coffee import PyBulletCoffeeEnv
+from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.envs.pybullet_circuit import PyBulletCircuitEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.ground_truth_models.coffee.options import \
     PyBulletCoffeeGroundTruthOptionFactory
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
+from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.controllers import \
+    create_move_end_effector_to_pose_option, create_change_fingers_option
+from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
 from predicators import utils
@@ -22,7 +27,7 @@ from predicators import utils
 @lru_cache
 def _get_pybullet_robot() -> SingleArmPyBulletRobot:
     _, pybullet_robot, _ = \
-        PyBulletCoffeeEnv.initialize_pybullet(using_gui=False)
+        PyBulletCircuitEnv.initialize_pybullet(using_gui=False)
     return pybullet_robot
 
 
@@ -30,8 +35,10 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the grow environment."""
 
     env_cls: ClassVar[TypingType[PyBulletCircuitEnv]] = PyBulletCircuitEnv
-    pick_policy_tol: ClassVar[float] = 1e-3
-    place_policy_tol: ClassVar[float] = 1e-4
+    _move_to_pose_tol: ClassVar[float] = 1e-3
+    _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
+    _offset_z: ClassVar[float] = 0.01
+    _transport_z: ClassVar[float] = env_cls.z_ub - 0.5
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -41,224 +48,193 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
+        """Get the ground-truth options for the grow environment."""
+        del env_name, predicates, action_space  # unused
+
+        _, pybullet_robot, _ = \
+            PyBulletCircuitEnv.initialize_pybullet(using_gui=False)
+
         # Types
         robot_type = types["robot"]
         wire_type = types["wire"]
         light_type = types["light"]
         battery_type = types["battery"]
 
-        # Predicates
-        Holding = predicates["Holding"]
-        ConnectedToLight = predicates["ConnectedToLight"]
-        ConnectedToBattery = predicates["ConnectedToBattery"]
+        def get_current_fingers(state: State) -> float:
+            robot, = state.get_objects(robot_type)
+            return PyBulletCircuitEnv._fingers_state_to_joint(pybullet_robot, 
+                                                state.get(robot, "fingers"))
+
+        def open_fingers_func(state: State, objects: Sequence[Object],
+                              params: Array) -> Tuple[float, float]:
+            del objects, params  # unused
+            current = get_current_fingers(state)
+            target = pybullet_robot.open_fingers
+            return current, target
+
+        def close_fingers_func(state: State, objects: Sequence[Object],
+                               params: Array) -> Tuple[float, float]:
+            del objects, params  # unused
+            current = get_current_fingers(state)
+            target = pybullet_robot.closed_fingers
+            return current, target
 
         options = set()
         # PickWire
-        def _PickWire_terminal(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
-            del memory, params
-            robot, wire = objects
-            holds = Holding.holds(state, [robot, wire])
-            return holds
-
-        PickWire = ParameterizedOption(
-            "PickWire",
-            types=[robot_type, wire_type],
-            params_space=Box(0, 1, (0, )),
-            policy=cls._create_pick_wire_policy(),
-            initiable=lambda s, m, o, p: True,
-            terminal=_PickWire_terminal)
-        
-        def _RestoreForPickWire_terminal(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
-            del memory, params
-            robot, wire = objects
-            robot_pos = (state.get(robot, "x"), state.get(robot, "y"),
-                            state.get(robot, "z"))
-            wx = state.get(wire, "x")
-            wy = state.get(wire, "y")
-            target_pos = (wx, wy, cls.env_cls.robot_init_z) 
-            return bool(np.allclose(robot_pos, target_pos, atol=1e-1)) 
-
-        RestoreForPickWire = ParameterizedOption(
-            "RestoreForPickWire",
-            types=[robot_type, wire_type],
-            params_space=Box(0, 1, (0, )),
-            policy=cls._create_move_to_above_position_policy(),
-            initiable=lambda s, m, o, p: True,
-            terminal=_RestoreForPickWire_terminal)
+        option_types = [robot_type, wire_type]
+        params_space = Box(0, 1, (0, ))
         PickWire = utils.LinearChainParameterizedOption(
             "PickWire", [
-                # RestoreForPickWire, 
-                PickWire])
+            # Move to far the wire which we will grasp.
+            cls._create_circuit_move_to_above_wire_option(
+                "MoveToAboveWire",
+                lambda _: cls.env_cls.z_ub,
+                "open",
+                option_types,
+                params_space),
+            # Move down to grasp.
+            cls._create_circuit_move_to_above_wire_option(
+                "MoveToGraspWire",
+                lambda snap_height: snap_height,
+                "open",
+                option_types,
+                params_space),
+            # Close fingers
+            create_change_fingers_option(
+                pybullet_robot, "CloseFingers", option_types, params_space,
+                close_fingers_func, CFG.pybullet_max_vel_norm, 
+                PyBulletEnv.grasp_tol),
+            # Move up
+            cls._create_circuit_move_to_above_wire_option(
+                "MoveEndEffectorBackUp",
+                lambda _: cls._transport_z,
+                "closed",
+                option_types,
+                params_space),
+            ])
         options.add(PickWire)
-
+ 
         # Connect
-        def _Connect_terminal(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
-            del memory, params
-            robot, wire, light, battery = objects
-            # connected_to_light = ConnectedToLight.holds(state, [wire, light])
-            # connected_to_battery = ConnectedToBattery.holds(state, [wire, 
-            #                                                         battery])
-            # return connected_to_light and connected_to_battery
-            return not Holding.holds(state, [robot, wire])
-
-        Connect = ParameterizedOption(
-            "Connect",
-            types=[robot_type, wire_type, light_type, battery_type],
-            params_space=Box(0, 1, (0, )),
-            policy=cls._create_connect_policy(),
-            initiable=lambda s, m, o, p: True,
-            terminal=_Connect_terminal)
-
-        def _RestoreForConnect_terminal(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
-            del memory, params
-            robot, wire, light, battery = objects
-            robot_pos = (state.get(robot, "x"), state.get(robot, "y"),
-                            state.get(robot, "z"))
-            robot_init_pos = (robot_pos[0], 
-                              robot_pos[1],
-                              cls.env_cls.robot_init_z)
-            return bool(np.allclose(robot_pos, robot_init_pos, atol=1e-1)) 
-
-        RestoreForConnect = ParameterizedOption(
-            "RestRestoreForConnecoreForPickWire",
-            types=[robot_type, wire_type, light_type, battery_type],
-            params_space=Box(0, 1, (0, )),
-            policy=cls._create_move_to_above_position_policy(),
-            initiable=lambda s, m, o, p: True,
-            terminal=_RestoreForConnect_terminal)
-        
+        option_types = [robot_type, wire_type, light_type, battery_type]
+        params_space = Box(0, 1, (0, ))
         Connect = utils.LinearChainParameterizedOption(
-            "Connect", [Connect, 
-                        RestoreForConnect
-                        ])
+            "Connect", [
+            # Move to above the position for connecting.
+            cls._create_circuit_move_to_above_two_snaps_option(
+                "MoveToAboveTwoSnaps",
+                lambda _: cls._transport_z,
+                "closed",
+                option_types,
+                params_space),
+            # Move down to connect.
+            cls._create_circuit_move_to_above_two_snaps_option(
+                "MoveToConnect",
+                lambda snap_height: snap_height,
+                "closed",
+                option_types,
+                params_space),
+            # Open fingers
+            create_change_fingers_option(
+                pybullet_robot, "OpenFingers", option_types, params_space,
+                open_fingers_func, CFG.pybullet_max_vel_norm, 
+                PyBulletEnv.grasp_tol),
+            # Move back up
+            cls._create_circuit_move_to_above_two_snaps_option(
+                "MoveEndEffectorBackUp",
+                lambda _: cls.env_cls.z_ub,
+                "open",
+                option_types,
+                params_space),
+            ])
         options.add(Connect)
 
         return options
-    @classmethod
-    def _create_move_to_above_position_policy(cls) -> ParameterizedPolicy:
-
-        def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
-            # This policy moves the robot to the initial position
-            del memory, params
-            robot, wire = objects[:2]
-            robot_pos = (state.get(robot, "x"), 
-                         state.get(robot, "y"), 
-                         state.get(robot, "z"))
-            wrot = state.get(wire, "rot")
-            rrot = state.get(robot, "wrist")
-            dwrist = wrot - rrot
-            target_pos = (robot_pos[0], robot_pos[1],
-                          cls.env_cls.robot_init_z)
-            return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(state,
-                                        target_pos,
-                                        robot_pos,
-                                        finger_status="open",
-                                        dwrist=dwrist)
-
-        return policy 
-    @classmethod
-    def _create_pick_wire_policy(cls) -> ParameterizedPolicy:
-        def pick_wire_policy(state: State, memory: Dict,
-                             objects: Sequence[Object],
-                             params: Array) -> Action:
-            """Pick wire by 1) Rotate, 2) Pick up
-            """
-            del memory, params
-            robot, wire = objects
-            wx = state.get(wire, "x")
-            wy = state.get(wire, "y")
-            wz = state.get(wire, "z")
-            wr = state.get(wire, "rot")
-            wpos = (wx, wy, wz)
-            rx = state.get(robot, "x")
-            ry = state.get(robot, "y")
-            rz = state.get(robot, "z")
-            rr = state.get(robot, "wrist")
-            rpos = (rx, ry, rz)
-            dwrist = wr - rr
-            dwrist = np.clip(dwrist, -cls.env_cls.max_angular_vel,
-                        cls.env_cls.max_angular_vel)
-
-            way_point = (wpos[0], wpos[1], rz) #cls.env_cls.robot_init_z)
-            sq_dist_to_way_point = np.sum((np.array(rpos) - 
-                                           np.array(way_point))**2)
-            if sq_dist_to_way_point > cls.pick_policy_tol:
-                return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(
-                    state,
-                    way_point,
-                    rpos,
-                    finger_status="open",
-                    dwrist=dwrist)
-
-            sq_dist = np.sum((np.array(wpos) - np.array(rpos))**2)
-            if sq_dist < cls.pick_policy_tol:
-                return PyBulletCoffeeGroundTruthOptionFactory._get_pick_action(
-                    state)
-            else:
-                return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(
-                                            state,
-                                            wpos,
-                                            rpos,
-                                            finger_status="open",
-                                            dwrist=dwrist)
-        return pick_wire_policy
 
     @classmethod
-    def _create_connect_policy(cls) -> ParameterizedPolicy:
-        def connect_policy(state: State, memory: Dict,
-                           objects: Sequence[Object],
-                           params: Array) -> Action:
-            """Connect wire to light and battery by 1) Rotate, 2) Connect
-            """
-            del memory, params
+    def _create_circuit_move_to_above_wire_option(
+            cls, name: str, z_func: Callable[[float], float], 
+            finger_status: str, option_types: List[Type], 
+            params_space: Box) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a pose above that of the
+        wire argument.
+
+        The parameter z_func maps the block's z position to the target z
+        position.
+        """
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose, Pose, str]:
+            assert not params
+            robot, snap = objects
+            current_position = (state.get(robot, "x"),
+                                state.get(robot, "y"),
+                                state.get(robot, "z"))
+            ee_orn = p.getQuaternionFromEuler([0, 
+                                               state.get(robot, "tilt"), 
+                                               state.get(robot, "wrist")])
+            current_pose = Pose(current_position, ee_orn)
+            target_position = (state.get(snap, "x"), 
+                               state.get(snap, "y"),
+                               z_func(state.get(snap, "z")))
+            snap_orn = p.getQuaternionFromEuler([0, 
+                                                cls.env_cls.robot_init_tilt, 
+                                                state.get(snap, "rot")])
+            target_pose = Pose(target_position, snap_orn)
+            return current_pose, target_pose, finger_status
+
+        return create_move_end_effector_to_pose_option(
+            _get_pybullet_robot(), name, option_types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            cls._finger_action_nudge_magnitude)
+    
+    @classmethod
+    def _create_circuit_move_to_above_two_snaps_option(
+            cls, name: str, z_func: Callable[[float], float], 
+            finger_status: str,
+            option_types: List[Type], params_space: Box) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a pose above that of the
+        wire argument.
+
+        The parameter z_func maps the block's z position to the target z
+        position.
+        """
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose, Pose, str]:
+            assert not params
             robot, wire, light, battery = objects
-            wx = state.get(wire, "x")
-            wy = state.get(wire, "y")
-            wz = state.get(wire, "z")
-            wr = state.get(wire, "rot")
-            target_rot = 0
             rx = state.get(robot, "x")
             ry = state.get(robot, "y")
             rz = state.get(robot, "z")
-            rr = state.get(robot, "wrist")
-            cur_pos = (rx, ry, rz)
-            # cur_pos = (wx, wy, wz)
-            dwrist = target_rot - rr
+            current_position = (rx, ry, rz)
+            ee_orn = p.getQuaternionFromEuler([0, 
+                                               state.get(robot, "tilt"), 
+                                               state.get(robot, "wrist")])
+            current_pose = Pose(current_position, ee_orn)
 
-            lx = state.get(light, "x")
+            wy = state.get(wire, "y")
             ly = state.get(light, "y")
+            lx = state.get(light, "x")
             lz = state.get(light, "z")
             bx = state.get(battery, "x")
-
+            by = state.get(battery, "y")
             at_top = 1 if (wy > ly) else -1
             target_x = (lx + bx) / 2
             target_y = ly + at_top * (cls.env_cls.bulb_snap_length / 2 + 
                                       cls.env_cls.snap_width / 2 - 0.01)
-            target_pos = (target_x, target_y, rz)
-            # logging.debug(f"current pos: {cur_pos}")
-            # logging.debug(f"target pos: {target_pos}")
-            # logging.debug(f"current wrist: {rr}")
-            # logging.debug(f"target wrist: {wr}")
+            target_pos = (target_x, target_y, z_func(lz))
+            # Calculate rot from lx, ly, bx, by
+            target_orn = p.getQuaternionFromEuler([0, 
+                                                cls.env_cls.robot_init_tilt, 
+                                            #    state.get(robot, "tilt"), 
+                                               0])
+                                                # np.arctan2(by - ly, bx - lx)])
+            target_pose = Pose(target_pos, target_orn)
+            return current_pose, target_pose, finger_status
 
-            sq_dist = np.sum((np.array(cur_pos) - np.array(target_pos))**2)
-            if sq_dist < cls.place_policy_tol:
-                # logging.debug("Place")
-                return PyBulletCoffeeGroundTruthOptionFactory.\
-                        _get_place_action(state)
-
-            return PyBulletCoffeeGroundTruthOptionFactory._get_move_action(
-                state,
-                target_pos,
-                cur_pos,
-                finger_status="closed",
-                dwrist=dwrist)
-        return connect_policy
+        return create_move_end_effector_to_pose_option(
+            _get_pybullet_robot(), name, option_types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            cls._finger_action_nudge_magnitude)
