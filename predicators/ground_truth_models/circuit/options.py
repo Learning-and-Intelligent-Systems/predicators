@@ -218,7 +218,6 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
             lx = state.get(light, "x")
             lz = state.get(light, "z")
             bx = state.get(battery, "x")
-            by = state.get(battery, "y")
             at_top = 1 if (wy > ly) else -1
             target_x = (lx + bx) / 2
             target_y = ly + at_top * (cls.env_cls.bulb_snap_length / 2 + 
@@ -227,7 +226,6 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Calculate rot from lx, ly, bx, by
             target_orn = p.getQuaternionFromEuler([0, 
                                                 cls.env_cls.robot_init_tilt, 
-                                            #    state.get(robot, "tilt"), 
                                                0])
                                                 # np.arctan2(by - ly, bx - lx)])
             target_pose = Pose(target_pos, target_orn)
