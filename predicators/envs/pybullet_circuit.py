@@ -18,7 +18,7 @@ import pybullet as p
 
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion, Pose
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
@@ -171,7 +171,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             asset_path="urdf/table.urdf",
             position=cls.table_pos,
             orientation=cls.table_orn,
-            scale=1.0,
+            scale=1,
             use_fixed_base=True,
             physics_client_id=physics_client_id,
         )
@@ -179,7 +179,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
         # Create the battery
         battery_id = create_object(
-            asset_path="urdf/battery_box_snap.urdf",
+            asset_path="urdf/partnet_mobility/switch/102812/"+
+                        "battery_switch_snap.urdf",
             physics_client_id=physics_client_id,
             scale=1,
             use_fixed_base=True,
@@ -206,9 +207,20 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
         return physics_client_id, pybullet_robot, bodies
 
+    @staticmethod
+    def _get_joint_id(obj_id: int, joint_name: str) -> int:
+        """Get the joint ID for a joint with a given name.
+        """
+        num_joints = p.getNumJoints(obj_id)
+        for joint_index in range(num_joints):
+            joint_info = p.getJointInfo(obj_id, joint_index)
+            if joint_info[1].decode('utf-8') == joint_name:
+                return joint_index
+
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to PyBullet IDs for environment assets."""
         self._battery.id = pybullet_bodies["battery_id"]
+        self._battery.joint_id = self._get_joint_id(self._battery.id, "joint_0")
         self._light.id = pybullet_bodies["light_id"]
         self._wire1.id = pybullet_bodies["wire_ids"][0]
         self._wire2.id = pybullet_bodies["wire_ids"][1]
@@ -324,6 +336,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
                           orientation=p.getQuaternionFromEuler([0, 0, rot]),
                           physics_client_id=self._physics_client_id)
             if state.get(wire_obj, "is_held") > 0.5:
+                # TODO: create constraint between snap and robot
                 self._attach(wire_obj.id, self._pybullet_robot)
                 self._held_obj_id = wire_obj.id
 
@@ -340,7 +353,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
         next_state = super().step(action, render_obs=render_obs)
 
         # Check if the CircuitClosed predicate is satisfied => turn the light on
-        if self._CircuitClosed_holds(next_state, [self._light, self._battery]):
+        if self._CircuitClosed_holds(next_state, [self._light, self._battery])\
+            and self._SwitchOn_holds(next_state, [self._battery]):
             self._turn_bulb_on()
         else:
             self._turn_bulb_off()
@@ -428,6 +442,21 @@ class PyBulletCircuitEnv(PyBulletEnv):
                     state, [wire, battery]):
                 return False
         return True
+
+    def _SwitchOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        """Check if the battery is switched on.
+        """
+        del state  # unused
+        battery, = objects
+        joint_state = p.getJointState(battery.id, battery.joint_id, 
+                                    physicsClientId=self._physics_client_id)[0]
+        joint_min = p.getJointInfo(battery.id, battery.joint_id, 
+                                   physicsClientId=self._physics_client_id)[8]
+        joint_max = p.getJointInfo(battery.id, battery.joint_id, 
+                                   physicsClientId=self._physics_client_id)[9]
+        joint_state = np.clip((joint_state - joint_min) / 
+                              (joint_max - joint_min), 0, 1)
+        return bool(joint_state > 0.5)
     
     @staticmethod
     def _CircuitClosed_CP_holds(atoms: Set[GroundAtom], 
@@ -559,3 +588,27 @@ class PyBulletCircuitEnv(PyBulletEnv):
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
+
+if __name__ == "__main__":
+    """Run a simple simulation to test the environment."""
+    import time
+
+    # Make a task
+    CFG.seed = 0
+    env = PyBulletCircuitEnv(use_gui=True)
+    task = env._make_tasks(1, CFG.seed)[0]
+    env._reset_state(task.init)
+
+    while True:
+        # could potentially add a noop action
+        robot = env._pybullet_robot
+        ee_action = Pose((env.robot_init_x, env.robot_init_y, env.robot_init_z),
+                         p.getQuaternionFromEuler([0, 
+                                                    env.robot_init_tilt,
+                                                    env.robot_init_wrist]))
+        action = Action(np.array(robot.inverse_kinematics(ee_action, 
+                                        validate=False, 
+                                        set_joints=True)))
+        env.step(action)
+        p.stepSimulation(env._physics_client_id)
+        time.sleep(0.01)
