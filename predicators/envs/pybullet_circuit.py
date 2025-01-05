@@ -221,6 +221,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         """Store references to PyBullet IDs for environment assets."""
         self._battery.id = pybullet_bodies["battery_id"]
         self._battery.joint_id = self._get_joint_id(self._battery.id, "joint_0")
+        self._battery.joint_scale = 0.1
         self._light.id = pybullet_bodies["light_id"]
         self._wire1.id = pybullet_bodies["wire_ids"][0]
         self._wire2.id = pybullet_bodies["wire_ids"][1]
@@ -352,6 +353,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         """
         next_state = super().step(action, render_obs=render_obs)
 
+        _ = self._SwitchOn_holds(next_state, [self._battery])
         # Check if the CircuitClosed predicate is satisfied => turn the light on
         if self._CircuitClosed_holds(next_state, [self._light, self._battery])\
             and self._SwitchOn_holds(next_state, [self._battery]):
@@ -449,11 +451,12 @@ class PyBulletCircuitEnv(PyBulletEnv):
         del state  # unused
         battery, = objects
         joint_state = p.getJointState(battery.id, battery.joint_id, 
-                                    physicsClientId=self._physics_client_id)[0]
+                                physicsClientId=self._physics_client_id)[0] /\
+                                    self._battery.joint_scale
         joint_min = p.getJointInfo(battery.id, battery.joint_id, 
-                                   physicsClientId=self._physics_client_id)[8]
+                                physicsClientId=self._physics_client_id)[8]
         joint_max = p.getJointInfo(battery.id, battery.joint_id, 
-                                   physicsClientId=self._physics_client_id)[9]
+                                physicsClientId=self._physics_client_id)[9]
         joint_state = np.clip((joint_state - joint_min) / 
                               (joint_max - joint_min), 0, 1)
         return bool(joint_state > 0.5)
