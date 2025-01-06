@@ -120,7 +120,7 @@
         <box size="0.3 0.05 0.01"/>
       </geometry>
       <material name="white">
-        <color rgba="1 1 1 1.0"/>
+        <color rgba="1 1 1 0.5"/>
       </material>
     </visual>
     <collision name="tube_0_to_1_bottom_collision">
@@ -136,7 +136,7 @@
         <box size="0.3 0.01 0.060000000000000005"/>
       </geometry>
       <material name="white">
-        <color rgba="1 1 1 1.0"/>
+        <color rgba="1 1 1 0.5"/>
       </material>
     </visual>
     <collision name="tube_0_to_1_front_collision">
@@ -152,7 +152,7 @@
         <box size="0.3 0.01 0.060000000000000005"/>
       </geometry>
       <material name="white">
-        <color rgba="1 1 1 1.0"/>
+        <color rgba="1 1 1 0.5"/>
       </material>
     </visual>
     <collision name="tube_0_to_1_back_collision">
@@ -168,7 +168,7 @@
         <box size="0.3 0.05 0.01"/>
       </geometry>
       <material name="white">
-        <color rgba="1 1 1 1.0"/>
+        <color rgba="1 1 1 0.5"/>
       </material>
     </visual>
     <collision name="tube_0_to_1_top_collision">
