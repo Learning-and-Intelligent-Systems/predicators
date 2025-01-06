@@ -33,6 +33,9 @@ class PyBulletCircuitEnv(PyBulletEnv):
     When the battery is connected to the socket via connectors (the
     'Connected' predicate is true), the bulb color changes to yellow,
     indicating it's 'on'.
+
+    TODO: the switchOn predicate is not determined based on the input State
+    object but the pybullet state, which may cause some problem.
     """
 
     # Workspace / table bounds (adjust as you wish).
@@ -603,15 +606,8 @@ if __name__ == "__main__":
     env._reset_state(task.init)
 
     while True:
-        # could potentially add a noop action
-        robot = env._pybullet_robot
-        ee_action = Pose((env.robot_init_x, env.robot_init_y, env.robot_init_z),
-                         p.getQuaternionFromEuler([0, 
-                                                    env.robot_init_tilt,
-                                                    env.robot_init_wrist]))
-        action = Action(np.array(robot.inverse_kinematics(ee_action, 
-                                        validate=False, 
-                                        set_joints=True)))
+        # Robot does nothing
+        action = Action(np.array(env._pybullet_robot.initial_joint_positions))
+
         env.step(action)
-        p.stepSimulation(env._physics_client_id)
         time.sleep(0.01)

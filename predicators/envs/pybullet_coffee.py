@@ -1220,6 +1220,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                            [0.0, 0.0, 1.0],
                            lineWidth=5.0,
                            physicsClientId=physics_client_id)
+
         # Draw coordinate frame labels for reference.
         p.addUserDebugLine([0, 0, 0], [0.25, 0, 0], [1.0, 0.0, 0.0],
                            lineWidth=5.0,
