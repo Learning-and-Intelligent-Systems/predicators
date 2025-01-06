@@ -1,0 +1,293 @@
+<?xml version="1.0"?>
+<robot name="communicating_vessels">
+  <link name="vessels_link">
+    <!-- container_0_bottom -->
+    <visual name="container_0_bottom_visual">
+      <origin xyz="0.1 0.0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.2 0.01"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_0_bottom_collision">
+      <origin xyz="0.1 0.0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.2 0.01"/>
+      </geometry>
+    </collision>
+    <!-- container_0_front_wall -->
+    <visual name="container_0_front_wall_visual">
+      <origin xyz="0.1 0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_0_front_wall_collision">
+      <origin xyz="0.1 0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+    </collision>
+    <!-- container_0_back_wall -->
+    <visual name="container_0_back_wall_visual">
+      <origin xyz="0.1 -0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_0_back_wall_collision">
+      <origin xyz="0.1 -0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+    </collision>
+    <!-- container_0_left_wall -->
+    <visual name="container_0_left_wall_visual">
+      <origin xyz="0.005 0.0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.4"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_0_left_wall_collision">
+      <origin xyz="0.005 0.0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.4"/>
+      </geometry>
+    </collision>
+    <!-- container_0_right_wall_with_hole_top -->
+    <visual name="container_0_right_wall_with_hole_top_visual">
+      <origin xyz="0.195 0.0 0.22500000000000003" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.35000000000000003"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_0_right_wall_with_hole_top_collision">
+      <origin xyz="0.195 0.0 0.22500000000000003" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.35000000000000003"/>
+      </geometry>
+    </collision>
+    <!-- container_0_right_wall_with_hole_leftband -->
+    <visual name="container_0_right_wall_with_hole_leftband_visual">
+      <origin xyz="0.195 -0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_0_right_wall_with_hole_leftband_collision">
+      <origin xyz="0.195 -0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+    </collision>
+    <!-- container_0_right_wall_with_hole_rightband -->
+    <visual name="container_0_right_wall_with_hole_rightband_visual">
+      <origin xyz="0.195 0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_0_right_wall_with_hole_rightband_collision">
+      <origin xyz="0.195 0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+    </collision>
+    <!-- tube_0_to_1_bottom -->
+    <visual name="tube_0_to_1_bottom_visual">
+      <origin xyz="0.35 0.0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.05 0.01"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="tube_0_to_1_bottom_collision">
+      <origin xyz="0.35 0.0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.05 0.01"/>
+      </geometry>
+    </collision>
+    <!-- tube_0_to_1_front -->
+    <visual name="tube_0_to_1_front_visual">
+      <origin xyz="0.35 0.030000000000000002 0.030000000000000002" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.01 0.060000000000000005"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="tube_0_to_1_front_collision">
+      <origin xyz="0.35 0.030000000000000002 0.030000000000000002" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.01 0.060000000000000005"/>
+      </geometry>
+    </collision>
+    <!-- tube_0_to_1_back -->
+    <visual name="tube_0_to_1_back_visual">
+      <origin xyz="0.35 -0.030000000000000002 0.030000000000000002" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.01 0.060000000000000005"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="tube_0_to_1_back_collision">
+      <origin xyz="0.35 -0.030000000000000002 0.030000000000000002" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.01 0.060000000000000005"/>
+      </geometry>
+    </collision>
+    <!-- tube_0_to_1_top -->
+    <visual name="tube_0_to_1_top_visual">
+      <origin xyz="0.35 0.0 0.055" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.05 0.01"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="tube_0_to_1_top_collision">
+      <origin xyz="0.35 0.0 0.055" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.05 0.01"/>
+      </geometry>
+    </collision>
+    <!-- container_1_bottom -->
+    <visual name="container_1_bottom_visual">
+      <origin xyz="0.6 0.0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.2 0.01"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_1_bottom_collision">
+      <origin xyz="0.6 0.0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.2 0.01"/>
+      </geometry>
+    </collision>
+    <!-- container_1_front_wall -->
+    <visual name="container_1_front_wall_visual">
+      <origin xyz="0.6 0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_1_front_wall_collision">
+      <origin xyz="0.6 0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+    </collision>
+    <!-- container_1_back_wall -->
+    <visual name="container_1_back_wall_visual">
+      <origin xyz="0.6 -0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_1_back_wall_collision">
+      <origin xyz="0.6 -0.10500000000000001 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.01 0.4"/>
+      </geometry>
+    </collision>
+    <!-- container_1_left_wall_with_hole_top -->
+    <visual name="container_1_left_wall_with_hole_top_visual">
+      <origin xyz="0.505 0.0 0.22500000000000003" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.35000000000000003"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_1_left_wall_with_hole_top_collision">
+      <origin xyz="0.505 0.0 0.22500000000000003" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.35000000000000003"/>
+      </geometry>
+    </collision>
+    <!-- container_1_left_wall_with_hole_leftband -->
+    <visual name="container_1_left_wall_with_hole_leftband_visual">
+      <origin xyz="0.505 -0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_1_left_wall_with_hole_leftband_collision">
+      <origin xyz="0.505 -0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+    </collision>
+    <!-- container_1_left_wall_with_hole_rightband -->
+    <visual name="container_1_left_wall_with_hole_rightband_visual">
+      <origin xyz="0.505 0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_1_left_wall_with_hole_rightband_collision">
+      <origin xyz="0.505 0.0625 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.07500000000000001 0.05"/>
+      </geometry>
+    </collision>
+    <!-- container_1_right_wall -->
+    <visual name="container_1_right_wall_visual">
+      <origin xyz="0.695 0.0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.4"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1.0"/>
+      </material>
+    </visual>
+    <collision name="container_1_right_wall_collision">
+      <origin xyz="0.695 0.0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.2 0.4"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
