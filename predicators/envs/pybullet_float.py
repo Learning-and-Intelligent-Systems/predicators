@@ -1,11 +1,11 @@
 """
 Optimized single-object communicating vessel example.
 
-Key optimizations:
-1) Only re-draw the water if water level changes.
-2) Water level changes only when a block's top crosses the water surface.
-   (Once fully submerged, it no longer affects water level changes
-    until it exits again.)
+python predicators/main.py --approach oracle --env pybullet_float \
+--seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
+--sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
+--pybullet_sim_steps_per_action 1 \
+--pybullet_camera_height 900 --pybullet_camera_width 900 --debug
 """
 
 import logging
@@ -25,7 +25,7 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, \
 
 def create_water_body(size_z, size_x=0.2, size_y=0.2,
                       base_position=(0, 0, 0),
-                      color=[0, 0, 1, 0.5],
+                      color=[0, 0, 1, 0.8],
                       physics_client_id=None):
     """Create a semi-transparent 'water' box in PyBullet."""
     water_visual = p.createVisualShape(
@@ -45,7 +45,7 @@ def create_water_body(size_z, size_x=0.2, size_y=0.2,
     return water_body_id
 
 
-class PyBulletSingleVesselEnv(PyBulletEnv):
+class PyBulletFloatEnv(PyBulletEnv):
     """Communicating vessel environment with a single 'vessel' object (plus blocks).
     The vessel has x, y, z, water_height. Internally, we treat two compartments
     but share a single water_height because the fluid is connected.
@@ -90,34 +90,46 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
     robot_init_wrist: ClassVar[float] = -np.pi / 2
     max_angular_vel: ClassVar[float] = np.pi / 4
 
+    # Camera parameters
+    _camera_distance: ClassVar[float] = 1.3
+    _camera_yaw: ClassVar[float] = 60
+    _camera_pitch: ClassVar[float] = -30
+    _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
+
     # Vessel placement
     VESSEL_BASE_X: ClassVar[float] = 0.55
     VESSEL_BASE_Y: ClassVar[float] = 1.3
 
     # Water
-    initial_water_height: ClassVar[float] = 0.1
+    initial_water_height: ClassVar[float] = 0.13
     z_ub_water: ClassVar[float] = 0.5
 
     # Blocks
-    block_size: ClassVar[float] = 0.05
-    block_mass: ClassVar[float] = 0.1
+    block_size: ClassVar[float] = 0.06
+    block_mass: ClassVar[float] = 0.01
 
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _vessel_type = Type("vessel", ["x", "y", "z", "water_height"])
-    _block_type = Type("block", ["x", "y", "z", "in_water"])
+    _block_type = Type("block", ["x", "y", "z", "in_water", "is_held"])
 
     def __init__(self, use_gui: bool = True) -> None:
         self._robot = Object("robot", self._robot_type)
         self._vessel = Object("vessel", self._vessel_type)
         self._block0 = Object("block0", self._block_type)
         self._block1 = Object("block1", self._block_type)
-        self._block_objs = [self._block0, self._block1]
+        self._block2 = Object("block2", self._block_type)
+        self._block_objs = [self._block0, self._block1, self._block2]
 
         super().__init__(use_gui)
 
         self._InWater = Predicate("InWater", [self._block_type],
                                   self._InWater_holds)
+        self._Holding = Predicate("Holding",
+                                  [self._robot_type, self._block_type],
+                                  self._Holding_holds)
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds)
 
 
         # Track water geometry in PyBullet
@@ -130,13 +142,15 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
             self._block1: False,
         }
 
+        self._held_obj_id = None
+
     @classmethod
     def get_name(cls) -> str:
-        return "pybullet_single_vessel_optimized"
+        return "pybullet_float"
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._InWater}
+        return {self._InWater, self._HandEmpty, self._Holding}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -144,7 +158,7 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._vessel_type, self._block_type}
+        return {self._vessel_type, self._block_type, self._robot_type}
 
     # -------------------------------------------------------------------------
     # PyBullet Setup
@@ -180,7 +194,7 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
 
         # Two blocks
         block_ids = []
-        for i in range(2):
+        for i in range(3):
             collision_id = p.createCollisionShape(
                 p.GEOM_BOX,
                 halfExtents=[cls.block_size/2]*3,
@@ -197,7 +211,7 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
                 baseMass=cls.block_mass,
                 baseCollisionShapeIndex=collision_id,
                 baseVisualShapeIndex=visual_id,
-                basePosition=(0.8, 1.3 + 0.05*i, init_z),
+                basePosition=(0, 0, init_z),
                 physicsClientId=physics_client_id
             )
             block_ids.append(body_id)
@@ -209,12 +223,13 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
         self._vessel.id = pybullet_bodies["vessel_id"]
         self._block0.id = pybullet_bodies["block_ids"][0]
         self._block1.id = pybullet_bodies["block_ids"][1]
+        self._block2.id = pybullet_bodies["block_ids"][2]
 
     # -------------------------------------------------------------------------
     # State Management
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        return []
+        return [block_obj.id for block_obj in self._block_objs]
 
     def _get_state(self) -> State:
         state_dict: Dict[Object, Dict[str, float]] = {}
@@ -260,6 +275,8 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
                 "z": bz,
                 "in_water": in_water_val
             }
+            is_held_val = 1.0 if blk.id == self._held_obj_id else 0.0
+            state_dict[blk]["is_held"] = is_held_val
 
         py_state = utils.create_state_from_dict(state_dict)
         joint_positions = self._pybullet_robot.get_joints()
@@ -287,6 +304,12 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
                           physics_client_id=self._physics_client_id)
             # Re-initialize displacing to False
             self._block_is_displacing[blk] = False
+
+        # Re-attach blocks that have is_held=1
+        for block_obj in self._block_objs:
+            if state.get(block_obj, "is_held") > 0.5:
+                self._attach(block_obj.id, self._pybullet_robot)
+                self._held_obj_id = block_obj.id
 
         # Re-draw water
         self._create_or_update_water(force_redraw=True)
@@ -505,6 +528,16 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
         (block,) = objects
         return state.get(block, "in_water") > 0.5
 
+    @staticmethod
+    def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+        _, block = objects
+        return state.get(block, "is_held") > 0.5
+
+    @staticmethod
+    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
+        robot, = objects
+        return state.get(robot, "fingers") > 0.2
+
     # -------------------------------------------------------------------------
     # Helpers for tasks
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
@@ -537,11 +570,22 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
             }
             # Blocks random
             block_dicts = []
-            for _block in self._block_objs:
-                bx = rng.uniform(self.x_lb, self.x_ub)
-                by = rng.uniform(self.y_lb, self.y_ub)
-                bz = self.z_lb + self.block_size/2
-                block_dicts.append({"x": bx, "y": by, "z": bz, "in_water": 0.0})
+            # for _block in self._block_objs:
+            #     bx = rng.uniform(self.x_lb, self.x_ub)
+            #     by = rng.uniform(self.y_lb + 0.05, 
+            #                     self.VESSEL_BASE_Y - self.CONTAINER_OPENING_LEN)
+            #     bz = self.z_lb + self.block_size/2
+            #     block_dicts.append({"x": bx, "y": by, "z": bz, 
+            #                         "in_water": 0.0,
+            #                         "is_held": 0.0})
+            block_dicts = [
+                {"x": 0.6, "y": 1.16 , "z": self.z_lb + self.block_size/2,
+                    "in_water": 0.0, "is_held": 0.0},
+                {"x": 0.8, "y": 1.2 , "z": self.z_lb + self.block_size/2,
+                    "in_water": 0.0, "is_held": 0.0},
+                {"x": 1, "y": 1.16, "z": self.z_lb + self.block_size/2,
+                    "in_water": 0.0, "is_held": 0.0},
+            ]
 
             init_dict = {self._robot: robot_dict, self._vessel: vessel_dict}
             for b_obj, b_vals in zip(self._block_objs, block_dicts):
@@ -550,9 +594,13 @@ class PyBulletSingleVesselEnv(PyBulletEnv):
             init_state = utils.create_state_from_dict(init_dict)
 
             # e.g. goal: all blocks in water
+            first_two_blocks = self._block_objs[:2]
             goal_atoms = {
-                GroundAtom(self._InWater, [b]) for b in self._block_objs
+                GroundAtom(self._InWater, [b]) for b in first_two_blocks
             }
+            goal_atoms.add(
+                GroundAtom(self._Holding, [self._robot, self._block_objs[2]])
+            )
             tasks.append(EnvironmentTask(init_state, goal_atoms))
         return self._add_pybullet_state_to_tasks(tasks)
 
@@ -562,7 +610,7 @@ if __name__ == "__main__":
 
     CFG.seed = 0
     CFG.pybullet_sim_steps_per_action = 1
-    env = PyBulletSingleVesselEnv(use_gui=True)
+    env = PyBulletFloatEnv(use_gui=True)
     task = env._make_tasks(1, np.random.default_rng(0))[0]
     env._reset_state(task.init)
 

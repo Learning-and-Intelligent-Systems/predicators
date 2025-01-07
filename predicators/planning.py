@@ -592,6 +592,7 @@ def run_low_level_search(
                             static_obj_changed = True
                             break
                 if static_obj_changed:
+                    logging.debug("Cannot continue: static object changed.")
                     can_continue_on = False
                 # Check if we have exceeded the horizon in total.
                 elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
@@ -625,6 +626,8 @@ def run_low_level_search(
                         if cur_idx == len(skeleton):
                             plan_found = True
                     else:
+                        logging.debug("Cannot continue: expected atoms not "
+                                      "hold.")
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -637,6 +640,7 @@ def run_low_level_search(
                             can_continue_on = False
         else:
             # The option is not initiable.
+            logging.debug("Cannot continue: option not initiable.")
             can_continue_on = False
         if refinement_time is not None:
             try_end_time = time.perf_counter()
