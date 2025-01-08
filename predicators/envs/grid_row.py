@@ -333,6 +333,7 @@ class GridRowDoorEnv(GridRowEnv):
         new_doors = 2*CFG.num_doors+1
         num_doors = rng.integers(CFG.num_doors, new_doors)
         print("NUM DOORS", num_doors)
+        num_doors = CFG.test_num_doors
         for door_num in range(num_doors):
             door = Object(f"door{door_num}", self._door_type)
             door_list.append(door)
@@ -511,7 +512,7 @@ class GridRowDoorEnv(GridRowEnv):
     and door_turn_target - 0.1 <= door_turn_key <= door_turn_target + 0.1):
             # Apply dx to robot.
             new_x = np.clip(
-                state.get(self._robot, "x") + dx, 0.0, len(cells))
+                state.get(self._robot, "x") + dx, 0.5, len(cells)-0.5)
             next_state.set(self._robot, "x", new_x)
         return next_state  
 

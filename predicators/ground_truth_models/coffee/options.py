@@ -67,9 +67,11 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
                                objects: Sequence[Object],
                                params: Array) -> bool:
             del memory, params  # unused
-            robot, _ = objects
+            robot, jug = objects
             # print("hand empty?", HandEmpty.holds(state, [robot]))
-            return HandEmpty.holds(state, [robot])
+            # import ipdb; ipdb.set_trace()
+            print("did we even twist the jug: abs(state.get(jug, rot)) < np.pi / 3", abs(state.get(jug, "rot")) < np.pi / 3)
+            return HandEmpty.holds(state, [robot]) and abs(state.get(jug, "rot")) < np.pi / 3 or cls.repeat_state
 
         # TwistJug = ParameterizedOption(
         #     "TwistJug",
@@ -202,11 +204,18 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_twist_jug_policy(cls) -> ParameterizedPolicy:
+        previous_state = None
+        cls.repeat_state = False
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             # This policy twists until the jug is in the desired rotation, and
             # then moves up to break contact with the jug.
             del memory  # unused
+            nonlocal previous_state
+
+            if previous_state is not None and previous_state.pretty_str() == state.pretty_str():
+                cls.repeat_state = True
+            previous_state = state
             robot, jug = objects
             current_rot = state.get(jug, "rot")
             norm_desired_rot, = params

@@ -352,8 +352,9 @@ class GlobalSettings:
 
     # grid row env parameters
     grid_row_num_cells = 5
-    test_grid_row_num_cells = 10
-    num_doors = 2
+    test_grid_row_num_cells = 5
+    num_doors = 1
+    test_num_doors = 1
 
     # burger env parameters
     gridworld_num_rows = 4
@@ -588,7 +589,7 @@ class GlobalSettings:
     # mpdqn function parameters
     use_epsilon_annealing = True
     min_epsilon = 0.05
-    polyak_tau = 0.0025
+    polyak_tau = 0.004
     same_levels = True
     polyak_true = True
     # if True then use RSS method (increasing exploration),
@@ -603,7 +604,7 @@ class GlobalSettings:
     use_obj_centric = True
     # shivam vats inspo
     rl_rwd_shape = False
-
+    max_num_bridge_steps = 90
     # skill competence model parameters
     skill_competence_model = "optimistic"
     skill_competence_model_num_em_iters = 3

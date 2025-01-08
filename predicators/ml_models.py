@@ -1694,7 +1694,7 @@ class MapleQFunction(MLPRegressor):
                 return vectorized_state
 
 
-            elif CFG.env == "coffee":
+            elif CFG.env == "coffee" or CFG.env == "coffeelids":
                 robot_pos = 0
                 features = []
                 dummy_env = CoffeeEnv()
@@ -1714,11 +1714,11 @@ class MapleQFunction(MLPRegressor):
                     else:
                         features.append(state.get(jug, feature))
    
-                # if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
-                #     robby = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
-                # assert robby.is_instance(dummy_env._robot_type)
-                # x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
-                vectorized_state = features[:5]
+                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
+                    robby = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
+                assert robby.is_instance(dummy_env._robot_type)
+                x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
+                vectorized_state = features[:5] + [x,y]
 
                 return vectorized_state
             
@@ -1906,7 +1906,7 @@ class MPDQNFunction(MapleQFunction):
         self._qfunc_init = False
         self._last_planner_state = None
      
-        self._ep_reduction = 2*(self._epsilon-self._min_epsilon) \
+        self._ep_reduction = (self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
         self._counter = 0
@@ -2083,7 +2083,7 @@ class MPDQNFunction(MapleQFunction):
         elif CFG.env == "grid_row_door":
             X_size = 57
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_callplanner and CFG.use_obj_centric:
-            X_size = 5 + 7 + self._max_num_params
+            X_size = 5 + 7 + self._max_num_params + 2
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_obj_centric:
             X_size = 5 + 7 + self._max_num_params -1
         else:
@@ -2110,9 +2110,14 @@ class MPDQNFunction(MapleQFunction):
                 terminal) in enumerate(self._replay_buffer):
             if reward >= 1:
                 num_rwd+=1
+                # import ipdb;ipdb.set_trace()
+                print(next_state)
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
-            doorknob_values.append(vectorized_state[3])
+            try:
+                doorknob_values.append(vectorized_state[3])
+            except:
+                import ipdb;ipdb.set_trace()
             # vectorized_goal = self._vectorize_goal(goal)
             vectorized_action = self._vectorize_option(option)
             try:
@@ -2123,7 +2128,7 @@ class MPDQNFunction(MapleQFunction):
                 import ipdb;ipdb.set_trace()
                 raise ValueError
                 
-            # Next, compute the target for Q-learning by sampling next actions.
+            # Next, compute the target for Q- by sampling next actions.
             vectorized_next_state = self._vectorize_state(next_state)
             next_best_action = 0
             if not terminal and self.qnet._y_dim != -1:
@@ -2201,7 +2206,7 @@ class MPDQNFunction(MapleQFunction):
 
             self.target_qnet._initialize_net()
             self._qfunc_init = True
-        print("WE GOT REWARDS: ", num_rwd)
+        # print("WE GOT REWARDS: ", num_rwd)
         logging.debug("WE GOT REWARDS: " + str(num_rwd))
         # print("DOORKNOB VALUES WE TRAINED ON", set(doorknob_values))
         count = 0
@@ -2220,6 +2225,7 @@ class MPDQNFunction(MapleQFunction):
                 break
 
         count = 0
+        
         for i in callplanner_index:
             print("GOOD CALLPLANNER")
             print("predicted q value", Y_arr[i])

@@ -127,7 +127,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # On the first cycle, we need to register the ground NSRTs, goals, and
         # objects in the Q function so that it can define its inputs.
         
-        if not online_learning_cycle and CFG.approach != "rl_bridge_policy" and CFG.approach != "rl_first_bridge":
+        if not online_learning_cycle and CFG.approach != "rl_bridge_policy" and CFG.approach != "rl_first_bridge" and CFG.approach != "rapid_learn":
             all_ground_nsrts: Set[_GroundNSRT] = set()
             if CFG.sesame_grounder == "naive":
                 for nsrt in self._nsrts:
@@ -154,8 +154,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 raise ValueError(
                     f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
             goals = [t.goal for t in self._train_tasks]
-            self._q_function.set_grounding(all_objects, goals,
-                                           all_ground_nsrts)
+            self._q_function.set_grounding(all_objects, goals, all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         if isinstance(self, MPDQNApproach):
             MPDQNApproach._update_maple_data(self, reward_bonuses)  # pylint: disable=protected-access
@@ -199,6 +198,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
                 if terminal:    
                     already_terminal = terminal
+            
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))
 
@@ -258,8 +258,13 @@ class MPDQNApproach(MapleQApproach):
             len(self._interaction_goals)
         new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
 
+
+
         for traj_i, segmented_traj in enumerate(new_trajs):
             self._last_seen_segment_traj_idx += 1
+            reward_bonus = reward_bonuses[traj_i]
+            # if sum(reward_bonus) > 0:
+            #     import ipdb;ipdb.set_trace()
             for seg_i, segment in enumerate(segmented_traj):
                 s = segment.states[0]
                 goal = new_traj_goals[traj_i]
@@ -270,12 +275,18 @@ class MPDQNApproach(MapleQApproach):
                     reward += 0.5
 
                 if CFG.rl_rwd_shape:
-                    reward += reward_bonuses[0]
-                    reward_bonuses.pop(0)
+                    reward += reward_bonus[0]
+                    reward_bonus.pop(0)
+
                 
                 # if reward > 0:
                 #     print(s, o, reward)
                     
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+
+
+                # if reward >= 1:
+                #     import ipdb;ipdb.set_trace()
+
                 self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))

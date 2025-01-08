@@ -589,21 +589,25 @@ class CoffeeEnv(BaseEnv):
         jug_y = state.get(jug, "y")
         jug_top = (jug_x, jug_y, self.jug_height)
         # To prevent false positives, if the distance to the handle is less
-        # than the distance to the jug top, we are not twisting.
+        # than the distance to the jug top, we are not twisting. 
         handle_pos = self._get_jug_handle_grasp(state, jug)
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
         sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
-        if sq_dist_to_handle < sq_dist_to_jug_top:
+        if sq_dist_to_handle < sq_dist_to_jug_top or abs(state.get(jug, "rot")) < self.pick_jug_rot_tol:
             # print(sq_dist_to_handle, sq_dist_to_jug_top)
             # print(handle_pos, jug_top)
             # print((x, y, z))
+            # print("we dont need to rot?", abs(state.get(jug, "rot")) < self.pick_jug_rot_tol)
             return False
-        return sq_dist_to_jug_top < self.grasp_position_tol
+        # print("is sq_dist_to_jug_top < self.grasp_position_tol ", sq_dist_to_jug_top < self.grasp_position_tol)
+        return sq_dist_to_jug_top < self.grasp_position_tol 
+    #for some reason the above is false even when we are trying to twist???
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
         robot, = objects
         # print("TWISTING?", self._Twisting_holds(state, [robot, self._jug]))
+        # print(state.get(self._jug, "is_held") > 0.5)
         if self._Twisting_holds(state, [robot, self._jug]):
             return False
         return not self._Holding_holds(state, [robot, self._jug])
@@ -726,7 +730,9 @@ class CoffeeLidEnv(CoffeeEnv):
         next_state = state.copy()
         norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dwrist, norm_dfingers = \
             action.arr
-        print("ACTION", action.arr)
+        # print("ACTION", action.arr)
+        # print("rot",state.get(self._jug, "rot") )
+        # print("desired rot", self.pick_jug_rot_tol)
         # Denormalize the action.
         dx = norm_dx * self.max_position_vel
         dy = norm_dy * self.max_position_vel
@@ -819,7 +825,11 @@ class CoffeeLidEnv(CoffeeEnv):
         # Check if the jug should be grasped for the first time.        
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
             sq_dist_to_handle < self.grasp_position_tol and \
-            abs(jug_rot) < self.pick_jug_rot_tol:
+            abs(jug_rot) < self.pick_jug_rot_tol and norm_dwrist!=-1:
+            print("ig we r grasping")
+            print("sq_dist_to_handle < self.grasp_position_tol", sq_dist_to_handle < self.grasp_position_tol)
+            print("abs(jug_rot) < self.pick_jug_rot_tol", abs(jug_rot) < self.pick_jug_rot_tol)
+            print("abs(fingers - self.closed_fingers) < self.grasp_finger_tol")
             # Snap to the handle.
             handle_x, handle_y, handle_z = handle_pos
             next_state.set(self._robot, "x", handle_x)
@@ -831,7 +841,7 @@ class CoffeeLidEnv(CoffeeEnv):
             next_state.set(self._jug, "is_held", 1.0)
         # Check if the jug should be rotated.
         elif self._Twisting_holds(state, [self._robot, self._jug]):
-            print("WE ROTATE THE JUG")
+            print("WE ROTATE THE JUG with dwrist", dwrist, "and rot", state.get(self._jug, "rot"))
             # Rotate the jug.
             rot = state.get(self._jug, "rot")
             next_state.set(self._jug, "rot", rot + dwrist)
