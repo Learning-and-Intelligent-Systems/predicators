@@ -630,6 +630,7 @@ def create_pybullet_block(color: Tuple[float, float, float, float],
         block_id,
         linkIndex=-1,  # -1 for the base
         lateralFriction=friction,
+        spinningFriction=friction,
         physicsClientId=physics_client_id)
 
     return block_id
