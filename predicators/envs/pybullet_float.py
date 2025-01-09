@@ -378,6 +378,7 @@ class PyBulletFloatEnv(PyBulletEnv):
 
         for blk in self._block_objs:
             # Get block's top (we approximate block top as its center + half)
+            is_light = state.get(blk, "is_light") > 0.5
             bx = state.get(blk, "x")
             by = state.get(blk, "y")
             bz = state.get(blk, "z")
@@ -386,7 +387,7 @@ class PyBulletFloatEnv(PyBulletEnv):
             # Are we inside a compartment XY?
             in_left = self._is_in_left_compartment(bx, by)
             in_right = self._is_in_right_compartment(bx, by)
-            if not (in_left or in_right):
+            if is_light or not (in_left or in_right):
                 # Not above any container => no displacement
                 blocks_displacing_now[blk] = False
                 continue
