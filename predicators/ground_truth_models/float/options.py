@@ -35,7 +35,7 @@ class PyBulletFloatGroundTruthOptionFactory(GroundTruthOptionFactory):
     env_cls: ClassVar[TypingType[PyBulletFloatEnv]] = PyBulletFloatEnv
     _move_to_pose_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
-    _transport_z: ClassVar[float] = env_cls.z_ub - 0.2
+    _transport_z: ClassVar[float] = env_cls.z_ub - 0.25
     _offset_z: ClassVar[float] = 0.01
 
     @classmethod
@@ -92,7 +92,7 @@ class PyBulletFloatGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Move down to grasp.
             cls._create_float_move_to_above_block_option(
                 "MoveToGraspBlock",
-                lambda block_z: (block_z),# + cls._offset_z),
+                lambda block_z: block_z + cls._offset_z,
                 "open",
                 option_types,
                 params_space),

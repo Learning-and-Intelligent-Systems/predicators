@@ -222,7 +222,7 @@ class PyBulletEnv(BaseEnv):
     @classmethod
     def _fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
                                 finger_state: float) -> float:
-        """Map the fingers in the given State to joint values for PyBullet."""
+        """Map the fingers in the given *State* to joint values for PyBullet."""
         # If open_fingers is undefined, use 1.0 as the default.
         subs = {
             cls.open_fingers: pybullet_robot.open_fingers,

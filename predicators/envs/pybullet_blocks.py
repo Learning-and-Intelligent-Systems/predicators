@@ -180,7 +180,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Get robot state.
         rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
-        fingers = self._fingers_joint_to_state(rf)
+        fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
         state_dict[self._robot] = np.array([rx, ry, rz, fingers],
                                            dtype=np.float32)
         joint_positions = self._pybullet_robot.get_joints()
