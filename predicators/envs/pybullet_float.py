@@ -107,11 +107,15 @@ class PyBulletFloatEnv(PyBulletEnv):
     # Blocks
     block_size: ClassVar[float] = 0.06
     block_mass: ClassVar[float] = 0.01
+    block_color_light: ClassVar[Tuple[float, float, float, float]] = (
+        0.0, 1.0, 0.0, 1.0)
+    block_color_heavy: ClassVar[Tuple[float, float, float, float]] = (
+        1.0, 0.6, 0.0, 1.0)
 
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _vessel_type = Type("vessel", ["x", "y", "z", "water_height"])
-    _block_type = Type("block", ["x", "y", "z", "in_water", "is_held"])
+    _block_type = Type("block", ["x", "y", "z", "in_water", "is_held", "is_light"])
 
     def __init__(self, use_gui: bool = True) -> None:
         self._robot = Object("robot", self._robot_type)
@@ -273,7 +277,8 @@ class PyBulletFloatEnv(PyBulletEnv):
                 "x": bx,
                 "y": by,
                 "z": bz,
-                "in_water": in_water_val
+                "in_water": in_water_val,
+                "is_light": self._is_block_light(blk.id)
             }
             is_held_val = 1.0 if blk.id == self._held_obj_id else 0.0
             state_dict[blk]["is_held"] = is_held_val
@@ -301,6 +306,9 @@ class PyBulletFloatEnv(PyBulletEnv):
             bz = state.get(blk, "z")
             update_object(blk.id,
                           position=(bx, by, bz),
+                          color=PyBulletFloatEnv.block_color_light \
+                            if state.get(blk, "is_light") > 0.5 
+                            else PyBulletFloatEnv.block_color_heavy,
                           physics_client_id=self._physics_client_id)
             # Re-initialize displacing to False
             self._block_is_displacing[blk] = False
@@ -537,6 +545,17 @@ class PyBulletFloatEnv(PyBulletEnv):
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         return state.get(robot, "fingers") > 0.2
+    
+    def _is_block_light(self, block_obj: int) -> bool:
+        """Check if pybullet block is light or heavy based its color.
+        """
+        color = p.getVisualShapeData(block_obj, 
+                                physicsClientId=self._physics_client_id)[0][-1]
+        block_color_light_dist = sum(np.subtract(color, 
+            self.block_color_light)**2)
+        block_color_heavy_dist = sum(np.subtract(color, 
+            self.block_color_heavy)**2)
+        return block_color_light_dist < block_color_heavy_dist
 
     # -------------------------------------------------------------------------
     # Helpers for tasks
@@ -580,11 +599,11 @@ class PyBulletFloatEnv(PyBulletEnv):
             #                         "is_held": 0.0})
             block_dicts = [
                 {"x": 0.6, "y": 1.16 , "z": self.z_lb + self.block_size/2,
-                    "in_water": 0.0, "is_held": 0.0},
+                    "in_water": 0.0, "is_held": 0.0, "is_light": 0.0},
                 {"x": 0.8, "y": 1.2 , "z": self.z_lb + self.block_size/2,
-                    "in_water": 0.0, "is_held": 0.0},
+                    "in_water": 0.0, "is_held": 0.0, "is_light": 0.0},
                 {"x": 1, "y": 1.16, "z": self.z_lb + self.block_size/2,
-                    "in_water": 0.0, "is_held": 0.0},
+                    "in_water": 0.0, "is_held": 0.0, "is_light": 1.0},
             ]
 
             init_dict = {self._robot: robot_dict, self._vessel: vessel_dict}

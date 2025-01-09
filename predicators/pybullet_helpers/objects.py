@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Sequence, Tuple
 
 import pybullet as p
@@ -47,5 +48,5 @@ def update_object(obj_id: int,
                                       physicsClientId=physics_client_id)
     if color is not None:
         # Change color of all links
-        for link_id in range(p.getNumJoints(obj_id)):
+        for link_id in range(-1, p.getNumJoints(obj_id)):
             p.changeVisualShape(obj_id, link_id, rgbaColor=color)
