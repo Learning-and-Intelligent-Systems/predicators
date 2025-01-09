@@ -4,8 +4,8 @@ Optimized single-object communicating vessel example.
 python predicators/main.py --approach oracle --env pybullet_float \
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
---pybullet_sim_steps_per_action 1 \
---pybullet_camera_height 900 --pybullet_camera_width 900 --debug
+--pybullet_camera_height 900 --pybullet_camera_width 900 --debug \
+--sesame_check_expected_atoms False
 """
 
 import logging
@@ -106,7 +106,7 @@ class PyBulletFloatEnv(PyBulletEnv):
 
     # Blocks
     block_size: ClassVar[float] = 0.06
-    block_mass: ClassVar[float] = 0.01
+    block_mass: ClassVar[float] = 0.05
     block_color_light: ClassVar[Tuple[float, float, float, float]] = (
         0.0, 1.0, 0.0, 1.0)
     block_color_heavy: ClassVar[Tuple[float, float, float, float]] = (
@@ -219,8 +219,8 @@ class PyBulletFloatEnv(PyBulletEnv):
                 physicsClientId=physics_client_id
             )
             p.changeDynamics(body_id, -1, 
-                            lateralFriction=1.0, 
-                            spinningFriction=1.0, 
+                            lateralFriction=1.2, 
+                            spinningFriction=1.2, 
                             # rollingFriction=1.0
                             )
             block_ids.append(body_id)
