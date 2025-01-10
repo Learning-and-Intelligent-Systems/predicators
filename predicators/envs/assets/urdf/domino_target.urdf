@@ -1,0 +1,216 @@
+<?xml version="1.0"?>
+<robot name="simple_flap">
+  <!-- Middle bar (base_link) -->
+  <link name="middle_bar">
+    <visual>
+      <origin xyz="0 0 0.25" rpy="0 1.5708 0"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.12"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.25" rpy="0 1.5708 0"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.12"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia 
+         ixx="0.01" ixy="0.0" ixz="0.0"
+         iyy="0.01" iyz="0.0"
+         izz="0.01"/>
+    </inertial>
+  </link>
+    
+
+  <!-- Left bar -->
+  <link name="left_bar">
+    <visual>
+      <origin xyz="-0.06 0 0.125" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.25"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.06 0 0.125" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.25"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia 
+         ixx="0.005" ixy="0.0" ixz="0.0"
+         iyy="0.005" iyz="0.0"
+         izz="0.005"/>
+    </inertial>
+  </link>
+    
+  <joint name="joint_left_bar" type="fixed">
+    <parent link="middle_bar"/>
+    <child link="left_bar"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    
+    
+  </joint>
+    
+
+  <!-- Right bar -->
+  <link name="right_bar">
+    <visual>
+      <origin xyz="0.06 0 0.125" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.25"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.06 0 0.125" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.005" length="0.25"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia 
+         ixx="0.005" ixy="0.0" ixz="0.0"
+         iyy="0.005" iyz="0.0"
+         izz="0.005"/>
+    </inertial>
+  </link>
+    
+  <joint name="joint_right_bar" type="fixed">
+    <parent link="middle_bar"/>
+    <child link="right_bar"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    
+    
+  </joint>
+    
+
+  <!-- Main flap panel -->
+  <link name="flap_panel">
+    <visual>
+      <origin xyz="0 0 0.08" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.003 0.16"/>
+      </geometry>
+      <material name="box_color_flap_panel">
+        <color rgba="1 0 0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.08" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.003 0.16"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="10.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+         ixx="0.001" ixy="0.0" ixz="0.0"
+         iyy="0.001" iyz="0.0"
+         izz="0.001"/>
+    </inertial>
+  </link>
+    
+  <joint name="flap_hinge_joint" type="continuous">
+    <parent link="middle_bar"/>
+    <child link="flap_panel"/>
+    <origin xyz="0 0 0.25" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.001" friction="0.001"/>
+    <limit lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+    
+
+  <!-- Short flap 1 -->
+  <link name="short_flap1">
+    <visual>
+      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.003 0.15"/>
+      </geometry>
+      <material name="box_color_short_flap1">
+        <color rgba="0 0 1 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.003 0.15"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+         ixx="0.0005" ixy="0.0" ixz="0.0"
+         iyy="0.0005" iyz="0.0"
+         izz="0.0005"/>
+    </inertial>
+  </link>
+    
+  <joint name="short_flap1_joint" type="fixed">
+    <parent link="flap_panel"/>
+    <child link="short_flap1"/>
+    <origin xyz="0 0.01 0" rpy="0.3490658503988659 0 0"/>
+    <axis xyz="1 0 0"/>
+    
+    
+  </joint>
+    
+
+  <!-- Short flap 2 -->
+  <link name="short_flap2">
+    <visual>
+      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.003 0.15"/>
+      </geometry>
+      <material name="box_color_short_flap2">
+        <color rgba="0 1 0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.003 0.15"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+         ixx="0.0005" ixy="0.0" ixz="0.0"
+         iyy="0.0005" iyz="0.0"
+         izz="0.0005"/>
+    </inertial>
+  </link>
+    
+  <joint name="short_flap2_joint" type="fixed">
+    <parent link="flap_panel"/>
+    <child link="short_flap2"/>
+    <origin xyz="0 -0.01 0" rpy="-0.3490658503988659 0 0"/>
+    <axis xyz="1 0 0"/>
+    
+    
+  </joint>
+    
+
+</robot>
