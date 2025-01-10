@@ -346,7 +346,6 @@ class PyBulletGrowEnv(PyBulletEnv):
         matching-color cup, we increase the cup's growth in, and update
         the environment accordingly.
         """
-        # breakpoint()
         next_state = super().step(action, render_obs=render_obs)
 
         # If a jug is in the robot's hand, and tilt is large,
