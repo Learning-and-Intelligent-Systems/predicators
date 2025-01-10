@@ -1,8 +1,10 @@
 """
 Example usage:
-python predicators/main.py --approach oracle --env pybullet_domino --seed 1 \
---num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
---pybullet_camera_height 900 --pybullet_camera_width 900
+python predicators/main.py --approach oracle --env pybullet_domino \
+--seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
+--sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
+--pybullet_camera_height 900 --pybullet_camera_width 900 --debug \
+--sesame_check_expected_atoms False
 """
 
 import logging
@@ -49,6 +51,7 @@ class PyBulletDominoEnv(PyBulletEnv):
     domino_color: ClassVar[Tuple[float, float, float, float]] = (
         0.6, 0.8, 1.0, 1.0)
     domino_mass: ClassVar[float] = 1
+    start_domino_x: ClassVar[float] = x_lb + domino_width
     
     target_height: ClassVar[float] = 0.2
 
@@ -77,10 +80,10 @@ class PyBulletDominoEnv(PyBulletEnv):
     num_targets = 2
 
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
-    _domino_type = Type("domino", ["x", "y", "z", "rot"])
+    _domino_type = Type("domino", ["x", "y", "z", "rot", "start_block", "is_held"])
     _target_type = Type("target", ["x", "y", "z", "rot"])
 
-    def __init__(self, use_gui: bool = True, debug_layout: bool = False) -> None:
+    def __init__(self, use_gui: bool = True, debug_layout: bool = True) -> None:
         # Define Types
 
         # Create 'dummy' Objects (they'll be assigned IDs on reset)
@@ -106,6 +109,13 @@ class PyBulletDominoEnv(PyBulletEnv):
         # Define Predicates
         self._Toppled = Predicate("Toppled", [self._target_type],
                                   self._Toppled_holds)
+        self._StartBlock = Predicate("StartBlock", [self._domino_type],
+                                self._StartBlock_holds)
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds)
+        self._Holding = Predicate("Holding", [self._robot_type, 
+                                              self._domino_type],
+                                    self._Holding_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -113,7 +123,8 @@ class PyBulletDominoEnv(PyBulletEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Toppled}
+        return {self._Toppled, self._StartBlock, self._HandEmpty, 
+                self._Holding}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -207,17 +218,19 @@ class PyBulletDominoEnv(PyBulletEnv):
         }
 
         # 2) Dominoes
-        for domino_obj in self._objects:
-            if domino_obj.type == self._domino_type:
-                (dx, dy, dz), orn = p.getBasePositionAndOrientation(
-                    domino_obj.id, physicsClientId=self._physics_client_id)
-                yaw = p.getEulerFromQuaternion(orn)[2]
-                state_dict[domino_obj] = {
-                    "x": dx,
-                    "y": dy,
-                    "z": dz,
-                    "rot": utils.wrap_angle(yaw),
-                }
+        for i, domino_obj in enumerate(self.dominos):
+            (dx, dy, dz), orn = p.getBasePositionAndOrientation(
+                domino_obj.id, physicsClientId=self._physics_client_id)
+            yaw = p.getEulerFromQuaternion(orn)[2]
+            is_held_val = 1.0 if domino_obj.id == self._held_obj_id else 0.0
+            state_dict[domino_obj] = {
+                "x": dx,
+                "y": dy,
+                "z": dz,
+                "rot": utils.wrap_angle(yaw),
+                "start_block": 1.0 if i == 0 else 0.0,
+                "is_held": is_held_val,
+            }
 
         # 3) Targets
         for target_obj in self._objects:
@@ -253,10 +266,13 @@ class PyBulletDominoEnv(PyBulletEnv):
                 y = state.get(obj, "y")
                 z = state.get(obj, "z")
                 rot = state.get(obj, "rot")
+                start_block_val = state.get(obj, "start_block")
+                is_held_val = state.get(obj, "is_held")
                 update_object(obj.id,
                               position=(x, y, z),
                               orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
                               physics_client_id=self._physics_client_id)
+                # Optionally handle is_held_val > 0.5 if desired
 
             if obj.type == self._target_type:
                 # update target
@@ -310,9 +326,25 @@ class PyBulletDominoEnv(PyBulletEnv):
         rot_z = state.get(target, "rot")
         # If the target has spun more than e.g. ±0.8 rad from upright, call it toppled.
         # This is an arbitrary threshold for demonstration.
-        if abs(utils.wrap_angle(rot_z)) > 0.8:
+        if abs(utils.wrap_angle(rot_z)) < 0.8:
             return True
         return False
+    
+    @classmethod
+    def _StartBlock_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        domino, = objects
+        return state.get(domino, "start_block") == 1.0
+    
+    @classmethod
+    def _HandEmpty_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        robot, = objects
+        return state.get(robot, "fingers") > 0.2
+    
+    @classmethod
+    def _Holding_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        _, domino = objects
+        return state.get(domino, "is_held") > 0.5
+
 
     # -------------------------------------------------------------------------
     # Task Generation
@@ -350,16 +382,22 @@ class PyBulletDominoEnv(PyBulletEnv):
                 init_dict[self.dominos[0]] = {
                     "x": x, "y": 1.3,
                     "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "start_block": 1.0,
+                    "is_held": 0.0,
                 }
                 x += gap
                 init_dict[self.dominos[1]] = {
                     "x": x, "y": 1.3,
                     "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
                 }
                 x += gap
                 init_dict[self.dominos[2]] = {
                     "x": x, "y": 1.3,
                     "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
                 }
                 x += gap
                 init_dict[self.targets[0]] = {
@@ -370,6 +408,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                 init_dict[self.dominos[3]] = {
                     "x": x, "y": 1.3,
                     "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "start_block": 0.0,
+                    "is_held": 0.0,
                 }
                 x += gap
                 init_dict[self.targets[1]] = {
@@ -386,6 +426,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                         "y": y,
                         "z": self.z_lb + self.domino_height / 2,
                         "rot": yaw,
+                        "start_block": 1.0 if i == 0 else 0.0,
+                        "is_held": 0.0,
                     }
 
                 # 3) Targets
@@ -407,9 +449,11 @@ class PyBulletDominoEnv(PyBulletEnv):
             init_state = utils.create_state_from_dict(init_dict)
 
             # The goal: topple all targets
-            goal_atoms = {
-                GroundAtom(self._Toppled, [t_obj]) for t_obj in self.targets
-            }
+            # goal_atoms = {
+            #     GroundAtom(self._Toppled, [t_obj]) for t_obj in self.targets
+            # }
+            # Simp
+            goal_atoms = {GroundAtom(self._Toppled, [self.targets[0]])}
 
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
