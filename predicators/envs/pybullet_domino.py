@@ -12,10 +12,9 @@ import numpy as np
 import pybullet as p
 
 from predicators import utils
-from predicators.envs.pybullet_env import PyBulletEnv
+from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import (create_object,
-                                                  create_pybullet_block,
                                                   update_object)
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
@@ -31,24 +30,28 @@ class PyBulletDominoEnv(PyBulletEnv):
 
     # Bounds for placing dominoes and targets (you can adjust as needed).
     x_lb: ClassVar[float] = 0.4
-    x_ub: ClassVar[float] = 1.0
-    y_lb: ClassVar[float] = 1.0
-    y_ub: ClassVar[float] = 1.5
-    z_lb: ClassVar[float] = 0.0
-    z_ub: ClassVar[float] = 0.5  # Domino height is ~0.25, so 0.5 is plenty
+    x_ub: ClassVar[float] = 1.1
+    y_lb: ClassVar[float] = 1.1
+    y_ub: ClassVar[float] = 1.6
+    z_lb: ClassVar[float] = 0.2
+    z_ub: ClassVar[float] = 0.75
+
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
+    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0., 0., np.pi/2])
 
     # Domino shape
-    domino_width: ClassVar[float] = 0.1
-    domino_depth: ClassVar[float] = 0.003
-    domino_height: ClassVar[float] = 0.25
+    domino_width: ClassVar[float] = 0.07
+    domino_depth: ClassVar[float] = 0.03
+    domino_height: ClassVar[float] = 0.15
+    domino_color: ClassVar[Tuple[float, float, float, float]] = (
+        0.6, 0.8, 1.0, 1.0)
+    
+    target_height: ClassVar[float] = 0.2
 
     # For deciding if a target is toppled: if absolute tilt in x or y
     # is bigger than some threshold (e.g. 0.4 rad ~ 23 deg), treat as toppled.
     topple_angle_threshold: ClassVar[float] = 0.4
-
-    # Table config (optional)
-    table_pos: ClassVar[Pose3D] = (0.7, 1.25, 0.0)
-    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler([0., 0., 0.])
 
     # Camera defaults, optional
     _camera_distance: ClassVar[float] = 1.3
@@ -61,15 +64,18 @@ class PyBulletDominoEnv(PyBulletEnv):
     robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
     robot_init_y: ClassVar[float] = (y_lb + y_ub) * 0.5
     robot_init_z: ClassVar[float] = z_ub
-    robot_base_pos: ClassVar[Pose3D] = (0.75, 0.7, 0.0)
+    robot_base_pos: ClassVar[Pose3D] = (0.75, 0.72, 0.0)
     robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, 0.0, np.pi / 2])
+    robot_init_tilt: ClassVar[float] = np.pi / 2
+    robot_init_wrist: ClassVar[float] = -np.pi / 2
+
+    _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
+    _domino_type = Type("domino", ["x", "y", "z", "rot"])
+    _target_type = Type("target", ["x", "y", "z", "rot"])
 
     def __init__(self, use_gui: bool = True) -> None:
         # Define Types
-        self._robot_type = Type("robot", ["x", "y", "z"])
-        self._domino_type = Type("domino", ["x", "y", "z", "rot"])
-        self._target_type = Type("target", ["x", "y", "z", "rot"])
 
         # Create 'dummy' Objects (they'll be assigned IDs on reset)
         self._robot = Object("robot", self._robot_type)
@@ -117,7 +123,7 @@ class PyBulletDominoEnv(PyBulletEnv):
             orientation=cls.table_orn,
             scale=1.0,
             use_fixed_base=True,
-            physics_client_id=physics_client_id,
+            physics_client_id=physics_client_id
         )
         bodies["table_id"] = table_id
 
@@ -146,11 +152,15 @@ class PyBulletDominoEnv(PyBulletEnv):
         """Construct a State from the current PyBullet simulation."""
         state_dict: Dict[Object, Dict[str, float]] = {}
         # 1) Robot
-        rx, ry, rz, _, _, _, _, _ = self._pybullet_robot.get_state()
+        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
+        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
         state_dict[self._robot] = {
             "x": rx,
             "y": ry,
             "z": rz,
+            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
+            "tilt": tilt,
+            "wrist": wrist
         }
 
         # 2) Dominoes
@@ -277,6 +287,9 @@ class PyBulletDominoEnv(PyBulletEnv):
                 "x": self.robot_init_x,
                 "y": self.robot_init_y,
                 "z": self.robot_init_z,
+                "fingers": self.open_fingers,
+                "tilt": self.robot_init_tilt,
+                "wrist": self.robot_init_wrist,
             }
 
             # 2) Dominoes
@@ -285,14 +298,13 @@ class PyBulletDominoEnv(PyBulletEnv):
                 name = f"domino_{i}"
                 obj = Object(name, self._domino_type)
                 # We create the block in PyBullet
-                domino_color = (0.6, 0.4, 0.2, 1.0)  # a brownish color
                 # Random yaw
                 yaw = rng.uniform(-np.pi, np.pi)
                 x = rng.uniform(self.x_lb, self.x_ub)
                 y = rng.uniform(self.y_lb, self.y_ub)
                 # Create the block in the simulator
                 dom_id = create_pybullet_block(
-                    color=domino_color,
+                    color=self.domino_color,
                     half_extents=(self.domino_width / 2,
                                   self.domino_depth / 2,
                                   self.domino_height / 2),
@@ -301,6 +313,10 @@ class PyBulletDominoEnv(PyBulletEnv):
                     orientation=[0.0, 0.0, yaw],
                     physics_client_id=self._physics_client_id,
                 )
+                update_object(dom_id, 
+                        position=(x, y, self.z_lb + self.domino_height/2),
+                        orientation=p.getQuaternionFromEuler([0.0, 0.0, yaw]),
+                        physics_client_id=self._physics_client_id)
                 obj.id = dom_id
                 domino_objs.append(obj)
 
@@ -317,7 +333,12 @@ class PyBulletDominoEnv(PyBulletEnv):
                                      position=(x, y, self.z_lb + 0.05),
                                      orientation=p.getQuaternionFromEuler(
                                          [0.0, 0.0, yaw]),
+                                     scale=1.0,
                                      physics_client_id=self._physics_client_id)
+                update_object(t_id,
+                        position=(x, y, self.z_lb + self.target_height/2),
+                        orientation=p.getQuaternionFromEuler([0.0, 0.0, yaw]),
+                        physics_client_id=self._physics_client_id)
                 obj.id = t_id
                 target_objs.append(obj)
 
@@ -363,3 +384,18 @@ class PyBulletDominoEnv(PyBulletEnv):
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
+
+
+if __name__ == "__main__":
+    import time
+
+    CFG.seed = 0
+    CFG.pybullet_sim_steps_per_action = 1
+    env = PyBulletDominoEnv(use_gui=True)
+    task = env._make_tasks(1, np.random.default_rng(0))[0]
+    env._reset_state(task.init)
+
+    while True:
+        action = Action(np.array(env._pybullet_robot.initial_joint_positions))
+        env.step(action)
+        time.sleep(0.01)

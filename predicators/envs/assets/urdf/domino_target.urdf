@@ -3,18 +3,18 @@
   <!-- Middle bar (base_link) -->
   <link name="middle_bar">
     <visual>
-      <origin xyz="0 0 0.25" rpy="0 1.5708 0"/>
+      <origin xyz="0 0 0.15" rpy="0 1.5708 0"/>
       <geometry>
-        <cylinder radius="0.005" length="0.12"/>
+        <cylinder radius="0.005" length="0.07"/>
       </geometry>
       <material name="gray">
         <color rgba="0.7 0.7 0.7 1.0"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0.25" rpy="0 1.5708 0"/>
+      <origin xyz="0 0 0.15" rpy="0 1.5708 0"/>
       <geometry>
-        <cylinder radius="0.005" length="0.12"/>
+        <cylinder radius="0.005" length="0.07"/>
       </geometry>
     </collision>
     <inertial>
@@ -31,18 +31,18 @@
   <!-- Left bar -->
   <link name="left_bar">
     <visual>
-      <origin xyz="-0.06 0 0.125" rpy="0 0 0"/>
+      <origin xyz="-0.035 0 0.075" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.005" length="0.25"/>
+        <cylinder radius="0.005" length="0.15"/>
       </geometry>
       <material name="gray">
         <color rgba="0.7 0.7 0.7 1.0"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.06 0 0.125" rpy="0 0 0"/>
+      <origin xyz="-0.035 0 0.075" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.005" length="0.25"/>
+        <cylinder radius="0.005" length="0.15"/>
       </geometry>
     </collision>
     <inertial>
@@ -68,18 +68,18 @@
   <!-- Right bar -->
   <link name="right_bar">
     <visual>
-      <origin xyz="0.06 0 0.125" rpy="0 0 0"/>
+      <origin xyz="0.035 0 0.075" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.005" length="0.25"/>
+        <cylinder radius="0.005" length="0.15"/>
       </geometry>
       <material name="gray">
         <color rgba="0.7 0.7 0.7 1.0"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0.06 0 0.125" rpy="0 0 0"/>
+      <origin xyz="0.035 0 0.075" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.005" length="0.25"/>
+        <cylinder radius="0.005" length="0.15"/>
       </geometry>
     </collision>
     <inertial>
@@ -105,18 +105,18 @@
   <!-- Main flap panel -->
   <link name="flap_panel">
     <visual>
-      <origin xyz="0 0 0.08" rpy="0 0 0"/>
+      <origin xyz="0 0 0.07" rpy="0 0 0"/>
       <geometry>
-        <box size="0.1 0.003 0.16"/>
+        <box size="0.06 0.003 0.14"/>
       </geometry>
       <material name="box_color_flap_panel">
         <color rgba="1 0 0 1.0"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0.08" rpy="0 0 0"/>
+      <origin xyz="0 0 0.07" rpy="0 0 0"/>
       <geometry>
-        <box size="0.1 0.003 0.16"/>
+        <box size="0.06 0.003 0.14"/>
       </geometry>
     </collision>
     <inertial>
@@ -132,7 +132,7 @@
   <joint name="flap_hinge_joint" type="continuous">
     <parent link="middle_bar"/>
     <child link="flap_panel"/>
-    <origin xyz="0 0 0.25" rpy="0 0 0"/>
+    <origin xyz="0 0 0.15" rpy="0 0 0"/>
     <axis xyz="1 0 0"/>
     <dynamics damping="0.001" friction="0.001"/>
     <limit lower="-3.141592653589793" upper="3.141592653589793"/>
@@ -142,18 +142,18 @@
   <!-- Short flap 1 -->
   <link name="short_flap1">
     <visual>
-      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.065" rpy="0 0 0"/>
       <geometry>
-        <box size="0.1 0.003 0.15"/>
+        <box size="0.06 0.003 0.13"/>
       </geometry>
       <material name="box_color_short_flap1">
         <color rgba="0 0 1 1.0"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.065" rpy="0 0 0"/>
       <geometry>
-        <box size="0.1 0.003 0.15"/>
+        <box size="0.06 0.003 0.13"/>
       </geometry>
     </collision>
     <inertial>
@@ -179,18 +179,18 @@
   <!-- Short flap 2 -->
   <link name="short_flap2">
     <visual>
-      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.065" rpy="0 0 0"/>
       <geometry>
-        <box size="0.1 0.003 0.15"/>
+        <box size="0.06 0.003 0.13"/>
       </geometry>
       <material name="box_color_short_flap2">
         <color rgba="0 1 0 1.0"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.065" rpy="0 0 0"/>
       <geometry>
-        <box size="0.1 0.003 0.15"/>
+        <box size="0.06 0.003 0.13"/>
       </geometry>
     </collision>
     <inertial>
