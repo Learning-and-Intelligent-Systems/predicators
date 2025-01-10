@@ -3824,7 +3824,8 @@ def create_video_from_partial_refinements(
                 # logging.debug(f"act: {act}")
             except OptionExecutionFailure:
                 video.extend(env.render())
-                break
+                if not CFG.video_not_break_on_exception:
+                    break
             video.extend(env.render(act))
             # logging.debug("Finished rendering.")
             try:

@@ -30,6 +30,7 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--make_demo_videos", action="store_true")
     parser.add_argument("--make_demo_images", action="store_true")
     parser.add_argument("--make_cogman_videos", action="store_true")
+    parser.add_argument("--video_not_break_on_exception", action="store_true")
     parser.add_argument("--load_approach", action="store_true")
     # In the case of online learning approaches, load_approach by itself
     # will try to load an approach on *every* online learning cycle.
