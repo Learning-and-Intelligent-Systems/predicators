@@ -149,4 +149,5 @@ class PyBulletDominoGroundTruthOptionFactory(GroundTruthOptionFactory):
             _get_pybullet_robot(), name, option_types, params_space,
             _get_current_and_target_pose_and_finger_status,
             cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
-            cls._finger_action_nudge_magnitude)
+            cls._finger_action_nudge_magnitude, 
+            validate=CFG.pybullet_ik_validate)

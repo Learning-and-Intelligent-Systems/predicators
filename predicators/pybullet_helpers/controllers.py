@@ -26,6 +26,7 @@ def get_move_end_effector_to_pose_action(
     finger_status: str,
     max_vel_norm: float,
     finger_action_nudge_magnitude: float,
+    validate: bool = True,
 ) -> Action:
     """Get an action for moving the end effector to a target pose.
 
@@ -53,7 +54,8 @@ def get_move_end_effector_to_pose_action(
         # find good solutions on subsequent calls if we are already near
         # a solution from the previous call. The fetch robot does not
         # use IKFast, and in fact gets screwed up if we set joints here.
-        validate = robot.get_name() != "panda"
+        if robot.get_name() == "panda":
+            validate = False
         joint_positions = robot.inverse_kinematics(ee_action,
                                                    validate=validate,
                                                    set_joints=True)
@@ -93,7 +95,8 @@ def create_move_end_effector_to_pose_option(
     move_to_pose_tol: float,
     max_vel_norm: float,
     finger_action_nudge_magnitude: float,
-    initiable: ParameterizedInitiable = lambda _1, _2, _3, _4: True
+    initiable: ParameterizedInitiable = lambda _1, _2, _3, _4: True,
+    validate: bool = True,
 ) -> ParameterizedOption:
     """A generic utility that creates a ParameterizedOption for moving the end
     effector to a target pose, given a function that takes in the current
@@ -124,7 +127,8 @@ def create_move_end_effector_to_pose_option(
             target_pose=target_pose,
             finger_status=finger_status,
             max_vel_norm=max_vel_norm,
-            finger_action_nudge_magnitude=finger_action_nudge_magnitude)
+            finger_action_nudge_magnitude=finger_action_nudge_magnitude,
+            validate=validate,)
         return action
 
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],

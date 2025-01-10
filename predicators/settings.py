@@ -167,6 +167,7 @@ class GlobalSettings:
                 "panda": (0.7071, 0.7071, 0.0, 0.0),
             }
         })
+    pybullet_ik_validate = True
 
     # IKFast parameters
     ikfast_max_time = 0.05
