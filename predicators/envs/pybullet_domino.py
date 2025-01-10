@@ -378,7 +378,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                 # at fixed positions along the x-axis
                 rot = np.pi / 2
                 gap = self.domino_width * 1.5
-                x = self.x_lb + self.domino_width
+                x = self.start_domino_x
                 init_dict[self.dominos[0]] = {
                     "x": x, "y": 1.3,
                     "z": self.z_lb + self.domino_height / 2, "rot": rot,
