@@ -44,8 +44,11 @@ class PyBulletDominoEnv(PyBulletEnv):
     domino_width: ClassVar[float] = 0.07
     domino_depth: ClassVar[float] = 0.03
     domino_height: ClassVar[float] = 0.15
+    light_green: ClassVar[Tuple[float, float, float, float]] = (
+        0.56, 0.93, 0.56, 1.)
     domino_color: ClassVar[Tuple[float, float, float, float]] = (
         0.6, 0.8, 1.0, 1.0)
+    domino_mass: ClassVar[float] = 1
     
     target_height: ClassVar[float] = 0.2
 
@@ -70,19 +73,35 @@ class PyBulletDominoEnv(PyBulletEnv):
     robot_init_tilt: ClassVar[float] = np.pi / 2
     robot_init_wrist: ClassVar[float] = -np.pi / 2
 
+    num_dominos = 4
+    num_targets = 2
+
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _domino_type = Type("domino", ["x", "y", "z", "rot"])
     _target_type = Type("target", ["x", "y", "z", "rot"])
 
-    def __init__(self, use_gui: bool = True) -> None:
+    def __init__(self, use_gui: bool = True, debug_layout: bool = False) -> None:
         # Define Types
 
         # Create 'dummy' Objects (they'll be assigned IDs on reset)
         self._robot = Object("robot", self._robot_type)
         # We'll hold references to all domino and target objects in lists
         # after we create them in tasks.
+        self.dominos: List[Object] = []
+        for i in range(self.num_dominos):
+            name = f"domino_{i}"
+            obj_type = self._domino_type
+            obj = Object(name, obj_type)
+            self.dominos.append(obj)
+        self.targets: List[Object] = []
+        for i in range(self.num_targets):
+            name = f"target_{i}"
+            obj_type = self._target_type
+            obj = Object(name, obj_type)
+            self.targets.append(obj)
 
         super().__init__(use_gui)
+        self._debug_layout = debug_layout
 
         # Define Predicates
         self._Toppled = Predicate("Toppled", [self._target_type],
@@ -127,18 +146,42 @@ class PyBulletDominoEnv(PyBulletEnv):
         )
         bodies["table_id"] = table_id
 
-        # We won't create the dominoes and targets until we generate tasks.
-        # Just store them in bodies for now:
-        bodies["domino_ids"] = []
-        bodies["target_ids"] = []
+        # Create a fixed number of dominoes and targets here
+        domino_ids = []
+        target_ids = []
+        for i in range(cls.num_dominos):  # e.g. 3 dominoes
+            domino_id = create_pybullet_block(
+                color=cls.light_green if i==0 else cls.domino_color,
+                half_extents=(cls.domino_width / 2, cls.domino_depth / 2, 
+                              cls.domino_height / 2),
+                mass=cls.domino_mass,
+                friction=0.5,
+                orientation=[0.0, 0.0, 0.0],
+                physics_client_id=physics_client_id,
+            )
+            domino_ids.append(domino_id)
+        for _ in range(cls.num_targets):  # e.g. 2 targets
+            tid = create_object(
+                "urdf/domino_target.urdf",
+                position=(cls.x_lb, cls.y_lb, cls.z_lb),
+                orientation=p.getQuaternionFromEuler([0.0, 0.0, 0.0]),
+                scale=1.0,
+                use_fixed_base=True,
+                physics_client_id=physics_client_id
+            )
+            target_ids.append(tid)
+        bodies["domino_ids"] = domino_ids
+        bodies["target_ids"] = target_ids
 
         return physics_client_id, pybullet_robot, bodies
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         # We don't have a single known ID for dominoes or targets, so we'll store
         # them all at runtime. For now, we just keep a reference to the dict.
-        self._domino_ids: List[int] = pybullet_bodies["domino_ids"]
-        self._target_ids: List[int] = pybullet_bodies["target_ids"]
+        for domini, id in zip(self.dominos, pybullet_bodies["domino_ids"]):
+            domini.id = id
+        for target, id in zip(self.targets, pybullet_bodies["target_ids"]):
+            target.id = id
 
     # -------------------------------------------------------------------------
     # State Management
@@ -204,38 +247,23 @@ class PyBulletDominoEnv(PyBulletEnv):
 
         # For each domino and target, update PyBullet position/orientation.
         for obj in self._objects:
-            if obj.type == self._domino_type and obj.id < 0:
-                # create domino
+            if obj.type == self._domino_type:
+                # update domino
                 x = state.get(obj, "x")
                 y = state.get(obj, "y")
                 z = state.get(obj, "z")
                 rot = state.get(obj, "rot")
-                obj.id = create_pybullet_block(
-                    color=self.domino_color,
-                    half_extents=(self.domino_width/2, self.domino_depth/2,
-                                  self.domino_height/2),
-                    mass=0.5,
-                    friction=0.5,
-                    orientation=[0.0, 0.0, rot],
-                    physics_client_id=self._physics_client_id,
-                )
                 update_object(obj.id,
                               position=(x, y, z),
                               orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
                               physics_client_id=self._physics_client_id)
 
-            if obj.type == self._target_type and obj.id < 0:
-                # create target
+            if obj.type == self._target_type:
+                # update target
                 x = state.get(obj, "x")
                 y = state.get(obj, "y")
                 z = state.get(obj, "z")
                 rot = state.get(obj, "rot")
-                obj.id = create_object("urdf/domino_target.urdf",
-                                       position=(x, y, z),
-                                       orientation=p.getQuaternionFromEuler(
-                                           [0.0, 0.0, rot]),
-                                       scale=1.0,
-                                       physics_client_id=self._physics_client_id)
                 update_object(obj.id,
                               position=(x, y, z),
                               orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
@@ -299,15 +327,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                     rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # Suppose we want to create M = 3 dominoes, N = 2 targets for each task
-        # (configurable).
-        M = 3
-        N = 2
 
         for _ in range(num_tasks):
-            # Create new objects for this task
-            domino_objs: List[Object] = []
-            target_objs: List[Object] = []
-
             # 1) Robot initial
             robot_dict = {
                 "x": self.robot_init_x,
@@ -320,45 +341,74 @@ class PyBulletDominoEnv(PyBulletEnv):
 
             # 2) Dominoes
             init_dict = {self._robot: robot_dict}
-            for i in range(M):
-                name = f"domino_{i}"
-                obj_type = self._domino_type
-                obj = Object(name, obj_type)
-                yaw = rng.uniform(-np.pi, np.pi)
-                x = rng.uniform(self.x_lb, self.x_ub)
-                y = rng.uniform(self.y_lb, self.y_ub)
-                domino_objs.append(obj)
-                init_dict[obj] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb,
-                    "rot": yaw,
+            if self._debug_layout:
+                # Place dominoes (D) and targets (T) in order: D D T D T
+                # at fixed positions along the x-axis
+                rot = np.pi / 2
+                gap = self.domino_width * 1.5
+                x = self.x_lb + self.domino_width
+                init_dict[self.dominos[0]] = {
+                    "x": x, "y": 1.3,
+                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
                 }
+                x += gap
+                init_dict[self.dominos[1]] = {
+                    "x": x, "y": 1.3,
+                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                }
+                x += gap
+                init_dict[self.dominos[2]] = {
+                    "x": x, "y": 1.3,
+                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                }
+                x += gap
+                init_dict[self.targets[0]] = {
+                    "x": x, "y": 1.3,
+                    "z": self.z_lb, "rot": rot,
+                }
+                x += gap
+                init_dict[self.dominos[3]] = {
+                    "x": x, "y": 1.3,
+                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                }
+                x += gap
+                init_dict[self.targets[1]] = {
+                    "x": x, "y": 1.3,
+                    "z": self.z_lb, "rot": rot,
+                }
+            else:
+                for i in range(self.num_dominos):
+                    yaw = rng.uniform(-np.pi, np.pi)
+                    x = rng.uniform(self.x_lb, self.x_ub)
+                    y = rng.uniform(self.y_lb, self.y_ub)
+                    init_dict[self.dominos[i]] = {
+                        "x": x,
+                        "y": y,
+                        "z": self.z_lb + self.domino_height / 2,
+                        "rot": yaw,
+                    }
 
-            # 3) Targets
-            for i in range(N):
-                name = f"target_{i}"
-                obj_type = self._target_type
-                obj = Object(name, obj_type)
-                yaw = rng.uniform(-np.pi, np.pi)
-                x = rng.uniform(self.x_lb, self.x_ub)
-                y = rng.uniform(self.y_lb, self.y_ub)
-                target_objs.append(obj)
-                init_dict[obj] = {
-                    "x": x,
-                    "y": y,
-                    "z": self.z_lb,
-                    "rot": yaw,
-                }
+                # 3) Targets
+                target_dicts = [
+                    {"x": self.x_lb + self.domino_width*2, "y": self.y_lb + 0.1, 
+                     "z": self.z_lb,
+                     "rot": 0.0},
+                    {"x": self.x_lb + self.domino_width*2, "y": self.y_lb + 0.3, 
+                     "z": self.z_lb,
+                     "rot": 0.0},
+                ]
+                for t_obj, t_dict in zip(self.targets, target_dicts):
+                    init_dict[t_obj] = t_dict
+            
 
             # Combine into self._objects for the environment
-            self._objects = [self._robot] + domino_objs + target_objs
+            self._objects = [self._robot] + self.dominos + self.targets
 
             init_state = utils.create_state_from_dict(init_dict)
 
             # The goal: topple all targets
             goal_atoms = {
-                GroundAtom(self._Toppled, [t_obj]) for t_obj in target_objs
+                GroundAtom(self._Toppled, [t_obj]) for t_obj in self.targets
             }
 
             tasks.append(EnvironmentTask(init_state, goal_atoms))
@@ -371,7 +421,7 @@ if __name__ == "__main__":
 
     CFG.seed = 0
     CFG.pybullet_sim_steps_per_action = 1
-    env = PyBulletDominoEnv(use_gui=True)
+    env = PyBulletDominoEnv(use_gui=True, debug_layout=True)
     task = env._make_tasks(1, np.random.default_rng(0))[0]
     env._reset_state(task.init)
 
