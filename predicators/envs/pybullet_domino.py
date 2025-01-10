@@ -204,16 +204,42 @@ class PyBulletDominoEnv(PyBulletEnv):
 
         # For each domino and target, update PyBullet position/orientation.
         for obj in self._objects:
-            if obj.type not in [self._domino_type, self._target_type]:
-                continue
-            x = state.get(obj, "x")
-            y = state.get(obj, "y")
-            z = state.get(obj, "z")
-            rot = state.get(obj, "rot")
-            update_object(obj.id,
-                          position=(x, y, z),
-                          orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
-                          physics_client_id=self._physics_client_id)
+            if obj.type == self._domino_type and obj.id < 0:
+                # create domino
+                x = state.get(obj, "x")
+                y = state.get(obj, "y")
+                z = state.get(obj, "z")
+                rot = state.get(obj, "rot")
+                obj.id = create_pybullet_block(
+                    color=self.domino_color,
+                    half_extents=(self.domino_width/2, self.domino_depth/2,
+                                  self.domino_height/2),
+                    mass=0.5,
+                    friction=0.5,
+                    orientation=[0.0, 0.0, rot],
+                    physics_client_id=self._physics_client_id,
+                )
+                update_object(obj.id,
+                              position=(x, y, z),
+                              orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                              physics_client_id=self._physics_client_id)
+
+            if obj.type == self._target_type and obj.id < 0:
+                # create target
+                x = state.get(obj, "x")
+                y = state.get(obj, "y")
+                z = state.get(obj, "z")
+                rot = state.get(obj, "rot")
+                obj.id = create_object("urdf/domino_target.urdf",
+                                       position=(x, y, z),
+                                       orientation=p.getQuaternionFromEuler(
+                                           [0.0, 0.0, rot]),
+                                       scale=1.0,
+                                       physics_client_id=self._physics_client_id)
+                update_object(obj.id,
+                              position=(x, y, z),
+                              orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                              physics_client_id=self._physics_client_id)
 
         # Check reconstruction
         reconstructed_state = self._get_state()
@@ -293,86 +319,40 @@ class PyBulletDominoEnv(PyBulletEnv):
             }
 
             # 2) Dominoes
+            init_dict = {self._robot: robot_dict}
             for i in range(M):
-                # Randomly place each domino
                 name = f"domino_{i}"
-                obj = Object(name, self._domino_type)
-                # We create the block in PyBullet
-                # Random yaw
+                obj_type = self._domino_type
+                obj = Object(name, obj_type)
                 yaw = rng.uniform(-np.pi, np.pi)
                 x = rng.uniform(self.x_lb, self.x_ub)
                 y = rng.uniform(self.y_lb, self.y_ub)
-                # Create the block in the simulator
-                dom_id = create_pybullet_block(
-                    color=self.domino_color,
-                    half_extents=(self.domino_width / 2,
-                                  self.domino_depth / 2,
-                                  self.domino_height / 2),
-                    mass=0.5,
-                    friction=0.5,
-                    orientation=[0.0, 0.0, yaw],
-                    physics_client_id=self._physics_client_id,
-                )
-                update_object(dom_id, 
-                        position=(x, y, self.z_lb + self.domino_height/2),
-                        orientation=p.getQuaternionFromEuler([0.0, 0.0, yaw]),
-                        physics_client_id=self._physics_client_id)
-                obj.id = dom_id
                 domino_objs.append(obj)
+                init_dict[obj] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb,
+                    "rot": yaw,
+                }
 
             # 3) Targets
-            for j in range(N):
-                name = f"target_{j}"
-                obj = Object(name, self._target_type)
-                # Random yaw
+            for i in range(N):
+                name = f"target_{i}"
+                obj_type = self._target_type
+                obj = Object(name, obj_type)
                 yaw = rng.uniform(-np.pi, np.pi)
                 x = rng.uniform(self.x_lb, self.x_ub)
                 y = rng.uniform(self.y_lb, self.y_ub)
-                # Create target from URDF
-                t_id = create_object("urdf/domino_target.urdf",
-                                     position=(x, y, self.z_lb + 0.05),
-                                     orientation=p.getQuaternionFromEuler(
-                                         [0.0, 0.0, yaw]),
-                                     scale=1.0,
-                                     physics_client_id=self._physics_client_id)
-                update_object(t_id,
-                        position=(x, y, self.z_lb + self.target_height/2),
-                        orientation=p.getQuaternionFromEuler([0.0, 0.0, yaw]),
-                        physics_client_id=self._physics_client_id)
-                obj.id = t_id
                 target_objs.append(obj)
+                init_dict[obj] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb,
+                    "rot": yaw,
+                }
 
             # Combine into self._objects for the environment
-            # (Include the robot, though it’s not used for manipulation here.)
             self._objects = [self._robot] + domino_objs + target_objs
-
-            # Build the initial State dictionary
-            init_dict = {
-                self._robot: robot_dict,
-            }
-            for d_obj in domino_objs:
-                d_x, d_y, d_z = p.getBasePositionAndOrientation(
-                    d_obj.id, physicsClientId=self._physics_client_id
-                )[0]
-                yaw = rng.uniform(-np.pi, np.pi)  # or read from PyBullet if desired
-                init_dict[d_obj] = {
-                    "x": d_x,
-                    "y": d_y,
-                    "z": d_z,
-                    "rot": yaw,
-                }
-
-            for t_obj in target_objs:
-                t_x, t_y, t_z = p.getBasePositionAndOrientation(
-                    t_obj.id, physicsClientId=self._physics_client_id
-                )[0]
-                yaw = rng.uniform(-np.pi, np.pi)
-                init_dict[t_obj] = {
-                    "x": t_x,
-                    "y": t_y,
-                    "z": t_z,
-                    "rot": yaw,
-                }
 
             init_state = utils.create_state_from_dict(init_dict)
 
