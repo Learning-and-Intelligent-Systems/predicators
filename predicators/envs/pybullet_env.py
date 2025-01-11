@@ -598,15 +598,16 @@ class PyBulletEnv(BaseEnv):
 def create_pybullet_block(color: Tuple[float, float, float, float],
                           half_extents: Tuple[float, float,
                                               float], mass: float,
-                          friction: float, orientation: Sequence[float],
-                          physics_client_id: int) -> int:
+                          friction: float, 
+                          position: Sequence[Pose3D] = (0, 0, 0),
+                          orientation: Sequence[Quaternion] = (0, 0, 0, 1),
+                          physics_client_id: int=0,
+                          ) -> int:
     """A generic utility for creating a new block.
 
     Returns the PyBullet ID of the newly created block.
     """
     # The poses here are not important because they are overwritten by
-    # the state values when a task is reset.
-    pose = (0, 0, 0)
 
     # Create the collision shape.
     collision_id = p.createCollisionShape(p.GEOM_BOX,
@@ -623,7 +624,7 @@ def create_pybullet_block(color: Tuple[float, float, float, float],
     block_id = p.createMultiBody(baseMass=mass,
                                  baseCollisionShapeIndex=collision_id,
                                  baseVisualShapeIndex=visual_id,
-                                 basePosition=pose,
+                                 basePosition=position,
                                  baseOrientation=orientation,
                                  physicsClientId=physics_client_id)
     p.changeDynamics(

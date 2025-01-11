@@ -55,6 +55,7 @@ class GlobalSettings:
     # either of its arguments is not None.
     allow_state_allclose_comparison_despite_simulator_state = False
 
+    env_include_bbox_features = False
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_degenerate_oracle_samplers = False
@@ -80,6 +81,13 @@ class GlobalSettings:
     blocks_num_blocks_test = [5, 6]
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
+
+    # balance env parameters
+    balance_num_blocks_train = [2, 4]
+    balance_num_blocks_test = [4, 6]
+    # balance_num_blocks_test = [2]
+    balance_holding_goals = False
+    balance_block_size = 0.045  # use 0.0505 for real with panda
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
@@ -481,6 +489,7 @@ class GlobalSettings:
     image_dir = "images"
     video_fps = 2
     failure_video_mode = "longest_only"
+    terminate_on_goal_reached = True
 
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.

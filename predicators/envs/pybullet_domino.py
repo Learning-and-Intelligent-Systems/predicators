@@ -31,17 +31,18 @@ class PyBulletDominoEnv(PyBulletEnv):
     upright orientation. The overall goal is to topple all targets.
     """
 
-    # Bounds for placing dominoes and targets (you can adjust as needed).
+    # Table / workspace config
+    table_height: ClassVar[float] = 0.4
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height/2)
+    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0., 0., np.pi/2])
+
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
     y_ub: ClassVar[float] = 1.6
-    z_lb: ClassVar[float] = 0.2
-    z_ub: ClassVar[float] = 0.75
-
-    table_pos: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
-    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0., 0., np.pi/2])
+    z_lb: ClassVar[float] = table_height
+    z_ub: ClassVar[float] = 0.75 + table_height/2
 
     # Domino shape
     domino_width: ClassVar[float] = 0.07

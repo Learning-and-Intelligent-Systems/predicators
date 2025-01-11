@@ -386,6 +386,37 @@ class NSPredicate(Predicate):
         clf_str = clf_str.replace("@staticmethod\n", "")
         return clf_str
 
+@dataclass
+class _MemoizedClassifier():
+    classifier: Callable[[State, Sequence[Object]], Union[bool, VLMQuery]]
+    cache: Dict = field(default_factory=dict)
+
+    def cache_truth_value(self, state: State, objects: Sequence[Object],
+                          truth_value: bool) -> None:
+        """Cache the boolean value after querying the VLM and obtaining the
+        result."""
+        combined_hash = self.hash_state_objs(state, objects)
+        self.cache[combined_hash] = truth_value
+
+    def hash_state_objs(self, state: State, objects: Sequence[Object]) -> int:
+        objects_tuple_hash = hash(tuple(objects))
+        state_hash = state.__hash__()
+        return hash((state_hash, objects_tuple_hash))
+
+    def has_classified(self, state: State, objects: Sequence[Object]) -> bool:
+        """Check if the state, object pair has been stored in the cache."""
+        combined_hash = self.hash_state_objs(state, objects)
+        return combined_hash in self.cache
+
+    def __call__(self, state: State, objects: Sequence[Object]) -> \
+        Union[bool, VLMQuery]:
+        """When the classifier is called, return the cached value if it exists
+        otherwise call self.classifier."""
+        # if state, object exist in cache, return the value
+        # else compute the truth value using the classifier
+        combined_hash = self.hash_state_objs(state, objects)
+        return self.cache.get(combined_hash, self.classifier(state, objects))
+
 
 @dataclass(frozen=True, order=False, repr=False)
 class ConceptPredicate(Predicate):

@@ -100,7 +100,7 @@ class PyBulletDominoGroundTruthOptionFactory(GroundTruthOptionFactory):
                 option_type, params_space),
             cls._create_domino_move_to_push_domino_option(
                 "PushDomino",
-                lambda _: cls.env_cls.start_domino_x,# + cls._offset_x,
+                lambda _: cls.env_cls.start_domino_x + cls._offset_x,
                 lambda z: z + cls._offset_z,
                 "closed",
                 option_type, params_space),

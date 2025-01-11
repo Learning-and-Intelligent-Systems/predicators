@@ -38,6 +38,7 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
     _move_to_pose_tol: ClassVar[float] = 1e-3
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
     _transport_z: ClassVar[float] = env_cls.z_ub - 0.5
+    _z_offset: ClassVar[float] = 0.1
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -87,7 +88,7 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Move to far the wire which we will grasp.
             cls._create_circuit_move_to_above_wire_option(
                 "MoveToAboveWire",
-                lambda _: cls.env_cls.z_ub,
+                lambda _: cls.env_cls.z_ub - cls._z_offset,
                 "open",
                 option_types,
                 params_space),
@@ -140,7 +141,7 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Move back up
             cls._create_circuit_move_to_above_two_snaps_option(
                 "MoveEndEffectorBackUp",
-                lambda _: cls.env_cls.z_ub,
+                lambda _: cls.env_cls.z_ub - cls._z_offset,
                 "open",
                 option_types,
                 params_space),
@@ -219,8 +220,9 @@ class PyBulletCircuitGroundTruthOptionFactory(GroundTruthOptionFactory):
             bx = state.get(battery, "x")
             at_top = 1 if (wy > ly) else -1
             target_x = (lx + bx) / 2
+            y_pad = 0.01 if at_top == 1 else 0
             target_y = ly + at_top * (cls.env_cls.bulb_snap_length / 2 + 
-                                      cls.env_cls.snap_width / 2 - 0.01)
+                                      cls.env_cls.snap_width / 2 - y_pad)
             target_pos = (target_x, target_y, z_func(lz))
             # Calculate rot from lx, ly, bx, by
             target_orn = p.getQuaternionFromEuler([0, 

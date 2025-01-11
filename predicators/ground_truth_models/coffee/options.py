@@ -288,17 +288,17 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             if xy_waypoint_sq_dist < cls.pick_policy_tol:
                 return cls._get_move_action(state,
                                             (target_x, waypoint_y, target_z),
-                                            robot_pos)
+                                            robot_pos, dwrist=dwrist)
             # If at a safe height, move to the position above the penultimate
             # waypoint, still at a safe height.
             if safe_z_sq_dist < cls.env_cls.safe_z_tol:
                 return cls._get_move_action(
                     state, (target_x, waypoint_y, cls.env_cls.robot_init_z),
-                    robot_pos)
+                    robot_pos, dwrist=dwrist)
             # Move up to a safe height.
             return cls._get_move_action(state,
                                         (x, y, cls.env_cls.robot_init_z),
-                                        robot_pos)
+                                        robot_pos, dwrist=dwrist)
 
         return policy
 
@@ -373,12 +373,12 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             robot_tilt = state.get(robot, "tilt")
             robot_wrists = state.get(robot, "wrist")
             target_tilt = cls.env_cls.robot_init_tilt
-            target_wrists = cls.env_cls.robot_init_wrist
+            dwrist = cls.env_cls.robot_init_wrist - robot_wrists
             return cls._get_move_action(state,
                                         target_pos,
                                         robot_pos,
                                         dtilt=target_tilt - robot_tilt,
-                                        dwrist=target_wrists - robot_wrists,
+                                        dwrist=dwrist,
                                         finger_status="open")
 
         return policy
@@ -912,6 +912,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
 
             # Get the target robot position.
             target_robot_pos = (x + dx, y + dy, z + dz)
+            dwrist = cls.env_cls.robot_init_wrist - state.get(robot, "wrist")
             # If close enough, place.
             sq_dist_to_place = np.sum(
                 np.subtract(robot_pos, target_robot_pos)**2)
@@ -921,7 +922,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             return cls._get_move_action(state,
                                         target_robot_pos,
                                         robot_pos,
-                                        finger_status="closed")
+                                        finger_status="closed",
+                                        dwrist=dwrist)
 
         return policy
 

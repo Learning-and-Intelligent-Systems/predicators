@@ -534,7 +534,7 @@ class CoffeeEnv(BaseEnv):
                 # goal = {
                 # }
                 goal = {
-                    # GroundAtom(self._JugFilled, [self._jug]),
+                    GroundAtom(self._JugFilled, [self._jug]),
                     # GroundAtom(self._PluggedIn, [self._plug]),
                     GroundAtom(self._JugInMachine, [self._jug, self._machine]),
                 }

@@ -15,12 +15,12 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 
 Needs pluged in:
 python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
---coffee_rotated_jug_ratio 0.5 \
+--num_train_tasks 0 --num_test_tasks 1 --use_gui \
+--coffee_rotated_jug_ratio 0 \
 --sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
 --coffee_twist_sampler False \
---make_test_videos --num_test_tasks 1 --video_fps 20 \
+--make_test_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 \
---coffee_render_grid_world False --coffee_simple_tasks True \
 --coffee_machine_have_light_bar False \
 --coffee_move_back_after_place_and_push True \
 --coffee_machine_has_plug True --sesame_max_skeletons_optimized 1 \
@@ -72,12 +72,20 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     safe_z_tol: ClassVar[float] = 1e-2
     place_jug_in_machine_tol: ClassVar[float] = 1e-3 / 2
     jug_twist_offset: ClassVar[float] = 0.025
+
+    # Table / workspace config
+    table_height: ClassVar[float] = 0.4
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height/2)
+    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0., 0., np.pi/2])
+
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
     y_ub: ClassVar[float] = 1.6
-    z_lb: ClassVar[float] = 0.2
-    z_ub: ClassVar[float] = 0.75
+    z_lb: ClassVar[float] = table_height
+    z_ub: ClassVar[float] = 0.75 + table_height/2
+
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     # robot_rest_y: ClassVar[float] = ((y_ub + y_lb) / 2.0) - 0.1
@@ -201,10 +209,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                       cls.jug_handle_height())
 
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
-    # Table settings.
-    table_pose: ClassVar[Pose3D] = (0.75, 1.35, 0.0)
-    table_orientation: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0.0, 0.0, np.pi / 2])
     # Camera font view parameters.
     _camera_distance: ClassVar[float]
     _camera_fov: ClassVar[float]
@@ -213,8 +217,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     _camera_target: ClassVar[Pose3D]
 
     def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
         if CFG.coffee_render_grid_world:
             # Camera parameters for grid world
             PyBulletCoffeeEnv._camera_distance = 3
@@ -234,6 +236,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             PyBulletCoffeeEnv._camera_pitch = -38  # lower
             # PyBulletCoffeeEnv._camera_pitch = 0  # even lower
             PyBulletCoffeeEnv._camera_target = (0.75, 1.25, 0.42)
+
+        super().__init__(use_gui)
 
         # Create the cups lazily because they can change size and color.
         self._cup_id_to_cup: Dict[int, Object] = {}
@@ -289,9 +293,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         bodies["jug_id"] = jug_id
 
         if CFG.coffee_machine_has_plug:
-            cord_ids = cls._add_pybullet_cord(physics_client_id)
-            bodies["cord_ids"] = cord_ids
-            bodies["plug_id"] = cord_ids[-1]
+            # cord_ids = cls._add_pybullet_cord(physics_client_id)
+            # bodies["cord_ids"] = cord_ids
+            # bodies["plug_id"] = cord_ids[-1]
 
             socket_id = cls._add_pybullet_socket(physics_client_id)
             bodies["socket_id"] = socket_id
@@ -306,8 +310,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._dispense_area_id = pybullet_bodies["dispense_area_id"]
         self._button_id = pybullet_bodies["button_id"]
         if CFG.coffee_machine_has_plug:
-            self._cord_ids = pybullet_bodies["cord_ids"]
-            self._plug_id = pybullet_bodies["plug_id"]
+            # self._cord_ids = pybullet_bodies["cord_ids"]
+            # self._plug_id = pybullet_bodies["plug_id"]
             self._socket_id = pybullet_bodies["socket_id"]
 
     @classmethod
@@ -337,10 +341,17 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             global_scale = 0.5 * cup_cap / self.cup_capacity_ub
             self._cup_to_capacity[cup_obj] = cup_cap
 
-            cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
+            if CFG.coffee_use_pixelated_jug:
+                cup_id = p.loadURDF(
+                    utils.get_env_asset_path("urdf/pot-pixel.urdf"),
                                 useFixedBase=True,
-                                globalScaling=global_scale,
+                                globalScaling=global_scale * 0.5,
                                 physicsClientId=self._physics_client_id)
+            else:
+                cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
+                                    useFixedBase=True,
+                                    globalScaling=global_scale,
+                                    physicsClientId=self._physics_client_id)
             # Rotate so handles face robot.
             cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
             p.resetBasePositionAndOrientation(
@@ -771,7 +782,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
         pose, orientation = p.getBasePositionAndOrientation(
             self._jug.id, physicsClientId=self._physics_client_id)
-        return p.createMultiBody(baseMass=0,
+        return p.createMultiBody(baseMass=0.001,
                                  baseCollisionShapeIndex=collision_id,
                                  baseVisualShapeIndex=visual_id,
                                  basePosition=pose,
@@ -1039,8 +1050,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                               useFixedBase=True,
                               physicsClientId=physics_client_id)
         p.resetBasePositionAndOrientation(table_id,
-                                          cls.table_pose,
-                                          cls.table_orientation,
+                                          cls.table_pos,
+                                          cls.table_orn,
                                           physicsClientId=physics_client_id)
         return table_id
 
@@ -1070,15 +1081,19 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 # color = [0, 0, 1, 1]  # Blue
                 color = [1, 0, 0, 1]  # Red
             else:
-                color = [0, 0, 0, 1]  # Black
+                color = [0.5, 0, 0, 1]  # Black
 
             # Create collision and visual shapes
+            if i == cls.num_cord_links - 1:
+                col_x = cls.cord_link_length/2
+                col_y = cls.cord_link_length/2
+                col_z = cls.cord_link_length/2
+            else:
+                col_x = cls.cord_link_length/4
+                col_y = cls.cord_link_length/4
+                col_z = cls.cord_link_length/4
             segment = p.createCollisionShape(p.GEOM_BOX,
-                                             halfExtents=[
-                                                 cls.cord_link_length / 2,
-                                                 cls.cord_link_length / 2,
-                                                 cls.cord_link_length / 2
-                                             ],
+                                             halfExtents=[col_x, col_y, col_z],
                                              physicsClientId=physics_client_id)
             visual_shape = p.createVisualShape(
                 p.GEOM_BOX,
