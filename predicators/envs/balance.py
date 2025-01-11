@@ -51,11 +51,11 @@ class BalanceEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     plate_height: ClassVar[float] = 0.01
-    table_height: ClassVar[float] = 0.2
+    table_height: ClassVar[float] = 0.4
     _table_mid_w = 0.1
     _table_side_w = 0.3
     _table_gap = 0.05
-    _table_x, _table2_y, _table_z = 1.35, 0.75, 0.0
+    _table_x, _table2_y, _table_z = 1.35, 0.75, table_height
     _plate_z = table_height - plate_height
     _table2_pose: ClassVar[Pose3D] = (_table_x, _table2_y, _table_z)
     _plate3_pose: ClassVar[Pose3D] = (_table_x, _table2_y + _table_mid_w / 2 +
@@ -66,14 +66,14 @@ class BalanceEnv(BaseEnv):
                                     2 * plate_height - 2 * plate_height)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
     _table_mid_half_extents = [0.1, _table_mid_w / 2,
-                               table_height]  # depth, w, h
-    _table_side_half_extents = [0.25, _table_side_w / 2, table_height]
-    _plate_half_extents = [0.25, _table_side_w / 2, plate_height]
+                               table_height / 2]  # depth, w, h
+    # _table_side_half_extents = [0.25, _table_side_w / 2, table_height]
+    _plate_half_extents = (0.25, _table_side_w / 2, plate_height)
     _beam_half_extents = [0.01, 0.3, plate_height]
     _button_radius = 0.04
     _button_color_off = [1, 0, 0, 1]
     _button_color_on = [0, 1, 0, 1]
-    button_x, button_y, button_z = _table_x, _table2_y, _table_z + table_height
+    button_x, button_y, button_z = _table_x, _table2_y, _table_z
     button_press_threshold = 1e-3
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
@@ -122,13 +122,16 @@ class BalanceEnv(BaseEnv):
         # Predicates
         self._DirectlyOn = Predicate(
             "DirectlyOn", [self._block_type, self._block_type],
-            self._DirectlyOn_holds, lambda objs:
-            f"{objs[0]} is directly on top of {objs[1]} with no blocks in between."
+            self._DirectlyOn_holds, 
+            # lambda objs:
+            # f"{objs[0]} is directly on top of {objs[1]} with no blocks in between."
         )
         self._DirectlyOnPlate = Predicate(
             "DirectlyOnPlate", [self._block_type, self._plate_type],
-            self._DirectlyOnPlate_holds, lambda objs:
-            f"{objs[0]} is directly resting on the {objs[1]}'s surface.")
+            self._DirectlyOnPlate_holds, 
+            # lambda objs:
+            # f"{objs[0]} is directly resting on the {objs[1]}'s surface."
+            )
         self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
                                       self._GripperOpen_holds)
         self._Holding = Predicate("Holding", [self._block_type],

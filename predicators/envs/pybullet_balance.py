@@ -13,8 +13,7 @@ from predicators import utils
 from predicators.envs.balance import BalanceEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
-    create_single_arm_pybullet_robot
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, NSPredicate, \
     Object, Predicate, State, Type
@@ -27,7 +26,8 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
     # Table parameters.
     # _plate1_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    _table2_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    table_height: ClassVar[float] = 0.4
+    _table2_pose: ClassVar[Pose3D] = (1.35, 0.75, table_height/2)
     # _plate3_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     # _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
@@ -183,80 +183,35 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         physics_client_id, pybullet_robot, bodies = super(
         ).initialize_pybullet(using_gui)
 
-        # table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
-        #                       useFixedBase=True,
-        #                       physicsClientId=physics_client_id)
-        # p.resetBasePositionAndOrientation(table_id,
-        #                                   cls._table_pose,
-        #                                   cls._table_orientation,
-        #                                   physicsClientId=physics_client_id)
+        table2_id = create_pybullet_block(
+            (.9, .9, .9, 1),
+            cls._table_mid_half_extents,
+            0.0,  # mass
+            1.0,  # friction
+            cls._table2_pose,
+            cls._table_orientation,
+            physics_client_id,
+        )
 
-        # Define the dimensions of the rectangle # depth, width, height
-        # table_mid_w = 0.1
-        # table_side_w = 0.3
-        # table_gap = -0.02
-        # table_mid_half_extents = [0.25, table_mid_w/2, 0.2]
-        # table_side_half_extents = [0.25, table_side_w/2, 0.2]
+        plate3_id = create_pybullet_block(
+            (.9, .9, .9, 1),
+            cls._plate_half_extents,
+            0.0,
+            1.0,
+            cls._plate3_pose,
+            cls._table_orientation,
+            physics_client_id,
+        )
 
-        # Create a collision shape for the rectangle
-        pose2 = cls._table2_pose
-        collision_shape_id2 = p.createCollisionShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._table_mid_half_extents,
-            physicsClientId=physics_client_id)
-        visual_shape_id2 = p.createVisualShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._table_mid_half_extents,
-            rgbaColor=[.9, .9, .9, 1],  # Red color
-            physicsClientId=physics_client_id)
-        table2_id = p.createMultiBody(
-            baseMass=0,  # Static object
-            baseCollisionShapeIndex=collision_shape_id2,
-            baseVisualShapeIndex=visual_shape_id2,
-            basePosition=cls._table2_pose,
-            baseOrientation=cls._table_orientation,
-            physicsClientId=physics_client_id)
-
-        # pose3 = (cls._table2_pose[0],
-        #             cls._table2_pose[1] + cls._table_side_w + cls._table_gap,
-        #             cls._table2_pose[2])
-        collision_shape_id3 = p.createCollisionShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._plate_half_extents,
-            physicsClientId=physics_client_id)
-        visual_shape_id3 = p.createVisualShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._plate_half_extents,
-            rgbaColor=[.9, .9, .9, 1],  # white color
-            physicsClientId=physics_client_id)
-        plate3_id = p.createMultiBody(
-            baseMass=0,  # Static object
-            baseCollisionShapeIndex=collision_shape_id3,
-            baseVisualShapeIndex=visual_shape_id3,
-            basePosition=cls._plate3_pose,
-            baseOrientation=cls._table_orientation,
-            physicsClientId=physics_client_id)
-
-        # pose1 = (cls._table2_pose[0],
-        #             cls._table2_pose[1] - cls._table_side_w - cls._table_gap,
-        #             cls._table2_pose[2])
-        collision_shape_id1 = p.createCollisionShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._plate_half_extents,
-            physicsClientId=physics_client_id)
-        visual_shape_id1 = p.createVisualShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._plate_half_extents,
-            rgbaColor=[.9, .9, .9, 1],  # white color
-            physicsClientId=physics_client_id)
-        plate1_id = p.createMultiBody(
-            baseMass=0,  # Static object
-            baseCollisionShapeIndex=collision_shape_id1,
-            baseVisualShapeIndex=visual_shape_id1,
-            basePosition=cls._plate1_pose,
-            baseOrientation=cls._table_orientation,
-            physicsClientId=physics_client_id)
-
+        plate1_id = create_pybullet_block(
+            (.9, .9, .9, 1),
+            cls._plate_half_extents,
+            0.0,
+            1.0,
+            cls._plate1_pose,
+            cls._table_orientation,
+            physics_client_id,
+        )
         bodies["table_ids"] = [plate1_id, plate3_id]
 
         # Add a beam
@@ -352,8 +307,8 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
                             block_size / 2.0)
             block_ids.append(
                 create_pybullet_block(color, half_extents, cls._obj_mass,
-                                      cls._obj_friction, cls._default_orn,
-                                      physics_client_id))
+                                      cls._obj_friction, 
+                                      physics_client_id=physics_client_id))
         bodies["block_ids"] = block_ids
 
         return physics_client_id, pybullet_robot, bodies
@@ -363,6 +318,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         self._plate3.id = pybullet_bodies["table_ids"][1]
         self._machine.id = pybullet_bodies["button_id"]
         self._robot.id = self._pybullet_robot.robot_id
+        self._block_ids = pybullet_bodies["block_ids"]
 
     @classmethod
     def get_name(cls) -> str:
@@ -421,7 +377,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
             button_color = self._button_color_on
         else:
             button_color = self._button_color_off
-        p.changeVisualShape(self._button_id,
+        p.changeVisualShape(self._machine.id,
                             -1,
                             rgbaColor=button_color,
                             physicsClientId=self._physics_client_id)
@@ -447,7 +403,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
         # Get robot state.
         rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
-        fingers = self._fingers_joint_to_state(rf)
+        fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
         state_dict[self._robot] = np.array([rx, ry, rz, fingers],
                                            dtype=np.float32)
         joint_positions = self._pybullet_robot.get_joints()
@@ -466,7 +422,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
         # Get machine state.
         button_color = p.getVisualShapeData(
-            self._button_id, physicsClientId=self._physics_client_id)[0][-1]
+            self._machine.id, physicsClientId=self._physics_client_id)[0][-1]
         button_color_on_dist = sum(
             np.subtract(button_color, self._button_color_on)**2)
         button_color_off_dist = sum(
@@ -496,7 +452,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         # Turn machine on
         if self._PressingButton_holds(state, [self._robot, self._machine]):
             if self._Balanced_holds(state, [self._plate1, self._plate3]):
-                p.changeVisualShape(self._button_id,
+                p.changeVisualShape(self._machine.id,
                                     -1,
                                     rgbaColor=self._button_color_on,
                                     physicsClientId=self._physics_client_id)
@@ -527,3 +483,22 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         # Create the grasp constraint.
         self._held_obj_id = block_id
         self._create_grasp_constraint()
+
+if __name__ == "__main__":
+    """Run a simple simulation to test the environment."""
+    import time
+
+    # Make a task
+    CFG.seed = 0
+    CFG.num_train_tasks = 0
+    CFG.num_test_tasks = 1
+    env = PyBulletBalanceEnv(use_gui=True)
+    task = env._generate_test_tasks()[0]
+    env._reset_state(task.init)
+
+    while True:
+        # Robot does nothing
+        action = Action(np.array(env._pybullet_robot.get_joints()))
+
+        env.step(action)
+        time.sleep(0.01)
