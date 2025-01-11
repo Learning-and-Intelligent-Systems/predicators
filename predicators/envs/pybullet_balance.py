@@ -268,6 +268,7 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         self._machine.id = pybullet_bodies["button_id"]
         self._robot.id = self._pybullet_robot.robot_id
         self._block_ids = pybullet_bodies["block_ids"]
+        self._beam_ids = pybullet_bodies["beam_ids"]
 
     @classmethod
     def get_name(cls) -> str:
@@ -331,6 +332,11 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
                             rgbaColor=button_color,
                             physicsClientId=self._physics_client_id)
 
+        # Reset the difference to zero on environment reset
+        self._prev_diff = 0
+        # Also do one beam update to make sure the initial positions match
+        self._update_balance_beam(state)
+
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
         if not reconstructed_state.allclose(state):
@@ -339,6 +345,100 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
             logging.debug("Reconstructed state:")
             logging.debug(reconstructed_state.pretty_str())
             raise ValueError("Could not reconstruct state.")
+
+    def _update_balance_beam(self, state: State) -> None:
+        """Shift the plates/beams' z-values to simulate a balance, only if counts have changed."""
+        # Count how many blocks are on each plate.
+        # You can define “on left plate” or “on right plate” in multiple ways:
+        #   (1) If block x < some threshold => on left; else => on right
+        #   (2) If block is physically over plate bounding box
+        #   (3) If block is within some radius of the plate
+        # For simplicity, below we’ll just check x position relative to the midpoint.
+
+        # Example: Suppose x=1.1 is the approximate midpoint between plate1 & plate3
+        left_count = 0
+        right_count = 0
+        midpoint_x = 1.1
+
+        block_objs = state.get_objects(self._block_type)
+        for block_obj in block_objs:
+            # If block is "out of view," skip it
+            bz = state.get(block_obj, "pose_z")
+            if bz < 0:
+                continue
+            bx = state.get(block_obj, "pose_x")
+            if bx < midpoint_x:
+                left_count += 1
+            else:
+                right_count += 1
+
+        diff = left_count - right_count
+        if diff == self._prev_diff:
+            return  # No change in distribution, no need to reset positions
+
+        # If the difference changed, recalculate plate/beam z shifts
+        # For example, let’s do a small shift per block difference.
+        # Positive diff => left heavier => left side goes down, right goes up.
+
+        shift_per_block = 0.01
+        shift_amount = diff * shift_per_block
+
+        # Plate1/beam1 go downward if diff>0, upward if diff<0
+        # Plate3/beam2 do the opposite
+        new_plate1_z = self._plate1_pose[2] - shift_amount
+        new_beam1_z = self._beam1_pose[2] - shift_amount
+        new_plate3_z = self._plate1_pose[2] + shift_amount
+        new_beam2_z = self._beam2_pose[2] + shift_amount
+
+        # Reset the base positions of each accordingly
+        # (We keep the same x, y as their initial poses, but swap z.)
+        plate1_id = self._plate1.id
+        beam1_id = self._beam_ids[0]
+        plate3_id = self._plate3.id
+        beam2_id = self._beam_ids[1]
+
+        # plate1: same x,y, updated z
+        plate1_pos, plate1_orn = p.getBasePositionAndOrientation(
+            plate1_id, physicsClientId=self._physics_client_id)
+        new_plate1_pos = [plate1_pos[0], plate1_pos[1], new_plate1_z]
+        p.resetBasePositionAndOrientation(
+            plate1_id,
+            new_plate1_pos,
+            plate1_orn,
+            physicsClientId=self._physics_client_id)
+
+        # beam1
+        beam1_pos, beam1_orn = p.getBasePositionAndOrientation(
+            beam1_id, physicsClientId=self._physics_client_id)
+        new_beam1_pos = [beam1_pos[0], beam1_pos[1], new_beam1_z]
+        p.resetBasePositionAndOrientation(
+            beam1_id,
+            new_beam1_pos,
+            beam1_orn,
+            physicsClientId=self._physics_client_id)
+
+        # plate3
+        plate3_pos, plate3_orn = p.getBasePositionAndOrientation(
+            plate3_id, physicsClientId=self._physics_client_id)
+        new_plate3_pos = [plate3_pos[0], plate3_pos[1], new_plate3_z]
+        p.resetBasePositionAndOrientation(
+            plate3_id,
+            new_plate3_pos,
+            plate3_orn,
+            physicsClientId=self._physics_client_id)
+
+        # beam2
+        beam2_pos, beam2_orn = p.getBasePositionAndOrientation(
+            beam2_id, physicsClientId=self._physics_client_id)
+        new_beam2_pos = [beam2_pos[0], beam2_pos[1], new_beam2_z]
+        p.resetBasePositionAndOrientation(
+            beam2_id,
+            new_beam2_pos,
+            beam2_orn,
+            physicsClientId=self._physics_client_id)
+
+        # Finally, record the new difference
+        self._prev_diff = diff
 
     def _get_state(self) -> State:
         """Create a State based on the current PyBullet state.
@@ -394,6 +494,8 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         state = super().step(action, render_obs=render_obs)
+
+        self._update_balance_beam(state)
 
         # Turn machine on
         if self._PressingButton_holds(state, [self._robot, self._machine]):
