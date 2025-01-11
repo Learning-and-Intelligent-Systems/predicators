@@ -203,7 +203,7 @@ class PyBulletFloatEnv(PyBulletEnv):
                                             half_extents=[cls.block_size/2]*3,
                                             mass=cls.block_mass, 
                                             friction=cls.block_friction,
-                                            origentation=[0,0,0,1],
+                                            orientation=[0,0,0,1],
                                             physics_client_id=physics_client_id)
             block_ids.append(body_id)
         bodies["block_ids"] = block_ids
@@ -623,7 +623,8 @@ class PyBulletFloatEnv(PyBulletEnv):
                 # {"x": 1, "y": 1.16, "z": self.z_lb + self.block_size/2,
                 {"x": self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN + 
                         self.CONTAINER_GAP + self.CONTAINER_OPENING_LEN/2, 
-                 "y": self.VESSEL_BASE_Y, "z": self.z_ub,   
+                 "y": self.VESSEL_BASE_Y, 
+                 "z": self.initial_water_height + self.block_size/2,   
                  "in_water": 0.0, "is_held": 0.0, "is_light": 1.0},
             ]
 
