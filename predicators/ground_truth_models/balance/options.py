@@ -7,7 +7,6 @@ from functools import lru_cache
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs.balance import BalanceEnv
 from predicators.envs.pybullet_balance import PyBulletBalanceEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.controllers import \
@@ -23,7 +22,7 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the (non-pybullet) blocks environment."""
     
-    env_cls = BalanceEnv
+    env_cls = PyBulletBalanceEnv
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -208,7 +207,7 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             x_norm, y_norm = params
             x = BalanceEnv.x_lb + (BalanceEnv.x_ub - BalanceEnv.x_lb) * x_norm
             y = BalanceEnv.y_lb + (BalanceEnv.y_ub - BalanceEnv.y_lb) * y_norm
-            z = BalanceEnv.table_height + 0.5 * block_size
+            z = BalanceEnv._table_height + 0.5 * block_size
             arr = np.array([x, y, z, 1.0], dtype=np.float32)
             arr = np.clip(arr, action_space.low, action_space.high)
             return Action(arr)
@@ -276,9 +275,6 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
         plate_type = types["plate"]
         block_size = CFG.blocks_block_size
 
-        Holding = predicates['Holding']
-        On = predicates['DirectlyOn']
-        OnPlate = predicates['DirectlyOnPlate']
         GripperOpen = predicates['GripperOpen']
         MachineOn = predicates['MachineOn']
         Balanced = predicates['Balanced'].untransformed_predicate
@@ -311,7 +307,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 # Move to far above the block which we will grasp.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToPreGrasp",
-                    z_func=lambda _: PyBulletBalanceEnv.pick_z,
+                    z_func=lambda _: cls.env_cls.z_ub,
                     finger_status="open",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -332,7 +328,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 # Move back up.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
-                    z_func=lambda _: PyBulletBalanceEnv.pick_z,
+                    z_func=lambda _: cls.env_cls.z_ub,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -350,7 +346,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 # Move to above the block on which we will stack.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToPreStack",
-                    z_func=lambda _: PyBulletBalanceEnv.pick_z,
+                    z_func=lambda _: cls.env_cls.z_ub,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -372,7 +368,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 # Move back up.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
-                    z_func=lambda _: PyBulletBalanceEnv.pick_z,
+                    z_func=lambda _: cls.env_cls.z_ub,
                     finger_status="open",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -384,15 +380,13 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
         # PutOnPlate
         option_types = [robot_type, plate_type]
         params_space = Box(0, 1, (2, ))
-        place_z = PyBulletBalanceEnv.table_height + \
-            block_size / 2 + cls._offset_z
         PutOnPlate = utils.LinearChainParameterizedOption(
             "PutOnPlate",
             [
                 # Move to above the table at the (x, y) where we will place.
                 cls._create_blocks_move_to_above_table_option(
                     name="MoveEndEffectorToPrePutOnPlate",
-                    z=PyBulletBalanceEnv.pick_z,
+                    z=lambda _: cls.env_cls.z_ub,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -400,7 +394,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 # Move down to place.
                 cls._create_blocks_move_to_above_table_option(
                     name="MoveEndEffectorToPutOnPlate",
-                    z=place_z,
+                    z=lambda _: cls.env_cls.z_ub - 0.2,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -413,7 +407,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 # Move back up.
                 cls._create_blocks_move_to_above_table_option(
                     name="MoveEndEffectorBackUp",
-                    z=PyBulletBalanceEnv.pick_z,
+                    z=lambda _: cls.env_cls.z_ub,
                     finger_status="open",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,

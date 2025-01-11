@@ -4,7 +4,6 @@ from typing import Dict, Sequence, Set
 
 import numpy as np
 
-from predicators.envs.balance import BalanceEnv
 from predicators.envs.pybullet_balance import PyBulletBalanceEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
@@ -17,16 +16,13 @@ class BalanceGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"blocks", "pybullet_balance", "blocks_clear"}
+        return {"pybullet_balance"}
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],
                   predicates: Dict[str, Predicate],
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
-        if env_name == "pybullet_balance":
-            env_cls = PyBulletBalanceEnv
-        else:
-            env_cls = BalanceEnv
+        env_cls = PyBulletBalanceEnv
             
         # Types
         block_type = types["block"]

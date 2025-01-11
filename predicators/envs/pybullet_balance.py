@@ -1,5 +1,3 @@
-"""A PyBullet version of Blocks."""
-
 import logging
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, \
@@ -7,7 +5,6 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, \
 
 import numpy as np
 import pybullet as p
-from PIL import Image
 
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
@@ -15,7 +12,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, NSPredicate, \
-    Object, Predicate, State, Type
+    Object, Predicate, State, Type, ConceptPredicate, GroundAtom
 from predicators.utils import RawState, VLMQuery
 
 
@@ -24,7 +21,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Table parameters.
-    _plate_height: ClassVar[float] = 0.01
     _table_height: ClassVar[float] = 0.4
     _table2_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height/2)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
@@ -32,46 +28,51 @@ class PyBulletBalanceEnv(PyBulletEnv):
     _table_side_w = 0.3
     _table_gap = 0.05
     _table_x, _table2_y, _table_z = 1.35, 0.75, _table_height
+    _table_mid_half_extents = [0.1, _table_mid_w / 2, _table_height / 2]
+
+    # Plate
+    _plate_height: ClassVar[float] = 0.01
     _plate_z = _table_height - _plate_height
-    _plate3_pose: ClassVar[Pose3D] = (_table_x, _table2_y + _table_mid_w / 2 +
-                                      _table_side_w / 2 + _table_gap, _plate_z)
-    _plate1_pose: ClassVar[Pose3D] = (_table_x, _table2_y - _table_mid_w / 2 -
-                                      _table_side_w / 2 - _table_gap, _plate_z)
-    _beam1_pose: ClassVar[Pose3D] = (_table_x, 
-                                _table2_y - _table_mid_w / 2 - _table_gap / 2,
-                                _plate_z - 4 * _plate_height)
-    _beam2_pose: ClassVar[Pose3D] = (_table_x, 
-                                _table2_y + _table_mid_w / 2 + _table_gap / 2,
-                                _plate_z - 4 * _plate_height)
-    _table_mid_half_extents = [0.1, _table_mid_w / 2,
-                               _table_height / 2]  # depth, w, h
+    _plate1_pose: ClassVar[Pose3D] = (_table_x, 
+                _table2_y - _table_mid_w / 2 - _table_side_w / 2 - _table_gap, 
+                _plate_z)
+    _plate3_pose: ClassVar[Pose3D] = (_table_x, 
+                _table2_y + _table_mid_w / 2 + _table_side_w / 2 + _table_gap, 
+                _plate_z)
     _plate_half_extents = (0.25, _table_side_w / 2, _plate_height)
+    # Under plate beams
+    _beam1_pose: ClassVar[Pose3D] = (_table_x, 
+                                    (_plate1_pose[1] + _table2_pose[1]) / 2,
+                                    _plate_z - 4 * _plate_height)
+    _beam2_pose: ClassVar[Pose3D] = (_table_x, 
+                                    (_plate3_pose[1] + _table2_pose[1]) / 2,
+                                    _plate_z - 4 * _plate_height)
     _beam_half_extents = [0.01, 0.15, _plate_height]
 
-    # Button
+    # Button on table
     _button_radius = 0.04
     _button_color_off = [1, 0, 0, 1]
     _button_color_on = [0, 1, 0, 1]
     button_x, button_y, button_z = _table_x, _table2_y, _table_z
     button_press_threshold = 1e-3
 
+    # Workspace parameters
     x_lb: ClassVar[float] = 1.325
     x_ub: ClassVar[float] = 1.375
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
+    z_lb: ClassVar[float] = _table_height
+    z_ub: ClassVar[float] = 0.75 + _table_height/2
     y_plate1_ub: ClassVar[float] = _plate1_pose[1] + _table_side_w / 2 - 0.1
     y_plate3_lb: ClassVar[float] = _plate3_pose[1] - _table_side_w / 2 + 0.1
-    pick_z: ClassVar[float] = 0.7
+    
+    # Robot parameters
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
-    robot_init_z: ClassVar[float] = pick_z
+    robot_init_z: ClassVar[float] = z_ub - 0.1
     held_tol: ClassVar[float] = 0.5
-    pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
-    max_position_vel: ClassVar[float] = 2.5
-    max_angular_vel: ClassVar[float] = np.pi / 4
-    max_finger_vel: ClassVar[float] = 1.0
 
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.52)
     
@@ -81,15 +82,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
     _num_blocks_test = CFG.balance_num_blocks_test
 
     def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Static objects (always exist no matter the settings).
-        self._robot = Object("robby", self._robot_type)
-        self._plate1 = Object("plate1", self._plate_type)
-        # self._table2 = Object("table2", self._plate_type)
-        self._plate3 = Object("plate3", self._plate_type)
-        self._machine = Object("mac", self._machine_type)
-
         # Types
         bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
         self._block_type = Type("block", [
@@ -103,7 +95,18 @@ class PyBulletBalanceEnv(PyBulletEnv):
             "plate",
             ["pose_z"] + (bbox_features if CFG.env_include_bbox_features else [])
         )
-        # Predicates
+        self._machine_type = Type("machine", ["is_on"] + (bbox_features if 
+                                CFG.env_include_bbox_features else []))
+
+        # Static objects (always exist no matter the settings).
+        self._robot = Object("robby", self._robot_type)
+        self._plate1 = Object("plate1", self._plate_type)
+        # self._table2 = Object("table2", self._plate_type)
+        self._plate3 = Object("plate3", self._plate_type)
+        self._machine = Object("mac", self._machine_type)
+        
+        super().__init__(use_gui)
+
         # Predicates
         self._DirectlyOn = Predicate(
             "DirectlyOn", [self._block_type, self._block_type],
@@ -895,7 +898,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
             #         break
             # if idx == 0:
             tasks.append(EnvironmentTask(init_state, goal))
-        return tasks
+        return self._add_pybullet_state_to_tasks(tasks)
 
     def _sample_initial_piles(self, num_blocks: int,
                               rng: np.random.Generator) -> List[List[Object]]:
