@@ -113,7 +113,7 @@ class PyBulletEnv(BaseEnv):
         p.resetSimulation(physicsClientId=physics_client_id)
 
         # Load plane.
-        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, 0],
                    useFixedBase=True,
                    physicsClientId=physics_client_id)
 
