@@ -84,7 +84,8 @@ class PyBulletDominoEnv(PyBulletEnv):
     num_pivots = 1
 
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
-    _domino_type = Type("domino", ["x", "y", "z", "rot", "start_block", "is_held"])
+    _domino_type = Type("domino", ["x", "y", "z", "rot", "start_block", 
+                                   "is_held"])
     _target_type = Type("target", ["x", "y", "z", "rot"])
     _pivot_type = Type("pivot", ["x", "y", "z", "rot"])
 
