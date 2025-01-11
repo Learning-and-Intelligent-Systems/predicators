@@ -31,6 +31,10 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     # _plate3_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     # _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
+    # _camera_distance: ClassVar[float] = 1.3
+    _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.52)
+    
+    _obj_mass: ClassVar[float] = 0.05
 
     # button_press_threshold = 1e-3
 
@@ -394,11 +398,8 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
         return state
 
-    def step(self, action: Action) -> State:
-        # What's the previous robot state?
-        current_ee_rpy = self._pybullet_robot.forward_kinematics(
-            self._pybullet_robot.get_joints()).rpy
-        state = super().step(action)
+    def step(self, action: Action, render_obs: bool = False) -> State:
+        state = super().step(action, render_obs=render_obs)
 
         # Turn machine on
         if self._PressingButton_holds(state, [self._robot, self._machine]):
@@ -412,9 +413,9 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
 
         return state
 
-    def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
+    def _make_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
-        tasks = super()._get_tasks(num_tasks, possible_num_blocks, rng)
+        tasks = super()._make_tasks(num_tasks, possible_num_blocks, rng)
         return self._add_pybullet_state_to_tasks(tasks)
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:

@@ -361,7 +361,6 @@ class VLMPredicate(Predicate):
     get_vlm_query_str: Callable[[Sequence[Object]], str]
 
 
-# @dataclass(frozen=True, repr=False)
 class NSPredicate(Predicate):
     """Neuro-Symbolic Predicate."""
 
@@ -444,6 +443,9 @@ class ConceptPredicate(Predicate):
         # return hash(str(self))
         return hash(self.name + str(self.types))
 
+    def __hash__(self) -> int:
+        return self._hash
+    
     def holds(self, state: Set[GroundAtom], objects: Sequence[Object]) -> bool:
         """Public method for calling the classifier.
 

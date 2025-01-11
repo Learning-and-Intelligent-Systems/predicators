@@ -285,7 +285,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
 
         def get_current_fingers(state: State) -> float:
             robot, = state.get_objects(robot_type)
-            return PyBulletBalanceEnv.fingers_state_to_joint(
+            return PyBulletBalanceEnv._fingers_state_to_joint(
                 pybullet_robot, state.get(robot, "fingers"))
 
         def open_fingers_func(state: State, objects: Sequence[Object],
@@ -316,11 +316,6 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
                     params_space=params_space),
-                # Open fingers.
-                create_change_fingers_option(
-                    pybullet_robot, "OpenFingers", option_types, params_space,
-                    open_fingers_func, CFG.pybullet_max_vel_norm,
-                    PyBulletBalanceEnv.grasp_tol),
                 # Move down to grasp.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToGrasp",
@@ -343,7 +338,8 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     option_types=option_types,
                     params_space=params_space),
             ],
-            "Pick up block ?block")
+            # "Pick up block ?block"
+            )
 
         # Stack
         option_types = [robot_type, block_type]
@@ -382,7 +378,8 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     option_types=option_types,
                     params_space=params_space),
             ],
-            annotation="Stack the block in hand onto block ?otherblock")
+            # annotation="Stack the block in hand onto block ?otherblock"
+            )
 
         # PutOnPlate
         option_types = [robot_type, plate_type]
@@ -422,12 +419,14 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     option_types=option_types,
                     params_space=params_space),
             ],
-            annotation="Put block on plate")
+            # annotation="Put block on plate"
+            )
 
         # TurnMachineOn
         def _TurnMachineOn_initiable(state: State, memory: Dict,
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
+            return True
             del memory, params  # unused
             plate1, plate2 = objects
             robot = state.get_objects(robot_type)[0]
@@ -451,7 +450,8 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
             policy=cls._create_turn_machine_on_policy(),
             initiable=_TurnMachineOn_initiable,
             terminal=_TurnMachineOn_terminal,
-            annotation="Turn the machine on.")
+            # annotation="Turn the machine on."
+            )
 
 
         return {Pick, Stack, PutOnPlate, TurnMachineOn}
@@ -543,7 +543,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
             z = state.get(robot, "pose_z")
             robot_pos = (x, y, z)
             button_pos = (cls.env_cls.button_x, cls.env_cls.button_y,
-                          cls.env_cls.button_z)
+                          cls.env_cls.button_z + cls.env_cls._button_radius)
             # arr = np.r_[button_pos, 1.0].astype(np.float32)
             # # arr = np.clip(arr, cls.env_cls.action_space.low, 
             # #               cls.env_cls.action_space.high)

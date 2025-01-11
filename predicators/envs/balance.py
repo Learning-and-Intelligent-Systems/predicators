@@ -213,7 +213,8 @@ class BalanceEnv(BaseEnv):
     def _PressingButton_holds(self, state: State,
                               objects: Sequence[Object]) -> bool:
         robot, _ = objects
-        button_pos = (self.button_x, self.button_y, self.button_z)
+        button_pos = (self.button_x, self.button_y, 
+                      self.button_z + self._button_radius)
         x = state.get(robot, "pose_x")
         y = state.get(robot, "pose_y")
         z = state.get(robot, "pose_z")
@@ -245,6 +246,7 @@ class BalanceEnv(BaseEnv):
         # Get the height of the blocks using recursion
         height1 = count_num_blocks(plate1)
         height2 = count_num_blocks(table2)
+        logging.debug(f"height1: {height1}, height2: {height2}")
 
         return height1 == height2
 
@@ -423,12 +425,12 @@ class BalanceEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+        return self._make_tasks(num_tasks=CFG.num_train_tasks,
                                possible_num_blocks=self._num_blocks_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num_tasks=CFG.num_test_tasks,
+        return self._make_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)
 
@@ -533,15 +535,17 @@ class BalanceEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
+    def _make_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for idx in range(num_tasks):
             num_blocks = rng.choice(possible_num_blocks, p=[0.3, 0.7])
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
-            goal = set(
-                [GroundAtom(self._MachineOn, [self._machine, self._robot])])
+            goal = {
+                GroundAtom(self._MachineOn, [self._machine, self._robot]),
+                # GroundAtom(self._DirectlyOn, [piles[1][3], piles[0][1]]),
+                }
             # while True:  # repeat until goal is not satisfied
             #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
             #     if not all(goal_atom.holds(init_state) for goal_atom in goal):
