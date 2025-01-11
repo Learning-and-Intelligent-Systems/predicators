@@ -25,18 +25,12 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Table parameters.
-    # _plate1_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     table_height: ClassVar[float] = 0.4
     _table2_pose: ClassVar[Pose3D] = (1.35, 0.75, table_height/2)
-    # _plate3_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    # _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
-    # _camera_distance: ClassVar[float] = 1.3
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.52)
     
     _obj_mass: ClassVar[float] = 0.05
-
-    # button_press_threshold = 1e-3
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
