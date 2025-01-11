@@ -101,7 +101,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory, params  # unused
             robot, jug = objects
             # print("ARE WE HOLDING THE JUG", Holding.holds(state, [robot, jug]) )
-            return Holding.holds(state, [robot, jug]) or cls.repeat_state
+            return Holding.holds(state, [robot, jug]) 
+            # or cls.repeat_state
+            # or cls.repeat_state
 
         PickJug = ParameterizedOption(
             "PickJug",
@@ -207,39 +209,53 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
         previous_state = None
         cls.repeat_state = False
         def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
-            # This policy twists until the jug is in the desired rotation, and
-            # then moves up to break contact with the jug.
-            del memory  # unused
+                params: Array) -> Action:
             nonlocal previous_state
-
             if previous_state is not None and previous_state.pretty_str() == state.pretty_str():
                 cls.repeat_state = True
             previous_state = state
+            
             robot, jug = objects
             current_rot = state.get(jug, "rot")
-            norm_desired_rot, = params
-            desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
-            delta_rot = np.clip(desired_rot - current_rot,
+            fingers = state.get(robot, "fingers")
+            
+            # Step 1: If fingers are open, close them to grasp
+            if abs(fingers - CoffeeEnv.open_fingers) < cls.twist_policy_tol:
+                print("TwistJug: Closing fingers to grasp")
+                return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
+            
+            # Step 2: If we're at the right rotation and stillgrasping, release
+            if abs(current_rot) < np.pi / 3 and abs(fingers - CoffeeEnv.closed_fingers) < cls.twist_policy_tol:
+                print("TwistJug: Opening fingers to release")
+                return Action(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+            
+            # Step 3: If we're still holding (fingersclosed), do the twist
+            if abs(fingers - CoffeeEnv.closed_fingers) < cls.twist_policy_tol:
+                print(f"TwistJug: Twisting, current_rot={current_rot}")
+                norm_desired_rot, = params
+                desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
+                # SaNITY CHECK
+                # desired_rot = np.pi / 4
+                print("desired rot", norm_desired_rot)
+                delta_rot = np.clip(desired_rot - current_rot,
                                 -CoffeeEnv.max_angular_vel,
                                 CoffeeEnv.max_angular_vel)
-            # print("desired rot", desired_rot)
-            # print("current rot", current_rot)
-            # print("delta rot", delta_rot)
-            
-            if abs(delta_rot) < cls.twist_policy_tol:
-                # Move up to stop twisting.
-                x = state.get(robot, "x")
-                y = state.get(robot, "y")
-                z = state.get(robot, "z")
-                robot_pos = (x, y, z)
-                return cls._get_move_action((x, y, CoffeeEnv.robot_init_z),
-                                            robot_pos)
-            dtwist = delta_rot / CoffeeEnv.max_angular_vel
-            return Action(
-                np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
+                
+                # If twist is complete, move up (original logic)
+                if abs(delta_rot) < cls.twist_policy_tol:
+                    x = state.get(robot, "x")
+                    y = state.get(robot, "y")
+                    z = state.get(robot, "z")
+                    robot_pos = (x, y, z)
+                    return cls._get_move_action((x, y, CoffeeEnv.robot_init_z),
+                                              robot_pos)
+                                              
+                # Otherwise keep twisting
+                dtwist = delta_rot / CoffeeEnv.max_angular_vel
+                return Action(np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
 
         return policy
+
 
     @classmethod
     def _create_pick_jug_policy(cls) -> ParameterizedPolicy:
@@ -268,6 +284,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
             # print("CAN WE PICK", sq_dist_to_handle < cls.pick_policy_tol)
             if sq_dist_to_handle < cls.pick_policy_tol:
+                # print("PICKING")
                 return Action(
                     np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
                              dtype=np.float32))
@@ -282,18 +299,22 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             # If at the correct x and z position and behind in the y direction,
             # move directly toward the target.
             if target_y > y and xz_handle_sq_dist < cls.pick_policy_tol:
+                # print("going toward the target")
                 return cls._get_move_action(handle_pos, robot_pos)
             # If close enough to the penultimate waypoint in the x/y plane,
             # move to the waypoint (in the z direction).
             if xy_waypoint_sq_dist < cls.pick_policy_tol:
+                # print("going toward the waypoint")
                 return cls._get_move_action((target_x, waypoint_y, target_z),
                                             robot_pos)
             # If at a safe height, move to the position above the penultimate
             # waypoint, still at a safe height.
             if safe_z_sq_dist < CoffeeEnv.safe_z_tol:
+                # print("going toward the position above the penultimate waypoint")
                 return cls._get_move_action(
                     (target_x, waypoint_y, CoffeeEnv.robot_init_z), robot_pos)
             # Move up to a safe height.
+            # print("going toward the safe height")
             return cls._get_move_action((x, y, CoffeeEnv.robot_init_z),
                                         robot_pos)
 

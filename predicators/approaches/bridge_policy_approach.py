@@ -608,6 +608,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                      lambda s: None, _termination_fn)
         return request
 
+
+
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         # Turn state action pairs from results into trajectories
@@ -670,11 +672,22 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                         
                         # Find the last planner state before this point
                         last_planner_idx = -1
+                        last_planner_state = None
                         for i in range(j, -1, -1):
                             if policy_log[i] == "planner":
+                                last_planner_state = result.states[i]
+                                break
+                        last_planner_atoms =  utils.abstract(last_planner_state, self._get_current_predicates())
+                        # last_planner_idx = next(j for j, atoms in enumerate(plan_log) if last_planner_atoms.issubset(atoms))
+                        for i in range(len(plan_log[j])):
+                            if plan_log[j][i].issubset(last_planner_atoms):
                                 last_planner_idx = i
                                 break
-                        
+                        # import ipdb;ipdb.set_trace()
+                        # try:
+                        #     last_planner_idx = plan_log[j].index(last_planner_atoms)
+                        # except:
+                        #     import ipdb;ipdb.set_trace()
                         if last_planner_idx != -1:
                             # Get all states from last planner state onwards in the plan
                             safe_states = plan_log[j][last_planner_idx+1:]
@@ -687,7 +700,7 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                                     print(future_state)
                                     print(current_atoms)
                                     print(safe_states)
-                                    # import ipdb;ipdb.set_trace()
+                                    import ipdb;ipdb.set_trace()
                                     rwd = 1000  # We found a match, this is a safe state
                                     num_rewards += 1
                                     break
@@ -695,8 +708,8 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
 
                         reward_bonus.append(rwd)
             print("num rewards", num_rewards)
-            # if num_rewards > 1:
-            #     import ipdb;ipdb.set_trace()
+            if num_rewards >= 1:
+                import ipdb;ipdb.set_trace()
             reward_bonuses.append(reward_bonus)
             mapleq_states.append(result.states[-1])
             new_traj = LowLevelTrajectory(mapleq_states, mapleq_actions)
@@ -994,9 +1007,21 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                             self._current_control = "planner"
                             self._current_policy = self.planning_policy
                             # import ipdb;ipdb.set_trace()
-                            print("bridge done")
-                            print(self._current_plan)
+                            # print("bridge done")
+                            # print(self._current_plan)
                             break
+                if self.bridge_done:
+                    current_task = Task(s, self._current_task.goal)
+                    task_list, option_policy = self._get_option_policy_by_planning(
+                    current_task, CFG.timeout)
+                    self._current_plan = task_list
+                    self._current_policy = utils.option_policy_to_policy(
+                    option_policy,
+                    max_option_steps=CFG.max_num_steps_option_rollout,
+                    raise_error_on_repeated_state=True,
+                    )           
+
+                self.bridge_done = False
                 
             # # Normal execution. Either keep executing the current option, or
             # # switch to the next option if it has terminated.
@@ -1034,8 +1059,8 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                 print("current state", s)
                 print(f"Option execution failed: {e}")
                 print(f"Current control: {self._current_control}")
-                print(f"Bridge done: {self.bridge_done}")
-                if self.bridge_done or self._current_control == "planner":
+                print(f"Failed option: {e.info['last_failed_option']}")
+                if self._current_control == "planner":
                     # Get the next option from the option policy
                     try:
                         action = self._current_policy(s)
@@ -1049,26 +1074,26 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                             memory = e.info.get("memory", {})
                             action = current_option.policy(s)
                             
-                        else:
-                            action = self.last_action
-                            print("planner execution error", action)
+                        # else:
+                        #     action = self.last_action
+                        #     print("planner execution error", action)
 
 
 
             # Switch control from planner to bridge.
             # assert self._current_control == "planner"
-            if not self.bridge_done:
-                print("switching to bridge", self.bridge_done)
-                self._current_control = "bridge"
-                self.num_bridge_steps=0
-                self.mapleq._q_function._last_planner_state = s
+            
+            print("switching to bridge")
+            self._current_control = "bridge"
+            self.num_bridge_steps=0
+            self.mapleq._q_function._last_planner_state = s
 
-                self._bridge_called_state = s
-                self._current_policy = self.mapleq._solve(  # pylint: disable=protected-access
-                    task, timeout, train_or_test)
-                action = self._current_policy(s)
-                if self._current_control == "bridge":
-                    self.num_bridge_steps += 1
+            self._bridge_called_state = s
+            self._current_policy = self.mapleq._solve(  # pylint: disable=protected-access
+                task, timeout, train_or_test)
+            action = self._current_policy(s)
+            if self._current_control == "bridge":
+                self.num_bridge_steps += 1
 
 
             if train_or_test == "train":
@@ -1078,3 +1103,110 @@ class RapidLearnApproach(RLBridgePolicyApproach):
 
         return _policy
 
+
+
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        # Turn state action pairs from results into trajectories
+        # If we haven't collected any new results on this cycle, skip learning
+        # for efficiency.
+        if not results:
+            return None
+        all_states = []
+        all_actions = []
+        policy_logs = self._policy_logs
+        plan_logs = self._plan_logs
+        reward_bonuses = []
+        count=-1
+        mapleq_states = []
+        mapleq_actions = []
+        reward_bonuses = []
+        for i in range(len(results)):
+            reward_bonus = []
+            result = results[i]
+            policy_log = policy_logs[:len(result.states[:-1])]
+            plan_log = plan_logs[:len(result.states[:-1])]
+            # mapleq_states = [
+            #     state for j, state in enumerate(result.states[:-1])
+            #     if policy_log[j] == "bridge"
+            #     or policy_log[max(j - 1, 0)] == "bridge"
+            # ]
+            # mapleq_actions = [
+            #     action for j, action in enumerate(result.actions)
+            #     if policy_log[j] == "bridge"
+            #     or policy_log[max(j - 1, 0)] == "bridge"
+            # ]
+
+
+
+            add_to_traj = False
+            
+            num_rewards = 0
+            for j in range(len(result.states)):
+                if j<len(policy_log) and policy_log[j] == "bridge":
+                    if not add_to_traj:
+                        #begin new trajectory!
+                        add_to_traj = True
+                        mapleq_states.append([])
+                        mapleq_actions.append([])
+                        reward_bonuses.append([])
+                        count+=1
+                    #add to the current trajectory
+                    mapleq_states[count].append(result.states[j])
+                    mapleq_actions[count].append(result.actions[j])
+                    rwd = -1  # Default reward is -1
+                    current_atoms = utils.abstract(result.states[j+1], self._get_current_predicates())
+                    # Find the last planner state before this point
+                    last_planner_idx = -1
+                    last_planner_state = None
+                    for i in range(j, -1, -1):
+                        if policy_log[i] == "planner":
+                            last_planner_state = result.states[i]
+                            break
+                    last_planner_atoms =  utils.abstract(last_planner_state, self._get_current_predicates())
+                    for i in range(len(plan_log[j])):
+                        if plan_log[j][i].issubset(last_planner_atoms):
+                            last_planner_idx = i
+                            break
+
+                    if last_planner_idx != -1:
+                        # Get all states from last planner state onwards in the plan
+                        safe_states = plan_log[j][last_planner_idx+1:]
+                        
+                        # Check if current state satisfies postconditions of all remaining operators
+                        # by checking if it contains atoms from any future state in the plan
+                        for future_state in safe_states:
+                            if future_state.issubset(current_atoms):
+                                print("FOUND MATCH")
+                                print(future_state)
+                                print(current_atoms)
+                                print(safe_states)
+                                # import ipdb;ipdb.set_trace()
+                                rwd = 1000  # We found a match, this is a safe state
+                                num_rewards += 1
+                                break
+                    reward_bonuses[count].append(rwd)
+
+                else:
+                    
+                    if add_to_traj:
+                        #end the current trajectory and add the last state
+                        #also add the trajectory to the list of trajectories
+                        add_to_traj = False
+                        mapleq_states[count].append(result.states[j])
+                        new_traj = LowLevelTrajectory(mapleq_states[count], mapleq_actions[count])
+                        self._trajs.append(new_traj)
+            
+    
+            print("num rewards", num_rewards)
+            # if num_rewards >= 1:
+            #     import ipdb;ipdb.set_trace()
+            all_states.extend(mapleq_states)
+            all_actions.extend(mapleq_actions)
+            policy_logs = policy_logs[len(result.states) - 1:]
+            plan_logs = plan_logs[len(result.states) - 1:]
+        self.mapleq.get_interaction_requests()
+        self.mapleq._learn_nsrts(self._trajs, 0, [] * len(self._trajs), reward_bonuses)  # pylint: disable=protected-access
+        self._policy_logs = []
+        self._plan_logs = []
+        return None

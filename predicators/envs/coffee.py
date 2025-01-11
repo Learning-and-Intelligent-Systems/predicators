@@ -709,10 +709,10 @@ class CoffeeLidEnv(CoffeeEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        #to remove lid you need a low level action that gets the stickiness exactly right
-        self._lid_type = Type(
-            "lid",
-            ["x", "y", "stickiness", "on_cup"])
+        # #to remove lid you need a low level action that gets the stickiness exactly right
+        # self._lid_type = Type(
+        #     "lid",
+        #     ["x", "y", "stickiness", "on_cup"])
         
     @classmethod
     def get_name(cls) -> str:
@@ -722,7 +722,8 @@ class CoffeeLidEnv(CoffeeEnv):
     def types(self) -> Set[Type]:
         return {
             self._cup_type, self._jug_type, self._machine_type,
-            self._robot_type, self._lid_type
+            self._robot_type, 
+            # self._lid_type
         }
     
     def simulate(self, state: State, action: Action) -> State:
@@ -826,10 +827,10 @@ class CoffeeLidEnv(CoffeeEnv):
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
             sq_dist_to_handle < self.grasp_position_tol and \
             abs(jug_rot) < self.pick_jug_rot_tol and norm_dwrist!=-1:
-            print("ig we r grasping")
-            print("sq_dist_to_handle < self.grasp_position_tol", sq_dist_to_handle < self.grasp_position_tol)
-            print("abs(jug_rot) < self.pick_jug_rot_tol", abs(jug_rot) < self.pick_jug_rot_tol)
-            print("abs(fingers - self.closed_fingers) < self.grasp_finger_tol")
+            # print("ig we r grasping")
+            # print("sq_dist_to_handle < self.grasp_position_tol", sq_dist_to_handle < self.grasp_position_tol)
+            # print("abs(jug_rot) < self.pick_jug_rot_tol", abs(jug_rot) < self.pick_jug_rot_tol)
+            # print("abs(fingers - self.closed_fingers) < self.grasp_finger_tol")
             # Snap to the handle.
             handle_x, handle_y, handle_z = handle_pos
             next_state.set(self._robot, "x", handle_x)
@@ -841,12 +842,14 @@ class CoffeeLidEnv(CoffeeEnv):
             next_state.set(self._jug, "is_held", 1.0)
         # Check if the jug should be rotated.
         elif self._Twisting_holds(state, [self._robot, self._jug]):
-            print("WE ROTATE THE JUG with dwrist", dwrist, "and rot", state.get(self._jug, "rot"))
+            # print("WE ROTATE THE JUG with dwrist", dwrist, "and rot", state.get(self._jug, "rot"))
             # Rotate the jug.
             rot = state.get(self._jug, "rot")
             next_state.set(self._jug, "rot", rot + dwrist)
         # If the jug is close enough to the dispense area and the machine is
         # on, the jug should get filled.
+        # print("so uhhhh we did not grasp the jug </3: abs(fingers - self.closed_fingers) < self.grasp_finger_tol", abs(fingers - self.closed_fingers) < self.grasp_finger_tol, " sq_dist_to_handle < self.grasp_position_tol ", sq_dist_to_handle < self.grasp_position_tol,
+            # " abs(jug_rot) < self.pick_jug_rot_tol ", abs(jug_rot) < self.pick_jug_rot_tol,  " norm_dwrist!=-1 ", norm_dwrist!=-1) 
         jug_in_machine = self._JugInMachine_holds(next_state,
                                                   [self._jug, self._machine])
         machine_on = self._MachineOn_holds(next_state, [self._machine])

@@ -1231,6 +1231,9 @@ def _get_torch_device(use_torch_gpu: bool) -> torch.device:
 
 def _normalize_data(data: Array,
                     scale_clip: float = 1) -> Tuple[Array, Array, Array]:
+    if data.size == 0:
+        # Return appropriate values for empty data
+        return data, np.array([]), np.array([])
     shift = np.min(data, axis=0)
     scale = np.max(data - shift, axis=0)
     scale = np.clip(scale, scale_clip, None)
@@ -1906,7 +1909,7 @@ class MPDQNFunction(MapleQFunction):
         self._qfunc_init = False
         self._last_planner_state = None
      
-        self._ep_reduction = (self._epsilon-self._min_epsilon) \
+        self._ep_reduction = CFG.epsilon_reduction*(self._epsilon-self._min_epsilon) \
         /(CFG.num_online_learning_cycles*CFG.max_num_steps_interaction_request \
           *CFG.interactive_num_requests_per_cycle)
         self._counter = 0

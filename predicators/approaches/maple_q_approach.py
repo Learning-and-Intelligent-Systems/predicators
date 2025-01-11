@@ -253,40 +253,73 @@ class MPDQNApproach(MapleQApproach):
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
 
-        goal_offset = CFG.max_initial_demos
-        assert len(self._segmented_trajs) == goal_offset + \
-            len(self._interaction_goals)
-        new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
+        if CFG.rl_rwd_shape:
+
+            for traj_i, segmented_traj in enumerate(new_trajs):
+                self._last_seen_segment_traj_idx += 1
+                reward_bonus = reward_bonuses[traj_i]
+                # if sum(reward_bonus) > 0:
+                #     import ipdb;ipdb.set_trace()
+                for seg_i, segment in enumerate(segmented_traj):
+                    s = segment.states[0]
+                    goal = None
+                    o = segment.get_option()
+                    ns = segment.states[-1]
+                    # reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                    reward = 0
+                    # if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1:
+                    #     reward += 0.5
 
 
-
-        for traj_i, segmented_traj in enumerate(new_trajs):
-            self._last_seen_segment_traj_idx += 1
-            reward_bonus = reward_bonuses[traj_i]
-            # if sum(reward_bonus) > 0:
-            #     import ipdb;ipdb.set_trace()
-            for seg_i, segment in enumerate(segmented_traj):
-                s = segment.states[0]
-                goal = new_traj_goals[traj_i]
-                o = segment.get_option()
-                ns = segment.states[-1]
-                reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
-                if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1:
-                    reward += 0.5
-
-                if CFG.rl_rwd_shape:
                     reward += reward_bonus[0]
                     reward_bonus.pop(0)
+    
+                        
 
-                
-                # if reward > 0:
-                #     print(s, o, reward)
                     
-                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
+                    # if reward > 0:
+                    #     print(s, o, reward)
+                        
+                    terminal = reward > 0 or seg_i == len(segmented_traj) - 1
 
 
-                # if reward >= 1:
+                    # if reward >= 1:
+                    #     import ipdb;ipdb.set_trace()
+
+                    self._q_function.add_datum_to_replay_buffer(
+                        (s, goal, o, ns, reward, terminal))
+
+        
+        else:
+            goal_offset = CFG.max_initial_demos
+            assert len(self._segmented_trajs) == goal_offset + \
+                len(self._interaction_goals)
+            new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
+
+
+
+            for traj_i, segmented_traj in enumerate(new_trajs):
+                self._last_seen_segment_traj_idx += 1
+                reward_bonus = reward_bonuses[traj_i]
+                # if sum(reward_bonus) > 0:
                 #     import ipdb;ipdb.set_trace()
+                for seg_i, segment in enumerate(segmented_traj):
+                    s = segment.states[0]
+                    goal = new_traj_goals[traj_i]
+                    o = segment.get_option()
+                    ns = segment.states[-1]
+                    reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                    if CFG.use_callplanner and o.parent == self.CallPlanner and reward == 1:
+                        reward += 0.5
+                    
+                    # if reward > 0:
+                    #     print(s, o, reward)
+                        
+                    terminal = reward > 0 or seg_i == len(segmented_traj) - 1
 
-                self._q_function.add_datum_to_replay_buffer(
-                    (s, goal, o, ns, reward, terminal))
+
+                    # if reward >= 1:
+                    #     import ipdb;ipdb.set_trace()
+
+                    self._q_function.add_datum_to_replay_buffer(
+                        (s, goal, o, ns, reward, terminal))

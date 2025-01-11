@@ -352,9 +352,9 @@ class GlobalSettings:
 
     # grid row env parameters
     grid_row_num_cells = 5
-    test_grid_row_num_cells = 5
+    test_grid_row_num_cells = 10
     num_doors = 1
-    test_num_doors = 1
+    # test_num_doors = 1
 
     # burger env parameters
     gridworld_num_rows = 4
@@ -605,6 +605,8 @@ class GlobalSettings:
     # shivam vats inspo
     rl_rwd_shape = False
     max_num_bridge_steps = 90
+    # default epsilon reduction factor
+    epsilon_reduction = 2
     # skill competence model parameters
     skill_competence_model = "optimistic"
     skill_competence_model_num_em_iters = 3
