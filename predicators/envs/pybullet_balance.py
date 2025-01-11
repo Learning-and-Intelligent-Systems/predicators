@@ -214,85 +214,36 @@ class PyBulletBalanceEnv(PyBulletEnv, BalanceEnv):
         )
         bodies["table_ids"] = [plate1_id, plate3_id]
 
-        # Add a beam
-        collision_shape_id = p.createCollisionShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._beam_half_extents,
-            physicsClientId=physics_client_id,
+        beam1_id = create_pybullet_block(
+            (0.9, 0.9, 0.9, 1),
+            cls._beam_half_extents,
+            0.0,
+            1.0,
+            cls._beam1_pose,
+            cls._table_orientation,
+            physics_client_id,
         )
-        visual_shape_id = p.createVisualShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=cls._beam_half_extents,
-            rgbaColor=[.9, .9, .9, 1],  # Example color
-            physicsClientId=physics_client_id)
-        p.createMultiBody(
-            baseMass=0,  # Static object
-            baseCollisionShapeIndex=collision_shape_id,
-            baseVisualShapeIndex=visual_shape_id,
-            basePosition=cls._beam_pose,
-            physicsClientId=physics_client_id)
+        beam2_id = create_pybullet_block(
+            (0.9, 0.9, 0.9, 1),
+            cls._beam_half_extents,
+            0.0,
+            1.0,
+            cls._beam2_pose,
+            cls._table_orientation,
+            physics_client_id,
+        )
+        bodies["beam_ids"] = [beam1_id, beam2_id]
 
-        # Add a light / button that we want to turn on
-        button_collision_id = p.createCollisionShape(
-            p.GEOM_SPHERE,
-            radius=cls._button_radius,
-            physicsClientId=physics_client_id)
-        button_collision_id = p.createVisualShape(
-            p.GEOM_SPHERE,
-            radius=cls._button_radius,
-            rgbaColor=cls._button_color_off,
-            physicsClientId=physics_client_id)
-        button_pose = (cls.button_x, cls.button_y, cls.button_z)
-        button_orientation = cls._table_orientation
-        button_id = p.createMultiBody(
-            baseMass=0,  # Static object
-            baseCollisionShapeIndex=button_collision_id,
-            baseVisualShapeIndex=button_collision_id,
-            basePosition=button_pose,
-            baseOrientation=button_orientation,
-            physicsClientId=physics_client_id)
+        button_id = create_pybullet_block(
+            cls._button_color_off,
+            [cls._button_radius]*3,
+            0.0,
+            1.0,
+            (cls.button_x, cls.button_y, cls.button_z),
+            cls._table_orientation,
+            physics_client_id,
+        )
         bodies["button_id"] = button_id
-
-        # Skip test coverage because GUI is too expensive to use in unit tests
-        # and cannot be used in headless mode.
-        if CFG.pybullet_draw_debug:  # pragma: no cover
-            # Rendering now works in non-GUI version
-            # assert using_gui, \
-            #     "using_gui must be True to use pybullet_draw_debug."
-            # Draw the workspace on the table for clarity.
-            p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.table_height],
-                               [cls.x_ub, cls.y_lb, cls.table_height],
-                               [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-            p.addUserDebugLine([cls.x_lb, cls.y_ub, cls.table_height],
-                               [cls.x_ub, cls.y_ub, cls.table_height],
-                               [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-            p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.table_height],
-                               [cls.x_lb, cls.y_ub, cls.table_height],
-                               [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-            p.addUserDebugLine([cls.x_ub, cls.y_lb, cls.table_height],
-                               [cls.x_ub, cls.y_ub, cls.table_height],
-                               [1.0, 0.0, 0.0],
-                               lineWidth=5.0,
-                               physicsClientId=physics_client_id)
-            # Draw coordinate frame labels for reference.
-            p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
-                               physicsClientId=physics_client_id)
-            p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
-                               physicsClientId=physics_client_id)
-            p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
-                               physicsClientId=physics_client_id)
-            # Draw the pick z location at the x/y midpoint.
-            mid_x = (cls.x_ub + cls.x_lb) / 2
-            mid_y = (cls.y_ub + cls.y_lb) / 2
-            p.addUserDebugText("*", [mid_x, mid_y, cls.pick_z],
-                               [1.0, 0.0, 0.0],
-                               physicsClientId=physics_client_id)
 
         # Create blocks. Note that we create the maximum number once, and then
         # later on, in reset_state(), we will remove blocks from the workspace

@@ -62,14 +62,18 @@ class BalanceEnv(BaseEnv):
                                       _table_side_w / 2 + _table_gap, _plate_z)
     _plate1_pose: ClassVar[Pose3D] = (_table_x, _table2_y - _table_mid_w / 2 -
                                       _table_side_w / 2 - _table_gap, _plate_z)
-    _beam_pose: ClassVar[Pose3D] = (_table_x, _table2_y, _plate_z -
-                                    2 * plate_height - 2 * plate_height)
+    _beam1_pose: ClassVar[Pose3D] = (_table_x, 
+                                _table2_y - _table_mid_w / 2 - _table_gap / 2,
+                                _plate_z - 4 * plate_height)
+    _beam2_pose: ClassVar[Pose3D] = (_table_x, 
+                                _table2_y + _table_mid_w / 2 + _table_gap / 2,
+                                _plate_z - 4 * plate_height)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
     _table_mid_half_extents = [0.1, _table_mid_w / 2,
                                table_height / 2]  # depth, w, h
     # _table_side_half_extents = [0.25, _table_side_w / 2, table_height]
     _plate_half_extents = (0.25, _table_side_w / 2, plate_height)
-    _beam_half_extents = [0.01, 0.3, plate_height]
+    _beam_half_extents = [0.01, 0.15, plate_height]
     _button_radius = 0.04
     _button_color_off = [1, 0, 0, 1]
     _button_color_on = [0, 1, 0, 1]
