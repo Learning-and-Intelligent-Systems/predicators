@@ -20,7 +20,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Table parameters.
-    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    _table_height: ClassVar[float] = 0.4
+    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height/2)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Object parameters.
@@ -28,7 +29,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _max_obj_width: ClassVar[float] = 0.07  # highest width normalized to this
 
     # Dimension and workspace parameters.
-    _table_height: ClassVar[float] = 0.2
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
     robot_init_x: ClassVar[float] = CoverEnv.workspace_x

@@ -29,7 +29,7 @@ from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
 class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    table_height: ClassVar[float] = 0.2
+    table_height: ClassVar[float] = 0.4
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
     # Note that these boundaries are for the block positions, and that a

@@ -173,6 +173,10 @@ class GlobalSettings:
             "pybullet_blocks": {
                 "fetch": (0.7071, 0.0, -0.7071, 0.0),
                 "panda": (0.7071, 0.7071, 0.0, 0.0),
+            },
+            "pybullet_balance": {
+                "fetch": (0.7071, 0.0, -0.7071, 0.0),
+                "panda": (0.7071, 0.7071, 0.0, 0.0),
             }
         })
     pybullet_ik_validate = True

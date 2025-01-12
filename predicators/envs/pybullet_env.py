@@ -3,6 +3,7 @@
 Contains useful common code.
 """
 
+import logging
 import abc
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
@@ -441,6 +442,7 @@ class PyBulletEnv(BaseEnv):
         if self._held_constraint_id is None and self._fingers_closing(action):
             # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
+            logging.debug(f"Detected held object: {self._held_obj_id}")
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
 
@@ -493,6 +495,7 @@ class PyBulletEnv(BaseEnv):
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
                     score = expected_normal.dot(contact_normal)
+                    logging.debug(f"With obj {obj_id}, score: {score}")
                     assert -1.0 <= score <= 1.0
 
                     # Take absolute as object/gripper could be rotated 180
@@ -570,7 +573,7 @@ class PyBulletEnv(BaseEnv):
             # observation, would it work without the reset_state?
             # Attempt 2: First reset it.
             self._current_observation = init
-            self._reset_state(init)
+            # self._reset_state(init)
             # Cast _current_observation from type State to PybulletState
             joint_positions = self._pybullet_robot.get_joints()
             self._current_observation = utils.PyBulletState(
