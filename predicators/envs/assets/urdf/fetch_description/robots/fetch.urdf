@@ -117,7 +117,7 @@
     <limit effort="450.0" lower="0" upper="0.38615" velocity="0.1" /> -->
   <!-- Using a fixed joint for simplicity -->
   <joint name="torso_lift_joint" type="fixed">
-    <origin rpy="-6.123E-17 0 0" xyz="-0.086875 0 0.47743" />
+    <origin rpy="-6.123E-17 0 0" xyz="-0.086875 0 0.37743" />
     <parent link="base_link" />
     <child link="torso_lift_link" />
     <axis xyz="0 0 1" />
