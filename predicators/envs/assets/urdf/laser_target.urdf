@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<robot name="target_piece">
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+      <material name="target_piece_base_material">
+        <color rgba="1 0.5 0.5 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+  <link name="target_piece_body">
+    <visual>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.0"/>
+      <geometry>
+        <box size="0.06 0.06 0.1"/>
+      </geometry>
+      <material name="target_piece_body_material">
+        <color rgba="1 0.5 0.5 1"/>
+        
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.0"/>
+      <geometry>
+        <box size="0.06 0.06 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+  <joint name="base_to_target_piece_body" type="fixed">
+    <parent link="base_link"/>
+    <child link="target_piece_body"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>

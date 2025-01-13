@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<robot name="mirror_piece">
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+      <material name="mirror_piece_base_material">
+        <color rgba="0.5 0.5 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+  <link name="mirror_piece_body">
+    <visual>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.7853981633974483"/>
+      <geometry>
+        <box size="0.09 0.01 0.1"/>
+      </geometry>
+      <material name="mirror_piece_body_material">
+        <color rgba="1 1 1 1"/>
+        <specular>1 1 1 1</specular>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.7853981633974483"/>
+      <geometry>
+        <box size="0.09 0.01 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+  <joint name="base_to_mirror_piece_body" type="fixed">
+    <parent link="base_link"/>
+    <child link="mirror_piece_body"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>

@@ -207,6 +207,11 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     # State Reading/Writing
     # -------------------------------------------------------------------------
+    def _get_object_ids_for_held_check(self) -> List[int]:
+        """Return IDs of wires (assuming the robot can pick them up)."""
+        # return [self._wire1.id, self._wire2.id]
+        return []
+
     def _get_state(self) -> State:
         """Construct a State from the current PyBullet simulation."""
         state_dict: Dict[Object, Dict[str, float]] = {}
@@ -321,7 +326,7 @@ class PyBulletLaserEnv(PyBulletEnv):
             orientation=p.getQuaternionFromEuler([0.0, 0.0, srot]),
             physics_client_id=self._physics_client_id,
         )
-        self._set_station_powered_on(bool(state.get(self._station, "is_on") > 0.5))
+        # self._set_station_powered_on(bool(state.get(self._station, "is_on") > 0.5))
 
         # Mirrors
         for mirror_obj in [self._mirror1, self._mirror2, self._split_mirror]:
@@ -472,6 +477,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _station_powered_on(self) -> bool:
         """Check if station's switch is above threshold."""
+        return True
         if not hasattr(self._station, "joint_id"):
             return False
         j_pos, _, _, _ = p.getJointState(self._station.id, self._station.joint_id, physicsClientId=self._physics_client_id)
@@ -591,19 +597,12 @@ class PyBulletLaserEnv(PyBulletEnv):
             }
             init_state = utils.create_state_from_dict(init_dict)
 
-            # Sample goal: at least one target is hit
-            goal_atoms = {
-                # For instance, you might want target1 to be hit OR target2 to be hit:
-                # but in the current design, a single Goal is often a conjunction.
-                # You could manage that by generating multiple tasks with different goals.
-            }
-
             # If your system only supports conjunctive goals, pick one target or both:
             # e.g. "Both targets must be hit"
-            # goal_atoms = {
-            #     GroundAtom(self._TargetHit, [self._target1]),
-            #     GroundAtom(self._TargetHit, [self._target2]),
-            # }
+            goal_atoms = {
+                GroundAtom(self._TargetHit, [self._target1]),
+                GroundAtom(self._TargetHit, [self._target2]),
+            }
 
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 

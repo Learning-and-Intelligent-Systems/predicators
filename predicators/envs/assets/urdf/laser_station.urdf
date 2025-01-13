@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<robot name="laser_station">
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+      <material name="laser_station_base_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.005" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08 0.08 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+
+  <link name="laser_station_body">
+    <visual>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.0"/>
+      <geometry>
+        <box size="0.06 0.06 0.1"/>
+      </geometry>
+      <material name="laser_station_body_material">
+        <color rgba="1 1 1 1"/>
+        
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.0"/>
+      <geometry>
+        <box size="0.06 0.06 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+    <!-- Laser marker at the front surface -->
+    <link name="laser_station_marker">
+      <visual>
+        <origin xyz="0 0.03 0.07666666666666666" rpy="0 0 0.0"/>
+        <geometry>
+            <box size="0.02 0.001 0.02"/>
+        </geometry>
+        <material name="laser_station_marker_material">
+            <color rgba="1 0 0 1"/>
+        </material>
+      </visual>
+    </link>
+
+
+  <joint name="base_to_laser_station_body" type="fixed">
+    <parent link="base_link"/>
+    <child link="laser_station_body"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="laser_station_body_to_marker" type="fixed">
+    <parent link="laser_station_body"/>
+    <child link="laser_station_marker"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>
