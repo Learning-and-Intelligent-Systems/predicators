@@ -53,8 +53,8 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
         }
         pick_mirror_nsrt = NSRT("PickMirror", parameters,
-                                   preconditions, add_effects, delete_effects,
-                                   set(), option, option_vars, null_sampler)
+                                preconditions, add_effects, delete_effects,
+                                set(), option, option_vars, null_sampler)
         nsrts.add(pick_mirror_nsrt)
 
         # PlaceFirstMirror. Place first mirror to light and battery.
@@ -79,10 +79,9 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Holding, [robot, mirror]),
         }
         connect_first_mirror_nsrt = NSRT("PlaceMirror", parameters,
-                                            preconditions, add_effects,
-                                            delete_effects, set(), option,
-                                            option_vars, null_sampler)
+                                         preconditions, add_effects,
+                                         delete_effects, set(), option,
+                                         option_vars, null_sampler)
         nsrts.add(connect_first_mirror_nsrt)
-
 
         return nsrts

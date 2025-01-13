@@ -1,5 +1,5 @@
-"""
-python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
+"""python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
+
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos
@@ -17,8 +17,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, \
-    Object, Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class PyBulletGrowEnv(PyBulletEnv):
@@ -35,16 +35,16 @@ class PyBulletGrowEnv(PyBulletEnv):
 
     # Table / workspace config
     table_height: ClassVar[float] = 0.4
-    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height/2)
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height / 2)
     table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0., 0., np.pi/2])
+        [0., 0., np.pi / 2])
 
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
     y_ub: ClassVar[float] = 1.6
     z_lb: ClassVar[float] = table_height
-    z_ub: ClassVar[float] = 0.75 + table_height/2
+    z_ub: ClassVar[float] = 0.75 + table_height / 2
 
     # robot config
     robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5

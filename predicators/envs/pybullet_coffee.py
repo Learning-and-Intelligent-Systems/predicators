@@ -75,16 +75,16 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
     # Table / workspace config
     table_height: ClassVar[float] = 0.4
-    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height/2)
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height / 2)
     table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0., 0., np.pi/2])
+        [0., 0., np.pi / 2])
 
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
     y_ub: ClassVar[float] = 1.6
     z_lb: ClassVar[float] = table_height
-    z_ub: ClassVar[float] = 0.75 + table_height/2
+    z_ub: ClassVar[float] = 0.75 + table_height / 2
 
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
@@ -344,9 +344,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             if CFG.coffee_use_pixelated_jug:
                 cup_id = p.loadURDF(
                     utils.get_env_asset_path("urdf/pot-pixel.urdf"),
-                                useFixedBase=True,
-                                globalScaling=global_scale * 0.5,
-                                physicsClientId=self._physics_client_id)
+                    useFixedBase=True,
+                    globalScaling=global_scale * 0.5,
+                    physicsClientId=self._physics_client_id)
             else:
                 cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
                                     useFixedBase=True,
@@ -1085,13 +1085,13 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
             # Create collision and visual shapes
             if i == cls.num_cord_links - 1:
-                col_x = cls.cord_link_length/2
-                col_y = cls.cord_link_length/2
-                col_z = cls.cord_link_length/2
+                col_x = cls.cord_link_length / 2
+                col_y = cls.cord_link_length / 2
+                col_z = cls.cord_link_length / 2
             else:
-                col_x = cls.cord_link_length/4
-                col_y = cls.cord_link_length/4
-                col_z = cls.cord_link_length/4
+                col_x = cls.cord_link_length / 4
+                col_y = cls.cord_link_length / 4
+                col_z = cls.cord_link_length / 4
             segment = p.createCollisionShape(p.GEOM_BOX,
                                              halfExtents=[col_x, col_y, col_z],
                                              physicsClientId=physics_client_id)

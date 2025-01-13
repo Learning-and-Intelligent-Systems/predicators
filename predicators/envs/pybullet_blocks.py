@@ -23,7 +23,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Table parameters.
     table_height: ClassVar[float] = 0.4
-    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, table_height/2)
+    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, table_height / 2)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     def __init__(self, use_gui: bool = True) -> None:

@@ -1,6 +1,6 @@
-"""
-Example usage:
-python predicators/main.py --approach oracle --env pybullet_domino \
+"""Example usage: python predicators/main.py --approach oracle --env
+pybullet_domino \
+
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --debug \
@@ -17,45 +17,46 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
-from predicators.pybullet_helpers.objects import (create_object,
-                                                  update_object)
+from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, \
-    Object, Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class PyBulletDominoEnv(PyBulletEnv):
     """A simple PyBullet environment involving M dominoes and N targets.
-    Each target is considered 'toppled' if it is significantly tilted from its
-    upright orientation. The overall goal is to topple all targets.
+
+    Each target is considered 'toppled' if it is significantly tilted
+    from its upright orientation. The overall goal is to topple all
+    targets.
     """
 
     # Table / workspace config
     table_height: ClassVar[float] = 0.4
-    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height/2)
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height / 2)
     table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0., 0., np.pi/2])
+        [0., 0., np.pi / 2])
 
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
     y_ub: ClassVar[float] = 1.6
     z_lb: ClassVar[float] = table_height
-    z_ub: ClassVar[float] = 0.75 + table_height/2
+    z_ub: ClassVar[float] = 0.75 + table_height / 2
 
     # Domino shape
     domino_width: ClassVar[float] = 0.07
     domino_depth: ClassVar[float] = 0.02
     domino_height: ClassVar[float] = 0.15
     domino_mass: ClassVar[float] = 0.2
-    light_green: ClassVar[Tuple[float, float, float, float]] = (
-        0.56, 0.93, 0.56, 1.)
-    domino_color: ClassVar[Tuple[float, float, float, float]] = (
-        0.6, 0.8, 1.0, 1.0)
+    light_green: ClassVar[Tuple[float, float, float,
+                                float]] = (0.56, 0.93, 0.56, 1.)
+    domino_color: ClassVar[Tuple[float, float, float,
+                                 float]] = (0.6, 0.8, 1.0, 1.0)
     start_domino_x: ClassVar[float] = x_lb + domino_width
     start_domino_y: ClassVar[float] = y_lb + domino_width
-    
+
     target_height: ClassVar[float] = 0.2
     pivot_width: ClassVar[float] = 0.2
 
@@ -85,12 +86,14 @@ class PyBulletDominoEnv(PyBulletEnv):
     num_pivots = 1
 
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
-    _domino_type = Type("domino", ["x", "y", "z", "rot", "start_block", 
-                                   "is_held"])
+    _domino_type = Type("domino",
+                        ["x", "y", "z", "rot", "start_block", "is_held"])
     _target_type = Type("target", ["x", "y", "z", "rot"])
     _pivot_type = Type("pivot", ["x", "y", "z", "rot"])
 
-    def __init__(self, use_gui: bool = True, debug_layout: bool = True) -> None:
+    def __init__(self,
+                 use_gui: bool = True,
+                 debug_layout: bool = True) -> None:
         # Define Types
 
         # Create 'dummy' Objects (they'll be assigned IDs on reset)
@@ -123,12 +126,12 @@ class PyBulletDominoEnv(PyBulletEnv):
         self._Toppled = Predicate("Toppled", [self._target_type],
                                   self._Toppled_holds)
         self._StartBlock = Predicate("StartBlock", [self._domino_type],
-                                self._StartBlock_holds)
+                                     self._StartBlock_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
-        self._Holding = Predicate("Holding", [self._robot_type, 
-                                              self._domino_type],
-                                    self._Holding_holds)
+        self._Holding = Predicate("Holding",
+                                  [self._robot_type, self._domino_type],
+                                  self._Holding_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -136,8 +139,9 @@ class PyBulletDominoEnv(PyBulletEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._Toppled, self._StartBlock, self._HandEmpty, 
-                self._Holding}
+        return {
+            self._Toppled, self._StartBlock, self._HandEmpty, self._Holding
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -146,28 +150,29 @@ class PyBulletDominoEnv(PyBulletEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._robot_type, self._domino_type, self._target_type, self._pivot_type}
+        return {
+            self._robot_type, self._domino_type, self._target_type,
+            self._pivot_type
+        }
 
     # -------------------------------------------------------------------------
     # Environment Setup
 
     @classmethod
     def initialize_pybullet(
-        cls, using_gui: bool
+            cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         # Reuse parent method to create a robot and get a physics client
-        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(
-            using_gui)
+        physics_client_id, pybullet_robot, bodies = super(
+        ).initialize_pybullet(using_gui)
 
         # (Optional) Add a simple table
-        table_id = create_object(
-            asset_path="urdf/table.urdf",
-            position=cls.table_pos,
-            orientation=cls.table_orn,
-            scale=1.0,
-            use_fixed_base=True,
-            physics_client_id=physics_client_id
-        )
+        table_id = create_object(asset_path="urdf/table.urdf",
+                                 position=cls.table_pos,
+                                 orientation=cls.table_orn,
+                                 scale=1.0,
+                                 use_fixed_base=True,
+                                 physics_client_id=physics_client_id)
         bodies["table_id"] = table_id
 
         # Create a fixed number of dominoes and targets here
@@ -175,8 +180,8 @@ class PyBulletDominoEnv(PyBulletEnv):
         target_ids = []
         for i in range(cls.num_dominos):  # e.g. 3 dominoes
             domino_id = create_pybullet_block(
-                color=cls.light_green if i==0 else cls.domino_color,
-                half_extents=(cls.domino_width / 2, cls.domino_depth / 2, 
+                color=cls.light_green if i == 0 else cls.domino_color,
+                half_extents=(cls.domino_width / 2, cls.domino_depth / 2,
                               cls.domino_height / 2),
                 mass=cls.domino_mass,
                 friction=0.5,
@@ -185,25 +190,23 @@ class PyBulletDominoEnv(PyBulletEnv):
             )
             domino_ids.append(domino_id)
         for _ in range(cls.num_targets):  # e.g. 2 targets
-            tid = create_object(
-                "urdf/domino_target.urdf",
-                position=(cls.x_lb, cls.y_lb, cls.z_lb),
-                orientation=p.getQuaternionFromEuler([0.0, 0.0, 0.0]),
-                scale=1.0,
-                use_fixed_base=True,
-                physics_client_id=physics_client_id
-            )
+            tid = create_object("urdf/domino_target.urdf",
+                                position=(cls.x_lb, cls.y_lb, cls.z_lb),
+                                orientation=p.getQuaternionFromEuler(
+                                    [0.0, 0.0, 0.0]),
+                                scale=1.0,
+                                use_fixed_base=True,
+                                physics_client_id=physics_client_id)
             target_ids.append(tid)
         pivot_ids = []
         for _ in range(cls.num_pivots):
-            pid = create_object(
-                "urdf/domino_pivot.urdf",
-                position=(cls.x_lb, cls.y_lb, cls.z_lb),
-                orientation=p.getQuaternionFromEuler([0.0, 0.0, 0.0]),
-                scale=1.0,
-                use_fixed_base=True,
-                physics_client_id=physics_client_id
-            )
+            pid = create_object("urdf/domino_pivot.urdf",
+                                position=(cls.x_lb, cls.y_lb, cls.z_lb),
+                                orientation=p.getQuaternionFromEuler(
+                                    [0.0, 0.0, 0.0]),
+                                scale=1.0,
+                                use_fixed_base=True,
+                                physics_client_id=physics_client_id)
             pivot_ids.append(pid)
         bodies["pivot_ids"] = pivot_ids
         bodies["domino_ids"] = domino_ids
@@ -310,7 +313,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                 is_held_val = state.get(obj, "is_held")
                 update_object(obj.id,
                               position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                              orientation=p.getQuaternionFromEuler(
+                                  [0.0, 0.0, rot]),
                               physics_client_id=self._physics_client_id)
                 # Optionally handle is_held_val > 0.5 if desired
 
@@ -322,7 +326,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                 rot = state.get(obj, "rot")
                 update_object(obj.id,
                               position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                              orientation=p.getQuaternionFromEuler(
+                                  [0.0, 0.0, rot]),
                               physics_client_id=self._physics_client_id)
 
             if obj.type == self._pivot_type:
@@ -333,7 +338,8 @@ class PyBulletDominoEnv(PyBulletEnv):
                 rot = state.get(obj, "rot")
                 update_object(obj.id,
                               position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                              orientation=p.getQuaternionFromEuler(
+                                  [0.0, 0.0, rot]),
                               physics_client_id=self._physics_client_id)
 
         # Check reconstruction
@@ -360,14 +366,15 @@ class PyBulletDominoEnv(PyBulletEnv):
 
     @classmethod
     def _Toppled_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        """Target is toppled if it’s significantly tilted from upright
-        in pitch or roll. We measure this from the actual PyBullet orientation
-        (read from .step()), but for demonstration we can say that if the object
-        was set (or has become) rotated in x/y beyond a threshold, it’s toppled.
+        """Target is toppled if it’s significantly tilted from upright in pitch
+        or roll. We measure this from the actual PyBullet orientation (read
+        from .step()), but for demonstration we can say that if the object was
+        set (or has become) rotated in x/y beyond a threshold, it’s toppled.
 
         Here, we only have `rot` about z in the state, but in a real
-        implementation, you might store or compute orientation around x,y, etc.
-        We'll demonstrate a simpler check for a large rotation from upright.
+        implementation, you might store or compute orientation around
+        x,y, etc. We'll demonstrate a simpler check for a large rotation
+        from upright.
         """
         # If we had orientation around x or y in the state, we'd read that here.
         # Suppose we treat a large difference in z-rotation from the "initial"
@@ -380,31 +387,33 @@ class PyBulletDominoEnv(PyBulletEnv):
         if abs(utils.wrap_angle(rot_z)) < 0.8:
             return True
         return False
-    
+
     @classmethod
-    def _StartBlock_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _StartBlock_holds(cls, state: State,
+                          objects: Sequence[Object]) -> bool:
         domino, = objects
         return state.get(domino, "start_block") == 1.0
-    
+
     @classmethod
     def _HandEmpty_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         return state.get(robot, "fingers") > 0.2
-    
+
     @classmethod
     def _Holding_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         _, domino = objects
         return state.get(domino, "is_held") > 0.5
 
-
     # -------------------------------------------------------------------------
     # Task Generation
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_train_tasks, rng=self._train_rng)
+        return self._make_tasks(num_tasks=CFG.num_train_tasks,
+                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_test_tasks, rng=self._test_rng)
+        return self._make_tasks(num_tasks=CFG.num_test_tasks,
+                                rng=self._test_rng)
 
     def _make_tasks(self, num_tasks: int,
                     rng: np.random.Generator) -> List[EnvironmentTask]:
@@ -431,17 +440,19 @@ class PyBulletDominoEnv(PyBulletEnv):
                 gap = self.domino_width * 1.3
                 x = self.start_domino_x
                 init_dict[self.dominos[0]] = {
-                    "x": x, 
+                    "x": x,
                     "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
                     "start_block": 1.0,
                     "is_held": 0.0,
                 }
                 x += gap
                 init_dict[self.dominos[1]] = {
-                    "x": x, 
+                    "x": x,
                     "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
@@ -449,29 +460,33 @@ class PyBulletDominoEnv(PyBulletEnv):
                 init_dict[self.dominos[2]] = {
                     "x": x,
                     "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
                 x += gap
                 init_dict[self.targets[0]] = {
-                    "x": x, 
+                    "x": x,
                     "y": self.start_domino_y,
-                    "z": self.z_lb, "rot": rot,
+                    "z": self.z_lb,
+                    "rot": rot,
                 }
                 x += gap
                 init_dict[self.dominos[3]] = {
-                    "x": x, 
+                    "x": x,
                     "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
                 x += gap
                 init_dict[self.dominos[4]] = {
-                    "x": x, 
+                    "x": x,
                     "y": self.start_domino_y,
-                    "z": self.z_lb + self.domino_height / 2, "rot": rot,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
@@ -479,7 +494,7 @@ class PyBulletDominoEnv(PyBulletEnv):
                 x += gap / 3
                 y = self.start_domino_y + self.pivot_width / 2
                 init_dict[self.pivots[0]] = {
-                    "x": x, 
+                    "x": x,
                     "y": y,
                     "z": self.z_lb,
                     "rot": rot,
@@ -487,48 +502,49 @@ class PyBulletDominoEnv(PyBulletEnv):
                 x -= gap / 3
                 y += self.pivot_width / 2
                 init_dict[self.dominos[5]] = {
-                    "x": x, 
+                    "x": x,
                     "y": y,
-                    "z": self.z_lb + self.domino_height / 2, 
+                    "z": self.z_lb + self.domino_height / 2,
                     "rot": rot,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
                 x -= gap
                 init_dict[self.dominos[6]] = {
-                    "x": x, 
+                    "x": x,
                     "y": y,
-                    "z": self.z_lb + self.domino_height / 2, 
+                    "z": self.z_lb + self.domino_height / 2,
                     "rot": rot,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
                 # Turn
-                x -= gap * 1 /4
+                x -= gap * 1 / 4
                 y += gap / 2
                 init_dict[self.dominos[7]] = {
-                    "x": x, 
+                    "x": x,
                     "y": y,
-                    "z": self.z_lb + self.domino_height / 2, 
-                    "rot": rot-np.pi / 4,
+                    "z": self.z_lb + self.domino_height / 2,
+                    "rot": rot - np.pi / 4,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
                 x -= gap / 3
                 y += gap * 3 / 4
                 init_dict[self.dominos[8]] = {
-                    "x": x, 
+                    "x": x,
                     "y": y,
-                    "z": self.z_lb + self.domino_height / 2, 
+                    "z": self.z_lb + self.domino_height / 2,
                     "rot": 0,
                     "start_block": 0.0,
                     "is_held": 0.0,
                 }
                 y += gap
                 init_dict[self.targets[1]] = {
-                    "x": x, 
+                    "x": x,
                     "y": y,
-                    "z": self.z_lb, "rot": 0,
+                    "z": self.z_lb,
+                    "rot": 0,
                 }
             else:
                 for i in range(self.num_dominos):
@@ -546,12 +562,18 @@ class PyBulletDominoEnv(PyBulletEnv):
 
                 # 3) Targets
                 target_dicts = [
-                    {"x": self.x_lb + self.domino_width*2, "y": self.y_lb + 0.1, 
-                     "z": self.z_lb,
-                     "rot": 0.0},
-                    {"x": self.x_lb + self.domino_width*2, "y": self.y_lb + 0.3, 
-                     "z": self.z_lb,
-                     "rot": 0.0},
+                    {
+                        "x": self.x_lb + self.domino_width * 2,
+                        "y": self.y_lb + 0.1,
+                        "z": self.z_lb,
+                        "rot": 0.0
+                    },
+                    {
+                        "x": self.x_lb + self.domino_width * 2,
+                        "y": self.y_lb + 0.3,
+                        "z": self.z_lb,
+                        "rot": 0.0
+                    },
                 ]
                 for t_obj, t_dict in zip(self.targets, target_dicts):
                     init_dict[t_obj] = t_dict
@@ -567,10 +589,10 @@ class PyBulletDominoEnv(PyBulletEnv):
                         "z": self.z_lb,
                         "rot": yaw,
                     }
-            
 
             # Combine into self._objects for the environment
-            self._objects = [self._robot] + self.dominos + self.targets + self.pivots
+            self._objects = [self._robot
+                             ] + self.dominos + self.targets + self.pivots
 
             init_state = utils.create_state_from_dict(init_dict)
 

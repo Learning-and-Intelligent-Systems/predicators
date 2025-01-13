@@ -1,5 +1,4 @@
-"""
-Optimized single-object communicating vessel example.
+"""Optimized single-object communicating vessel example.
 
 python predicators/main.py --approach oracle --env pybullet_float \
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
@@ -19,11 +18,13 @@ from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, \
-    Object, Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
-def create_water_body(size_z, size_x=0.2, size_y=0.2,
+def create_water_body(size_z,
+                      size_x=0.2,
+                      size_y=0.2,
                       base_position=(0, 0, 0),
                       color=[0, 0, 1, 0.8],
                       physics_client_id=None):
@@ -32,23 +33,21 @@ def create_water_body(size_z, size_x=0.2, size_y=0.2,
         p.GEOM_BOX,
         halfExtents=[size_x / 2, size_y / 2, size_z / 2],
         rgbaColor=color,
-        physicsClientId=physics_client_id
-    )
+        physicsClientId=physics_client_id)
     base_position = list(base_position)
     base_position[2] += size_z / 2  # shift up so box sits on base_position
-    water_body_id = p.createMultiBody(
-        baseMass=0,
-        baseVisualShapeIndex=water_visual,
-        basePosition=base_position,
-        physicsClientId=physics_client_id
-    )
+    water_body_id = p.createMultiBody(baseMass=0,
+                                      baseVisualShapeIndex=water_visual,
+                                      basePosition=base_position,
+                                      physicsClientId=physics_client_id)
     return water_body_id
 
 
 class PyBulletFloatEnv(PyBulletEnv):
-    """Communicating vessel environment with a single 'vessel' object (plus blocks).
-    The vessel has x, y, z, water_height. Internally, we treat two compartments
-    but share a single water_height because the fluid is connected.
+    """Communicating vessel environment with a single 'vessel' object (plus
+    blocks). The vessel has x, y, z, water_height. Internally, we treat two
+    compartments but share a single water_height because the fluid is
+    connected.
 
     Optimizations:
     - Only update water geometry if water level changes.
@@ -67,17 +66,16 @@ class PyBulletFloatEnv(PyBulletEnv):
 
     # Table / workspace config
     table_height: ClassVar[float] = 0.4
-    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height/2)
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height / 2)
     table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0., 0., np.pi/2])
+        [0., 0., np.pi / 2])
 
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
     y_ub: ClassVar[float] = 1.6
     z_lb: ClassVar[float] = table_height
-    z_ub: ClassVar[float] = 0.75 + table_height/2
-
+    z_ub: ClassVar[float] = 0.75 + table_height / 2
 
     # Robot config
     robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
@@ -108,16 +106,16 @@ class PyBulletFloatEnv(PyBulletEnv):
     block_size: ClassVar[float] = 0.06
     block_mass: ClassVar[float] = 0.05
     block_friction: ClassVar[float] = 1.2
-    block_color_light: ClassVar[Tuple[float, float, float, float]] = (
-        0.0, 1.0, 0.0, 1.0)
-    block_color_heavy: ClassVar[Tuple[float, float, float, float]] = (
-        1.0, 0.6, 0.0, 1.0)
+    block_color_light: ClassVar[Tuple[float, float, float,
+                                      float]] = (0.0, 1.0, 0.0, 1.0)
+    block_color_heavy: ClassVar[Tuple[float, float, float,
+                                      float]] = (1.0, 0.6, 0.0, 1.0)
 
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _vessel_type = Type("vessel", ["x", "y", "z", "water_height"])
-    _block_type = Type("block", ["x", "y", "z", "in_water", "is_held", 
-                                 "is_light"])
+    _block_type = Type("block",
+                       ["x", "y", "z", "in_water", "is_held", "is_light"])
 
     def __init__(self, use_gui: bool = True) -> None:
         self._robot = Object("robot", self._robot_type)
@@ -138,8 +136,10 @@ class PyBulletFloatEnv(PyBulletEnv):
                                     self._HandEmpty_holds)
 
         # Track water geometry in PyBullet
-        self._water_ids: Dict[str, Optional[int]] = {"left": None, 
-                                                     "right": None}
+        self._water_ids: Dict[str, Optional[int]] = {
+            "left": None,
+            "right": None
+        }
 
         # Keep track of which blocks are currently displacing water
         # i.e., which blocks have "fully entered" the water
@@ -171,42 +171,38 @@ class PyBulletFloatEnv(PyBulletEnv):
 
     @classmethod
     def initialize_pybullet(
-        cls,
-        using_gui: bool
-    ) -> Tuple[int, Any, Dict[str, Any]]:
-        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(
-            using_gui)
+            cls, using_gui: bool) -> Tuple[int, Any, Dict[str, Any]]:
+        physics_client_id, pybullet_robot, bodies = super(
+        ).initialize_pybullet(using_gui)
 
         # Table
-        table_id = create_object(
-            asset_path="urdf/table.urdf",
-            position=cls.table_pos,
-            orientation=cls.table_orn,
-            scale=1.0,
-            use_fixed_base=True,
-            physics_client_id=physics_client_id
-        )
+        table_id = create_object(asset_path="urdf/table.urdf",
+                                 position=cls.table_pos,
+                                 orientation=cls.table_orn,
+                                 scale=1.0,
+                                 use_fixed_base=True,
+                                 physics_client_id=physics_client_id)
         bodies["table_id"] = table_id
 
         # Vessel
-        vessel_id = create_object(
-            asset_path=cls.COMM_VESSEL_URDF,
-            position=(cls.VESSEL_BASE_X, cls.VESSEL_BASE_Y, cls.z_lb),
-            scale=1.0,
-            use_fixed_base=True,
-            physics_client_id=physics_client_id
-        )
+        vessel_id = create_object(asset_path=cls.COMM_VESSEL_URDF,
+                                  position=(cls.VESSEL_BASE_X,
+                                            cls.VESSEL_BASE_Y, cls.z_lb),
+                                  scale=1.0,
+                                  use_fixed_base=True,
+                                  physics_client_id=physics_client_id)
         bodies["vessel_id"] = vessel_id
 
         # Three blocks
         block_ids = []
         for _ in range(3):
-            body_id = create_pybullet_block(color=[1,1,1,1], 
-                                            half_extents=[cls.block_size/2]*3,
-                                            mass=cls.block_mass, 
-                                            friction=cls.block_friction,
-                                            orientation=[0,0,0,1],
-                                            physics_client_id=physics_client_id)
+            body_id = create_pybullet_block(
+                color=[1, 1, 1, 1],
+                half_extents=[cls.block_size / 2] * 3,
+                mass=cls.block_mass,
+                friction=cls.block_friction,
+                orientation=[0, 0, 0, 1],
+                physics_client_id=physics_client_id)
             block_ids.append(body_id)
         bodies["block_ids"] = block_ids
 
@@ -295,7 +291,7 @@ class PyBulletFloatEnv(PyBulletEnv):
             update_object(blk.id,
                           position=(bx, by, bz),
                           color=PyBulletFloatEnv.block_color_light \
-                            if state.get(blk, "is_light") > 0.5 
+                            if state.get(blk, "is_light") > 0.5
                             else PyBulletFloatEnv.block_color_heavy,
                           physics_client_id=self._physics_client_id)
             # Re-initialize displacing to False
@@ -311,16 +307,14 @@ class PyBulletFloatEnv(PyBulletEnv):
         self._create_or_update_water(force_redraw=True)
 
         vx = state.get(self._vessel, "x")
-        wx = vx + self.CONTAINER_OPENING_LEN + self.CONTAINER_GAP/2
+        wx = vx + self.CONTAINER_OPENING_LEN + self.CONTAINER_GAP / 2
         wy, wz = state.get(self._vessel, "y"), state.get(self._vessel, "z")
-        create_water_body(
-            size_x=self.CONTAINER_GAP,
-            size_y=self.TUBE_OPENING_LEN,
-            size_z=self.TUBE_OPENING_LEN,
-            base_position=(wx, wy, wz),
-            color=[0.5, 0.5, 1, 0.5],
-            physics_client_id=self._physics_client_id
-        )
+        create_water_body(size_x=self.CONTAINER_GAP,
+                          size_y=self.TUBE_OPENING_LEN,
+                          size_z=self.TUBE_OPENING_LEN,
+                          base_position=(wx, wy, wz),
+                          color=[0.5, 0.5, 1, 0.5],
+                          physics_client_id=self._physics_client_id)
 
         # Check
         s2 = self._get_state()
@@ -341,7 +335,8 @@ class PyBulletFloatEnv(PyBulletEnv):
         return final_state
 
     def _float_light_blocks(self, state: State) -> None:
-        """Force each light, unheld block in a container compartment to float at the surface."""
+        """Force each light, unheld block in a container compartment to float
+        at the surface."""
         (vx, vy, vz), _ = p.getBasePositionAndOrientation(
             self._vessel.id, physicsClientId=self._physics_client_id)
         water_surface_z = vz + self._current_water_height
@@ -355,17 +350,16 @@ class PyBulletFloatEnv(PyBulletEnv):
 
             # Get latest position from PyBullet
             (bx, by, bz), orn = p.getBasePositionAndOrientation(
-                blk.id, physicsClientId=self._physics_client_id
-            )
+                blk.id, physicsClientId=self._physics_client_id)
             # Check if the block is inside either compartment
-            if (self._is_in_left_compartment(bx, by) or
-                self._is_in_right_compartment(bx, by)):
+            if (self._is_in_left_compartment(bx, by)
+                    or self._is_in_right_compartment(bx, by)):
                 # Float it: set Z so that the entire block is above the water
                 float_z = water_surface_z + self.block_size / 2.0
                 p.resetBasePositionAndOrientation(
-                    blk.id, (bx, by, float_z), orn,
-                    physicsClientId=self._physics_client_id
-                )
+                    blk.id, (bx, by, float_z),
+                    orn,
+                    physicsClientId=self._physics_client_id)
 
     # -------------------------------------------------------------------------
     # Water-Level Logic
@@ -379,9 +373,10 @@ class PyBulletFloatEnv(PyBulletEnv):
         setattr(self, "__current_water_height", val)
 
     def _update_water_level_if_needed(self, state: State) -> bool:
-        """Check if any block's top crosses the water line. 
-        If so, update water displacement and recalc water level.
-        Returns True if the water level changed, else False.
+        """Check if any block's top crosses the water line.
+
+        If so, update water displacement and recalc water level. Returns
+        True if the water level changed, else False.
         """
         old_height = self._current_water_height
         # Start from total volume = 2 compartments * old_height * area
@@ -424,7 +419,7 @@ class PyBulletFloatEnv(PyBulletEnv):
                 # => Not fully submerged
                 blocks_displacing_now[blk] = False
 
-            # If we just toggled from not displacing to displacing, 
+            # If we just toggled from not displacing to displacing,
             # or vice versa, we must recalc total volume
             # We'll do final calculation after we see who is displacing
         # end for
@@ -433,12 +428,12 @@ class PyBulletFloatEnv(PyBulletEnv):
         # Each displacing block adds block_size^3
         for blk, is_disp in blocks_displacing_now.items():
             if is_disp:
-                new_displaced_volume += (self.block_size ** 3)
+                new_displaced_volume += (self.block_size**3)
 
-        # If the new_displaced_volume is the same as the old displaced volume 
-        # we had, the water height won't change. But we don't store old displaced 
-        # volume separately; we store old_height. We can compute old displaced 
-        # from ( old_volume - 2*area*lowest_level_of_water ). 
+        # If the new_displaced_volume is the same as the old displaced volume
+        # we had, the water height won't change. But we don't store old displaced
+        # volume separately; we store old_height. We can compute old displaced
+        # from ( old_volume - 2*area*lowest_level_of_water ).
         # Easiest approach: just see how many blocks were displacing before vs. now.
 
         old_num_displacing = sum(self._block_is_displacing.values())
@@ -446,8 +441,8 @@ class PyBulletFloatEnv(PyBulletEnv):
         if old_num_displacing == new_num_displacing:
             # => no change in net block submersion => water won't change
             # but let's confirm that none have changed...
-            # If it's the same number of blocks but actually a different set, 
-            # that might matter. For identical blocks of same volume, 
+            # If it's the same number of blocks but actually a different set,
+            # that might matter. For identical blocks of same volume,
             # the net displacement is the same. So no water level change either.
             changed = False
         else:
@@ -455,17 +450,18 @@ class PyBulletFloatEnv(PyBulletEnv):
             new_total_volume = 2.0 * self.CONTAINER_AREA * old_height \
                                - (old_num_displacing * (self.block_size**3)) \
                                + (new_num_displacing * (self.block_size**3))
-            # ^ This approach: 
+            # ^ This approach:
             #   2 * area * old_height is the water volume w/o blocks
             #   old_num_displacing * block_volume => old block total
             #   remove old block volumes, add new block volumes
             # Actually let's do it more directly:
-            #   old_volume was water + old displaced. We want to remove old displaced 
-            #   and add new displaced. So new_volume = old_volume 
+            #   old_volume was water + old displaced. We want to remove old displaced
+            #   and add new displaced. So new_volume = old_volume
             #                                  - old_displaced + new_displaced
             increase_factor = 2
             old_displaced_vol = old_num_displacing * (self.block_size**3)
-            new_displaced_vol = new_num_displacing * (self.block_size**3) * increase_factor
+            new_displaced_vol = new_num_displacing * (self.block_size**
+                                                      3) * increase_factor
             new_volume = (old_volume - old_displaced_vol) + new_displaced_vol
 
             # water + blocks => water in 2 compartments => new_height
@@ -500,30 +496,25 @@ class PyBulletFloatEnv(PyBulletEnv):
             self._vessel.id, physicsClientId=self._physics_client_id)
 
         # Left
-        lx = vx + self.CONTAINER_OPENING_LEN/2
+        lx = vx + self.CONTAINER_OPENING_LEN / 2
         ly = vy
-        left_id = create_water_body(
-            size_z=self._current_water_height,
-            size_x=self.CONTAINER_OPENING_LEN,
-            size_y=self.CONTAINER_OPENING_LEN,
-            base_position=(lx, ly, vz),
-            physics_client_id=self._physics_client_id
-        )
+        left_id = create_water_body(size_z=self._current_water_height,
+                                    size_x=self.CONTAINER_OPENING_LEN,
+                                    size_y=self.CONTAINER_OPENING_LEN,
+                                    base_position=(lx, ly, vz),
+                                    physics_client_id=self._physics_client_id)
         self._water_ids["left"] = left_id
 
         # Right
-        rx_offset = (self.CONTAINER_OPENING_LEN
-                     + self.CONTAINER_GAP
-                     + self.CONTAINER_OPENING_LEN/2)
+        rx_offset = (self.CONTAINER_OPENING_LEN + self.CONTAINER_GAP +
+                     self.CONTAINER_OPENING_LEN / 2)
         rx = vx + rx_offset
         ry = vy
-        right_id = create_water_body(
-            size_z=self._current_water_height,
-            size_x=self.CONTAINER_OPENING_LEN,
-            size_y=self.CONTAINER_OPENING_LEN,
-            base_position=(rx, ry, vz),
-            physics_client_id=self._physics_client_id
-        )
+        right_id = create_water_body(size_z=self._current_water_height,
+                                     size_x=self.CONTAINER_OPENING_LEN,
+                                     size_y=self.CONTAINER_OPENING_LEN,
+                                     base_position=(rx, ry, vz),
+                                     physics_client_id=self._physics_client_id)
         self._water_ids["right"] = right_id
 
     # -------------------------------------------------------------------------
@@ -532,16 +523,16 @@ class PyBulletFloatEnv(PyBulletEnv):
         (vx, vy, _) = self._get_vessel_base_position()
         x_min = vx
         x_max = vx + self.CONTAINER_OPENING_LEN
-        y_min = vy - self.CONTAINER_OPENING_LEN/2
-        y_max = vy + self.CONTAINER_OPENING_LEN/2
+        y_min = vy - self.CONTAINER_OPENING_LEN / 2
+        y_max = vy + self.CONTAINER_OPENING_LEN / 2
         return (x_min <= bx <= x_max) and (y_min <= by <= y_max)
 
     def _is_in_right_compartment(self, bx: float, by: float) -> bool:
         (vx, vy, _) = self._get_vessel_base_position()
         x_min = vx + self.CONTAINER_OPENING_LEN + self.CONTAINER_GAP
         x_max = x_min + self.CONTAINER_OPENING_LEN
-        y_min = vy - self.CONTAINER_OPENING_LEN/2
-        y_max = vy + self.CONTAINER_OPENING_LEN/2
+        y_min = vy - self.CONTAINER_OPENING_LEN / 2
+        y_max = vy + self.CONTAINER_OPENING_LEN / 2
         return (x_min <= bx <= x_max) and (y_min <= by <= y_max)
 
     def _get_vessel_base_position(self) -> Tuple[float, float, float]:
@@ -553,7 +544,7 @@ class PyBulletFloatEnv(PyBulletEnv):
     # Predicates
     @staticmethod
     def _InWater_holds(state: State, objects: Sequence[Object]) -> bool:
-        (block,) = objects
+        (block, ) = objects
         return state.get(block, "in_water") > 0.5
 
     @staticmethod
@@ -565,16 +556,15 @@ class PyBulletFloatEnv(PyBulletEnv):
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         return state.get(robot, "fingers") > 0.2
-    
+
     def _is_block_light(self, block_obj: int) -> bool:
-        """Check if pybullet block is light or heavy based its color.
-        """
-        color = p.getVisualShapeData(block_obj, 
-                                physicsClientId=self._physics_client_id)[0][-1]
-        block_color_light_dist = sum(np.subtract(color, 
-            self.block_color_light)**2)
-        block_color_heavy_dist = sum(np.subtract(color, 
-            self.block_color_heavy)**2)
+        """Check if pybullet block is light or heavy based its color."""
+        color = p.getVisualShapeData(
+            block_obj, physicsClientId=self._physics_client_id)[0][-1]
+        block_color_light_dist = sum(
+            np.subtract(color, self.block_color_light)**2)
+        block_color_heavy_dist = sum(
+            np.subtract(color, self.block_color_heavy)**2)
         return block_color_light_dist < block_color_heavy_dist
 
     # -------------------------------------------------------------------------
@@ -611,27 +601,48 @@ class PyBulletFloatEnv(PyBulletEnv):
             block_dicts = []
             # for _block in self._blocks:
             #     bx = rng.uniform(self.x_lb, self.x_ub)
-            #     by = rng.uniform(self.y_lb + 0.05, 
+            #     by = rng.uniform(self.y_lb + 0.05,
             #                     self.VESSEL_BASE_Y - self.CONTAINER_OPENING_LEN)
             #     bz = self.z_lb + self.block_size/2
-            #     block_dicts.append({"x": bx, "y": by, "z": bz, 
+            #     block_dicts.append({"x": bx, "y": by, "z": bz,
             #                         "in_water": 0.0,
             #                         "is_held": 0.0})
             block_dicts = [
-                {"x": 0.7, "y": 1.16 , "z": self.z_lb + self.block_size/2,
-                    "in_water": 0.0, "is_held": 0.0, "is_light": 0.0},
-                {"x": 0.8, "y": 1.2 , "z": self.z_lb + self.block_size/2,
-                    "in_water": 0.0, "is_held": 0.0, "is_light": 0.0},
+                {
+                    "x": 0.7,
+                    "y": 1.16,
+                    "z": self.z_lb + self.block_size / 2,
+                    "in_water": 0.0,
+                    "is_held": 0.0,
+                    "is_light": 0.0
+                },
+                {
+                    "x": 0.8,
+                    "y": 1.2,
+                    "z": self.z_lb + self.block_size / 2,
+                    "in_water": 0.0,
+                    "is_held": 0.0,
+                    "is_light": 0.0
+                },
                 # {"x": 1, "y": 1.16, "z": self.z_lb + self.block_size/2,
-                {"x": self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN + 
-                        self.CONTAINER_GAP + self.CONTAINER_OPENING_LEN/2, 
-                 "y": self.VESSEL_BASE_Y, 
-                 "z": self.initial_water_height + self.block_size/2,   
-                 "in_water": 0.0, "is_held": 0.0, "is_light": 1.0},
+                {
+                    "x":
+                    self.VESSEL_BASE_X + self.CONTAINER_OPENING_LEN +
+                    self.CONTAINER_GAP + self.CONTAINER_OPENING_LEN / 2,
+                    "y":
+                    self.VESSEL_BASE_Y,
+                    "z":
+                    self.initial_water_height + self.block_size / 2,
+                    "in_water":
+                    0.0,
+                    "is_held":
+                    0.0,
+                    "is_light":
+                    1.0
+                },
             ]
 
-            init_dict = {self._robot: robot_dict, 
-                         self._vessel: vessel_dict}
+            init_dict = {self._robot: robot_dict, self._vessel: vessel_dict}
             for b_obj, b_vals in zip(self._blocks, block_dicts):
                 init_dict[b_obj] = b_vals
 
@@ -640,14 +651,15 @@ class PyBulletFloatEnv(PyBulletEnv):
             # e.g. goal: all blocks in water
             first_two_blocks = self._blocks[:2]
             goal_atoms = {
-                GroundAtom(self._InWater, [b]) for b in first_two_blocks
+                GroundAtom(self._InWater, [b])
+                for b in first_two_blocks
             }
             # goal_atoms = set()
             goal_atoms.add(
-                GroundAtom(self._Holding, [self._robot, self._blocks[2]])
-            )
+                GroundAtom(self._Holding, [self._robot, self._blocks[2]]))
             tasks.append(EnvironmentTask(init_state, goal_atoms))
         return self._add_pybullet_state_to_tasks(tasks)
+
 
 if __name__ == "__main__":
     import time

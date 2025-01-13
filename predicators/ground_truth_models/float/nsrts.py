@@ -41,15 +41,9 @@ class PyBulletFloatGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [robot, block]
         option_vars = [robot, block]
         option = Pick
-        preconditions = {
-            LiftedAtom(HandEmpty, [robot])
-        }
-        add_effects = {
-            LiftedAtom(Holding, [robot, block])
-            }
-        delete_effects = {
-            LiftedAtom(HandEmpty, [robot])
-        }
+        preconditions = {LiftedAtom(HandEmpty, [robot])}
+        add_effects = {LiftedAtom(Holding, [robot, block])}
+        delete_effects = {LiftedAtom(HandEmpty, [robot])}
 
         pickfromtable_nsrt = NSRT("PickFromTable", parameters,
                                   preconditions, add_effects, delete_effects,
@@ -69,13 +63,13 @@ class PyBulletFloatGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(InWater, [block]),
             LiftedAtom(HandEmpty, [robot])
-            }
+        }
         delete_effects = {
             LiftedAtom(Holding, [robot, block]),
         }
         drop_in_water_nsrt = NSRT("DropInWater", parameters,
-                                    preconditions, add_effects, delete_effects,
-                                    set(), option, option_vars, null_sampler)
+                                  preconditions, add_effects, delete_effects,
+                                  set(), option, option_vars, null_sampler)
         nsrts.add(drop_in_water_nsrt)
 
         return nsrts

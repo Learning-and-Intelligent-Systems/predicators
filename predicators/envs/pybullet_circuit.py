@@ -19,12 +19,12 @@ import pybullet as p
 
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion, Pose
+from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type, ConceptPredicate
+from predicators.structs import Action, ConceptPredicate, EnvironmentTask, \
+    GroundAtom, Object, Predicate, State, Type
 
 
 class PyBulletCircuitEnv(PyBulletEnv):
@@ -44,16 +44,16 @@ class PyBulletCircuitEnv(PyBulletEnv):
     connected_pos_tol: ClassVar[float] = 1e-2
     # Table / workspace config
     table_height: ClassVar[float] = 0.4
-    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height/2)
+    table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height / 2)
     table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [0., 0., np.pi/2])
+        [0., 0., np.pi / 2])
 
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
     y_lb: ClassVar[float] = 1.1
     y_ub: ClassVar[float] = 1.6
     z_lb: ClassVar[float] = table_height
-    z_ub: ClassVar[float] = 0.75 + table_height/2
+    z_ub: ClassVar[float] = 0.75 + table_height / 2
     init_padding = 0.05
 
     # Robot config
@@ -115,18 +115,18 @@ class PyBulletCircuitEnv(PyBulletEnv):
         self._ConnectedToBattery = Predicate(
             "ConnectedToBattery", [self._wire_type, self._battery_type],
             self._ConnectedToBattery_holds)
-        # Ultimatly, we probably want a predicate for Connected(Light, 
+        # Ultimatly, we probably want a predicate for Connected(Light,
         # BatteryPositiveTerminal) and Connected(Light, BatteryNegativeTerminal)
         # which will be evaluated recursively by checking if light is directly
-        # connected to the battery or if it is connected to a wire that is 
+        # connected to the battery or if it is connected to a wire that is
         # connected to the battery.
 
         # Normal version used in the simulator
-        self._CircuitClosed = Predicate("CircuitClosed", 
+        self._CircuitClosed = Predicate("CircuitClosed",
                                         [self._light_type, self._battery_type],
                                         self._CircuitClosed_holds)
         # self._CircuitClosed_abs = ConceptPredicate("CircuitClosed",
-        #                             [self._wire_type, self._wire_type], 
+        #                             [self._wire_type, self._wire_type],
         #                             self._CircuitClosed_CP_holds)
         self._LightOn = Predicate("LightOn", [self._light_type],
                                   self._LightOn_holds)
@@ -184,8 +184,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
         # Create the battery
         battery_id = create_object(
-            asset_path="urdf/partnet_mobility/switch/102812/"+
-                        "battery_switch_snap.urdf",
+            asset_path="urdf/partnet_mobility/switch/102812/" +
+            "battery_switch_snap.urdf",
             physics_client_id=physics_client_id,
             scale=1,
             use_fixed_base=True,
@@ -214,8 +214,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
     @staticmethod
     def _get_joint_id(obj_id: int, joint_name: str) -> int:
-        """Get the joint ID for a joint with a given name.
-        """
+        """Get the joint ID for a joint with a given name."""
         num_joints = p.getNumJoints(obj_id)
         for joint_index in range(num_joints):
             joint_info = p.getJointInfo(obj_id, joint_index)
@@ -225,7 +224,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to PyBullet IDs for environment assets."""
         self._battery.id = pybullet_bodies["battery_id"]
-        self._battery.joint_id = self._get_joint_id(self._battery.id, "joint_0")
+        self._battery.joint_id = self._get_joint_id(self._battery.id,
+                                                    "joint_0")
         self._battery.joint_scale = 0.1
         self._light.id = pybullet_bodies["light_id"]
         self._wire1.id = pybullet_bodies["wire_ids"][0]
@@ -451,23 +451,24 @@ class PyBulletCircuitEnv(PyBulletEnv):
         return True
 
     def _SwitchOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        """Check if the battery is switched on.
-        """
+        """Check if the battery is switched on."""
         del state  # unused
         battery, = objects
-        joint_state = p.getJointState(battery.id, battery.joint_id, 
+        joint_state = p.getJointState(battery.id, battery.joint_id,
                                 physicsClientId=self._physics_client_id)[0] /\
                                     self._battery.joint_scale
-        joint_min = p.getJointInfo(battery.id, battery.joint_id, 
-                                physicsClientId=self._physics_client_id)[8]
-        joint_max = p.getJointInfo(battery.id, battery.joint_id, 
-                                physicsClientId=self._physics_client_id)[9]
-        joint_state = np.clip((joint_state - joint_min) / 
-                              (joint_max - joint_min), 0, 1)
+        joint_min = p.getJointInfo(battery.id,
+                                   battery.joint_id,
+                                   physicsClientId=self._physics_client_id)[8]
+        joint_max = p.getJointInfo(battery.id,
+                                   battery.joint_id,
+                                   physicsClientId=self._physics_client_id)[9]
+        joint_state = np.clip(
+            (joint_state - joint_min) / (joint_max - joint_min), 0, 1)
         return bool(joint_state > 0.5)
-    
+
     @staticmethod
-    def _CircuitClosed_CP_holds(atoms: Set[GroundAtom], 
+    def _CircuitClosed_CP_holds(atoms: Set[GroundAtom],
                                 objects: Sequence[Object]) -> bool:
         wire1, wire2 = objects
         if wire1 == wire2:
@@ -489,7 +490,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
                 elif atom.args[0] == wire2 and atom.args[1] == objects[0]:
                     w2_connected_to_battery = True
         return w1_connected_to_light and w1_connected_to_battery and \
-                w2_connected_to_light and w2_connected_to_battery 
+                w2_connected_to_light and w2_connected_to_battery
 
     # -------------------------------------------------------------------------
     # Turning the bulb on/off visually
@@ -508,11 +509,11 @@ class PyBulletCircuitEnv(PyBulletEnv):
                 3,  # all link indices
                 rgbaColor=self._bulb_off_color,
                 physicsClientId=self._physics_client_id)
-    
+
     def _is_bulb_on(self, light_id) -> bool:
         """Check if the bulb is on."""
-        color = p.getVisualShapeData(light_id, 
-                        physicsClientId=self._physics_client_id)[3][-1]
+        color = p.getVisualShapeData(
+            light_id, physicsClientId=self._physics_client_id)[3][-1]
         bulb_color_on_dist = sum(np.subtract(color, self._bulb_on_color)**2)
         bulb_color_off_dist = sum(np.subtract(color, self._bulb_off_color)**2)
         return bulb_color_on_dist < bulb_color_off_dist
@@ -591,14 +592,15 @@ class PyBulletCircuitEnv(PyBulletEnv):
             goal_atoms = {
                 # GroundAtom(self._LightOn, [self._light]),
                 GroundAtom(self._CircuitClosed, [self._light, self._battery]),
-                # GroundAtom(self._ConnectedToBattery, [self._wire1, 
-                                                    #   self._battery]),
+                # GroundAtom(self._ConnectedToBattery, [self._wire1,
+                #   self._battery]),
                 # GroundAtom(self._ConnectedToBattery, [self._wire2,
-                                                    #   self._battery]),
+                #   self._battery]),
             }
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
+
 
 if __name__ == "__main__":
     """Run a simple simulation to test the environment."""

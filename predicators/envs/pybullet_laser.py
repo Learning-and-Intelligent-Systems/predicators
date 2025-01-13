@@ -1,5 +1,5 @@
-"""
-python predicators/main.py --approach oracle --env pybullet_laser \
+"""python predicators/main.py --approach oracle --env pybullet_laser \
+
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --debug
@@ -19,11 +19,14 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
 
+
 class PyBulletLaserEnv(PyBulletEnv):
-    """A PyBullet environment that simulates a laser station, mirrors,
-    and targets on a table. Turning on the station emits a laser beam
-    that can reflect off mirrors or partially pass through split mirrors,
-    and stops when a target is hit.
+    """A PyBullet environment that simulates a laser station, mirrors, and
+    targets on a table.
+
+    Turning on the station emits a laser beam that can reflect off
+    mirrors or partially pass through split mirrors, and stops when a
+    target is hit.
     """
 
     # -------------
@@ -31,7 +34,8 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------
     table_height: ClassVar[float] = 0.4
     table_pos: ClassVar[Pose3D] = (0.75, 1.35, table_height / 2.0)
-    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2.0])
+    table_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0.0, 0.0, np.pi / 2.0])
 
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
@@ -48,7 +52,8 @@ class PyBulletLaserEnv(PyBulletEnv):
     robot_init_y: ClassVar[float] = (y_lb + y_ub) * 0.5
     robot_init_z: ClassVar[float] = z_ub - 0.1
     robot_base_pos: ClassVar[Pose3D] = (0.75, 0.72, 0.0)
-    robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2.0])
+    robot_base_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
+        [0.0, 0.0, np.pi / 2.0])
     robot_init_tilt: ClassVar[float] = np.pi / 2.0
     robot_init_wrist: ClassVar[float] = -np.pi / 2.0
 
@@ -65,7 +70,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------
     piece_width: ClassVar[float] = 0.08
     piece_height: ClassVar[float] = 0.11
-    light_height: ClassVar[float] = piece_height*2/3
+    light_height: ClassVar[float] = piece_height * 2 / 3
     station_joint_scale: ClassVar[float] = 0.1
     station_on_threshold: ClassVar[float] = 0.5  # fraction of the joint range
     mirror_rot_offset: ClassVar[float] = -np.pi / 4
@@ -79,7 +84,8 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _station_type = Type("station", ["x", "y", "z", "rot", "is_on"])
-    _mirror_type = Type("mirror", ["x", "y", "z", "rot", "split_mirror", "is_held"])
+    _mirror_type = Type("mirror",
+                        ["x", "y", "z", "rot", "split_mirror", "is_held"])
     _target_type = Type("target", ["x", "y", "z", "rot", "is_hit"])
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -97,9 +103,11 @@ class PyBulletLaserEnv(PyBulletEnv):
 
         # Define predicates
         # Example: "StationOn" checks whether the station is toggled on
-        self._StationOn = Predicate("StationOn", [self._station_type], self._StationOn_holds)
+        self._StationOn = Predicate("StationOn", [self._station_type],
+                                    self._StationOn_holds)
         # Perhaps you want a "TargetHit" predicate
-        self._TargetHit = Predicate("TargetHit", [self._target_type], self._TargetHit_holds)
+        self._TargetHit = Predicate("TargetHit", [self._target_type],
+                                    self._TargetHit_holds)
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._mirror_type],
                                   self._Holding_holds)
@@ -141,9 +149,10 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     @classmethod
     def initialize_pybullet(
-        cls, using_gui: bool
+            cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
-        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(using_gui)
+        physics_client_id, pybullet_robot, bodies = super(
+        ).initialize_pybullet(using_gui)
 
         # Create a table
         table_id = create_object(
@@ -158,8 +167,8 @@ class PyBulletLaserEnv(PyBulletEnv):
 
         # Laser station
         station_id = create_object(
-            asset_path="urdf/partnet_mobility/switch/102812/"+
-                        "laser_station_switch.urdf",
+            asset_path="urdf/partnet_mobility/switch/102812/" +
+            "laser_station_switch.urdf",
             physics_client_id=physics_client_id,
             scale=1.0,
             use_fixed_base=True,
@@ -220,7 +229,8 @@ class PyBulletLaserEnv(PyBulletEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to the relevant PyBullet IDs."""
         self._station.id = pybullet_bodies["station_id"]
-        self._station.joint_id = self._get_joint_id(self._station.id, "joint_0")
+        self._station.joint_id = self._get_joint_id(self._station.id,
+                                                    "joint_0")
         self._mirror1.id = pybullet_bodies["mirror_normal1_id"]
         self._mirror2.id = pybullet_bodies["mirror_normal2_id"]
         self._split_mirror.id = pybullet_bodies["mirror_split_id"]
@@ -256,7 +266,9 @@ class PyBulletLaserEnv(PyBulletEnv):
         # -------------
         # Station state
         # -------------
-        (sx, sy, sz), sorn = p.getBasePositionAndOrientation(self._station.id, self._physics_client_id)
+        (sx, sy,
+         sz), sorn = p.getBasePositionAndOrientation(self._station.id,
+                                                     self._physics_client_id)
         s_euler = p.getEulerFromQuaternion(sorn)
         is_on_val = float(self._station_powered_on())
         state_dict[self._station] = {
@@ -271,7 +283,9 @@ class PyBulletLaserEnv(PyBulletEnv):
         # Mirrors
         # -------------
         # Normal mirror 1
-        (m1x, m1y, m1z), m1orn = p.getBasePositionAndOrientation(self._mirror1.id, self._physics_client_id)
+        (m1x, m1y,
+         m1z), m1orn = p.getBasePositionAndOrientation(self._mirror1.id,
+                                                       self._physics_client_id)
         m1_euler = p.getEulerFromQuaternion(m1orn)
         is_held_val_1 = 1.0 if self._mirror1.id == self._held_obj_id else 0.0
         state_dict[self._mirror1] = {
@@ -283,7 +297,9 @@ class PyBulletLaserEnv(PyBulletEnv):
             "is_held": is_held_val_1
         }
         # Normal mirror 2
-        (m2x, m2y, m2z), m2orn = p.getBasePositionAndOrientation(self._mirror2.id, self._physics_client_id)
+        (m2x, m2y,
+         m2z), m2orn = p.getBasePositionAndOrientation(self._mirror2.id,
+                                                       self._physics_client_id)
         m2_euler = p.getEulerFromQuaternion(m2orn)
         is_held_val_2 = 1.0 if self._mirror2.id == self._held_obj_id else 0.0
         state_dict[self._mirror2] = {
@@ -295,7 +311,9 @@ class PyBulletLaserEnv(PyBulletEnv):
             "is_held": is_held_val_2
         }
         # Split mirror
-        (smx, smy, smz), smorn = p.getBasePositionAndOrientation(self._split_mirror.id, self._physics_client_id)
+        (smx, smy,
+         smz), smorn = p.getBasePositionAndOrientation(self._split_mirror.id,
+                                                       self._physics_client_id)
         sm_euler = p.getEulerFromQuaternion(smorn)
         is_held_val_s = 1.0 if self._split_mirror.id == self._held_obj_id else 0.0
         state_dict[self._split_mirror] = {
@@ -311,7 +329,8 @@ class PyBulletLaserEnv(PyBulletEnv):
         # Targets
         # -------------
         for target_obj in [self._target1, self._target2]:
-            (tx, ty, tz), torn = p.getBasePositionAndOrientation(target_obj.id, self._physics_client_id)
+            (tx, ty, tz), torn = p.getBasePositionAndOrientation(
+                target_obj.id, self._physics_client_id)
             t_euler = p.getEulerFromQuaternion(torn)
             # We'll figure out if it's hit after we run the beam simulation
             is_hit_val = float(self._is_target_hit(target_obj))
@@ -340,8 +359,11 @@ class PyBulletLaserEnv(PyBulletEnv):
         self._objects = [
             self._robot,
             self._station,
-            self._mirror1, self._mirror2, self._split_mirror,
-            self._target1, self._target2,
+            self._mirror1,
+            self._mirror2,
+            self._split_mirror,
+            self._target1,
+            self._target2,
         ]
 
         # Station
@@ -359,7 +381,7 @@ class PyBulletLaserEnv(PyBulletEnv):
 
         # Mirrors
         for mirror_obj in [self._mirror1, self._mirror2, self._split_mirror]:
-        # for mirror_obj in [self._split_mirror]:
+            # for mirror_obj in [self._split_mirror]:
             mx = state.get(mirror_obj, "x")
             my = state.get(mirror_obj, "y")
             mz = state.get(mirror_obj, "z")
@@ -409,8 +431,10 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _simulate_laser(self) -> None:
         """Fire the laser if station is on, reflecting or splitting at mirrors
-        and stopping if it hits a target. Updates the 'is_hit' feature on targets.
-        We also draw red debug lines to visualize the laser beam.
+        and stopping if it hits a target.
+
+        Updates the 'is_hit' feature on targets. We also draw red debug
+        lines to visualize the laser beam.
         """
         # 1) Check if station is on
         if not self._station_powered_on():
@@ -419,12 +443,13 @@ class PyBulletLaserEnv(PyBulletEnv):
             return
 
         # 2) Build a basic ray from station outward
-        station_pos, station_orn = p.getBasePositionAndOrientation(self._station.id, self._physics_client_id)
-        station_pos = (station_pos[0],
-                       station_pos[1],
+        station_pos, station_orn = p.getBasePositionAndOrientation(
+            self._station.id, self._physics_client_id)
+        station_pos = (station_pos[0], station_pos[1],
                        self.table_height + self.light_height)
         # Example beam direction: facing station_orn z-axis
-        beam_dir = np.array([0.0, 1.0, 0.0])  # pick something consistent with your URDF
+        beam_dir = np.array([0.0, 1.0,
+                             0.0])  # pick something consistent with your URDF
         # Rotate beam_dir by the station's orientation
         rmat = np.array(p.getMatrixFromQuaternion(station_orn)).reshape(3, 3)
         beam_dir = rmat.dot(beam_dir)
@@ -435,7 +460,8 @@ class PyBulletLaserEnv(PyBulletEnv):
         self._clear_target_hits()
         self._trace_beam(start_pt, beam_dir, max_depth)
 
-    def _trace_beam(self, start: np.ndarray, direction: np.ndarray, depth: int):
+    def _trace_beam(self, start: np.ndarray, direction: np.ndarray,
+                    depth: int):
         """Recursively move a line forward until it hits a mirror or target."""
         if depth <= 0:
             return
@@ -443,18 +469,19 @@ class PyBulletLaserEnv(PyBulletEnv):
         # Cast a ray forward
         ray_len = 2.0  # you can adjust
         end_pt = start + direction * ray_len
-        hits = p.rayTest(list(start), list(end_pt), 
+        hits = p.rayTest(list(start),
+                         list(end_pt),
                          physicsClientId=self._physics_client_id)
         # hits is a list, but for a single rayTest() there's typically 1 item.
 
         best_hit = None
         best_fraction = 1.1
         for h in hits:
-            object_id = h[0]          # hitObjectUniqueId
-            link_index = h[1]        # hitLinkIndex
-            hit_fraction = h[2]      # fraction along the ray
-            hit_position = h[3]      # (x, y, z) of the collision
-            hit_normal = h[4]        # normal at collision
+            object_id = h[0]  # hitObjectUniqueId
+            link_index = h[1]  # hitLinkIndex
+            hit_fraction = h[2]  # fraction along the ray
+            hit_position = h[3]  # (x, y, z) of the collision
+            hit_normal = h[4]  # normal at collision
 
             # Check for a valid object and whether this hit is closer
             if object_id >= 0 and hit_fraction < best_fraction:
@@ -499,28 +526,34 @@ class PyBulletLaserEnv(PyBulletEnv):
             return
 
         # Check if it's a mirror
-        if hit_id in [self._mirror1.id, self._mirror2.id, self._split_mirror.id]:
+        if hit_id in [
+                self._mirror1.id, self._mirror2.id, self._split_mirror.id
+        ]:
             if hit_id == self._split_mirror.id:
                 # 1) Reflect path
                 reflect_dir = self._mirror_reflection(hit_id, direction)
-                self._trace_beam(hit_point + reflect_dir * 1e-3, reflect_dir, depth - 1)
+                self._trace_beam(hit_point + reflect_dir * 1e-3, reflect_dir,
+                                 depth - 1)
                 # 2) Pass-through path
                 pass_dir = direction
-                self._trace_beam(hit_point + pass_dir * 1e-3, pass_dir, depth - 1)
+                self._trace_beam(hit_point + pass_dir * 1e-3, pass_dir,
+                                 depth - 1)
             else:
                 # Normal mirror => reflect only
                 reflect_dir = self._mirror_reflection(hit_id, direction)
-                self._trace_beam(hit_point + reflect_dir * 1e-3, reflect_dir, depth - 1)
+                self._trace_beam(hit_point + reflect_dir * 1e-3, reflect_dir,
+                                 depth - 1)
 
         # Otherwise, it might have hit the station/table => stop
         return
 
-    def _mirror_reflection(self, mirror_id: int, 
+    def _mirror_reflection(self, mirror_id: int,
                            incoming_dir: np.ndarray) -> np.ndarray:
-        """Compute the approximate reflection of the incoming beam on a mirror's orientation."""
+        """Compute the approximate reflection of the incoming beam on a
+        mirror's orientation."""
         # For simplicity, reflect across the mirror's local y-axis (adjust as needed).
         # In a real environment you’d do actual local normal calculations.
-        pos, orn = p.getBasePositionAndOrientation(mirror_id, 
+        pos, orn = p.getBasePositionAndOrientation(mirror_id,
                                                    self._physics_client_id)
         # Convert the quaternion to Euler angles
         euler = p.getEulerFromQuaternion(orn)
@@ -548,13 +581,14 @@ class PyBulletLaserEnv(PyBulletEnv):
         """Check if station's switch is above threshold."""
         if not hasattr(self._station, "joint_id"):
             return False
-        j_pos, _, _, _ = p.getJointState(self._station.id, 
-                                        self._station.joint_id, 
-                                        physicsClientId=self._physics_client_id)
+        j_pos, _, _, _ = p.getJointState(
+            self._station.id,
+            self._station.joint_id,
+            physicsClientId=self._physics_client_id)
         # get the joint limits
-        info = p.getJointInfo(self._station.id, 
-                                        self._station.joint_id, 
-                                        physicsClientId=self._physics_client_id)
+        info = p.getJointInfo(self._station.id,
+                              self._station.joint_id,
+                              physicsClientId=self._physics_client_id)
         j_min, j_max = info[8], info[9]
         # Convert to fraction
         frac = (j_pos / self.station_joint_scale - j_min) / (j_max - j_min)
@@ -564,11 +598,15 @@ class PyBulletLaserEnv(PyBulletEnv):
         """If you need to programmatically turn the station on/off."""
         if not hasattr(self._station, "joint_id"):
             return
-        info = p.getJointInfo(self._station.id, self._station.joint_id, physicsClientId=self._physics_client_id)
+        info = p.getJointInfo(self._station.id,
+                              self._station.joint_id,
+                              physicsClientId=self._physics_client_id)
         j_min, j_max = info[8], info[9]
         mid_val = 0.5 * (j_min + j_max)
         target_val = j_max if power_on else j_min
-        p.resetJointState(self._station.id, self._station.joint_id, target_val * self.station_joint_scale,
+        p.resetJointState(self._station.id,
+                          self._station.joint_id,
+                          target_val * self.station_joint_scale,
                           physicsClientId=self._physics_client_id)
 
     def _is_target_hit(self, target_obj: Object) -> bool:
@@ -593,29 +631,32 @@ class PyBulletLaserEnv(PyBulletEnv):
 
     @staticmethod
     def _StationOn_holds(state: State, objects: Sequence[Object]) -> bool:
-        (station,) = objects
+        (station, ) = objects
         return state.get(station, "is_on") > 0.5
 
     @staticmethod
     def _TargetHit_holds(state: State, objects: Sequence[Object]) -> bool:
-        (target,) = objects
+        (target, ) = objects
         return state.get(target, "is_hit") > 0.5
 
     @staticmethod
     def _IsSplitMirror_holds(state: State, objects: Sequence[Object]) -> bool:
-        (mirror,) = objects
+        (mirror, ) = objects
         return state.get(mirror, "split_mirror") > 0.5
 
     # -------------------------------------------------------------------------
     # Task Generation
     # -------------------------------------------------------------------------
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_train_tasks, rng=self._train_rng)
+        return self._make_tasks(num_tasks=CFG.num_train_tasks,
+                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_test_tasks, rng=self._test_rng)
+        return self._make_tasks(num_tasks=CFG.num_test_tasks,
+                                rng=self._test_rng)
 
-    def _make_tasks(self, num_tasks: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _make_tasks(self, num_tasks: int,
+                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for _ in range(num_tasks):
             robot_dict = {
@@ -640,7 +681,7 @@ class PyBulletLaserEnv(PyBulletEnv):
             sm_x = station_x
             sm_y = station_y + 2 * self.piece_width
             split_mirror_dict = {
-                "x": sm_x - 2 * self.piece_width, # for demo
+                "x": sm_x - 2 * self.piece_width,  # for demo
                 "y": sm_y,
                 "z": self.table_height,
                 "rot": 0.0,
@@ -709,6 +750,7 @@ class PyBulletLaserEnv(PyBulletEnv):
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
+
 
 if __name__ == "__main__":
     """Run a simple simulation to test the environment."""

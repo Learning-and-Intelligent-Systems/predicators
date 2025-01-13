@@ -3,8 +3,8 @@
 Contains useful common code.
 """
 
-import logging
 import abc
+import logging
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import matplotlib
@@ -223,7 +223,8 @@ class PyBulletEnv(BaseEnv):
     @classmethod
     def _fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
                                 finger_state: float) -> float:
-        """Map the fingers in the given *State* to joint values for PyBullet."""
+        """Map the fingers in the given *State* to joint values for
+        PyBullet."""
         # If open_fingers is undefined, use 1.0 as the default.
         subs = {
             cls.open_fingers: pybullet_robot.open_fingers,
@@ -598,14 +599,15 @@ class PyBulletEnv(BaseEnv):
         return robot_ee_orns[CFG.pybullet_robot]
 
 
-def create_pybullet_block(color: Tuple[float, float, float, float],
-                          half_extents: Tuple[float, float,
-                                              float], mass: float,
-                          friction: float, 
-                          position: Sequence[Pose3D] = (0, 0, 0),
-                          orientation: Sequence[Quaternion] = (0, 0, 0, 1),
-                          physics_client_id: int=0,
-                          ) -> int:
+def create_pybullet_block(
+    color: Tuple[float, float, float, float],
+    half_extents: Tuple[float, float, float],
+    mass: float,
+    friction: float,
+    position: Sequence[Pose3D] = (0, 0, 0),
+    orientation: Sequence[Quaternion] = (0, 0, 0, 1),
+    physics_client_id: int = 0,
+) -> int:
     """A generic utility for creating a new block.
 
     Returns the PyBullet ID of the newly created block.

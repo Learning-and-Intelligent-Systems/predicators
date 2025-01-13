@@ -54,9 +54,9 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {
             LiftedAtom(HandEmpty, [robot]),
         }
-        pick_wire_nsrt = NSRT("PickWire", parameters,
-                                   preconditions, add_effects, delete_effects,
-                                   set(), option, option_vars, null_sampler)
+        pick_wire_nsrt = NSRT("PickWire", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
         nsrts.add(pick_wire_nsrt)
 
         # ConnectFirstWire. Connect first wire to light and battery.
@@ -81,9 +81,9 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Holding, [robot, wire]),
         }
         connect_first_wire_nsrt = NSRT("ConnectFirstWire", parameters,
-                                            preconditions, add_effects,
-                                            delete_effects, set(), option,
-                                            option_vars, null_sampler)
+                                       preconditions, add_effects,
+                                       delete_effects, set(), option,
+                                       option_vars, null_sampler)
         nsrts.add(connect_first_wire_nsrt)
 
         # hacky: connect second wire to light and power
@@ -106,9 +106,9 @@ class PyBulletCircuitGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Holding, [robot, wire]),
         }
         connect_second_wire_nsrt = NSRT("ConnectSecondWire", parameters,
-                                            preconditions, add_effects,
-                                            delete_effects, set(), option,
-                                            option_vars, null_sampler)
+                                        preconditions, add_effects,
+                                        delete_effects, set(), option,
+                                        option_vars, null_sampler)
         nsrts.add(connect_second_wire_nsrt)
 
         # # Done.

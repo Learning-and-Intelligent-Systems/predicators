@@ -288,17 +288,20 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
             if xy_waypoint_sq_dist < cls.pick_policy_tol:
                 return cls._get_move_action(state,
                                             (target_x, waypoint_y, target_z),
-                                            robot_pos, dwrist=dwrist)
+                                            robot_pos,
+                                            dwrist=dwrist)
             # If at a safe height, move to the position above the penultimate
             # waypoint, still at a safe height.
             if safe_z_sq_dist < cls.env_cls.safe_z_tol:
                 return cls._get_move_action(
                     state, (target_x, waypoint_y, cls.env_cls.robot_init_z),
-                    robot_pos, dwrist=dwrist)
+                    robot_pos,
+                    dwrist=dwrist)
             # Move up to a safe height.
             return cls._get_move_action(state,
                                         (x, y, cls.env_cls.robot_init_z),
-                                        robot_pos, dwrist=dwrist)
+                                        robot_pos,
+                                        dwrist=dwrist)
 
         return policy
 
@@ -518,7 +521,7 @@ def _get_pybullet_robot() -> SingleArmPyBulletRobot:
 
 class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_coffee environment.
-    
+
     Redefining twist, place, plug in and pour.
     """
 

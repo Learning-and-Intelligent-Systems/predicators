@@ -1,16 +1,16 @@
 """Ground-truth options for the (non-pybullet) blocks environment."""
 
+from functools import lru_cache
 from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
-from functools import lru_cache
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.pybullet_balance import PyBulletBalanceEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.controllers import \
-    create_change_fingers_option, create_move_end_effector_to_pose_option,\
+    create_change_fingers_option, create_move_end_effector_to_pose_option, \
     get_move_end_effector_to_pose_action
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
@@ -21,7 +21,7 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 
 class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the (non-pybullet) blocks environment."""
-    
+
     env_cls = PyBulletBalanceEnv
 
     @classmethod
@@ -121,7 +121,6 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_TurnMachineOn_terminal,
             annotation="Turn the machine on.")
 
-
         return {Pick, Stack, PutOnPlate, TurnMachineOn}
 
     @classmethod
@@ -141,7 +140,7 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             button_pos = (cls.env_cls.button_x, cls.env_cls.button_y,
                           cls.env_cls.button_z)
             arr = np.r_[button_pos, 1.0].astype(np.float32)
-            # arr = np.clip(arr, cls.env_cls.action_space.low, 
+            # arr = np.clip(arr, cls.env_cls.action_space.low,
             #               cls.env_cls.action_space.high)
             return Action(arr)
             # if (cls.env_cls.button_z - z)**2 < cls.env_cls._button_radius**2:
@@ -152,6 +151,7 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             #                             robot_pos)
 
         return policy
+
     @classmethod
     def _create_pick_policy(cls, action_space: Box) -> ParameterizedPolicy:
 
@@ -240,14 +240,15 @@ class BalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
         if pos_norm > 0:
             delta = delta / cls.env_cls.max_position_vel
         dx, dy, dz = delta
-        return Action(
-            np.array([dx, dy, dz, 0.0], dtype=np.float32))
+        return Action(np.array([dx, dy, dz, 0.0], dtype=np.float32))
+
 
 @lru_cache
 def _get_pybullet_robot() -> SingleArmPyBulletRobot:
     _, pybullet_robot, _ = \
             PyBulletBalanceEnv.initialize_pybullet(using_gui=False)
     return pybullet_robot
+
 
 class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
     """Ground-truth options for the pybullet_balance environment."""
@@ -335,7 +336,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     params_space=params_space),
             ],
             # "Pick up block ?block"
-            )
+        )
 
         # Stack
         option_types = [robot_type, block_type]
@@ -354,8 +355,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 # Move down to place.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToStack",
-                    z_func=lambda block_z:
-                    (block_z + block_size * 2),
+                    z_func=lambda block_z: (block_z + block_size * 2),
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -375,7 +375,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     params_space=params_space),
             ],
             # annotation="Stack the block in hand onto block ?otherblock"
-            )
+        )
 
         # PutOnPlate
         option_types = [robot_type, plate_type]
@@ -414,7 +414,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                     params_space=params_space),
             ],
             # annotation="Put block on plate"
-            )
+        )
 
         # TurnMachineOn
         def _TurnMachineOn_initiable(state: State, memory: Dict,
@@ -445,8 +445,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
             initiable=_TurnMachineOn_initiable,
             terminal=_TurnMachineOn_terminal,
             # annotation="Turn the machine on."
-            )
-
+        )
 
         return {Pick, Stack, PutOnPlate, TurnMachineOn}
 
@@ -511,7 +510,8 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 PyBulletBalanceEnv.x_lb +
                 (PyBulletBalanceEnv.x_ub - PyBulletBalanceEnv.x_lb) * x_norm,
                 PyBulletBalanceEnv.y_lb +
-                (PyBulletBalanceEnv.y_ub - PyBulletBalanceEnv.y_lb) * y_norm, z)
+                (PyBulletBalanceEnv.y_ub - PyBulletBalanceEnv.y_lb) * y_norm,
+                z)
             target_pose = Pose(target_position, home_orn)
             return current_pose, target_pose, finger_status
 
@@ -539,7 +539,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
             button_pos = (cls.env_cls.button_x, cls.env_cls.button_y,
                           cls.env_cls.button_z + cls.env_cls._button_radius)
             # arr = np.r_[button_pos, 1.0].astype(np.float32)
-            # # arr = np.clip(arr, cls.env_cls.action_space.low, 
+            # # arr = np.clip(arr, cls.env_cls.action_space.low,
             # #               cls.env_cls.action_space.high)
             # return Action(arr)
             if (cls.env_cls.button_x - x)**2 < \
@@ -547,13 +547,16 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 (cls.env_cls.button_y - y)**2 < \
                     cls.env_cls._button_radius**2:
                 # Move directly toward the button.
-                return cls._get_move_action(state, 
-                            button_pos, 
-                            robot_pos, finger_status="closed")
+                return cls._get_move_action(state,
+                                            button_pos,
+                                            robot_pos,
+                                            finger_status="closed")
             # Move only in the z direction.
-            return cls._get_move_action(state, (cls.env_cls.button_x, 
-                                                cls.env_cls.button_y, z),
-                                        robot_pos, finger_status="closed")
+            return cls._get_move_action(
+                state, (cls.env_cls.button_x, cls.env_cls.button_y, z),
+                robot_pos,
+                finger_status="closed")
+
         return policy
 
     @classmethod
@@ -584,7 +587,7 @@ class PyBulletBalanceGroundTruthOptionFactory(BalanceGroundTruthOptionFactory):
                 logging.debug(f"action arr type: {type(action_arr)}")
                 logging.debug(f"action arr: {action_arr}")
             return Action(action_arr)
-        
+
         home_orn = PyBulletBalanceEnv.get_robot_ee_home_orn()
         current_pose = Pose(robot_pos, home_orn)
         target_pose = Pose(target_pos, home_orn)

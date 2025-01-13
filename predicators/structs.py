@@ -385,6 +385,7 @@ class NSPredicate(Predicate):
         clf_str = clf_str.replace("@staticmethod\n", "")
         return clf_str
 
+
 @dataclass
 class _MemoizedClassifier():
     classifier: Callable[[State, Sequence[Object]], Union[bool, VLMQuery]]
@@ -445,7 +446,7 @@ class ConceptPredicate(Predicate):
 
     def __hash__(self) -> int:
         return self._hash
-    
+
     def holds(self, state: Set[GroundAtom], objects: Sequence[Object]) -> bool:
         """Public method for calling the classifier.
 

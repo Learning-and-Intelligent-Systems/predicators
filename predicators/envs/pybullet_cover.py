@@ -21,7 +21,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     # Table parameters.
     _table_height: ClassVar[float] = 0.4
-    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height/2)
+    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height / 2)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Object parameters.

@@ -46,16 +46,12 @@ class PyBulletDominoGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, [robot]),
             LiftedAtom(StartBlock, [block])
         }
-        add_effects = {
-            LiftedAtom(Toppled, [target])
-            }
-        delete_effects = {
-        }
+        add_effects = {LiftedAtom(Toppled, [target])}
+        delete_effects = {}
 
-        push_nsrt = NSRT("Push", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, null_sampler)
+        push_nsrt = NSRT("Push", parameters, preconditions, add_effects,
+                         delete_effects, set(), option, option_vars,
+                         null_sampler)
         nsrts.add(push_nsrt)
-
 
         return nsrts

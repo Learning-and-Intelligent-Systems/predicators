@@ -128,7 +128,8 @@ def create_move_end_effector_to_pose_option(
             finger_status=finger_status,
             max_vel_norm=max_vel_norm,
             finger_action_nudge_magnitude=finger_action_nudge_magnitude,
-            validate=validate,)
+            validate=validate,
+        )
         return action
 
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],
