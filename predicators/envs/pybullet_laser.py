@@ -63,6 +63,10 @@ class PyBulletLaserEnv(PyBulletEnv):
     station_joint_scale: ClassVar[float] = 0.1
     station_on_threshold: ClassVar[float] = 0.5  # fraction of the joint range
 
+    # Laser
+    _laser_color: ClassVar[Tuple[float, float, float]] = (1.0, 0.2, 0.2)
+    _laser_width: ClassVar[float] = 10
+
     # -------------
     # Types
     # -------------
@@ -137,7 +141,8 @@ class PyBulletLaserEnv(PyBulletEnv):
 
         # Laser station
         station_id = create_object(
-            asset_path="urdf/laser_station.urdf",
+            asset_path="urdf/partnet_mobility/switch/102812/"+
+                        "laser_station_switch.urdf",
             physics_client_id=physics_client_id,
             scale=1.0,
             use_fixed_base=True,
@@ -198,9 +203,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to the relevant PyBullet IDs."""
         self._station.id = pybullet_bodies["station_id"]
-        # In your URDF, if there is a 'switch' joint controlling the station power:
-        self._station.joint_id = self._get_joint_id(self._station.id, "switch_joint")
-
+        self._station.joint_id = self._get_joint_id(self._station.id, "joint_0")
         self._mirror1.id = pybullet_bodies["mirror_normal1_id"]
         self._mirror2.id = pybullet_bodies["mirror_normal2_id"]
         self._split_mirror.id = pybullet_bodies["mirror_split_id"]
@@ -437,8 +440,8 @@ class PyBulletLaserEnv(PyBulletEnv):
             p.addUserDebugLine(
                 lineFromXYZ=start.tolist(),
                 lineToXYZ=end_pt.tolist(),
-                lineColorRGB=[1.0, 0.0, 0.0],  # red
-                lineWidth=2.0,
+                lineColorRGB=self._laser_color,  # red
+                lineWidth=self._laser_width,
                 lifeTime=0.1,  # short lifetime so each step refreshes
             )
             return
@@ -452,8 +455,8 @@ class PyBulletLaserEnv(PyBulletEnv):
         p.addUserDebugLine(
             lineFromXYZ=start.tolist(),
             lineToXYZ=hit_point.tolist(),
-            lineColorRGB=[1.0, 0.0, 0.0],
-            lineWidth=2.0,
+            lineColorRGB=self._laser_color,
+            lineWidth=self._laser_width,
             lifeTime=0.1,
         )
 
@@ -515,17 +518,19 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _station_powered_on(self) -> bool:
         """Check if station's switch is above threshold."""
-        return True
-        return False
         if not hasattr(self._station, "joint_id"):
             return False
-        j_pos, _, _, _ = p.getJointState(self._station.id, self._station.joint_id, physicsClientId=self._physics_client_id)
+        j_pos, _, _, _ = p.getJointState(self._station.id, 
+                                        self._station.joint_id, 
+                                        physicsClientId=self._physics_client_id)
         # get the joint limits
-        info = p.getJointInfo(self._station.id, self._station.joint_id, physicsClientId=self._physics_client_id)
+        info = p.getJointInfo(self._station.id, 
+                                        self._station.joint_id, 
+                                        physicsClientId=self._physics_client_id)
         j_min, j_max = info[8], info[9]
         # Convert to fraction
         frac = (j_pos / self.station_joint_scale - j_min) / (j_max - j_min)
-        return frac > self.station_on_threshold
+        return bool(frac > self.station_on_threshold)
 
     def _set_station_powered_on(self, power_on: bool) -> None:
         """If you need to programmatically turn the station on/off."""
