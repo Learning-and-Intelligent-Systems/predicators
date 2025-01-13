@@ -59,6 +59,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------
     piece_width: ClassVar[float] = 0.08
     piece_height: ClassVar[float] = 0.11
+    light_height: ClassVar[float] = piece_height*2/3
     station_joint_scale: ClassVar[float] = 0.1
     station_on_threshold: ClassVar[float] = 0.5  # fraction of the joint range
 
@@ -379,8 +380,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     def _simulate_laser(self) -> None:
         """Fire the laser if station is on, reflecting or splitting at mirrors
         and stopping if it hits a target. Updates the 'is_hit' feature on targets.
-        This example uses a simplistic line-segment approach and might need
-        geometry enhancements for more realism.
+        We also draw red debug lines to visualize the laser beam.
         """
         # 1) Check if station is on
         if not self._station_powered_on():
@@ -390,6 +390,9 @@ class PyBulletLaserEnv(PyBulletEnv):
 
         # 2) Build a basic ray from station outward
         station_pos, station_orn = p.getBasePositionAndOrientation(self._station.id, self._physics_client_id)
+        station_pos = (station_pos[0],
+                       station_pos[1],
+                       self.table_height + self.light_height)
         # Example beam direction: facing station_orn z-axis
         beam_dir = np.array([0.0, 1.0, 0.0])  # pick something consistent with your URDF
         # Rotate beam_dir by the station's orientation
@@ -410,17 +413,18 @@ class PyBulletLaserEnv(PyBulletEnv):
         # Cast a ray forward
         ray_len = 2.0  # you can adjust
         end_pt = start + direction * ray_len
-        hits = p.rayTest(list(start), list(end_pt), physicsClientId=self._physics_client_id)
-        # hits is a list, but for a single rayTest() there is usually only 1 item.
+        hits = p.rayTest(list(start), list(end_pt), 
+                         physicsClientId=self._physics_client_id)
+        # hits is a list, but for a single rayTest() there's typically 1 item.
 
         best_hit = None
         best_fraction = 1.1
         for h in hits:
-            object_id = h[0]
-            link_index = h[1]
-            hit_fraction = h[2]
-            hit_position = h[3]
-            hit_normal = h[4]
+            object_id = h[0]          # hitObjectUniqueId
+            link_index = h[1]        # hitLinkIndex
+            hit_fraction = h[2]      # fraction along the ray
+            hit_position = h[3]      # (x, y, z) of the collision
+            hit_normal = h[4]        # normal at collision
 
             # Check for a valid object and whether this hit is closer
             if object_id >= 0 and hit_fraction < best_fraction:
@@ -428,12 +432,30 @@ class PyBulletLaserEnv(PyBulletEnv):
                 best_fraction = hit_fraction
 
         if not best_hit:
-            return  # no intersection => beam goes off into nowhere
+            # No intersection => beam goes off into nowhere.
+            # Draw a debug line all the way to end_pt.
+            p.addUserDebugLine(
+                lineFromXYZ=start.tolist(),
+                lineToXYZ=end_pt.tolist(),
+                lineColorRGB=[1.0, 0.0, 0.0],  # red
+                lineWidth=2.0,
+                lifeTime=0.1,  # short lifetime so each step refreshes
+            )
+            return
 
         # Unpack the best hit
         hit_id = best_hit[0]
         hit_fraction = best_hit[2]
         hit_point = np.array(best_hit[3])  # 3D position
+
+        # Draw a debug line from start up to the hit point
+        p.addUserDebugLine(
+            lineFromXYZ=start.tolist(),
+            lineToXYZ=hit_point.tolist(),
+            lineColorRGB=[1.0, 0.0, 0.0],
+            lineWidth=2.0,
+            lifeTime=0.1,
+        )
 
         # Check if it's a target
         if hit_id in [self._target1.id, self._target2.id]:
@@ -462,17 +484,25 @@ class PyBulletLaserEnv(PyBulletEnv):
         # Otherwise, it might have hit the station/table => stop
         return
 
-    def _mirror_reflection(self, mirror_id: int, incoming_dir: np.ndarray) -> np.ndarray:
+    def _mirror_reflection(self, mirror_id: int, 
+                           incoming_dir: np.ndarray) -> np.ndarray:
         """Compute the approximate reflection of the incoming beam on a mirror's orientation."""
         # For simplicity, reflect across the mirror's local y-axis (adjust as needed).
         # In a real environment you’d do actual local normal calculations.
-        pos, orn = p.getBasePositionAndOrientation(mirror_id, self._physics_client_id)
+        pos, orn = p.getBasePositionAndOrientation(mirror_id, 
+                                                   self._physics_client_id)
+        # Convert the quaternion to Euler angles
+        euler = p.getEulerFromQuaternion(orn)
+        euler = list(euler)
+        euler[2] -= np.pi / 4
+        orn = p.getQuaternionFromEuler(euler)
         rmat = np.array(p.getMatrixFromQuaternion(orn)).reshape(3, 3)
         # Suppose the mirror's local normal is the x-axis in URDF => mirror reflection around that.
         local_normal = rmat[:, 0]  # pick an axis consistent with mirror shape
         incoming_norm = incoming_dir / (np.linalg.norm(incoming_dir) + 1e-9)
         # reflection = dir - 2*(dir · normal)*normal
-        reflect = incoming_norm - 2 * (incoming_norm @ local_normal) * local_normal
+        reflect = incoming_norm - 2 * (incoming_norm @ local_normal) * \
+                    local_normal
         return reflect / (np.linalg.norm(reflect) + 1e-9)
 
     def _clear_target_hits(self):
