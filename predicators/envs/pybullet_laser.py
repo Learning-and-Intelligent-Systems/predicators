@@ -1,3 +1,9 @@
+"""
+python predicators/main.py --approach oracle --env pybullet_laser \
+--seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
+--sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
+--pybullet_camera_height 900 --pybullet_camera_width 900 --debug
+"""
 import logging
 from typing import Any, ClassVar, Dict, List, Sequence, Set, Tuple
 
@@ -62,6 +68,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     light_height: ClassVar[float] = piece_height*2/3
     station_joint_scale: ClassVar[float] = 0.1
     station_on_threshold: ClassVar[float] = 0.5  # fraction of the joint range
+    mirror_rot_offset: ClassVar[float] = np.pi / 4
 
     # Laser
     _laser_color: ClassVar[Tuple[float, float, float]] = (1.0, 0.2, 0.2)
@@ -93,6 +100,11 @@ class PyBulletLaserEnv(PyBulletEnv):
         self._StationOn = Predicate("StationOn", [self._station_type], self._StationOn_holds)
         # Perhaps you want a "TargetHit" predicate
         self._TargetHit = Predicate("TargetHit", [self._target_type], self._TargetHit_holds)
+        self._Holding = Predicate("Holding",
+                                  [self._robot_type, self._mirror_type],
+                                  self._Holding_holds)
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -103,6 +115,8 @@ class PyBulletLaserEnv(PyBulletEnv):
         return {
             self._StationOn,
             self._TargetHit,
+            self._Holding,
+            self._HandEmpty,
         }
 
     @property
@@ -216,7 +230,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         """Return IDs of wires (assuming the robot can pick them up)."""
         # return [self._wire1.id, self._wire2.id]
-        return []
+        return [self._mirror1.id, self._mirror2.id, self._split_mirror.id]
 
     def _get_state(self) -> State:
         """Construct a State from the current PyBullet simulation."""
@@ -554,6 +568,16 @@ class PyBulletLaserEnv(PyBulletEnv):
     # Predicates
     # -------------------------------------------------------------------------
     @staticmethod
+    def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+        _, wire = objects
+        return state.get(wire, "is_held") > 0.5
+
+    @staticmethod
+    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
+        robot, = objects
+        return state.get(robot, "fingers") > 0.2
+
+    @staticmethod
     def _StationOn_holds(state: State, objects: Sequence[Object]) -> bool:
         (station,) = objects
         return state.get(station, "is_on") > 0.5
@@ -597,7 +621,7 @@ class PyBulletLaserEnv(PyBulletEnv):
             sm_x = station_x
             sm_y = station_y + 2 * self.piece_width
             split_mirror_dict = {
-                "x": sm_x,
+                "x": sm_x - 2 * self.piece_width, # for demo
                 "y": sm_y,
                 "z": self.table_height,
                 "rot": 0.0,
