@@ -57,6 +57,8 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------
     # URDF scale or references (adjust to taste)
     # -------------
+    piece_width: ClassVar[float] = 0.08
+    piece_height: ClassVar[float] = 0.11
     station_joint_scale: ClassVar[float] = 0.1
     station_on_threshold: ClassVar[float] = 0.5  # fraction of the joint range
 
@@ -89,7 +91,7 @@ class PyBulletLaserEnv(PyBulletEnv):
 
     @classmethod
     def get_name(cls) -> str:
-        return "pybullet_laser_maze"
+        return "pybullet_laser"
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -477,7 +479,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _station_powered_on(self) -> bool:
         """Check if station's switch is above threshold."""
-        return True
+        return False
         if not hasattr(self._station, "joint_id"):
             return False
         j_pos, _, _, _ = p.getJointState(self._station.id, self._station.joint_id, physicsClientId=self._physics_client_id)
@@ -541,48 +543,60 @@ class PyBulletLaserEnv(PyBulletEnv):
             }
 
             # Example initial layout: station near bottom, mirrors in middle, targets near top
+            station_x = (self.x_lb + self.x_ub) / 2
+            station_y = self.y_lb + self.piece_width
             station_dict = {
-                "x": 0.6,
-                "y": 1.2,
+                "x": station_x,
+                "y": station_y,
                 "z": self.table_height,
                 "rot": 0.0,
                 "is_on": 0.0,  # off initially
             }
+            sm_x = station_x
+            sm_y = station_y + 2 * self.piece_width
+            split_mirror_dict = {
+                "x": sm_x,
+                "y": sm_y,
+                "z": self.table_height,
+                "rot": 0.0,
+                "split_mirror": 1.0,
+            }
 
+            m1_x = sm_x + 2 * self.piece_width
+            m1_y = sm_y
             mirror1_dict = {
-                "x": 0.7,
-                "y": 1.35,
+                "x": m1_x,
+                "y": m1_y,
                 "z": self.table_height,
                 "rot": 0.0,
                 "split_mirror": 0.0,
             }
+            m2_x = m1_x
+            m2_y = m1_y + 2 * self.piece_width
             mirror2_dict = {
-                "x": 0.8,
-                "y": 1.38,
+                "x": m2_x,
+                "y": m2_y,
                 "z": self.table_height,
-                "rot": np.pi / 2.0,
+                "rot": 0.0,
                 "split_mirror": 0.0,
             }
-            split_mirror_dict = {
-                "x": 0.65,
-                "y": 1.45,
-                "z": self.table_height,
-                "rot": np.pi / 4.0,
-                "split_mirror": 1.0,
-            }
 
+            t1_x = sm_x
+            t1_y = sm_y + 2 * self.piece_width
             target1_dict = {
-                "x": 0.75,
-                "y": 1.55,
+                "x": t1_x,
+                "y": t1_y,
                 "z": self.table_height,
                 "rot": 0.0,
                 "is_hit": 0.0,
             }
+            t2_x = m2_x + 2 * self.piece_width
+            t2_y = m2_y
             target2_dict = {
-                "x": 1.0,
-                "y": 1.55,
+                "x": t2_x,
+                "y": t2_y,
                 "z": self.table_height,
-                "rot": -np.pi / 4.0,
+                "rot": 0.0,
                 "is_hit": 0.0,
             }
 
