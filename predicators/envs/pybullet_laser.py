@@ -411,22 +411,29 @@ class PyBulletLaserEnv(PyBulletEnv):
         ray_len = 2.0  # you can adjust
         end_pt = start + direction * ray_len
         hits = p.rayTest(list(start), list(end_pt), physicsClientId=self._physics_client_id)
+        # hits is a list, but for a single rayTest() there is usually only 1 item.
 
-        # Each hit includes (hitObjectUniqueId, ..., hitFraction, ...)
-        # We only consider the first valid hit
         best_hit = None
         best_fraction = 1.1
         for h in hits:
-            if h[0] >= 0 and h[3] < best_fraction:  # valid object & closest
+            object_id = h[0]
+            link_index = h[1]
+            hit_fraction = h[2]
+            hit_position = h[3]
+            hit_normal = h[4]
+
+            # Check for a valid object and whether this hit is closer
+            if object_id >= 0 and hit_fraction < best_fraction:
                 best_hit = h
-                best_fraction = h[3]
+                best_fraction = hit_fraction
 
         if not best_hit:
             return  # no intersection => beam goes off into nowhere
 
-        # Intersection point
+        # Unpack the best hit
         hit_id = best_hit[0]
-        hit_point = start + direction * (best_hit[3] * ray_len)
+        hit_fraction = best_hit[2]
+        hit_point = np.array(best_hit[3])  # 3D position
 
         # Check if it's a target
         if hit_id in [self._target1.id, self._target2.id]:
@@ -435,17 +442,16 @@ class PyBulletLaserEnv(PyBulletEnv):
                 self._set_target_hit(self._target1, True)
             else:
                 self._set_target_hit(self._target2, True)
-            # Laser stops
+            # Laser stops here
             return
 
         # Check if it's a mirror
         if hit_id in [self._mirror1.id, self._mirror2.id, self._split_mirror.id]:
-            # Figure out if it's a split mirror or normal mirror
             if hit_id == self._split_mirror.id:
-                # 1) reflect path
+                # 1) Reflect path
                 reflect_dir = self._mirror_reflection(hit_id, direction)
                 self._trace_beam(hit_point + reflect_dir * 1e-3, reflect_dir, depth - 1)
-                # 2) pass-through path (continue in same direction)
+                # 2) Pass-through path
                 pass_dir = direction
                 self._trace_beam(hit_point + pass_dir * 1e-3, pass_dir, depth - 1)
             else:
@@ -453,7 +459,7 @@ class PyBulletLaserEnv(PyBulletEnv):
                 reflect_dir = self._mirror_reflection(hit_id, direction)
                 self._trace_beam(hit_point + reflect_dir * 1e-3, reflect_dir, depth - 1)
 
-        # Otherwise, it might have hit the station or table or unknown => stop
+        # Otherwise, it might have hit the station/table => stop
         return
 
     def _mirror_reflection(self, mirror_id: int, incoming_dir: np.ndarray) -> np.ndarray:
@@ -479,6 +485,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _station_powered_on(self) -> bool:
         """Check if station's switch is above threshold."""
+        return True
         return False
         if not hasattr(self._station, "joint_id"):
             return False
