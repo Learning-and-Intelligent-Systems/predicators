@@ -1,5 +1,4 @@
-"""
-Making a demo video:
+"""Making a demo video: 
 python predicators/main.py --approach oracle --env pybullet_balance --seed 1 \
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --make_failure_videos --video_fps 20 \
@@ -21,8 +20,8 @@ from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, NSPredicate, \
-    Object, Predicate, State, Type, ConceptPredicate, GroundAtom
+from predicators.structs import Action, Array, ConceptPredicate, \
+    EnvironmentTask, GroundAtom, NSPredicate, Object, Predicate, State, Type
 from predicators.utils import RawState, VLMQuery
 
 
@@ -32,7 +31,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
     # Table parameters.
     _table_height: ClassVar[float] = 0.4
-    _table2_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height/2)
+    _table2_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height / 2)
     _table_x, _table2_y, _table_z = _table2_pose
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
     _table_mid_w = 0.1
@@ -43,20 +42,18 @@ class PyBulletBalanceEnv(PyBulletEnv):
     # Plate
     _plate_height: ClassVar[float] = 0.01
     _plate_z = _table_height - _plate_height
-    _plate1_pose: ClassVar[Pose3D] = (_table_x, 
-                _table2_y - _table_mid_w / 2 - _table_side_w / 2 - _table_gap, 
-                _plate_z)
-    _plate3_pose: ClassVar[Pose3D] = (_table_x, 
-                _table2_y + _table_mid_w / 2 + _table_side_w / 2 + _table_gap, 
-                _plate_z)
+    _plate1_pose: ClassVar[Pose3D] = (_table_x, _table2_y - _table_mid_w / 2 -
+                                      _table_side_w / 2 - _table_gap, _plate_z)
+    _plate3_pose: ClassVar[Pose3D] = (_table_x, _table2_y + _table_mid_w / 2 +
+                                      _table_side_w / 2 + _table_gap, _plate_z)
     _plate_half_extents = (0.25, _table_side_w / 2, _plate_height)
     # Under plate beams
-    _beam1_pose: ClassVar[Pose3D] = (_table_x, 
-                                    (_plate1_pose[1] + _table2_pose[1]) / 2,
-                                    _plate_z - 4 * _plate_height)
-    _beam2_pose: ClassVar[Pose3D] = (_table_x, 
-                                    (_plate3_pose[1] + _table2_pose[1]) / 2,
-                                    _plate_z - 4 * _plate_height)
+    _beam1_pose: ClassVar[Pose3D] = (_table_x,
+                                     (_plate1_pose[1] + _table2_pose[1]) / 2,
+                                     _plate_z - 4 * _plate_height)
+    _beam2_pose: ClassVar[Pose3D] = (_table_x,
+                                     (_plate3_pose[1] + _table2_pose[1]) / 2,
+                                     _plate_z - 4 * _plate_height)
     _beam_half_extents = [0.01, 0.15, _plate_height]
 
     # Button on table
@@ -72,10 +69,10 @@ class PyBulletBalanceEnv(PyBulletEnv):
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
     z_lb: ClassVar[float] = _table_height
-    z_ub: ClassVar[float] = 0.75 + _table_height/2
+    z_ub: ClassVar[float] = 0.75 + _table_height / 2
     y_plate1_ub: ClassVar[float] = _plate1_pose[1] + _table_side_w / 2 - 0.1
     y_plate3_lb: ClassVar[float] = _plate3_pose[1] - _table_side_w / 2 + 0.1
-    
+
     # Robot parameters
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
@@ -85,7 +82,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
     collision_padding: ClassVar[float] = 2.0
 
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.52)
-    
+
     _block_mass: ClassVar[float] = 0.5
     _block_size = CFG.balance_block_size
     _num_blocks_train = CFG.balance_num_blocks_train
@@ -102,11 +99,11 @@ class PyBulletBalanceEnv(PyBulletEnv):
             "robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
             (bbox_features if CFG.env_include_bbox_features else []))
         self._plate_type = Type(
-            "plate",
-            ["pose_z"] + (bbox_features if CFG.env_include_bbox_features else [])
-        )
-        self._machine_type = Type("machine", ["is_on"] + (bbox_features if 
-                                CFG.env_include_bbox_features else []))
+            "plate", ["pose_z"] +
+            (bbox_features if CFG.env_include_bbox_features else []))
+        self._machine_type = Type(
+            "machine", ["is_on"] +
+            (bbox_features if CFG.env_include_bbox_features else []))
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -114,20 +111,22 @@ class PyBulletBalanceEnv(PyBulletEnv):
         # self._table2 = Object("table2", self._plate_type)
         self._plate3 = Object("plate3", self._plate_type)
         self._machine = Object("mac", self._machine_type)
-        
+
         super().__init__(use_gui)
 
         # Predicates
         self._DirectlyOn = Predicate(
-            "DirectlyOn", [self._block_type, self._block_type],
-            self._DirectlyOn_holds, 
+            "DirectlyOn",
+            [self._block_type, self._block_type],
+            self._DirectlyOn_holds,
             # lambda objs:
             # f"{objs[0]} is directly on top of {objs[1]} with no blocks in between."
         )
         self._DirectlyOnPlate = Predicate(
-            "DirectlyOnPlate", [self._block_type, self._plate_type],
-            self._DirectlyOnPlate_holds, 
-            )
+            "DirectlyOnPlate",
+            [self._block_type, self._plate_type],
+            self._DirectlyOnPlate_holds,
+        )
         self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
                                       self._GripperOpen_holds)
         self._Holding = Predicate("Holding", [self._block_type],
@@ -202,108 +201,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
             self._machine_type
         }
 
-    @property
-    def ns_predicates(self) -> Set[NSPredicate]:
-        return {
-            # self._DirectlyOn_NSP,
-            # self._DirectlyOnPlate_NSP,
-            # self._GripperOpen_NSP,
-            # self._Holding_NSP,
-            # self._Clear_NSP,
-            self._Balanced,
-        }
-
-    def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> \
-            Union[bool, VLMQuery]:
-        """Is there no block on top of the block."""
-        block, = objects
-        for other_block in state:
-            if other_block.type != self._block_type:
-                continue
-            if self._DirectlyOn_holds(state, [other_block, block]):
-                return False
-        return True
-
-    def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
-            bool:
-        """Is the robot holding the block."""
-        block, = objects
-
-        # The block can't be held if the robot's hand is open.
-        # We know there is only one robot in this environment.
-        robot = state.get_objects(self._robot_type)[0]
-        if self._GripperOpen_NSP_holds(state, [robot]):
-            return False
-
-        # Using simple heuristics to check if they have overlap
-        block_bbox = state.get_obj_bbox(block)
-        robot_bbox = state.get_obj_bbox(robot)
-        if block_bbox.right < robot_bbox.left or \
-            block_bbox.left > robot_bbox.right or\
-            block_bbox.upper < robot_bbox.lower or\
-            block_bbox.lower > robot_bbox.upper:
-            return False
-
-        block_name = block.id_name
-        attention_image = state.crop_to_objects([block, robot])
-        return state.evaluate_simple_assertion(
-            f"{block_name} is held by the robot", attention_image)
-
-    def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
-            bool:
-        """Is the robots gripper open."""
-        robot, = objects
-        finger_state = state.get(robot, "fingers")
-        assert finger_state in (0.0, 1.0)
-        return finger_state == 1.0
-
-
-    def _DirectlyOnPlate_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
-            bool:
-        """Determine if the block in objects is directly resting on the table's
-        surface in the scene image."""
-        block, = objects
-        block_name = block.id_name
-
-        # We know there is only one table in this environment.
-        plate = state.get_objects(self._plate_type)[0]
-        plate_name = plate.id_name
-        # Crop the image to the smallest bounding box that include both objects.
-        attention_image = state.crop_to_objects([block, plate])
-
-        return state.evaluate_simple_assertion(
-            f"{block_name} is directly resting on {plate_name}'s surface.",
-            attention_image)
-
-    def _DirectlyOn_NSP_holds(state: RawState,
-                              objects: Sequence[Object]) -> bool:
-        """Determine if the first block in objects is directly on top of the
-        second block with no blocks in between in the scene image, by using a
-        combination of rules and VLMs."""
-
-        block1, block2 = objects
-        block1_name, block2_name = block1.id_name, block2.id_name
-
-        # We know a block can't be on top of itself.
-        if block1_name == block2_name:
-            return False
-
-        # Situations where we're certain that block1 won't be above block2
-        if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower") or\
-           state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
-           state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
-           state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
-           state.get(block1, "pose_z") < state.get(block2, "pose_z"):
-            return False
-
-        # Use a VLM query to handle to reminder cases
-        # Crop the scene image to the smallest bounding box that include both
-        # objects.
-        attention_image = state.crop_to_objects([block1, block2])
-        return state.evaluate_simple_assertion(
-            f"{block1_name} is directly on top of {block2_name} with no " +
-            "blocks in between.", attention_image)
-
     @classmethod
     def initialize_pybullet(
             cls, using_gui: bool
@@ -341,7 +238,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
             cls._table_orientation,
             physics_client_id,
         )
-        bodies["table_ids"] = [plate1_id, plate3_id]
+        bodies["table_ids"] = [plate1_id, plate3_id, table2_id]
 
         beam1_id = create_pybullet_block(
             (0.9, 0.9, 0.9, 1),
@@ -363,9 +260,10 @@ class PyBulletBalanceEnv(PyBulletEnv):
         )
         bodies["beam_ids"] = [beam1_id, beam2_id]
 
+
         button_id = create_pybullet_block(
             cls._button_color_off,
-            [cls._button_radius]*3,
+            [cls._button_radius] * 3,
             0.0,
             1.0,
             (cls.button_x, cls.button_y, cls.button_z),
@@ -386,16 +284,48 @@ class PyBulletBalanceEnv(PyBulletEnv):
             half_extents = (block_size / 2.0, block_size / 2.0,
                             block_size / 2.0)
             block_ids.append(
-                create_pybullet_block(color, half_extents, cls._block_mass,
-                                      cls._obj_friction, 
+                create_pybullet_block(color,
+                                      half_extents,
+                                      cls._block_mass,
+                                      cls._obj_friction,
                                       physics_client_id=physics_client_id))
         bodies["block_ids"] = block_ids
 
         return physics_client_id, pybullet_robot, bodies
 
+    # @staticmethod
+    # def fix_plates_and_beams_in_place(physics_client_id, table_id, plate1_id, 
+    #                                   plate3_id, beam1_id, beam2_id):
+    # # Doesn't work for some reason
+    #     for child_id in [plate1_id, plate3_id, beam1_id, beam2_id]:
+    #         parent_pos, parent_orn = p.getBasePositionAndOrientation(table_id, 
+    #                                         physicsClientId=physics_client_id)
+    #         child_pos, child_orn = p.getBasePositionAndOrientation(child_id, 
+    #                                         physicsClientId=physics_client_id)
+    #         rel_pos, rel_orn = p.multiplyTransforms(
+    #             p.invertTransform(parent_pos, parent_orn)[0],
+    #             p.invertTransform(parent_pos, parent_orn)[1],
+    #             child_pos,
+    #             child_orn
+    #         )
+    #         p.createConstraint(
+    #             parentBodyUniqueId=table_id,
+    #             parentLinkIndex=-1,
+    #             childBodyUniqueId=child_id,
+    #             childLinkIndex=-1,
+    #             jointType=p.JOINT_FIXED,
+    #             jointAxis=(0, 0, 0),
+    #             parentFramePosition=rel_pos,
+    #             parentFrameOrientation=rel_orn,
+    #             childFramePosition=(0, 0, 0),
+    #             childFrameOrientation=(0, 0, 0),
+    #             physicsClientId=physics_client_id
+    #         )
+
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         self._plate1.id = pybullet_bodies["table_ids"][0]
         self._plate3.id = pybullet_bodies["table_ids"][1]
+        self._table_id = pybullet_bodies["table_ids"][2]
         self._machine.id = pybullet_bodies["button_id"]
         self._robot.id = self._pybullet_robot.robot_id
         self._block_ids = pybullet_bodies["block_ids"]
@@ -405,10 +335,88 @@ class PyBulletBalanceEnv(PyBulletEnv):
     def get_name(cls) -> str:
         return "pybullet_balance"
 
+    # -------------------------------------------------------------------------
+    # State Management: Get, (Re)Set, Step
+
+    def _get_state(self) -> State:
+        """Create a State based on the current PyBullet state.
+
+        Note that in addition to the state inside PyBullet itself, this
+        uses self._block_id_to_block and self._held_obj_id. As long as
+        the PyBullet internal state is only modified through reset() and
+        step(), these all should remain in sync.
+        """
+        state_dict = {}
+
+        # Get robot state.
+        rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
+        fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
+        state_dict[self._robot] = np.array([rx, ry, rz, fingers],
+                                           dtype=np.float32)
+        joint_positions = self._pybullet_robot.get_joints()
+
+        # Get block states.
+        for block_id, block in self._block_id_to_block.items():
+            (bx, by, bz), _ = p.getBasePositionAndOrientation(
+                block_id, physicsClientId=self._physics_client_id)
+            held = (block_id == self._held_obj_id)
+            visual_data = p.getVisualShapeData(
+                block_id, physicsClientId=self._physics_client_id)[0]
+            r, g, b, _ = visual_data[7]
+            # pose_x, pose_y, pose_z, held
+            state_dict[block] = np.array([bx, by, bz, held, r, g, b],
+                                         dtype=np.float32)
+
+        # Get machine state.
+        button_color = p.getVisualShapeData(
+            self._machine.id, physicsClientId=self._physics_client_id)[0][-1]
+        button_color_on_dist = sum(
+            np.subtract(button_color, self._button_color_on)**2)
+        button_color_off_dist = sum(
+            np.subtract(button_color, self._button_color_off)**2)
+        machine_on = float(button_color_on_dist < button_color_off_dist)
+        state_dict[self._machine] = np.array([machine_on], dtype=np.float32)
+
+        # Get table state.
+        plate1_pos, _ = p.getBasePositionAndOrientation(
+            self._plate1.id, physicsClientId=self._physics_client_id)
+        plate1_z = plate1_pos[2]
+        state_dict[self._plate1] = np.array([plate1_z], dtype=np.float32)
+
+        plate3_pos, _ = p.getBasePositionAndOrientation(
+            self._plate3.id, physicsClientId=self._physics_client_id)
+        plate3_z = plate3_pos[2]
+        state_dict[self._plate3] = np.array([plate3_z], dtype=np.float32)
+
+        state = utils.PyBulletState(state_dict,
+                                    simulator_state=joint_positions)
+        assert set(state) == set(self._current_state), \
+            (f"Reconstructed state has objects {set(state)}, but "
+             f"self._current_state has objects {set(self._current_state)}.")
+
+        return state
+
+    def step(self, action: Action, render_obs: bool = False) -> State:
+        state = super().step(action, render_obs=render_obs)
+
+        self._update_balance_beam(state)
+
+        # Turn machine on
+        if self._PressingButton_holds(state, [self._robot, self._machine]):
+            if self._Balanced_holds(state, [self._plate1, self._plate3]):
+                p.changeVisualShape(self._machine.id,
+                                    -1,
+                                    rgbaColor=self._button_color_on,
+                                    physicsClientId=self._physics_client_id)
+            self._current_observation = self._get_state()
+            state = self._current_observation.copy()
+
+        return state
+
+
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle blocks-specific resetting."""
         super()._reset_state(state)
-
 
         # Reset blocks based on the state.
         plate1_z = state.get(self._plate1, "pose_z")
@@ -416,8 +424,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
             self._plate1.id,
             [self._plate1_pose[0], self._plate1_pose[1], plate1_z],
             self._table_orientation,
-            physicsClientId=self._physics_client_id
-        )
+            physicsClientId=self._physics_client_id)
 
         # --- ADDED: reset plate3 pose_z from the state
         plate3_z = state.get(self._plate3, "pose_z")
@@ -425,8 +432,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
             self._plate3.id,
             [self._plate3_pose[0], self._plate3_pose[1], plate3_z],
             self._table_orientation,
-            physicsClientId=self._physics_client_id
-        )
+            physicsClientId=self._physics_client_id)
 
         block_objs = state.get_objects(self._block_type)
         self._block_id_to_block = {}
@@ -486,7 +492,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
                             rgbaColor=button_color,
                             physicsClientId=self._physics_client_id)
 
-
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
         if not reconstructed_state.allclose(state):
@@ -497,7 +502,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
             logging.warning("Could not reconstruct state exactly!")
 
     def _update_balance_beam(self, state: State) -> None:
-        """Shift the plates, beams, *and blocks on them* to simulate a balance."""
+        """Shift the plates, beams, *and blocks on them* to simulate a
+        balance."""
 
         # Count how many blocks are on each plate by comparing x to midpoint_x.
         left_count = 0
@@ -560,117 +566,36 @@ class PyBulletBalanceEnv(PyBulletEnv):
         plate1_pos, plate1_orn = p.getBasePositionAndOrientation(
             plate1_id, physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
-            plate1_id,
-            [plate1_pos[0], plate1_pos[1], new_plate1_z],
+            plate1_id, [plate1_pos[0], plate1_pos[1], new_plate1_z],
             plate1_orn,
             physicsClientId=self._physics_client_id)
 
         beam1_pos, beam1_orn = p.getBasePositionAndOrientation(
             beam1_id, physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
-            beam1_id,
-            [beam1_pos[0], beam1_pos[1], new_beam1_z],
+            beam1_id, [beam1_pos[0], beam1_pos[1], new_beam1_z],
             beam1_orn,
             physicsClientId=self._physics_client_id)
 
         plate3_pos, plate3_orn = p.getBasePositionAndOrientation(
             plate3_id, physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
-            plate3_id,
-            [plate3_pos[0], plate3_pos[1], new_plate3_z],
+            plate3_id, [plate3_pos[0], plate3_pos[1], new_plate3_z],
             plate3_orn,
             physicsClientId=self._physics_client_id)
 
         beam2_pos, beam2_orn = p.getBasePositionAndOrientation(
             beam2_id, physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
-            beam2_id,
-            [beam2_pos[0], beam2_pos[1], new_beam2_z],
+            beam2_id, [beam2_pos[0], beam2_pos[1], new_beam2_z],
             beam2_orn,
             physicsClientId=self._physics_client_id)
-
 
         # Record the new difference
         self._prev_diff = diff
 
-    def _get_state(self) -> State:
-        """Create a State based on the current PyBullet state.
 
-        Note that in addition to the state inside PyBullet itself, this
-        uses self._block_id_to_block and self._held_obj_id. As long as
-        the PyBullet internal state is only modified through reset() and
-        step(), these all should remain in sync.
-        """
-        state_dict = {}
-
-        # Get robot state.
-        rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
-        fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
-        state_dict[self._robot] = np.array([rx, ry, rz, fingers],
-                                           dtype=np.float32)
-        joint_positions = self._pybullet_robot.get_joints()
-
-        # Get block states.
-        for block_id, block in self._block_id_to_block.items():
-            (bx, by, bz), _ = p.getBasePositionAndOrientation(
-                block_id, physicsClientId=self._physics_client_id)
-            held = (block_id == self._held_obj_id)
-            visual_data = p.getVisualShapeData(
-                block_id, physicsClientId=self._physics_client_id)[0]
-            r, g, b, _ = visual_data[7]
-            # pose_x, pose_y, pose_z, held
-            state_dict[block] = np.array([bx, by, bz, held, r, g, b],
-                                         dtype=np.float32)
-
-        # Get machine state.
-        button_color = p.getVisualShapeData(
-            self._machine.id, physicsClientId=self._physics_client_id)[0][-1]
-        button_color_on_dist = sum(
-            np.subtract(button_color, self._button_color_on)**2)
-        button_color_off_dist = sum(
-            np.subtract(button_color, self._button_color_off)**2)
-        machine_on = float(button_color_on_dist < button_color_off_dist)
-        state_dict[self._machine] = np.array([machine_on], dtype=np.float32)
-
-        # Get table state.
-        plate1_pos, _ = p.getBasePositionAndOrientation(
-            self._plate1.id, physicsClientId=self._physics_client_id
-        )
-        plate1_z = plate1_pos[2]
-        state_dict[self._plate1] = np.array([plate1_z], dtype=np.float32)
-
-        plate3_pos, _ = p.getBasePositionAndOrientation(
-            self._plate3.id, physicsClientId=self._physics_client_id
-        )
-        plate3_z = plate3_pos[2]
-        state_dict[self._plate3] = np.array([plate3_z], dtype=np.float32)
-
-
-        state = utils.PyBulletState(state_dict,
-                                    simulator_state=joint_positions)
-        assert set(state) == set(self._current_state), \
-            (f"Reconstructed state has objects {set(state)}, but "
-             f"self._current_state has objects {set(self._current_state)}.")
-
-        return state
-
-    def step(self, action: Action, render_obs: bool = False) -> State:
-        state = super().step(action, render_obs=render_obs)
-
-        self._update_balance_beam(state)
-
-        # Turn machine on
-        if self._PressingButton_holds(state, [self._robot, self._machine]):
-            if self._Balanced_holds(state, [self._plate1, self._plate3]):
-                p.changeVisualShape(self._machine.id,
-                                    -1,
-                                    rgbaColor=self._button_color_on,
-                                    physicsClientId=self._physics_client_id)
-            self._current_observation = self._get_state()
-            state = self._current_observation.copy()
-
-        return state
-
+    # -------------------------------------------------------------------------
     # Predicates
     def _OnPlate_CP_holds(self, atoms: Set[GroundAtom],
                           objects: Sequence[Object]) -> bool:
@@ -712,7 +637,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
     def _PressingButton_holds(self, state: State,
                               objects: Sequence[Object]) -> bool:
         robot, _ = objects
-        button_pos = (self.button_x, self.button_y, 
+        button_pos = (self.button_x, self.button_y,
                       self.button_z + self._button_radius)
         x = state.get(robot, "pose_x")
         y = state.get(robot, "pose_y")
@@ -812,7 +737,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         block, table = objects
         y = state.get(block, "pose_y")
         z = state.get(block, "pose_z")
-        table_z = state.get(table, "pose_z") + self._plate_height/2
+        table_z = state.get(table, "pose_z") + self._plate_height / 2
         desired_z = table_z + self._block_size * 0.5
 
         if (state.get(block, "held") < self.held_tol) and \
@@ -856,16 +781,108 @@ class PyBulletBalanceEnv(PyBulletEnv):
                 return block
         return None
 
+    def _Clear_NSP_holds(self, state: RawState, objects: Sequence[Object]) -> \
+            Union[bool, VLMQuery]:
+        """Is there no block on top of the block."""
+        block, = objects
+        for other_block in state:
+            if other_block.type != self._block_type:
+                continue
+            if self._DirectlyOn_holds(state, [other_block, block]):
+                return False
+        return True
 
+    def _Holding_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
+            bool:
+        """Is the robot holding the block."""
+        block, = objects
+
+        # The block can't be held if the robot's hand is open.
+        # We know there is only one robot in this environment.
+        robot = state.get_objects(self._robot_type)[0]
+        if self._GripperOpen_NSP_holds(state, [robot]):
+            return False
+
+        # Using simple heuristics to check if they have overlap
+        block_bbox = state.get_obj_bbox(block)
+        robot_bbox = state.get_obj_bbox(robot)
+        if block_bbox.right < robot_bbox.left or \
+            block_bbox.left > robot_bbox.right or\
+            block_bbox.upper < robot_bbox.lower or\
+            block_bbox.lower > robot_bbox.upper:
+            return False
+
+        block_name = block.id_name
+        attention_image = state.crop_to_objects([block, robot])
+        return state.evaluate_simple_assertion(
+            f"{block_name} is held by the robot", attention_image)
+
+    def _GripperOpen_NSP_holds(self, state: RawState, objects: Sequence[Object]) ->\
+            bool:
+        """Is the robots gripper open."""
+        robot, = objects
+        finger_state = state.get(robot, "fingers")
+        assert finger_state in (0.0, 1.0)
+        return finger_state == 1.0
+
+
+    def _DirectlyOnPlate_NSP_holds(state: RawState, objects:Sequence[Object]) ->\
+            bool:
+        """Determine if the block in objects is directly resting on the table's
+        surface in the scene image."""
+        block, = objects
+        block_name = block.id_name
+
+        # We know there is only one table in this environment.
+        plate = state.get_objects(self._plate_type)[0]
+        plate_name = plate.id_name
+        # Crop the image to the smallest bounding box that include both objects.
+        attention_image = state.crop_to_objects([block, plate])
+
+        return state.evaluate_simple_assertion(
+            f"{block_name} is directly resting on {plate_name}'s surface.",
+            attention_image)
+
+    def _DirectlyOn_NSP_holds(state: RawState,
+                              objects: Sequence[Object]) -> bool:
+        """Determine if the first block in objects is directly on top of the
+        second block with no blocks in between in the scene image, by using a
+        combination of rules and VLMs."""
+
+        block1, block2 = objects
+        block1_name, block2_name = block1.id_name, block2.id_name
+
+        # We know a block can't be on top of itself.
+        if block1_name == block2_name:
+            return False
+
+        # Situations where we're certain that block1 won't be above block2
+        if state.get(block1, "bbox_lower") < state.get(block2, "bbox_lower") or\
+           state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
+           state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
+           state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
+           state.get(block1, "pose_z") < state.get(block2, "pose_z"):
+            return False
+
+        # Use a VLM query to handle to reminder cases
+        # Crop the scene image to the smallest bounding box that include both
+        # objects.
+        attention_image = state.crop_to_objects([block1, block2])
+        return state.evaluate_simple_assertion(
+            f"{block1_name} is directly on top of {block2_name} with no " +
+            "blocks in between.", attention_image)
+
+    # -------------------------------------------------------------------------
+    # Task Generation
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._make_tasks(num_tasks=CFG.num_train_tasks,
-                               possible_num_blocks=self._num_blocks_train,
-                               rng=self._train_rng)
+                                possible_num_blocks=self._num_blocks_train,
+                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._make_tasks(num_tasks=CFG.num_test_tasks,
-                               possible_num_blocks=self._num_blocks_test,
-                               rng=self._test_rng)
+                                possible_num_blocks=self._num_blocks_test,
+                                rng=self._test_rng)
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         task = super()._load_task_from_json(json_file)
@@ -886,7 +903,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         self._create_grasp_constraint()
 
     def _make_tasks(self, num_tasks: int, possible_num_blocks: List[int],
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for idx in range(num_tasks):
             num_blocks = rng.choice(possible_num_blocks, p=[0.3, 0.7])
@@ -896,6 +913,13 @@ class PyBulletBalanceEnv(PyBulletEnv):
                 GroundAtom(self._MachineOn, [self._machine, self._robot]),
                 # GroundAtom(self._DirectlyOn, [piles[1][3], piles[0][1]]),
                 }
+                # }
+            # while True:  # repeat until goal is not satisfied
+            #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
+            #     if not all(goal_atom.holds(init_state) for goal_atom in goal):
+            #         break
+            # if idx == 0:
+            # }
             # while True:  # repeat until goal is not satisfied
             #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
             #     if not all(goal_atom.holds(init_state) for goal_atom in goal):
@@ -913,7 +937,11 @@ class PyBulletBalanceEnv(PyBulletEnv):
             # If coin flip, start new pile
             # if (block_num == 0 or rng.uniform() < 0.2) and n_piles < 2:
             # increase the chance of starting a new pile
-            if (block_num == 0 or rng.uniform() < 0.4) and n_piles < 2:
+            # if (block_num == 0 or rng.uniform() < 0.4) and n_piles < 2:
+            #     n_piles += 1
+            #     piles.append([])
+            # For generating a 1:5 pile
+            if (block_num == 0 or block_num == 1):
                 n_piles += 1
                 piles.append([])
             # Add block to pile
