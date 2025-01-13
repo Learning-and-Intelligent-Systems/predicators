@@ -4,7 +4,7 @@
   <link name="base_link">
     <inertial>
       <origin xyz="0 0 0.005" rpy="0 0 0"/>
-      <mass value="0.1"/> <!-- Small mass -->
+      <mass value="1"/> <!-- Small mass -->
       <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/> <!-- Small inertia -->
     </inertial>
     <visual>
@@ -30,7 +30,7 @@
   <link name="mirror_piece_body">
     <inertial>
       <origin xyz="0 0 0.060000000000000005" rpy="0 0 0.7853981633974483"/>
-      <mass value="0.1"/> <!-- Small mass -->
+      <mass value="1"/> <!-- Small mass -->
       <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/> <!-- Small inertia -->
     </inertial>
     <visual>

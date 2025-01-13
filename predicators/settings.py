@@ -769,6 +769,7 @@ class GlobalSettings:
                     "pybullet_circuit": 2000,
                     "pybullet_float": 2000,
                     "pybullet_domino": 2000,
+                    "pybullet_laser": 2000,
                     "doors": 1000,
                     "coffee": 1000,
                     "kitchen": 1000,

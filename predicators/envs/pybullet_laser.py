@@ -68,7 +68,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     light_height: ClassVar[float] = piece_height*2/3
     station_joint_scale: ClassVar[float] = 0.1
     station_on_threshold: ClassVar[float] = 0.5  # fraction of the joint range
-    mirror_rot_offset: ClassVar[float] = np.pi / 4
+    mirror_rot_offset: ClassVar[float] = -np.pi / 4
 
     # Laser
     _laser_color: ClassVar[Tuple[float, float, float]] = (1.0, 0.2, 0.2)
@@ -79,7 +79,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _station_type = Type("station", ["x", "y", "z", "rot", "is_on"])
-    _mirror_type = Type("mirror", ["x", "y", "z", "rot", "split_mirror"])
+    _mirror_type = Type("mirror", ["x", "y", "z", "rot", "split_mirror", "is_held"])
     _target_type = Type("target", ["x", "y", "z", "rot", "is_hit"])
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -105,6 +105,8 @@ class PyBulletLaserEnv(PyBulletEnv):
                                   self._Holding_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
+        self._IsSplitMirror = Predicate("IsSplitMirror", [self._mirror_type],
+                                        self._IsSplitMirror_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -117,6 +119,7 @@ class PyBulletLaserEnv(PyBulletEnv):
             self._TargetHit,
             self._Holding,
             self._HandEmpty,
+            self._IsSplitMirror,
         }
 
     @property
@@ -230,7 +233,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         """Return IDs of wires (assuming the robot can pick them up)."""
         # return [self._wire1.id, self._wire2.id]
-        return [self._mirror1.id, self._mirror2.id, self._split_mirror.id]
+        return [self._split_mirror.id, self._mirror1.id, self._mirror2.id]
 
     def _get_state(self) -> State:
         """Construct a State from the current PyBullet simulation."""
@@ -270,32 +273,38 @@ class PyBulletLaserEnv(PyBulletEnv):
         # Normal mirror 1
         (m1x, m1y, m1z), m1orn = p.getBasePositionAndOrientation(self._mirror1.id, self._physics_client_id)
         m1_euler = p.getEulerFromQuaternion(m1orn)
+        is_held_val_1 = 1.0 if self._mirror1.id == self._held_obj_id else 0.0
         state_dict[self._mirror1] = {
             "x": m1x,
             "y": m1y,
             "z": m1z,
             "rot": m1_euler[2],
             "split_mirror": 0.0,  # normal mirror
+            "is_held": is_held_val_1
         }
         # Normal mirror 2
         (m2x, m2y, m2z), m2orn = p.getBasePositionAndOrientation(self._mirror2.id, self._physics_client_id)
         m2_euler = p.getEulerFromQuaternion(m2orn)
+        is_held_val_2 = 1.0 if self._mirror2.id == self._held_obj_id else 0.0
         state_dict[self._mirror2] = {
             "x": m2x,
             "y": m2y,
             "z": m2z,
             "rot": m2_euler[2],
             "split_mirror": 0.0,  # normal mirror
+            "is_held": is_held_val_2
         }
         # Split mirror
         (smx, smy, smz), smorn = p.getBasePositionAndOrientation(self._split_mirror.id, self._physics_client_id)
         sm_euler = p.getEulerFromQuaternion(smorn)
+        is_held_val_s = 1.0 if self._split_mirror.id == self._held_obj_id else 0.0
         state_dict[self._split_mirror] = {
             "x": smx,
             "y": smy,
             "z": smz,
             "rot": sm_euler[2],
             "split_mirror": 1.0,  # split mirror
+            "is_held": is_held_val_s
         }
 
         # -------------
@@ -350,6 +359,7 @@ class PyBulletLaserEnv(PyBulletEnv):
 
         # Mirrors
         for mirror_obj in [self._mirror1, self._mirror2, self._split_mirror]:
+        # for mirror_obj in [self._split_mirror]:
             mx = state.get(mirror_obj, "x")
             my = state.get(mirror_obj, "y")
             mz = state.get(mirror_obj, "z")
@@ -360,6 +370,9 @@ class PyBulletLaserEnv(PyBulletEnv):
                 orientation=p.getQuaternionFromEuler([0.0, 0.0, mrot]),
                 physics_client_id=self._physics_client_id,
             )
+            if state.get(mirror_obj, "is_held") > 0.5:
+                self._attach(mirror_obj.id, self._pybullet_robot)
+                self._held_obj_id = mirror_obj.id
 
         # Targets
         for target_obj in [self._target1, self._target2]:
@@ -448,6 +461,7 @@ class PyBulletLaserEnv(PyBulletEnv):
                 best_hit = h
                 best_fraction = hit_fraction
 
+        life_time = 1.0
         if not best_hit:
             # No intersection => beam goes off into nowhere.
             # Draw a debug line all the way to end_pt.
@@ -456,7 +470,7 @@ class PyBulletLaserEnv(PyBulletEnv):
                 lineToXYZ=end_pt.tolist(),
                 lineColorRGB=self._laser_color,  # red
                 lineWidth=self._laser_width,
-                lifeTime=0.1,  # short lifetime so each step refreshes
+                lifeTime=life_time,  # short lifetime so each step refreshes
             )
             return
 
@@ -471,7 +485,7 @@ class PyBulletLaserEnv(PyBulletEnv):
             lineToXYZ=hit_point.tolist(),
             lineColorRGB=self._laser_color,
             lineWidth=self._laser_width,
-            lifeTime=0.1,
+            lifeTime=life_time,
         )
 
         # Check if it's a target
@@ -511,7 +525,7 @@ class PyBulletLaserEnv(PyBulletEnv):
         # Convert the quaternion to Euler angles
         euler = p.getEulerFromQuaternion(orn)
         euler = list(euler)
-        euler[2] -= np.pi / 4
+        euler[2] += self.mirror_rot_offset
         orn = p.getQuaternionFromEuler(euler)
         rmat = np.array(p.getMatrixFromQuaternion(orn)).reshape(3, 3)
         # Suppose the mirror's local normal is the x-axis in URDF => mirror reflection around that.
@@ -569,8 +583,8 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
-        _, wire = objects
-        return state.get(wire, "is_held") > 0.5
+        _, mirror = objects
+        return state.get(mirror, "is_held") > 0.5
 
     @staticmethod
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -586,6 +600,11 @@ class PyBulletLaserEnv(PyBulletEnv):
     def _TargetHit_holds(state: State, objects: Sequence[Object]) -> bool:
         (target,) = objects
         return state.get(target, "is_hit") > 0.5
+
+    @staticmethod
+    def _IsSplitMirror_holds(state: State, objects: Sequence[Object]) -> bool:
+        (mirror,) = objects
+        return state.get(mirror, "split_mirror") > 0.5
 
     # -------------------------------------------------------------------------
     # Task Generation
@@ -626,6 +645,7 @@ class PyBulletLaserEnv(PyBulletEnv):
                 "z": self.table_height,
                 "rot": 0.0,
                 "split_mirror": 1.0,
+                "is_held": 0.0,
             }
 
             m1_x = sm_x + 2 * self.piece_width
@@ -636,6 +656,7 @@ class PyBulletLaserEnv(PyBulletEnv):
                 "z": self.table_height,
                 "rot": 0.0,
                 "split_mirror": 0.0,
+                "is_held": 0.0,
             }
             m2_x = m1_x
             m2_y = m1_y + 2 * self.piece_width
@@ -645,6 +666,7 @@ class PyBulletLaserEnv(PyBulletEnv):
                 "z": self.table_height,
                 "rot": 0.0,
                 "split_mirror": 0.0,
+                "is_held": 0.0,
             }
 
             t1_x = sm_x
@@ -669,9 +691,9 @@ class PyBulletLaserEnv(PyBulletEnv):
             init_dict = {
                 self._robot: robot_dict,
                 self._station: station_dict,
+                self._split_mirror: split_mirror_dict,
                 self._mirror1: mirror1_dict,
                 self._mirror2: mirror2_dict,
-                self._split_mirror: split_mirror_dict,
                 self._target1: target1_dict,
                 self._target2: target2_dict,
             }

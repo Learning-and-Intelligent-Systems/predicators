@@ -94,7 +94,7 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Move down to grasp.
             cls._create_laser_move_to_above_mirror_option(
                 "MoveToGraspMirror",
-                lambda _: cls.env_cls.piece_height,
+                lambda _: cls.env_cls.piece_height + cls.env_cls.z_lb - 0.02,
                 "open",
                 option_types,
                 params_space),
@@ -106,7 +106,7 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Move up
             cls._create_laser_move_to_above_mirror_option(
                 "MoveEndEffectorBackUp",
-                lambda _: cls._transport_z,
+                lambda _: cls.env_cls.z_ub - cls._z_offset*2,
                 "closed",
                 option_types,
                 params_space),
@@ -121,14 +121,14 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Move to above the position for connecting.
             cls._create_laser_move_to_above_position_option(
                 "MoveToAboveTwoSnaps",
-                lambda _: cls._transport_z,
+                lambda _: cls.env_cls.z_ub - cls._z_offset,
                 "closed",
                 option_types,
                 params_space),
             # Move down to connect.
             cls._create_laser_move_to_above_position_option(
                 "MoveToPlace",
-                lambda _: cls.env_cls.piece_height,
+                lambda _: cls.env_cls.piece_height + cls.env_cls.z_lb + 0.01,
                 "closed",
                 option_types,
                 params_space),
@@ -186,7 +186,8 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
             _get_pybullet_robot(), name, option_types, params_space,
             _get_current_and_target_pose_and_finger_status,
             cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
-            cls._finger_action_nudge_magnitude)
+            cls._finger_action_nudge_magnitude,
+            validate=CFG.pybullet_ik_validate)
     
     @classmethod
     def _create_laser_move_to_above_position_option(
@@ -203,7 +204,7 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose, Pose, str]:
             assert not params
-            robot = objects
+            robot, = objects
             rx = state.get(robot, "x")
             ry = state.get(robot, "y")
             rz = state.get(robot, "z")
@@ -215,15 +216,15 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
 
             # TODO: this is just for demo
             x_lb, x_ub = 0.4, 1.1
-            y_lb = 0.5
+            y_lb = 1.1
             target_pos = ((x_lb + x_ub)/2,
-                            y_lb + cls.env_cls.piece_width,
+                            y_lb + 3*cls.env_cls.piece_width,
                             z_func(cls.env_cls.piece_height))
 
             # Calculate rot from lx, ly, bx, by
             target_orn = p.getQuaternionFromEuler([0, 
                                             cls.env_cls.robot_init_tilt, 
-                                            cls.env_cls.robot_init_wrist+\
+                                            cls.env_cls.robot_init_wrist-\
                                                 cls.env_cls.mirror_rot_offset])
             target_pose = Pose(target_pos, target_orn)
             return current_pose, target_pose, finger_status
@@ -232,4 +233,5 @@ class PyBulletLaserGroundTruthOptionFactory(GroundTruthOptionFactory):
             _get_pybullet_robot(), name, option_types, params_space,
             _get_current_and_target_pose_and_finger_status,
             cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
-            cls._finger_action_nudge_magnitude)
+            cls._finger_action_nudge_magnitude,
+            validate=CFG.pybullet_ik_validate)

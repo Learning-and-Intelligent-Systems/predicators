@@ -22,10 +22,13 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Types
         robot_type = types["robot"]
         mirror_type = types["mirror"]
+        target_type = types["target"]
 
         # Predicates
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
+        TargetHit = predicates["TargetHit"]
+        IsSplitMirror = predicates["IsSplitMirror"]
 
         # Options
         Pick = options["PickMirror"]
@@ -41,6 +44,7 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = Pick
         preconditions = {
             LiftedAtom(HandEmpty, [robot]),
+            LiftedAtom(IsSplitMirror, [mirror]),
         }
         add_effects = {
             LiftedAtom(Holding, [robot, mirror]),
@@ -55,7 +59,10 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # PlaceFirstMirror. Place first mirror to light and battery.
         robot = Variable("?robot", robot_type)
-        parameters = [robot, mirror]
+        mirror = Variable("?mirror", mirror_type)
+        target1 = Variable("?target1", target_type)
+        target2 = Variable("?target2", target_type)
+        parameters = [robot, mirror, target1, target2]
         option_vars = [robot]
         option = Place
         preconditions = {
@@ -65,6 +72,8 @@ class PyBulletLaserGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {
             LiftedAtom(HandEmpty, [robot]),
+            LiftedAtom(TargetHit, [target1]),
+            LiftedAtom(TargetHit, [target2]),
         }
         delete_effects = {
             LiftedAtom(Holding, [robot, mirror]),
