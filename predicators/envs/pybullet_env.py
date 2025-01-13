@@ -443,7 +443,7 @@ class PyBulletEnv(BaseEnv):
         if self._held_constraint_id is None and self._fingers_closing(action):
             # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
-            logging.debug(f"Detected held object: {self._held_obj_id}")
+            # logging.debug(f"Detected held object: {self._held_obj_id}")
             if self._held_obj_id is not None:
                 self._create_grasp_constraint()
 
@@ -496,7 +496,7 @@ class PyBulletEnv(BaseEnv):
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
                     score = expected_normal.dot(contact_normal)
-                    logging.debug(f"With obj {obj_id}, score: {score}")
+                    # logging.debug(f"With obj {obj_id}, score: {score}")
                     assert -1.0 <= score <= 1.0
 
                     # Take absolute as object/gripper could be rotated 180
