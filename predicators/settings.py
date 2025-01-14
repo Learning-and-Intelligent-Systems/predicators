@@ -764,7 +764,7 @@ class GlobalSettings:
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "pybullet_coffee": 2000,
-                    "pybullet_coffee_pixel": 2000,
+                    "pybullet_balance": 2000,
                     "pybullet_grow": 2000,
                     "pybullet_circuit": 2000,
                     "pybullet_float": 2000,

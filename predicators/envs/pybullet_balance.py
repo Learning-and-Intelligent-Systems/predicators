@@ -4,8 +4,8 @@ python predicators/main.py --approach oracle --env pybullet_balance --seed 1 \
 --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos \
 --sesame_task_planning_heuristic "goal_count" \
---excluded_predicates "Balanced,OnPlate" --sesame_max_skeletons_optimized 100 \
---sesame_check_expected_atoms False
+--excluded_predicates "Balanced,OnPlate" --sesame_max_skeletons_optimized 1 \
+--sesame_check_expected_atoms False --pybullet_ik_validate False
 """
 import logging
 from pathlib import Path
@@ -54,7 +54,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
     _beam2_pose: ClassVar[Pose3D] = (_table_x,
                                      (_plate3_pose[1] + _table2_pose[1]) / 2,
                                      _plate_z - 4 * _plate_height)
-    _beam_half_extents = [0.01, 0.15, _plate_height]
+    _beam_half_extents = [0.01, 0.15, _plate_height/2]
 
     # Button on table
     _button_radius = 0.04
@@ -222,7 +222,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         plate3_id = create_pybullet_block(
             (.9, .9, .9, 1),
             cls._plate_half_extents,
-            1.0,
+            0.0,
             1.0,
             cls._plate3_pose,
             cls._table_orientation,
@@ -232,7 +232,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         plate1_id = create_pybullet_block(
             (.9, .9, .9, 1),
             cls._plate_half_extents,
-            1.0,
+            0.0,
             1.0,
             cls._plate1_pose,
             cls._table_orientation,
@@ -243,7 +243,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         beam1_id = create_pybullet_block(
             (0.9, 0.9, 0.9, 1),
             cls._beam_half_extents,
-            1.0,
+            0.0,
             1.0,
             cls._beam1_pose,
             cls._table_orientation,
@@ -252,21 +252,18 @@ class PyBulletBalanceEnv(PyBulletEnv):
         beam2_id = create_pybullet_block(
             (0.9, 0.9, 0.9, 1),
             cls._beam_half_extents,
-            1.0,
+            0.0,
             1.0,
             cls._beam2_pose,
             cls._table_orientation,
             physics_client_id,
         )
         bodies["beam_ids"] = [beam1_id, beam2_id]
-        cls.fix_plates_and_beams_in_place(physics_client_id, table2_id, plate1_id, 
-                                          plate3_id, beam1_id, beam2_id)
-
 
         button_id = create_pybullet_block(
             cls._button_color_off,
-            [cls._button_radius] * 3,
-            1.0,
+            [cls._button_radius, cls._button_radius, cls._button_radius/2],
+            0.0,
             1.0,
             (cls.button_x, cls.button_y, cls.button_z),
             cls._table_orientation,
@@ -294,35 +291,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
         bodies["block_ids"] = block_ids
 
         return physics_client_id, pybullet_robot, bodies
-
-    @staticmethod
-    def fix_plates_and_beams_in_place(physics_client_id, table_id, plate1_id, 
-                                      plate3_id, beam1_id, beam2_id):
-    # Doesn't work for some reason
-        for child_id in [plate1_id, plate3_id, beam1_id, beam2_id]:
-            parent_pos, parent_orn = p.getBasePositionAndOrientation(table_id, 
-                                            physicsClientId=physics_client_id)
-            child_pos, child_orn = p.getBasePositionAndOrientation(child_id, 
-                                            physicsClientId=physics_client_id)
-            rel_pos, rel_orn = p.multiplyTransforms(
-                p.invertTransform(parent_pos, parent_orn)[0],
-                p.invertTransform(parent_pos, parent_orn)[1],
-                child_pos,
-                child_orn
-            )
-            p.createConstraint(
-                parentBodyUniqueId=table_id,
-                parentLinkIndex=-1,
-                childBodyUniqueId=child_id,
-                childLinkIndex=-1,
-                jointType=p.JOINT_FIXED,
-                jointAxis=(0, 0, 0),
-                parentFramePosition=rel_pos,
-                parentFrameOrientation=rel_orn,
-                childFramePosition=(0, 0, 0),
-                childFrameOrientation=(0, 0, 0),
-                physicsClientId=physics_client_id
-            )
 
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         self._plate1.id = pybullet_bodies["table_ids"][0]
@@ -402,9 +370,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
         state = super().step(action, render_obs=render_obs)
 
         self._update_balance_beam(state)
-        self.fix_plates_and_beams_in_place(self._physics_client_id, self._table_id, 
-                                          self._plate1.id, self._plate3.id, 
-                                          self._beam_ids[0], self._beam_ids[1])
 
         # Turn machine on
         if self._PressingButton_holds(state, [self._robot, self._machine]):
@@ -486,9 +451,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
         self._prev_diff = 0
         # Also do one beam update to make sure the initial positions match
         self._update_balance_beam(state)
-        self.fix_plates_and_beams_in_place(self._physics_client_id, self._table_id, 
-                                          self._plate1.id, self._plate3.id, 
-                                          self._beam_ids[0], self._beam_ids[1])
 
         # Update the button color
         if self._MachineOn_holds(state, [self._machine, self._robot]):
@@ -519,7 +481,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         if diff == self._prev_diff:
             return
 
-        shift_per_block = 0.01
+        shift_per_block = 0.007
         shift_amount = abs(diff) * shift_per_block
         block_objs = state.get_objects(self._block_type)
         left_dropping = diff > 0
@@ -585,8 +547,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
             shift_plate(True, False)
             shift_plate(False, True)
             shift_blocks(False, True)
-
-        # Right side update
 
         self._prev_diff = diff
 
@@ -907,7 +867,11 @@ class PyBulletBalanceEnv(PyBulletEnv):
             init_state = self._sample_state_from_piles(piles, rng)
             goal = {
                 GroundAtom(self._MachineOn, [self._machine, self._robot]),
-                # GroundAtom(self._DirectlyOn, [piles[1][3], piles[0][1]]),
+                # GroundAtom(self._DirectlyOn, [piles[1][4], piles[0][0]]),
+                # GroundAtom(self._DirectlyOn, [piles[1][3], piles[1][4]]),
+                # GroundAtom(self._DirectlyOn, [piles[0][4], piles[0][5]]),
+                # GroundAtom(self._DirectlyOn, [piles[0][3], piles[0][4]]),
+                # GroundAtom(self._DirectlyOn, [piles[0][2], piles[0][3]]),
                 }
                 # }
             # while True:  # repeat until goal is not satisfied
@@ -940,6 +904,10 @@ class PyBulletBalanceEnv(PyBulletEnv):
             if (block_num == 0 or block_num == 1):
                 n_piles += 1
                 piles.append([])
+            # For generating a 0:6 pile
+            # if (block_num == 0):
+            #     n_piles += 1
+            #     piles.append([])
             # Add block to pile
             piles[-1].append(block)
         return piles

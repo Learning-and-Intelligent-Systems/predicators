@@ -31,6 +31,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
     _move_to_pose_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
     _offset_z: ClassVar[float] = 0.01
+    _transport_z: ClassVar[float] = env_cls.z_ub - 0.2
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -82,7 +83,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move to far above the block which we will grasp.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToPreGrasp",
-                    z_func=lambda _: cls.env_cls.z_ub,
+                    z_func=lambda _: cls._transport_z,
                     finger_status="open",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -103,11 +104,13 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move back up.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
-                    z_func=lambda _: cls.env_cls.z_ub,
+                    z_func=lambda _: cls._transport_z,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
-                    params_space=params_space),
+                    params_space=params_space,
+                    move_to_pose_tol=cls._move_to_pose_tol*100
+                    ),
             ],
             # "Pick up block ?block"
         )
@@ -121,7 +124,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move to above the block on which we will stack.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToPreStack",
-                    z_func=lambda _: cls.env_cls.z_ub,
+                    z_func=lambda _: cls._transport_z,
                     finger_status="closed",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
@@ -142,11 +145,13 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Move back up.
                 cls._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
-                    z_func=lambda _: cls.env_cls.z_ub,
+                    z_func=lambda _: cls._transport_z,
                     finger_status="open",
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
-                    params_space=params_space),
+                    params_space=params_space,
+                    move_to_pose_tol=cls._move_to_pose_tol*100
+                    ),
             ],
             # annotation="Stack the block in hand onto block ?otherblock"
         )
@@ -228,7 +233,9 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls, name: str, z_func: Callable[[float],
                                              float], finger_status: str,
             pybullet_robot: SingleArmPyBulletRobot, option_types: List[Type],
-            params_space: Box) -> ParameterizedOption:
+            params_space: Box, 
+            move_to_pose_tol: float = _move_to_pose_tol,
+            ) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         block argument.
 
@@ -255,7 +262,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
         return create_move_end_effector_to_pose_option(
             pybullet_robot, name, option_types, params_space,
             _get_current_and_target_pose_and_finger_status,
-            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            move_to_pose_tol, CFG.pybullet_max_vel_norm,
             cls._finger_action_nudge_magnitude,
             validate=CFG.pybullet_ik_validate)
 
