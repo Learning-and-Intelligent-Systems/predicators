@@ -1,0 +1,479 @@
+import logging
+import numpy as np
+import pybullet as p
+from typing import ClassVar, Tuple, Dict, List, Any, Sequence, Set
+from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
+from predicators.structs import State, Object, Type, Predicate, GroundAtom, \
+    Action, EnvironmentTask
+from predicators import utils
+from predicators.pybullet_helpers.objects import create_object, update_object
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
+from predicators.settings import CFG
+
+# If you don’t have these exact imports, adapt accordingly:
+# from predicators.pybullet_helpers.utils import create_state_from_dict, etc.
+
+class PyBulletAntEnv(PyBulletEnv):
+    """A PyBullet environment with:
+       - A single robot (same interface as in domino env).
+       - Multiple food blocks of varying colors (some 'attractive').
+       - Several ant objects that move toward an attractive food with noise."""
+
+    # -------------------------------------------------------------------------
+    # Table / workspace config
+    table_height: ClassVar[float] = 0.4
+    table_pos: ClassVar[Tuple[float, float, float]] = (0.75, 1.35, table_height / 2)
+    table_orn: ClassVar[Tuple[float, float, float, float]] = p.getQuaternionFromEuler([0., 0., np.pi / 2])
+
+    x_lb: ClassVar[float] = 0.4
+    x_ub: ClassVar[float] = 1.1
+    y_lb: ClassVar[float] = 1.1
+    y_ub: ClassVar[float] = 1.6
+    z_lb: ClassVar[float] = table_height
+    z_ub: ClassVar[float] = 0.75 + table_height / 2
+
+    # Robot init
+    robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
+    robot_init_y: ClassVar[float] = (y_lb + y_ub) * 0.5
+    robot_init_z: ClassVar[float] = z_ub
+    robot_base_pos: ClassVar[Tuple[float, float, float]] = (0.75, 0.72, 0.0)
+    robot_base_orn: ClassVar[Tuple[float, float, float, float]] =\
+        p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
+    robot_init_tilt: ClassVar[float] = np.pi / 2
+    robot_init_wrist: ClassVar[float] = -np.pi / 2
+
+    # Camera
+    _camera_distance: ClassVar[float] = 1.3
+    _camera_yaw: ClassVar[float] = 70
+    _camera_pitch: ClassVar[float] = -50
+    _camera_target: ClassVar[Tuple[float, float, float]] = (0.75, 1.25, 0.42)
+
+    # Define how many ants and how many food blocks
+    num_ants: ClassVar[int] = 3
+    num_food: ClassVar[int] = 5
+
+    # Food shape (could vary size, color)
+    food_half_extents: ClassVar[Tuple[float, float, float]] = (0.02, 0.02, 0.02)
+    food_mass: ClassVar[float] = 0.1
+
+    # Ant shape
+    ant_half_extents: ClassVar[Tuple[float, float, float]] = (0.01, 0.015, 0.01)
+    ant_mass: ClassVar[float] = 0.05
+    ant_step_size: ClassVar[float] = 0.001
+
+    # Color palette: e.g. 3 basic colors
+    color_palette: ClassVar[List[Tuple[float, float, float, float]]] = [
+        (1.0, 0.0, 0.0, 1.0),  # red
+        (0.0, 1.0, 0.0, 1.0),  # green
+        (0.0, 0.0, 1.0, 1.0),  # blue
+    ]
+
+    # Which colors are "attractive"? For instance, let's say red & green are.
+    # This can be changed to a more dynamic assignment if you prefer.
+    attractive_colors: ClassVar[Set[Tuple[float, float, float, float]]] = {
+        (1.0, 0.0, 0.0, 1.0),  # red
+        (0.0, 1.0, 0.0, 1.0),  # green
+    }
+
+    # -------------------------------------------------------------------------
+    # Types
+    _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
+
+    # Food has color channels + "attractive" as 0.0 or 1.0
+    _food_type = Type(
+        "food", ["x", "y", "z", "rot", "is_held", "attractive", "r", "g", "b"]
+    )
+
+    # Each ant might have orientation, but minimal for demonstration
+    _ant_type = Type("ant", ["x", "y", "z", "rot"])
+
+    def __init__(self,
+                 use_gui: bool = True,
+                 debug_layout: bool = True) -> None:
+        # Create single robot
+        self._robot = Object("robot", self._robot_type)
+
+        # Create N food blocks
+        self.food: List[Object] = []
+        for i in range(self.num_food):
+            name = f"food_{i}"
+            food_obj = Object(name, self._food_type)
+            self.food.append(food_obj)
+
+        # Create M ants
+        self.ants: List[Object] = []
+        for i in range(self.num_ants):
+            name = f"ant_{i}"
+            ant_obj = Object(name, self._ant_type)
+            self.ants.append(ant_obj)
+
+        super().__init__(use_gui)
+        self._debug_layout = debug_layout
+
+        # Define predicates if needed (some are placeholders)
+        self._Holding = Predicate("Holding",
+                                  [self._robot_type, self._food_type],
+                                  self._Holding_holds)
+        self._HandEmpty = Predicate("HandEmpty",
+                                    [self._robot_type],
+                                    self._HandEmpty_holds)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pybullet_ant"
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {self._Holding, self._HandEmpty}
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        # Example: we might have no real "goal" predicates,
+        # or define something like “all ants get within some distance of an attractive block”.
+        return set()
+
+    @property
+    def types(self) -> Set[Type]:
+        return {self._robot_type, self._food_type, self._ant_type}
+
+    # -------------------------------------------------------------------------
+    # Environment Setup
+
+    @classmethod
+    def initialize_pybullet(
+        cls, using_gui: bool
+    ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
+        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(using_gui)
+
+        # Add a simple table
+        table_id = create_object(
+            asset_path="urdf/table.urdf",
+            position=cls.table_pos,
+            orientation=cls.table_orn,
+            scale=1.0,
+            use_fixed_base=True,
+            physics_client_id=physics_client_id
+        )
+        bodies["table_id"] = table_id
+
+        # Create the food objects
+        food_ids = []
+        for _ in range(cls.num_food):
+            fid = create_pybullet_block(
+                color=(0.5, 0.5, 0.5, 1.0),  # We’ll override color later
+                half_extents=cls.food_half_extents,
+                mass=cls.food_mass,
+                friction=0.5,
+                orientation=[0.0, 0.0, 0.0],
+                physics_client_id=physics_client_id,
+            )
+            food_ids.append(fid)
+
+        # Create the ants (small cuboids)
+        ant_ids = []
+        for _ in range(cls.num_ants):
+            aid = create_pybullet_block(
+                color=(0.3, 0.3, 0.3, 1.0),
+                half_extents=cls.ant_half_extents,
+                mass=cls.ant_mass,
+                friction=0.5,
+                orientation=[0.0, 0.0, 0.0],
+                physics_client_id=physics_client_id,
+            )
+            ant_ids.append(aid)
+
+        bodies["food_ids"] = food_ids
+        bodies["ant_ids"] = ant_ids
+
+        return physics_client_id, pybullet_robot, bodies
+
+    def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
+        # Keep references for IDs
+        for fobj, fid in zip(self.food, pybullet_bodies["food_ids"]):
+            fobj.id = fid
+        for aobj, aid in zip(self.ants, pybullet_bodies["ant_ids"]):
+            aobj.id = aid
+
+    # -------------------------------------------------------------------------
+    # State Management
+
+    def _get_object_ids_for_held_check(self) -> List[int]:
+        # If we support robot picking up food blocks, return those IDs.
+        return [f.id for f in self.food]
+
+    def _get_state(self) -> State:
+        """Construct a State from the current PyBullet simulation."""
+        state_dict: Dict[Object, Dict[str, float]] = {}
+
+        # 1) Robot
+        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
+        # tilt, wrist from orientation
+        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
+        state_dict[self._robot] = {
+            "x": rx,
+            "y": ry,
+            "z": rz,
+            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
+            "tilt": tilt,
+            "wrist": wrist
+        }
+
+        # 2) Food
+        for food_obj in self.food:
+            (fx, fy, fz), forn = p.getBasePositionAndOrientation(
+                food_obj.id, physicsClientId=self._physics_client_id)
+            yaw = p.getEulerFromQuaternion(forn)[2]
+            # For demonstration, read color once on reset, store in the state.
+            # In practice, you might store r,g,b in an environment structure.
+            # We'll assume we already know them from init_dict (below).
+            is_held_val = 1.0 if (food_obj.id == self._held_obj_id) else 0.0
+            # Just keep placeholders for r,g,b,attractive for now—will read from init_dict
+            # or store them in environment if needed.
+            if not hasattr(food_obj, "_r"):
+                # fallback if not yet assigned
+                food_obj._r = 0.5
+                food_obj._g = 0.5
+                food_obj._b = 0.5
+                food_obj._attractive = 0.0
+            state_dict[food_obj] = {
+                "x": fx,
+                "y": fy,
+                "z": fz,
+                "rot": utils.wrap_angle(yaw),
+                "is_held": is_held_val,
+                "attractive": food_obj._attractive,
+                "r": food_obj._r,
+                "g": food_obj._g,
+                "b": food_obj._b,
+            }
+
+        # 3) Ants
+        for ant_obj in self.ants:
+            (ax, ay, az), aorn = p.getBasePositionAndOrientation(
+                ant_obj.id, physicsClientId=self._physics_client_id)
+            yaw = p.getEulerFromQuaternion(aorn)[2]
+            state_dict[ant_obj] = {
+                "x": ax,
+                "y": ay,
+                "z": az,
+                "rot": utils.wrap_angle(yaw),
+            }
+
+        # Convert to a State
+        state = utils.create_state_from_dict(state_dict)
+        joint_positions = self._pybullet_robot.get_joints()
+        pyb_state = utils.PyBulletState(state.data, simulator_state={"joint_positions": joint_positions})
+        return pyb_state
+
+    def _reset_state(self, state: State) -> None:
+        """Reset PyBullet world to match the given state."""
+        super()._reset_state(state)
+
+        # Update actual PyBullet objects
+        for obj in self._objects:
+            if obj.type == self._food_type:
+                x = state.get(obj, "x")
+                y = state.get(obj, "y")
+                z = state.get(obj, "z")
+                rot = state.get(obj, "rot")
+                update_object(
+                    obj.id,
+                    position=(x, y, z),
+                    orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                    physics_client_id=self._physics_client_id
+                )
+
+            if obj.type == self._ant_type:
+                x = state.get(obj, "x")
+                y = state.get(obj, "y")
+                z = state.get(obj, "z")
+                rot = state.get(obj, "rot")
+                update_object(
+                    obj.id,
+                    position=(x, y, z),
+                    orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                    physics_client_id=self._physics_client_id
+                )
+
+        # Check reconstruction
+        reconstructed_state = self._get_state()
+        if not reconstructed_state.allclose(state):
+            logging.warning("Could not reconstruct state exactly!")
+
+    def step(self, action: Action, render_obs: bool = False) -> State:
+        """Override to (1) do usual robot step, (2) move ants toward attracted
+        food with noise, and then (3) return the final state."""
+        # Step the robot normally
+        next_state = super().step(action, render_obs=render_obs)
+
+        # Move ants. For each ant, find a target food object that is "attractive."
+        # If there's more than one attractive block, pick the one it’s “assigned” to,
+        # or the first in the list. Then move a small step toward it with noise.
+        self._update_ant_positions(next_state)
+
+        final_state = self._get_state()
+        self._current_observation = final_state
+        return final_state
+
+    def _update_ant_positions(self, state: State) -> None:
+        """For each ant, move it a small step toward its attractive food (if any)."""
+        for ant_obj in self.ants:
+            # (Simplistic) For demonstration, pick the first block whose 'attractive'=1
+            # In a real environment, each ant might have a different color preference
+            target_food_obj = None
+            for fobj in self.food:
+                if state.get(fobj, "attractive") > 0.5:
+                    target_food_obj = fobj
+                    break
+            if target_food_obj is None:
+                # No attractive block found
+                continue
+
+            # Current ant position
+            ax = state.get(ant_obj, "x")
+            ay = state.get(ant_obj, "y")
+
+            # Target position
+            fx = state.get(target_food_obj, "x")
+            fy = state.get(target_food_obj, "y")
+
+            # Move step_size in direction of (fx, fy) from (ax, ay)
+            # Add some random noise to mimic “ant-like” movement
+            noise = 0.002
+            dx = fx - ax
+            dy = fy - ay
+            dist = np.sqrt(dx*dx + dy*dy)
+            if dist > 1e-6:
+                dxn = dx / dist
+                dyn = dy / dist
+                new_x = ax + self.ant_step_size * dxn + np.random.uniform(-noise, noise)
+                new_y = ay + self.ant_step_size * dyn + np.random.uniform(-noise, noise)
+            else:
+                new_x = ax
+                new_y = ay
+
+            # Update the PyBullet object
+            # Keep z or set z to table height. Possibly you want them on table surface.
+            az = state.get(ant_obj, "z")
+            # Keep old rotation for simplicity
+            rot = state.get(ant_obj, "rot")
+            update_object(
+                ant_obj.id,
+                position=(new_x, new_y, az),
+                orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                physics_client_id=self._physics_client_id
+            )
+
+    # -------------------------------------------------------------------------
+    # Predicates (placeholders)
+
+    @classmethod
+    def _Holding_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        # For demonstration, check if food is_held = 1.0
+        _, food = objects
+        return state.get(food, "is_held") > 0.5
+
+    @classmethod
+    def _HandEmpty_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        # E.g. open fingers threshold
+        robot, = objects
+        return state.get(robot, "fingers") > 0.2
+
+    # -------------------------------------------------------------------------
+    # Task Generation
+
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
+        return self._make_tasks(num_tasks=CFG.num_train_tasks, rng=self._train_rng)
+
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        return self._make_tasks(num_tasks=CFG.num_test_tasks, rng=self._test_rng)
+
+    def _make_tasks(self, num_tasks: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+        tasks = []
+        for _ in range(num_tasks):
+            init_dict = {}
+
+            # 1) Robot
+            robot_dict = {
+                "x": self.robot_init_x,
+                "y": self.robot_init_y,
+                "z": self.robot_init_z,
+                "fingers": self.open_fingers,
+                "tilt": self.robot_init_tilt,
+                "wrist": self.robot_init_wrist,
+            }
+            init_dict[self._robot] = robot_dict
+
+            # 2) Food
+            for i, fobj in enumerate(self.food):
+                # random position
+                x = rng.uniform(self.x_lb, self.x_ub)
+                y = rng.uniform(self.y_lb, self.y_ub)
+                rot = rng.uniform(-np.pi, np.pi)
+                # pick color
+                color_idx = rng.integers(0, len(self.color_palette))
+                color_rgba = self.color_palette[color_idx]
+                # store color in object attributes
+                fobj._r = color_rgba[0]
+                fobj._g = color_rgba[1]
+                fobj._b = color_rgba[2]
+                # if color is in attractive_colors, set "attractive"=1
+                if color_rgba in self.attractive_colors:
+                    fobj._attractive = 1.0
+                else:
+                    fobj._attractive = 0.0
+
+                init_dict[fobj] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + self.food_half_extents[2],  # place on table
+                    "rot": rot,
+                    "is_held": 0.0,
+                    "attractive": fobj._attractive,
+                    "r": fobj._r,
+                    "g": fobj._g,
+                    "b": fobj._b,
+                }
+
+            # 3) Ants
+            for i, aobj in enumerate(self.ants):
+                x = rng.uniform(self.x_lb, self.x_ub)
+                y = rng.uniform(self.y_lb, self.y_ub)
+                rot = rng.uniform(-np.pi, np.pi)
+                init_dict[aobj] = {
+                    "x": x,
+                    "y": y,
+                    "z": self.z_lb + self.ant_half_extents[2],
+                    "rot": rot,
+                }
+
+            # Combine objects
+            self._objects = [self._robot] + self.food + self.ants
+            init_state = utils.create_state_from_dict(init_dict)
+
+            # Example “goal” might be empty set or user-defined
+            # e.g. all ants near an attractive block, but here we keep it empty.
+            goal_atoms = set()
+
+            tasks.append(EnvironmentTask(init_state, goal_atoms))
+
+        return self._add_pybullet_state_to_tasks(tasks)
+
+if __name__ == "__main__":
+    """Run a simple simulation to test the environment."""
+    import time
+
+    # Make a task
+    CFG.seed = 0
+    CFG.pybullet_sim_steps_per_action = 1
+    env = PyBulletAntEnv(use_gui=True)
+    rng = np.random.default_rng(CFG.seed)
+    task = env._make_tasks(1, rng)[0]
+    env._reset_state(task.init)
+
+    while True:
+        # Robot does nothing
+        action = Action(np.array(env._pybullet_robot.initial_joint_positions))
+
+        env.step(action)
+        time.sleep(0.01)
