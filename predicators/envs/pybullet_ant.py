@@ -31,6 +31,7 @@ class PyBulletAntEnv(PyBulletEnv):
     y_ub: ClassVar[float] = 1.6
     z_lb: ClassVar[float] = table_height
     z_ub: ClassVar[float] = 0.75 + table_height / 2
+    padding: ClassVar[float] = 0.01
 
     # Robot init
     robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
@@ -49,17 +50,19 @@ class PyBulletAntEnv(PyBulletEnv):
     _camera_target: ClassVar[Tuple[float, float, float]] = (0.75, 1.25, 0.42)
 
     # Define how many ants and how many food blocks
-    num_ants: ClassVar[int] = 3
-    num_food: ClassVar[int] = 5
+    num_ants: ClassVar[int] = 5
+    num_food: ClassVar[int] = 8
 
     # Food shape (could vary size, color)
-    food_half_extents: ClassVar[Tuple[float, float, float]] = (0.02, 0.02, 0.02)
+    food_half_extents: ClassVar[Tuple[float, float, float]] =\
+        (0.03, 0.03, 0.03)
     food_mass: ClassVar[float] = 0.1
 
     # Ant shape
-    ant_half_extents: ClassVar[Tuple[float, float, float]] = (0.01, 0.015, 0.01)
+    ant_half_extents: ClassVar[Tuple[float, float, float]] =\
+        (0.01, 0.015, 0.01)
     ant_mass: ClassVar[float] = 0.05
-    ant_step_size: ClassVar[float] = 0.0005
+    ant_step_size: ClassVar[float] = 0.0002
 
     # Color palette: e.g. 3 basic colors
     color_palette: ClassVar[List[Tuple[float, float, float, float]]] = [
@@ -320,43 +323,38 @@ class PyBulletAntEnv(PyBulletEnv):
         return final_state
 
     def _update_ant_positions(self, state: State) -> None:
-        """For each ant, move it a small step toward its attractive food (if any)."""
+        """For each ant, move it a small step toward its assigned attractive food."""
         for ant_obj in self.ants:
-            target_food_obj = None
-            for fobj in self.food:
-                if state.get(fobj, "attractive") > 0.5:
-                    target_food_obj = fobj
-                    break
+            # Retrieve this ant’s assigned food
+            target_food_obj = getattr(ant_obj, "_target_food", None)
             if target_food_obj is None:
                 continue
 
+            # Move a small step toward it with noise
             ax = state.get(ant_obj, "x")
             ay = state.get(ant_obj, "y")
             fx = state.get(target_food_obj, "x")
             fy = state.get(target_food_obj, "y")
-            noise = 0.002
-            dx = fx - ax
-            dy = fy - ay
-            dist = np.sqrt(dx * dx + dy * dy)
-            rot = state.get(ant_obj, "rot")
+            dist = np.sqrt((fx - ax)**2 + (fy - ay)**2)
 
+            noise = 0.002
             if dist > 1e-6:
-                dxn = dx / dist
-                dyn = dy / dist
+                dxn = (fx - ax) / dist
+                dyn = (fy - ay) / dist
                 new_x = ax + self.ant_step_size * dxn + np.random.uniform(-noise, noise)
                 new_y = ay + self.ant_step_size * dyn + np.random.uniform(-noise, noise)
                 new_rot = np.arctan2(new_y - ay, new_x - ax)
             else:
                 new_x = ax
                 new_y = ay
-                new_rot = rot
+                new_rot = state.get(ant_obj, "rot")
 
             az = state.get(ant_obj, "z")
             update_object(
                 ant_obj.id,
                 position=(new_x, new_y, az),
                 orientation=p.getQuaternionFromEuler([0.0, 0.0, new_rot]),
-                physics_client_id=self._physics_client_id
+                physics_client_id=self._physics_client_id,
             )
 
     # -------------------------------------------------------------------------
@@ -401,18 +399,21 @@ class PyBulletAntEnv(PyBulletEnv):
 
             # 2) Food
             for i, fobj in enumerate(self.food):
-                # random position
-                x = rng.uniform(self.x_lb, self.x_ub)
-                y = rng.uniform(self.y_lb, self.y_ub)
+                # Random position
+                one_third_line = (self.x_lb + self.x_ub) / 3
+                two_third_line = 2 * one_third_line
+                x = rng.uniform(self.x_lb + self.padding, one_third_line)
+                y = rng.uniform(self.y_lb + self.padding, 
+                                self.y_ub - self.padding)
                 rot = rng.uniform(-np.pi, np.pi)
-                # pick color
+                # Pick color
                 color_idx = rng.integers(0, len(self.color_palette))
                 color_rgba = self.color_palette[color_idx]
-                # store color in object attributes
+                # Store color in object attributes
                 fobj._r = color_rgba[0]
                 fobj._g = color_rgba[1]
                 fobj._b = color_rgba[2]
-                # if color is in attractive_colors, set "attractive"=1
+                # If color is in attractive_colors, set "attractive"=1
                 if color_rgba in self.attractive_colors:
                     fobj._attractive = 1.0
                 else:
@@ -421,7 +422,7 @@ class PyBulletAntEnv(PyBulletEnv):
                 init_dict[fobj] = {
                     "x": x,
                     "y": y,
-                    "z": self.z_lb + self.food_half_extents[2],  # place on table
+                    "z": self.z_lb + self.food_half_extents[2],  # on table
                     "rot": rot,
                     "is_held": 0.0,
                     "attractive": fobj._attractive,
@@ -430,9 +431,12 @@ class PyBulletAntEnv(PyBulletEnv):
                     "b": fobj._b,
                 }
 
+            # Collect the "attractive" foods for random assignment
+            attractive_food_objs = [f for f in self.food if f._attractive == 1.0]
+
             # 3) Ants
             for i, aobj in enumerate(self.ants):
-                x = rng.uniform(self.x_lb, self.x_ub)
+                x = rng.uniform(two_third_line, self.x_ub)
                 y = rng.uniform(self.y_lb, self.y_ub)
                 rot = rng.uniform(-np.pi, np.pi)
                 init_dict[aobj] = {
@@ -441,15 +445,16 @@ class PyBulletAntEnv(PyBulletEnv):
                     "z": self.z_lb + self.ant_half_extents[2],
                     "rot": rot,
                 }
+                # Assign a random attractive block if any exist
+                # (store that choice as an attribute in the Python object)
+                if attractive_food_objs:
+                    aobj._target_food = rng.choice(attractive_food_objs)
+                else:
+                    aobj._target_food = None
 
-            # Combine objects
             self._objects = [self._robot] + self.food + self.ants
             init_state = utils.create_state_from_dict(init_dict)
-
-            # Example “goal” might be empty set or user-defined
-            # e.g. all ants near an attractive block, but here we keep it empty.
             goal_atoms = set()
-
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
