@@ -1,29 +1,37 @@
 import logging
+from typing import Any, ClassVar, Dict, List, Sequence, Set, Tuple
+
 import numpy as np
 import pybullet as p
-from typing import ClassVar, Tuple, Dict, List, Any, Sequence, Set
-from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
-from predicators.structs import State, Object, Type, Predicate, GroundAtom, \
-    Action, EnvironmentTask
+
 from predicators import utils
+from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 # If you don’t have these exact imports, adapt accordingly:
 # from predicators.pybullet_helpers.utils import create_state_from_dict, etc.
 
+
 class PyBulletAntEnv(PyBulletEnv):
     """A PyBullet environment with:
-       - A single robot (same interface as in domino env).
-       - Multiple food blocks of varying colors (some 'attractive').
-       - Several ant objects that move toward an attractive food with noise."""
+
+    - A single robot (same interface as in domino env).
+    - Multiple food blocks of varying colors (some 'attractive').
+    - Several ant objects that move toward an attractive food with noise.
+    """
 
     # -------------------------------------------------------------------------
     # Table / workspace config
     table_height: ClassVar[float] = 0.4
-    table_pos: ClassVar[Tuple[float, float, float]] = (0.75, 1.35, table_height / 2)
-    table_orn: ClassVar[Tuple[float, float, float, float]] = p.getQuaternionFromEuler([0., 0., np.pi / 2])
+    table_pos: ClassVar[Tuple[float, float,
+                              float]] = (0.75, 1.35, table_height / 2)
+    table_orn: ClassVar[Tuple[float, float, float,
+                              float]] = p.getQuaternionFromEuler(
+                                  [0., 0., np.pi / 2])
 
     x_lb: ClassVar[float] = 0.4
     x_ub: ClassVar[float] = 1.1
@@ -50,7 +58,7 @@ class PyBulletAntEnv(PyBulletEnv):
     _camera_target: ClassVar[Tuple[float, float, float]] = (0.75, 1.25, 0.42)
 
     # Define how many ants and how many food blocks
-    num_ants: ClassVar[int] = 5
+    num_ants: ClassVar[int] = 4
     num_food: ClassVar[int] = 8
 
     # Food shape (could vary size, color)
@@ -84,8 +92,7 @@ class PyBulletAntEnv(PyBulletEnv):
 
     # Food has color channels + "attractive" as 0.0 or 1.0
     _food_type = Type(
-        "food", ["x", "y", "z", "rot", "is_held", "attractive", "r", "g", "b"]
-    )
+        "food", ["x", "y", "z", "rot", "is_held", "attractive", "r", "g", "b"])
 
     # Each ant might have orientation, but minimal for demonstration
     _ant_type = Type("ant", ["x", "y", "z", "rot"])
@@ -117,8 +124,7 @@ class PyBulletAntEnv(PyBulletEnv):
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._food_type],
                                   self._Holding_holds)
-        self._HandEmpty = Predicate("HandEmpty",
-                                    [self._robot_type],
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
 
     @classmethod
@@ -144,19 +150,18 @@ class PyBulletAntEnv(PyBulletEnv):
 
     @classmethod
     def initialize_pybullet(
-        cls, using_gui: bool
+            cls, using_gui: bool
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
-        physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(using_gui)
+        physics_client_id, pybullet_robot, bodies = super(
+        ).initialize_pybullet(using_gui)
 
         # Add a simple table
-        table_id = create_object(
-            asset_path="urdf/table.urdf",
-            position=cls.table_pos,
-            orientation=cls.table_orn,
-            scale=1.0,
-            use_fixed_base=True,
-            physics_client_id=physics_client_id
-        )
+        table_id = create_object(asset_path="urdf/table.urdf",
+                                 position=cls.table_pos,
+                                 orientation=cls.table_orn,
+                                 scale=1.0,
+                                 use_fixed_base=True,
+                                 physics_client_id=physics_client_id)
         bodies["table_id"] = table_id
 
         # Create the food objects
@@ -265,7 +270,8 @@ class PyBulletAntEnv(PyBulletEnv):
         # Convert to a State
         state = utils.create_state_from_dict(state_dict)
         joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = utils.PyBulletState(state.data, simulator_state={"joint_positions": joint_positions})
+        pyb_state = utils.PyBulletState(
+            state.data, simulator_state={"joint_positions": joint_positions})
         return pyb_state
 
     def _reset_state(self, state: State) -> None:
@@ -282,25 +288,23 @@ class PyBulletAntEnv(PyBulletEnv):
                 r = state.get(obj, "r")
                 g = state.get(obj, "g")
                 b = state.get(obj, "b")
-                update_object(
-                    obj.id,
-                    position=(x, y, z),
-                    orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
-                    physics_client_id=self._physics_client_id,
-                    color=(r, g, b, 1.0)
-                )
+                update_object(obj.id,
+                              position=(x, y, z),
+                              orientation=p.getQuaternionFromEuler(
+                                  [0.0, 0.0, rot]),
+                              physics_client_id=self._physics_client_id,
+                              color=(r, g, b, 1.0))
 
             if obj.type == self._ant_type:
                 x = state.get(obj, "x")
                 y = state.get(obj, "y")
                 z = state.get(obj, "z")
                 rot = state.get(obj, "rot")
-                update_object(
-                    obj.id,
-                    position=(x, y, z),
-                    orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
-                    physics_client_id=self._physics_client_id
-                )
+                update_object(obj.id,
+                              position=(x, y, z),
+                              orientation=p.getQuaternionFromEuler(
+                                  [0.0, 0.0, rot]),
+                              physics_client_id=self._physics_client_id)
 
         # Check reconstruction
         reconstructed_state = self._get_state()
@@ -323,7 +327,8 @@ class PyBulletAntEnv(PyBulletEnv):
         return final_state
 
     def _update_ant_positions(self, state: State) -> None:
-        """For each ant, move it a small step toward its assigned attractive food."""
+        """For each ant, move it a small step toward its assigned attractive
+        food."""
         for ant_obj in self.ants:
             # Retrieve this ant’s assigned food
             target_food_obj = getattr(ant_obj, "_target_food", None)
@@ -341,8 +346,10 @@ class PyBulletAntEnv(PyBulletEnv):
             if dist > 1e-6:
                 dxn = (fx - ax) / dist
                 dyn = (fy - ay) / dist
-                new_x = ax + self.ant_step_size * dxn + np.random.uniform(-noise, noise)
-                new_y = ay + self.ant_step_size * dyn + np.random.uniform(-noise, noise)
+                new_x = ax + self.ant_step_size * dxn + np.random.uniform(
+                    -noise, noise)
+                new_y = ay + self.ant_step_size * dyn + np.random.uniform(
+                    -noise, noise)
                 new_rot = np.arctan2(new_y - ay, new_x - ax)
             else:
                 new_x = ax
@@ -376,12 +383,15 @@ class PyBulletAntEnv(PyBulletEnv):
     # Task Generation
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_train_tasks, rng=self._train_rng)
+        return self._make_tasks(num_tasks=CFG.num_train_tasks,
+                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._make_tasks(num_tasks=CFG.num_test_tasks, rng=self._test_rng)
+        return self._make_tasks(num_tasks=CFG.num_test_tasks,
+                                rng=self._test_rng)
 
-    def _make_tasks(self, num_tasks: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _make_tasks(self, num_tasks: int,
+                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for _ in range(num_tasks):
             init_dict = {}
@@ -403,7 +413,7 @@ class PyBulletAntEnv(PyBulletEnv):
                 one_third_line = (self.x_lb + self.x_ub) / 3
                 two_third_line = 2 * one_third_line
                 x = rng.uniform(self.x_lb + self.padding, one_third_line)
-                y = rng.uniform(self.y_lb + self.padding, 
+                y = rng.uniform(self.y_lb + self.padding,
                                 self.y_ub - self.padding)
                 rot = rng.uniform(-np.pi, np.pi)
                 # Pick color
@@ -432,7 +442,9 @@ class PyBulletAntEnv(PyBulletEnv):
                 }
 
             # Collect the "attractive" foods for random assignment
-            attractive_food_objs = [f for f in self.food if f._attractive == 1.0]
+            attractive_food_objs = [
+                f for f in self.food if f._attractive == 1.0
+            ]
 
             # 3) Ants
             for i, aobj in enumerate(self.ants):
@@ -458,6 +470,7 @@ class PyBulletAntEnv(PyBulletEnv):
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
+
 
 if __name__ == "__main__":
     """Run a simple simulation to test the environment."""

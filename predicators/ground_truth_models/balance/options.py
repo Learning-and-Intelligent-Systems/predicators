@@ -18,11 +18,13 @@ from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
 
+
 @lru_cache
 def _get_pybullet_robot() -> SingleArmPyBulletRobot:
     _, pybullet_robot, _ = \
             PyBulletBalanceEnv.initialize_pybullet(using_gui=False)
     return pybullet_robot
+
 
 class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the pybullet_balance environment."""
@@ -109,8 +111,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
                     params_space=params_space,
-                    move_to_pose_tol=cls._move_to_pose_tol*100
-                    ),
+                    move_to_pose_tol=cls._move_to_pose_tol * 100),
             ],
             # "Pick up block ?block"
         )
@@ -150,8 +151,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
                     params_space=params_space,
-                    move_to_pose_tol=cls._move_to_pose_tol*100
-                    ),
+                    move_to_pose_tol=cls._move_to_pose_tol * 100),
             ],
             # annotation="Stack the block in hand onto block ?otherblock"
         )
@@ -230,12 +230,15 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_blocks_move_to_above_block_option(
-            cls, name: str, z_func: Callable[[float],
-                                             float], finger_status: str,
-            pybullet_robot: SingleArmPyBulletRobot, option_types: List[Type],
-            params_space: Box, 
-            move_to_pose_tol: float = _move_to_pose_tol,
-            ) -> ParameterizedOption:
+        cls,
+        name: str,
+        z_func: Callable[[float], float],
+        finger_status: str,
+        pybullet_robot: SingleArmPyBulletRobot,
+        option_types: List[Type],
+        params_space: Box,
+        move_to_pose_tol: float = _move_to_pose_tol,
+    ) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         block argument.
 
@@ -260,9 +263,13 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            pybullet_robot, name, option_types, params_space,
+            pybullet_robot,
+            name,
+            option_types,
+            params_space,
             _get_current_and_target_pose_and_finger_status,
-            move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            move_to_pose_tol,
+            CFG.pybullet_max_vel_norm,
             cls._finger_action_nudge_magnitude,
             validate=CFG.pybullet_ik_validate)
 
@@ -376,7 +383,11 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
         assert isinstance(state, utils.PyBulletState)
 
         return get_move_end_effector_to_pose_action(
-            pybullet_robot, current_joint_positions, current_pose, target_pose,
-            finger_status, CFG.pybullet_max_vel_norm,
+            pybullet_robot,
+            current_joint_positions,
+            current_pose,
+            target_pose,
+            finger_status,
+            CFG.pybullet_max_vel_norm,
             cls._finger_action_nudge_magnitude,
             validate=CFG.pybullet_ik_validate)

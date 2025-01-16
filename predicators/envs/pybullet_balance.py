@@ -1,5 +1,6 @@
-"""Making a demo video: 
-python predicators/main.py --approach oracle --env pybullet_balance --seed 1 \
+"""Making a demo video: python predicators/main.py --approach oracle --env
+pybullet_balance --seed 1 \
+
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos \
@@ -54,7 +55,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
     _beam2_pose: ClassVar[Pose3D] = (_table_x,
                                      (_plate3_pose[1] + _table2_pose[1]) / 2,
                                      _plate_z - 4 * _plate_height)
-    _beam_half_extents = [0.01, 0.15, _plate_height/2]
+    _beam_half_extents = [0.01, 0.15, _plate_height / 2]
 
     # Button on table
     _button_radius = 0.04
@@ -262,7 +263,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
         button_id = create_pybullet_block(
             cls._button_color_off,
-            [cls._button_radius, cls._button_radius, cls._button_radius/2],
+            [cls._button_radius, cls._button_radius, cls._button_radius / 2],
             0.0,
             1.0,
             (cls.button_x, cls.button_y, cls.button_z),
@@ -383,7 +384,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
         return state
 
-
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle blocks-specific resetting."""
         super()._reset_state(state)
@@ -472,9 +472,9 @@ class PyBulletBalanceEnv(PyBulletEnv):
             logging.warning("Could not reconstruct state exactly!")
 
     def _update_balance_beam(self, state: State) -> None:
-        """Shift the plates, beams, *and blocks on them* to simulate a
-        balance, ensuring rising sides move blocks first then plate,
-        and dropping sides move plate first then blocks."""
+        """Shift the plates, beams, *and blocks on them* to simulate a balance,
+        ensuring rising sides move blocks first then plate, and dropping sides
+        move plate first then blocks."""
         left_count = self.count_num_blocks(state, self._plate1)
         right_count = self.count_num_blocks(state, self._plate3)
         diff = left_count - right_count
@@ -497,7 +497,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
                    self._held_obj_id == block_obj.id:
                     continue
                 by = state.get(block_obj, "pose_y")
-                belongs_to_side = (by < midpoint_y) if is_left else (by > midpoint_y)
+                belongs_to_side = (by < midpoint_y) if is_left else (
+                    by > midpoint_y)
                 if belongs_to_side:
                     old_z = state.get(block_obj, "pose_z")
                     padding = 0
@@ -506,17 +507,20 @@ class PyBulletBalanceEnv(PyBulletEnv):
                         block_obj.id, physicsClientId=self._physics_client_id)
                     p.resetBasePositionAndOrientation(
                         block_obj.id, [block_pos[0], block_pos[1], new_z],
-                        block_orn, physicsClientId=self._physics_client_id)
+                        block_orn,
+                        physicsClientId=self._physics_client_id)
 
         def shift_plate(is_left: bool, dropping: bool):
             """Shift plate & beam, dropping or rising."""
             sign = -1 if dropping else 1
             if is_left:
                 plate_id, beam_id = self._plate1.id, self._beam_ids[0]
-                base_plate_z, base_beam_z = self._plate1_pose[2], self._beam1_pose[2]
+                base_plate_z, base_beam_z = self._plate1_pose[
+                    2], self._beam1_pose[2]
             else:
                 plate_id, beam_id = self._plate3.id, self._beam_ids[1]
-                base_plate_z, base_beam_z = self._plate3_pose[2], self._beam2_pose[2]
+                base_plate_z, base_beam_z = self._plate3_pose[
+                    2], self._beam2_pose[2]
 
             new_plate_z = base_plate_z + (sign * shift_amount)
             new_beam_z = base_beam_z + (sign * shift_amount)
@@ -525,13 +529,15 @@ class PyBulletBalanceEnv(PyBulletEnv):
                 plate_id, physicsClientId=self._physics_client_id)
             p.resetBasePositionAndOrientation(
                 plate_id, [plate_pos[0], plate_pos[1], new_plate_z],
-                plate_orn, physicsClientId=self._physics_client_id)
+                plate_orn,
+                physicsClientId=self._physics_client_id)
 
             beam_pos, beam_orn = p.getBasePositionAndOrientation(
                 beam_id, physicsClientId=self._physics_client_id)
             p.resetBasePositionAndOrientation(
                 beam_id, [beam_pos[0], beam_pos[1], new_beam_z],
-                beam_orn, physicsClientId=self._physics_client_id)
+                beam_orn,
+                physicsClientId=self._physics_client_id)
 
         # Left side update
         if left_dropping:
@@ -549,7 +555,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
             shift_blocks(False, True)
 
         self._prev_diff = diff
-
 
     # -------------------------------------------------------------------------
     # Predicates
@@ -872,8 +877,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
                 # GroundAtom(self._DirectlyOn, [piles[0][4], piles[0][5]]),
                 # GroundAtom(self._DirectlyOn, [piles[0][3], piles[0][4]]),
                 # GroundAtom(self._DirectlyOn, [piles[0][2], piles[0][3]]),
-                }
-                # }
+            }
+            # }
             # while True:  # repeat until goal is not satisfied
             #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
             #     if not all(goal_atom.holds(init_state) for goal_atom in goal):

@@ -4,6 +4,5 @@ from .nsrts import BalanceGroundTruthNSRTFactory
 from .options import PyBulletBalanceGroundTruthOptionFactory
 
 __all__ = [
-    "BalanceGroundTruthNSRTFactory",
-    "PyBulletBalanceGroundTruthOptionFactory"
+    "BalanceGroundTruthNSRTFactory", "PyBulletBalanceGroundTruthOptionFactory"
 ]
