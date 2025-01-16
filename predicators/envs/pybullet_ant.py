@@ -59,7 +59,7 @@ class PyBulletAntEnv(PyBulletEnv):
 
     # Define how many ants and how many food blocks
     num_ants: ClassVar[int] = 4
-    num_food: ClassVar[int] = 8
+    num_food: ClassVar[int] = 6
 
     # Food shape (could vary size, color)
     food_half_extents: ClassVar[Tuple[float, float, float]] =\
@@ -78,13 +78,6 @@ class PyBulletAntEnv(PyBulletEnv):
         (0.0, 1.0, 0.0, 1.0),  # green
         (0.0, 0.0, 1.0, 1.0),  # blue
     ]
-
-    # Which colors are "attractive"? For instance, let's say red & green are.
-    # This can be changed to a more dynamic assignment if you prefer.
-    attractive_colors: ClassVar[Set[Tuple[float, float, float, float]]] = {
-        (1.0, 0.0, 0.0, 1.0),  # red
-        (0.0, 0.0, 1.0, 1.0),  # blue
-    }
 
     # -------------------------------------------------------------------------
     # Types
@@ -396,6 +389,12 @@ class PyBulletAntEnv(PyBulletEnv):
         for _ in range(num_tasks):
             init_dict = {}
 
+            num_attractive_colors = 2
+            attractive_colors_id = rng.integers(0, len(self.color_palette), 
+                                                  num_attractive_colors)
+            attractive_colors = [self.color_palette[i] for i in 
+                                attractive_colors_id]
+
             # 1) Robot
             robot_dict = {
                 "x": self.robot_init_x,
@@ -412,19 +411,35 @@ class PyBulletAntEnv(PyBulletEnv):
                 # Random position
                 one_third_line = (self.x_lb + self.x_ub) / 3
                 two_third_line = 2 * one_third_line
-                x = rng.uniform(self.x_lb + self.padding, one_third_line)
-                y = rng.uniform(self.y_lb + self.padding,
-                                self.y_ub - self.padding)
+                # Draw a debug ling for two_third_line
+                if self._debug_layout:
+                    p.addUserDebugLine([two_third_line, self.y_lb, self.z_lb+0.01],
+                                       [two_third_line, self.y_ub, self.z_lb+0.01],
+                                       [1, 0, 0], lineWidth=3)
+                x = rng.uniform(self.x_lb, one_third_line)
+                y = rng.uniform(self.y_lb,
+                                self.y_ub)
                 rot = rng.uniform(-np.pi, np.pi)
                 # Pick color
-                color_idx = rng.integers(0, len(self.color_palette))
+                # First, prepare a list of color indices to distribute blocks evenly among colors
+                if i == 0:  # do this once before assigning colors
+                    blocks_per_color = self.num_food // len(self.color_palette)
+                    remainder = self.num_food % len(self.color_palette)
+                    self._color_indices = []
+                    for c in range(len(self.color_palette)):
+                        count = blocks_per_color + (1 if c < remainder else 0)
+                        self._color_indices += [c]*count
+                    rng.shuffle(self._color_indices)
+
+                # Then assign the color from this prepared list
+                color_idx = self._color_indices[i]
                 color_rgba = self.color_palette[color_idx]
                 # Store color in object attributes
                 fobj._r = color_rgba[0]
                 fobj._g = color_rgba[1]
                 fobj._b = color_rgba[2]
                 # If color is in attractive_colors, set "attractive"=1
-                if color_rgba in self.attractive_colors:
+                if color_rgba in attractive_colors:
                     fobj._attractive = 1.0
                 else:
                     fobj._attractive = 0.0
@@ -448,7 +463,7 @@ class PyBulletAntEnv(PyBulletEnv):
 
             # 3) Ants
             for i, aobj in enumerate(self.ants):
-                x = rng.uniform(two_third_line, self.x_ub)
+                x = rng.uniform(self.x_ub-self.padding, self.x_ub)
                 y = rng.uniform(self.y_lb, self.y_ub)
                 rot = rng.uniform(-np.pi, np.pi)
                 init_dict[aobj] = {
@@ -477,7 +492,7 @@ if __name__ == "__main__":
     import time
 
     # Make a task
-    CFG.seed = 0
+    CFG.seed = 1
     CFG.pybullet_sim_steps_per_action = 1
     env = PyBulletAntEnv(use_gui=True)
     rng = np.random.default_rng(CFG.seed)
