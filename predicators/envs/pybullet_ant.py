@@ -59,7 +59,7 @@ class PyBulletAntEnv(PyBulletEnv):
     # Ant shape
     ant_half_extents: ClassVar[Tuple[float, float, float]] = (0.01, 0.015, 0.01)
     ant_mass: ClassVar[float] = 0.05
-    ant_step_size: ClassVar[float] = 0.001
+    ant_step_size: ClassVar[float] = 0.0005
 
     # Color palette: e.g. 3 basic colors
     color_palette: ClassVar[List[Tuple[float, float, float, float]]] = [
@@ -72,7 +72,7 @@ class PyBulletAntEnv(PyBulletEnv):
     # This can be changed to a more dynamic assignment if you prefer.
     attractive_colors: ClassVar[Set[Tuple[float, float, float, float]]] = {
         (1.0, 0.0, 0.0, 1.0),  # red
-        (0.0, 1.0, 0.0, 1.0),  # green
+        (0.0, 0.0, 1.0, 1.0),  # blue
     }
 
     # -------------------------------------------------------------------------
@@ -276,11 +276,15 @@ class PyBulletAntEnv(PyBulletEnv):
                 y = state.get(obj, "y")
                 z = state.get(obj, "z")
                 rot = state.get(obj, "rot")
+                r = state.get(obj, "r")
+                g = state.get(obj, "g")
+                b = state.get(obj, "b")
                 update_object(
                     obj.id,
                     position=(x, y, z),
                     orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
-                    physics_client_id=self._physics_client_id
+                    physics_client_id=self._physics_client_id,
+                    color=(r, g, b, 1.0)
                 )
 
             if obj.type == self._ant_type:
@@ -318,49 +322,40 @@ class PyBulletAntEnv(PyBulletEnv):
     def _update_ant_positions(self, state: State) -> None:
         """For each ant, move it a small step toward its attractive food (if any)."""
         for ant_obj in self.ants:
-            # (Simplistic) For demonstration, pick the first block whose 'attractive'=1
-            # In a real environment, each ant might have a different color preference
             target_food_obj = None
             for fobj in self.food:
                 if state.get(fobj, "attractive") > 0.5:
                     target_food_obj = fobj
                     break
             if target_food_obj is None:
-                # No attractive block found
                 continue
 
-            # Current ant position
             ax = state.get(ant_obj, "x")
             ay = state.get(ant_obj, "y")
-
-            # Target position
             fx = state.get(target_food_obj, "x")
             fy = state.get(target_food_obj, "y")
-
-            # Move step_size in direction of (fx, fy) from (ax, ay)
-            # Add some random noise to mimic “ant-like” movement
             noise = 0.002
             dx = fx - ax
             dy = fy - ay
-            dist = np.sqrt(dx*dx + dy*dy)
+            dist = np.sqrt(dx * dx + dy * dy)
+            rot = state.get(ant_obj, "rot")
+
             if dist > 1e-6:
                 dxn = dx / dist
                 dyn = dy / dist
                 new_x = ax + self.ant_step_size * dxn + np.random.uniform(-noise, noise)
                 new_y = ay + self.ant_step_size * dyn + np.random.uniform(-noise, noise)
+                new_rot = np.arctan2(new_y - ay, new_x - ax)
             else:
                 new_x = ax
                 new_y = ay
+                new_rot = rot
 
-            # Update the PyBullet object
-            # Keep z or set z to table height. Possibly you want them on table surface.
             az = state.get(ant_obj, "z")
-            # Keep old rotation for simplicity
-            rot = state.get(ant_obj, "rot")
             update_object(
                 ant_obj.id,
                 position=(new_x, new_y, az),
-                orientation=p.getQuaternionFromEuler([0.0, 0.0, rot]),
+                orientation=p.getQuaternionFromEuler([0.0, 0.0, new_rot]),
                 physics_client_id=self._physics_client_id
             )
 
