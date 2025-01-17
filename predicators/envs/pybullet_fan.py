@@ -18,10 +18,8 @@ from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
 class PyBulletFanEnv(PyBulletEnv):
     """A PyBullet environment where a ball is blown around by fans in a maze.
 
-    There are four fans, each controlled by a corresponding switch. The
-    ball starts in the maze. When a fan is on, it spins at joint_0 and
-    blows the ball. The goal is for the ball to reach some target
-    position.
+    We now have multiple fans (front, back, left, right).
+    Each side's fans share a single switch that turns them all on or off.
     """
 
     # -------------------------------------------------------------------------
@@ -61,6 +59,14 @@ class PyBulletFanEnv(PyBulletEnv):
     _camera_target: ClassVar[Tuple[float, float, float]] = (0.75, 1.25, 0.42)
 
     # -------------------------------------------------------------------------
+    # Fan configuration
+    # -------------------------------------------------------------------------
+    NUM_FRONT_FANS: ClassVar[int] = 5
+    NUM_BACK_FANS: ClassVar[int] = 5
+    NUM_LEFT_FANS: ClassVar[int] = 2
+    NUM_RIGHT_FANS: ClassVar[int] = 2
+
+    # -------------------------------------------------------------------------
     # URDF scale or references
     # -------------------------------------------------------------------------
     switch_joint_scale: ClassVar[float] = 0.1
@@ -82,6 +88,7 @@ class PyBulletFanEnv(PyBulletEnv):
             "y",
             "z",
             "rot",  # fan base pose
+            "side",  # which side: 0=front,1=back,2=left,3=right
             "switch_x",
             "switch_y",
             "switch_z",
@@ -99,12 +106,19 @@ class PyBulletFanEnv(PyBulletEnv):
         # Create environment objects (logic-level).
         self._robot = Object("robot", self._robot_type)
 
-        # Four fans and their switches (we model them as one object each in code,
-        # but logically you might separate them into two objects, or keep them combined).
-        self._fan1 = Object("fan1", self._fan_type)
-        self._fan2 = Object("fan2", self._fan_type)
-        self._fan3 = Object("fan3", self._fan_type)
-        self._fan4 = Object("fan4", self._fan_type)
+        # Instead of 4 fans, create a list of fan objects
+        self._fans: List[Object] = []
+        # We'll keep track of total fans in order: front, back, left, right
+        # front = 0, back = 1, left = 2, right = 3
+        # We'll create them in initialize_pybullet
+
+        # For controlling fans, we have 4 switches total, one for each side.
+        self._switches: List[Object] = []
+        self._switch_sides = ["front", "back", "left", "right"]
+
+        for side_idx, side_str in enumerate(self._switch_sides):
+            switch_obj = Object(f"switch_{side_str}", self._fan_type)  # can reuse fan_type or create a new switch_type
+            self._switches.append(switch_obj)
 
         # Maze walls
         self._wall1 = Object("wall1", self._wall_type)
@@ -118,8 +132,7 @@ class PyBulletFanEnv(PyBulletEnv):
 
         super().__init__(use_gui=use_gui)
 
-        # Define new predicates if desired, e.g. "FanOn", "BallAtTarget", etc.
-        # For example:
+        # Define new predicates if desired
         self._FanOn = Predicate("FanOn", [self._fan_type], self._FanOn_holds)
         self._BallAtTarget = Predicate("BallAtTarget",
                                        [self._ball_type, self._target_type],
@@ -168,59 +181,147 @@ class PyBulletFanEnv(PyBulletEnv):
         )
         bodies["table_id"] = table_id
 
-        # Create 4 fans + 4 switches
+        # ---------------------------------------------------------------------
+        # Create fans
+        # ---------------------------------------------------------------------
         fan_urdf = "urdf/partnet_mobility/fan/101450/mobility.urdf"
+
+        # # We'll define positions for the front, back, left, right fans.
+        # # front side (y ~ 1.20)
+        # front_y = 1.20
+        # front_x_start = 0.50
+        # front_x_end = 1.00
+        # # back side (y ~ 1.50)
+        # back_y = 1.50
+        # back_x_start = 0.50
+        # back_x_end = 1.00
+        # # left side (x ~ 0.50)
+        # left_x = 0.50
+        # left_y_start = 1.25
+        # left_y_end = 1.45
+        # # right side (x ~ 1.00)
+        # right_x = 1.00
+        # right_y_start = 1.25
+        # right_y_end = 1.45
+
+        # def _make_linspace(start, end, count):
+        #     """Helper to generate evenly spaced positions (including endpoints)."""
+        #     if count == 1:
+        #         return [start]
+        #     return np.linspace(start, end, count).tolist()
+
+        # # front fans
+        # front_xs = _make_linspace(front_x_start, front_x_end, cls.NUM_FRONT_FANS)
+        # front_positions = [(x, front_y, cls.table_height) for x in front_xs]
+        # front_orientations = [p.getQuaternionFromEuler([0, 0, np.pi/2])] * cls.NUM_FRONT_FANS
+
+        # # back fans
+        # back_xs = _make_linspace(back_x_start, back_x_end, cls.NUM_BACK_FANS)
+        # back_positions = [(x, back_y, cls.table_height) for x in back_xs]
+        # # face -Y
+        # back_orientations = [p.getQuaternionFromEuler([0, 0, -np.pi/2])] * cls.NUM_BACK_FANS
+
+        # # left fans
+        # left_ys = _make_linspace(left_y_start, left_y_end, cls.NUM_LEFT_FANS)
+        # left_positions = [(left_x, y, cls.table_height) for y in left_ys]
+        # # face +X
+        # left_orientations = [p.getQuaternionFromEuler([0, 0, 0])] * cls.NUM_LEFT_FANS
+
+        # # right fans
+        # right_ys = _make_linspace(right_y_start, right_y_end, cls.NUM_RIGHT_FANS)
+        # right_positions = [(right_x, y, cls.table_height) for y in right_ys]
+        # # face -X
+        # right_orientations = [p.getQuaternionFromEuler([0, 0, np.pi])] * cls.NUM_RIGHT_FANS
+
+        # Now create them in PyBullet
+        front_fan_ids = []
+        # for pos, orn in zip(front_positions, front_orientations):
+        for _ in range(cls.NUM_FRONT_FANS):
+            fid = create_object(
+                asset_path=fan_urdf,
+                # position=pos,
+                # orientation=orn,
+                scale=0.1,
+                use_fixed_base=True,
+                physics_client_id=physics_client_id
+            )
+            front_fan_ids.append(fid)
+
+        back_fan_ids = []
+        # for pos, orn in zip(back_positions, back_orientations):
+        for _ in range(cls.NUM_BACK_FANS):
+            fid = create_object(
+                asset_path=fan_urdf,
+                # position=pos,
+                # orientation=orn,
+                scale=0.1,
+                use_fixed_base=True,
+                physics_client_id=physics_client_id
+            )
+            back_fan_ids.append(fid)
+
+        left_fan_ids = []
+        # for pos, orn in zip(left_positions, left_orientations):
+        for _ in range(cls.NUM_LEFT_FANS):
+            fid = create_object(
+                asset_path=fan_urdf,
+                # position=pos,
+                # orientation=orn,
+                scale=0.1,
+                use_fixed_base=True,
+                physics_client_id=physics_client_id
+            )
+            left_fan_ids.append(fid)
+
+        right_fan_ids = []
+        # for pos, orn in zip(right_positions, right_orientations):
+        for _ in range(cls.NUM_RIGHT_FANS):
+            fid = create_object(
+                asset_path=fan_urdf,
+                # position=pos,
+                # orientation=orn,
+                scale=0.1,
+                use_fixed_base=True,
+                physics_client_id=physics_client_id
+            )
+            right_fan_ids.append(fid)
+
+        # Store all fans in bodies
+        bodies["fan_ids_front"] = front_fan_ids
+        bodies["fan_ids_back"] = back_fan_ids
+        bodies["fan_ids_left"] = left_fan_ids
+        bodies["fan_ids_right"] = right_fan_ids
+
+        # ---------------------------------------------------------------------
+        # Create 4 switches (front, back, left, right),
+        # each controlling all fans on that side.
+        # ---------------------------------------------------------------------
         switch_urdf = "urdf/partnet_mobility/switch/102812/switch.urdf"
 
-        fan_ids = []
-        # e.g., four corners around the ball
-        fan_positions = [
-            (0.75, 1.20, cls.table_height),
-            (1.00, 1.35, cls.table_height),
-            (0.75, 1.50, cls.table_height),
-            (0.50, 1.35, cls.table_height),
-        ]
-        fan_orientations = [
-            p.getQuaternionFromEuler([0, 0, 0]),
-            p.getQuaternionFromEuler([0, 0, np.pi / 2]),
-            p.getQuaternionFromEuler([0, 0, np.pi]),
-            p.getQuaternionFromEuler([0, 0, -np.pi / 2]),
-        ]
-
-        for i in range(4):
-            fid = create_object(asset_path=fan_urdf,
-                                position=fan_positions[i],
-                                orientation=fan_orientations[i],
-                                scale=0.1,
-                                use_fixed_base=True,
-                                physics_client_id=physics_client_id)
-            fan_ids.append(fid)
+        # You can place these near the robot, or wherever you want
+        # for convenience. We'll line them up in front of the robot:
+        # switch_positions = [
+        #     (cls.robot_init_x - 0.15, cls.robot_init_y - 0.10, cls.table_height),  # front
+        #     (cls.robot_init_x - 0.05, cls.robot_init_y - 0.10, cls.table_height),  # back
+        #     (cls.robot_init_x + 0.05, cls.robot_init_y - 0.10, cls.table_height),  # left
+        #     (cls.robot_init_x + 0.15, cls.robot_init_y - 0.10, cls.table_height),  # right
+        # ]
 
         switch_ids = []
-        switch_positions = [
-            (cls.robot_init_x + 0.0, cls.robot_init_y - 0.10,
-             cls.table_height),
-            (cls.robot_init_x + 0.1, cls.robot_init_y - 0.10,
-             cls.table_height),
-            (cls.robot_init_x - 0.1, cls.robot_init_y - 0.10,
-             cls.table_height),
-            (cls.robot_init_x + 0.0, cls.robot_init_y - 0.20,
-             cls.table_height),
-        ]
         for i in range(4):
             sid = create_object(asset_path=switch_urdf,
-                                position=switch_positions[i],
-                                orientation=p.getQuaternionFromEuler([0, 0,
-                                                                      0]),
-                                scale=1,
+                                # position=switch_positions[i],
+                                # orientation=p.getQuaternionFromEuler([0, 0, 0]),
+                                scale=1.0,
                                 use_fixed_base=True,
                                 physics_client_id=physics_client_id)
             switch_ids.append(sid)
 
-        bodies["fan_ids"] = fan_ids
         bodies["switch_ids"] = switch_ids
 
+        # ---------------------------------------------------------------------
         # Maze walls
+        # ---------------------------------------------------------------------
         wall_x_len, wall_y_len, wall_z_len = 0.05, 0.02, 0.02
         wall_id_1 = create_pybullet_block(
             color=(0.5, 0.5, 0.5, 1.0),
@@ -242,24 +343,28 @@ class PyBulletFanEnv(PyBulletEnv):
             physics_client_id=physics_client_id)
         bodies["wall_id_2"] = wall_id_2
 
+        # ---------------------------------------------------------------------
         # Create the ball
+        # ---------------------------------------------------------------------
         ball_id = create_pybullet_sphere(
             color=(1.0, 0.0, 0.0, 1),  # red color
-            radius=0.05,  # adjust radius as needed
-            mass=0.01,  # adjust mass as needed
-            friction=10,  # adjust friction as needed
-            position=(0.75, 1.35, cls.table_height + 0.05),  # center of fans
+            radius=0.05,
+            mass=0.01,
+            friction=10,
+            position=(0.75, 1.35, cls.table_height + 0.05),
             orientation=p.getQuaternionFromEuler([0, 0, 0]),
             physics_client_id=physics_client_id)
         p.changeDynamics(
             ball_id,
             -1,
-            linearDamping=10.0,  # try bigger if you want it to stop faster
+            linearDamping=10.0,
             angularDamping=10.0,
             physicsClientId=physics_client_id)
         bodies["ball_id"] = ball_id
 
+        # ---------------------------------------------------------------------
         # Create the target
+        # ---------------------------------------------------------------------
         target_id = create_pybullet_block(color=(0, 1, 0, 1.0),
                                           half_extents=(0.03, 0.03, 0.0001),
                                           mass=0.0,
@@ -285,23 +390,42 @@ class PyBulletFanEnv(PyBulletEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to all PyBullet object IDs and their relevant
         joints."""
-        # Fans
-        self._fan1.id = pybullet_bodies["fan_ids"][0]
-        self._fan2.id = pybullet_bodies["fan_ids"][1]
-        self._fan3.id = pybullet_bodies["fan_ids"][2]
-        self._fan4.id = pybullet_bodies["fan_ids"][3]
+        # We have 4 sets of fans + 4 switches
+        self._fans.clear()
+
+        # front fans
+        for fid in pybullet_bodies["fan_ids_front"]:
+            fan_obj = Object(f"fan_front_{len(self._fans)}", self._fan_type)
+            fan_obj.id = fid
+            fan_obj.side_idx = 0  # front
+            fan_obj.joint_id = self._get_joint_id(fid, "joint_0")
+            self._fans.append(fan_obj)
+        # back fans
+        for fid in pybullet_bodies["fan_ids_back"]:
+            fan_obj = Object(f"fan_back_{len(self._fans)}", self._fan_type)
+            fan_obj.id = fid
+            fan_obj.side_idx = 1  # back
+            fan_obj.joint_id = self._get_joint_id(fid, "joint_0")
+            self._fans.append(fan_obj)
+        # left fans
+        for fid in pybullet_bodies["fan_ids_left"]:
+            fan_obj = Object(f"fan_left_{len(self._fans)}", self._fan_type)
+            fan_obj.id = fid
+            fan_obj.side_idx = 2  # left
+            fan_obj.joint_id = self._get_joint_id(fid, "joint_0")
+            self._fans.append(fan_obj)
+        # right fans
+        for fid in pybullet_bodies["fan_ids_right"]:
+            fan_obj = Object(f"fan_right_{len(self._fans)}", self._fan_type)
+            fan_obj.id = fid
+            fan_obj.side_idx = 3  # right
+            fan_obj.joint_id = self._get_joint_id(fid, "joint_0")
+            self._fans.append(fan_obj)
 
         # Switches
-        self._fan1.switch_id = pybullet_bodies["switch_ids"][0]
-        self._fan2.switch_id = pybullet_bodies["switch_ids"][1]
-        self._fan3.switch_id = pybullet_bodies["switch_ids"][2]
-        self._fan4.switch_id = pybullet_bodies["switch_ids"][3]
-
-        # For each fan, get the spinning joint_0
-        self._fan1.joint_id = self._get_joint_id(self._fan1.id, "joint_0")
-        self._fan2.joint_id = self._get_joint_id(self._fan2.id, "joint_0")
-        self._fan3.joint_id = self._get_joint_id(self._fan3.id, "joint_0")
-        self._fan4.joint_id = self._get_joint_id(self._fan4.id, "joint_0")
+        for i, switch_obj in enumerate(self._switches):
+            switch_obj.id = pybullet_bodies["switch_ids"][i]
+            switch_obj.joint_id = self._get_joint_id(switch_obj.id, "joint_0")
 
         # Maze walls
         self._wall1.id = pybullet_bodies["wall_id_1"]
@@ -334,29 +458,25 @@ class PyBulletFanEnv(PyBulletEnv):
             "wrist": wrist,
         }
 
-        # Fans
-        # We'll read each fan's base position/orientation,
-        # plus the corresponding switch position and orientation,
-        # plus is_on (boolean: whether the switch is toggled beyond threshold).
-        for fan_obj in [self._fan1, self._fan2, self._fan3, self._fan4]:
-            # fan base
+        # Fans (we store base position/orientation, side index, switch, is_on)
+        for fan_obj in self._fans:
             (fx, fy, fz), forn = p.getBasePositionAndOrientation(
                 fan_obj.id, self._physics_client_id)
             euler_f = p.getEulerFromQuaternion(forn)
-
-            # switch
+            # Find which switch controls it:
+            # side_idx in [0=front,1=back,2=left,3=right]
+            controlling_switch = self._switches[fan_obj.side_idx]
             (sx, sy, sz), sorn = p.getBasePositionAndOrientation(
-                fan_obj.switch_id, self._physics_client_id)
+                controlling_switch.id, self._physics_client_id)
             euler_s = p.getEulerFromQuaternion(sorn)
-
-            # is_on
-            is_on_val = float(self._is_switch_on(fan_obj.switch_id))
+            is_on_val = float(self._is_switch_on(controlling_switch.id))
 
             state_dict[fan_obj] = {
                 "x": fx,
                 "y": fy,
                 "z": fz,
                 "rot": euler_f[2],
+                "side": float(fan_obj.side_idx),
                 "switch_x": sx,
                 "switch_y": sy,
                 "switch_z": sz,
@@ -369,8 +489,7 @@ class PyBulletFanEnv(PyBulletEnv):
             (wx, wy, wz), worn = p.getBasePositionAndOrientation(
                 wall_obj.id, self._physics_client_id)
             euler_w = p.getEulerFromQuaternion(worn)
-            # If you want to store length from the URDF or from a known constant:
-            wall_len = 0.3  # example
+            wall_len = 0.3
             state_dict[wall_obj] = {
                 "x": wx,
                 "y": wy,
@@ -390,8 +509,6 @@ class PyBulletFanEnv(PyBulletEnv):
          tz), torn = p.getBasePositionAndOrientation(self._target.id,
                                                      self._physics_client_id)
         euler_t = p.getEulerFromQuaternion(torn)
-        # is_hit might represent "ball is close enough" or "some sensor"
-        # We'll store 1.0 or 0.0 here if we want
         is_hit_val = float(self._is_ball_close_to_target(bx, by, tx, ty))
         state_dict[self._target] = {
             "x": tx,
@@ -416,13 +533,19 @@ class PyBulletFanEnv(PyBulletEnv):
         """Reset simulation from a given state."""
         super()._reset_state(state)  # resets robot
 
+        # Build full list of objects for checking reconstruction
         self._objects = [
-            self._robot, self._fan1, self._fan2, self._fan3, self._fan4,
-            self._wall1, self._wall2, self._ball, self._target
+            self._robot,
+            *self._fans,
+            *self._switches,
+            self._wall1,
+            self._wall2,
+            self._ball,
+            self._target
         ]
 
         # Fans + Switch
-        for fan_obj in [self._fan1, self._fan2, self._fan3, self._fan4]:
+        for fan_obj in self._fans:
             fx = state.get(fan_obj, "x")
             fy = state.get(fan_obj, "y")
             fz = state.get(fan_obj, "z")
@@ -431,16 +554,35 @@ class PyBulletFanEnv(PyBulletEnv):
                           position=(fx, fy, fz),
                           orientation=p.getQuaternionFromEuler([0, 0, frot]),
                           physics_client_id=self._physics_client_id)
-            sx = state.get(fan_obj, "switch_x")
-            sy = state.get(fan_obj, "switch_y")
-            sz = state.get(fan_obj, "switch_z")
-            srot = state.get(fan_obj, "switch_rot")
-            update_object(fan_obj.switch_id,
+
+        # We must set the switch object states:
+        # The "side" key in fan is ephemeral; let's just read from the first fan on that side
+        # or more simply, each switch is in self._switches in fixed order: front=0,back=1,left=2,right=3
+        for side_idx, switch_obj in enumerate(self._switches):
+            # We can read the state from any fan on that side (if none exist, keep off)
+            # For simplicity, let's check if we have any fan on that side:
+            relevant_fans = [f for f in self._fans if f.side_idx == side_idx]
+            if relevant_fans:
+                # read 'is_on' from the first relevant fan
+                is_on_val = state.get(relevant_fans[0], "is_on")
+            else:
+                is_on_val = 0.0
+
+            # Also read the stored switch position from that fan:
+            if relevant_fans:
+                sx = state.get(relevant_fans[0], "switch_x")
+                sy = state.get(relevant_fans[0], "switch_y")
+                sz = state.get(relevant_fans[0], "switch_z")
+                srot = state.get(relevant_fans[0], "switch_rot")
+            else:
+                # fallback if no fans (shouldn't happen normally)
+                sx, sy, sz, srot = (0, 0, self.table_height, 0)
+
+            update_object(switch_obj.id,
                           position=(sx, sy, sz),
                           orientation=p.getQuaternionFromEuler([0, 0, srot]),
                           physics_client_id=self._physics_client_id)
-            self._set_switch_on(fan_obj.switch_id,
-                                bool(state.get(fan_obj, "is_on") > 0.5))
+            self._set_switch_on(switch_obj.id, bool(is_on_val > 0.5))
 
         # Walls
         for wall_obj in [self._wall1, self._wall2]:
@@ -481,8 +623,7 @@ class PyBulletFanEnv(PyBulletEnv):
     # Step
     # -------------------------------------------------------------------------
     def step(self, action: Action, render_obs: bool = False) -> State:
-        """Execute a low-level action (e.g. robot motion) and apply fan
-        forces."""
+        """Execute a low-level action and apply fan forces."""
         next_state = super().step(action, render_obs=render_obs)
 
         # After the robot action, handle spinning fans & apply wind to the ball
@@ -496,50 +637,50 @@ class PyBulletFanEnv(PyBulletEnv):
     # Fan Simulation
     # -------------------------------------------------------------------------
     def _simulate_fans(self) -> None:
-        """For each fan that is on, set joint velocity and blow the ball."""
-        for fan_obj in [self._fan1, self._fan2, self._fan3, self._fan4]:
-            on = self._is_switch_on(fan_obj.switch_id)
+        """For each side that is switched on, spin its fans and blow the ball."""
+        # Check each switch: if on, spin all fans in that side
+        for side_idx, switch_obj in enumerate(self._switches):
+            on = self._is_switch_on(switch_obj.id)
+            # get all fans with side_idx
+            side_fans = [f for f in self._fans if f.side_idx == side_idx]
             if on:
-                # Spin the joint
-                if hasattr(fan_obj, "joint_id") and fan_obj.joint_id >= 0:
-                    p.setJointMotorControl2(
-                        bodyUniqueId=fan_obj.id,
-                        jointIndex=fan_obj.joint_id,
-                        controlMode=p.VELOCITY_CONTROL,
-                        targetVelocity=self.fan_spin_velocity,
-                        force=20.0,  # max torque
-                        physicsClientId=self._physics_client_id)
-                # Apply wind force to the ball
-                self._apply_fan_force_to_ball(fan_obj.id, self._ball.id)
+                # Spin each fan in that group
+                for fan_obj in side_fans:
+                    if fan_obj.joint_id >= 0:
+                        p.setJointMotorControl2(
+                            bodyUniqueId=fan_obj.id,
+                            jointIndex=fan_obj.joint_id,
+                            controlMode=p.VELOCITY_CONTROL,
+                            targetVelocity=self.fan_spin_velocity,
+                            force=20.0,
+                            physicsClientId=self._physics_client_id
+                        )
+                    # apply wind force
+                    self._apply_fan_force_to_ball(fan_obj.id, self._ball.id)
             else:
-                # If the fan is off, stop spinning
-                if hasattr(fan_obj, "joint_id") and fan_obj.joint_id >= 0:
-                    p.setJointMotorControl2(
-                        bodyUniqueId=fan_obj.id,
-                        jointIndex=fan_obj.joint_id,
-                        controlMode=p.VELOCITY_CONTROL,
-                        targetVelocity=0.0,
-                        force=20.0,
-                        physicsClientId=self._physics_client_id)
+                # fan is off
+                for fan_obj in side_fans:
+                    if fan_obj.joint_id >= 0:
+                        p.setJointMotorControl2(
+                            bodyUniqueId=fan_obj.id,
+                            jointIndex=fan_obj.joint_id,
+                            controlMode=p.VELOCITY_CONTROL,
+                            targetVelocity=0.0,
+                            force=20.0,
+                            physicsClientId=self._physics_client_id
+                        )
 
     def _apply_fan_force_to_ball(self, fan_id: int, ball_id: int) -> None:
-        """Compute the direction the fan is facing, apply a force to the
-        ball."""
+        """Compute the direction the fan is facing, apply a force to the ball."""
         pos_fan, orn_fan = p.getBasePositionAndOrientation(
             fan_id, self._physics_client_id)
-        # The local direction that the fan "blows" could be +X or +Y in URDF space, etc.
-        # Suppose it is +X in the fan's local frame, for example:
-        local_dir = np.array([1.0, 0.0, 0.0])  # adjust as needed
+        # Suppose the fan blows along +X in its local frame
+        local_dir = np.array([1.0, 0.0, 0.0])
         rmat = np.array(p.getMatrixFromQuaternion(orn_fan)).reshape((3, 3))
         world_dir = rmat.dot(local_dir)
 
-        # Get ball's current position (to ensure the ball is in front, or just always apply)
-        pos_ball, _ = p.getBasePositionAndOrientation(ball_id,
-                                                      self._physics_client_id)
-        # You can check distance if you want a falloff, etc.
-
+        pos_ball, _ = p.getBasePositionAndOrientation(ball_id, self._physics_client_id)
         force_vec = self.wind_force_magnitude * world_dir
-        # Apply a force at the ball's center of mass
         p.applyExternalForce(objectUniqueId=ball_id,
                              linkIndex=-1,
                              forceObj=force_vec.tolist(),
@@ -552,16 +693,12 @@ class PyBulletFanEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _is_switch_on(self, switch_id: int) -> bool:
         """Check if a switch's joint (joint_0) is above threshold."""
-        # We assume there's exactly 1 relevant joint in the switch URDF, 
-        # named "joint_0".
         joint_id = self._get_joint_id(switch_id, "joint_0")
         if joint_id < 0:
             return False
-        j_pos, _, _, _ = p.getJointState(
-            switch_id, joint_id, physicsClientId=self._physics_client_id)
-        # Retrieve the joint limits
-        info = p.getJointInfo(switch_id,
-                              joint_id,
+        j_pos, _, _, _ = p.getJointState(switch_id, joint_id,
+                                         physicsClientId=self._physics_client_id)
+        info = p.getJointInfo(switch_id, joint_id,
                               physicsClientId=self._physics_client_id)
         j_min, j_max = info[8], info[9]
         frac = (j_pos / self.switch_joint_scale - j_min) / (j_max - j_min)
@@ -572,8 +709,7 @@ class PyBulletFanEnv(PyBulletEnv):
         joint_id = self._get_joint_id(switch_id, "joint_0")
         if joint_id < 0:
             return
-        info = p.getJointInfo(switch_id,
-                              joint_id,
+        info = p.getJointInfo(switch_id, joint_id,
                               physicsClientId=self._physics_client_id)
         j_min, j_max = info[8], info[9]
         target_val = j_max if power_on else j_min
@@ -582,8 +718,8 @@ class PyBulletFanEnv(PyBulletEnv):
                           target_val * self.switch_joint_scale,
                           physicsClientId=self._physics_client_id)
 
-    def _is_ball_close_to_target(self, bx: float, by: float, tx: float,
-                                 ty: float) -> bool:
+    def _is_ball_close_to_target(self, bx: float, by: float,
+                                 tx: float, ty: float) -> bool:
         """Check if ball is 'close enough' to the target."""
         dist = np.hypot(bx - tx, by - ty)
         return (dist < 0.05)  # tune threshold
@@ -593,7 +729,7 @@ class PyBulletFanEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     @staticmethod
     def _FanOn_holds(state: State, objects: Sequence[Object]) -> bool:
-        """Example predicate: (FanOn fan)."""
+        """(FanOn fan). True if the fan's side's switch is on."""
         (fan, ) = objects
         return state.get(fan, "is_on") > 0.5
 
@@ -630,37 +766,118 @@ class PyBulletFanEnv(PyBulletEnv):
                 "tilt": self.robot_init_tilt,
                 "wrist": self.robot_init_wrist,
             }
-            fan_dicts = []
-            # Each fan faces toward the ball in the center.
-            mid_x = self.x_lb + (self.x_ub - self.x_lb) / 2
-            bottom_fan_y = self.y_lb + 0.14
-            top_fan_y = self.y_ub + self.fan_x_len / 2
-            mid_y = (bottom_fan_y + top_fan_y) / 2
-            fan_positions_orientations = [
-                (self.x_lb - self.fan_x_len * 5, mid_y,
-                 0.0),  # left  fan (faces +X)
-                (self.x_ub + self.fan_x_len * 5, mid_y,
-                 np.pi),  # right fan (faces -X)
-                (mid_x, top_fan_y, -np.pi / 2),  # back  fan (faces -Y)
-                (mid_x, bottom_fan_y, np.pi / 2),  # front fan (faces +Y)
-            ]
 
-            fan_dicts = []
-            for i, (px, py, rot) in enumerate(fan_positions_orientations):
-                fan_dicts.append({
+            # We'll define each fan side by side index. For a real environment,
+            # you'd want to replicate the same logic as in initialize_pybullet().
+            # Here, we only define one possible arrangement for demonstration.
+            # is_on=0 by default (off)
+            front_coords = np.linspace(0.50, 1.00, self.NUM_FRONT_FANS)
+            back_coords = np.linspace(0.50, 1.00, self.NUM_BACK_FANS)
+            left_coords = np.linspace(1.25, 1.45, self.NUM_LEFT_FANS)
+            right_coords = np.linspace(1.25, 1.45, self.NUM_RIGHT_FANS)
+
+            init_dict = {}
+            init_dict[self._robot] = robot_dict
+
+            # Fill in each fan with side, position, switch info:
+            # We'll just do a minimal approach in the tasks generator.
+
+            # We'll need to reference the same objects that are created in
+            # _store_pybullet_bodies, so let's just do indexes:
+            # But for an example, let's skip the full logic and just set them off (is_on=0).
+            # In a real environment, you'd store the same positions as above.
+
+
+            # Target
+            target_dict = {
+                "x": 0.95,
+                "y": 1.45,
+                "z": self.table_height,
+                "rot": 0.0,
+                "is_hit": 0.0,
+            }
+            init_dict[self._target] = target_dict
+
+            # The environment fans / switches themselves are created in PyBullet code.
+            # For demonstration, we'll pretend we have self._fans and self._switches
+            # as we do after initialization. We'll set them in the state:
+            for fan_obj in self._fans:
+                # pick the position from the real environment:
+                # we can read it out of the environment if we want:
+                # but for random tasks, you might randomize it.
+                fid = fan_obj.id  # doesn't help in a pure code snippet
+                # We'll store placeholders:
+                side_idx = fan_obj.side_idx
+                # We'll replicate the rough positions from the real creation:
+                if side_idx == 0:  # front
+                    i = len([f for f in self._fans if f.side_idx == 0
+                             and f.name < fan_obj.name])
+                    # i.e. the nth front fan
+                    px = front_coords[i]
+                    py = 1.20
+                    rot = np.pi / 2
+                elif side_idx == 1:  # back
+                    i = len([f for f in self._fans if f.side_idx == 1
+                             and f.name < fan_obj.name])
+                    px = back_coords[i]
+                    py = 1.50
+                    rot = -np.pi / 2
+                elif side_idx == 2:  # left
+                    i = len([f for f in self._fans if f.side_idx == 2
+                             and f.name < fan_obj.name])
+                    px = 0.50
+                    py = left_coords[i]
+                    rot = 0.0
+                else:  # right
+                    i = len([f for f in self._fans if f.side_idx == 3
+                             and f.name < fan_obj.name])
+                    px = 1.00
+                    py = right_coords[i]
+                    rot = np.pi
+                # Switch position is a simplified version
+                switch_x = self.robot_init_x
+                switch_y = self.robot_init_y - 0.2
+                switch_z = self.table_height
+                switch_rot = 0.0
+                fan_dict = {
                     "x": px,
                     "y": py,
-                    "z": self.table_height + self.fan_z_len / 2,
+                    "z": self.table_height,
                     "rot": rot,
-                    # Example switch positions near the robot
-                    "switch_x": self.robot_init_x + (i * 0.1) - 0.2,
-                    "switch_y": self.y_lb + 0.05,
-                    "switch_z": self.table_height,
-                    "switch_rot": np.pi / 2,
-                    "is_on": 0.0,  # off by default
-                })
+                    "side": float(side_idx),
+                    "switch_x": switch_x,
+                    "switch_y": switch_y,
+                    "switch_z": switch_z,
+                    "switch_rot": switch_rot,
+                    "is_on": 0.0
+                }
+                init_dict[fan_obj] = fan_dict
 
-            # Walls
+            # Each switch: store them with default positions (or from environment)
+            for i, switch_obj in enumerate(self._switches):
+                side_idx = i
+                # For simplicity, store them at some fixed location:
+                # We'll match them with the environment's creation
+                sx = self.robot_init_x + (i-1.5)*0.10
+                sy = self.robot_init_y - 0.10
+                sz = self.table_height
+                srot = 0.0
+                # We'll store "is_on" in the fans, but not in the switch object
+                # to keep a single source of truth. It's still helpful to have them in the state though.
+                init_dict[switch_obj] = {
+                    "x": sx,
+                    "y": sy,
+                    "z": sz,
+                    "rot": srot,
+                    "side": float(side_idx),
+                    "switch_x": sx,
+                    "switch_y": sy,
+                    "switch_z": sz,
+                    "switch_rot": srot,
+                    "is_on": 0.0  # matches off
+                }
+
+            # Maze walls
             wall1_dict = {
                 "x": 0.85,
                 "y": 1.38,
@@ -675,39 +892,21 @@ class PyBulletFanEnv(PyBulletEnv):
                 "rot": 0.0,
                 "length": 0.3
             }
+            init_dict[self._wall1] = wall1_dict
+            init_dict[self._wall2] = wall2_dict
+
             # Ball
             ball_dict = {"x": 0.75, "y": 1.35, "z": self.table_height + 0.05}
-            # Target
-            target_dict = {
-                "x": 0.95,
-                "y": 1.45,
-                "z": self.table_height,
-                "rot": 0.0,
-                "is_hit": 0.0,
-            }
+            init_dict[self._ball] = ball_dict
 
-            init_dict = {
-                self._robot: robot_dict,
-                self._fan1: fan_dicts[0],
-                self._fan2: fan_dicts[1],
-                self._fan3: fan_dicts[2],
-                self._fan4: fan_dicts[3],
-                self._wall1: wall1_dict,
-                self._wall2: wall2_dict,
-                self._ball: ball_dict,
-                self._target: target_dict,
-            }
             init_state = utils.create_state_from_dict(init_dict)
-
             # Example goal: Ball is at the target
             goal_atoms = {
                 GroundAtom(self._BallAtTarget, [self._ball, self._target])
             }
-
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 
         return self._add_pybullet_state_to_tasks(tasks)
-
 
 if __name__ == "__main__":
     """Run a interactive simulation to test the environment."""
