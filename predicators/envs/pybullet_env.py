@@ -640,3 +640,43 @@ def create_pybullet_block(
         physicsClientId=physics_client_id)
 
     return block_id
+
+def create_pybullet_sphere(
+    color: Tuple[float, float, float, float],
+    radius: float,
+    mass: float,
+    friction: float,
+    position: Sequence[Pose3D] = (0, 0, 0),
+    orientation: Sequence[Quaternion] = (0, 0, 0, 1),
+    physics_client_id: int = 0,
+) -> int:
+    """A generic utility for creating a new sphere.
+
+    Returns the PyBullet ID of the newly created sphere.
+    """
+    # Create the collision shape.
+    collision_id = p.createCollisionShape(p.GEOM_SPHERE,
+                                          radius=radius,
+                                          physicsClientId=physics_client_id)
+
+    # Create the visual shape.
+    visual_id = p.createVisualShape(p.GEOM_SPHERE,
+                                    radius=radius,
+                                    rgbaColor=color,
+                                    physicsClientId=physics_client_id)
+
+    # Create the body.
+    sphere_id = p.createMultiBody(baseMass=mass,
+                                  baseCollisionShapeIndex=collision_id,
+                                  baseVisualShapeIndex=visual_id,
+                                  basePosition=position,
+                                  baseOrientation=orientation,
+                                  physicsClientId=physics_client_id)
+    p.changeDynamics(
+        sphere_id,
+        linkIndex=-1,  # -1 for the base
+        lateralFriction=friction,
+        spinningFriction=friction,
+        physicsClientId=physics_client_id)
+
+    return sphere_id
