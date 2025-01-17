@@ -242,9 +242,7 @@ class PyBulletFanEnv(PyBulletEnv):
             physics_client_id=physics_client_id)
         bodies["wall_id_2"] = wall_id_2
 
-        # -------------------
         # Create the ball
-        # -------------------
         ball_id = create_pybullet_sphere(
             color=(1.0, 0.0, 0.0, 1),  # red color
             radius=0.05,  # adjust radius as needed
@@ -261,9 +259,7 @@ class PyBulletFanEnv(PyBulletEnv):
             physicsClientId=physics_client_id)
         bodies["ball_id"] = ball_id
 
-        # -------------------
         # Create the target
-        # -------------------
         target_id = create_pybullet_block(color=(0, 1, 0, 1.0),
                                           half_extents=(0.03, 0.03, 0.0001),
                                           mass=0.0,
@@ -289,9 +285,6 @@ class PyBulletFanEnv(PyBulletEnv):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store references to all PyBullet object IDs and their relevant
         joints."""
-        # Robot
-        # (already stored by the parent class)
-
         # Fans
         self._fan1.id = pybullet_bodies["fan_ids"][0]
         self._fan2.id = pybullet_bodies["fan_ids"][1]
@@ -299,7 +292,6 @@ class PyBulletFanEnv(PyBulletEnv):
         self._fan4.id = pybullet_bodies["fan_ids"][3]
 
         # Switches
-        # You might store a reference to the relevant joint for each switch
         self._fan1.switch_id = pybullet_bodies["switch_ids"][0]
         self._fan2.switch_id = pybullet_bodies["switch_ids"][1]
         self._fan3.switch_id = pybullet_bodies["switch_ids"][2]
@@ -447,7 +439,6 @@ class PyBulletFanEnv(PyBulletEnv):
                           position=(sx, sy, sz),
                           orientation=p.getQuaternionFromEuler([0, 0, srot]),
                           physics_client_id=self._physics_client_id)
-            # Set switch state if you need:
             self._set_switch_on(fan_obj.switch_id,
                                 bool(state.get(fan_obj, "is_on") > 0.5))
 

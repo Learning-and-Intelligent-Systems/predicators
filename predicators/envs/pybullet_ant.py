@@ -390,10 +390,11 @@ class PyBulletAntEnv(PyBulletEnv):
             init_dict = {}
 
             num_attractive_colors = 2
-            attractive_colors_id = rng.integers(0, len(self.color_palette), 
-                                                  num_attractive_colors)
-            attractive_colors = [self.color_palette[i] for i in 
-                                attractive_colors_id]
+            attractive_colors_id = rng.integers(0, len(self.color_palette),
+                                                num_attractive_colors)
+            attractive_colors = [
+                self.color_palette[i] for i in attractive_colors_id
+            ]
 
             # 1) Robot
             robot_dict = {
@@ -413,12 +414,13 @@ class PyBulletAntEnv(PyBulletEnv):
                 two_third_line = 2 * one_third_line
                 # Draw a debug ling for two_third_line
                 if self._debug_layout:
-                    p.addUserDebugLine([two_third_line, self.y_lb, self.z_lb+0.01],
-                                       [two_third_line, self.y_ub, self.z_lb+0.01],
-                                       [1, 0, 0], lineWidth=3)
+                    p.addUserDebugLine(
+                        [two_third_line, self.y_lb, self.z_lb + 0.01],
+                        [two_third_line, self.y_ub, self.z_lb + 0.01],
+                        [1, 0, 0],
+                        lineWidth=3)
                 x = rng.uniform(self.x_lb, one_third_line)
-                y = rng.uniform(self.y_lb,
-                                self.y_ub)
+                y = rng.uniform(self.y_lb, self.y_ub)
                 rot = rng.uniform(-np.pi, np.pi)
                 # Pick color
                 # First, prepare a list of color indices to distribute blocks evenly among colors
@@ -428,7 +430,7 @@ class PyBulletAntEnv(PyBulletEnv):
                     self._color_indices = []
                     for c in range(len(self.color_palette)):
                         count = blocks_per_color + (1 if c < remainder else 0)
-                        self._color_indices += [c]*count
+                        self._color_indices += [c] * count
                     rng.shuffle(self._color_indices)
 
                 # Then assign the color from this prepared list
@@ -463,7 +465,7 @@ class PyBulletAntEnv(PyBulletEnv):
 
             # 3) Ants
             for i, aobj in enumerate(self.ants):
-                x = rng.uniform(self.x_ub-self.padding, self.x_ub)
+                x = rng.uniform(self.x_ub - self.padding, self.x_ub)
                 y = rng.uniform(self.y_lb, self.y_ub)
                 rot = rng.uniform(-np.pi, np.pi)
                 init_dict[aobj] = {
