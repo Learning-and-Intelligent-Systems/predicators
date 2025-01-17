@@ -61,7 +61,8 @@ class PyBulletFloatEnv(PyBulletEnv):
     TUBE_OPENING_LEN: ClassVar[float] = 0.05
     VESSEL_WALL_THICKNESS: ClassVar[float] = 0.01
 
-    # Cross-sectional area for each compartment => total area is 2 * CONTAINER_AREA
+    # Cross-sectional area for each compartment => total area is 2 * 
+    # CONTAINER_AREA
     CONTAINER_AREA: ClassVar[float] = CONTAINER_OPENING_LEN**2
 
     # Table / workspace config
@@ -446,17 +447,8 @@ class PyBulletFloatEnv(PyBulletEnv):
             # the net displacement is the same. So no water level change either.
             changed = False
         else:
-            # => The number of submerging blocks changed => recalc water
-            new_total_volume = 2.0 * self.CONTAINER_AREA * old_height \
-                               - (old_num_displacing * (self.block_size**3)) \
-                               + (new_num_displacing * (self.block_size**3))
-            # ^ This approach:
-            #   2 * area * old_height is the water volume w/o blocks
-            #   old_num_displacing * block_volume => old block total
-            #   remove old block volumes, add new block volumes
-            # Actually let's do it more directly:
-            #   old_volume was water + old displaced. We want to remove old displaced
-            #   and add new displaced. So new_volume = old_volume
+            # old_volume was water + old displaced. We want to remove old 
+            # displaced and add new displaced. So new_volume = old_volume
             #                                  - old_displaced + new_displaced
             increase_factor = 2
             old_displaced_vol = old_num_displacing * (self.block_size**3)

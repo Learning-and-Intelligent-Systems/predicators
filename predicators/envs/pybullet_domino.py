@@ -70,8 +70,6 @@ class PyBulletDominoEnv(PyBulletEnv):
     _camera_pitch: ClassVar[float] = -40
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
-    # We won't manipulate the dominoes with the robot's gripper in this example,
-    # but we still define a robot if we want to maintain a consistent interface.
     robot_init_x: ClassVar[float] = (x_lb + x_ub) * 0.5
     robot_init_y: ClassVar[float] = (y_lb + y_ub) * 0.5
     robot_init_z: ClassVar[float] = z_ub
@@ -94,8 +92,6 @@ class PyBulletDominoEnv(PyBulletEnv):
     def __init__(self,
                  use_gui: bool = True,
                  debug_layout: bool = True) -> None:
-        # Define Types
-
         # Create 'dummy' Objects (they'll be assigned IDs on reset)
         self._robot = Object("robot", self._robot_type)
         # We'll hold references to all domino and target objects in lists
@@ -228,8 +224,6 @@ class PyBulletDominoEnv(PyBulletEnv):
     # State Management
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        # In this domain, we don't pick anything up with the robot, so we
-        # can return an empty list.
         return []
 
     def _get_state(self) -> State:
@@ -298,8 +292,6 @@ class PyBulletDominoEnv(PyBulletEnv):
     def _reset_state(self, state: State) -> None:
         """Reset the PyBullet world to match the given state."""
         super()._reset_state(state)
-        # We'll reconstruct the same set of self._objects that we used in
-        # creating the tasks.
 
         # For each domino and target, update PyBullet position/orientation.
         for obj in self._objects:
@@ -352,11 +344,6 @@ class PyBulletDominoEnv(PyBulletEnv):
         special aside from the usual robot step)."""
         next_state = super().step(action, render_obs=render_obs)
 
-        # In an advanced version, you might check collisions or toppling here
-        # and update states accordingly. For simplicity, we let PyBullet
-        # automatically handle physics updates, so the orientation is captured
-        # by reading from PyBullet each time _get_state() is called.
-
         final_state = self._get_state()
         self._current_observation = final_state
         return final_state
@@ -382,7 +369,8 @@ class PyBulletDominoEnv(PyBulletEnv):
         # In a real scenario, you'd measure pitch/roll or object bounding box.
         target, = objects
         rot_z = state.get(target, "rot")
-        # If the target has spun more than e.g. ±0.8 rad from upright, call it toppled.
+        # If the target has spun more than e.g. ±0.8 rad from upright, call it 
+        # toppled.
         # This is an arbitrary threshold for demonstration.
         if abs(utils.wrap_angle(rot_z)) < 0.8:
             return True
@@ -612,7 +600,6 @@ if __name__ == "__main__":
     import time
 
     CFG.seed = 0
-    # CFG.pybullet_sim_steps_per_action = 1
     env = PyBulletDominoEnv(use_gui=True, debug_layout=True)
     task = env._make_tasks(1, np.random.default_rng(0))[0]
     env._reset_state(task.init)

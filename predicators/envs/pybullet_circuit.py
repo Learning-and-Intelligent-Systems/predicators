@@ -23,7 +23,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, ConceptPredicate, EnvironmentTask, \
+from predicators.structs import Action, EnvironmentTask, \
     GroundAtom, Object, Predicate, State, Type
 
 
@@ -138,7 +138,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            # If you want to define self._Connected, re-add it here
             self._Holding,
             self._HandEmpty,
             self._LightOn,
@@ -150,7 +149,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        # In many tasks, you might want the goal to be that the light is on.
         return {self._LightOn}
 
     @property
@@ -256,7 +254,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
         # Battery
         (bx, by, bz), born = p.getBasePositionAndOrientation(
             self._battery.id, physicsClientId=self._physics_client_id)
-        # --- CHANGED / ADDED ---
         # Convert orientation to Euler angles and store the yaw in "rot".
         b_euler = p.getEulerFromQuaternion(born)
         state_dict[self._battery] = {
@@ -269,7 +266,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
         # Light (with bulb)
         (lx, ly, lz), lorn = p.getBasePositionAndOrientation(
             self._light.id, physicsClientId=self._physics_client_id)
-        # --- CHANGED / ADDED ---
         # Convert orientation to Euler angles and store the yaw in "rot".
         l_euler = p.getEulerFromQuaternion(lorn)
         # We'll store an is_on feature: 1.0 means on, 0.0 means off
@@ -322,14 +318,14 @@ class PyBulletCircuitEnv(PyBulletEnv):
         lx = state.get(self._light, "x")
         ly = state.get(self._light, "y")
         lz = state.get(self._light, "z")
-        # --- CHANGED / ADDED ---
         # Retrieve light rot
         lrot = state.get(self._light, "rot")
         update_object(self._light.id,
                       position=(lx, ly, lz),
                       orientation=p.getQuaternionFromEuler([0, 0, lrot]),
                       physics_client_id=self._physics_client_id)
-        # Optionally set color here if you want to reflect the on/off state visually.
+        # Optionally set color here if you want to reflect the on/off state 
+        # visually.
 
         # Update wires
         for wire_obj in [self._wire1, self._wire2]:
@@ -613,7 +609,6 @@ if __name__ == "__main__":
     env._reset_state(task.init)
 
     while True:
-        # Robot does nothing
         action = Action(np.array(env._pybullet_robot.initial_joint_positions))
 
         env.step(action)

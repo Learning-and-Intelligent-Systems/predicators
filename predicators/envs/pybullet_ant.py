@@ -12,14 +12,10 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
 
-# If you don’t have these exact imports, adapt accordingly:
-# from predicators.pybullet_helpers.utils import create_state_from_dict, etc.
-
-
 class PyBulletAntEnv(PyBulletEnv):
     """A PyBullet environment with:
 
-    - A single robot (same interface as in domino env).
+    - A single robot.
     - Multiple food blocks of varying colors (some 'attractive').
     - Several ant objects that move toward an attractive food with noise.
     """
@@ -130,8 +126,6 @@ class PyBulletAntEnv(PyBulletEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        # Example: we might have no real "goal" predicates,
-        # or define something like “all ants get within some distance of an attractive block”.
         return set()
 
     @property
@@ -358,7 +352,7 @@ class PyBulletAntEnv(PyBulletEnv):
             )
 
     # -------------------------------------------------------------------------
-    # Predicates (placeholders)
+    # Predicates
 
     @classmethod
     def _Holding_holds(cls, state: State, objects: Sequence[Object]) -> bool:

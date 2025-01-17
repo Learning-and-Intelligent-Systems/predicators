@@ -66,7 +66,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     _camera_target: ClassVar[Tuple[float, float, float]] = (0.75, 1.25, 0.42)
 
     # -------------
-    # URDF scale or references (adjust to taste)
+    # URDF scale or references
     # -------------
     piece_width: ClassVar[float] = 0.08
     piece_height: ClassVar[float] = 0.11
@@ -238,7 +238,6 @@ class PyBulletLaserEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _get_object_ids_for_held_check(self) -> List[int]:
         """Return IDs of wires (assuming the robot can pick them up)."""
-        # return [self._wire1.id, self._wire2.id]
         return [self._mirror1.id, self._mirror2.id, self._split_mirror.id]
 
     def _get_state(self) -> State:
@@ -367,7 +366,6 @@ class PyBulletLaserEnv(PyBulletEnv):
             orientation=p.getQuaternionFromEuler([0.0, 0.0, srot]),
             physics_client_id=self._physics_client_id,
         )
-        # self._set_station_powered_on(bool(state.get(self._station, "is_on") > 0.5))
 
         # Mirrors
         for mirror_obj in [self._mirror1, self._mirror2, self._split_mirror]:
@@ -434,8 +432,7 @@ class PyBulletLaserEnv(PyBulletEnv):
         station_pos = (station_pos[0], station_pos[1],
                        self.table_height + self.light_height)
         # Example beam direction: facing station_orn z-axis
-        beam_dir = np.array([0.0, 1.0,
-                             0.0])  # pick something consistent with your URDF
+        beam_dir = np.array([0.0, 1.0, 0.0])
         # Rotate beam_dir by the station's orientation
         rmat = np.array(p.getMatrixFromQuaternion(station_orn)).reshape(3, 3)
         beam_dir = rmat.dot(beam_dir)
@@ -536,7 +533,7 @@ class PyBulletLaserEnv(PyBulletEnv):
                            incoming_dir: np.ndarray) -> np.ndarray:
         """Compute the approximate reflection of the incoming beam on a
         mirror's orientation."""
-        # For simplicity, reflect across the mirror's local y-axis (adjust as needed).
+        # For simplicity, reflect across the mirror's local y-axis.
         # In a real environment you’d do actual local normal calculations.
         pos, orn = p.getBasePositionAndOrientation(mirror_id,
                                                    self._physics_client_id)
@@ -546,7 +543,8 @@ class PyBulletLaserEnv(PyBulletEnv):
         euler[2] -= np.pi / 4
         orn = p.getQuaternionFromEuler(euler)
         rmat = np.array(p.getMatrixFromQuaternion(orn)).reshape(3, 3)
-        # Suppose the mirror's local normal is the x-axis in URDF => mirror reflection around that.
+        # Suppose the mirror's local normal is the x-axis in URDF => mirror 
+        # reflection around that.
         local_normal = rmat[:, 0]  # pick an axis consistent with mirror shape
         incoming_norm = incoming_dir / (np.linalg.norm(incoming_dir) + 1e-9)
         # reflection = dir - 2*(dir · normal)*normal
@@ -648,7 +646,8 @@ class PyBulletLaserEnv(PyBulletEnv):
                 "wrist": self.robot_init_wrist,
             }
 
-            # Example initial layout: station near bottom, mirrors in middle, targets near top
+            # Example layout: station near bottom, mirrors in middle, targets
+            # near top
             station_x = (self.x_lb + self.x_ub) / 2
             station_y = self.y_lb + self.piece_width
             station_dict = {
@@ -717,8 +716,6 @@ class PyBulletLaserEnv(PyBulletEnv):
             }
             init_state = utils.create_state_from_dict(init_dict)
 
-            # If your system only supports conjunctive goals, pick one target or both:
-            # e.g. "Both targets must be hit"
             goal_atoms = {
                 GroundAtom(self._TargetHit, [self._target1]),
                 GroundAtom(self._TargetHit, [self._target2]),
