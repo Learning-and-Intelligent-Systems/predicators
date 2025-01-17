@@ -641,6 +641,7 @@ def create_pybullet_block(
 
     return block_id
 
+
 def create_pybullet_sphere(
     color: Tuple[float, float, float, float],
     radius: float,
