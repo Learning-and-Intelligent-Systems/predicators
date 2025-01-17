@@ -507,7 +507,7 @@ class PyBulletFanEnv(PyBulletEnv):
                         jointIndex=fan_obj.joint_id,
                         controlMode=p.VELOCITY_CONTROL,
                         targetVelocity=self.fan_spin_velocity,
-                        force=10.0,  # max torque
+                        force=20.0,  # max torque
                         physicsClientId=self._physics_client_id)
                 # Apply wind force to the ball
                 self._apply_fan_force_to_ball(fan_obj.id, self._ball.id)
@@ -519,7 +519,7 @@ class PyBulletFanEnv(PyBulletEnv):
                         jointIndex=fan_obj.joint_id,
                         controlMode=p.VELOCITY_CONTROL,
                         targetVelocity=0.0,
-                        force=10.0,
+                        force=20.0,
                         physicsClientId=self._physics_client_id)
 
     def _apply_fan_force_to_ball(self, fan_id: int, ball_id: int) -> None:
@@ -552,7 +552,8 @@ class PyBulletFanEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _is_switch_on(self, switch_id: int) -> bool:
         """Check if a switch's joint (joint_0) is above threshold."""
-        # We assume there's exactly 1 relevant joint in the switch URDF, named "joint_0".
+        # We assume there's exactly 1 relevant joint in the switch URDF, 
+        # named "joint_0".
         joint_id = self._get_joint_id(switch_id, "joint_0")
         if joint_id < 0:
             return False
@@ -629,7 +630,6 @@ class PyBulletFanEnv(PyBulletEnv):
                 "tilt": self.robot_init_tilt,
                 "wrist": self.robot_init_wrist,
             }
-            # Fans (positions are mostly static in this example, but you can randomize).
             fan_dicts = []
             # Each fan faces toward the ball in the center.
             mid_x = self.x_lb + (self.x_ub - self.x_lb) / 2
@@ -652,7 +652,7 @@ class PyBulletFanEnv(PyBulletEnv):
                     "y": py,
                     "z": self.table_height + self.fan_z_len / 2,
                     "rot": rot,
-                    # Example switch positions near the robot (customize as needed):
+                    # Example switch positions near the robot
                     "switch_x": self.robot_init_x + (i * 0.1) - 0.2,
                     "switch_y": self.y_lb + 0.05,
                     "switch_z": self.table_height,
@@ -710,7 +710,7 @@ class PyBulletFanEnv(PyBulletEnv):
 
 
 if __name__ == "__main__":
-    """Run a simple simulation to test the environment."""
+    """Run a interactive simulation to test the environment."""
     import time
 
     # Make a task
