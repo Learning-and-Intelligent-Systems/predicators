@@ -574,7 +574,7 @@ class PyBulletEnv(BaseEnv):
             # observation, would it work without the reset_state?
             # Attempt 2: First reset it.
             self._current_observation = init
-            # self._reset_state(init)
+            self._reset_state(init)
             # Cast _current_observation from type State to PybulletState
             joint_positions = self._pybullet_robot.get_joints()
             self._current_observation = utils.PyBulletState(

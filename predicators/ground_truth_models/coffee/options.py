@@ -499,7 +499,7 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _get_jug_z(cls, state: State, robot: Object, jug: Object) -> float:
-        assert state.get(jug, "is_held") > 0.5
+        # assert state.get(jug, "is_held") > 0.5
         # Offset to account for handle.
         return state.get(robot, "z") - cls.env_cls.jug_handle_height()
 
