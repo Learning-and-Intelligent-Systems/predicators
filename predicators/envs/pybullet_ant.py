@@ -12,6 +12,7 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
 
+
 class PyBulletAntEnv(PyBulletEnv):
     """A PyBullet environment with:
 

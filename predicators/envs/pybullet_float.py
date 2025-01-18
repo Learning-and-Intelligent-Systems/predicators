@@ -61,7 +61,7 @@ class PyBulletFloatEnv(PyBulletEnv):
     TUBE_OPENING_LEN: ClassVar[float] = 0.05
     VESSEL_WALL_THICKNESS: ClassVar[float] = 0.01
 
-    # Cross-sectional area for each compartment => total area is 2 * 
+    # Cross-sectional area for each compartment => total area is 2 *
     # CONTAINER_AREA
     CONTAINER_AREA: ClassVar[float] = CONTAINER_OPENING_LEN**2
 
@@ -447,7 +447,7 @@ class PyBulletFloatEnv(PyBulletEnv):
             # the net displacement is the same. So no water level change either.
             changed = False
         else:
-            # old_volume was water + old displaced. We want to remove old 
+            # old_volume was water + old displaced. We want to remove old
             # displaced and add new displaced. So new_volume = old_volume
             #                                  - old_displaced + new_displaced
             increase_factor = 2

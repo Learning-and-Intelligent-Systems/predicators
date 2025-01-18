@@ -23,8 +23,8 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, \
-    GroundAtom, Object, Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class PyBulletCircuitEnv(PyBulletEnv):
@@ -324,7 +324,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
                       position=(lx, ly, lz),
                       orientation=p.getQuaternionFromEuler([0, 0, lrot]),
                       physics_client_id=self._physics_client_id)
-        # Optionally set color here if you want to reflect the on/off state 
+        # Optionally set color here if you want to reflect the on/off state
         # visually.
 
         # Update wires

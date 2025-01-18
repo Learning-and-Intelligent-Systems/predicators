@@ -369,7 +369,7 @@ class PyBulletDominoEnv(PyBulletEnv):
         # In a real scenario, you'd measure pitch/roll or object bounding box.
         target, = objects
         rot_z = state.get(target, "rot")
-        # If the target has spun more than e.g. ±0.8 rad from upright, call it 
+        # If the target has spun more than e.g. ±0.8 rad from upright, call it
         # toppled.
         # This is an arbitrary threshold for demonstration.
         if abs(utils.wrap_angle(rot_z)) < 0.8:

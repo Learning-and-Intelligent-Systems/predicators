@@ -543,7 +543,7 @@ class PyBulletLaserEnv(PyBulletEnv):
         euler[2] -= np.pi / 4
         orn = p.getQuaternionFromEuler(euler)
         rmat = np.array(p.getMatrixFromQuaternion(orn)).reshape(3, 3)
-        # Suppose the mirror's local normal is the x-axis in URDF => mirror 
+        # Suppose the mirror's local normal is the x-axis in URDF => mirror
         # reflection around that.
         local_normal = rmat[:, 0]  # pick an axis consistent with mirror shape
         incoming_norm = incoming_dir / (np.linalg.norm(incoming_dir) + 1e-9)
