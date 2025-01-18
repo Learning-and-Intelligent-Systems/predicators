@@ -24,12 +24,15 @@ from predicators.settings import CFG
 @dataclass(frozen=True, order=True)
 class Type:
     """Struct defining a type.
-    sim_feature_names are features stored in an object, and usually won't change
-    throughout and across tasks. An example is the object's pybullet id."""
+
+    sim_feature_names are features stored in an object, and usually
+    won't change throughout and across tasks. An example is the object's
+    pybullet id.
+    """
     name: str
     feature_names: Sequence[str] = field(repr=False)
     parent: Optional[Type] = field(default=None, repr=False)
-    sim_features: Sequence[str] = field(default_factory=lambda: ["id"], 
+    sim_features: Sequence[str] = field(default_factory=lambda: ["id"],
                                         repr=False)
 
     @property
@@ -91,6 +94,7 @@ class _TypedEntity:
             cur_type = cur_type.parent
         return False
 
+
 @dataclass(frozen=False, order=True, repr=False)
 class Object(_TypedEntity):
     """Struct defining an Object, which is just a _TypedEntity whose name does
@@ -103,7 +107,7 @@ class Object(_TypedEntity):
         for sim_feature in self.type.sim_features:
             self.sim_data[sim_feature] = None  # Default to None
         # Keep track of allowed attributes
-        self._allowed_attributes = {"id", "sim_data"}.union(self.sim_data.keys())
+        self._allowed_attributes = {"sim_data"}.union(self.sim_data.keys())
 
     def __getattr__(self, name: str) -> Any:
         # Bypass custom logic for internal attributes
@@ -111,7 +115,8 @@ class Object(_TypedEntity):
         sim_data = object.__getattribute__(self, "sim_data")
         if name in sim_data:
             return sim_data[name]
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Always allow the dataclass fields (e.g., "name", "type", "sim_data").
@@ -121,7 +126,8 @@ class Object(_TypedEntity):
 
         # For anything else, check _allowed_attributes.
         allowed_attrs = object.__getattribute__(self, "_allowed_attributes") \
-            if object.__getattribute__(self, "__dict__").get("_allowed_attributes") else set()
+            if object.__getattribute__(self, "__dict__").get(
+                "_allowed_attributes") else set()
         if name in allowed_attrs:
             sim_data = object.__getattribute__(self, "sim_data")
             if name in sim_data:

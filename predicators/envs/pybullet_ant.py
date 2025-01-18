@@ -86,7 +86,7 @@ class PyBulletAntEnv(PyBulletEnv):
         sim_features=["r", "g", "b", "attractive"])
 
     # Each ant might have orientation, but minimal for demonstration
-    _ant_type = Type("ant", ["x", "y", "z", "rot"], 
+    _ant_type = Type("ant", ["x", "y", "z", "rot"],
                      sim_features=["target_food"])
 
     def __init__(self,

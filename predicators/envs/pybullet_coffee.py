@@ -1266,6 +1266,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         target_z = cls.z_lb + cls.jug_handle_height()
         return (target_x, target_y, target_z)
 
+
 if __name__ == "__main__":
     """Run a simple simulation to test the environment."""
     import time
