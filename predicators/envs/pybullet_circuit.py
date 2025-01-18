@@ -89,7 +89,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _wire_type = Type("wire", ["x", "y", "z", "rot", "is_held"])
-    _battery_type = Type("battery", ["x", "y", "z", "rot"])
+    _battery_type = Type("battery", ["x", "y", "z", "rot"],
+                         sim_features=["id", "joint_id", "joint_scale"])
     _light_type = Type("light", ["x", "y", "z", "rot", "is_on"])
 
     def __init__(self, use_gui: bool = True) -> None:

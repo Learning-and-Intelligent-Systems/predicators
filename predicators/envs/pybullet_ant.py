@@ -82,10 +82,12 @@ class PyBulletAntEnv(PyBulletEnv):
 
     # Food has color channels + "attractive" as 0.0 or 1.0
     _food_type = Type(
-        "food", ["x", "y", "z", "rot", "is_held", "attractive", "r", "g", "b"])
+        "food", ["x", "y", "z", "rot", "is_held", "attractive", "r", "g", "b"],
+        sim_features=["r", "g", "b", "attractive"])
 
     # Each ant might have orientation, but minimal for demonstration
-    _ant_type = Type("ant", ["x", "y", "z", "rot"])
+    _ant_type = Type("ant", ["x", "y", "z", "rot"], 
+                     sim_features=["target_food"])
 
     def __init__(self,
                  use_gui: bool = True,
@@ -225,22 +227,22 @@ class PyBulletAntEnv(PyBulletEnv):
             is_held_val = 1.0 if (food_obj.id == self._held_obj_id) else 0.0
             # Just keep placeholders for r,g,b,attractive for now—will read from init_dict
             # or store them in environment if needed.
-            if not hasattr(food_obj, "_r"):
+            if not hasattr(food_obj, "r"):
                 # fallback if not yet assigned
-                food_obj._r = 0.5
-                food_obj._g = 0.5
-                food_obj._b = 0.5
-                food_obj._attractive = 0.0
+                food_obj.r = 0.5
+                food_obj.g = 0.5
+                food_obj.b = 0.5
+                food_obj.attractive = 0.0
             state_dict[food_obj] = {
                 "x": fx,
                 "y": fy,
                 "z": fz,
                 "rot": utils.wrap_angle(yaw),
                 "is_held": is_held_val,
-                "attractive": food_obj._attractive,
-                "r": food_obj._r,
-                "g": food_obj._g,
-                "b": food_obj._b,
+                "attractive": food_obj.attractive,
+                "r": food_obj.r,
+                "g": food_obj.g,
+                "b": food_obj.b,
             }
 
         # 3) Ants
@@ -319,7 +321,7 @@ class PyBulletAntEnv(PyBulletEnv):
         food."""
         for ant_obj in self.ants:
             # Retrieve this ant’s assigned food
-            target_food_obj = getattr(ant_obj, "_target_food", None)
+            target_food_obj = getattr(ant_obj, "target_food", None)
             if target_food_obj is None:
                 continue
 
@@ -432,14 +434,14 @@ class PyBulletAntEnv(PyBulletEnv):
                 color_idx = self._color_indices[i]
                 color_rgba = self.color_palette[color_idx]
                 # Store color in object attributes
-                fobj._r = color_rgba[0]
-                fobj._g = color_rgba[1]
-                fobj._b = color_rgba[2]
+                fobj.r = color_rgba[0]
+                fobj.g = color_rgba[1]
+                fobj.b = color_rgba[2]
                 # If color is in attractive_colors, set "attractive"=1
                 if color_rgba in attractive_colors:
-                    fobj._attractive = 1.0
+                    fobj.attractive = 1.0
                 else:
-                    fobj._attractive = 0.0
+                    fobj.attractive = 0.0
 
                 init_dict[fobj] = {
                     "x": x,
@@ -447,15 +449,15 @@ class PyBulletAntEnv(PyBulletEnv):
                     "z": self.z_lb + self.food_half_extents[2],  # on table
                     "rot": rot,
                     "is_held": 0.0,
-                    "attractive": fobj._attractive,
-                    "r": fobj._r,
-                    "g": fobj._g,
-                    "b": fobj._b,
+                    "attractive": fobj.attractive,
+                    "r": fobj.r,
+                    "g": fobj.g,
+                    "b": fobj.b,
                 }
 
             # Collect the "attractive" foods for random assignment
             attractive_food_objs = [
-                f for f in self.food if f._attractive == 1.0
+                f for f in self.food if f.attractive == 1.0
             ]
 
             # 3) Ants
@@ -472,9 +474,9 @@ class PyBulletAntEnv(PyBulletEnv):
                 # Assign a random attractive block if any exist
                 # (store that choice as an attribute in the Python object)
                 if attractive_food_objs:
-                    aobj._target_food = rng.choice(attractive_food_objs)
+                    aobj.target_food = rng.choice(attractive_food_objs)
                 else:
-                    aobj._target_food = None
+                    aobj.target_food = None
 
             self._objects = [self._robot] + self.food + self.ants
             init_state = utils.create_state_from_dict(init_dict)

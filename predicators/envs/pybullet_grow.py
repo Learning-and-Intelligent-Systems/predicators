@@ -543,3 +543,23 @@ class PyBulletGrowEnv(PyBulletEnv):
                                  basePosition=pose,
                                  baseOrientation=orientation,
                                  physicsClientId=self._physics_client_id)
+
+
+if __name__ == "__main__":
+    """Run a simple simulation to test the environment."""
+    import time
+
+    # Make a task
+    CFG.seed = 1
+    CFG.pybullet_sim_steps_per_action = 1
+    env = PyBulletGrowEnv(use_gui=True)
+    rng = np.random.default_rng(CFG.seed)
+    task = env._make_tasks(1, rng)[0]
+    env._reset_state(task.init)
+
+    while True:
+        # Robot does nothing
+        action = Action(np.array(env._pybullet_robot.initial_joint_positions))
+
+        env.step(action)
+        time.sleep(0.01)

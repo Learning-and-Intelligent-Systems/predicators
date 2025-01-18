@@ -88,7 +88,8 @@ class PyBulletFanEnv(PyBulletEnv):
             "rot",  # base orientation (Z euler)
             "side",  # 0=left,1=right,2=back,3=front
             "is_on",  # whether the controlling switch is on
-        ])
+        ],
+        sim_features=["id", "joint_id", "side_idx"])
     # New separate switch type:
     _switch_type = Type(
         "switch",
@@ -99,7 +100,8 @@ class PyBulletFanEnv(PyBulletEnv):
             "rot",  # switch orientation
             "side",  # matches fan side
             "is_on",  # is this switch on
-        ])
+        ],
+        sim_features=["id", "joint_id", "side_idx"])
     _wall_type = Type("wall", ["x", "y", "z", "rot", "length"])
     _ball_type = Type("ball", ["x", "y", "z"])
     _target_type = Type("target", ["x", "y", "z", "rot", "is_hit"])

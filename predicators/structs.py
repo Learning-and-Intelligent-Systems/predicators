@@ -23,10 +23,14 @@ from predicators.settings import CFG
 
 @dataclass(frozen=True, order=True)
 class Type:
-    """Struct defining a type."""
+    """Struct defining a type.
+    sim_feature_names are features stored in an object, and usually won't change
+    throughout and across tasks. An example is the object's pybullet id."""
     name: str
     feature_names: Sequence[str] = field(repr=False)
     parent: Optional[Type] = field(default=None, repr=False)
+    sim_features: Sequence[str] = field(default_factory=lambda: ["id"], 
+                                        repr=False)
 
     @property
     def dim(self) -> int:
@@ -62,7 +66,6 @@ class _TypedEntity:
     """
     name: str
     type: Type
-    id: Optional[int] = None
 
     @cached_property
     def _str(self) -> str:
@@ -88,14 +91,45 @@ class _TypedEntity:
             cur_type = cur_type.parent
         return False
 
-
 @dataclass(frozen=False, order=True, repr=False)
 class Object(_TypedEntity):
     """Struct defining an Object, which is just a _TypedEntity whose name does
     not start with "?"."""
+    sim_data: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         assert not self.name.startswith("?")
+        # Initialize sim_data from the Type's sim_features
+        for sim_feature in self.type.sim_features:
+            self.sim_data[sim_feature] = None  # Default to None
+        # Keep track of allowed attributes
+        self._allowed_attributes = {"id", "sim_data"}.union(self.sim_data.keys())
+
+    def __getattr__(self, name: str) -> Any:
+        # Bypass custom logic for internal attributes
+        # Use object.__getattribute__(...) instead of self.sim_data
+        sim_data = object.__getattribute__(self, "sim_data")
+        if name in sim_data:
+            return sim_data[name]
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Always allow the dataclass fields (e.g., "name", "type", "sim_data").
+        if name in {"name", "type", "sim_data", "_allowed_attributes"}:
+            super().__setattr__(name, value)
+            return
+
+        # For anything else, check _allowed_attributes.
+        allowed_attrs = object.__getattribute__(self, "_allowed_attributes") \
+            if object.__getattribute__(self, "__dict__").get("_allowed_attributes") else set()
+        if name in allowed_attrs:
+            sim_data = object.__getattribute__(self, "sim_data")
+            if name in sim_data:
+                sim_data[name] = value
+            else:
+                super().__setattr__(name, value)
+        else:
+            raise AttributeError(f"Cannot set unknown attribute '{name}'")
 
     def __hash__(self) -> int:
         # By default, the dataclass generates a new __hash__ method when
