@@ -252,13 +252,13 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 params: Array) -> Tuple[Pose, Pose, str]:
             assert not params
             robot, block = objects
-            current_position = (state.get(robot, "pose_x"),
-                                state.get(robot, "pose_y"),
-                                state.get(robot, "pose_z"))
+            current_position = (state.get(robot, "x"),
+                                state.get(robot, "y"),
+                                state.get(robot, "z"))
             current_pose = Pose(current_position, home_orn)
             target_position = (state.get(block,
-                                         "pose_x"), state.get(block, "pose_y"),
-                               z_func(state.get(block, "pose_z")))
+                                         "x"), state.get(block, "y"),
+                               z_func(state.get(block, "z")))
             target_pose = Pose(target_position, home_orn)
             return current_pose, target_pose, finger_status
 
@@ -289,9 +289,9 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose, Pose, str]:
             robot, _ = objects
-            current_position = (state.get(robot, "pose_x"),
-                                state.get(robot, "pose_y"),
-                                state.get(robot, "pose_z"))
+            current_position = (state.get(robot, "x"),
+                                state.get(robot, "y"),
+                                state.get(robot, "z"))
             current_pose = Pose(current_position, home_orn)
             # De-normalize parameters to actual table coordinates.
             x_norm, y_norm = params
@@ -321,9 +321,9 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
             # robot = objects[0]
             # robot = state.get_objects(cls.env_cls._robot_type)[0]
             robot = [r for r in state if r.type.name == "robot"][0]
-            x = state.get(robot, "pose_x")
-            y = state.get(robot, "pose_y")
-            z = state.get(robot, "pose_z")
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
             robot_pos = (x, y, z)
             button_pos = (cls.env_cls.button_x, cls.env_cls.button_y,
                           cls.env_cls.button_z + cls.env_cls._button_radius)

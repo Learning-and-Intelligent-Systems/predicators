@@ -456,107 +456,42 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             logging.debug(reconstructed_state.pretty_str())
             raise ValueError("Could not reconstruct state.")
 
-    def _get_state(self, render_obs: bool = False) -> State:
-        """Create a State instance based on the current PyBullet state.
-
-        Called in step() and reset().
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
         """
-        state_dict = {}
-
-        # Get robot state.
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        tilt, wrist = self._gripper_orn_to_tilt_wrist((qx, qy, qz, qw))
-        fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
-        state_dict[self._robot] = {
-            "x": rx,
-            "y": ry,
-            "z": rz,
-            "tilt": tilt,
-            "wrist": utils.wrap_angle(wrist),
-            "fingers": fingers
-        }
-        joint_positions = self._pybullet_robot.get_joints()
-
-        # Get cup states.
-        for cup_id, cup in self._cup_id_to_cup.items():
-
-            (x, y, z), _ = p.getBasePositionAndOrientation(
-                cup_id, physicsClientId=self._physics_client_id)
-
-            capacity = self._cup_to_capacity[cup]
-            target_liquid = capacity * self.cup_target_frac
-
-            # No liquid object is created if the current liquid is 0.
-            if self._cup_to_liquid_id.get(cup, None) is not None:
-                liquid_id = self._cup_to_liquid_id[cup]
-                liquid_height = p.getVisualShapeData(
-                    liquid_id,
-                    physicsClientId=self._physics_client_id,
-                )[0][3][0]
-                current_liquid = self._cup_liquid_height_to_liquid(
-                    liquid_height, capacity)
-            else:
-                current_liquid = 0.0
-
-            state_dict[cup] = {
-                "x": x,
-                "y": y,
-                "z": z,
-                "capacity_liquid": capacity,
-                "target_liquid": target_liquid,
-                "current_liquid": current_liquid,
-            }
-
-        # Get jug state.
-        (x, y, z), quat = p.getBasePositionAndOrientation(
-            self._jug.id, physicsClientId=self._physics_client_id)
-        rot = utils.wrap_angle(p.getEulerFromQuaternion(quat)[2])
-        held = (self._jug.id == self._held_obj_id)
-        filled = float(self._jug_filled)
-        state_dict[self._jug] = {
-            "x": x,
-            "y": y,
-            "z": z,
-            "rot": rot,
-            "is_held": held,
-            "is_filled": filled,
-        }
-        state_dict[self._table] = {}
-
-        # Get plug state.
-        if CFG.coffee_machine_has_plug:
-            (x, y, z), _ = p.getBasePositionAndOrientation(
-                self._plug_id, physicsClientId=self._physics_client_id)
-            state_dict[self._plug] = {
-                "x": x,
-                "y": y,
-                "z": z,
-                "plugged_in": float(self._machine_plugged_in_id is not None),
-            }
-        # Get machine state.
-        button_color = p.getVisualShapeData(
-            self._button_id, physicsClientId=self._physics_client_id)[0][-1]
-        button_color_on_dist = sum(
-            np.subtract(button_color, self.button_color_on)**2)
-        button_color_off_dist = sum(
-            np.subtract(button_color, self.button_color_off)**2)
-        machine_on = float(button_color_on_dist < button_color_off_dist)
-        state_dict[self._machine] = {
-            "is_on": machine_on,
-        }
-
-        state = utils.create_state_from_dict(state_dict)
-        sim_state = {"joint_positions": joint_positions}
-        state = utils.PyBulletState(state.data, simulator_state=sim_state)
-        if render_obs:
-            # add unlabeled image, masks and labelled image
-            state.add_images_and_masks(*self.render_segmented_obj())
-
-        assert set(state) == set(self._current_state), \
-            (f"Reconstructed state has objects {set(state)}, but "
-             f"self._current_state has objects {set(self._current_state)}.")
-
-        return state
+        if obj.type == self._jug_type:
+            if feature == "is_filled":
+                return float(self._jug_filled)
+        elif obj.type == self._machine_type:
+            if feature == "is_on":
+                button_color = p.getVisualShapeData(
+                    self._button_id, physicsClientId=self._physics_client_id
+                    )[0][-1]
+                button_color_on_dist = sum(
+                    np.subtract(button_color, self.button_color_on)**2)
+                button_color_off_dist = sum(
+                    np.subtract(button_color, self.button_color_off)**2)
+                return float(button_color_on_dist < button_color_off_dist)
+        elif obj.type == self._cup_type:
+            if feature == "capacity_liquid":
+                return self._cup_to_capacity[obj]
+            elif feature == "current_liquid":
+                liquid_id = self._cup_to_liquid_id.get(obj, None)
+                if liquid_id is not None:
+                    liquid_height = p.getVisualShapeData(
+                        liquid_id,
+                        physicsClientId=self._physics_client_id,
+                    )[0][3][0]
+                    return self._cup_liquid_height_to_liquid(
+                        liquid_height, self._cup_to_capacity[obj])
+                else:
+                    return 0.0
+            elif feature == "target_liquid":
+                return self._cup_to_capacity[obj] * self.cup_target_frac
+        elif obj.type == self._plug_type:
+            if feature == "plugged_in":
+                return float(self._machine_plugged_in_id is not None)
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         # What's the previous robot state?

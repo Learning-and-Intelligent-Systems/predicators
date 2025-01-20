@@ -91,20 +91,20 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         # Types
-        bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
+        # bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
         self._block_type = Type("block", [
-            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
+            "x", "y", "z", "is_held", "color_r", "color_g",
             "color_b"
-        ] + (bbox_features if CFG.env_include_bbox_features else []))
+        ])# + (bbox_features if CFG.env_include_bbox_features else []))
         self._robot_type = Type(
-            "robot", ["pose_x", "pose_y", "pose_z", "fingers"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
+            "robot", ["x", "y", "z", "fingers"]) #+
+            # (bbox_features if CFG.env_include_bbox_features else []))
         self._plate_type = Type(
-            "plate", ["pose_z"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
+            "plate", ["z"]) #+
+            # (bbox_features if CFG.env_include_bbox_features else []))
         self._machine_type = Type(
-            "machine", ["is_on"] +
-            (bbox_features if CFG.env_include_bbox_features else []))
+            "machine", ["is_on"]) #+
+            # (bbox_features if CFG.env_include_bbox_features else []))
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -308,64 +308,31 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
     # -------------------------------------------------------------------------
     # State Management: Get, (Re)Set, Step
-
-    def _get_state(self) -> State:
-        """Create a State based on the current PyBullet state.
-
-        Note that in addition to the state inside PyBullet itself, this
-        uses self._block_id_to_block and self._held_obj_id. As long as
-        the PyBullet internal state is only modified through reset() and
-        step(), these all should remain in sync.
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
         """
-        state_dict = {}
-
-        # Get robot state.
-        rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
-        fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
-        state_dict[self._robot] = np.array([rx, ry, rz, fingers],
-                                           dtype=np.float32)
-        joint_positions = self._pybullet_robot.get_joints()
-
-        # Get block states.
-        for block_id, block in self._block_id_to_block.items():
-            (bx, by, bz), _ = p.getBasePositionAndOrientation(
-                block_id, physicsClientId=self._physics_client_id)
-            held = (block_id == self._held_obj_id)
+        if obj.type == self._block_type:
             visual_data = p.getVisualShapeData(
-                block_id, physicsClientId=self._physics_client_id)[0]
+                obj.id, physicsClientId=self._physics_client_id)[0]
             r, g, b, _ = visual_data[7]
-            # pose_x, pose_y, pose_z, held
-            state_dict[block] = np.array([bx, by, bz, held, r, g, b],
-                                         dtype=np.float32)
+            if feature == "color_r":
+                return r
+            elif feature == "color_g":
+                return g
+            elif feature == "color_b":
+                return b
+        elif obj.type == self._machine_type:
+            if feature == "is_on":
+                button_color = p.getVisualShapeData(
+                    self._machine.id, physicsClientId=self._physics_client_id
+                    )[0][-1]
+                button_color_on_dist = sum(
+                    np.subtract(button_color, self._button_color_on)**2)
+                button_color_off_dist = sum(
+                    np.subtract(button_color, self._button_color_off)**2)
+                return float(button_color_on_dist < button_color_off_dist)
 
-        # Get machine state.
-        button_color = p.getVisualShapeData(
-            self._machine.id, physicsClientId=self._physics_client_id)[0][-1]
-        button_color_on_dist = sum(
-            np.subtract(button_color, self._button_color_on)**2)
-        button_color_off_dist = sum(
-            np.subtract(button_color, self._button_color_off)**2)
-        machine_on = float(button_color_on_dist < button_color_off_dist)
-        state_dict[self._machine] = np.array([machine_on], dtype=np.float32)
-
-        # Get table state.
-        plate1_pos, _ = p.getBasePositionAndOrientation(
-            self._plate1.id, physicsClientId=self._physics_client_id)
-        plate1_z = plate1_pos[2]
-        state_dict[self._plate1] = np.array([plate1_z], dtype=np.float32)
-
-        plate3_pos, _ = p.getBasePositionAndOrientation(
-            self._plate3.id, physicsClientId=self._physics_client_id)
-        plate3_z = plate3_pos[2]
-        state_dict[self._plate3] = np.array([plate3_z], dtype=np.float32)
-
-        state = utils.PyBulletState(state_dict,
-                                    simulator_state=joint_positions)
-        assert set(state) == set(self._current_state), \
-            (f"Reconstructed state has objects {set(state)}, but "
-             f"self._current_state has objects {set(self._current_state)}.")
-
-        return state
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         state = super().step(action, render_obs=render_obs)
@@ -389,15 +356,15 @@ class PyBulletBalanceEnv(PyBulletEnv):
         super()._reset_state(state)
 
         # Reset blocks based on the state.
-        plate1_z = state.get(self._plate1, "pose_z")
+        plate1_z = state.get(self._plate1, "z")
         p.resetBasePositionAndOrientation(
             self._plate1.id,
             [self._plate1_pose[0], self._plate1_pose[1], plate1_z],
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
-        # --- ADDED: reset plate3 pose_z from the state
-        plate3_z = state.get(self._plate3, "pose_z")
+        # --- ADDED: reset plate3 z from the state
+        plate3_z = state.get(self._plate3, "z")
         p.resetBasePositionAndOrientation(
             self._plate3.id,
             [self._plate3_pose[0], self._plate3_pose[1], plate3_z],
@@ -414,9 +381,9 @@ class PyBulletBalanceEnv(PyBulletEnv):
             self._block_id_to_block[block_id] = block_obj
             block_obj.id = block_id
             self._objects.append(block_obj)
-            bx = state.get(block_obj, "pose_x")
-            by = state.get(block_obj, "pose_y")
-            bz = state.get(block_obj, "pose_z")
+            bx = state.get(block_obj, "x")
+            by = state.get(block_obj, "y")
+            bz = state.get(block_obj, "z")
             p.resetBasePositionAndOrientation(
                 block_id, [bx, by, bz],
                 self._default_orn,
@@ -493,14 +460,14 @@ class PyBulletBalanceEnv(PyBulletEnv):
             midpoint_y = self._table2_y
             for block_obj in block_objs:
                 # Skip out-of-view or held
-                if state.get(block_obj, "pose_z") < 0 or \
+                if state.get(block_obj, "z") < 0 or \
                    self._held_obj_id == block_obj.id:
                     continue
-                by = state.get(block_obj, "pose_y")
+                by = state.get(block_obj, "y")
                 belongs_to_side = (by < midpoint_y) if is_left else (
                     by > midpoint_y)
                 if belongs_to_side:
-                    old_z = state.get(block_obj, "pose_z")
+                    old_z = state.get(block_obj, "z")
                     padding = 0
                     new_z = old_z + (sign * shift_amount) + (sign * padding)
                     block_pos, block_orn = p.getBasePositionAndOrientation(
@@ -600,9 +567,9 @@ class PyBulletBalanceEnv(PyBulletEnv):
         robot, _ = objects
         button_pos = (self.button_x, self.button_y,
                       self.button_z + self._button_radius)
-        x = state.get(robot, "pose_x")
-        y = state.get(robot, "pose_y")
-        z = state.get(robot, "pose_z")
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        z = state.get(robot, "z")
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
         return bool(sq_dist_to_button < self.button_press_threshold)
 
@@ -681,27 +648,27 @@ class PyBulletBalanceEnv(PyBulletEnv):
     def _DirectlyOn_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
         block1, block2 = objects
-        if state.get(block1, "held") >= self.held_tol or \
-           state.get(block2, "held") >= self.held_tol:
+        if state.get(block1, "is_held") >= self.held_tol or \
+           state.get(block2, "is_held") >= self.held_tol:
             return False
-        x1 = state.get(block1, "pose_x")
-        y1 = state.get(block1, "pose_y")
-        z1 = state.get(block1, "pose_z")
-        x2 = state.get(block2, "pose_x")
-        y2 = state.get(block2, "pose_y")
-        z2 = state.get(block2, "pose_z")
+        x1 = state.get(block1, "x")
+        y1 = state.get(block1, "y")
+        z1 = state.get(block1, "z")
+        x2 = state.get(block2, "x")
+        y2 = state.get(block2, "y")
+        z2 = state.get(block2, "z")
         return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
     def _DirectlyOnPlate_holds(self, state: State,
                                objects: Sequence[Object]) -> bool:
         block, table = objects
-        y = state.get(block, "pose_y")
-        z = state.get(block, "pose_z")
-        table_z = state.get(table, "pose_z") + self._plate_height / 2
+        y = state.get(block, "y")
+        z = state.get(block, "z")
+        table_z = state.get(table, "z") + self._plate_height / 2
         desired_z = table_z + self._block_size * 0.5
 
-        if (state.get(block, "held") < self.held_tol) and \
+        if (state.get(block, "is_held") < self.held_tol) and \
                 (desired_z-self.on_tol < z < desired_z+self.on_tol):
             if table.name == "plate1":
                 return y < self._table2_y
@@ -738,7 +705,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         for block in state:
             if not block.is_instance(self._block_type):
                 continue
-            if state.get(block, "held") >= self.held_tol:
+            if state.get(block, "is_held") >= self.held_tol:
                 return block
         return None
 
@@ -822,7 +789,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
            state.get(block1, "bbox_left") > state.get(block2, "bbox_right") or\
            state.get(block1, "bbox_right") < state.get(block2, "bbox_left") or\
            state.get(block1, "bbox_upper") < state.get(block2, "bbox_upper") or\
-           state.get(block1, "pose_z") < state.get(block2, "pose_z"):
+           state.get(block1, "z") < state.get(block2, "z"):
             return False
 
         # Use a VLM query to handle to reminder cases
@@ -940,15 +907,15 @@ class PyBulletBalanceEnv(PyBulletEnv):
                     self._block_size * (0.5 + pile_j)
             r, g, b = rng.uniform(size=3)
             if "clear" in self._block_type.feature_names:
-                # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
+                # [x, y, z, held, color_r, color_g, color_b,
                 # clear]
                 # Block is clear iff it is at the top of a pile
                 clear = pile_j == len(piles[pile_i]) - 1
                 data[block] = np.array([x, y, z, 0.0, r, g, b, clear])
             else:
-                # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
+                # [x, y, z, held, color_r, color_g, color_b]
                 data[block] = np.array([x, y, z, 0.0, r, g, b])
-        # [pose_x, pose_y, pose_z, fingers]
+        # [x, y, z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z

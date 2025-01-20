@@ -226,68 +226,14 @@ class PyBulletDominoEnv(PyBulletEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         return []
 
-    def _get_state(self) -> State:
-        """Construct a State from the current PyBullet simulation."""
-        state_dict: Dict[Object, Dict[str, float]] = {}
-        # 1) Robot
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
-        state_dict[self._robot] = {
-            "x": rx,
-            "y": ry,
-            "z": rz,
-            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
-            "tilt": tilt,
-            "wrist": wrist
-        }
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
+        """
+        if obj.type == self._domino_type:
+            if feature == "start_block":
+                return 1.0 if obj.name == "domino_0" else 0.0
 
-        # 2) Dominoes
-        for i, domino_obj in enumerate(self.dominos):
-            (dx, dy, dz), orn = p.getBasePositionAndOrientation(
-                domino_obj.id, physicsClientId=self._physics_client_id)
-            yaw = p.getEulerFromQuaternion(orn)[2]
-            is_held_val = 1.0 if domino_obj.id == self._held_obj_id else 0.0
-            state_dict[domino_obj] = {
-                "x": dx,
-                "y": dy,
-                "z": dz,
-                "rot": utils.wrap_angle(yaw),
-                "start_block": 1.0 if i == 0 else 0.0,
-                "is_held": is_held_val,
-            }
-
-        # 3) Targets
-        for target_obj in self._objects:
-            if target_obj.type == self._target_type:
-                (tx, ty, tz), orn = p.getBasePositionAndOrientation(
-                    target_obj.id, physicsClientId=self._physics_client_id)
-                yaw = p.getEulerFromQuaternion(orn)[2]
-                state_dict[target_obj] = {
-                    "x": tx,
-                    "y": ty,
-                    "z": tz,
-                    "rot": utils.wrap_angle(yaw),
-                }
-
-        # 4) Pivots
-        for pivot_obj in self._objects:
-            if pivot_obj.type == self._pivot_type:
-                (px, py, pz), orn = p.getBasePositionAndOrientation(
-                    pivot_obj.id, physicsClientId=self._physics_client_id)
-                yaw = p.getEulerFromQuaternion(orn)[2]
-                state_dict[pivot_obj] = {
-                    "x": px,
-                    "y": py,
-                    "z": pz,
-                    "rot": utils.wrap_angle(yaw),
-                }
-
-        # Convert to a State
-        state = utils.create_state_from_dict(state_dict)
-        joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = utils.PyBulletState(
-            state.data, simulator_state={"joint_positions": joint_positions})
-        return pyb_state
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_state(self, state: State) -> None:
         """Reset the PyBullet world to match the given state."""

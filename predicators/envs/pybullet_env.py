@@ -300,6 +300,70 @@ class PyBulletEnv(BaseEnv):
         # Reset robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
 
+    def _get_state(self) -> State:
+        """Reads the PyBullet scene into a `State` (PyBulletState).
+        It takes care of:
+        * robot features [x, y, z, tilt, wrist, fingers]
+        * object features [x, y, z, rot, is_held]
+        the other feature extractors should be implemented in the subclasses via
+        `_extract_feature`.
+        """
+        state_dict: Dict[Object, Dict[str, float]] = {}
+
+        # --- 1) Robot ---
+        robot_state = self._get_robot_state_dict()
+        state_dict[self._robot] = robot_state
+
+        # --- 2) Other Objects ---
+        for obj in self._objects:
+            if obj is self._robot:
+                continue
+            obj_features = obj.type.feature_names
+            obj_dict = {}
+            # Basic features
+            (px, py, pz), orn = p.GetBasePositionAndOrientation(obj.id, 
+                                    physicsClientId=self._physics_client_id)
+            if "x" in obj_features:
+                obj_dict["x"] = px
+            if "y" in obj_features:
+                obj_dict["y"] = py
+            if "z" in obj_features:
+                obj_dict["z"] = pz
+            if "rot" in obj_features:
+                yaw = p.getEulerFromQuaternion(orn)[2]
+                obj_dict["rot"] = yaw
+            if "is_held" in obj_features:
+                obj_dict["is_held"] = 1.0 if obj.id == self._held_obj_id \
+                                            else 0.0
+            
+            # Additional features
+            for feature in obj_features:
+                if feature not in obj_features:
+                    obj_dict[feature] = self._extract_feature(obj, feature)
+
+            state_dict[obj] = obj_dict
+
+        # Convert to a PyBulletState
+        state = utils.create_state_from_dict(state_dict)
+        joint_positions = self._pybullet_robot.get_joints()
+        pyb_state = PyBulletState(state.data, 
+                        simulator_state={"joint_positions": joint_positions})
+        return pyb_state
+
+    def _get_robot_state_dict(self) -> None:
+        """Get dict state of the robot.
+        """
+        r_dict = {}
+        r_features = self._robot.type.feature_names
+        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
+        r_dict.update({"x": rx, "y": ry, "z": rz, "fingers": rf})
+        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
+        if "tilt" in r_features:
+            r_dict["tilt"] = tilt
+        if "wrist" in r_features:
+            r_dict["wrist"] = wrist
+        return r_dict
+
     def render(self,
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:  # pragma: no cover

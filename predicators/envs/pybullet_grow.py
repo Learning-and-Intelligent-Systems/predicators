@@ -92,13 +92,11 @@ class PyBulletGrowEnv(PyBulletEnv):
     _camera_pitch: ClassVar[float] = -38  # 0: low <-> -90: high
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
+    _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
+    _cup_type = Type("cup", ["x", "y", "z", "growth", "color"])
+    _jug_type = Type("jug", ["x", "y", "z", "rot", "is_held", "color"])
+
     def __init__(self, use_gui: bool = True) -> None:
-        # Define Types:
-        self._robot_type = Type("robot",
-                                ["x", "y", "z", "fingers", "tilt", "wrist"])
-        self._cup_type = Type("cup", ["x", "y", "z", "growth", "color"])
-        self._jug_type = Type("jug",
-                              ["x", "y", "z", "is_held", "rot", "color"])
 
         # Define Objects; temp (we will create them in tasks).
         self._robot = Object("robot", self._robot_type)
@@ -206,76 +204,27 @@ class PyBulletGrowEnv(PyBulletEnv):
         assert self._red_jug.id is not None and self._blue_jug.id is not None
         return [self._red_jug.id, self._blue_jug.id]
 
-    def _get_state(self) -> State:
-        """Create a State object from the current PyBullet simulation.
-
-        We read off robot state, plus the cups/jugs positions, plus any
-        relevant features (like 'growth').
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
         """
-        state_dict: Dict[Object, Dict[str, float]] = {}
-
-        # 1) Robot
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        # Convert orientation back into tilt/wrist
-        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
-        # We store the robot's features
-        state_dict[self._robot] = {
-            "x": rx,
-            "y": ry,
-            "z": rz,
-            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
-            "tilt": tilt,
-            "wrist": wrist
-        }
-
-        # 2) For each cup and jug, we would have loaded them in _reset_state.
-        for obj in self._objects:
-            if obj.type == self._cup_type:
-                (cx, cy, cz), _ = p.getBasePositionAndOrientation(
-                    obj.id, physicsClientId=self._physics_client_id)
-
-                # No liquid object is created if the current liquid is 0.
-                if self._cup_to_liquid_id.get(obj, None) is not None:
-                    liquid_id = self._cup_to_liquid_id[obj]
+        if obj.type == self._cup_type:
+            if feature == "growth":
+                # No liquid object if the cup has zero growth
+                liquid_id = self._cup_to_liquid_id.get(obj, None)
+                if liquid_id is not None:
                     liquid_height = p.getVisualShapeData(
-                        liquid_id,
-                        physicsClientId=self._physics_client_id,
-                    )[0][3][2]  # Get the height of the cuboidal plant
-                    current_growth = liquid_height
-                else:
-                    current_growth = 0.0
+                        liquid_id, physicsClientId=self._physics_client_id
+                    )[0][3][2]  # Get the height of the liquid
+                    return liquid_height
+                return 0.0
+            elif feature == "color":
+                return 1.0 if "red" in obj.name else 2.0  # Color encoding
 
-                color_val = 1.0 if "red" in obj.name else 2.0  # arbitrary code
-                state_dict[obj] = {
-                    "x": cx,
-                    "y": cy,
-                    "z": cz,
-                    "growth": current_growth,
-                    "color": color_val
-                }
+        elif obj.type == self._jug_type:
+            if feature == "color":
+                return 1.0 if "red" in obj.name else 2.0
 
-            elif obj.type == self._jug_type:
-                (jx, jy, jz), orn = p.getBasePositionAndOrientation(
-                    obj.id, physicsClientId=self._physics_client_id)
-                # is_held we track from constraints
-                is_held = 1.0 if (obj.id == self._held_obj_id) else 0.0
-                rot = utils.wrap_angle(p.getEulerFromQuaternion(orn)[2])
-                color_val = 1.0 if "red" in obj.name else 2.0
-                state_dict[obj] = {
-                    "x": jx,
-                    "y": jy,
-                    "z": jz,
-                    "is_held": is_held,
-                    "rot": rot,
-                    "color": color_val
-                }
-
-        # Convert the dictionary to a State.
-        state = utils.create_state_from_dict(state_dict)
-        joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = utils.PyBulletState(
-            state.data, simulator_state={"joint_positions": joint_positions})
-        return pyb_state
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_state(self, state: State) -> None:
         """Called whenever we do reset() or simulate() on a new state that

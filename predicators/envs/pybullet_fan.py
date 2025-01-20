@@ -369,97 +369,32 @@ class PyBulletFanEnv(PyBulletEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         return []
 
-    def _get_state(self) -> State:
-        """Construct a State from the current PyBullet simulation."""
-        state_dict: Dict[Object, Dict[str, float]] = {}
-
-        # Robot
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
-        state_dict[self._robot] = {
-            "x": rx,
-            "y": ry,
-            "z": rz,
-            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
-            "tilt": tilt,
-            "wrist": wrist,
-        }
-
-        # Fans
-        for fan_obj in self._fans:
-            (fx, fy, fz), forn = p.getBasePositionAndOrientation(
-                fan_obj.id, self._physics_client_id)
-            euler_f = p.getEulerFromQuaternion(forn)
-            # side_idx in [0=left,1=right,2=back,3=front]
-            # Check if the controlling switch is on:
-            controlling_switch = self._switches[fan_obj.side_idx]
-            is_on_val = float(self._is_switch_on(controlling_switch.id))
-
-            state_dict[fan_obj] = {
-                "x": fx,
-                "y": fy,
-                "z": fz,
-                "rot": euler_f[2],
-                "side": float(fan_obj.side_idx),
-                "is_on": is_on_val
-            }
-
-        # Switches
-        for switch_obj in self._switches:
-            (sx, sy, sz), sorn = p.getBasePositionAndOrientation(
-                switch_obj.id, self._physics_client_id)
-            euler_s = p.getEulerFromQuaternion(sorn)
-            is_on_val = float(self._is_switch_on(switch_obj.id))
-            state_dict[switch_obj] = {
-                "x": sx,
-                "y": sy,
-                "z": sz,
-                "rot": euler_s[2],
-                "side": float(switch_obj.side_idx),
-                "is_on": is_on_val,
-            }
-
-        # Walls
-        for wall_obj in [self._wall1, self._wall2]:
-            (wx, wy, wz), worn = p.getBasePositionAndOrientation(
-                wall_obj.id, self._physics_client_id)
-            euler_w = p.getEulerFromQuaternion(worn)
-            wall_len = 0.3
-            state_dict[wall_obj] = {
-                "x": wx,
-                "y": wy,
-                "z": wz,
-                "rot": euler_w[2],
-                "length": wall_len,
-            }
-
-        # Ball
-        (bx, by,
-         bz), _ = p.getBasePositionAndOrientation(self._ball.id,
-                                                  self._physics_client_id)
-        state_dict[self._ball] = {"x": bx, "y": by, "z": bz}
-
-        # Target
-        (tx, ty,
-         tz), torn = p.getBasePositionAndOrientation(self._target.id,
-                                                     self._physics_client_id)
-        euler_t = p.getEulerFromQuaternion(torn)
-        is_hit_val = float(self._is_ball_close_to_target(bx, by, tx, ty))
-        state_dict[self._target] = {
-            "x": tx,
-            "y": ty,
-            "z": tz,
-            "rot": euler_t[2],
-            "is_hit": is_hit_val,
-        }
-
-        pyb_state = utils.create_state_from_dict(state_dict)
-        joint_positions = self._pybullet_robot.get_joints()
-        full_state = utils.PyBulletState(
-            pyb_state.data,
-            simulator_state={"joint_positions": joint_positions},
-        )
-        return full_state
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
+        """
+        if obj.type == self._wall_type:
+            if feature == "length":
+                return 0.3
+        elif obj.type == self._fan_type:
+            if feature == "side":
+                return float(obj.side_idx)
+            elif feature == "is_on":
+                controlling_switch = self._switches[obj.side_idx]
+                return float(self._is_switch_on(controlling_switch.id))
+        elif obj.type == self._switch_type:
+            if feature == "side":
+                return float(obj.side_idx)
+            elif feature == "is_on":
+                return float(self._is_switch_on(obj.id))
+        elif obj.type == self._target_type:
+            if feature == "is_hit":
+                bx = self._current_observation.get(self._ball, "x")
+                by = self._current_observation.get(self._ball, "y")
+                tx = self._current_observation.get(self._target, "x")
+                ty = self._current_observation.get(self._target, "y")
+                return 1.0 if self._is_ball_close_to_target(bx, by, tx, ty) \
+                    else 0.0
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     # -------------------------------------------------------------------------
     # Reset state

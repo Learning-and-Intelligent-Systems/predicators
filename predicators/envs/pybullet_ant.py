@@ -199,70 +199,20 @@ class PyBulletAntEnv(PyBulletEnv):
         # If we support robot picking up food blocks, return those IDs.
         return [f.id for f in self.food]
 
-    def _get_state(self) -> State:
-        """Construct a State from the current PyBullet simulation."""
-        state_dict: Dict[Object, Dict[str, float]] = {}
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
+        """
+        if obj.type == self._food_type:
+            if feature == "attractive":
+                return obj.attractive
+            elif feature == "r":
+                return obj.r
+            elif feature == "g":
+                return obj.g
+            elif feature == "b":
+                return obj.b
 
-        # 1) Robot
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        # tilt, wrist from orientation
-        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
-        state_dict[self._robot] = {
-            "x": rx,
-            "y": ry,
-            "z": rz,
-            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
-            "tilt": tilt,
-            "wrist": wrist
-        }
-
-        # 2) Food
-        for food_obj in self.food:
-            (fx, fy, fz), forn = p.getBasePositionAndOrientation(
-                food_obj.id, physicsClientId=self._physics_client_id)
-            yaw = p.getEulerFromQuaternion(forn)[2]
-            # For demonstration, read color once on reset, store in the state.
-            # In practice, you might store r,g,b in an environment structure.
-            # We'll assume we already know them from init_dict (below).
-            is_held_val = 1.0 if (food_obj.id == self._held_obj_id) else 0.0
-            # Just keep placeholders for r,g,b,attractive for now—will read from init_dict
-            # or store them in environment if needed.
-            if not hasattr(food_obj, "r"):
-                # fallback if not yet assigned
-                food_obj.r = 0.5
-                food_obj.g = 0.5
-                food_obj.b = 0.5
-                food_obj.attractive = 0.0
-            state_dict[food_obj] = {
-                "x": fx,
-                "y": fy,
-                "z": fz,
-                "rot": utils.wrap_angle(yaw),
-                "is_held": is_held_val,
-                "attractive": food_obj.attractive,
-                "r": food_obj.r,
-                "g": food_obj.g,
-                "b": food_obj.b,
-            }
-
-        # 3) Ants
-        for ant_obj in self.ants:
-            (ax, ay, az), aorn = p.getBasePositionAndOrientation(
-                ant_obj.id, physicsClientId=self._physics_client_id)
-            yaw = p.getEulerFromQuaternion(aorn)[2]
-            state_dict[ant_obj] = {
-                "x": ax,
-                "y": ay,
-                "z": az,
-                "rot": utils.wrap_angle(yaw),
-            }
-
-        # Convert to a State
-        state = utils.create_state_from_dict(state_dict)
-        joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = utils.PyBulletState(
-            state.data, simulator_state={"joint_positions": joint_positions})
-        return pyb_state
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_state(self, state: State) -> None:
         """Reset PyBullet world to match the given state."""

@@ -236,67 +236,12 @@ class PyBulletCircuitEnv(PyBulletEnv):
         """Return IDs of wires (assuming the robot can pick them up)."""
         return [self._wire1.id, self._wire2.id]
 
-    def _get_state(self) -> State:
-        """Construct a State from the current PyBullet simulation."""
-        state_dict: Dict[Object, Dict[str, float]] = {}
-
-        # Robot
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
-        state_dict[self._robot] = {
-            "x": rx,
-            "y": ry,
-            "z": rz,
-            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
-            "tilt": tilt,
-            "wrist": wrist,
-        }
-
-        # Battery
-        (bx, by, bz), born = p.getBasePositionAndOrientation(
-            self._battery.id, physicsClientId=self._physics_client_id)
-        # Convert orientation to Euler angles and store the yaw in "rot".
-        b_euler = p.getEulerFromQuaternion(born)
-        state_dict[self._battery] = {
-            "x": bx,
-            "y": by,
-            "z": bz,
-            "rot": b_euler[2],  # battery yaw
-        }
-
-        # Light (with bulb)
-        (lx, ly, lz), lorn = p.getBasePositionAndOrientation(
-            self._light.id, physicsClientId=self._physics_client_id)
-        # Convert orientation to Euler angles and store the yaw in "rot".
-        l_euler = p.getEulerFromQuaternion(lorn)
-        # We'll store an is_on feature: 1.0 means on, 0.0 means off
-        state_dict[self._light] = {
-            "x": lx,
-            "y": ly,
-            "z": lz,
-            "rot": l_euler[2],  # light yaw
-            "is_on": int(self._is_bulb_on(self._light.id)),
-        }
-
-        # Wires
-        for wire_obj in [self._wire1, self._wire2]:
-            (wx, wy, wz), orn = p.getBasePositionAndOrientation(
-                wire_obj.id, physicsClientId=self._physics_client_id)
-            is_held_val = 1.0 if wire_obj.id == self._held_obj_id else 0.0
-            state_dict[wire_obj] = {
-                "x": wx,
-                "y": wy,
-                "z": wz,
-                "rot": p.getEulerFromQuaternion(orn)[2],
-                "is_held": is_held_val
-            }
-
-        # Convert dictionary to a PyBulletState
-        state = utils.create_state_from_dict(state_dict)
-        joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = utils.PyBulletState(
-            state.data, simulator_state={"joint_positions": joint_positions})
-        return pyb_state
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
+        """
+        if obj.type == self._light_type and feature == "is_on":
+            return int(self._is_bulb_on(obj.id))
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_state(self, state: State) -> None:
         """Reset from a given state."""

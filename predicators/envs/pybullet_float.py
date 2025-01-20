@@ -220,59 +220,28 @@ class PyBulletFloatEnv(PyBulletEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         return [block_obj.id for block_obj in self._blocks]
 
-    def _get_state(self) -> State:
-        state_dict: Dict[Object, Dict[str, float]] = {}
-
-        # Robot
-        rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
-        _, tilt, wrist = p.getEulerFromQuaternion([qx, qy, qz, qw])
-        state_dict[self._robot] = {
-            "x": rx,
-            "y": ry,
-            "z": rz,
-            "fingers": self._fingers_joint_to_state(self._pybullet_robot, rf),
-            "tilt": tilt,
-            "wrist": wrist
-        }
-
-        # Vessel
-        (vx, vy, vz), _ = p.getBasePositionAndOrientation(
-            self._vessel.id, physicsClientId=self._physics_client_id)
-        vessel_dict = {
-            "x": vx,
-            "y": vy,
-            "z": vz,
-            "water_height": self._current_water_height
-        }
-        state_dict[self._vessel] = vessel_dict
-
-        # Blocks
-        for blk in self._blocks:
-            (bx, by, bz), _ = p.getBasePositionAndOrientation(
-                blk.id, physicsClientId=self._physics_client_id)
-            in_water_val = 0.0
-            # If block is within bounding region and top is below water surface
-            if self._is_in_left_compartment(bx, by):
-                if bz < self._current_water_height + vz:
-                    in_water_val = 1.0
-            elif self._is_in_right_compartment(bx, by):
-                if bz < self._current_water_height + vz:
-                    in_water_val = 1.0
-            state_dict[blk] = {
-                "x": bx,
-                "y": by,
-                "z": bz,
-                "in_water": in_water_val,
-                "is_light": self._is_block_light(blk.id)
-            }
-            is_held_val = 1.0 if blk.id == self._held_obj_id else 0.0
-            state_dict[blk]["is_held"] = is_held_val
-
-        py_state = utils.create_state_from_dict(state_dict)
-        joint_positions = self._pybullet_robot.get_joints()
-        return utils.PyBulletState(
-            py_state.data,
-            simulator_state={"joint_positions": joint_positions})
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
+        """
+        if obj.type == self._block_type:
+            if feature == "is_light":
+                return self._is_block_light(obj.id)
+            elif feature == "in_water":
+                (bx, by, bz), _ = p.getBasePositionAndOrientation(
+                    obj.id, physicsClientId=self._physics_client_id)
+                in_water_val = 0.0
+                # If block is within bounding region and top is below water surface
+                if self._is_in_left_compartment(bx, by):
+                    if bz < self._current_water_height:
+                        in_water_val = 1.0
+                elif self._is_in_right_compartment(bx, by):
+                    if bz < self._current_water_height:
+                        in_water_val = 1.0
+                return in_water_val
+        elif obj.type == self._vessel_type:
+            if feature == "water_height":
+                return self._current_water_height
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_state(self, state: State) -> None:
         super()._reset_state(state)

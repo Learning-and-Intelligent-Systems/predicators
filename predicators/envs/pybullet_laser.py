@@ -341,6 +341,20 @@ class PyBulletLaserEnv(PyBulletEnv):
         )
         return full_state
 
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        """Extract features for creating the State object.
+        """
+        if obj.type == self._station_type:
+            if feature == "is_on":
+                return 1.0 if self._station_powered_on() else 0.0
+        elif obj.type == self._mirror_type:
+            if feature == "split_mirror":
+                return 1.0 if "split_mirror" in obj.name else 0.0
+        elif obj.type == self._target_type:
+            if feature == "is_hit":
+                return 1.0 if self._is_target_hit(obj) else 0.0
+        raise ValueError(f"Unknown feature {feature} for object {obj}")
+
     def _reset_state(self, state: State) -> None:
         """Reset simulation from a given state."""
         super()._reset_state(state)  # resets robot
