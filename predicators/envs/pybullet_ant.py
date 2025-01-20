@@ -1,4 +1,3 @@
-import logging
 from typing import Any, ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
@@ -9,7 +8,7 @@ from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+from predicators.structs import Action, EnvironmentTask, Object, \
     Predicate, State, Type
 
 
@@ -83,11 +82,11 @@ class PyBulletAntEnv(PyBulletEnv):
     # Food has color channels + "attractive" as 0.0 or 1.0
     _food_type = Type(
         "food", ["x", "y", "z", "rot", "is_held", "attractive", "r", "g", "b"],
-        sim_features=["r", "g", "b", "attractive"])
+        sim_features=["id", "r", "g", "b", "attractive"])
 
     # Each ant might have orientation, but minimal for demonstration
     _ant_type = Type("ant", ["x", "y", "z", "rot"],
-                     sim_features=["target_food"])
+                     sim_features=["id", "target_food"])
 
     def __init__(self,
                  use_gui: bool = True,

@@ -1,6 +1,5 @@
 """A PyBullet version of CoffeeEnv. python predicators/main.py --env
 pybullet_coffee --approach oracle --seed 0 \
-
 --coffee_rotated_jug_ratio 0.5 \
 --sesame_check_expected_atoms False --coffee_jug_pickable_pred True \
 --pybullet_control_mode "reset" --coffee_twist_sampler False
@@ -31,7 +30,6 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 With the simplified tasks, both pixelated jug and old jug should work.
 With the full tasks, the old jug should work.
 """
-import logging
 import random
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
@@ -42,12 +40,12 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.pybullet_env import PyBulletEnv
-from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, EnvironmentTask, Object, \
-    Predicate, State
+from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
+    State
 
 
 class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
