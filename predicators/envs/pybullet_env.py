@@ -306,6 +306,8 @@ class PyBulletEnv(BaseEnv):
 
         # 3) Reset all known objects (position, orientation, etc.)
         for obj in self._objects:
+            if obj is self._robot:
+                continue
             self._reset_single_object(obj, state)
 
         # 4) Let the subclass do any additional specialized resetting
@@ -390,7 +392,7 @@ class PyBulletEnv(BaseEnv):
             obj_features = obj.type.feature_names
             obj_dict = {}
             # Basic features
-            (px, py, pz), orn = p.GetBasePositionAndOrientation(obj.id, 
+            (px, py, pz), orn = p.getBasePositionAndOrientation(obj.id, 
                                     physicsClientId=self._physics_client_id)
             if "x" in obj_features:
                 obj_dict["x"] = px
@@ -407,7 +409,7 @@ class PyBulletEnv(BaseEnv):
             
             # Additional features
             for feature in obj_features:
-                if feature not in obj_features:
+                if feature not in ["x", "y", "z", "rot", "is_held"]:
                     obj_dict[feature] = self._extract_feature(obj, feature)
 
             state_dict[obj] = obj_dict

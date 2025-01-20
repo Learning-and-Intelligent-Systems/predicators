@@ -369,6 +369,11 @@ class PyBulletFanEnv(PyBulletEnv):
     def _get_object_ids_for_held_check(self) -> List[int]:
         return []
 
+    def _reset_custom_env_state(self, state: State) -> None:
+        for switch_obj in self._switches:
+            is_on_val = state.get(switch_obj, "is_on")
+            self._set_switch_on(switch_obj.id, bool(is_on_val > 0.5))
+
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object.
         """
@@ -395,14 +400,6 @@ class PyBulletFanEnv(PyBulletEnv):
                 return 1.0 if self._is_ball_close_to_target(bx, by, tx, ty) \
                     else 0.0
         raise ValueError(f"Unknown feature {feature} for object {obj}")
-
-    # -------------------------------------------------------------------------
-    # Reset state
-    # -------------------------------------------------------------------------
-    def _reset_custom_env_state(self, state: State) -> None:
-        for switch_obj in self._switches:
-            is_on_val = state.get(switch_obj, "is_on")
-            self._set_switch_on(switch_obj.id, bool(is_on_val > 0.5))
 
     # -------------------------------------------------------------------------
     # Step
@@ -504,8 +501,9 @@ class PyBulletFanEnv(PyBulletEnv):
 
     def _is_ball_close_to_target(self, bx: float, by: float, tx: float,
                                  ty: float) -> bool:
-        dist = np.hypot(bx - tx, by - ty)
-        return dist < 0.05
+        """Check if the ball is close to the target."""
+        dist = np.sqrt((bx - tx)**2 + (by - ty)**2)
+        return dist < 0.03
 
     # -------------------------------------------------------------------------
     # Predicates
