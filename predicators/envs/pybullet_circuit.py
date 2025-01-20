@@ -8,7 +8,7 @@ python predicators/main.py --approach oracle --env pybullet_circuit \
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 3  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --debug \
---terminate_on_goal_reached False
+--terminate_on_goal_reached False --sesame_check_expected_atoms False
 """
 
 import logging

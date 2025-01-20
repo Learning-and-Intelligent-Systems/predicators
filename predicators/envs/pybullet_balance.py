@@ -1,6 +1,6 @@
-"""Making a demo video: python predicators/main.py --approach oracle --env
-pybullet_balance --seed 1 \
+"""Making a demo video: 
 
+python predicators/main.py --approach oracle --env pybullet_balance --seed 1 \
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos \

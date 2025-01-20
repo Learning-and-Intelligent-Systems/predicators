@@ -1,11 +1,11 @@
-"""Example usage: python predicators/main.py --approach oracle --env
-pybullet_domino \
+"""Example usage: 
 
+python predicators/main.py --approach oracle --env pybullet_domino \
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --debug \
---sesame_check_expected_atoms False --horizon 40 --video_not_break_on_exception\
---pybullet_ik_validate False
+--sesame_check_expected_atoms False --horizon 60 \
+--video_not_break_on_exception --pybullet_ik_validate False
 """
 
 import logging

@@ -79,7 +79,7 @@ class PyBulletLaserEnv(PyBulletEnv):
     light_height: ClassVar[float] = piece_height * 2 / 3
     station_joint_scale: ClassVar[float] = 0.1
     station_on_threshold: ClassVar[float] = 0.5  # fraction of the joint range
-    mirror_rot_offset: ClassVar[float] = np.pi / 4
+    mirror_rot_offset: ClassVar[float] = -np.pi / 4
 
     # Laser
     _laser_color: ClassVar[Tuple[float, float, float]] = (1.0, 0.2, 0.2)

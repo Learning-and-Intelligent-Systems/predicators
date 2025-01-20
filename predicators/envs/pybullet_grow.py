@@ -1,8 +1,10 @@
-"""python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
+"""Grow plants with fertalizers
 
+python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
---pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos
+--pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos \
+--sesame_check_expected_atoms False
 """
 
 import logging
@@ -234,12 +236,9 @@ class PyBulletGrowEnv(PyBulletEnv):
                 p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
-        # 2) Re-add new liquid if the “growth” > 0
-        for cup in [self._red_cup, self._blue_cup]:
-            growth = state.get(cup, "growth")
-            if growth > 0:
-                liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
-                self._cup_to_liquid_id[cup] = liquid_id
+        for cup in state.get_objects(self._cup_type):
+            liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
+            self._cup_to_liquid_id[cup] = liquid_id
 
     # -------------------------------------------------------------------------
     # Custom pouring logic: if we see the robot has a jug at max tilt over a cup
