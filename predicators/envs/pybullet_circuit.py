@@ -245,53 +245,18 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
     def _reset_state(self, state: State) -> None:
         """Reset from a given state."""
-        super()._reset_state(state)  # Clears constraints, resets robot
         self._objects = [
             self._robot, self._wire1, self._wire2, self._battery, self._light
         ]
+        super()._reset_state(state)  # Clears constraints, resets robot
+    
+    def _reset_custom_env_state(self, state: State) -> None:
 
-        # Update battery
-        bx = state.get(self._battery, "x")
-        by = state.get(self._battery, "y")
-        bz = state.get(self._battery, "z")
-        brot = state.get(self._battery, "rot")
-        update_object(self._battery.id,
-                      position=(bx, by, bz),
-                      orientation=p.getQuaternionFromEuler([0, 0, brot]),
-                      physics_client_id=self._physics_client_id)
-
-        # Update light socket
-        lx = state.get(self._light, "x")
-        ly = state.get(self._light, "y")
-        lz = state.get(self._light, "z")
-        # Retrieve light rot
-        lrot = state.get(self._light, "rot")
-        update_object(self._light.id,
-                      position=(lx, ly, lz),
-                      orientation=p.getQuaternionFromEuler([0, 0, lrot]),
-                      physics_client_id=self._physics_client_id)
-        # Optionally set color here if you want to reflect the on/off state
-        # visually.
-
-        # Update wires
-        for wire_obj in [self._wire1, self._wire2]:
-            wx = state.get(wire_obj, "x")
-            wy = state.get(wire_obj, "y")
-            wz = state.get(wire_obj, "z")
-            rot = state.get(wire_obj, "rot")
-            update_object(wire_obj.id,
-                          position=(wx, wy, wz),
-                          orientation=p.getQuaternionFromEuler([0, 0, rot]),
-                          physics_client_id=self._physics_client_id)
-            if state.get(wire_obj, "is_held") > 0.5:
-                # TODO: create constraint between snap and robot
-                self._attach(wire_obj.id, self._pybullet_robot)
-                self._held_obj_id = wire_obj.id
-
-        # Check if re-creation matches
-        reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
+        is_on = state.get(self._light, "is_on")
+        if is_on:
+            self._turn_bulb_on()
+        else:
+            self._turn_bulb_off()
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         """Process a single action step.

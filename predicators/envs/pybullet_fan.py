@@ -401,82 +401,17 @@ class PyBulletFanEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     def _reset_state(self, state: State) -> None:
         """Reset simulation from a given state."""
-        super()._reset_state(state)  # resets robot
-
         # Rebuild object list
         self._objects = [
             self._robot, *self._fans, *self._switches, self._wall1,
             self._wall2, self._ball, self._target
         ]
+        super()._reset_state(state)  # resets robot
 
-        # Fans
-        for fan_obj in self._fans:
-            fx = state.get(fan_obj, "x")
-            fy = state.get(fan_obj, "y")
-            fz = state.get(fan_obj, "z")
-            frot = state.get(fan_obj, "rot")
-            update_object(
-                fan_obj.id,
-                position=(fx, fy, fz),
-                orientation=p.getQuaternionFromEuler([0, 0, frot]),
-                physics_client_id=self._physics_client_id,
-            )
-
-        # Switches
+    def _reset_custom_env_state(self, state):
         for switch_obj in self._switches:
-            sx = state.get(switch_obj, "x")
-            sy = state.get(switch_obj, "y")
-            sz = state.get(switch_obj, "z")
-            srot = state.get(switch_obj, "rot")
             is_on_val = state.get(switch_obj, "is_on")
-            update_object(
-                switch_obj.id,
-                position=(sx, sy, sz),
-                orientation=p.getQuaternionFromEuler([0, 0, srot]),
-                physics_client_id=self._physics_client_id,
-            )
             self._set_switch_on(switch_obj.id, bool(is_on_val > 0.5))
-
-        # Walls
-        for wall_obj in [self._wall1, self._wall2]:
-            wx = state.get(wall_obj, "x")
-            wy = state.get(wall_obj, "y")
-            wz = state.get(wall_obj, "z")
-            wrot = state.get(wall_obj, "rot")
-            update_object(
-                wall_obj.id,
-                position=(wx, wy, wz),
-                orientation=p.getQuaternionFromEuler([0, 0, wrot]),
-                physics_client_id=self._physics_client_id,
-            )
-
-        # Ball
-        bx = state.get(self._ball, "x")
-        by = state.get(self._ball, "y")
-        bz = state.get(self._ball, "z")
-        update_object(
-            self._ball.id,
-            position=(bx, by, bz),
-            orientation=p.getQuaternionFromEuler([0, 0, 0]),
-            physics_client_id=self._physics_client_id,
-        )
-
-        # Target
-        tx = state.get(self._target, "x")
-        ty = state.get(self._target, "y")
-        tz = state.get(self._target, "z")
-        trot = state.get(self._target, "rot")
-        update_object(
-            self._target.id,
-            position=(tx, ty, tz),
-            orientation=p.getQuaternionFromEuler([0, 0, trot]),
-            physics_client_id=self._physics_client_id,
-        )
-
-        # Check reconstruction
-        reconstructed = self._get_state()
-        if not reconstructed.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
 
     # -------------------------------------------------------------------------
     # Step

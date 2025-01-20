@@ -244,7 +244,10 @@ class PyBulletFloatEnv(PyBulletEnv):
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_state(self, state: State) -> None:
+        self._objects = self._blocks + [self._vessel]
         super()._reset_state(state)
+
+    def _reset_custom_env_state(self, state: State) -> None:
         # Initialize water level
         self._current_water_height = state.get(self._vessel, "water_height")
         # Clear old water
@@ -255,23 +258,13 @@ class PyBulletFloatEnv(PyBulletEnv):
 
         # Reset blocks
         for blk in self._blocks:
-            bx = state.get(blk, "x")
-            by = state.get(blk, "y")
-            bz = state.get(blk, "z")
             update_object(blk.id,
-                          position=(bx, by, bz),
                           color=PyBulletFloatEnv.block_color_light \
                             if state.get(blk, "is_light") > 0.5
                             else PyBulletFloatEnv.block_color_heavy,
                           physics_client_id=self._physics_client_id)
             # Re-initialize displacing to False
             self._block_is_displacing[blk] = False
-
-        # Re-attach blocks that have is_held=1
-        for block_obj in self._blocks:
-            if state.get(block_obj, "is_held") > 0.5:
-                self._attach(block_obj.id, self._pybullet_robot)
-                self._held_obj_id = block_obj.id
 
         # Re-draw water
         self._create_or_update_water(force_redraw=True)
@@ -286,10 +279,6 @@ class PyBulletFloatEnv(PyBulletEnv):
                           color=[0.5, 0.5, 1, 0.5],
                           physics_client_id=self._physics_client_id)
 
-        # Check
-        s2 = self._get_state()
-        if not s2.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         next_state = super().step(action, render_obs=render_obs)

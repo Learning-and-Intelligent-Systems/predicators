@@ -226,62 +226,21 @@ class PyBulletGrowEnv(PyBulletEnv):
 
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
-    def _reset_state(self, state: State) -> None:
-        """Called whenever we do reset() or simulate() on a new state that
-        differs from the environment's current state.
+    def _reset_custom_env_state(self, state: State) -> None:
+        """Called in _reset_state"""
 
-        We must reflect that state in PyBullet.
-        """
-        super()._reset_state(state)  # Clears constraints, resets robot
-
-        self._objects = [
-            self._red_cup, self._blue_cup, self._red_jug, self._blue_jug,
-            self._robot
-        ]
-
-        # update cups in PyBullet
-        for cup_obj in [self._red_cup, self._blue_cup]:
-            cx = state.get(cup_obj, "x")
-            cy = state.get(cup_obj, "y")
-            cz = state.get(cup_obj, "z")
-            update_object(cup_obj.id,
-                          position=(cx, cy, cz),
-                          physics_client_id=self._physics_client_id)
-
-        # Create liquid in cups.
+        # 1) Remove any existing “liquid bodies” from cups
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
-                p.removeBody(liquid_id,
-                             physicsClientId=self._physics_client_id)
+                p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
-        for cup in state.get_objects(self._cup_type):
-            liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
-            self._cup_to_liquid_id[cup] = liquid_id
-
-        # Update jugs in PyBullet
-        for jug_obj in [self._red_jug, self._blue_jug]:
-            jx = state.get(jug_obj, "x")
-            jy = state.get(jug_obj, "y")
-            jz = state.get(jug_obj, "z")
-            jrot = state.get(jug_obj, "rot")
-            update_object(jug_obj.id,
-                          position=(jx, jy, jz),
-                          orientation=p.getQuaternionFromEuler(
-                              [0.0, 0.0, jrot]),
-                          physics_client_id=self._physics_client_id)
-
-        # Check if either jug is held => forcibly attach constraints.
-        # (Though in our tasks we often start is_held=0.)
-        for jug_obj in [self._red_jug, self._blue_jug]:
-            if state.get(jug_obj, "is_held") > 0.5:
-                # Create a constraint with the robot's gripper
-                self._create_grasp_constraint_for_object(jug_obj.id)
-
-        # After re-adding objects, compare with the new state
-        reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
+        # 2) Re-add new liquid if the “growth” > 0
+        for cup in [self._red_cup, self._blue_cup]:
+            growth = state.get(cup, "growth")
+            if growth > 0:
+                liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
+                self._cup_to_liquid_id[cup] = liquid_id
 
     # -------------------------------------------------------------------------
     # Custom pouring logic: if we see the robot has a jug at max tilt over a cup

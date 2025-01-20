@@ -237,53 +237,12 @@ class PyBulletDominoEnv(PyBulletEnv):
 
     def _reset_state(self, state: State) -> None:
         """Reset the PyBullet world to match the given state."""
+        # TODO: maybe move self._objects here
         super()._reset_state(state)
 
-        # For each domino and target, update PyBullet position/orientation.
-        for obj in self._objects:
-            if obj.type == self._domino_type:
-                # update domino
-                x = state.get(obj, "x")
-                y = state.get(obj, "y")
-                z = state.get(obj, "z")
-                rot = state.get(obj, "rot")
-                start_block_val = state.get(obj, "start_block")
-                is_held_val = state.get(obj, "is_held")
-                update_object(obj.id,
-                              position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler(
-                                  [0.0, 0.0, rot]),
-                              physics_client_id=self._physics_client_id)
-                # Optionally handle is_held_val > 0.5 if desired
-
-            if obj.type == self._target_type:
-                # update target
-                x = state.get(obj, "x")
-                y = state.get(obj, "y")
-                z = state.get(obj, "z")
-                rot = state.get(obj, "rot")
-                update_object(obj.id,
-                              position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler(
-                                  [0.0, 0.0, rot]),
-                              physics_client_id=self._physics_client_id)
-
-            if obj.type == self._pivot_type:
-                # update pivot
-                x = state.get(obj, "x")
-                y = state.get(obj, "y")
-                z = state.get(obj, "z")
-                rot = state.get(obj, "rot")
-                update_object(obj.id,
-                              position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler(
-                                  [0.0, 0.0, rot]),
-                              physics_client_id=self._physics_client_id)
-
-        # Check reconstruction
-        reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
+    def _reset_custom_env_state(self, state: State) -> None:
+        """Reset the custom environment state to match the given state."""
+        pass
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         """In this domain, stepping might be trivial (we won't do anything

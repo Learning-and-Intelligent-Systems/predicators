@@ -300,6 +300,85 @@ class PyBulletEnv(BaseEnv):
         # Reset robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
 
+
+    def _reset_state(self, state: State) -> None:
+        """Refactored base logic for resetting into the PyBullet environment."""
+        # 1) Clear old constraint if we had a held object
+        if self._held_constraint_id is not None:
+            p.removeConstraint(self._held_constraint_id,
+                               physicsClientId=self._physics_client_id)
+            self._held_constraint_id = None
+        self._held_obj_to_base_link = None
+        self._held_obj_id = None
+
+        # 2) Reset robot pose
+        self._pybullet_robot.reset_state(self._extract_robot_state(state))
+
+        # 3) Reset all known objects (position, orientation, etc.)
+        for obj in self._objects:
+            self._reset_single_object(obj, state)
+
+        # 4) Let the subclass do any additional specialized resetting
+        self._reset_custom_env_state(state)
+
+        # 5) (Optional) Check for reconstruction mismatch in debug mode
+        #    (Helps catch if the environment hook overwrites something.)
+        reconstructed = self._get_state()
+        if not reconstructed.allclose(state):
+            logging.warning("Could not reconstruct state exactly in reset.")
+
+    def _reset_single_object(self, obj: Object, state: State) -> None:
+        """Shared logic for setting position/orientation and constraints."""
+        # If the environment doesn’t want the base class to handle it,
+        # it can skip or override this method. By default, look for
+        # standard features: x, y, z, rot, is_held.
+
+        # 1) Position/orientation if those features exist
+        cur_x, cur_y, cur_z = p.getBasePositionAndOrientation(obj.id,
+                                    physicsClientId=self._physics_client_id)[0]
+        px = state.get(obj, "x") if "x" in obj.type.feature_names else cur_x
+        py = state.get(obj, "y") if "y" in obj.type.feature_names else cur_y
+        pz = state.get(obj, "z") if "z" in obj.type.feature_names else cur_z
+
+        if "rot" in obj.type.feature_names:
+            angle = state.get(obj, "rot")
+            # Convert from 2D angle to a 3D quaternion (assuming rotation around z)
+            orn = p.getQuaternionFromEuler([0.0, 0.0, angle])
+        else:
+            orn = self._default_orn  # e.g. (0,0,0,1)
+
+        # 2) Update the object’s position/orientation in PyBullet
+        p.resetBasePositionAndOrientation(obj.id, [px, py, pz], orn,
+                      physicsClientId=self._physics_client_id)
+
+        # 3) If there's an is_held feature, reattach constraints if needed
+        if "is_held" in obj.type.feature_names:
+            if state.get(obj, "is_held") > 0.5:
+                # attach constraint
+                self._held_obj_id = obj.id
+                self._create_grasp_constraint()
+                # self._create_grasp_constraint_for_object(obj.id)
+                # Optionally store the parent link transform
+                world_to_base_link = get_link_state(
+                    self._pybullet_robot.robot_id,
+                    self._pybullet_robot.end_effector_id,
+                    physics_client_id=self._physics_client_id
+                ).com_pose
+                obj_to_base_link = p.invertTransform(
+                    *p.multiplyTransforms(world_to_base_link[0],
+                                          world_to_base_link[1],
+                                          (px, py, pz),
+                                          orn))
+                self._held_obj_to_base_link = obj_to_base_link
+
+    @abc.abstractmethod
+    def _reset_custom_env_state(self, state: State) -> None:
+        """Hook for environment-specific resetting (colors, water, etc.).
+
+        Subclasses can override or extend this if needed.
+        """
+        raise NotImplementedError("Override me!")
+
     def _get_state(self) -> State:
         """Reads the PyBullet scene into a `State` (PyBulletState).
         It takes care of:
@@ -349,6 +428,10 @@ class PyBulletEnv(BaseEnv):
         pyb_state = PyBulletState(state.data, 
                         simulator_state={"joint_positions": joint_positions})
         return pyb_state
+    
+    @abc.abstractmethod
+    def _extract_feature(self, obj: Object, feature: str) -> float:
+        raise NotImplementedError("Override me!")
 
     def _get_robot_state_dict(self) -> None:
         """Get dict state of the robot.

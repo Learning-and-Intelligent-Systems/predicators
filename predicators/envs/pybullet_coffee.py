@@ -320,71 +320,80 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle coffee-specific resetting."""
+        self._objects = [self._robot, self._table, self._jug, self._machine]
         super()._reset_state(state)
 
-        self._objects = [self._robot, self._table, self._jug, self._machine]
-        # Remove the old cups.
+    def _reset_custom_env_state(self, state: State) -> None:
+        """
+        Handles extra coffee-specific reset steps: spawning cups from scratch,
+        adding liquid visuals, adjusting jug fill color, toggling the machine
+        button, etc. The base `_reset_state` has already done the standard
+        position/orientation resets for objects in `_get_all_objects()`.
+        """
+        # 2) Remove old cups from the previous task:
         for old_cup_id in self._cup_id_to_cup:
             p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
+        self._cup_id_to_cup.clear()
 
-        # Reset cups based on the state.
+        # 3) Create brand-new cups from the state’s cup objects
         cup_objs = state.get_objects(self._cup_type)
-        # Make new cups.
-        self._cup_id_to_cup = {}
-        self._cup_to_capacity = {}
-        for _, cup_obj in enumerate(cup_objs):
+        self._cup_to_capacity.clear()
+        for i, cup_obj in enumerate(cup_objs):
             cup_cap = state.get(cup_obj, "capacity_liquid")
             cup_height = cup_cap
             cx = state.get(cup_obj, "x")
             cy = state.get(cup_obj, "y")
+            # Subclass may only store x,y in the state, so we decide z here:
             cz = self.z_lb + cup_height / 2
-            global_scale = 0.5 * cup_cap / self.cup_capacity_ub
-            self._cup_to_capacity[cup_obj] = cup_cap
 
+            # Possibly scale the URDF by capacity
+            global_scale = 0.5 * cup_cap / self.cup_capacity_ub
             if CFG.coffee_use_pixelated_jug:
                 cup_id = p.loadURDF(
                     utils.get_env_asset_path("urdf/pot-pixel.urdf"),
                     useFixedBase=True,
                     globalScaling=global_scale * 0.5,
-                    physicsClientId=self._physics_client_id)
+                    physicsClientId=self._physics_client_id
+                )
             else:
-                cup_id = p.loadURDF(utils.get_env_asset_path("urdf/cup.urdf"),
-                                    useFixedBase=True,
-                                    globalScaling=global_scale,
-                                    physicsClientId=self._physics_client_id)
-            # Rotate so handles face robot.
+                cup_id = p.loadURDF(
+                    utils.get_env_asset_path("urdf/cup.urdf"),
+                    useFixedBase=True,
+                    globalScaling=global_scale,
+                    physicsClientId=self._physics_client_id
+                )
+            # For orientation, rotate so handles face the robot, etc.
             cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
             p.resetBasePositionAndOrientation(
-                cup_id, (cx, cy, cz),
-                cup_orn,
-                physicsClientId=self._physics_client_id)
+                cup_id, (cx, cy, cz), cup_orn,
+                physicsClientId=self._physics_client_id
+            )
 
-            # Create the visual_shape.
-            # color = self.cup_colors[cup_idx % len(self.cup_colors)]
+            # Random cup color from a set
             color = random.choice(self.cup_colors)
-            p.changeVisualShape(cup_id,
-                                -1,
-                                rgbaColor=color,
+            p.changeVisualShape(cup_id, -1, rgbaColor=color,
                                 physicsClientId=self._physics_client_id)
 
+            # Track the new cup in your local dictionaries
             self._cup_id_to_cup[cup_id] = cup_obj
+            self._cup_to_capacity[cup_obj] = cup_cap
             cup_obj.id = cup_id
             self._objects.append(cup_obj)
 
-        # Create liquid in cups.
+        # 4) Recreate the visual “liquid” objects in the cups
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
-                p.removeBody(liquid_id,
-                             physicsClientId=self._physics_client_id)
+                p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
-        for cup in state.get_objects(self._cup_type):
-            liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
-            self._cup_to_liquid_id[cup] = liquid_id
+        for cup in cup_objs:
+            new_liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
+            self._cup_to_liquid_id[cup] = new_liquid_id
 
-        # reset the empty jug
-        p.changeVisualShape(self._jug.id,
-                            0,
+        # 5) Jug fill color / jug liquid shape
+        #    The base class presumably set the jug position/orientation,
+        #    so here we only handle color/fill logic:
+        p.changeVisualShape(self._jug.id, 0,
                             rgbaColor=self.jug_color,
                             physicsClientId=self._physics_client_id)
         self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
@@ -392,69 +401,50 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             p.removeBody(self._jug_liquid_id,
                          physicsClientId=self._physics_client_id)
             self._jug_liquid_id = None
-            if self._jug_filled:
-                self._jug_liquid_id = self._create_pybullet_liquid_for_jug()
+        if self._jug_filled:
+            self._jug_liquid_id = self._create_pybullet_liquid_for_jug()
 
-        # NOTE: if the jug is held, the parent class should take care of it.
-        if not self._Holding_holds(state, [self._robot, self._jug]):
-            assert self._held_obj_to_base_link is None
-            jx = state.get(self._jug, "x")
-            jy = state.get(self._jug, "y")
-            jz = self._get_jug_z(state, self._jug) + self.jug_height() / 2
-            rot = state.get(self._jug, "rot")
-            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot])
-            p.resetBasePositionAndOrientation(
-                self._jug.id, [jx, jy, jz],
-                jug_orientation,
-                physicsClientId=self._physics_client_id)
-
-        # Update the button color.
+        # 6) Machine button color
+        #    Check if the machine is on and the jug is in place:
         if self._MachineOn_holds(state, [self._machine]) and \
-            self._JugInMachine_holds(state, [self._jug, self._machine]):
+           self._JugInMachine_holds(state, [self._jug, self._machine]):
             button_color = self.button_color_on
             plate_color = self.plate_color_on
         else:
             if CFG.coffee_machine_has_plug and \
-                self._PluggedIn_holds(state, [self._plug]):
+               self._PluggedIn_holds(state, [self._plug]):
                 button_color = self.button_color_off
                 plate_color = self.plate_color_off
             else:
                 button_color = self.button_color_power_off
                 plate_color = self.plate_color_off
 
-        p.changeVisualShape(self._button_id,
-                            -1,
+        p.changeVisualShape(self._button_id, -1,
                             rgbaColor=button_color,
                             physicsClientId=self._physics_client_id)
-        p.changeVisualShape(self._button_id,
-                            0,
+        p.changeVisualShape(self._button_id, 0,
                             rgbaColor=button_color,
                             physicsClientId=self._physics_client_id)
-        p.changeVisualShape(self._dispense_area_id,
-                            -1,
+        p.changeVisualShape(self._dispense_area_id, -1,
                             rgbaColor=plate_color,
                             physicsClientId=self._physics_client_id)
 
-        # Reset plug
+        # 7) If the machine has a detachable plug, re‐add the cord bodies
+        #    or constraint logic:
         if CFG.coffee_machine_has_plug:
+            # Remove old cord pieces
             if self._cord_ids is not None:
-                for obj_id in self._cord_ids:
-                    p.removeBody(obj_id, self._physics_client_id)
+                for part_id in self._cord_ids:
+                    p.removeBody(part_id, self._physics_client_id)
+            # Remove any old plug constraints
             if self._machine_plugged_in_id is not None:
                 p.removeConstraint(self._machine_plugged_in_id,
                                    physicsClientId=self._physics_client_id)
                 self._machine_plugged_in_id = None
+            # Rebuild the cord pieces
             self._cord_ids = self._add_pybullet_cord(self._physics_client_id)
             self._plug_id = self._cord_ids[-1]
-
-        # Assert that the state was properly reconstructed.
-        reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            logging.debug("Desired state:")
-            logging.debug(state.pretty_str())
-            logging.debug("Reconstructed state:")
-            logging.debug(reconstructed_state.pretty_str())
-            raise ValueError("Could not reconstruct state.")
+        # Done.
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object.

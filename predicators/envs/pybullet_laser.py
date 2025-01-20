@@ -357,7 +357,6 @@ class PyBulletLaserEnv(PyBulletEnv):
 
     def _reset_state(self, state: State) -> None:
         """Reset simulation from a given state."""
-        super()._reset_state(state)  # resets robot
         # The environment objects in self._objects must be used in the same order
         # that we created them in __init__. It's good practice to store them in a list.
         self._objects = [
@@ -369,49 +368,10 @@ class PyBulletLaserEnv(PyBulletEnv):
             self._target1,
             self._target2,
         ]
-
-        # Station
-        sx = state.get(self._station, "x")
-        sy = state.get(self._station, "y")
-        sz = state.get(self._station, "z")
-        srot = state.get(self._station, "rot")
-        update_object(
-            self._station.id,
-            position=(sx, sy, sz),
-            orientation=p.getQuaternionFromEuler([0.0, 0.0, srot]),
-            physics_client_id=self._physics_client_id,
-        )
-
-        # Mirrors
-        for mirror_obj in [self._mirror1, self._mirror2, self._split_mirror]:
-            mx = state.get(mirror_obj, "x")
-            my = state.get(mirror_obj, "y")
-            mz = state.get(mirror_obj, "z")
-            mrot = state.get(mirror_obj, "rot")
-            update_object(
-                mirror_obj.id,
-                position=(mx, my, mz),
-                orientation=p.getQuaternionFromEuler([0.0, 0.0, mrot]),
-                physics_client_id=self._physics_client_id,
-            )
-
-        # Targets
-        for target_obj in [self._target1, self._target2]:
-            tx = state.get(target_obj, "x")
-            ty = state.get(target_obj, "y")
-            tz = state.get(target_obj, "z")
-            trot = state.get(target_obj, "rot")
-            update_object(
-                target_obj.id,
-                position=(tx, ty, tz),
-                orientation=p.getQuaternionFromEuler([0.0, 0.0, trot]),
-                physics_client_id=self._physics_client_id,
-            )
-
-        # Check reconstruction
-        reconstructed = self._get_state()
-        if not reconstructed.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
+        super()._reset_state(state)  # resets robot
+    
+    def _reset_custom_env_state(self, state: State) -> None:
+        pass
 
     # -------------------------------------------------------------------------
     # Step

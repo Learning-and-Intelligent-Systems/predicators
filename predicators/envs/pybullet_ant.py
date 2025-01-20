@@ -216,40 +216,17 @@ class PyBulletAntEnv(PyBulletEnv):
 
     def _reset_state(self, state: State) -> None:
         """Reset PyBullet world to match the given state."""
+        # TODO: Maybe define self._object here
         super()._reset_state(state)
-
-        # Update actual PyBullet objects
-        for obj in self._objects:
-            if obj.type == self._food_type:
-                x = state.get(obj, "x")
-                y = state.get(obj, "y")
-                z = state.get(obj, "z")
-                rot = state.get(obj, "rot")
-                r = state.get(obj, "r")
-                g = state.get(obj, "g")
-                b = state.get(obj, "b")
-                update_object(obj.id,
-                              position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler(
-                                  [0.0, 0.0, rot]),
-                              physics_client_id=self._physics_client_id,
-                              color=(r, g, b, 1.0))
-
-            if obj.type == self._ant_type:
-                x = state.get(obj, "x")
-                y = state.get(obj, "y")
-                z = state.get(obj, "z")
-                rot = state.get(obj, "rot")
-                update_object(obj.id,
-                              position=(x, y, z),
-                              orientation=p.getQuaternionFromEuler(
-                                  [0.0, 0.0, rot]),
-                              physics_client_id=self._physics_client_id)
-
-        # Check reconstruction
-        reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            logging.warning("Could not reconstruct state exactly!")
+ 
+    def _reset_custom_env_state(self, state: State) -> None:
+        for food in self.food:
+            r = state.get(food, "r")
+            g = state.get(food, "g")
+            b = state.get(food, "b")
+            update_object(food.id, color=(r, g, b, 1.0),
+                          physics_client_id=self._physics_client_id)
+        
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         """Override to (1) do usual robot step, (2) move ants toward attracted

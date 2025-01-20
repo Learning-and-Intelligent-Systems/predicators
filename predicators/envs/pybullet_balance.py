@@ -353,73 +353,59 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle blocks-specific resetting."""
-        super()._reset_state(state)
-
-        # Reset blocks based on the state.
-        plate1_z = state.get(self._plate1, "z")
-        p.resetBasePositionAndOrientation(
-            self._plate1.id,
-            [self._plate1_pose[0], self._plate1_pose[1], plate1_z],
-            self._table_orientation,
-            physicsClientId=self._physics_client_id)
-
-        # --- ADDED: reset plate3 z from the state
-        plate3_z = state.get(self._plate3, "z")
-        p.resetBasePositionAndOrientation(
-            self._plate3.id,
-            [self._plate3_pose[0], self._plate3_pose[1], plate3_z],
-            self._table_orientation,
-            physicsClientId=self._physics_client_id)
-
-        block_objs = state.get_objects(self._block_type)
-        self._block_id_to_block = {}
         self._objects = [
             self._robot, self._plate1, self._plate3, self._machine
         ]
+        super()._reset_state(state)
+
+    def _reset_custom_env_state(self, state: State) -> None:
+        """
+        Replace the old `_reset_state` environment-specific logic.
+        The base `_reset_state` has already handled standard features
+        for objects that appear in _get_all_objects(), so here we just
+        do custom domain-specific tasks: setting plates/blocks if we
+        aren't letting the base class handle them, updating button
+        color, and running the beam-balancing update.
+        """
+        # -- Example 2: Re-register block objects, if not letting the base class
+        #    do it. (If you *did* include the blocks in _get_all_objects(),
+        #    the base class would have already set x, y, z for you. You can
+        #    still change colors or anything else here.)
+        block_objs = state.get_objects(self._block_type)
+        self._block_id_to_block.clear()
+
+        # Suppose we want to manually update each block's color or remove them
+        # if not used. For example:
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
             self._block_id_to_block[block_id] = block_obj
             block_obj.id = block_id
-            self._objects.append(block_obj)
-            bx = state.get(block_obj, "x")
-            by = state.get(block_obj, "y")
-            bz = state.get(block_obj, "z")
-            p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz],
-                self._default_orn,
-                physicsClientId=self._physics_client_id)
-            # Update the block color. RGB values are between 0 and 1.
+            # Manually set color if needed:
             r = state.get(block_obj, "color_r")
             g = state.get(block_obj, "color_g")
             b = state.get(block_obj, "color_b")
-            color = (r, g, b, 1.0)  # alpha = 1.0
             p.changeVisualShape(block_id,
                                 linkIndex=-1,
-                                rgbaColor=color,
+                                rgbaColor=(r, g, b, 1.0),
                                 physicsClientId=self._physics_client_id)
 
-        # Check if we're holding some block.
-        held_block = self._get_held_block(state)
-        if held_block is not None:
-            self._force_grasp_object(held_block)
-
-        # For any blocks not involved, put them out of view.
+        # For blocks beyond the number actually in the state, put them out of view:
         h = self._block_size
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
-            assert block_id not in self._block_id_to_block
             p.resetBasePositionAndOrientation(
                 block_id, [oov_x, oov_y, i * h],
                 self._default_orn,
-                physicsClientId=self._physics_client_id)
+                physicsClientId=self._physics_client_id
+            )
 
-        # Reset the difference to zero on environment reset
-        self._prev_diff = 0
-        # Also do one beam update to make sure the initial positions match
+        # -- Example 4: Perform your domain-specific dynamic updates, e.g. the
+        #    code that shifts plates and blocks to simulate a teeter‐totter:
+        self._prev_diff = 0  # reset difference
         self._update_balance_beam(state)
 
-        # Update the button color
+        # -- Example 5: Update button color for whether the machine is on
         if self._MachineOn_holds(state, [self._machine, self._robot]):
             button_color = self._button_color_on
         else:
@@ -428,15 +414,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
                             -1,
                             rgbaColor=button_color,
                             physicsClientId=self._physics_client_id)
-
-        # Assert that the state was properly reconstructed.
-        reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            # logging.debug("Desired state:")
-            # logging.debug(state.pretty_str())
-            # logging.debug("Reconstructed state:")
-            # logging.debug(reconstructed_state.pretty_str())
-            logging.warning("Could not reconstruct state exactly!")
 
     def _update_balance_beam(self, state: State) -> None:
         """Shift the plates, beams, *and blocks on them* to simulate a balance,

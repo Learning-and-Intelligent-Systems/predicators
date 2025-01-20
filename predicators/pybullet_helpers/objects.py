@@ -37,12 +37,13 @@ def create_object(asset_path: str,
 
 
 def update_object(obj_id: int,
-                  position: Pose3D,
+                  position: Optional[Pose3D] = None,
                   orientation: Quaternion = PyBulletEnv._default_orn,
                   color: Optional[Tuple[float, float, float, float]] = None,
                   physics_client_id: int = 0) -> None:
     """Update the position and orientation of an object."""
-    p.resetBasePositionAndOrientation(obj_id,
+    if position is not None:
+        p.resetBasePositionAndOrientation(obj_id,
                                       position,
                                       orientation,
                                       physicsClientId=physics_client_id)
