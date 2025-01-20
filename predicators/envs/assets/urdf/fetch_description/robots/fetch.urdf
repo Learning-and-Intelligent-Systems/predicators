@@ -12,7 +12,7 @@
       <geometry>
         <mesh filename="../meshes/base_link.dae" />
       </geometry>
-      <material name="">
+      <material name="base_link_mat">
         <color rgba="0.356 0.361 0.376 1" />
       </material>
     </visual>
@@ -40,7 +40,7 @@
       <geometry>
         <mesh filename="../meshes/r_wheel_link.STL" />
       </geometry>
-      <material name="">
+      <material name="r_wheel_link_mat">
         <color rgba="0.086 0.506 0.767 1" />
       </material>
     </visual>
@@ -69,7 +69,7 @@
       <geometry>
         <mesh filename="../meshes/l_wheel_link.STL" />
       </geometry>
-      <material name="">
+      <material name="l_wheel_link_mat">
         <color rgba="0.086 0.506 0.767 1" />
       </material>
     </visual>
@@ -98,7 +98,7 @@
       <geometry>
         <mesh filename="../meshes/torso_lift_link.dae" />
       </geometry>
-      <material name="">
+      <material name="torso_lift_link_mat">
         <color rgba="1 1 1 1" />
       </material>
     </visual>
@@ -109,12 +109,18 @@
       </geometry>
     </collision>
   </link>
+  <!-- <joint name="torso_lift_joint" type="prismatic">
+    <origin rpy="-6.123E-17 0 0" xyz="-0.086875 0 0.37743" />
+    <parent link="base_link" />
+    <child link="torso_lift_link" />
+    <axis xyz="0 0 1" />
+    <limit effort="450.0" lower="0" upper="0.38615" velocity="0.1" /> -->
+  <!-- Using a fixed joint for simplicity -->
   <joint name="torso_lift_joint" type="fixed">
     <origin rpy="-6.123E-17 0 0" xyz="-0.086875 0 0.37743" />
     <parent link="base_link" />
     <child link="torso_lift_link" />
     <axis xyz="0 0 1" />
-    <limit effort="450.0" lower="0" upper="0.38615" velocity="0.1" />
   <dynamics damping="100.0" /></joint>
   <link name="head_pan_link">
     <inertial>
@@ -127,7 +133,7 @@
       <geometry>
         <mesh filename="../meshes/head_pan_link.dae" />
       </geometry>
-      <material name="">
+      <material name="head_pan_link_mat">
         <color rgba="0.356 0.361 0.376 1" />
       </material>
     </visual>
@@ -155,7 +161,7 @@
       <geometry>
         <mesh filename="../meshes/head_tilt_link.dae" />
       </geometry>
-      <material name="">
+      <material name="head_tilt_link_mat">
         <color rgba="0.086 0.506 0.767 1" />
       </material>
     </visual>
@@ -184,7 +190,7 @@
       <geometry>
         <mesh filename="../meshes/shoulder_pan_link.dae" />
       </geometry>
-      <material name="">
+      <material name="shoulder_pan_link_mat">
         <color rgba="1 1 1 1" />
       </material>
     </visual>
@@ -214,7 +220,7 @@
       <geometry>
         <mesh filename="../meshes/shoulder_lift_link.dae" />
       </geometry>
-      <material name="">
+      <material name="shoulder_lift_link_mat">
         <color rgba="0.086 0.506 0.767 1" />
       </material>
     </visual>
@@ -244,7 +250,7 @@
       <geometry>
         <mesh filename="../meshes/upperarm_roll_link.dae" />
       </geometry>
-      <material name="">
+      <material name="upperarm_roll_link_mat">
         <color rgba="1 1 1 1" />
       </material>
     </visual>
@@ -274,7 +280,7 @@
       <geometry>
         <mesh filename="../meshes/elbow_flex_link.dae" />
       </geometry>
-      <material name="">
+      <material name="elbow_flex_link_mat">
         <color rgba="0.086 0.506 0.767 1" />
       </material>
     </visual>
@@ -304,7 +310,7 @@
       <geometry>
         <mesh filename="../meshes/forearm_roll_link.dae" />
       </geometry>
-      <material name="">
+      <material name="forearm_roll_link_mat">
         <color rgba="1 1 1 1" />
       </material>
     </visual>
@@ -334,7 +340,7 @@
       <geometry>
         <mesh filename="../meshes/wrist_flex_link.dae" />
       </geometry>
-      <material name="">
+      <material name="wrist_flex_link_mat">
         <color rgba="0.086 0.506 0.767 1" />
       </material>
     </visual>
@@ -364,7 +370,7 @@
       <geometry>
         <mesh filename="../meshes/wrist_roll_link.dae" />
       </geometry>
-      <material name="">
+      <material name="wrist_roll_link_mat">
         <color rgba="1 1 1 1" />
       </material>
     </visual>
@@ -394,6 +400,9 @@
       <geometry>
         <mesh filename="../meshes/gripper_link.dae" />
       </geometry>
+      <material name="gripper_link_mat">
+        <color rgba="1 1 1 1" />
+      </material>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0" />
@@ -419,7 +428,7 @@
       <geometry>
         <mesh filename="../meshes/r_gripper_finger_link.STL" />
       </geometry>
-      <material name="">
+      <material name="r_gripper_finger_link_mat">
         <color rgba="0.356 0.361 0.376 1" />
       </material>
     </visual>
@@ -455,7 +464,7 @@
       <geometry>
         <mesh filename="../meshes/l_gripper_finger_link.STL" />
       </geometry>
-      <material name="">
+      <material name="l_gripper_finger_link_mat">
         <color rgba="0.356 0.361 0.376 1" />
       </material>
     </visual>
@@ -520,7 +529,7 @@
       <geometry>
         <mesh filename="../meshes/bellows_link.STL" />
       </geometry>
-      <material name="">
+      <material name="bellows_link2_mat">
         <color rgba="0 0 0 1" />
       </material>
     </visual>
@@ -547,7 +556,7 @@
       <geometry>
         <mesh filename="../meshes/estop_link.STL" />
       </geometry>
-      <material name="">
+      <material name="estop_link_mat">
         <color rgba="0.8 0 0 1" />
       </material>
     </visual>
@@ -575,8 +584,8 @@
       <geometry>
         <mesh filename="../meshes/laser_link.STL" />
       </geometry>
-      <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      <material name="laser_link_mat">
+        <color rgba="0.792 0.82 0.933 1" />
       </material>
     </visual>
     <collision>
@@ -603,7 +612,7 @@
       <geometry>
         <mesh filename="../meshes/torso_fixed_link.dae" />
       </geometry>
-      <material name="">
+      <material name="torso_fixed_link_mat">
         <color rgba="0.086 0.506 0.767 1" />
       </material>
     </visual>
