@@ -76,9 +76,9 @@ class PyBulletEnv(BaseEnv):
             self.initialize_pybullet(self.using_gui)
         self._store_pybullet_bodies(pybullet_bodies)
 
-        # Either populate at reset state (if the objects across tasks are
-        # different) or populate at store_pybullet_bodies (if the objects are
-        # the same across tasks)
+        # What are they used for??
+        # It's used in get_state, reset_state and labeling state.
+        # Should be populated at reset or reset state.
         self._objects: List[Object] = []
 
     def get_object_by_id(self, obj_id: int) -> Object:
@@ -287,22 +287,12 @@ class PyBulletEnv(BaseEnv):
         return observation_copy
         # return self._current_observation.copy()
 
-    def _reset_state(self, state: State) -> None:
-        """Helper for reset and testing."""
-        # Tear down the old PyBullet scene.
-        if self._held_constraint_id is not None:
-            p.removeConstraint(self._held_constraint_id,
-                               physicsClientId=self._physics_client_id)
-            self._held_constraint_id = None
-        self._held_obj_to_base_link = None
-        self._held_obj_id = None
-
-        # Reset robot.
-        self._pybullet_robot.reset_state(self._extract_robot_state(state))
-
 
     def _reset_state(self, state: State) -> None:
-        """Refactored base logic for resetting into the PyBullet environment."""
+        """Reset the PyBullet state to match the given state.
+        Used in initialization and bilevel planning.
+        """
+        self._objects = list(state.data)
         # 1) Clear old constraint if we had a held object
         if self._held_constraint_id is not None:
             p.removeConstraint(self._held_constraint_id,

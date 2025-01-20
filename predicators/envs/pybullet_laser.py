@@ -355,21 +355,6 @@ class PyBulletLaserEnv(PyBulletEnv):
                 return 1.0 if self._is_target_hit(obj) else 0.0
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
-    def _reset_state(self, state: State) -> None:
-        """Reset simulation from a given state."""
-        # The environment objects in self._objects must be used in the same order
-        # that we created them in __init__. It's good practice to store them in a list.
-        self._objects = [
-            self._robot,
-            self._station,
-            self._mirror1,
-            self._mirror2,
-            self._split_mirror,
-            self._target1,
-            self._target2,
-        ]
-        super()._reset_state(state)  # resets robot
-    
     def _reset_custom_env_state(self, state: State) -> None:
         pass
 

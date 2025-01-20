@@ -214,11 +214,6 @@ class PyBulletAntEnv(PyBulletEnv):
 
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
-    def _reset_state(self, state: State) -> None:
-        """Reset PyBullet world to match the given state."""
-        # TODO: Maybe define self._object here
-        super()._reset_state(state)
- 
     def _reset_custom_env_state(self, state: State) -> None:
         for food in self.food:
             r = state.get(food, "r")
@@ -405,7 +400,6 @@ class PyBulletAntEnv(PyBulletEnv):
                 else:
                     aobj.target_food = None
 
-            self._objects = [self._robot] + self.food + self.ants
             init_state = utils.create_state_from_dict(init_dict)
             goal_atoms = set()
             tasks.append(EnvironmentTask(init_state, goal_atoms))

@@ -243,13 +243,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
             return int(self._is_bulb_on(obj.id))
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
-    def _reset_state(self, state: State) -> None:
-        """Reset from a given state."""
-        self._objects = [
-            self._robot, self._wire1, self._wire2, self._battery, self._light
-        ]
-        super()._reset_state(state)  # Clears constraints, resets robot
-    
     def _reset_custom_env_state(self, state: State) -> None:
 
         is_on = state.get(self._light, "is_on")

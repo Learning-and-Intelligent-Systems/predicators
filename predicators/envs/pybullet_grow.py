@@ -120,7 +120,6 @@ class PyBulletGrowEnv(PyBulletEnv):
                                     [self._cup_type, self._jug_type],
                                     self._SameColor_holds)
 
-        # TODO: These two can also be simplified
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
 
     @classmethod

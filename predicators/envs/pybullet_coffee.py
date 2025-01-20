@@ -318,11 +318,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def get_name(cls) -> str:
         return "pybullet_coffee"
 
-    def _reset_state(self, state: State) -> None:
-        """Run super(), then handle coffee-specific resetting."""
-        self._objects = [self._robot, self._table, self._jug, self._machine]
-        super()._reset_state(state)
-
     def _reset_custom_env_state(self, state: State) -> None:
         """
         Handles extra coffee-specific reset steps: spawning cups from scratch,

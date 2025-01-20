@@ -235,11 +235,6 @@ class PyBulletDominoEnv(PyBulletEnv):
 
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
-    def _reset_state(self, state: State) -> None:
-        """Reset the PyBullet world to match the given state."""
-        # TODO: maybe move self._objects here
-        super()._reset_state(state)
-
     def _reset_custom_env_state(self, state: State) -> None:
         """Reset the custom environment state to match the given state."""
         pass
@@ -483,9 +478,6 @@ class PyBulletDominoEnv(PyBulletEnv):
                         "rot": yaw,
                     }
 
-            # Combine into self._objects for the environment
-            self._objects = [self._robot
-                             ] + self.dominos + self.targets + self.pivots
 
             init_state = utils.create_state_from_dict(init_dict)
 

@@ -351,13 +351,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
         return state
 
-    def _reset_state(self, state: State) -> None:
-        """Run super(), then handle blocks-specific resetting."""
-        self._objects = [
-            self._robot, self._plate1, self._plate3, self._machine
-        ]
-        super()._reset_state(state)
-
     def _reset_custom_env_state(self, state: State) -> None:
         """
         Replace the old `_reset_state` environment-specific logic.
@@ -822,18 +815,6 @@ class PyBulletBalanceEnv(PyBulletEnv):
                 # GroundAtom(self._DirectlyOn, [piles[0][3], piles[0][4]]),
                 # GroundAtom(self._DirectlyOn, [piles[0][2], piles[0][3]]),
             }
-            # }
-            # while True:  # repeat until goal is not satisfied
-            #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
-            #     if not all(goal_atom.holds(init_state) for goal_atom in goal):
-            #         break
-            # if idx == 0:
-            # }
-            # while True:  # repeat until goal is not satisfied
-            #     goal = self._sample_goal_from_piles(num_blocks, piles, rng)
-            #     if not all(goal_atom.holds(init_state) for goal_atom in goal):
-            #         break
-            # if idx == 0:
             tasks.append(EnvironmentTask(init_state, goal))
         return self._add_pybullet_state_to_tasks(tasks)
 

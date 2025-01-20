@@ -243,10 +243,6 @@ class PyBulletFloatEnv(PyBulletEnv):
                 return self._current_water_height
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
-    def _reset_state(self, state: State) -> None:
-        self._objects = self._blocks + [self._vessel]
-        super()._reset_state(state)
-
     def _reset_custom_env_state(self, state: State) -> None:
         # Initialize water level
         self._current_water_height = state.get(self._vessel, "water_height")

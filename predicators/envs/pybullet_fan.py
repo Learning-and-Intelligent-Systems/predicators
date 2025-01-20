@@ -399,16 +399,7 @@ class PyBulletFanEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     # Reset state
     # -------------------------------------------------------------------------
-    def _reset_state(self, state: State) -> None:
-        """Reset simulation from a given state."""
-        # Rebuild object list
-        self._objects = [
-            self._robot, *self._fans, *self._switches, self._wall1,
-            self._wall2, self._ball, self._target
-        ]
-        super()._reset_state(state)  # resets robot
-
-    def _reset_custom_env_state(self, state):
+    def _reset_custom_env_state(self, state: State) -> None:
         for switch_obj in self._switches:
             is_on_val = state.get(switch_obj, "is_on")
             self._set_switch_on(switch_obj.id, bool(is_on_val > 0.5))
