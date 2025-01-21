@@ -273,30 +273,25 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle coffee-specific initialization."""
         physics_client_id, pybullet_robot, bodies = super(
-        ).initialize_pybullet(using_gui)
+            ).initialize_pybullet(using_gui)
 
         cls._add_pybullet_debug_lines(physics_client_id)
 
         table_id = cls._add_pybullet_table(physics_client_id)
         bodies["table_id"] = table_id
 
+        # Coffee Machine
         machine_id = cls._add_pybullet_coffee_machine(physics_client_id)
-        bodies["machine_id"] = machine_id
-
         dispense_area_id = cls._add_pybullet_dispense_area(physics_client_id)
-        bodies["dispense_area_id"] = dispense_area_id
-
         button_id = cls._add_pybullet_machine_button(physics_client_id)
+        bodies["machine_id"] = machine_id
+        bodies["dispense_area_id"] = dispense_area_id
         bodies["button_id"] = button_id
 
         jug_id = cls._add_pybullet_jug(physics_client_id)
         bodies["jug_id"] = jug_id
 
         if CFG.coffee_machine_has_plug:
-            # cord_ids = cls._add_pybullet_cord(physics_client_id)
-            # bodies["cord_ids"] = cord_ids
-            # bodies["plug_id"] = cord_ids[-1]
-
             socket_id = cls._add_pybullet_socket(physics_client_id)
             bodies["socket_id"] = socket_id
 
