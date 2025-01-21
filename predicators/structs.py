@@ -1152,7 +1152,10 @@ class LowLevelTrajectory:
     _train_task_idx: Optional[int] = field(default=None)
 
     def __post_init__(self) -> None:
-        assert len(self._states) == len(self._actions) + 1
+        try:
+            assert len(self._states) == len(self._actions) + 1
+        except:
+            import ipdb;ipdb.set_trace()
         if self._is_demo:
             assert self._train_task_idx is not None
 
