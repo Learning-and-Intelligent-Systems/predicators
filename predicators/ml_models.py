@@ -1653,7 +1653,7 @@ class MapleQFunction(MLPRegressor):
                             closest_distance = distance
                             
 
-                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
+                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first" or CFG.approach == "rapid_learn":
                     robby = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
                 assert robby.is_instance(dummy_env._robot_type)
                 x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
@@ -1717,7 +1717,7 @@ class MapleQFunction(MLPRegressor):
                     else:
                         features.append(state.get(jug, feature))
    
-                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first":
+                if CFG.approach == "rl_bridge_policy" or CFG.approach == "rl_bridge_first" or CFG.approach == "rapid_learn":
                     robby = self._last_planner_state.get_objects(dummy_env._robot_type)[0]
                 assert robby.is_instance(dummy_env._robot_type)
                 x,y = ((np.abs(self._last_planner_state.get(robby, "x")-state.get(robot, "x"))), (np.abs(self._last_planner_state.get(robby, "y")-state.get(robot,"y"))))
@@ -2088,7 +2088,7 @@ class MPDQNFunction(MapleQFunction):
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_callplanner and CFG.use_obj_centric:
             X_size = 5 + 7 + self._max_num_params + 2
         elif CFG.env in {"coffee", "coffeelids"} and CFG.use_obj_centric:
-            X_size = 5 + 7 + self._max_num_params -1
+            X_size = 5 + 7 + self._max_num_params +1
         else:
             X_size = 48
 
@@ -2114,7 +2114,7 @@ class MPDQNFunction(MapleQFunction):
             if reward >= 1:
                 num_rwd+=1
                 # import ipdb;ipdb.set_trace()
-                print(next_state)
+                # print(next_state)
             # Compute the input to the Q-function.
             vectorized_state = self._vectorize_state(state)
             try:
@@ -2183,13 +2183,13 @@ class MPDQNFunction(MapleQFunction):
                 if vectorized_action[0]==1 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
                     bad_door_index.append(i)
                     if bad_count < 20:
-                        print("BAD DOOR rwd, state, action ", reward, vectorized_state, vectorized_action)
+                        # print("BAD DOOR rwd, state, action ", reward, vectorized_state, vectorized_action)
                         bad_count+=1
 
                 if vectorized_action[1]==1 and vectorized_state[2]<=0.85 and vectorized_state[2]>=0.65:
                     callplanner_index.append(i)
                     if callplanner_count < 20:
-                        print("CALL PLANNER rwd, state, action ", reward, vectorized_state, vectorized_action)
+                        # print("CALL PLANNER rwd, state, action ", reward, vectorized_state, vectorized_action)
                         callplanner_count+=1
 
         # Finally, pass all this vectorized data to the training function.
@@ -2214,9 +2214,9 @@ class MPDQNFunction(MapleQFunction):
         # print("DOORKNOB VALUES WE TRAINED ON", set(doorknob_values))
         count = 0
         for i in bad_door_index:
-            print("BAD DOOR")
-            print("predicted q value", Y_arr[i])
-            print("actual q value", self.qnet.predict(X_arr[i])[0])
+            # print("BAD DOOR")
+            # print("predicted q value", Y_arr[i])
+            # print("actual q value", self.qnet.predict(X_arr[i])[0])
             if self.qnet.predict(X_arr[i])[0]!=0:
                 try:
                     print("next best action: ", next_actions[i])
@@ -2230,9 +2230,9 @@ class MPDQNFunction(MapleQFunction):
         count = 0
         
         for i in callplanner_index:
-            print("GOOD CALLPLANNER")
-            print("predicted q value", Y_arr[i])
-            print("actual q value",  self.qnet.predict(X_arr[i])[0])
+            # print("GOOD CALLPLANNER")
+            # print("predicted q value", Y_arr[i])
+            # print("actual q value",  self.qnet.predict(X_arr[i])[0])
             if self.qnet.predict(X_arr[i])[0]!=0:
                 print("next best action: ", next_actions[i])
                 print("next action predicted q value: ",next_values[i])

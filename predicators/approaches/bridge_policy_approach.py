@@ -696,10 +696,10 @@ class RLBridgePolicyApproach(BridgePolicyApproach):
                             # by checking if it contains atoms from any future state in the plan
                             for future_state in safe_states:
                                 if future_state.issubset(current_atoms):
-                                    print("FOUND MATCH")
-                                    print(future_state)
-                                    print(current_atoms)
-                                    print(safe_states)
+                                    # print("FOUND MATCH")
+                                    # print(future_state)
+                                    # print(current_atoms)
+                                    # print(safe_states)
                                     import ipdb;ipdb.set_trace()
                                     rwd = 1000  # We found a match, this is a safe state
                                     num_rewards += 1
@@ -1000,7 +1000,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                     print("bridge done")
                 else:
                     current_atoms = utils.abstract(s, self._get_current_predicates())
-                    print("NUM PLANNER STEPS", self.num_planner_steps)
+                    # print("NUM PLANNER STEPS", self.num_planner_steps)
                     for state in self._current_plan[self.num_planner_steps:]:
                         if state.issubset(current_atoms):
                             self.bridge_done = True
@@ -1045,7 +1045,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
 
             try:
                 action = self._current_policy(s)
-                print(f"Current control: {self._current_control}, Action: {action}")
+                # print(f"Current control: {self._current_control}, Action: {action}")
                 if self._current_control == "planner":
                     self.num_planner_steps += 1
                 if train_or_test == "train":
@@ -1056,7 +1056,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                 self.last_action = action
                 return action
             except utils.OptionExecutionFailure as e:
-                print("current state", s)
+                # print("current state", s)
                 print(f"Option execution failed: {e}")
                 print(f"Current control: {self._current_control}")
                 print(f"Failed option: {e.info['last_failed_option']}")
@@ -1177,10 +1177,10 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                         # by checking if it contains atoms from any future state in the plan
                         for future_state in safe_states:
                             if future_state.issubset(current_atoms):
-                                print("FOUND MATCH")
-                                print(future_state)
-                                print(current_atoms)
-                                print(safe_states)
+                                # print("FOUND MATCH")
+                                # print(future_state)
+                                # print(current_atoms)
+                                # print(safe_states)
                                 # import ipdb;ipdb.set_trace()
                                 rwd = 1000  # We found a match, this is a safe state
                                 num_rewards += 1
@@ -1198,7 +1198,7 @@ class RapidLearnApproach(RLBridgePolicyApproach):
                         self._trajs.append(new_traj)
             
     
-            print("num rewards", num_rewards)
+            # print("num rewards", num_rewards)
             # if num_rewards >= 1:
             #     import ipdb;ipdb.set_trace()
             all_states.extend(mapleq_states)
