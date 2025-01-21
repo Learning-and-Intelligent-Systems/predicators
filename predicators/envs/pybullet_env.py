@@ -695,7 +695,7 @@ class PyBulletEnv(BaseEnv):
     def _fingers_opening(self, action: Action) -> bool:
         """Check whether this action is working toward opening the fingers."""
         f_delta = self._action_to_finger_delta(action)
-        logging.debug(f"Finger delta: {f_delta}")
+        # logging.debug(f"Finger delta: {f_delta}")
         return f_delta > self._finger_action_tol
 
     def _get_finger_position(self, state: State) -> float:
@@ -708,7 +708,7 @@ class PyBulletEnv(BaseEnv):
         assert isinstance(self._current_observation, State)
         finger_position = self._get_finger_position(self._current_observation)
         target = action.arr[-1]
-        logging.debug(f"Finger position: {finger_position}, target: {target}")
+        # logging.debug(f"Finger position: {finger_position}, target: {target}")
         return target - finger_position
 
     def _add_pybullet_state_to_tasks(

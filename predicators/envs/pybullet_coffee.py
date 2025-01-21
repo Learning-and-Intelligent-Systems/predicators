@@ -44,6 +44,7 @@ from predicators.envs.pybullet_env import PyBulletEnv
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
+from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
     State
@@ -240,7 +241,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         super().__init__(use_gui)
 
         # Create the cups lazily because they can change size and color.
-        self._cup_id_to_cup: Dict[int, Object] = {}
+        # self._cup_id_to_cup: Dict[int, Object] = {}
         self._cup_to_liquid_id: Dict[Object, Optional[int]] = {}
         self._cup_to_capacity: Dict[Object, float] = {}
         # The status of the jug is not modeled inside PyBullet.
@@ -315,82 +316,86 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def get_name(cls) -> str:
         return "pybullet_coffee"
 
-    def _create_task_specific_objects(self, state):
-        """We remove and load the cups here because we want cups of different
-        sizes in each task.
+    def _create_task_specific_objects(self, state: State) -> None:
         """
-        for old_cup_id in self._cup_id_to_cup:
-            p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
-        self._cup_id_to_cup.clear()
+        Remove/rebuild cups, liquids, and cords so each new task can
+        have different cups and states.
+        """
+        self._remake_cups(state)
+        self._remake_cup_liquids(state)
+        self._remake_jug_liquid(state)
+        self._remake_cord()
 
-        # 3) Create brand-new cups from the state’s cup objects
+    def _remake_cups(self, state: State) -> None:
+        """Re-load cup URDFs with appropriate scaling and color for each new cup
+        """
+        # for old_cup_id in self._cup_id_to_cup:
+        #     p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
+        for cup in self._cups:
+            if cup.id is not None:
+                p.removeBody(cup.id, physicsClientId=self._physics_client_id)
+        # self._cup_id_to_cup.clear()
+
         cup_objs = state.get_objects(self._cup_type)
         self._cup_to_capacity.clear()
         for i, cup_obj in enumerate(cup_objs):
             cup_cap = state.get(cup_obj, "capacity_liquid")
-
-            # Possibly scale the URDF by capacity
             global_scale = 0.5 * cup_cap / self.cup_capacity_ub
-            if CFG.coffee_use_pixelated_jug:
-                cup_id = p.loadURDF(
-                    utils.get_env_asset_path("urdf/pot-pixel.urdf"),
-                    useFixedBase=True,
-                    globalScaling=global_scale * 0.5,
-                    physicsClientId=self._physics_client_id
-                )
-            else:
-                cup_id = p.loadURDF(
-                    utils.get_env_asset_path("urdf/cup.urdf"),
-                    useFixedBase=True,
-                    globalScaling=global_scale,
-                    physicsClientId=self._physics_client_id
-                )
-            # For orientation, rotate so handles face the robot, etc.
-
-            # Random cup color from a set
             color = random.choice(self.cup_colors)
-            p.changeVisualShape(cup_id, -1, rgbaColor=color,
-                                physicsClientId=self._physics_client_id)
-
-            # Track the new cup in your local dictionaries
-            self._cup_id_to_cup[cup_id] = cup_obj
+            if CFG.coffee_use_pixelated_jug:
+                file = "urdf/pot-pixel.urdf"
+                global_scale *= 0.5
+            else:
+                file = "urdf/cup.urdf"
+            cup_id = create_object(
+                file,
+                color=color,
+                scale=global_scale,
+                use_fixed_base=True,
+                physics_client_id=self._physics_client_id
+            )
+            # self._cup_id_to_cup[cup_id] = cup_obj
             self._cup_to_capacity[cup_obj] = cup_cap
             cup_obj.id = cup_id
 
-        # Recreate the visual “liquid” objects in the cups
+    def _remake_cup_liquids(self, state: State) -> None:
+        """Re-create the visual liquid objects for the new cups."""
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
                 p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
+        cup_objs = state.get_objects(self._cup_type)
         for cup in cup_objs:
             new_liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
             self._cup_to_liquid_id[cup] = new_liquid_id
 
+    def _remake_jug_liquid(self, state: State) -> None:
+        """
+        Check jug's is_filled status and re-create liquid object if needed.
+        Remove old jug liquid if jug is now empty.
+        """
         self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
         if self._jug_liquid_id is not None:
-            p.removeBody(self._jug_liquid_id,
-                         physicsClientId=self._physics_client_id)
+            p.removeBody(self._jug_liquid_id, physicsClientId=self._physics_client_id)
             self._jug_liquid_id = None
         if self._jug_filled:
             self._jug_liquid_id = self._create_pybullet_liquid_for_jug()
 
-        # If the machine has a detachable plug, re‐add the cord bodies
-        #    or constraint logic:
+    def _remake_cord(self) -> None:
+        """If the machine uses a plug, rebuild the cord bodies and constraints."""
         if CFG.coffee_machine_has_plug:
-            # Remove old cord pieces
             if self._cord_ids is not None:
+                # Remove old cord pieces
                 for part_id in self._cord_ids:
-                    p.removeBody(part_id, self._physics_client_id)
-            # Remove any old plug constraints
+                    p.removeBody(part_id, physicsClientId=self._physics_client_id)
             if self._machine_plugged_in_id is not None:
                 p.removeConstraint(self._machine_plugged_in_id,
                                    physicsClientId=self._physics_client_id)
                 self._machine_plugged_in_id = None
-            # Rebuild the cord pieces
+            # Rebuild the cord chain
             self._cord_ids = self._add_pybullet_cord(self._physics_client_id)
             self._plug.id = self._cord_ids[-1]
-        # Done.
 
     def _reset_custom_env_state(self, state: State) -> None:
         """
@@ -463,29 +468,41 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def step(self, action: Action, render_obs: bool = False) -> State:
-        # What's the previous robot state?
-        # logging.debug("[env] start simulation step")
-        logging.debug(f"Held_obj_id: {self._held_obj_id}")
+        # Save current end-effector roll-pitch-yaw for later comparison
         current_ee_rpy = self._pybullet_robot.forward_kinematics(
-            self._pybullet_robot.get_joints()).rpy
+                    self._pybullet_robot.get_joints()).rpy
         state = super().step(action, render_obs=render_obs)
-        # logging.debug("[env] set robot state")
-        # logging.debug(f"tracking state: {state.pretty_str()}")
+        self._update_jug_liquid_position()
+        if CFG.coffee_machine_has_plug:
+            self._check_and_apply_plug_in_constraint(state)
+        self._handle_machine_on_and_jug_filling(state)
+        self._handle_pouring(state)
+        self._handle_twisting(state, current_ee_rpy, action)
+        state = self._current_observation.copy()
 
-        # Move the liquid inside
-        if self._jug_filled:
+        return state
+
+    def _update_jug_liquid_position(self) -> None:
+        """If the jug is filled, move its liquid to match the jug's pose."""
+        if self._jug_filled and self._jug_liquid_id is not None:
             pos, quat = p.getBasePositionAndOrientation(
-                self._jug.id, physicsClientId=self._physics_client_id)
+                self._jug.id,
+                physicsClientId=self._physics_client_id
+            )
             p.resetBasePositionAndOrientation(
                 self._jug_liquid_id,
                 pos,
                 quat,
-                physicsClientId=self._physics_client_id)
+                physicsClientId=self._physics_client_id
+            )
 
-        if CFG.coffee_machine_has_plug and \
-            self._PluggedIn_holds(state, [self._plug]) and \
-            self._machine_plugged_in_id is None:
-            # logging.debug("[env] plug in the machine")
+    def _check_and_apply_plug_in_constraint(self, state: State) -> None:
+        """
+        If the machine uses a plug and the plug is 'plugged_in' in the state,
+        create (or maintain) a fixed constraint between the plug and the socket.
+        """
+        if self._PluggedIn_holds(state, [self._plug]) and \
+                self._machine_plugged_in_id is None:
             # Create a constraint between plug and socket
             self._machine_plugged_in_id = p.createConstraint(
                 parentBodyUniqueId=self._socket_id,
@@ -497,91 +514,102 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                 parentFramePosition=[0, 0, 0],
                 childFramePosition=[0, 0, 0],
             )
-            p.changeVisualShape(self._button_id,
-                                -1,
-                                rgbaColor=self.button_color_off,
-                                physicsClientId=self._physics_client_id)
-            p.changeVisualShape(self._button_id,
-                                0,
-                                rgbaColor=self.button_color_off,
-                                physicsClientId=self._physics_client_id)
+            # Update button color to "off" (but machine has power)
+            p.changeVisualShape(
+                self._button_id,
+                -1,
+                rgbaColor=self.button_color_off,
+                physicsClientId=self._physics_client_id
+            )
 
-        # If the robot is sufficiently close to the button, turn on the machine
-        # and update the status of the jug.
+    def _handle_machine_on_and_jug_filling(self, state: State) -> None:
+        """
+        If the robot is pressing the machine button, turn on the machine and
+        fill the jug if it's placed in the machine and (optionally) plugged in.
+        """
         if self._PressingButton_holds(state, [self._robot, self._machine]):
-            p.changeVisualShape(self._button_id,
-                                -1,
-                                rgbaColor=self.button_color_on,
-                                physicsClientId=self._physics_client_id)
-            p.changeVisualShape(self._button_id,
-                                0,
-                                rgbaColor=self.button_color_on,
-                                physicsClientId=self._physics_client_id)
-
-            # the jug is only filled if it's in the machine
-            # and when the machine requires to plug in, the plug is in the
-            # socket
-            if self._JugInMachine_holds(state, [self._jug, self._machine]) and\
-                    (not CFG.coffee_machine_has_plug or
-                    self._machine_plugged_in_id is not None):
+            # Change the machine button color to "on"
+            p.changeVisualShape(
+                self._button_id, -1,
+                rgbaColor=self.button_color_on,
+                physicsClientId=self._physics_client_id
+            )
+            # Fill jug if in machine & (plugged in if required)
+            if (self._JugInMachine_holds(state, [self._jug, self._machine]) and
+               (not CFG.coffee_machine_has_plug or
+                self._machine_plugged_in_id is not None)):
                 if not self._jug_filled:
-                    self._jug_liquid_id = self._create_pybullet_liquid_for_jug(
-                    )
+                    self._jug_liquid_id = self._create_pybullet_liquid_for_jug()
                 self._jug_filled = True
-            self._current_observation = self._get_state(render_obs)
-            state = self._current_observation.copy()
-        # If the robot is pouring into a cup, raise the liquid in it.
-        if abs(state.get(self._robot, "tilt") -
-               self.tilt_ub) < self.pour_angle_tol:
-            # If the jug is empty, noop.
+            # Refresh current observation
+            self._current_observation = self._get_state(render_obs=False)
+
+    def _handle_pouring(self, state: State) -> None:
+        """
+        If the robot is tilted sufficiently to pour, increase liquid in the 
+        appropriate cup. If the jug is empty or there's no target cup, do nothing.
+        """
+        if abs(state.get(self._robot, "tilt") - self.tilt_ub) < self.pour_angle_tol:
+            # If the jug is empty, do nothing
             if not self._jug_filled:
-                return state
-            # Find the cup to pour into, if any.
+                return
+            # Identify which cup (if any) is being poured into
             cup = self._get_cup_to_pour(state)
-            # If pouring into nothing, noop.
             if cup is None:
-                return state
-            # Increase the liquid in the cup.
+                return
+
+            # Increase the liquid in the cup
             current_liquid = state.get(cup, "current_liquid")
             new_liquid = current_liquid + self.pour_velocity
             state.set(cup, "current_liquid", new_liquid)
-            old_liquid_id = self._cup_to_liquid_id[cup]
+
+            # Remove the old liquid body in PyBullet
+            old_liquid_id = self._cup_to_liquid_id.get(cup, None)
             if old_liquid_id is not None:
                 p.removeBody(old_liquid_id,
                              physicsClientId=self._physics_client_id)
+
+            # Create a new one with updated height
             self._cup_to_liquid_id[cup] = self._create_pybullet_liquid_for_cup(
                 cup, state)
-            self._current_observation = self._get_state(render_obs)
-            state = self._current_observation.copy()
-        # Handle twisting
-        elif self._Twisting_holds(state, [self._robot, self._jug]):
+            # Refresh current observation
+            self._current_observation = self._get_state(render_obs=False)
+
+    def _handle_twisting(self, state: State,
+                         current_ee_rpy: Tuple[float, float,float],
+                         action: Action) -> None:
+        """
+        If the robot is twisting the jug, update the jug's yaw accordingly.
+        Accounts for flipping if the sign of yaw changes drastically.
+        """
+        if self._Twisting_holds(state, [self._robot, self._jug]):
             gripper_pose = self._pybullet_robot.forward_kinematics(
-                action.arr.tolist())
+                action.arr.tolist()
+            )
             d_roll = gripper_pose.rpy[0] - current_ee_rpy[0]
-            d_yaw = gripper_pose.rpy[2] - current_ee_rpy[2]
-            if np.abs(d_yaw) > 0.2:
-                # changed sign
-                print("flip roll")
+            d_yaw  = gripper_pose.rpy[2] - current_ee_rpy[2]
+
+            # Handle wrap-around or flipping
+            if abs(d_yaw) > 0.2:
                 if d_yaw < 0:
                     d_roll -= np.pi
-                if d_yaw > 0:
+                else:
                     d_roll += np.pi
 
-            (jx, jy, _), orn = p.getBasePositionAndOrientation(
-                self._jug.id, physicsClientId=self._physics_client_id)
-            jug_yaw = p.getEulerFromQuaternion(orn)[2]
-            new_jug_yaw = jug_yaw - d_roll
-            new_jug_yaw = utils.wrap_angle(new_jug_yaw)
-            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, new_jug_yaw])
+            (jx, jy, _), jug_quat = p.getBasePositionAndOrientation(
+                self._jug.id, physicsClientId=self._physics_client_id
+            )
+            jug_yaw = p.getEulerFromQuaternion(jug_quat)[2]
+            new_jug_yaw = utils.wrap_angle(jug_yaw - d_roll)
+            new_jug_quat = p.getQuaternionFromEuler([0.0, 0.0, new_jug_yaw])
             p.resetBasePositionAndOrientation(
-                self._jug.id, [jx, jy, self.z_lb + self.jug_height() / 2],
-                jug_orientation,
-                physicsClientId=self._physics_client_id)
-
-            self._current_observation = self._get_state(render_obs)
-            state = self._current_observation.copy()
-
-        return state
+                self._jug.id,
+                [jx, jy, self.z_lb + self.jug_height() / 2],
+                new_jug_quat,
+                physicsClientId=self._physics_client_id
+            )
+            # Refresh current observation
+            self._current_observation = self._get_state(render_obs=False)
 
     def _get_tasks(self,
                    num: int,
@@ -801,7 +829,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         pose = (
             cls.dispense_area_x,
             cls.dispense_area_y,
-            # cls.z_lb + dispense_height)
             cls.z_lb)
         orientation = cls._default_orn
 
@@ -984,7 +1011,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             if i == 0:
                 color = [0, 0, 0, 1]  # Black
             elif i == cls.num_cord_links - 1:
-                # color = [0, 0, 1, 1]  # Blue
                 color = [1, 0, 0, 1]  # Red
             else:
                 color = [0.5, 0, 0, 1]  # Black
@@ -1066,18 +1092,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             basePosition=socket_position,
             physicsClientId=physics_client_id)
 
-        # # Connect the last segment to the socket
-        # p.createConstraint(
-        #     parentBodyUniqueId=segments[-1],
-        #     parentLinkIndex=-1,
-        #     childBodyUniqueId=socket_id,
-        #     childLinkIndex=-1,
-        #     jointType=p.JOINT_FIXED,
-        #     jointAxis=[0, 0, 0],
-        #     parentFramePosition=[-cls.cord_link_length / 2, 0, 0],
-        #     childFramePosition=[socket_size / 2, 0, 0],
-        #     physicsClientId=physics_client_id
-        # )
         return socket_id
 
     @classmethod
