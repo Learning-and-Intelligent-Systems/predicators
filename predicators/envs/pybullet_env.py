@@ -289,9 +289,9 @@ class PyBulletEnv(BaseEnv):
         return observation_copy
         # return self._current_observation.copy()
 
-
     def _reset_state(self, state: State) -> None:
         """Reset the PyBullet state to match the given state.
+
         Used in initialization and bilevel planning.
         """
         self._objects = list(state.data)
@@ -309,7 +309,7 @@ class PyBulletEnv(BaseEnv):
         # I want to have a step that creates task specific objects before reset
         # their positions, what should I call this?
         self._create_task_specific_objects(state)
-        
+
         # 3) Reset all known objects (position, orientation, etc.)
         for obj in self._objects:
             if obj.type.name == "robot":
@@ -324,7 +324,7 @@ class PyBulletEnv(BaseEnv):
         reconstructed = self._get_state()
         if not reconstructed.allclose(state):
             logging.warning("Could not reconstruct state exactly in reset.")
-    
+
     @abc.abstractmethod
     def _create_task_specific_objects(self, state: State) -> None:
         pass
@@ -336,8 +336,8 @@ class PyBulletEnv(BaseEnv):
         # standard features: x, y, z, rot, is_held.
 
         # 1) Position/orientation if those features exist
-        cur_x, cur_y, cur_z = p.getBasePositionAndOrientation(obj.id,
-                                    physicsClientId=self._physics_client_id)[0]
+        cur_x, cur_y, cur_z = p.getBasePositionAndOrientation(
+            obj.id, physicsClientId=self._physics_client_id)[0]
         px = state.get(obj, "x") if "x" in obj.type.feature_names else cur_x
         py = state.get(obj, "y") if "y" in obj.type.feature_names else cur_y
         pz = state.get(obj, "z") if "z" in obj.type.feature_names else cur_z
@@ -350,8 +350,8 @@ class PyBulletEnv(BaseEnv):
             orn = self._default_orn  # e.g. (0,0,0,1)
 
         # 2) Update the object’s position/orientation in PyBullet
-        p.resetBasePositionAndOrientation(obj.id, [px, py, pz], orn,
-                      physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(
+            obj.id, [px, py, pz], orn, physicsClientId=self._physics_client_id)
 
         # 3) If there's an is_held feature, reattach constraints if needed
         if "is_held" in obj.type.feature_names:
@@ -364,13 +364,10 @@ class PyBulletEnv(BaseEnv):
                 world_to_base_link = get_link_state(
                     self._pybullet_robot.robot_id,
                     self._pybullet_robot.end_effector_id,
-                    physics_client_id=self._physics_client_id
-                ).com_pose
-                obj_to_base_link = p.invertTransform(
-                    *p.multiplyTransforms(world_to_base_link[0],
-                                          world_to_base_link[1],
-                                          (px, py, pz),
-                                          orn))
+                    physics_client_id=self._physics_client_id).com_pose
+                obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
+                    world_to_base_link[0], world_to_base_link[1], (px, py,
+                                                                   pz), orn))
                 self._held_obj_to_base_link = obj_to_base_link
 
     @abc.abstractmethod
@@ -382,8 +379,9 @@ class PyBulletEnv(BaseEnv):
         raise NotImplementedError("Override me!")
 
     def _get_state(self, render_obs: bool = False) -> State:
-        """Reads the PyBullet scene into a `State` (PyBulletState).
-        It takes care of:
+        """Reads the PyBullet scene into a `State` (PyBulletState). It takes
+        care of:
+
         * robot features [x, y, z, tilt, wrist, fingers]
         * object features [x, y, z, rot, is_held]
         the other feature extractors should be implemented in the subclasses via
@@ -402,8 +400,8 @@ class PyBulletEnv(BaseEnv):
             obj_features = obj.type.feature_names
             obj_dict = {}
             # Basic features
-            (px, py, pz), orn = p.getBasePositionAndOrientation(obj.id, 
-                                    physicsClientId=self._physics_client_id)
+            (px, py, pz), orn = p.getBasePositionAndOrientation(
+                obj.id, physicsClientId=self._physics_client_id)
             if "x" in obj_features:
                 obj_dict["x"] = px
             if "y" in obj_features:
@@ -416,7 +414,7 @@ class PyBulletEnv(BaseEnv):
             if "is_held" in obj_features:
                 obj_dict["is_held"] = 1.0 if obj.id == self._held_obj_id \
                                             else 0.0
-            
+
             # Additional features
             for feature in obj_features:
                 if feature not in ["x", "y", "z", "rot", "is_held"]:
@@ -427,17 +425,16 @@ class PyBulletEnv(BaseEnv):
         # Convert to a PyBulletState
         state = utils.create_state_from_dict(state_dict)
         joint_positions = self._pybullet_robot.get_joints()
-        pyb_state = PyBulletState(state.data, 
-                        simulator_state={"joint_positions": joint_positions})
+        pyb_state = PyBulletState(
+            state.data, simulator_state={"joint_positions": joint_positions})
         return pyb_state
-    
+
     @abc.abstractmethod
     def _extract_feature(self, obj: Object, feature: str) -> float:
         raise NotImplementedError("Override me!")
 
     def _get_robot_state_dict(self) -> None:
-        """Get dict state of the robot.
-        """
+        """Get dict state of the robot."""
         r_dict = {}
         r_features = self._robot.type.feature_names
         rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()

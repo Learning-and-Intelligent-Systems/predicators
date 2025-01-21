@@ -8,8 +8,8 @@ from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.objects import create_object, update_object
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, Object, \
-    Predicate, State, Type
+from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
+    State, Type
 
 
 class PyBulletAntEnv(PyBulletEnv):
@@ -199,8 +199,7 @@ class PyBulletAntEnv(PyBulletEnv):
         return [f.id for f in self.food]
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._food_type:
             if feature == "attractive":
                 return obj.attractive
@@ -218,9 +217,9 @@ class PyBulletAntEnv(PyBulletEnv):
             r = state.get(food, "r")
             g = state.get(food, "g")
             b = state.get(food, "b")
-            update_object(food.id, color=(r, g, b, 1.0),
+            update_object(food.id,
+                          color=(r, g, b, 1.0),
                           physics_client_id=self._physics_client_id)
-        
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         """Override to (1) do usual robot step, (2) move ants toward attracted

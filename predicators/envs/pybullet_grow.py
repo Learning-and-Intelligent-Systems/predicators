@@ -1,4 +1,4 @@
-"""Grow plants with fertalizers
+"""Grow plants with fertalizers.
 
 python predicators/main.py --approach oracle --env pybullet_grow --seed 1 \
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
@@ -206,16 +206,16 @@ class PyBulletGrowEnv(PyBulletEnv):
         return [self._red_jug.id, self._blue_jug.id]
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._cup_type:
             if feature == "growth":
                 # No liquid object if the cup has zero growth
                 liquid_id = self._cup_to_liquid_id.get(obj, None)
                 if liquid_id is not None:
                     liquid_height = p.getVisualShapeData(
-                        liquid_id, physicsClientId=self._physics_client_id
-                    )[0][3][2]  # Get the height of the liquid
+                        liquid_id,
+                        physicsClientId=self._physics_client_id)[0][3][
+                            2]  # Get the height of the liquid
                     return liquid_height
                 return 0.0
             elif feature == "color":
@@ -228,12 +228,13 @@ class PyBulletGrowEnv(PyBulletEnv):
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_custom_env_state(self, state: State) -> None:
-        """Called in _reset_state"""
+        """Called in _reset_state."""
 
         # 1) Remove any existing “liquid bodies” from cups
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
-                p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
+                p.removeBody(liquid_id,
+                             physicsClientId=self._physics_client_id)
         self._cup_to_liquid_id.clear()
 
         for cup in state.get_objects(self._cup_type):

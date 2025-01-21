@@ -1,4 +1,5 @@
 """python predicators/main.py --approach oracle --env pybullet_laser \
+
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
 --sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
 --pybullet_camera_height 900 --pybullet_camera_width 900 --debug
@@ -91,8 +92,8 @@ class PyBulletLaserEnv(PyBulletEnv):
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _station_type = Type("station", ["x", "y", "z", "rot", "is_on"],
                          sim_features=["id", "joint_id"])
-    _mirror_type = Type("mirror", ["x", "y", "z", "rot", "split_mirror",
-                                   "is_held"])
+    _mirror_type = Type("mirror",
+                        ["x", "y", "z", "rot", "split_mirror", "is_held"])
     _target_type = Type("target", ["x", "y", "z", "rot", "is_hit"])
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -120,8 +121,9 @@ class PyBulletLaserEnv(PyBulletEnv):
                                   self._Holding_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
-        self._IsSplitMirror = Predicate("IsSplitMirror", [self._mirror_type],
-                                lambda s, o: s.get(o[0], "split_mirror") > 0.5)
+        self._IsSplitMirror = Predicate(
+            "IsSplitMirror", [self._mirror_type],
+            lambda s, o: s.get(o[0], "split_mirror") > 0.5)
 
     @classmethod
     def get_name(cls) -> str:
@@ -252,8 +254,7 @@ class PyBulletLaserEnv(PyBulletEnv):
         return [self._mirror1.id, self._mirror2.id, self._split_mirror.id]
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._station_type:
             if feature == "is_on":
                 return 1.0 if self._station_powered_on() else 0.0

@@ -1,4 +1,4 @@
-"""Making a demo video: 
+"""Making a demo video:
 
 python predicators/main.py --approach oracle --env pybullet_balance --seed 1 \
 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
@@ -92,19 +92,16 @@ class PyBulletBalanceEnv(PyBulletEnv):
     def __init__(self, use_gui: bool = True) -> None:
         # Types
         # bbox_features = ["bbox_left", "bbox_right", "bbox_upper", "bbox_lower"]
-        self._block_type = Type("block", [
-            "x", "y", "z", "is_held", "color_r", "color_g",
-            "color_b"
-        ])# + (bbox_features if CFG.env_include_bbox_features else []))
-        self._robot_type = Type(
-            "robot", ["x", "y", "z", "fingers"]) #+
-            # (bbox_features if CFG.env_include_bbox_features else []))
-        self._plate_type = Type(
-            "plate", ["z"]) #+
-            # (bbox_features if CFG.env_include_bbox_features else []))
-        self._machine_type = Type(
-            "machine", ["is_on"]) #+
-            # (bbox_features if CFG.env_include_bbox_features else []))
+        self._block_type = Type(
+            "block",
+            ["x", "y", "z", "is_held", "color_r", "color_g", "color_b"
+             ])  # + (bbox_features if CFG.env_include_bbox_features else []))
+        self._robot_type = Type("robot", ["x", "y", "z", "fingers"])  #+
+        # (bbox_features if CFG.env_include_bbox_features else []))
+        self._plate_type = Type("plate", ["z"])  #+
+        # (bbox_features if CFG.env_include_bbox_features else []))
+        self._machine_type = Type("machine", ["is_on"])  #+
+        # (bbox_features if CFG.env_include_bbox_features else []))
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -112,9 +109,10 @@ class PyBulletBalanceEnv(PyBulletEnv):
         # self._table2 = Object("table2", self._plate_type)
         self._plate3 = Object("plate3", self._plate_type)
         self._machine = Object("mac", self._machine_type)
-        self._blocks = [Object(f"block{i}", self._block_type) for i in range(
-            max(self._num_blocks_train + self._num_blocks_test)
-        )]
+        self._blocks = [
+            Object(f"block{i}", self._block_type)
+            for i in range(max(self._num_blocks_train + self._num_blocks_test))
+        ]
 
         super().__init__(use_gui)
 
@@ -313,8 +311,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
     # -------------------------------------------------------------------------
     # State Management: Get, (Re)Set, Step
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._block_type:
             visual_data = p.getVisualShapeData(
                 obj.id, physicsClientId=self._physics_client_id)[0]
@@ -328,8 +325,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
         elif obj.type == self._machine_type:
             if feature == "is_on":
                 button_color = p.getVisualShapeData(
-                    self._machine.id, physicsClientId=self._physics_client_id
-                    )[0][-1]
+                    self._machine.id,
+                    physicsClientId=self._physics_client_id)[0][-1]
                 button_color_on_dist = sum(
                     np.subtract(button_color, self._button_color_on)**2)
                 button_color_off_dist = sum(
@@ -356,8 +353,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
         return state
 
     def _reset_custom_env_state(self, state: State) -> None:
-        """
-        Replace the old `_reset_state` environment-specific logic.
+        """Replace the old `_reset_state` environment-specific logic.
+
         The base `_reset_state` has already handled standard features
         for objects that appear in _get_all_objects(), so here we just
         do custom domain-specific tasks: setting plates/blocks if we
@@ -381,7 +378,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
                                 rgbaColor=(r, g, b, 1.0),
                                 physicsClientId=self._physics_client_id)
 
-        # For blocks beyond the number actually in the state, put them out of 
+        # For blocks beyond the number actually in the state, put them out of
         # view:
         h = self._block_size
         oov_x, oov_y = self._out_of_view_xy
@@ -389,8 +386,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
             p.resetBasePositionAndOrientation(
                 self._blocks[i].id, [oov_x, oov_y, i * h],
                 self._default_orn,
-                physicsClientId=self._physics_client_id
-            )
+                physicsClientId=self._physics_client_id)
 
         self._prev_diff = 0  # reset difference
         self._update_balance_beam(state)

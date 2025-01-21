@@ -252,12 +252,10 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 params: Array) -> Tuple[Pose, Pose, str]:
             assert not params
             robot, block = objects
-            current_position = (state.get(robot, "x"),
-                                state.get(robot, "y"),
+            current_position = (state.get(robot, "x"), state.get(robot, "y"),
                                 state.get(robot, "z"))
             current_pose = Pose(current_position, home_orn)
-            target_position = (state.get(block,
-                                         "x"), state.get(block, "y"),
+            target_position = (state.get(block, "x"), state.get(block, "y"),
                                z_func(state.get(block, "z")))
             target_pose = Pose(target_position, home_orn)
             return current_pose, target_pose, finger_status
@@ -289,8 +287,7 @@ class PyBulletBalanceGroundTruthOptionFactory(GroundTruthOptionFactory):
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose, Pose, str]:
             robot, _ = objects
-            current_position = (state.get(robot, "x"),
-                                state.get(robot, "y"),
+            current_position = (state.get(robot, "x"), state.get(robot, "y"),
                                 state.get(robot, "z"))
             current_pose = Pose(current_position, home_orn)
             # De-normalize parameters to actual table coordinates.

@@ -1,4 +1,4 @@
-"""Example usage: 
+"""Example usage:
 
 python predicators/main.py --approach oracle --env pybullet_domino \
 --seed 0 --num_test_tasks 1 --use_gui --debug --num_train_tasks 0 \
@@ -227,8 +227,7 @@ class PyBulletDominoEnv(PyBulletEnv):
         return []
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._domino_type:
             if feature == "start_block":
                 return 1.0 if obj.name == "domino_0" else 0.0
@@ -477,7 +476,6 @@ class PyBulletDominoEnv(PyBulletEnv):
                         "z": self.z_lb,
                         "rot": yaw,
                     }
-
 
             init_state = utils.create_state_from_dict(init_dict)
 

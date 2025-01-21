@@ -44,9 +44,9 @@ def update_object(obj_id: int,
     """Update the position and orientation of an object."""
     if position is not None:
         p.resetBasePositionAndOrientation(obj_id,
-                                      position,
-                                      orientation,
-                                      physicsClientId=physics_client_id)
+                                          position,
+                                          orientation,
+                                          physicsClientId=physics_client_id)
     if color is not None:
         # Change color of all links
         for link_id in range(-1, p.getNumJoints(obj_id)):

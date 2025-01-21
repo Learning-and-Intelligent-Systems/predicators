@@ -194,9 +194,11 @@ class CoffeeEnv(BaseEnv):
         self._jug = Object("jug", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
         self._table = Object("table", self._table_type)
-        self._cups = [Object(f"cup{i}", self._cup_type) for i in range(
-            max(max(CFG.coffee_num_cups_train), max(CFG.coffee_num_cups_test)
-        ))]
+        self._cups = [
+            Object(f"cup{i}", self._cup_type) for i in range(
+                max(max(CFG.coffee_num_cups_train),
+                    max(CFG.coffee_num_cups_test)))
+        ]
         if CFG.coffee_machine_has_plug:
             self._plug = Object("plug", self._plug_type)
 

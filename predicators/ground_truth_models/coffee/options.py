@@ -732,7 +732,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             wrist = state.get(robot, "wrist")
             robot_pos = (x, y, z)
             finger = state.get(robot, "fingers")
-            gripper_open = finger >0.03
+            gripper_open = finger > 0.03
 
             plug_x = state.get(plug, "x")
             plug_y = state.get(plug, "y")
@@ -1036,8 +1036,12 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         assert isinstance(state, utils.PyBulletState)
 
         return get_move_end_effector_to_pose_action(
-            pybullet_robot, current_joint_positions, current_pose, target_pose,
-            finger_status, CFG.pybullet_max_vel_norm,
+            pybullet_robot,
+            current_joint_positions,
+            current_pose,
+            target_pose,
+            finger_status,
+            CFG.pybullet_max_vel_norm,
             cls._finger_action_nudge_magnitude,
             validate=CFG.pybullet_ik_validate)
 

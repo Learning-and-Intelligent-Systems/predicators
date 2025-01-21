@@ -221,8 +221,7 @@ class PyBulletFloatEnv(PyBulletEnv):
         return [block_obj.id for block_obj in self._blocks]
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._block_type:
             if feature == "is_light":
                 return self._is_block_light(obj.id)
@@ -274,7 +273,6 @@ class PyBulletFloatEnv(PyBulletEnv):
                           base_position=(wx, wy, wz),
                           color=[0.5, 0.5, 1, 0.5],
                           physics_client_id=self._physics_client_id)
-
 
     def step(self, action: Action, render_obs: bool = False) -> State:
         next_state = super().step(action, render_obs=render_obs)

@@ -375,8 +375,7 @@ class PyBulletFanEnv(PyBulletEnv):
             self._set_switch_on(switch_obj.id, bool(is_on_val > 0.5))
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._wall_type:
             if feature == "length":
                 return 0.3

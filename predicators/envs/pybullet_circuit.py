@@ -237,8 +237,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         return [self._wire1.id, self._wire2.id]
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Extract features for creating the State object.
-        """
+        """Extract features for creating the State object."""
         if obj.type == self._light_type and feature == "is_on":
             return int(self._is_bulb_on(obj.id))
         raise ValueError(f"Unknown feature {feature} for object {obj}")

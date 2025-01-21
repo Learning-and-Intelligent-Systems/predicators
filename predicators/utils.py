@@ -966,7 +966,7 @@ class LinearChainParameterizedOption(ParameterizedOption):
             child_memory = memory["child_memory"][current_index]
             try:
                 assert current_child.initiable(state, child_memory, objects,
-                                           params)
+                                               params)
             except:
                 breakpoint()
         logging.debug(f"Executing {current_child.name}")
