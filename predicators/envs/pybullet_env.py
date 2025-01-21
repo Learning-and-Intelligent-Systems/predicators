@@ -194,11 +194,6 @@ class PyBulletEnv(BaseEnv):
 
         return np.array([rx, ry, rz, qx, qy, qz, qw, f], dtype=np.float32)
 
-    # @abc.abstractmethod
-    # def _get_state(self) -> State:
-    #     """Create a State based on the current PyBullet state."""
-    #     raise NotImplementedError("Override me!")
-
     @abc.abstractmethod
     def _get_object_ids_for_held_check(self) -> List[int]:
         """Return a list of pybullet IDs corresponding to objects in the

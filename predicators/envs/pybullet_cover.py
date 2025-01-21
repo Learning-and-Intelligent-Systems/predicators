@@ -1,4 +1,11 @@
-"""A PyBullet version of Cover."""
+"""A PyBullet version of Cover.
+
+python predicators/main.py --approach oracle --env pybullet_cover --seed 0 \
+--num_train_tasks 0 --num_test_tasks 1 --use_gui --debug  \
+--sesame_max_skeletons_optimized 1  --make_failure_videos --video_fps 20 \
+--pybullet_camera_height 900 --pybullet_camera_width 900 --make_test_videos \
+# --sesame_check_expected_atoms False
+"""
 
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
@@ -121,6 +128,12 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         return np.array([rx, ry, rz, qx, qy, qz, qw, fingers],
                         dtype=np.float32)
 
+    def _create_task_specific_objects(self, state: State) -> None:
+        pass
+
+    def _reset_custom_env_state(self, state: State) -> None:
+        pass
+
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle cover-specific resetting."""
         super()._reset_state(state)
@@ -226,6 +239,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # The constraint is violated, so noop.
             return self._current_state.copy()
         return super().step(action)
+
+    def _extract_feature(self, obj, feature):
+        pass
 
     def _get_state(self) -> State:
         state_dict = {}
