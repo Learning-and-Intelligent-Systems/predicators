@@ -309,8 +309,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._dispense_area_id = pybullet_bodies["dispense_area_id"]
         self._button_id = pybullet_bodies["button_id"]
         if CFG.coffee_machine_has_plug:
-            # self._cord_ids = pybullet_bodies["cord_ids"]
-            # self._plug.id = pybullet_bodies["plug_id"]
             self._socket_id = pybullet_bodies["socket_id"]
 
     @classmethod
@@ -330,11 +328,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._cup_to_capacity.clear()
         for i, cup_obj in enumerate(cup_objs):
             cup_cap = state.get(cup_obj, "capacity_liquid")
-            cup_height = cup_cap
-            cx = state.get(cup_obj, "x")
-            cy = state.get(cup_obj, "y")
-            # Subclass may only store x,y in the state, so we decide z here:
-            cz = self.z_lb + cup_height / 2
 
             # Possibly scale the URDF by capacity
             global_scale = 0.5 * cup_cap / self.cup_capacity_ub
@@ -353,11 +346,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                     physicsClientId=self._physics_client_id
                 )
             # For orientation, rotate so handles face the robot, etc.
-            cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
-            p.resetBasePositionAndOrientation(
-                cup_id, (cx, cy, cz), cup_orn,
-                physicsClientId=self._physics_client_id
-            )
 
             # Random cup color from a set
             color = random.choice(self.cup_colors)
