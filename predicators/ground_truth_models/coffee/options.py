@@ -684,7 +684,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                                   params: Array) -> bool:
                 del memory, params
                 robot, _ = objects
-                finger_open = state.get(robot, "fingers") > 0.3
+                finger_open = state.get(robot, "fingers") > 0.03
                 return finger_open
 
             def _PlugIn_terminal(state: State, memory: Dict,
@@ -692,7 +692,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
                                  params: Array) -> bool:
                 del memory, params
                 robot, plug = objects
-                finger_open = state.get(robot, "fingers") > 0.3
+                finger_open = state.get(robot, "fingers") > 0.03
                 return PluggedIn.holds(state, [plug]) and finger_open
 
             _PlugIn = ParameterizedOption("PlugIn",
@@ -732,7 +732,7 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
             wrist = state.get(robot, "wrist")
             robot_pos = (x, y, z)
             finger = state.get(robot, "fingers")
-            gripper_open = finger > 0.3
+            gripper_open = finger >0.03
 
             plug_x = state.get(plug, "x")
             plug_y = state.get(plug, "y")
@@ -1038,7 +1038,8 @@ class PyBulletCoffeeGroundTruthOptionFactory(CoffeeGroundTruthOptionFactory):
         return get_move_end_effector_to_pose_action(
             pybullet_robot, current_joint_positions, current_pose, target_pose,
             finger_status, CFG.pybullet_max_vel_norm,
-            cls._finger_action_nudge_magnitude)
+            cls._finger_action_nudge_magnitude,
+            validate=CFG.pybullet_ik_validate)
 
     @classmethod
     def _get_twist_action(cls, state: State, cur_robot_pos: Tuple[float, float,

@@ -194,6 +194,9 @@ class CoffeeEnv(BaseEnv):
         self._jug = Object("jug", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
         self._table = Object("table", self._table_type)
+        self._cups = [Object(f"cup{i}", self._cup_type) for i in range(
+            max(max(CFG.coffee_num_cups_train), max(CFG.coffee_num_cups_test)
+        ))]
         if CFG.coffee_machine_has_plug:
             self._plug = Object("plug", self._plug_type)
 
@@ -529,7 +532,8 @@ class CoffeeEnv(BaseEnv):
                 num_cups = 0
             else:
                 num_cups = num_cups_lst[rng.choice(len(num_cups_lst))]
-            cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
+            # cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
+            cups = self._cups[:num_cups]
             if CFG.coffee_simple_tasks:
                 # goal = {
                 # }
@@ -610,7 +614,7 @@ class CoffeeEnv(BaseEnv):
                 "is_held": 0.0,  # jug starts off not held
                 "is_filled": 0.0  # jug starts off empty
             }
-            state_dict[self._table] = {}
+            # state_dict[self._table] = {}
             # Add state for plug and socket if CFG.coffee_machine_has_plug
             if CFG.coffee_machine_has_plug:
                 state_dict[self._plug] = {

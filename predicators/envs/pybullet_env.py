@@ -98,6 +98,8 @@ class PyBulletEnv(BaseEnv):
         too.
 
         Subclasses may override to load additional assets.
+        In the subclass, register all the obj ids here and move them out of view
+        in reset_custom_env_state.
         """
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
@@ -192,10 +194,10 @@ class PyBulletEnv(BaseEnv):
 
         return np.array([rx, ry, rz, qx, qy, qz, qw, f], dtype=np.float32)
 
-    @abc.abstractmethod
-    def _get_state(self) -> State:
-        """Create a State based on the current PyBullet state."""
-        raise NotImplementedError("Override me!")
+    # @abc.abstractmethod
+    # def _get_state(self) -> State:
+    #     """Create a State based on the current PyBullet state."""
+    #     raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def _get_object_ids_for_held_check(self) -> List[int]:
@@ -304,6 +306,10 @@ class PyBulletEnv(BaseEnv):
         # 2) Reset robot pose
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
 
+        # I want to have a step that creates task specific objects before reset
+        # their positions, what should I call this?
+        self._create_task_specific_objects(state)
+        
         # 3) Reset all known objects (position, orientation, etc.)
         for obj in self._objects:
             if obj.type.name == "robot":
@@ -318,6 +324,10 @@ class PyBulletEnv(BaseEnv):
         reconstructed = self._get_state()
         if not reconstructed.allclose(state):
             logging.warning("Could not reconstruct state exactly in reset.")
+    
+    @abc.abstractmethod
+    def _create_task_specific_objects(self, state: State) -> None:
+        pass
 
     def _reset_single_object(self, obj: Object, state: State) -> None:
         """Shared logic for setting position/orientation and constraints."""
@@ -326,11 +336,8 @@ class PyBulletEnv(BaseEnv):
         # standard features: x, y, z, rot, is_held.
 
         # 1) Position/orientation if those features exist
-        try:
-            cur_x, cur_y, cur_z = p.getBasePositionAndOrientation(obj.id,
+        cur_x, cur_y, cur_z = p.getBasePositionAndOrientation(obj.id,
                                     physicsClientId=self._physics_client_id)[0]
-        except:
-            breakpoint()
         px = state.get(obj, "x") if "x" in obj.type.feature_names else cur_x
         py = state.get(obj, "y") if "y" in obj.type.feature_names else cur_y
         pz = state.get(obj, "z") if "z" in obj.type.feature_names else cur_z
@@ -374,7 +381,7 @@ class PyBulletEnv(BaseEnv):
         """
         raise NotImplementedError("Override me!")
 
-    def _get_state(self) -> State:
+    def _get_state(self, render_obs: bool = False) -> State:
         """Reads the PyBullet scene into a `State` (PyBulletState).
         It takes care of:
         * robot features [x, y, z, tilt, wrist, fingers]
@@ -595,6 +602,7 @@ class PyBulletEnv(BaseEnv):
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
+            logging.debug("Finger opening")
             self._held_obj_id = None
 
         self._current_observation = self._get_state()
@@ -687,6 +695,7 @@ class PyBulletEnv(BaseEnv):
     def _fingers_opening(self, action: Action) -> bool:
         """Check whether this action is working toward opening the fingers."""
         f_delta = self._action_to_finger_delta(action)
+        logging.debug(f"Finger delta: {f_delta}")
         return f_delta > self._finger_action_tol
 
     def _get_finger_position(self, state: State) -> float:
@@ -699,6 +708,7 @@ class PyBulletEnv(BaseEnv):
         assert isinstance(self._current_observation, State)
         finger_position = self._get_finger_position(self._current_observation)
         target = action.arr[-1]
+        logging.debug(f"Finger position: {finger_position}, target: {target}")
         return target - finger_position
 
     def _add_pybullet_state_to_tasks(

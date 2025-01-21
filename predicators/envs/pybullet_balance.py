@@ -112,6 +112,9 @@ class PyBulletBalanceEnv(PyBulletEnv):
         # self._table2 = Object("table2", self._plate_type)
         self._plate3 = Object("plate3", self._plate_type)
         self._machine = Object("mac", self._machine_type)
+        self._blocks = [Object(f"block{i}", self._block_type) for i in range(
+            max(self._num_blocks_train + self._num_blocks_test)
+        )]
 
         super().__init__(use_gui)
 
@@ -299,7 +302,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
         self._table_id = pybullet_bodies["table_ids"][2]
         self._machine.id = pybullet_bodies["button_id"]
         self._robot.id = self._pybullet_robot.robot_id
-        self._block_ids = pybullet_bodies["block_ids"]
+        for block, block_id in zip(self._blocks, pybullet_bodies["block_ids"]):
+            block.id = block_id
         self._beam_ids = pybullet_bodies["beam_ids"]
 
     @classmethod
@@ -360,45 +364,38 @@ class PyBulletBalanceEnv(PyBulletEnv):
         aren't letting the base class handle them, updating button
         color, and running the beam-balancing update.
         """
-        # -- Example 2: Re-register block objects, if not letting the base class
-        #    do it. (If you *did* include the blocks in _get_all_objects(),
-        #    the base class would have already set x, y, z for you. You can
-        #    still change colors or anything else here.)
+        # block objs in the state
         block_objs = state.get_objects(self._block_type)
         self._block_id_to_block.clear()
 
         # Suppose we want to manually update each block's color or remove them
         # if not used. For example:
         for i, block_obj in enumerate(block_objs):
-            block_id = self._block_ids[i]
-            self._block_id_to_block[block_id] = block_obj
-            block_obj.id = block_id
+            self._block_id_to_block[block_obj.id] = block_obj
             # Manually set color if needed:
             r = state.get(block_obj, "color_r")
             g = state.get(block_obj, "color_g")
             b = state.get(block_obj, "color_b")
-            p.changeVisualShape(block_id,
+            p.changeVisualShape(block_obj.id,
                                 linkIndex=-1,
                                 rgbaColor=(r, g, b, 1.0),
                                 physicsClientId=self._physics_client_id)
 
-        # For blocks beyond the number actually in the state, put them out of view:
+        # For blocks beyond the number actually in the state, put them out of 
+        # view:
         h = self._block_size
         oov_x, oov_y = self._out_of_view_xy
-        for i in range(len(block_objs), len(self._block_ids)):
-            block_id = self._block_ids[i]
+        for i in range(len(block_objs), len(self._blocks)):
             p.resetBasePositionAndOrientation(
-                block_id, [oov_x, oov_y, i * h],
+                self._blocks[i].id, [oov_x, oov_y, i * h],
                 self._default_orn,
                 physicsClientId=self._physics_client_id
             )
 
-        # -- Example 4: Perform your domain-specific dynamic updates, e.g. the
-        #    code that shifts plates and blocks to simulate a teeter‐totter:
         self._prev_diff = 0  # reset difference
         self._update_balance_beam(state)
 
-        # -- Example 5: Update button color for whether the machine is on
+        # Update button color for whether the machine is on
         if self._MachineOn_holds(state, [self._machine, self._robot]):
             button_color = self._button_color_on
         else:
@@ -809,11 +806,8 @@ class PyBulletBalanceEnv(PyBulletEnv):
             init_state = self._sample_state_from_piles(piles, rng)
             goal = {
                 GroundAtom(self._MachineOn, [self._machine, self._robot]),
-                # GroundAtom(self._DirectlyOn, [piles[1][4], piles[0][0]]),
-                # GroundAtom(self._DirectlyOn, [piles[1][3], piles[1][4]]),
-                # GroundAtom(self._DirectlyOn, [piles[0][4], piles[0][5]]),
-                # GroundAtom(self._DirectlyOn, [piles[0][3], piles[0][4]]),
-                # GroundAtom(self._DirectlyOn, [piles[0][2], piles[0][3]]),
+                GroundAtom(self._DirectlyOn, [piles[1][4], piles[0][0]]),
+                GroundAtom(self._DirectlyOn, [piles[1][3], piles[1][4]]),
             }
             tasks.append(EnvironmentTask(init_state, goal))
         return self._add_pybullet_state_to_tasks(tasks)
@@ -822,8 +816,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
                               rng: np.random.Generator) -> List[List[Object]]:
         n_piles = 0
         piles: List[List[Object]] = []
-        for block_num in range(num_blocks):
-            block = Object(f"block{block_num}", self._block_type)
+        for block_num, block in enumerate(self._blocks):
             # If coin flip, start new pile
             # if (block_num == 0 or rng.uniform() < 0.2) and n_piles < 2:
             # increase the chance of starting a new pile

@@ -25,11 +25,12 @@ python predicators/main.py --env pybullet_coffee --approach oracle --seed 0 \
 --coffee_machine_has_plug True --sesame_max_skeletons_optimized 1 \
 --make_failure_videos \
 --debug --option_model_terminate_on_repeat False \
---coffee_use_pixelated_jug True
+--coffee_use_pixelated_jug True --pybullet_ik_validate False
 
 With the simplified tasks, both pixelated jug and old jug should work.
 With the full tasks, the old jug should work.
 """
+import logging
 import random
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
@@ -60,6 +61,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     # of the robots, table, etc.
     grasp_finger_tol: ClassVar[float] = 1e-2
     grasp_position_tol: ClassVar[float] = 1e-2
+    _finger_action_tol: ClassVar[float] = 1e-3
     dispense_tol: ClassVar[float] = 1e-2
     plugged_in_tol: ClassVar[float] = 1e-2
     pour_angle_tol: ClassVar[float] = 1e-1
@@ -246,7 +248,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._jug_liquid_id: Optional[int] = None
 
         self._cord_ids: Optional[List[int]] = None
-        self._plug_id: Optional[int] = None
         self._machine_plugged_in_id: Optional[int] = None
 
     @property
@@ -309,21 +310,17 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         self._button_id = pybullet_bodies["button_id"]
         if CFG.coffee_machine_has_plug:
             # self._cord_ids = pybullet_bodies["cord_ids"]
-            # self._plug_id = pybullet_bodies["plug_id"]
+            # self._plug.id = pybullet_bodies["plug_id"]
             self._socket_id = pybullet_bodies["socket_id"]
 
     @classmethod
     def get_name(cls) -> str:
         return "pybullet_coffee"
 
-    def _reset_custom_env_state(self, state: State) -> None:
+    def _create_task_specific_objects(self, state):
+        """We remove and load the cups here because we want cups of different
+        sizes in each task.
         """
-        Handles extra coffee-specific reset steps: spawning cups from scratch,
-        adding liquid visuals, adjusting jug fill color, toggling the machine
-        button, etc. The base `_reset_state` has already done the standard
-        position/orientation resets for objects in `_get_all_objects()`.
-        """
-        # 2) Remove old cups from the previous task:
         for old_cup_id in self._cup_id_to_cup:
             p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
         self._cup_id_to_cup.clear()
@@ -371,9 +368,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._cup_id_to_cup[cup_id] = cup_obj
             self._cup_to_capacity[cup_obj] = cup_cap
             cup_obj.id = cup_id
-            self._objects.append(cup_obj)
 
-        # 4) Recreate the visual “liquid” objects in the cups
+        # Recreate the visual “liquid” objects in the cups
         for liquid_id in self._cup_to_liquid_id.values():
             if liquid_id is not None:
                 p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
@@ -383,12 +379,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             new_liquid_id = self._create_pybullet_liquid_for_cup(cup, state)
             self._cup_to_liquid_id[cup] = new_liquid_id
 
-        # 5) Jug fill color / jug liquid shape
-        #    The base class presumably set the jug position/orientation,
-        #    so here we only handle color/fill logic:
-        p.changeVisualShape(self._jug.id, 0,
-                            rgbaColor=self.jug_color,
-                            physicsClientId=self._physics_client_id)
         self._jug_filled = bool(state.get(self._jug, "is_filled") > 0.5)
         if self._jug_liquid_id is not None:
             p.removeBody(self._jug_liquid_id,
@@ -397,7 +387,31 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         if self._jug_filled:
             self._jug_liquid_id = self._create_pybullet_liquid_for_jug()
 
-        # 6) Machine button color
+        # If the machine has a detachable plug, re‐add the cord bodies
+        #    or constraint logic:
+        if CFG.coffee_machine_has_plug:
+            # Remove old cord pieces
+            if self._cord_ids is not None:
+                for part_id in self._cord_ids:
+                    p.removeBody(part_id, self._physics_client_id)
+            # Remove any old plug constraints
+            if self._machine_plugged_in_id is not None:
+                p.removeConstraint(self._machine_plugged_in_id,
+                                   physicsClientId=self._physics_client_id)
+                self._machine_plugged_in_id = None
+            # Rebuild the cord pieces
+            self._cord_ids = self._add_pybullet_cord(self._physics_client_id)
+            self._plug.id = self._cord_ids[-1]
+        # Done.
+
+    def _reset_custom_env_state(self, state: State) -> None:
+        """
+        Handles extra coffee-specific reset steps: spawning cups from scratch,
+        adding liquid visuals, adjusting jug fill color, toggling the machine
+        button, etc. The base `_reset_state` has already done the standard
+        position/orientation resets for objects in `_get_all_objects()`.
+        """
+        # Machine button color
         #    Check if the machine is on and the jug is in place:
         if self._MachineOn_holds(state, [self._machine]) and \
            self._JugInMachine_holds(state, [self._jug, self._machine]):
@@ -422,22 +436,6 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                             rgbaColor=plate_color,
                             physicsClientId=self._physics_client_id)
 
-        # 7) If the machine has a detachable plug, re‐add the cord bodies
-        #    or constraint logic:
-        if CFG.coffee_machine_has_plug:
-            # Remove old cord pieces
-            if self._cord_ids is not None:
-                for part_id in self._cord_ids:
-                    p.removeBody(part_id, self._physics_client_id)
-            # Remove any old plug constraints
-            if self._machine_plugged_in_id is not None:
-                p.removeConstraint(self._machine_plugged_in_id,
-                                   physicsClientId=self._physics_client_id)
-                self._machine_plugged_in_id = None
-            # Rebuild the cord pieces
-            self._cord_ids = self._add_pybullet_cord(self._physics_client_id)
-            self._plug_id = self._cord_ids[-1]
-        # Done.
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Extract features for creating the State object.
@@ -479,6 +477,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
     def step(self, action: Action, render_obs: bool = False) -> State:
         # What's the previous robot state?
         # logging.debug("[env] start simulation step")
+        logging.debug(f"Held_obj_id: {self._held_obj_id}")
         current_ee_rpy = self._pybullet_robot.forward_kinematics(
             self._pybullet_robot.get_joints()).rpy
         state = super().step(action, render_obs=render_obs)
@@ -503,7 +502,7 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
             self._machine_plugged_in_id = p.createConstraint(
                 parentBodyUniqueId=self._socket_id,
                 parentLinkIndex=-1,
-                childBodyUniqueId=self._plug_id,
+                childBodyUniqueId=self._plug.id,
                 childLinkIndex=-1,
                 jointAxis=[0, 0, 0],
                 jointType=p.JOINT_FIXED,
@@ -610,8 +609,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
 
     def _get_object_ids_for_held_check(self) -> List[int]:
         if CFG.coffee_machine_has_plug:
-            assert self._plug_id is not None
-            return [self._jug.id, self._plug_id]
+            assert self._plug.id is not None
+            return [self._jug.id, self._plug.id]
         return [self._jug.id]
 
     def _state_to_gripper_orn(self, state: State) -> Quaternion:
@@ -759,7 +758,9 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
                                       cls.dispense_height)
         collision_id_dispense_base = p.createCollisionShape(
             p.GEOM_BOX,
-            halfExtents=half_extents_dispense_base,
+            halfExtents=(0,
+                         0,
+                         0),
             physicsClientId=physics_client_id)
         visual_id_dispense_base = p.createVisualShape(
             p.GEOM_BOX,
@@ -819,9 +820,8 @@ class PyBulletCoffeeEnv(PyBulletEnv, CoffeeEnv):
         # Dispense area circle
         # Create the collision shape.
         collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=cls.dispense_radius,
-            height=cls.dispense_height,
+            p.GEOM_BOX,
+            halfExtents=(0,0,0),
             physicsClientId=physics_client_id)
 
         # Create the visual_shape.

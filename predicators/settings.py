@@ -84,7 +84,7 @@ class GlobalSettings:
 
     # balance env parameters
     balance_num_blocks_train = [2, 4]
-    balance_num_blocks_test = [6, 6]
+    balance_num_blocks_test = [4, 6]
     # balance_num_blocks_test = [2]
     balance_holding_goals = False
     balance_block_size = 0.045  # use 0.0505 for real with panda

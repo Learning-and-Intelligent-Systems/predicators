@@ -964,9 +964,12 @@ class LinearChainParameterizedOption(ParameterizedOption):
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
             child_memory = memory["child_memory"][current_index]
-            assert current_child.initiable(state, child_memory, objects,
+            try:
+                assert current_child.initiable(state, child_memory, objects,
                                            params)
-        # logging.debug(f"Executing {current_child.name}")
+            except:
+                breakpoint()
+        logging.debug(f"Executing {current_child.name}")
         return current_child.policy(state, child_memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
