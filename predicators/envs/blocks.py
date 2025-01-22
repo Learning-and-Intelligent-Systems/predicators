@@ -71,6 +71,8 @@ class BlocksEnv(BaseEnv):
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        self._blocks = []
+        self._create_blocks()
         # Hyperparameters from CFG.
         self._block_size = CFG.blocks_block_size
         self._num_blocks_train = CFG.blocks_num_blocks_train
@@ -295,11 +297,18 @@ class BlocksEnv(BaseEnv):
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
+    def _create_blocks(self) -> None:
+        for i in range(max(max(CFG.blocks_num_blocks_train), 
+                           max(CFG.blocks_num_blocks_test))):
+            block = Object(f"block{i}", self._block_type)
+            self._blocks.append(block)
+
     def _sample_initial_piles(self, num_blocks: int,
                               rng: np.random.Generator) -> List[List[Object]]:
         piles: List[List[Object]] = []
         for block_num in range(num_blocks):
-            block = Object(f"block{block_num}", self._block_type)
+            block = self._blocks[block_num]
+            # block = Object(f"block{block_num}", self._block_type)
             # If coin flip, start new pile
             if block_num == 0 or rng.uniform() < 0.2:
                 piles.append([])

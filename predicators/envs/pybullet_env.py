@@ -442,6 +442,11 @@ class PyBulletEnv(BaseEnv):
             rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
             hand = (ry - self.y_lb) / (self.y_ub - self.y_lb)
             r_dict.update({"hand": hand, "pose_x": rx, "pose_z": rz})
+        elif CFG.env == "pybullet_blocks":
+            rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
+            fingers = self._fingers_joint_to_state(self._pybullet_robot, rf)
+            r_dict.update({"pose_x": rx, "pose_y": ry, "pose_z": rz, 
+                           "fingers": fingers})
         else:
             rx, ry, rz, qx, qy, qz, qw, rf = self._pybullet_robot.get_state()
             r_dict.update({"x": rx, "y": ry, "z": rz, "fingers": rf})

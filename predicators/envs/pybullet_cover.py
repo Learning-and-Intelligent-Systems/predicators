@@ -35,6 +35,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, _table_height / 2)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
+    _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.62)
+    
     # Object parameters
     _obj_len_hgt: ClassVar[float] = 0.045
     _max_obj_width: ClassVar[float] = 0.07  # highest width normalized to this
@@ -305,19 +307,19 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         """Domain-specific feature extraction for blocks, targets, and the
         (robot).
         """
-        # 1) If it's the robot
-        if obj.type == self._robot_type:
-            # The parent's _get_robot_state_dict() will set x,y,z,fingers
-            # We can handle additional features here:
-            rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
-            if feature == "hand":
-                # Re-normalize the y coordinate
-                return (ry - self.y_lb) / (self.y_ub - self.y_lb)
-            elif feature == "pose_x":
-                return rx
-            elif feature == "pose_z":
-                return rz
-            raise ValueError(f"Unknown robot feature: {feature}")
+        # # 1) If it's the robot
+        # if obj.type == self._robot_type:
+        #     # The parent's _get_robot_state_dict() will set x,y,z,fingers
+        #     # We can handle additional features here:
+        #     rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
+        #     if feature == "hand":
+        #         # Re-normalize the y coordinate
+        #         return (ry - self.y_lb) / (self.y_ub - self.y_lb)
+        #     elif feature == "pose_x":
+        #         return rx
+        #     elif feature == "pose_z":
+        #         return rz
+        #     raise ValueError(f"Unknown robot feature: {feature}")
 
         # 2) If it's a block
         if obj.type == self._block_type:
